@@ -1,0 +1,69 @@
+# ------------------------------------------------------------------------------
+# CodeHawk Binary Analyzer
+# Author: Andrew McGraw
+# ------------------------------------------------------------------------------
+# The MIT License (MIT)
+#
+# Copyright (c) 2016-2020 Kestrel Technology LLC
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ------------------------------------------------------------------------------
+
+"""Template file for ConfigLocal.py, to be used for local customization.
+
+To use this file to configure the analysis, change its name to ConfigLocal.py and
+make sure that it is in the same directory as Config.py
+
+The config object passed to getLocals is the universal Config, you can update
+any of that config's variables here if you want to use a value other than the default.
+"""
+
+import os
+
+def getLocals(config):
+    '''Set local configuration variables here if they differ from the defaults in Config.py
+    
+    # Example :
+    config.chx86_analyze =  '/home/username/my-analyzer/chx86_analyze'
+    config.chx86_gui =  '/home/username/my-analyzer/chx86_gui
+    config.summaries = '/home/username/my-analyzer/bchsummaries.jar'
+
+    # Set locations of analysis targets
+    homedir = os.path.expanduser('~')
+    x86_pe_targets = os.path.join('CodeHawk-Binary-X86-PE-Targets','targets')
+    x86_elf_targets = os.path.join('CodeHawk-Binary-X86-ELF-Targets','targets')
+    mips_elf_targets = os.path.join('CodeHawk-Binary-MIPS-ELF-Targets','targets')
+    my_x86_pe_analysis_target_index = {
+        'default': os.path.join(homedir,os.path.join(x86_pe_targets,
+	                                             os.path.join('mw','mw-json')))
+	}
+    my_x86_elf_analysis_target_index = {
+        'default': os.path.join(homedir,os.path.join(x86_elf_targets,'elf.json')),
+	'stonesoup-mc': os.path.join(homedir,os.path.join(x86_elf_targets,
+	                                                  os.path.join('stonesoup-mc','stonesoup-mc.json')))
+	}
+    my_mips_elf_analysis_target_index = {
+        'default': os.path.join(homedir,os.path.join(mips_elf_targets,'mips.json'))
+        }
+    config.analysistargettable = {
+        'x86-pe': my_x86_pe_analysis_target_index,
+	'x86-elf': my_x86_elf_analysis_target_index,
+	'mips-elf': my_mips_elf_analysis_target_index
+	}
+    '''

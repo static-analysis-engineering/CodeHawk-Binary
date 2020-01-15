@@ -1,0 +1,106 @@
+{
+    "PE": {
+	"peheader": {
+	    "address-of-entry-point": "Address of entry point",
+	    "base-of-code": "Base of code",
+	    "base-of-data": "Base of data",
+	    "characteristics": "Characteristics",
+	    "file-alignment": "File alignment",
+	    "image-base": "Image base",
+	    "machine": "Machine",
+	    "magic-number": "Magic number",
+	    "major-linker-version": "Major linker version",
+	    "major-os-version": "Major operating system version",
+	    "major-subsystem-version": "Major subsystem version",
+	    "number-of-rva-and-sizes": "Number of rva and sizes",
+	    "number-of-sections": "Number of sections",
+	    "section-alignment": "Section alignment",
+	    "size": "Size of optional header",
+	    "size-of-code": "Size of code",
+	    "size-of-headers": "Size of headers",
+	    "size-of-heap-commit": "Size of heap commit",
+	    "size-of-heap-reserve": "Size of heap reserve",
+	    "size-of-image": "Size of image",
+	    "size-of-stack-commit": "Size of stack commit",
+	    "size-of-stack-reserve": "Size of stack reserve",
+	    "size-of-initialized-data": "Size of initialized data",
+	    "size-of-uninitialized-data": "Size of uninitialized data",
+	    "subsystem": "Subsystem",
+	    "time-stamp": "Time/date"
+	},
+	"pesectionheader": {
+	    "characteristics": "Characteristics",
+	    "number-of-line-numbers": "Number of line numbers",
+	    "number-of-relocations": "Number of relocations",
+	    "pointer-to-raw-data": "Address of raw data",
+	    "pointer-to-relocations": "Address of relocations",
+	    "size-of-raw-data": "Size of raw data",
+	    "virtual-address": "Virtual address",
+	    "virtual-size": "Virtual size"
+	}
+    },
+    "ELF": {
+	"elfheader": {
+	    "e_machine": "Machine",
+	    "e_type": "Type",
+	    "e_ehsize": "Size of this header",
+	    "e_entry": "Entry point address",
+	    "e_phentsize": "Size of program headers",
+	    "e_phnum": "Number of program headers",
+	    "e_phoff": "Start of program headers",
+	    "e_shentsize": "Size of section headers",
+	    "e_shnum": "Number of section headers",
+	    "e_shoff": "Start of section headers",
+	    "e_shstrndx": "Section header string table index",
+	    "e_version": "Version"
+	},
+	"elfprogramheader": {
+	    "p_type": "Type",
+	    "p_offset": "Offset",
+	    "p_vaddr": "Virtual address",
+	    "p_paddr": "Physical address",
+	    "p_filesz": "File size",
+	    "p_memsz": "Memory size",
+	    "p_flags": "Flags",
+	    "p_align": "Align"
+	},
+	"elfsectionheader": {
+	    "sh_type": "Type",
+	    "sh_name": "Address of name",
+	    "sh_flags": "Flags",
+	    "sh_addr": "Address",
+	    "sh_offset": "Offset",
+	    "sh_info": "Info",
+	    "sh_link": "Link",
+	    "sh_size": "Size",
+	    "sh_addralign": "Align",
+	    "sh_entsize": "Entry size"
+	}
+    },
+    "ResultMetrics": {
+	"disassembly": {
+	    "instrcount": "Instruction count",
+	    "unknown": "Unknown instructions",
+	    "functioncount": "Function count",
+	    "coverage": "Function coverage (%)"
+	},
+	"analysis": {
+	    "datetime": "Date/time of analysis",
+	    "espp": "Esp precision (%)",
+	    "readsp": "Memory reads precision (%)",
+	    "writesp": "Memory writes precision (%)",
+	    "unrjumps": "Unresolved jumps",
+	    "calls": "Number of calls",
+	    "unrcalls": "Unresolved indirect calls",
+	    "nosummaries": "Library calls without summary",
+	    "dllcalls": "Library calls",
+	    "inlinedcalls": "Inlined calls",
+	    "analysistime": "Analysis time",
+	    "iterations": "Number of analysis iterations"
+	}
+    }
+}
+
+
+
+
