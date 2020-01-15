@@ -1,3 +1,7 @@
+# CodeHawk-specific files
+ConfigLocal.py
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
