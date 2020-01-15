@@ -39,13 +39,13 @@ class Config():
 
         # general settings
         self.utildir = os.path.dirname(os.path.abspath(__file__))
-        self.accdir = os.path.dirname(self.utildir)
-        self.rootdir = os.path.dirname(self.accdir)
+        self.chbdir = os.path.dirname(self.utildir)
+        self.rootdir = os.path.dirname(self.chbdir)
         self.testsdir = os.path.join(self.rootdir,'tests')
         self.projects = os.path.join(self.testsdir,'projects.json')
-        self.bindir = os.path.join(self.accdir,'bin')
+        self.bindir = os.path.join(self.chbdir,'bin')
         self.binariesdir = os.path.join(self.bindir,'binaries')
-        self.summariesdir = os.path.join(self.accdir,'summaries')
+        self.summariesdir = os.path.join(self.chbdir,'summaries')
         self.summaries = os.path.join(self.summariesdir,'bchsummaries.jar')
         
         # platform-settings
