@@ -103,7 +103,7 @@ class StdPESummaries(object):
         try:
             xnode = ET.fromstring(str(zfile)).find('libfun')
         except ET.ParseError as e:
-            raise UF.CHBError('Parse error in file ' + filename + ' for '
+            raise UF.CHBParseError('Parse error in file ' + filename + ' for '
                                  + dll + ':' + fname + ':' + str(e))
         except UnicodeEncodeError as e:
             raise UF.CHBError('Unicode error in file ' + filename + ' for '
@@ -123,6 +123,12 @@ class StdPESummaries(object):
         if filename is None:
             return None
         zfile = self.jarfile.read(filename)
-        return ET.fromstring(str(zfile.decode('utf-8'))).find('symbolic-constants')
+        try:
+            xnode = ET.fromstring(str(zfile.decode('utf-8'))).find('symbolic-constants')
+        except ET.ParseError as e:
+            raise UF.CHBXmlParseError(filename,e.errorcode,e.position)
+        except UnicodeEncodeError as e:
+            raise UF.CHBError('Unicode error in file  ' + filename + ' for '
+                                  + name + ':' + str(e))
 
         
