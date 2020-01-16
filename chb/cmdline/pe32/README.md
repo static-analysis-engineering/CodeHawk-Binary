@@ -97,6 +97,37 @@ results. [example output](example_output/showfunctions_output.txt)
   bytes
   - *--hash*: print the md5 hash of the function
 
+
+#### chx86_show_pedata.py
+Prints the PE Header information and the import tables, with an
+indication for each of the imported library functions whether a
+function summary is available. [example output](example_output/pedata_output.txt)
+- positional arguments:
+  - *filename*: absolute or relative filename (or shortcut name)
+
+
+- keyword arguments:
+  - *--headeronly*: print only the PE header
+  - *--imports*: print only the import tables
+  - *--headers*: print only the section headers
+  - *--sections*: print all sections in hexadecimal
+  - *--section*: print the section at the given virtual address
+  - *--extracthex*: executable is in hex format (if not yet extracted)
+
+
+### Scripts for malware analysis
+
+#### chx86_report_iocs.py
+Prints a list of indicators of compromise, organized by categories.
+[example output](example_output/iocs_output.txt)
+- positional arguments:
+  - *filename*: absolute or relative filename (or shortcut name)
+
+
+- keyword arguments:
+  - *--verbose*: show call site locations for iocs
+  - *--constants*: only show constant values (no variables)
+
 #### chx86_list_executables.py
 Lists the executables that are part of the projects defined in the
 index files indicated in the analysistargettable in util/Config.py for the x86-pe

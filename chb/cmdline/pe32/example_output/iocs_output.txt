@@ -1,0 +1,457 @@
+$ python chx86_report_iocs.py mwv:V001
+--------------------------------------------------------------------------------
+filesystem
+--------------------------------------------------------------------------------
+file
+       4  0x7c36
+       1  0x7c56
+       6  fopen_rtn_0x403de0
+       3  var.1580
+       1  var.1588
+handle:file
+       1  FindFirstFileA_rtn_0x4022fc
+       3  gv_0x4090f4_in
+       1  gv_0x4090f8_in
+id:standard device
+       1  -11
+infox:filename
+       2  (esp_in - 520)
+name:application
+       1  0
+       2  ?
+name:file
+       1  (esp_in - 0x550)
+       2  (esp_in - 0x600)
+       3  (esp_in - 520)
+       2  (esp_in - 780)
+       3  0
+       1  0x4081cc: "CONIN$"
+       1  0x4081d8: "CONOUT$"
+       1  arg.0016_in
+--------------------------------------------------------------------------------
+inputs
+--------------------------------------------------------------------------------
+scanf format string
+       3  0x408220: "%[^\n]"
+string comparison
+       1  0x408054: "http"
+       1  0x40805c: "https"
+       1  0x40825c: "http://cas.m-e.org.ru/main/1.asp"
+       1  0x408288
+       2  ?
+string search
+       1  0x40820c
+       2  0x408210
+       1  arg.0004_in
+       1  arg.0008_in
+       1  arg.0012_in
+       1  var.0024
+--------------------------------------------------------------------------------
+memops
+--------------------------------------------------------------------------------
+address:memory
+       1  arg.0004_in
+       2  ecx_in[32808]_in
+dst-bytes:file input
+       1  (esp_in - 0x1f470)
+       2  arg.0008_in
+dst-bytes:network input
+       1  (ecx_in + 0x4028)
+       1  (ecx_in + 0x8031)
+       1  (esp_in - 0x800)
+       1  0
+       1  arg.0004_in
+dst-bytes:pipe input
+       1  (esp_in - 0x1f470)
+dst-string:concatenate
+       2  (esp_in - 260)
+dst-string:convert
+       1  var.0024
+dst-string:copy
+       1  (esp_in - 260)
+dst-string:filename
+       1  (esp_in - 780)
+dst-string:formatted data
+       2  (esp_in - 0x1f400)
+       1  (esp_in - 0x1f48c)
+       1  (esp_in - 0x1f496)
+       1  (esp_in - 0x1f4a0)
+       1  (esp_in - 0x1f4aa)
+       2  (esp_in - 0x1f4b4)
+       2  (esp_in - 0x1f4be)
+       1  (esp_in - 0x1f4d2)
+       1  (esp_in - 0x2c28)
+       1  (esp_in - 0x3f03c)
+      27  (esp_in - 0x400)
+       1  (esp_in - 0x430)
+       1  (esp_in - 0x800)
+       3  (esp_in - 0x83c)
+       1  (esp_in - 112)
+       1  (esp_in - 130)
+       1  (esp_in - 260)
+       2  (esp_in - 780)
+       3  arg.0004_in
+dst-string:internet option setting
+       1  (esp_in - 0x840)
+       2  (esp_in - 20)
+       1  (esp_in - 80)
+       1  (esp_in - 88)
+dst-struct:SYSTEMTIME
+       1  (esp_in - 0x440)
+dst-struct:time_t
+       4  0
+dst-struct:win32-find-data
+       2  (esp_in - 0x44c)
+handle:global memory
+       3  var.0104
+size:allocation
+       1  (arg.0008_in + 1)
+src-array:function pointer
+       1  0x408000
+       1  0x40800c
+       1  0x412d7c
+src-bytes:file output
+       2  (esp_in - 0x3e8f2)
+       1  0x408214
+       1  arg.0008_in
+src-bytes:internet option setting
+       1  (esp_in - 0x840)
+       2  (esp_in - 20)
+src-bytes:network output
+       1  (esp_in - 0x828)
+       1  0
+       2  ecx_in[32808]_in
+src-bytes:time_t
+       1  (esp_in - 44)
+src-string:convert
+       1  (arg.0004_in + 50)
+       1  (arg.0004_in + 60)
+       1  (arg.0004_in + 70)
+       1  (arg.0004_in + 80)
+       1  (esp_in - 0x1f4f2)
+       1  (esp_in - 0x2c28)
+       2  (esp_in - 0x3e8f2)
+       1  (esp_in - 0x3e91a)
+       1  (esp_in - 0x400)
+       1  (esp_in - 0x800)
+       1  (esp_in - 0xbb8aa)
+src-string:copy
+       1  (esp_in - 520)
+       1  0x4081ec: ">> NUL"
+       1  0x4081f4: "/c del"
+src-string:search
+       1  0
+       1  arg.0004_in
+       2  arg.0008_in
+       1  arg.0012_in
+       2  var.0024
+src-struct:internet host address
+       1  inet_ntoa_rtn_0x40213c[0]
+src-struct:security identifier
+       1  var.1180
+src-struct:tm
+       1  localtime_rtn_0x4030f8
+--------------------------------------------------------------------------------
+network
+--------------------------------------------------------------------------------
+application context
+       7  0
+handle:internet
+       2  0
+       3  ?
+       6  HttpOpenRequestA_rtn_0x40169a
+       6  HttpOpenRequestA_rtn_0x401863
+      10  HttpOpenRequestA_rtn_0x401a64
+       6  ecx_in[12]_in
+       1  ecx_in[4]_in
+       4  ecx_in[8]_in
+http request headers
+       2  (ecx_in + 0x8831)
+       3  (ecx_in + 40)
+       1  (esp_in - 0x800)
+       1  0
+       3  0x408080
+infox:local host name
+       1  arg.0004_in
+internet option
+       6  31
+       1  40
+       1  75
+internet option setting
+       1  (esp_in - 0x840)
+       2  (esp_in - 20)
+name:host
+       2  0
+       1  arg.0004_in
+name:http request verb
+       1  0x408090: "GET"
+       2  0x4080a4: "POST"
+name:http target resource
+       2  var.0060
+       1  var.2156
+name:http user agent
+       2  ?
+name:http version
+       3  0x408094: "HTTP/1.0"
+name:proxy server
+       2  0
+name:server
+       2  ?
+name:username
+       2  0
+password
+       2  0
+tcp/ip port
+       2  ?
+type:http access
+       2  0
+type:http information request
+       1  22
+       1  33
+       1  5
+types:http media
+       1  (esp_in - 0x834)
+       2  (esp_in - 8)
+url
+       1  arg.0004_in
+       3  arg.0008_in
+url-components struct
+       1  (esp_in - 88)
+windows sockets implementation
+       1  (esp_in - 400)
+windows sockets version
+       1  257
+--------------------------------------------------------------------------------
+outputs
+--------------------------------------------------------------------------------
+format string
+       1  0x4080ac
+       1  0x4080d0
+       1  0x4080dc: "\n Executable = %s"
+       1  0x40810c: "\n%s\%s"
+       1  0x408114: "%s\%s"
+       1  0x408124: "\n%s\"
+       1  0x408140: "PROXY_TYPE_PROXY:%s"
+       1  0x40816c: "PROXY_TYPE_AUTO_PROXY_URL:%s"
+       3  0x40818c: "%s\n"
+       1  0x408190: "InternetQueryOption failed! (%d)\n"
+       1  0x408204: "%.4d"
+       1  0x408228: "Are you sure to FORMAT Disk C With NTFS?(Y/N)"
+       1  0x4082fc: "%Y/%m/%d %X %z"
+       1  0x40859c: "piece %d not found error!\n"
+       1  0x4085b8: "net error!\n"
+       1  0x4085d4
+       1  0x4085f8: "select * from tab_file where filename='%s' and filepieceindex=%d"
+       1  0x408644: "select top 1 * from tab_file where filename='%s' order by id asc"
+       1  0x408698
+       1  0x4086bc: "select id from tab_file where filename='%s' and filepieceindex=%d"
+       6  0x408708: "%s"
+       1  0x40870c: "select top 1 * from tab_message where toid = '%s' order by id asc"
+       1  0x408750: "insert into tab_message (messageaction,fromid,toid,encodenum,messagetotallength,messagepiecelength,messagepieceindex,messagecontent,messagename) values ('%s','%s','%s',%s,%s,%s,%s,'%s','%s')"
+       1  0x408810: "insert into tab_file (encodenum,filetotallength,filepiecelength,filepieceindex,filecontent,filename,filehash) values (%s,%s,%s,%s,'%s','%s','%s')"
+       2  0x4088a4
+       4  0x4088a8: "%d"
+       1  0x4088ac: "update tab_online set lasttime = '%s' where regcode = '%s'"
+       1  0x4088e8: "insert into tab_online (mode,clientname,clientip,accessip,onlinetime,lasttime,regcode) values ('%d','%s','%s','%s','%s','%s','%s')"
+       3  0x40896c: "select id from tab_online where regcode = '%s' order by id asc"
+       1  0x4089ac: "%d-%02d-%02d %02d:%02d:%02d"
+       1  0x4089f0: "%s?%s"
+       1  0x4089f8: "rands=%s&acc=%s&str=%s"
+       1  0x408a10: "str=%s"
+       1  0x408a18: "%s?rands=%s&acc=%s"
+       1  0x408a5c: "regcode:%s\n"
+       1  0x408a88: "lasttime:%s\n"
+       1  0x408ab8: "onlinetime:%s\n"
+       1  0x408b4c: "clientname:%s\n"
+       1  0x408bb4: "select * from tab_online order by id asc"
+       1  0x408be0: "select * from tab_online where id=%s"
+       1  0x408c08: "delete from tab_online where id=%s"
+       1  0x408c2c: "delete from tab_online"
+       1  0x408c44: "delete from tab_message where id=%s"
+       1  0x408c68: "delete from tab_message"
+       1  0x408c80: "delete from tab_file where filename='%s'"
+       1  0x408cac: "delete from tab_file"
+       1  0x408cc4: "messagename:%s\n"
+       1  0x408d04: "messagetotallength:%s\n"
+       1  0x408d1c: "encodenum:%s\n"
+       1  0x408d2c: "toid:%s\n"
+       1  0x408d60: "select * from tab_message order by id asc"
+       1  0x408d8c: "select * from tab_message where id=%s"
+       1  0x408db4: "filelength:%s\n"
+       1  0x408dc4: "filepiece:%s\n"
+       1  0x408dfc
+       1  0x408e38
+       2  0x408e70
+       1  0x408ea0: "select distinct filename,filetotallength from tab_file"
+       1  0x408ed8: "select filename,filetotallength,filepiecelength,filepieceindex from tab_file where filename='%s' order by id asc"
+       1  0x408f54: "Command Error!\n"
+       1  0x408f8c: "Pls choose target first!\n"
+       1  0x409090: "\n$"
+       1  0x40909c: "Alert!Pls press enter to make sure!"
+       1  0x4090c0: "(info)%s->%s:%s\n$"
+       1  var.0104
+       4  var.1044
+       5  var.1048
+formatted data to string
+       2  (esp_in - 0x1f400)
+       1  (esp_in - 0x1f48c)
+       1  (esp_in - 0x1f496)
+       1  (esp_in - 0x1f4a0)
+       1  (esp_in - 0x1f4aa)
+       2  (esp_in - 0x1f4b4)
+       2  (esp_in - 0x1f4be)
+       1  (esp_in - 0x1f4d2)
+       1  (esp_in - 0x2c28)
+       1  (esp_in - 0x3f03c)
+      27  (esp_in - 0x400)
+       1  (esp_in - 0x430)
+       1  (esp_in - 0x800)
+       3  (esp_in - 0x83c)
+       1  (esp_in - 130)
+       1  (esp_in - 260)
+       2  (esp_in - 780)
+       3  arg.0004_in
+--------------------------------------------------------------------------------
+process
+--------------------------------------------------------------------------------
+application type
+       1  1
+callbackf:exit
+       2  arg.0004_in
+callbackf:math errors
+       1  0x406a42
+callbackf:thread
+       2  0x402550
+       1  0x406720
+callbackp:thread
+       1  0
+       2  0x4090f0
+commandline
+       1  (esp_in - 780)
+environment block
+       1  0
+exit code
+       1  (esp_in - 868)
+       1  0
+       1  0x402f00_rtn_0x4069eb
+function pointer list
+       1  0x408000
+       1  0x40800c
+       1  0x412d7c
+handle
+       2  0
+       1  CreateThread_rtn_0x4032f1
+       1  CreateThread_rtn_0x4033f5
+       1  CreateThread_rtn_0x405872
+       2  CreateToolhelp32Snapshot_rtn_0x401df2
+       2  CreateToolhelp32Snapshot_rtn_0x401f3d
+       1  OpenProcess_rtn_0x401e9a
+       1  OpenProcess_rtn_0x40203a
+       1  var.1160
+handle:access token
+       1  (esp_in - 0x47c)
+       1  var.1176
+handle:module
+       1  0
+handle:pipe
+       1  gv_0x4090f8_in
+handle:process
+       1  0
+       1  OpenProcess_rtn_0x40203a
+       1  OpenProcess_rtn_0x402739
+handle:snapshot
+       2  CreateToolhelp32Snapshot_rtn_0x401df2
+       1  CreateToolhelp32Snapshot_rtn_0x401f3d
+handle:window
+       1  0
+id:process
+       1  0
+       3  arg.0004_in
+       1  var.1344
+infox:environment variable value
+       1  (esp_in - 520)
+name:current directory
+       1  0
+name:environment variable
+       1  0x4080f8: "windir"
+       1  0x408100: "USERPROFILE"
+       1  0x4081e4: "ComSpec"
+process info
+       1  (esp_in - 864)
+ref:commandline arguments
+       1  (esp_in - 48)
+ref:module entry
+       1  (esp_in - 0x624)
+ref:pipe handle
+       2  0x4090f0
+       2  0x4090f4
+       2  0x4090f8
+       2  0x4090fc
+ref:process entry
+       2  (esp_in - 0x528)
+ref:process environment
+       1  (esp_in - 36)
+ref:thread id
+       3  0
+seed
+       1  time_rtn_0x402865
+       1  time_rtn_0x403e2a
+       1  time_rtn_0x404316
+sleep time
+       2  0x2710
+       1  0x7530
+       2  100
+       1  400
+       1  gv_0x4080c4_in
+       2  gv_0x4080c8_in
+       1  var.1124
+stack size
+       3  0
+startup info
+       2  (esp_in - 848)
+--------------------------------------------------------------------------------
+system
+--------------------------------------------------------------------------------
+access token information class
+       1  1
+command:shell
+       1  (esp_in - 0x3e8f2)
+infox:access token information
+       1  (esp_in - 0x400)
+infox:account name
+       1  (esp_in - 0x468)
+infox:account type
+       1  (esp_in - 0x46c)
+infox:reference domain name
+       1  (esp_in - 0x434)
+infox:system directory
+       1  (esp_in - 260)
+name:command
+       1  0x40908c: "cls"
+name:computer
+       1  0
+shell operation:command
+       1  0
+shell operation:parameters
+       1  (esp_in - 260)
+shell operation:show command
+       1  0
+shell operation:target
+       1  (esp_in - 520)
+shell operation:working directory
+       1  0
+
+Problems encountered:
+--------------------------------------------------------------------------------
+no summary
+  MSVCP60.dll
+    ?_Copy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEXI@Z
+      0x401220,0x4013c2
+    ?_Xlen@std@@YAXXZ
+      0x401220,0x40136b
+    ?_Tidy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEX_N@Z
+      0x401220,0x4013a1
+      0x401220,0x4013b9
+  MSVCRT.dll
+    __p___initenv
+      0x40690d,0x4069d7

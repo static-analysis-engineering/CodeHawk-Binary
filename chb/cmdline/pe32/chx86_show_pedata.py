@@ -48,8 +48,6 @@ def parse():
                         default=None)
     parser.add_argument('--extracthex',action='store_true',
                             help='take input from executable in hex form')
-    parser.add_argument('--html',help='write output to html file',action='store_true')
-    
     args = parser.parse_args()
     return args
 
@@ -102,7 +100,7 @@ if __name__ == '__main__':
         exit(0)
 
     if not args.section is None:
-        s = peheader.getsection(args.section)
+        s = peheader.get_section(args.section)
         if s is None:
             print('Could not find section at virtual address ' + args.section)
         else:
@@ -112,11 +110,4 @@ if __name__ == '__main__':
     print(peheader)
     for i in peheader.get_import_tables(): print(str(i))
     for h in peheader.get_section_headers(): print(str(h))
-
-    if args.html:
-        penodes = peheader.get_html()
-        body = UX.get_html_body(penodes)
-        with open('peheader.html','w') as fp:
-            fp.write(UX.html_to_pretty(body,'pe-header'))
-
             
