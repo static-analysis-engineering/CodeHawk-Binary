@@ -183,9 +183,9 @@ class  AppAccess(object):
                             setproblem('argument mismatch',dll,fname,faddr,iaddr,
                                            params=len(params),args=len(args))
                     else:   # no parameters
-                        setproblem('no parameters',dll,fname,faddr,iaddr)
+                        setproblem('no parameters',dll,fname,faddr,instr.iaddr)
                 else:  # no summary
-                    setproblem('no summary',dll,fname,faddr,iaddr)
+                    setproblem('no summary',dll,fname,faddr,instr.iaddr)
         return (result,problems)
 
     def get_unresolved_calls(self):

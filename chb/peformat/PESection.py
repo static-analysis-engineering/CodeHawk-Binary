@@ -102,7 +102,7 @@ class PESection():
         lines = []
         lines.append('-' * 80)
         lines.append('Section at ' + self.get_virtual_address() +
-                     ' (size: ' + self.getsize() + ')')
+                     ' (size: ' + self.get_size() + ')')
         lines.append('-' * 80)
         for b in self.xnode.find('hex-data').findall('ablock'):
             for line in b.findall('aline'):
