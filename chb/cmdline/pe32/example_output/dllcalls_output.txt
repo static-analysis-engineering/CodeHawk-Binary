@@ -1,0 +1,2131 @@
+$ python chx86_report_dllcalls.py mwv:V001
+
+ADVAPI32.dll
+
+  GetTokenInformation
+    0x401ff0,0x402074  TokenHandle:var.1176, TokenInformationClass:1, TokenInformation:(esp_in - 0x400), TokenInformationLength:0x400, ReturnLength:(esp_in - 0x470)
+
+  LookupAccountSidA
+    0x401ff0,0x4020a1  lpSystemName:0, lpSid:var.1180, lpName:(esp_in - 0x468), cchName:(esp_in - 0x474), lpReferencedDomainName:(esp_in - 0x434), cchReferencedDomainName:(esp_in - 0x478), peUse:(esp_in - 0x46c)
+
+  OpenProcessToken
+    0x401ff0,0x40204d  ProcessHandle:OpenProcess_rtn_0x40203a, DesiredAccess:0x20008, TokenHandle:(esp_in - 0x47c)
+
+KERNEL32.dll
+
+  AllocConsole
+    0x402760,0x402761  
+
+  CloseHandle
+    0x401dc0,0x401e26  hObject:CreateToolhelp32Snapshot_rtn_0x401df2
+    0x401dc0,0x401ea5  hObject:OpenProcess_rtn_0x401e9a
+    0x401dc0,0x401ef7  hObject:CreateToolhelp32Snapshot_rtn_0x401df2
+    0x401f10,0x401f6c  hObject:CreateToolhelp32Snapshot_rtn_0x401f3d
+    0x401f10,0x401fce  hObject:CreateToolhelp32Snapshot_rtn_0x401f3d
+    0x401ff0,0x4020e0  hObject:var.1160
+    0x401ff0,0x4020e7  hObject:OpenProcess_rtn_0x40203a
+    0x402550,0x4026ce  hObject:0
+    0x402550,0x4026fe  hObject:0
+    0x4030c0,0x4032f8  hObject:CreateThread_rtn_0x4032f1
+    0x4030c0,0x4033fc  hObject:CreateThread_rtn_0x4033f5
+    0x4057e0,0x405879  hObject:CreateThread_rtn_0x405872
+
+  CopyFileA
+    0x402550,0x402663  lpExistingFileName:(esp_in - 520), lpNewFileName:(esp_in - 780), bFailIfExists:0
+
+  CreatePipe
+    0x4030c0,0x4032cb  hReadPipe:0x4090f0, hWritePipe:0x4090f4, lpPipeAttributes:(esp_in - 32), nSize:0
+    0x4030c0,0x4032dd  hReadPipe:0x4090f8, hWritePipe:0x4090fc, lpPipeAttributes:(esp_in - 32), nSize:0
+    0x4030c0,0x4033cf  hReadPipe:0x4090f0, hWritePipe:0x4090f4, lpPipeAttributes:(esp_in - 32), nSize:0
+    0x4030c0,0x4033e1  hReadPipe:0x4090f8, hWritePipe:0x4090fc, lpPipeAttributes:(esp_in - 32), nSize:0
+
+  CreateProcessA
+    0x402550,0x402696  lpApplicationName:0, lpCommandLine:(esp_in - 780), lpProcessAttributes:0, lpThreadAttributes:0, bInheritHandles:1, dwCreationFlags:0, lpEnvironment:0, lpCurrentDirectory:0, lpStartupInfo:(esp_in - 848), lpProcessInformation:(esp_in - 864)
+
+  CreateThread
+    0x4030c0,0x4032f1  lpThreadAttributes:0, dwStackSize:0, lpStartAddress:0x402550, lpParameter:0x4090f0, dwCreationFlags:0, lpThreadId:0
+    0x4030c0,0x4033f5  lpThreadAttributes:0, dwStackSize:0, lpStartAddress:0x402550, lpParameter:0x4090f0, dwCreationFlags:0, lpThreadId:0
+    0x4057e0,0x405872  lpThreadAttributes:0, dwStackSize:0, lpStartAddress:0x406720, lpParameter:0, dwCreationFlags:0, lpThreadId:0
+
+  CreateToolhelp32Snapshot
+    0x401dc0,0x401df2  dwFlags:2, th32ProcessID:0
+    0x401f10,0x401f3d  dwFlags:8, th32ProcessID:arg.0004_in
+
+  DeleteFileA
+    0x402550,0x402705  lpFileName:(esp_in - 780)
+
+  FindFirstFileA
+    0x4021d0,0x4022fc  lpFileName:(esp_in - 0x550), lpFindFileData:(esp_in - 0x44c)
+
+  FindNextFileA
+    0x4021d0,0x4023d2  hFindFile:FindFirstFileA_rtn_0x4022fc, lpFindFileData:(esp_in - 0x44c)
+
+  FreeConsole
+    0x402f00,0x403030  
+
+  GetEnvironmentVariableA
+    0x4027a0,0x402820  lpName:0x4081e4: "ComSpec", lpBuffer:(esp_in - 520), nSize:260
+
+  GetExitCodeProcess
+    0x402550,0x4026e0  hProcess:0, lpExitCode:(esp_in - 868)
+
+  GetLastError
+    0x401610,0x401729  
+    0x4017c0,0x401914  
+    0x4017c0,0x40191d  
+    0x4019b0,0x401b8d  
+    0x401cc0,0x401d20  
+    0x4023f0,0x402467  
+
+  GetLocalTime
+    0x4043c0,0x4043cf  lpSystemTime:(esp_in - 0x440)
+
+  GetModuleFileNameA
+    0x4027a0,0x4027b2  hModule:0, lpFilename:(esp_in - 520), nSize:260
+
+  GetShortPathNameA
+    0x4027a0,0x4027cf  lpszLongPath:(esp_in - 520), lpszShortPath:(esp_in - 520), cchBuffer:260
+
+  GetStartupInfoA
+    0x402550,0x402573  lpStartupInfo:(esp_in - 848)
+
+  GetStdHandle
+    0x402550,0x40255b  nStdHandle:-11
+
+  GetSystemDirectoryA
+    0x402550,0x4025b5  lpBuffer:(esp_in - 260), uSize:260
+
+  GetTempPathA
+    0x402550,0x402621  nBufferLength:260, lpBuffer:(esp_in - 780)
+
+  GlobalFree
+    0x4023f0,0x40252e  hMem:var.0104
+    0x4023f0,0x402539  hMem:var.0104
+    0x4023f0,0x402544  hMem:var.0104
+
+  Module32First
+    0x401f10,0x401f62  hSnapshot:CreateToolhelp32Snapshot_rtn_0x401f3d, lpme:(esp_in - 0x624)
+
+  OpenProcess
+    0x401dc0,0x401e9a  dwDesiredAccess:0x1f0fff, bInheritHandle:0, dwProcessId:var.1344
+    0x401ff0,0x40203a  dwDesiredAccess:0x400, bInheritHandle:0, dwProcessId:arg.0004_in
+    0x402730,0x402739  dwDesiredAccess:1, bInheritHandle:0, dwProcessId:arg.0004_in
+
+  PeekNamedPipe
+    0x4030c0,0x40313f  hNamedPipe:gv_0x4090f8_in, lpBuffer:(esp_in - 0x1f470), nBufferSize:0x1000, lpBytesRead:(esp_in - 40), lpTotalBytesAvail:0, lpBytesLeftThisMessage:0
+
+  Process32First
+    0x401dc0,0x401e1c  hSnapshot:CreateToolhelp32Snapshot_rtn_0x401df2, lppe:(esp_in - 0x528)
+
+  Process32Next
+    0x401dc0,0x401ee5  hSnapshot:CreateToolhelp32Snapshot_rtn_0x401df2, lppe:(esp_in - 0x528)
+
+  ReadFile
+    0x4030c0,0x40316f  hFile:gv_0x4090f8_in, lpBuffer:(esp_in - 0x1f470), nNumberOfBytesToRead:var.256352, lpNumberOfBytesRead:(esp_in - 48), lpOverlapped:0
+
+  Sleep
+    0x401220,0x40147d  dwMilliseconds:0x2710
+    0x401220,0x4014d5  dwMilliseconds:0x2710
+    0x402550,0x4026c1  dwMilliseconds:100
+    0x402550,0x4026f5  dwMilliseconds:0x7530
+    0x402f00,0x403062  dwMilliseconds:gv_0x4080c8_in
+    0x402f00,0x403081  dwMilliseconds:gv_0x4080c4_in
+    0x4043c0,0x4044dc  dwMilliseconds:var.1124
+    0x4057e0,0x405926  dwMilliseconds:100
+    0x4057e0,0x406598  dwMilliseconds:gv_0x4080c8_in
+    0x406720,0x406844  dwMilliseconds:400
+
+  TerminateProcess
+    0x402730,0x402746  hProcess:OpenProcess_rtn_0x402739, uExitCode:0
+
+  WinExec
+    0x4030c0,0x40363f  lpCmdLine:(esp_in - 0x3e8f2), uCmdShow:0
+
+  WriteFile
+    0x402f00,0x4030a9  hFile:gv_0x4090f4_in, lpBuffer:0x408214, nNumberOfBytesToWrite:6, lpNumberOfBytesWritten:(esp_in - 0x7d004), lpOverlapped:0
+    0x4030c0,0x403360  hFile:gv_0x4090f4_in, lpBuffer:(esp_in - 0x3e8f2), nNumberOfBytesToWrite:var.256352, lpNumberOfBytesWritten:(esp_in - 36), lpOverlapped:0
+    0x4030c0,0x40345c  hFile:gv_0x4090f4_in, lpBuffer:(esp_in - 0x3e8f2), nNumberOfBytesToWrite:var.256352, lpNumberOfBytesWritten:(esp_in - 36), lpOverlapped:0
+
+  lstrcatA
+    0x4027a0,0x402800  lpString1:(esp_in - 260), lpString2:(esp_in - 520)
+    0x4027a0,0x40280f  lpString1:(esp_in - 260), lpString2:0x4081ec: ">> NUL"
+
+  lstrcpyA
+    0x4027a0,0x4027e7  lpString1:(esp_in - 260), lpString2:0x4081f4: "/c del"
+
+MSVCP60.dll
+
+  ?_Copy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEXI@Z
+MSVCP60.dll:?_Copy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEXI@Z: summary not found
+    0x401220,0x4013c2  
+
+  ?_Tidy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEX_N@Z
+MSVCP60.dll:?_Tidy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEX_N@Z: summary not found
+    0x401220,0x4013a1  
+MSVCP60.dll:?_Tidy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEX_N@Z: summary not found
+    0x401220,0x4013b9  
+
+  ?_Xlen@std@@YAXXZ
+MSVCP60.dll:?_Xlen@std@@YAXXZ: summary not found
+    0x401220,0x40136b  
+
+MSVCRT.dll
+
+  __dllonexit
+    0x4068cf,0x4068f2  func:arg.0004_in, pbegin:0x412d7c, pend:0x412d78
+
+  __getmainargs
+    0x40690d,0x4069c2  _Argc:(esp_in - 32), _Argv:(esp_in - 48), _Env:(esp_in - 36), _DoWildCard:gv_0x412d64_in, _StartInfo:(esp_in - 44)
+
+  __p___initenv
+MSVCRT.dll:__p___initenv: summary not found
+    0x40690d,0x4069d7  
+
+  __p__commode
+    0x40690d,0x40695c  
+
+  __p__fmode
+    0x40690d,0x40694e  
+
+  __set_app_type
+    0x40690d,0x406939  at:1
+
+  __setusermatherr
+    0x40690d,0x406989  pf:0x406a42
+
+  _controlfp
+    0x406a30,0x406a3a  new:0x10000, mask:0x30000
+
+  _initterm
+    0x40690d,0x40699f  startloc:0x40800c, endloc:0x408010
+    0x40690d,0x4069d2  startloc:0x408000, endloc:0x408008
+
+  _itoa
+    0x402df0,0x402e35  value:var.0028, str:var.0024, radix:16
+
+  _onexit
+    0x4068cf,0x4068dc  func:arg.0004_in
+
+  atoi
+    0x401cc0,0x401d67  str:(esp_in - 0x800)
+    0x4029c0,0x402ac3  str:(esp_in - 0x2c28)
+    0x4030c0,0x4031e6  str:(esp_in - 0x3e91a)
+    0x4030c0,0x403547  str:(esp_in - 0x3e8f2)
+    0x4030c0,0x403557  str:(esp_in - 0x3e8f2)
+    0x4030c0,0x40377a  str:(esp_in - 0x1f4f2)
+    0x403a10,0x403b1e  str:(arg.0004_in + 60)
+    0x403a10,0x403b2a  str:(arg.0004_in + 70)
+    0x403a10,0x403b34  str:(arg.0004_in + 80)
+    0x403a10,0x403c29  str:(arg.0004_in + 50)
+    0x4052f0,0x4054bb  str:(esp_in - 0x400)
+    0x406720,0x40678a  str:(esp_in - 0xbb8aa)
+
+  exit
+    0x40690d,0x4069f7  status:0x402f00_rtn_0x4069eb
+
+  fclose
+    0x403a10,0x403cb6  stream:var.1580
+    0x403a10,0x403cdf  stream:var.1580
+    0x403a10,0x403d1b  stream:var.1580
+    0x403d70,0x403f53  stream:fopen_rtn_0x403de0
+
+  fflush
+    0x402f00,0x402fcf  stream:0x7c36
+    0x4057e0,0x405814  stream:0x7c36
+    0x4057e0,0x4058af  stream:0x7c36
+
+  fopen
+    0x403a10,0x403b64  filename:(esp_in - 0x600), mode:0x408640: "rb+"
+    0x403a10,0x403b7b  filename:(esp_in - 0x600), mode:0x40863c: "wb+"
+    0x403d70,0x403de0  filename:arg.0016_in, mode:0x408640: "rb+"
+
+  fread
+    0x403d70,0x403e6c  dest:arg.0008_in, size:1, nitems:0xea60, stream:fopen_rtn_0x403de0
+    0x403d70,0x403e98  dest:arg.0008_in, size:1, nitems:var.1188, stream:fopen_rtn_0x403de0
+
+  free
+    0x4010c0,0x4010d7  ptr:ecx_in[32808]_in
+    0x401130,0x401143  ptr:ecx_in[32808]_in
+    0x406888,0x40688c  ptr:arg.0004_in
+
+  freopen
+    0x402760,0x402780  path:0x4081d8: "CONOUT$", mode:0x4081e0: "w+t", stream:0x7c56
+    0x402760,0x402793  path:0x4081cc: "CONIN$", mode:0x4081d4: "r+t", stream:0x7c36
+
+  fseek
+    0x403a10,0x403c1c  stream:var.1588, offset:var.1584, origin:0
+    0x403d70,0x403e02  stream:fopen_rtn_0x403de0, offset:0, origin:2
+    0x403d70,0x403e14  stream:fopen_rtn_0x403de0, offset:0, origin:0
+
+  ftell
+    0x403d70,0x403e05  stream:fopen_rtn_0x403de0
+
+  fwrite
+    0x403a10,0x403c5c  buffer:arg.0008_in, size:1, count:0x402d00_rtn_0x403c4c, stream:var.1600
+
+  getenv
+    0x402100,0x402170  name:0x408100: "USERPROFILE"
+    0x402100,0x40219b  name:0x4080f8: "windir"
+
+  localtime
+    0x4030c0,0x4030f8  timer:(esp_in - 44)
+
+  malloc
+    0x401130,0x401160  size:(arg.0008_in + 1)
+
+  printf
+    0x4023f0,0x402473  format:0x408190: "InternetQueryOption failed! (%d)\n"
+    0x4023f0,0x402486  format:0x40818c: "%s\n"
+    0x402f00,0x402fc2  format:0x408228: "Are you sure to FORMAT Disk C With NTFS?(Y/N)"
+    0x403fa0,0x403fb3  format:0x408708: "%s"
+    0x404e60,0x404f26  format:var.1044
+    0x404e60,0x404f67  format:var.1044
+    0x404e60,0x404f9c  format:0x408b4c: "clientname:%s\n"
+    0x404e60,0x404fcd  format:var.1044
+    0x404e60,0x40501a  format:var.1044
+    0x404e60,0x40504f  format:0x408ab8: "onlinetime:%s\n"
+    0x404e60,0x40507c  format:0x408a88: "lasttime:%s\n"
+    0x404e60,0x4050a6  format:0x408a5c: "regcode:%s\n"
+    0x404e60,0x4050ba  format:0x40818c: "%s\n"
+    0x4052f0,0x4053c8  format:var.1048
+    0x4052f0,0x405409  format:var.1048
+    0x4052f0,0x40544a  format:var.1048
+    0x4052f0,0x405483  format:0x408d2c: "toid:%s\n"
+    0x4052f0,0x4054b4  format:0x408d1c: "encodenum:%s\n"
+    0x4052f0,0x4054ef  format:0x408d04: "messagetotallength:%s\n"
+    0x4052f0,0x40551d  format:var.1048
+    0x4052f0,0x405566  format:var.1048
+    0x4052f0,0x405597  format:0x408cc4: "messagename:%s\n"
+    0x4052f0,0x4055ab  format:0x40818c: "%s\n"
+    0x4055d0,0x4056d0  format:0x408e70
+    0x4055d0,0x4056fe  format:0x408e38
+    0x4055d0,0x40572c  format:0x408dfc
+    0x4055d0,0x405756  format:0x408dc4: "filepiece:%s\n"
+    0x4055d0,0x405792  format:0x408e70
+    0x4055d0,0x4057bc  format:0x408db4: "filelength:%s\n"
+    0x4057e0,0x405808  format:0x40909c: "Alert!Pls press enter to make sure!"
+    0x4057e0,0x4058a0  format:0x409090: "\n$"
+    0x4057e0,0x405f59  format:0x408f8c: "Pls choose target first!\n"
+    0x4057e0,0x4063c4  format:0x408f54: "Command Error!\n"
+    0x406720,0x4067f9  format:0x408708: "%s"
+    0x406720,0x406818  format:0x4090c0: "(info)%s->%s:%s\n$"
+
+  rand
+    0x402860,0x402881  
+    0x403d70,0x403e37  
+    0x404230,0x404323  
+
+  scanf
+    0x402f00,0x402fdf  format:0x408220: "%[^\n]", args:0x412c54
+    0x4057e0,0x405824  format:0x408220: "%[^\n]", args:0x412c54
+    0x4057e0,0x4058cd  format:0x408220: "%[^\n]", args:0x412c54
+
+  sprintf
+    0x4019b0,0x401b27  buffer:(esp_in - 0x800), format:0x4080ac, args:ecx_in[32812]_in
+    0x401dc0,0x401e59  buffer:(esp_in - 0x400), format:0x4080d0, args:var.1352
+    0x401f10,0x401f93  buffer:(esp_in - 0x400), format:0x4080dc: "\n Executable = %s", args:(esp_in - 0x504)
+    0x4021d0,0x402298  buffer:(esp_in - 780), format:0x408124: "\n%s\", args:arg.0004_in
+    0x4021d0,0x40233c  buffer:(esp_in - 260), format:0x408114: "%s\%s", args:(esp_in - 520)
+    0x4021d0,0x40236f  buffer:(esp_in - 780), format:0x40810c: "\n%s\%s", args:(esp_in - 520)
+    0x4023f0,0x4024a8  buffer:arg.0004_in, format:0x40816c: "PROXY_TYPE_AUTO_PROXY_URL:%s", args:var.0104
+    0x4023f0,0x4024e2  buffer:arg.0004_in, format:0x408140: "PROXY_TYPE_PROXY:%s", args:var.0104
+    0x4023f0,0x4024fe  buffer:arg.0004_in, format:var.0104, args:edi_in
+    0x4029c0,0x402ab8  buffer:(esp_in - 0x2c28), format:0x408204: "%.4d", args:var.11344
+    0x403a10,0x403ad5  buffer:(esp_in - 0x400), format:0x408644: "select top 1 * from tab_file where filename='%s' order by id asc", args:(esp_in - 0x500)
+    0x403a10,0x403bbc  buffer:(esp_in - 0x400), format:0x4085f8: "select * from tab_file where filename='%s' and filepieceindex=%d", args:(esp_in - 0x500)
+    0x403a10,0x403c7f  buffer:(esp_in - 0x400), format:0x4085d4, args:var.1620
+    0x403a10,0x403cf2  buffer:(esp_in - 0x400), format:0x4085b8: "net error!\n", args:var.1580
+    0x403a10,0x403d2f  buffer:(esp_in - 0x400), format:0x40859c: "piece %d not found error!\n", args:var.1584
+    0x403d70,0x403edd  buffer:(esp_in - 0x400), format:0x4086bc: "select id from tab_file where filename='%s' and filepieceindex=%d", args:arg.0012_in
+    0x403d70,0x403f2e  buffer:(esp_in - 0x400), format:0x408698, args:var.1188
+    0x404010,0x404058  buffer:(esp_in - 0x400), format:0x40870c: "select top 1 * from tab_message where toid = '%s' order by id asc", args:0x412c2c
+    0x4040f0,0x404148  buffer:(esp_in - 0x1f400), format:0x408750: "insert into tab_message (messageaction,fromid,toid,encodenum,messagetotallength,messagepiecelength,messagepieceindex,messagecontent,messagename) values ('%s','%s','%s',%s,%s,%s,%s,'%s','%s')", args:(arg.0004_in + 10)
+    0x404190,0x4041e0  buffer:(esp_in - 0x1f400), format:0x408810: "insert into tab_file (encodenum,filetotallength,filepiecelength,filepieceindex,filecontent,filename,filehash) values (%s,%s,%s,%s,'%s','%s','%s')", args:(arg.0004_in + 50)
+    0x404230,0x404256  buffer:(esp_in - 0x1f4d2), format:0x408708: "%s", args:arg.0004_in
+    0x404230,0x40426d  buffer:(esp_in - 130), format:0x408708: "%s", args:arg.0024_in
+    0x404230,0x404281  buffer:(esp_in - 0x1f4a0), format:0x4088a8: "%d", args:arg.0008_in
+    0x404230,0x404298  buffer:(esp_in - 0x1f48c), format:0x4088a8: "%d", args:arg.0016_in
+    0x404230,0x4042af  buffer:(esp_in - 0x1f496), format:0x4088a8: "%d", args:arg.0012_in
+    0x404230,0x4042ce  buffer:(esp_in - 0x1f4be), format:0x408708: "%s", args:0x412c2c
+    0x404230,0x4042df  buffer:(esp_in - 0x1f4b4), format:0x408708: "%s", args:0x412c40
+    0x404230,0x4042f0  buffer:(esp_in - 0x1f4be), format:0x4088a4, args:edi_in
+    0x404230,0x4042fc  buffer:(esp_in - 0x1f4b4), format:0x4088a4, args:(esp_in - 0x1f4be)
+    0x404230,0x404336  buffer:(esp_in - 0x1f4aa), format:0x4088a8: "%d", args:rand_rtn_0x404323
+    0x4043c0,0x40446a  buffer:(esp_in - 0x430), format:0x4089ac: "%d-%02d-%02d %02d:%02d:%02d", args:var.1144
+    0x4043c0,0x40447e  buffer:(esp_in - 0x400), format:0x40896c: "select id from tab_online where regcode = '%s' order by id asc", args:0x412c18
+    0x4043c0,0x4044ed  buffer:(esp_in - 0x400), format:0x40896c: "select id from tab_online where regcode = '%s' order by id asc", args:0x412c18
+    0x4043c0,0x404546  buffer:(esp_in - 0x400), format:0x4088e8: "insert into tab_online (mode,clientname,clientip,accessip,onlinetime,lasttime,regcode) values ('%d','%s','%s','%s','%s','%s','%s')", args:gv_0x412a10_in
+    0x4043c0,0x404577  buffer:(esp_in - 0x400), format:0x40896c: "select id from tab_online where regcode = '%s' order by id asc", args:0x412c18
+    0x4043c0,0x404634  buffer:(esp_in - 0x400), format:0x4088ac: "update tab_online set lasttime = '%s' where regcode = '%s'", args:(esp_in - 0x430)
+    0x404660,0x4046fe  buffer:(esp_in - 0x83c), format:0x4089f8: "rands=%s&acc=%s&str=%s", args:(esp_in - 40)
+    0x404660,0x40473c  buffer:(esp_in - 0x83c), format:0x4089f0: "%s?%s", args:0x40825c: "http://cas.m-e.org.ru/main/1.asp"
+    0x404800,0x4048b7  buffer:(esp_in - 0x83c), format:0x408a18: "%s?rands=%s&acc=%s", args:0x40825c: "http://cas.m-e.org.ru/main/1.asp"
+    0x404800,0x4048c9  buffer:(esp_in - 0x3f03c), format:0x408a10: "str=%s", args:arg.0004_in
+    0x404e60,0x404e9b  buffer:(esp_in - 0x400), format:0x408be0: "select * from tab_online where id=%s", args:arg.0004_in
+    0x404e60,0x404eb0  buffer:(esp_in - 0x400), format:0x408bb4: "select * from tab_online order by id asc", args:edi_in
+    0x4050e0,0x405147  buffer:(esp_in - 0x400), format:0x408c2c: "delete from tab_online", args:edi_in
+    0x4050e0,0x40515d  buffer:(esp_in - 0x400), format:0x408c08: "delete from tab_online where id=%s", args:arg.0004_in
+    0x405190,0x4051f7  buffer:(esp_in - 0x400), format:0x408c68: "delete from tab_message", args:edi_in
+    0x405190,0x40520d  buffer:(esp_in - 0x400), format:0x408c44: "delete from tab_message where id=%s", args:arg.0004_in
+    0x405240,0x4052a7  buffer:(esp_in - 0x400), format:0x408cac: "delete from tab_file", args:edi_in
+    0x405240,0x4052bd  buffer:(esp_in - 0x400), format:0x408c80: "delete from tab_file where filename='%s'", args:arg.0004_in
+    0x4052f0,0x40532b  buffer:(esp_in - 0x400), format:0x408d8c: "select * from tab_message where id=%s", args:arg.0004_in
+    0x4052f0,0x405340  buffer:(esp_in - 0x400), format:0x408d60: "select * from tab_message order by id asc", args:edi_in
+    0x4055d0,0x40563b  buffer:(esp_in - 0x400), format:0x408ed8: "select filename,filetotallength,filepiecelength,filepieceindex from tab_file where filename='%s' order by id asc", args:arg.0004_in
+    0x4055d0,0x405655  buffer:(esp_in - 0x400), format:0x408ea0: "select distinct filename,filetotallength from tab_file", args:edi_in
+
+  srand
+    0x402860,0x40286c  seed:time_rtn_0x402865
+    0x403d70,0x403e31  seed:time_rtn_0x403e2a
+    0x404230,0x40431d  seed:time_rtn_0x404316
+
+  strftime
+    0x4030c0,0x40310a  strDest:(esp_in - 112), maxsize:64, format:0x4082fc: "%Y/%m/%d %X %z", timeptr:localtime_rtn_0x4030f8
+
+  strncmp
+    0x401220,0x40140b  string1:?, string2:0x40805c: "https", count:5
+    0x401220,0x401451  string1:?, string2:0x408054: "http", count:4
+    0x402f00,0x402f19  string1:0x40825c: "http://cas.m-e.org.ru/main/1.asp", string2:0x408288, count:5
+
+  strstr
+    0x402940,0x402957  s1:arg.0004_in, s2:arg.0008_in
+    0x402940,0x40297d  s1:var.0024, s2:arg.0012_in
+
+  strtok
+    0x402e50,0x402e64  strToken:arg.0008_in, strDelimit:0x408210
+    0x402e50,0x402e95  strToken:var.0024, strDelimit:0x40820c
+    0x402e50,0x402ea9  strToken:0, strDelimit:0x408210
+
+  system
+    0x4057e0,0x405985  command:0x40908c: "cls"
+
+  time
+    0x402860,0x402865  tloc:0
+    0x4030c0,0x4030eb  tloc:0
+    0x403d70,0x403e2a  tloc:0
+    0x404230,0x404316  tloc:0
+
+SHELL32.dll
+
+  ShellExecuteA
+    0x4027a0,0x402840  hwnd:0, lpOperation:0, lpFile:(esp_in - 520), lpParameters:(esp_in - 260), lpDirectory:0, nShowCmd:0
+
+WININET.dll
+
+  HttpAddRequestHeadersA
+    0x401610,0x4016d1  hRequest:HttpOpenRequestA_rtn_0x40169a, lpszHeaders:0x408080, dwHeadersLength:var.0044, dwModifiers:-2147483648
+    0x401610,0x401705  hRequest:HttpOpenRequestA_rtn_0x40169a, lpszHeaders:(ecx_in + 40), dwHeadersLength:var.0044, dwModifiers:0x10000000
+    0x4017c0,0x4018a0  hRequest:HttpOpenRequestA_rtn_0x401863, lpszHeaders:0x408080, dwHeadersLength:var.0044, dwModifiers:-2147483648
+    0x4017c0,0x4018d0  hRequest:HttpOpenRequestA_rtn_0x401863, lpszHeaders:(ecx_in + 40), dwHeadersLength:var.0044, dwModifiers:0x10000000
+    0x4019b0,0x401a9b  hRequest:HttpOpenRequestA_rtn_0x401a64, lpszHeaders:0x408080, dwHeadersLength:var.2140, dwModifiers:-2147483648
+    0x4019b0,0x401ac2  hRequest:HttpOpenRequestA_rtn_0x401a64, lpszHeaders:(ecx_in + 0x8831), dwHeadersLength:var.2140, dwModifiers:0x10000000
+    0x4019b0,0x401af2  hRequest:HttpOpenRequestA_rtn_0x401a64, lpszHeaders:(ecx_in + 40), dwHeadersLength:var.2140, dwModifiers:0x10000000
+    0x4019b0,0x401b4d  hRequest:HttpOpenRequestA_rtn_0x401a64, lpszHeaders:(esp_in - 0x800), dwHeadersLength:var.2140, dwModifiers:0x10000000
+
+  HttpEndRequestA
+    0x4019b0,0x401c48  hRequest:HttpOpenRequestA_rtn_0x401a64, lpBuffersOut:0, dwFlags:8, dwContext:0
+
+  HttpOpenRequestA
+    0x401610,0x40169a  hConnect:ecx_in[8]_in, lpszVerb:0x408090: "GET", lpszObjectName:var.0060, lpszVersion:0x408094: "HTTP/1.0", lpszReferer:arg.0008_in, lplpszAcceptTypes:(esp_in - 8), dwFlags:var.0044, dwContext:0
+    0x4017c0,0x401863  hConnect:ecx_in[8]_in, lpszVerb:0x4080a4: "POST", lpszObjectName:var.0060, lpszVersion:0x408094: "HTTP/1.0", lpszReferer:arg.0008_in, lplpszAcceptTypes:(esp_in - 8), dwFlags:var.0044, dwContext:0
+    0x4019b0,0x401a64  hConnect:ecx_in[8]_in, lpszVerb:0x4080a4: "POST", lpszObjectName:var.2156, lpszVersion:0x408094: "HTTP/1.0", lpszReferer:arg.0008_in, lplpszAcceptTypes:(esp_in - 0x834), dwFlags:var.2140, dwContext:0
+
+  HttpQueryInfoA
+    0x401cc0,0x401d1a  hRequest:ecx_in[12]_in, dwInfoLevel:22, lpvBuffer:(ecx_in + 0x4028), lpdwBufferLength:(esp_in - 0x804), lpdwIndex:0
+    0x401cc0,0x401d48  hRequest:ecx_in[12]_in, dwInfoLevel:33, lpvBuffer:(ecx_in + 0x8031), lpdwBufferLength:(esp_in - 0x80c), lpdwIndex:0
+    0x401cc0,0x401d5c  hRequest:ecx_in[12]_in, dwInfoLevel:5, lpvBuffer:(esp_in - 0x800), lpdwBufferLength:(esp_in - 0x808), lpdwIndex:0
+
+  HttpSendRequestA
+    0x401610,0x40171f  hRequest:HttpOpenRequestA_rtn_0x40169a, lpszHeaders:0, dwHeadersLength:0, lpOptional:0, dwOptionalLength:0
+    0x4017c0,0x401900  hRequest:HttpOpenRequestA_rtn_0x401863, lpszHeaders:(ecx_in + 0x8831), dwHeadersLength:var.0048, lpOptional:ecx_in[32808]_in, dwOptionalLength:ecx_in[32812]_in
+
+  HttpSendRequestExA
+    0x4019b0,0x401b7f  hRequest:HttpOpenRequestA_rtn_0x401a64, lpBuffersIn:(esp_in - 0x828), lpBuffersOut:0, dwFlags:8, dwContext:0
+
+  InternetCloseHandle
+    0x401220,0x401501  hInternet:?
+    0x401540,0x4015c5  hInternet:ecx_in[12]_in
+    0x401610,0x40178e  hInternet:HttpOpenRequestA_rtn_0x40169a
+    0x4017c0,0x401985  hInternet:HttpOpenRequestA_rtn_0x401863
+    0x4019b0,0x401bfb  hInternet:HttpOpenRequestA_rtn_0x401a64
+    0x401d90,0x401da2  hInternet:ecx_in[12]_in
+    0x401d90,0x401dac  hInternet:ecx_in[8]_in
+    0x401d90,0x401db6  hInternet:ecx_in[4]_in
+
+  InternetConnectA
+    0x401220,0x4014c7  hInternet:?, lpszServerName:?, nServerPort:?, lpszUsername:0, lpszPassword:0, dwService:3, dwFlags:0x400000, dwContext:0
+    0x401220,0x4014f4  hInternet:?, lpszServerName:?, nServerPort:?, lpszUsername:0, lpszPassword:0, dwService:3, dwFlags:0x400000, dwContext:0
+
+  InternetCrackUrlA
+    0x401220,0x401331  lpszUrl:arg.0004_in, dwUrlLength:0, dwFlags:0, lpUrlComponents:(esp_in - 88)
+
+  InternetOpenA
+    0x401220,0x40146f  lpszAgent:?, dwAccessType:0, lpszProxyName:0, lpszProxyBypass:0, dwFlags:0
+    0x401220,0x40148c  lpszAgent:?, dwAccessType:0, lpszProxyName:0, lpszProxyBypass:0, dwFlags:0
+
+  InternetQueryOptionA
+    0x401610,0x40175c  hInternet:HttpOpenRequestA_rtn_0x40169a, dwOption:31, lpBuffer:(esp_in - 20), lpdwBufferLength:(esp_in - 4)
+    0x4017c0,0x40194c  hInternet:HttpOpenRequestA_rtn_0x401863, dwOption:31, lpBuffer:(esp_in - 20), lpdwBufferLength:(esp_in - 4)
+    0x4019b0,0x401bc4  hInternet:HttpOpenRequestA_rtn_0x401a64, dwOption:31, lpBuffer:(esp_in - 0x840), lpdwBufferLength:(esp_in - 0x82c)
+    0x4023f0,0x40245b  hInternet:0, dwOption:75, lpBuffer:(esp_in - 80), lpdwBufferLength:(esp_in - 92)
+    0x4023f0,0x40251d  hInternet:0, dwOption:40, lpBuffer:(esp_in - 88), lpdwBufferLength:(esp_in - 92)
+
+  InternetReadFile
+    0x401c80,0x401ca4  hFile:ecx_in[12]_in, lpBuffer:arg.0004_in, dwNumberOfBytesToRead:arg.0008_in, lpdwNumberOfBytesRead:(esp_in - 4)
+
+  InternetSetOptionA
+    0x401610,0x401778  hInternet:HttpOpenRequestA_rtn_0x40169a, dwOption:31, lpBuffer:(esp_in - 20), dwBufferLength:4
+    0x4017c0,0x401968  hInternet:HttpOpenRequestA_rtn_0x401863, dwOption:31, lpBuffer:(esp_in - 20), dwBufferLength:4
+    0x4019b0,0x401be1  hInternet:HttpOpenRequestA_rtn_0x401a64, dwOption:31, lpBuffer:(esp_in - 0x840), dwBufferLength:4
+
+  InternetWriteFile
+    0x4019b0,0x401c36  hFile:HttpOpenRequestA_rtn_0x401a64, lpBuffer:ecx_in[32808]_in, dwNumberOfBytesToWrite:ecx_in[32812]_in, lpdwNumberOfbytesWritten:(esp_in - 0x830)
+
+WS2_32.dll
+
+  WSAStartup
+    0x402100,0x402113  wVersionRequested:257, lpWSAData:(esp_in - 400)
+
+  gethostbyname
+    0x402100,0x40212f  name:arg.0004_in
+
+  gethostname
+    0x402100,0x402125  name:arg.0004_in, namelen:128
+
+  inet_ntoa
+    0x402100,0x40213c  in_addr:inet_ntoa_rtn_0x40213c[0]
+Hennys-MBP:pe32 henny$ python chx86_report_dllcalls.py mwv:V001 --aggregate
+
+ADVAPI32.dll
+
+  GetTokenInformation
+    0x401ff0,0x402074  TokenHandle:var.1176, TokenInformationClass:1, TokenInformation:(esp_in - 0x400), TokenInformationLength:0x400, ReturnLength:(esp_in - 0x470)
+
+  LookupAccountSidA
+    0x401ff0,0x4020a1  lpSystemName:0, lpSid:var.1180, lpName:(esp_in - 0x468), cchName:(esp_in - 0x474), lpReferencedDomainName:(esp_in - 0x434), cchReferencedDomainName:(esp_in - 0x478), peUse:(esp_in - 0x46c)
+
+  OpenProcessToken
+    0x401ff0,0x40204d  ProcessHandle:OpenProcess_rtn_0x40203a, DesiredAccess:0x20008, TokenHandle:(esp_in - 0x47c)
+
+KERNEL32.dll
+
+  AllocConsole
+    0x402760,0x402761  
+
+  CloseHandle
+    0x401dc0,0x401e26  hObject:CreateToolhelp32Snapshot_rtn_0x401df2
+    0x401dc0,0x401ea5  hObject:OpenProcess_rtn_0x401e9a
+    0x401dc0,0x401ef7  hObject:CreateToolhelp32Snapshot_rtn_0x401df2
+    0x401f10,0x401f6c  hObject:CreateToolhelp32Snapshot_rtn_0x401f3d
+    0x401f10,0x401fce  hObject:CreateToolhelp32Snapshot_rtn_0x401f3d
+    0x401ff0,0x4020e0  hObject:var.1160
+    0x401ff0,0x4020e7  hObject:OpenProcess_rtn_0x40203a
+    0x402550,0x4026ce  hObject:0
+    0x402550,0x4026fe  hObject:0
+    0x4030c0,0x4032f8  hObject:CreateThread_rtn_0x4032f1
+    0x4030c0,0x4033fc  hObject:CreateThread_rtn_0x4033f5
+    0x4057e0,0x405879  hObject:CreateThread_rtn_0x405872
+
+  CopyFileA
+    0x402550,0x402663  lpExistingFileName:(esp_in - 520), lpNewFileName:(esp_in - 780), bFailIfExists:0
+
+  CreatePipe
+    0x4030c0,0x4032cb  hReadPipe:0x4090f0, hWritePipe:0x4090f4, lpPipeAttributes:(esp_in - 32), nSize:0
+    0x4030c0,0x4032dd  hReadPipe:0x4090f8, hWritePipe:0x4090fc, lpPipeAttributes:(esp_in - 32), nSize:0
+    0x4030c0,0x4033cf  hReadPipe:0x4090f0, hWritePipe:0x4090f4, lpPipeAttributes:(esp_in - 32), nSize:0
+    0x4030c0,0x4033e1  hReadPipe:0x4090f8, hWritePipe:0x4090fc, lpPipeAttributes:(esp_in - 32), nSize:0
+
+  CreateProcessA
+    0x402550,0x402696  lpApplicationName:0, lpCommandLine:(esp_in - 780), lpProcessAttributes:0, lpThreadAttributes:0, bInheritHandles:1, dwCreationFlags:0, lpEnvironment:0, lpCurrentDirectory:0, lpStartupInfo:(esp_in - 848), lpProcessInformation:(esp_in - 864)
+
+  CreateThread
+    0x4030c0,0x4032f1  lpThreadAttributes:0, dwStackSize:0, lpStartAddress:0x402550, lpParameter:0x4090f0, dwCreationFlags:0, lpThreadId:0
+    0x4030c0,0x4033f5  lpThreadAttributes:0, dwStackSize:0, lpStartAddress:0x402550, lpParameter:0x4090f0, dwCreationFlags:0, lpThreadId:0
+    0x4057e0,0x405872  lpThreadAttributes:0, dwStackSize:0, lpStartAddress:0x406720, lpParameter:0, dwCreationFlags:0, lpThreadId:0
+
+  CreateToolhelp32Snapshot
+    0x401dc0,0x401df2  dwFlags:2, th32ProcessID:0
+    0x401f10,0x401f3d  dwFlags:8, th32ProcessID:arg.0004_in
+
+  DeleteFileA
+    0x402550,0x402705  lpFileName:(esp_in - 780)
+
+  FindFirstFileA
+    0x4021d0,0x4022fc  lpFileName:(esp_in - 0x550), lpFindFileData:(esp_in - 0x44c)
+
+  FindNextFileA
+    0x4021d0,0x4023d2  hFindFile:FindFirstFileA_rtn_0x4022fc, lpFindFileData:(esp_in - 0x44c)
+
+  FreeConsole
+    0x402f00,0x403030  
+
+  GetEnvironmentVariableA
+    0x4027a0,0x402820  lpName:0x4081e4: "ComSpec", lpBuffer:(esp_in - 520), nSize:260
+
+  GetExitCodeProcess
+    0x402550,0x4026e0  hProcess:0, lpExitCode:(esp_in - 868)
+
+  GetLastError
+    0x401610,0x401729  
+    0x4017c0,0x401914  
+    0x4017c0,0x40191d  
+    0x4019b0,0x401b8d  
+    0x401cc0,0x401d20  
+    0x4023f0,0x402467  
+
+  GetLocalTime
+    0x4043c0,0x4043cf  lpSystemTime:(esp_in - 0x440)
+
+  GetModuleFileNameA
+    0x4027a0,0x4027b2  hModule:0, lpFilename:(esp_in - 520), nSize:260
+
+  GetShortPathNameA
+    0x4027a0,0x4027cf  lpszLongPath:(esp_in - 520), lpszShortPath:(esp_in - 520), cchBuffer:260
+
+  GetStartupInfoA
+    0x402550,0x402573  lpStartupInfo:(esp_in - 848)
+
+  GetStdHandle
+    0x402550,0x40255b  nStdHandle:-11
+
+  GetSystemDirectoryA
+    0x402550,0x4025b5  lpBuffer:(esp_in - 260), uSize:260
+
+  GetTempPathA
+    0x402550,0x402621  nBufferLength:260, lpBuffer:(esp_in - 780)
+
+  GlobalFree
+    0x4023f0,0x40252e  hMem:var.0104
+    0x4023f0,0x402539  hMem:var.0104
+    0x4023f0,0x402544  hMem:var.0104
+
+  Module32First
+    0x401f10,0x401f62  hSnapshot:CreateToolhelp32Snapshot_rtn_0x401f3d, lpme:(esp_in - 0x624)
+
+  OpenProcess
+    0x401dc0,0x401e9a  dwDesiredAccess:0x1f0fff, bInheritHandle:0, dwProcessId:var.1344
+    0x401ff0,0x40203a  dwDesiredAccess:0x400, bInheritHandle:0, dwProcessId:arg.0004_in
+    0x402730,0x402739  dwDesiredAccess:1, bInheritHandle:0, dwProcessId:arg.0004_in
+
+  PeekNamedPipe
+    0x4030c0,0x40313f  hNamedPipe:gv_0x4090f8_in, lpBuffer:(esp_in - 0x1f470), nBufferSize:0x1000, lpBytesRead:(esp_in - 40), lpTotalBytesAvail:0, lpBytesLeftThisMessage:0
+
+  Process32First
+    0x401dc0,0x401e1c  hSnapshot:CreateToolhelp32Snapshot_rtn_0x401df2, lppe:(esp_in - 0x528)
+
+  Process32Next
+    0x401dc0,0x401ee5  hSnapshot:CreateToolhelp32Snapshot_rtn_0x401df2, lppe:(esp_in - 0x528)
+
+  ReadFile
+    0x4030c0,0x40316f  hFile:gv_0x4090f8_in, lpBuffer:(esp_in - 0x1f470), nNumberOfBytesToRead:var.256352, lpNumberOfBytesRead:(esp_in - 48), lpOverlapped:0
+
+  Sleep
+    0x401220,0x40147d  dwMilliseconds:0x2710
+    0x401220,0x4014d5  dwMilliseconds:0x2710
+    0x402550,0x4026c1  dwMilliseconds:100
+    0x402550,0x4026f5  dwMilliseconds:0x7530
+    0x402f00,0x403062  dwMilliseconds:gv_0x4080c8_in
+    0x402f00,0x403081  dwMilliseconds:gv_0x4080c4_in
+    0x4043c0,0x4044dc  dwMilliseconds:var.1124
+    0x4057e0,0x405926  dwMilliseconds:100
+    0x4057e0,0x406598  dwMilliseconds:gv_0x4080c8_in
+    0x406720,0x406844  dwMilliseconds:400
+
+  TerminateProcess
+    0x402730,0x402746  hProcess:OpenProcess_rtn_0x402739, uExitCode:0
+
+  WinExec
+    0x4030c0,0x40363f  lpCmdLine:(esp_in - 0x3e8f2), uCmdShow:0
+
+  WriteFile
+    0x402f00,0x4030a9  hFile:gv_0x4090f4_in, lpBuffer:0x408214, nNumberOfBytesToWrite:6, lpNumberOfBytesWritten:(esp_in - 0x7d004), lpOverlapped:0
+    0x4030c0,0x403360  hFile:gv_0x4090f4_in, lpBuffer:(esp_in - 0x3e8f2), nNumberOfBytesToWrite:var.256352, lpNumberOfBytesWritten:(esp_in - 36), lpOverlapped:0
+    0x4030c0,0x40345c  hFile:gv_0x4090f4_in, lpBuffer:(esp_in - 0x3e8f2), nNumberOfBytesToWrite:var.256352, lpNumberOfBytesWritten:(esp_in - 36), lpOverlapped:0
+
+  lstrcatA
+    0x4027a0,0x402800  lpString1:(esp_in - 260), lpString2:(esp_in - 520)
+    0x4027a0,0x40280f  lpString1:(esp_in - 260), lpString2:0x4081ec: ">> NUL"
+
+  lstrcpyA
+    0x4027a0,0x4027e7  lpString1:(esp_in - 260), lpString2:0x4081f4: "/c del"
+
+MSVCP60.dll
+
+  ?_Copy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEXI@Z
+MSVCP60.dll:?_Copy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEXI@Z: summary not found
+    0x401220,0x4013c2  
+
+  ?_Tidy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEX_N@Z
+MSVCP60.dll:?_Tidy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEX_N@Z: summary not found
+    0x401220,0x4013a1  
+MSVCP60.dll:?_Tidy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEX_N@Z: summary not found
+    0x401220,0x4013b9  
+
+  ?_Xlen@std@@YAXXZ
+MSVCP60.dll:?_Xlen@std@@YAXXZ: summary not found
+    0x401220,0x40136b  
+
+MSVCRT.dll
+
+  __dllonexit
+    0x4068cf,0x4068f2  func:arg.0004_in, pbegin:0x412d7c, pend:0x412d78
+
+  __getmainargs
+    0x40690d,0x4069c2  _Argc:(esp_in - 32), _Argv:(esp_in - 48), _Env:(esp_in - 36), _DoWildCard:gv_0x412d64_in, _StartInfo:(esp_in - 44)
+
+  __p___initenv
+MSVCRT.dll:__p___initenv: summary not found
+    0x40690d,0x4069d7  
+
+  __p__commode
+    0x40690d,0x40695c  
+
+  __p__fmode
+    0x40690d,0x40694e  
+
+  __set_app_type
+    0x40690d,0x406939  at:1
+
+  __setusermatherr
+    0x40690d,0x406989  pf:0x406a42
+
+  _controlfp
+    0x406a30,0x406a3a  new:0x10000, mask:0x30000
+
+  _initterm
+    0x40690d,0x40699f  startloc:0x40800c, endloc:0x408010
+    0x40690d,0x4069d2  startloc:0x408000, endloc:0x408008
+
+  _itoa
+    0x402df0,0x402e35  value:var.0028, str:var.0024, radix:16
+
+  _onexit
+    0x4068cf,0x4068dc  func:arg.0004_in
+
+  atoi
+    0x401cc0,0x401d67  str:(esp_in - 0x800)
+    0x4029c0,0x402ac3  str:(esp_in - 0x2c28)
+    0x4030c0,0x4031e6  str:(esp_in - 0x3e91a)
+    0x4030c0,0x403547  str:(esp_in - 0x3e8f2)
+    0x4030c0,0x403557  str:(esp_in - 0x3e8f2)
+    0x4030c0,0x40377a  str:(esp_in - 0x1f4f2)
+    0x403a10,0x403b1e  str:(arg.0004_in + 60)
+    0x403a10,0x403b2a  str:(arg.0004_in + 70)
+    0x403a10,0x403b34  str:(arg.0004_in + 80)
+    0x403a10,0x403c29  str:(arg.0004_in + 50)
+    0x4052f0,0x4054bb  str:(esp_in - 0x400)
+    0x406720,0x40678a  str:(esp_in - 0xbb8aa)
+
+  exit
+    0x40690d,0x4069f7  status:0x402f00_rtn_0x4069eb
+
+  fclose
+    0x403a10,0x403cb6  stream:var.1580
+    0x403a10,0x403cdf  stream:var.1580
+    0x403a10,0x403d1b  stream:var.1580
+    0x403d70,0x403f53  stream:fopen_rtn_0x403de0
+
+  fflush
+    0x402f00,0x402fcf  stream:0x7c36
+    0x4057e0,0x405814  stream:0x7c36
+    0x4057e0,0x4058af  stream:0x7c36
+
+  fopen
+    0x403a10,0x403b64  filename:(esp_in - 0x600), mode:0x408640: "rb+"
+    0x403a10,0x403b7b  filename:(esp_in - 0x600), mode:0x40863c: "wb+"
+    0x403d70,0x403de0  filename:arg.0016_in, mode:0x408640: "rb+"
+
+  fread
+    0x403d70,0x403e6c  dest:arg.0008_in, size:1, nitems:0xea60, stream:fopen_rtn_0x403de0
+    0x403d70,0x403e98  dest:arg.0008_in, size:1, nitems:var.1188, stream:fopen_rtn_0x403de0
+
+  free
+    0x4010c0,0x4010d7  ptr:ecx_in[32808]_in
+    0x401130,0x401143  ptr:ecx_in[32808]_in
+    0x406888,0x40688c  ptr:arg.0004_in
+
+  freopen
+    0x402760,0x402780  path:0x4081d8: "CONOUT$", mode:0x4081e0: "w+t", stream:0x7c56
+    0x402760,0x402793  path:0x4081cc: "CONIN$", mode:0x4081d4: "r+t", stream:0x7c36
+
+  fseek
+    0x403a10,0x403c1c  stream:var.1588, offset:var.1584, origin:0
+    0x403d70,0x403e02  stream:fopen_rtn_0x403de0, offset:0, origin:2
+    0x403d70,0x403e14  stream:fopen_rtn_0x403de0, offset:0, origin:0
+
+  ftell
+    0x403d70,0x403e05  stream:fopen_rtn_0x403de0
+
+  fwrite
+    0x403a10,0x403c5c  buffer:arg.0008_in, size:1, count:0x402d00_rtn_0x403c4c, stream:var.1600
+
+  getenv
+    0x402100,0x402170  name:0x408100: "USERPROFILE"
+    0x402100,0x40219b  name:0x4080f8: "windir"
+
+  localtime
+    0x4030c0,0x4030f8  timer:(esp_in - 44)
+
+  malloc
+    0x401130,0x401160  size:(arg.0008_in + 1)
+
+  printf
+    0x4023f0,0x402473  format:0x408190: "InternetQueryOption failed! (%d)\n"
+    0x4023f0,0x402486  format:0x40818c: "%s\n"
+    0x402f00,0x402fc2  format:0x408228: "Are you sure to FORMAT Disk C With NTFS?(Y/N)"
+    0x403fa0,0x403fb3  format:0x408708: "%s"
+    0x404e60,0x404f26  format:var.1044
+    0x404e60,0x404f67  format:var.1044
+    0x404e60,0x404f9c  format:0x408b4c: "clientname:%s\n"
+    0x404e60,0x404fcd  format:var.1044
+    0x404e60,0x40501a  format:var.1044
+    0x404e60,0x40504f  format:0x408ab8: "onlinetime:%s\n"
+    0x404e60,0x40507c  format:0x408a88: "lasttime:%s\n"
+    0x404e60,0x4050a6  format:0x408a5c: "regcode:%s\n"
+    0x404e60,0x4050ba  format:0x40818c: "%s\n"
+    0x4052f0,0x4053c8  format:var.1048
+    0x4052f0,0x405409  format:var.1048
+    0x4052f0,0x40544a  format:var.1048
+    0x4052f0,0x405483  format:0x408d2c: "toid:%s\n"
+    0x4052f0,0x4054b4  format:0x408d1c: "encodenum:%s\n"
+    0x4052f0,0x4054ef  format:0x408d04: "messagetotallength:%s\n"
+    0x4052f0,0x40551d  format:var.1048
+    0x4052f0,0x405566  format:var.1048
+    0x4052f0,0x405597  format:0x408cc4: "messagename:%s\n"
+    0x4052f0,0x4055ab  format:0x40818c: "%s\n"
+    0x4055d0,0x4056d0  format:0x408e70
+    0x4055d0,0x4056fe  format:0x408e38
+    0x4055d0,0x40572c  format:0x408dfc
+    0x4055d0,0x405756  format:0x408dc4: "filepiece:%s\n"
+    0x4055d0,0x405792  format:0x408e70
+    0x4055d0,0x4057bc  format:0x408db4: "filelength:%s\n"
+    0x4057e0,0x405808  format:0x40909c: "Alert!Pls press enter to make sure!"
+    0x4057e0,0x4058a0  format:0x409090: "\n$"
+    0x4057e0,0x405f59  format:0x408f8c: "Pls choose target first!\n"
+    0x4057e0,0x4063c4  format:0x408f54: "Command Error!\n"
+    0x406720,0x4067f9  format:0x408708: "%s"
+    0x406720,0x406818  format:0x4090c0: "(info)%s->%s:%s\n$"
+
+  rand
+    0x402860,0x402881  
+    0x403d70,0x403e37  
+    0x404230,0x404323  
+
+  scanf
+    0x402f00,0x402fdf  format:0x408220: "%[^\n]", args:0x412c54
+    0x4057e0,0x405824  format:0x408220: "%[^\n]", args:0x412c54
+    0x4057e0,0x4058cd  format:0x408220: "%[^\n]", args:0x412c54
+
+  sprintf
+    0x4019b0,0x401b27  buffer:(esp_in - 0x800), format:0x4080ac, args:ecx_in[32812]_in
+    0x401dc0,0x401e59  buffer:(esp_in - 0x400), format:0x4080d0, args:var.1352
+    0x401f10,0x401f93  buffer:(esp_in - 0x400), format:0x4080dc: "\n Executable = %s", args:(esp_in - 0x504)
+    0x4021d0,0x402298  buffer:(esp_in - 780), format:0x408124: "\n%s\", args:arg.0004_in
+    0x4021d0,0x40233c  buffer:(esp_in - 260), format:0x408114: "%s\%s", args:(esp_in - 520)
+    0x4021d0,0x40236f  buffer:(esp_in - 780), format:0x40810c: "\n%s\%s", args:(esp_in - 520)
+    0x4023f0,0x4024a8  buffer:arg.0004_in, format:0x40816c: "PROXY_TYPE_AUTO_PROXY_URL:%s", args:var.0104
+    0x4023f0,0x4024e2  buffer:arg.0004_in, format:0x408140: "PROXY_TYPE_PROXY:%s", args:var.0104
+    0x4023f0,0x4024fe  buffer:arg.0004_in, format:var.0104, args:edi_in
+    0x4029c0,0x402ab8  buffer:(esp_in - 0x2c28), format:0x408204: "%.4d", args:var.11344
+    0x403a10,0x403ad5  buffer:(esp_in - 0x400), format:0x408644: "select top 1 * from tab_file where filename='%s' order by id asc", args:(esp_in - 0x500)
+    0x403a10,0x403bbc  buffer:(esp_in - 0x400), format:0x4085f8: "select * from tab_file where filename='%s' and filepieceindex=%d", args:(esp_in - 0x500)
+    0x403a10,0x403c7f  buffer:(esp_in - 0x400), format:0x4085d4, args:var.1620
+    0x403a10,0x403cf2  buffer:(esp_in - 0x400), format:0x4085b8: "net error!\n", args:var.1580
+    0x403a10,0x403d2f  buffer:(esp_in - 0x400), format:0x40859c: "piece %d not found error!\n", args:var.1584
+    0x403d70,0x403edd  buffer:(esp_in - 0x400), format:0x4086bc: "select id from tab_file where filename='%s' and filepieceindex=%d", args:arg.0012_in
+    0x403d70,0x403f2e  buffer:(esp_in - 0x400), format:0x408698, args:var.1188
+    0x404010,0x404058  buffer:(esp_in - 0x400), format:0x40870c: "select top 1 * from tab_message where toid = '%s' order by id asc", args:0x412c2c
+    0x4040f0,0x404148  buffer:(esp_in - 0x1f400), format:0x408750: "insert into tab_message (messageaction,fromid,toid,encodenum,messagetotallength,messagepiecelength,messagepieceindex,messagecontent,messagename) values ('%s','%s','%s',%s,%s,%s,%s,'%s','%s')", args:(arg.0004_in + 10)
+    0x404190,0x4041e0  buffer:(esp_in - 0x1f400), format:0x408810: "insert into tab_file (encodenum,filetotallength,filepiecelength,filepieceindex,filecontent,filename,filehash) values (%s,%s,%s,%s,'%s','%s','%s')", args:(arg.0004_in + 50)
+    0x404230,0x404256  buffer:(esp_in - 0x1f4d2), format:0x408708: "%s", args:arg.0004_in
+    0x404230,0x40426d  buffer:(esp_in - 130), format:0x408708: "%s", args:arg.0024_in
+    0x404230,0x404281  buffer:(esp_in - 0x1f4a0), format:0x4088a8: "%d", args:arg.0008_in
+    0x404230,0x404298  buffer:(esp_in - 0x1f48c), format:0x4088a8: "%d", args:arg.0016_in
+    0x404230,0x4042af  buffer:(esp_in - 0x1f496), format:0x4088a8: "%d", args:arg.0012_in
+    0x404230,0x4042ce  buffer:(esp_in - 0x1f4be), format:0x408708: "%s", args:0x412c2c
+    0x404230,0x4042df  buffer:(esp_in - 0x1f4b4), format:0x408708: "%s", args:0x412c40
+    0x404230,0x4042f0  buffer:(esp_in - 0x1f4be), format:0x4088a4, args:edi_in
+    0x404230,0x4042fc  buffer:(esp_in - 0x1f4b4), format:0x4088a4, args:(esp_in - 0x1f4be)
+    0x404230,0x404336  buffer:(esp_in - 0x1f4aa), format:0x4088a8: "%d", args:rand_rtn_0x404323
+    0x4043c0,0x40446a  buffer:(esp_in - 0x430), format:0x4089ac: "%d-%02d-%02d %02d:%02d:%02d", args:var.1144
+    0x4043c0,0x40447e  buffer:(esp_in - 0x400), format:0x40896c: "select id from tab_online where regcode = '%s' order by id asc", args:0x412c18
+    0x4043c0,0x4044ed  buffer:(esp_in - 0x400), format:0x40896c: "select id from tab_online where regcode = '%s' order by id asc", args:0x412c18
+    0x4043c0,0x404546  buffer:(esp_in - 0x400), format:0x4088e8: "insert into tab_online (mode,clientname,clientip,accessip,onlinetime,lasttime,regcode) values ('%d','%s','%s','%s','%s','%s','%s')", args:gv_0x412a10_in
+    0x4043c0,0x404577  buffer:(esp_in - 0x400), format:0x40896c: "select id from tab_online where regcode = '%s' order by id asc", args:0x412c18
+    0x4043c0,0x404634  buffer:(esp_in - 0x400), format:0x4088ac: "update tab_online set lasttime = '%s' where regcode = '%s'", args:(esp_in - 0x430)
+    0x404660,0x4046fe  buffer:(esp_in - 0x83c), format:0x4089f8: "rands=%s&acc=%s&str=%s", args:(esp_in - 40)
+    0x404660,0x40473c  buffer:(esp_in - 0x83c), format:0x4089f0: "%s?%s", args:0x40825c: "http://cas.m-e.org.ru/main/1.asp"
+    0x404800,0x4048b7  buffer:(esp_in - 0x83c), format:0x408a18: "%s?rands=%s&acc=%s", args:0x40825c: "http://cas.m-e.org.ru/main/1.asp"
+    0x404800,0x4048c9  buffer:(esp_in - 0x3f03c), format:0x408a10: "str=%s", args:arg.0004_in
+    0x404e60,0x404e9b  buffer:(esp_in - 0x400), format:0x408be0: "select * from tab_online where id=%s", args:arg.0004_in
+    0x404e60,0x404eb0  buffer:(esp_in - 0x400), format:0x408bb4: "select * from tab_online order by id asc", args:edi_in
+    0x4050e0,0x405147  buffer:(esp_in - 0x400), format:0x408c2c: "delete from tab_online", args:edi_in
+    0x4050e0,0x40515d  buffer:(esp_in - 0x400), format:0x408c08: "delete from tab_online where id=%s", args:arg.0004_in
+    0x405190,0x4051f7  buffer:(esp_in - 0x400), format:0x408c68: "delete from tab_message", args:edi_in
+    0x405190,0x40520d  buffer:(esp_in - 0x400), format:0x408c44: "delete from tab_message where id=%s", args:arg.0004_in
+    0x405240,0x4052a7  buffer:(esp_in - 0x400), format:0x408cac: "delete from tab_file", args:edi_in
+    0x405240,0x4052bd  buffer:(esp_in - 0x400), format:0x408c80: "delete from tab_file where filename='%s'", args:arg.0004_in
+    0x4052f0,0x40532b  buffer:(esp_in - 0x400), format:0x408d8c: "select * from tab_message where id=%s", args:arg.0004_in
+    0x4052f0,0x405340  buffer:(esp_in - 0x400), format:0x408d60: "select * from tab_message order by id asc", args:edi_in
+    0x4055d0,0x40563b  buffer:(esp_in - 0x400), format:0x408ed8: "select filename,filetotallength,filepiecelength,filepieceindex from tab_file where filename='%s' order by id asc", args:arg.0004_in
+    0x4055d0,0x405655  buffer:(esp_in - 0x400), format:0x408ea0: "select distinct filename,filetotallength from tab_file", args:edi_in
+
+  srand
+    0x402860,0x40286c  seed:time_rtn_0x402865
+    0x403d70,0x403e31  seed:time_rtn_0x403e2a
+    0x404230,0x40431d  seed:time_rtn_0x404316
+
+  strftime
+    0x4030c0,0x40310a  strDest:(esp_in - 112), maxsize:64, format:0x4082fc: "%Y/%m/%d %X %z", timeptr:localtime_rtn_0x4030f8
+
+  strncmp
+    0x401220,0x40140b  string1:?, string2:0x40805c: "https", count:5
+    0x401220,0x401451  string1:?, string2:0x408054: "http", count:4
+    0x402f00,0x402f19  string1:0x40825c: "http://cas.m-e.org.ru/main/1.asp", string2:0x408288, count:5
+
+  strstr
+    0x402940,0x402957  s1:arg.0004_in, s2:arg.0008_in
+    0x402940,0x40297d  s1:var.0024, s2:arg.0012_in
+
+  strtok
+    0x402e50,0x402e64  strToken:arg.0008_in, strDelimit:0x408210
+    0x402e50,0x402e95  strToken:var.0024, strDelimit:0x40820c
+    0x402e50,0x402ea9  strToken:0, strDelimit:0x408210
+
+  system
+    0x4057e0,0x405985  command:0x40908c: "cls"
+
+  time
+    0x402860,0x402865  tloc:0
+    0x4030c0,0x4030eb  tloc:0
+    0x403d70,0x403e2a  tloc:0
+    0x404230,0x404316  tloc:0
+
+SHELL32.dll
+
+  ShellExecuteA
+    0x4027a0,0x402840  hwnd:0, lpOperation:0, lpFile:(esp_in - 520), lpParameters:(esp_in - 260), lpDirectory:0, nShowCmd:0
+
+WININET.dll
+
+  HttpAddRequestHeadersA
+    0x401610,0x4016d1  hRequest:HttpOpenRequestA_rtn_0x40169a, lpszHeaders:0x408080, dwHeadersLength:var.0044, dwModifiers:-2147483648
+    0x401610,0x401705  hRequest:HttpOpenRequestA_rtn_0x40169a, lpszHeaders:(ecx_in + 40), dwHeadersLength:var.0044, dwModifiers:0x10000000
+    0x4017c0,0x4018a0  hRequest:HttpOpenRequestA_rtn_0x401863, lpszHeaders:0x408080, dwHeadersLength:var.0044, dwModifiers:-2147483648
+    0x4017c0,0x4018d0  hRequest:HttpOpenRequestA_rtn_0x401863, lpszHeaders:(ecx_in + 40), dwHeadersLength:var.0044, dwModifiers:0x10000000
+    0x4019b0,0x401a9b  hRequest:HttpOpenRequestA_rtn_0x401a64, lpszHeaders:0x408080, dwHeadersLength:var.2140, dwModifiers:-2147483648
+    0x4019b0,0x401ac2  hRequest:HttpOpenRequestA_rtn_0x401a64, lpszHeaders:(ecx_in + 0x8831), dwHeadersLength:var.2140, dwModifiers:0x10000000
+    0x4019b0,0x401af2  hRequest:HttpOpenRequestA_rtn_0x401a64, lpszHeaders:(ecx_in + 40), dwHeadersLength:var.2140, dwModifiers:0x10000000
+    0x4019b0,0x401b4d  hRequest:HttpOpenRequestA_rtn_0x401a64, lpszHeaders:(esp_in - 0x800), dwHeadersLength:var.2140, dwModifiers:0x10000000
+
+  HttpEndRequestA
+    0x4019b0,0x401c48  hRequest:HttpOpenRequestA_rtn_0x401a64, lpBuffersOut:0, dwFlags:8, dwContext:0
+
+  HttpOpenRequestA
+    0x401610,0x40169a  hConnect:ecx_in[8]_in, lpszVerb:0x408090: "GET", lpszObjectName:var.0060, lpszVersion:0x408094: "HTTP/1.0", lpszReferer:arg.0008_in, lplpszAcceptTypes:(esp_in - 8), dwFlags:var.0044, dwContext:0
+    0x4017c0,0x401863  hConnect:ecx_in[8]_in, lpszVerb:0x4080a4: "POST", lpszObjectName:var.0060, lpszVersion:0x408094: "HTTP/1.0", lpszReferer:arg.0008_in, lplpszAcceptTypes:(esp_in - 8), dwFlags:var.0044, dwContext:0
+    0x4019b0,0x401a64  hConnect:ecx_in[8]_in, lpszVerb:0x4080a4: "POST", lpszObjectName:var.2156, lpszVersion:0x408094: "HTTP/1.0", lpszReferer:arg.0008_in, lplpszAcceptTypes:(esp_in - 0x834), dwFlags:var.2140, dwContext:0
+
+  HttpQueryInfoA
+    0x401cc0,0x401d1a  hRequest:ecx_in[12]_in, dwInfoLevel:22, lpvBuffer:(ecx_in + 0x4028), lpdwBufferLength:(esp_in - 0x804), lpdwIndex:0
+    0x401cc0,0x401d48  hRequest:ecx_in[12]_in, dwInfoLevel:33, lpvBuffer:(ecx_in + 0x8031), lpdwBufferLength:(esp_in - 0x80c), lpdwIndex:0
+    0x401cc0,0x401d5c  hRequest:ecx_in[12]_in, dwInfoLevel:5, lpvBuffer:(esp_in - 0x800), lpdwBufferLength:(esp_in - 0x808), lpdwIndex:0
+
+  HttpSendRequestA
+    0x401610,0x40171f  hRequest:HttpOpenRequestA_rtn_0x40169a, lpszHeaders:0, dwHeadersLength:0, lpOptional:0, dwOptionalLength:0
+    0x4017c0,0x401900  hRequest:HttpOpenRequestA_rtn_0x401863, lpszHeaders:(ecx_in + 0x8831), dwHeadersLength:var.0048, lpOptional:ecx_in[32808]_in, dwOptionalLength:ecx_in[32812]_in
+
+  HttpSendRequestExA
+    0x4019b0,0x401b7f  hRequest:HttpOpenRequestA_rtn_0x401a64, lpBuffersIn:(esp_in - 0x828), lpBuffersOut:0, dwFlags:8, dwContext:0
+
+  InternetCloseHandle
+    0x401220,0x401501  hInternet:?
+    0x401540,0x4015c5  hInternet:ecx_in[12]_in
+    0x401610,0x40178e  hInternet:HttpOpenRequestA_rtn_0x40169a
+    0x4017c0,0x401985  hInternet:HttpOpenRequestA_rtn_0x401863
+    0x4019b0,0x401bfb  hInternet:HttpOpenRequestA_rtn_0x401a64
+    0x401d90,0x401da2  hInternet:ecx_in[12]_in
+    0x401d90,0x401dac  hInternet:ecx_in[8]_in
+    0x401d90,0x401db6  hInternet:ecx_in[4]_in
+
+  InternetConnectA
+    0x401220,0x4014c7  hInternet:?, lpszServerName:?, nServerPort:?, lpszUsername:0, lpszPassword:0, dwService:3, dwFlags:0x400000, dwContext:0
+    0x401220,0x4014f4  hInternet:?, lpszServerName:?, nServerPort:?, lpszUsername:0, lpszPassword:0, dwService:3, dwFlags:0x400000, dwContext:0
+
+  InternetCrackUrlA
+    0x401220,0x401331  lpszUrl:arg.0004_in, dwUrlLength:0, dwFlags:0, lpUrlComponents:(esp_in - 88)
+
+  InternetOpenA
+    0x401220,0x40146f  lpszAgent:?, dwAccessType:0, lpszProxyName:0, lpszProxyBypass:0, dwFlags:0
+    0x401220,0x40148c  lpszAgent:?, dwAccessType:0, lpszProxyName:0, lpszProxyBypass:0, dwFlags:0
+
+  InternetQueryOptionA
+    0x401610,0x40175c  hInternet:HttpOpenRequestA_rtn_0x40169a, dwOption:31, lpBuffer:(esp_in - 20), lpdwBufferLength:(esp_in - 4)
+    0x4017c0,0x40194c  hInternet:HttpOpenRequestA_rtn_0x401863, dwOption:31, lpBuffer:(esp_in - 20), lpdwBufferLength:(esp_in - 4)
+    0x4019b0,0x401bc4  hInternet:HttpOpenRequestA_rtn_0x401a64, dwOption:31, lpBuffer:(esp_in - 0x840), lpdwBufferLength:(esp_in - 0x82c)
+    0x4023f0,0x40245b  hInternet:0, dwOption:75, lpBuffer:(esp_in - 80), lpdwBufferLength:(esp_in - 92)
+    0x4023f0,0x40251d  hInternet:0, dwOption:40, lpBuffer:(esp_in - 88), lpdwBufferLength:(esp_in - 92)
+
+  InternetReadFile
+    0x401c80,0x401ca4  hFile:ecx_in[12]_in, lpBuffer:arg.0004_in, dwNumberOfBytesToRead:arg.0008_in, lpdwNumberOfBytesRead:(esp_in - 4)
+
+  InternetSetOptionA
+    0x401610,0x401778  hInternet:HttpOpenRequestA_rtn_0x40169a, dwOption:31, lpBuffer:(esp_in - 20), dwBufferLength:4
+    0x4017c0,0x401968  hInternet:HttpOpenRequestA_rtn_0x401863, dwOption:31, lpBuffer:(esp_in - 20), dwBufferLength:4
+    0x4019b0,0x401be1  hInternet:HttpOpenRequestA_rtn_0x401a64, dwOption:31, lpBuffer:(esp_in - 0x840), dwBufferLength:4
+
+  InternetWriteFile
+    0x4019b0,0x401c36  hFile:HttpOpenRequestA_rtn_0x401a64, lpBuffer:ecx_in[32808]_in, dwNumberOfBytesToWrite:ecx_in[32812]_in, lpdwNumberOfbytesWritten:(esp_in - 0x830)
+
+WS2_32.dll
+
+  WSAStartup
+    0x402100,0x402113  wVersionRequested:257, lpWSAData:(esp_in - 400)
+
+  gethostbyname
+    0x402100,0x40212f  name:arg.0004_in
+
+  gethostname
+    0x402100,0x402125  name:arg.0004_in, namelen:128
+
+  inet_ntoa
+    0x402100,0x40213c  in_addr:inet_ntoa_rtn_0x40213c[0]
+MSVCP60.dll:?_Copy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEXI@Z: summary not found
+MSVCP60.dll:?_Xlen@std@@YAXXZ: summary not found
+MSVCP60.dll:?_Tidy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEX_N@Z: summary not found
+MSVCP60.dll:?_Tidy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEX_N@Z: summary not found
+MSVCRT.dll:__p___initenv: summary not found
+
+ADVAPI32.dll
+
+  GetTokenInformation
+
+    ReturnLength
+        1  (esp_in - 0x470)
+
+    TokenHandle
+        1  var.1176
+
+    TokenInformation
+        1  (esp_in - 0x400)
+
+    TokenInformationClass
+        1  1
+
+    TokenInformationLength
+        1  0x400
+
+  LookupAccountSidA
+
+    cchName
+        1  (esp_in - 0x474)
+
+    cchReferencedDomainName
+        1  (esp_in - 0x478)
+
+    lpName
+        1  (esp_in - 0x468)
+
+    lpReferencedDomainName
+        1  (esp_in - 0x434)
+
+    lpSid
+        1  var.1180
+
+    lpSystemName
+        1  0
+
+    peUse
+        1  (esp_in - 0x46c)
+
+  OpenProcessToken
+
+    DesiredAccess
+        1  0x20008
+
+    ProcessHandle
+        1  OpenProcess_rtn_0x40203a
+
+    TokenHandle
+        1  (esp_in - 0x47c)
+
+KERNEL32.dll
+
+  AllocConsole
+
+  CloseHandle
+
+    hObject
+        2  0
+        1  CreateThread_rtn_0x4032f1
+        1  CreateThread_rtn_0x4033f5
+        1  CreateThread_rtn_0x405872
+        2  CreateToolhelp32Snapshot_rtn_0x401df2
+        2  CreateToolhelp32Snapshot_rtn_0x401f3d
+        1  OpenProcess_rtn_0x401e9a
+        1  OpenProcess_rtn_0x40203a
+        1  var.1160
+
+  CopyFileA
+
+    bFailIfExists
+        1  0
+
+    lpExistingFileName
+        1  (esp_in - 520)
+
+    lpNewFileName
+        1  (esp_in - 780)
+
+  CreatePipe
+
+    hReadPipe
+        2  0x4090f0
+        2  0x4090f8
+
+    hWritePipe
+        2  0x4090f4
+        2  0x4090fc
+
+    lpPipeAttributes
+        4  (esp_in - 32)
+
+    nSize
+        4  0
+
+  CreateProcessA
+
+    bInheritHandles
+        1  1
+
+    dwCreationFlags
+        1  0
+
+    lpApplicationName
+        1  0
+
+    lpCommandLine
+        1  (esp_in - 780)
+
+    lpCurrentDirectory
+        1  0
+
+    lpEnvironment
+        1  0
+
+    lpProcessAttributes
+        1  0
+
+    lpProcessInformation
+        1  (esp_in - 864)
+
+    lpStartupInfo
+        1  (esp_in - 848)
+
+    lpThreadAttributes
+        1  0
+
+  CreateThread
+
+    dwCreationFlags
+        3  0
+
+    dwStackSize
+        3  0
+
+    lpParameter
+        1  0
+        2  0x4090f0
+
+    lpStartAddress
+        2  0x402550
+        1  0x406720
+
+    lpThreadAttributes
+        3  0
+
+    lpThreadId
+        3  0
+
+  CreateToolhelp32Snapshot
+
+    dwFlags
+        1  2
+        1  8
+
+    th32ProcessID
+        1  0
+        1  arg.0004_in
+
+  DeleteFileA
+
+    lpFileName
+        1  (esp_in - 780)
+
+  FindFirstFileA
+
+    lpFileName
+        1  (esp_in - 0x550)
+
+    lpFindFileData
+        1  (esp_in - 0x44c)
+
+  FindNextFileA
+
+    hFindFile
+        1  FindFirstFileA_rtn_0x4022fc
+
+    lpFindFileData
+        1  (esp_in - 0x44c)
+
+  FreeConsole
+
+  GetEnvironmentVariableA
+
+    lpBuffer
+        1  (esp_in - 520)
+
+    lpName
+        1  0x4081e4: "ComSpec"
+
+    nSize
+        1  260
+
+  GetExitCodeProcess
+
+    hProcess
+        1  0
+
+    lpExitCode
+        1  (esp_in - 868)
+
+  GetLastError
+
+  GetLocalTime
+
+    lpSystemTime
+        1  (esp_in - 0x440)
+
+  GetModuleFileNameA
+
+    hModule
+        1  0
+
+    lpFilename
+        1  (esp_in - 520)
+
+    nSize
+        1  260
+
+  GetShortPathNameA
+
+    cchBuffer
+        1  260
+
+    lpszLongPath
+        1  (esp_in - 520)
+
+    lpszShortPath
+        1  (esp_in - 520)
+
+  GetStartupInfoA
+
+    lpStartupInfo
+        1  (esp_in - 848)
+
+  GetStdHandle
+
+    nStdHandle
+        1  -11
+
+  GetSystemDirectoryA
+
+    lpBuffer
+        1  (esp_in - 260)
+
+    uSize
+        1  260
+
+  GetTempPathA
+
+    lpBuffer
+        1  (esp_in - 780)
+
+    nBufferLength
+        1  260
+
+  GlobalFree
+
+    hMem
+        3  var.0104
+
+  Module32First
+
+    hSnapshot
+        1  CreateToolhelp32Snapshot_rtn_0x401f3d
+
+    lpme
+        1  (esp_in - 0x624)
+
+  OpenProcess
+
+    bInheritHandle
+        3  0
+
+    dwDesiredAccess
+        1  0x1f0fff
+        1  0x400
+        1  1
+
+    dwProcessId
+        2  arg.0004_in
+        1  var.1344
+
+  PeekNamedPipe
+
+    hNamedPipe
+        1  gv_0x4090f8_in
+
+    lpBuffer
+        1  (esp_in - 0x1f470)
+
+    lpBytesLeftThisMessage
+        1  0
+
+    lpBytesRead
+        1  (esp_in - 40)
+
+    lpTotalBytesAvail
+        1  0
+
+    nBufferSize
+        1  0x1000
+
+  Process32First
+
+    hSnapshot
+        1  CreateToolhelp32Snapshot_rtn_0x401df2
+
+    lppe
+        1  (esp_in - 0x528)
+
+  Process32Next
+
+    hSnapshot
+        1  CreateToolhelp32Snapshot_rtn_0x401df2
+
+    lppe
+        1  (esp_in - 0x528)
+
+  ReadFile
+
+    hFile
+        1  gv_0x4090f8_in
+
+    lpBuffer
+        1  (esp_in - 0x1f470)
+
+    lpNumberOfBytesRead
+        1  (esp_in - 48)
+
+    lpOverlapped
+        1  0
+
+    nNumberOfBytesToRead
+        1  var.256352
+
+  Sleep
+
+    dwMilliseconds
+        2  0x2710
+        1  0x7530
+        2  100
+        1  400
+        1  gv_0x4080c4_in
+        2  gv_0x4080c8_in
+        1  var.1124
+
+  TerminateProcess
+
+    hProcess
+        1  OpenProcess_rtn_0x402739
+
+    uExitCode
+        1  0
+
+  WinExec
+
+    lpCmdLine
+        1  (esp_in - 0x3e8f2)
+
+    uCmdShow
+        1  0
+
+  WriteFile
+
+    hFile
+        3  gv_0x4090f4_in
+
+    lpBuffer
+        2  (esp_in - 0x3e8f2)
+        1  0x408214
+
+    lpNumberOfBytesWritten
+        1  (esp_in - 0x7d004)
+        2  (esp_in - 36)
+
+    lpOverlapped
+        3  0
+
+    nNumberOfBytesToWrite
+        1  6
+        2  var.256352
+
+  lstrcatA
+
+    lpString1
+        2  (esp_in - 260)
+
+    lpString2
+        1  (esp_in - 520)
+        1  0x4081ec: ">> NUL"
+
+  lstrcpyA
+
+    lpString1
+        1  (esp_in - 260)
+
+    lpString2
+        1  0x4081f4: "/c del"
+
+MSVCP60.dll
+
+  ?_Copy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEXI@Z
+
+  ?_Tidy@?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AAEX_N@Z
+
+  ?_Xlen@std@@YAXXZ
+
+MSVCRT.dll
+
+  __dllonexit
+
+    func
+        1  arg.0004_in
+
+    pbegin
+        1  0x412d7c
+
+    pend
+        1  0x412d78
+
+  __getmainargs
+
+    _Argc
+        1  (esp_in - 32)
+
+    _Argv
+        1  (esp_in - 48)
+
+    _DoWildCard
+        1  gv_0x412d64_in
+
+    _Env
+        1  (esp_in - 36)
+
+    _StartInfo
+        1  (esp_in - 44)
+
+  __p___initenv
+
+  __p__commode
+
+  __p__fmode
+
+  __set_app_type
+
+    at
+        1  1
+
+  __setusermatherr
+
+    pf
+        1  0x406a42
+
+  _controlfp
+
+    mask
+        1  0x30000
+
+    new
+        1  0x10000
+
+  _initterm
+
+    endloc
+        1  0x408008
+        1  0x408010
+
+    startloc
+        1  0x408000
+        1  0x40800c
+
+  _itoa
+
+    radix
+        1  16
+
+    str
+        1  var.0024
+
+    value
+        1  var.0028
+
+  _onexit
+
+    func
+        1  arg.0004_in
+
+  atoi
+
+    str
+        1  (arg.0004_in + 50)
+        1  (arg.0004_in + 60)
+        1  (arg.0004_in + 70)
+        1  (arg.0004_in + 80)
+        1  (esp_in - 0x1f4f2)
+        1  (esp_in - 0x2c28)
+        2  (esp_in - 0x3e8f2)
+        1  (esp_in - 0x3e91a)
+        1  (esp_in - 0x400)
+        1  (esp_in - 0x800)
+        1  (esp_in - 0xbb8aa)
+
+  exit
+
+    status
+        1  0x402f00_rtn_0x4069eb
+
+  fclose
+
+    stream
+        1  fopen_rtn_0x403de0
+        3  var.1580
+
+  fflush
+
+    stream
+        3  0x7c36
+
+  fopen
+
+    filename
+        2  (esp_in - 0x600)
+        1  arg.0016_in
+
+    mode
+        1  0x40863c: "wb+"
+        2  0x408640: "rb+"
+
+  fread
+
+    dest
+        2  arg.0008_in
+
+    nitems
+        1  0xea60
+        1  var.1188
+
+    size
+        2  1
+
+    stream
+        2  fopen_rtn_0x403de0
+
+  free
+
+    ptr
+        1  arg.0004_in
+        2  ecx_in[32808]_in
+
+  freopen
+
+    mode
+        1  0x4081d4: "r+t"
+        1  0x4081e0: "w+t"
+
+    path
+        1  0x4081cc: "CONIN$"
+        1  0x4081d8: "CONOUT$"
+
+    stream
+        1  0x7c36
+        1  0x7c56
+
+  fseek
+
+    offset
+        2  0
+        1  var.1584
+
+    origin
+        2  0
+        1  2
+
+    stream
+        2  fopen_rtn_0x403de0
+        1  var.1588
+
+  ftell
+
+    stream
+        1  fopen_rtn_0x403de0
+
+  fwrite
+
+    buffer
+        1  arg.0008_in
+
+    count
+        1  0x402d00_rtn_0x403c4c
+
+    size
+        1  1
+
+    stream
+        1  var.1600
+
+  getenv
+
+    name
+        1  0x4080f8: "windir"
+        1  0x408100: "USERPROFILE"
+
+  localtime
+
+    timer
+        1  (esp_in - 44)
+
+  malloc
+
+    size
+        1  (arg.0008_in + 1)
+
+  printf
+
+    format
+        3  0x40818c: "%s\n"
+        1  0x408190: "InternetQueryOption failed! (%d)\n"
+        1  0x408228: "Are you sure to FORMAT Disk C With NTFS?(Y/N)"
+        2  0x408708: "%s"
+        1  0x408a5c: "regcode:%s\n"
+        1  0x408a88: "lasttime:%s\n"
+        1  0x408ab8: "onlinetime:%s\n"
+        1  0x408b4c: "clientname:%s\n"
+        1  0x408cc4: "messagename:%s\n"
+        1  0x408d04: "messagetotallength:%s\n"
+        1  0x408d1c: "encodenum:%s\n"
+        1  0x408d2c: "toid:%s\n"
+        1  0x408db4: "filelength:%s\n"
+        1  0x408dc4: "filepiece:%s\n"
+        1  0x408dfc
+        1  0x408e38
+        2  0x408e70
+        1  0x408f54: "Command Error!\n"
+        1  0x408f8c: "Pls choose target first!\n"
+        1  0x409090: "\n$"
+        1  0x40909c: "Alert!Pls press enter to make sure!"
+        1  0x4090c0: "(info)%s->%s:%s\n$"
+        4  var.1044
+        5  var.1048
+
+  rand
+
+  scanf
+
+    args
+        3  0x412c54
+
+    format
+        3  0x408220: "%[^\n]"
+
+  sprintf
+
+    args
+        1  (arg.0004_in + 10)
+        1  (arg.0004_in + 50)
+        1  (esp_in - 0x1f4be)
+        1  (esp_in - 0x430)
+        2  (esp_in - 0x500)
+        1  (esp_in - 0x504)
+        1  (esp_in - 40)
+        2  (esp_in - 520)
+        2  0x40825c: "http://cas.m-e.org.ru/main/1.asp"
+        3  0x412c18
+        2  0x412c2c
+        1  0x412c40
+        9  arg.0004_in
+        1  arg.0008_in
+        2  arg.0012_in
+        1  arg.0016_in
+        1  arg.0024_in
+        1  ecx_in[32812]_in
+        8  edi_in
+        1  gv_0x412a10_in
+        1  rand_rtn_0x404323
+        2  var.0104
+        1  var.11344
+        1  var.1144
+        1  var.1188
+        1  var.1352
+        1  var.1580
+        1  var.1584
+        1  var.1620
+
+    buffer
+        2  (esp_in - 0x1f400)
+        1  (esp_in - 0x1f48c)
+        1  (esp_in - 0x1f496)
+        1  (esp_in - 0x1f4a0)
+        1  (esp_in - 0x1f4aa)
+        2  (esp_in - 0x1f4b4)
+        2  (esp_in - 0x1f4be)
+        1  (esp_in - 0x1f4d2)
+        1  (esp_in - 0x2c28)
+        1  (esp_in - 0x3f03c)
+       27  (esp_in - 0x400)
+        1  (esp_in - 0x430)
+        1  (esp_in - 0x800)
+        3  (esp_in - 0x83c)
+        1  (esp_in - 130)
+        1  (esp_in - 260)
+        2  (esp_in - 780)
+        3  arg.0004_in
+
+    format
+        1  0x4080ac
+        1  0x4080d0
+        1  0x4080dc: "\n Executable = %s"
+        1  0x40810c: "\n%s\%s"
+        1  0x408114: "%s\%s"
+        1  0x408124: "\n%s\"
+        1  0x408140: "PROXY_TYPE_PROXY:%s"
+        1  0x40816c: "PROXY_TYPE_AUTO_PROXY_URL:%s"
+        1  0x408204: "%.4d"
+        1  0x40859c: "piece %d not found error!\n"
+        1  0x4085b8: "net error!\n"
+        1  0x4085d4
+        1  0x4085f8: "select * from tab_file where filename='%s' and filepieceindex=%d"
+        1  0x408644: "select top 1 * from tab_file where filename='%s' order by id asc"
+        1  0x408698
+        1  0x4086bc: "select id from tab_file where filename='%s' and filepieceindex=%d"
+        4  0x408708: "%s"
+        1  0x40870c: "select top 1 * from tab_message where toid = '%s' order by id asc"
+        1  0x408750: "insert into tab_message (messageaction,fromid,toid,encodenum,messagetotallength,messagepiecelength,messagepieceindex,messagecontent,messagename) values ('%s','%s','%s',%s,%s,%s,%s,'%s','%s')"
+        1  0x408810: "insert into tab_file (encodenum,filetotallength,filepiecelength,filepieceindex,filecontent,filename,filehash) values (%s,%s,%s,%s,'%s','%s','%s')"
+        2  0x4088a4
+        4  0x4088a8: "%d"
+        1  0x4088ac: "update tab_online set lasttime = '%s' where regcode = '%s'"
+        1  0x4088e8: "insert into tab_online (mode,clientname,clientip,accessip,onlinetime,lasttime,regcode) values ('%d','%s','%s','%s','%s','%s','%s')"
+        3  0x40896c: "select id from tab_online where regcode = '%s' order by id asc"
+        1  0x4089ac: "%d-%02d-%02d %02d:%02d:%02d"
+        1  0x4089f0: "%s?%s"
+        1  0x4089f8: "rands=%s&acc=%s&str=%s"
+        1  0x408a10: "str=%s"
+        1  0x408a18: "%s?rands=%s&acc=%s"
+        1  0x408bb4: "select * from tab_online order by id asc"
+        1  0x408be0: "select * from tab_online where id=%s"
+        1  0x408c08: "delete from tab_online where id=%s"
+        1  0x408c2c: "delete from tab_online"
+        1  0x408c44: "delete from tab_message where id=%s"
+        1  0x408c68: "delete from tab_message"
+        1  0x408c80: "delete from tab_file where filename='%s'"
+        1  0x408cac: "delete from tab_file"
+        1  0x408d60: "select * from tab_message order by id asc"
+        1  0x408d8c: "select * from tab_message where id=%s"
+        1  0x408ea0: "select distinct filename,filetotallength from tab_file"
+        1  0x408ed8: "select filename,filetotallength,filepiecelength,filepieceindex from tab_file where filename='%s' order by id asc"
+        1  var.0104
+
+  srand
+
+    seed
+        1  time_rtn_0x402865
+        1  time_rtn_0x403e2a
+        1  time_rtn_0x404316
+
+  strftime
+
+    format
+        1  0x4082fc: "%Y/%m/%d %X %z"
+
+    maxsize
+        1  64
+
+    strDest
+        1  (esp_in - 112)
+
+    timeptr
+        1  localtime_rtn_0x4030f8
+
+  strncmp
+
+    count
+        1  4
+        2  5
+
+    string1
+        1  0x40825c: "http://cas.m-e.org.ru/main/1.asp"
+        2  ?
+
+    string2
+        1  0x408054: "http"
+        1  0x40805c: "https"
+        1  0x408288
+
+  strstr
+
+    s1
+        1  arg.0004_in
+        1  var.0024
+
+    s2
+        1  arg.0008_in
+        1  arg.0012_in
+
+  strtok
+
+    strDelimit
+        1  0x40820c
+        2  0x408210
+
+    strToken
+        1  0
+        1  arg.0008_in
+        1  var.0024
+
+  system
+
+    command
+        1  0x40908c: "cls"
+
+  time
+
+    tloc
+        4  0
+
+SHELL32.dll
+
+  ShellExecuteA
+
+    hwnd
+        1  0
+
+    lpDirectory
+        1  0
+
+    lpFile
+        1  (esp_in - 520)
+
+    lpOperation
+        1  0
+
+    lpParameters
+        1  (esp_in - 260)
+
+    nShowCmd
+        1  0
+
+WININET.dll
+
+  HttpAddRequestHeadersA
+
+    dwHeadersLength
+        4  var.0044
+        4  var.2140
+
+    dwModifiers
+        3  -2147483648
+        5  0x10000000
+
+    hRequest
+        2  HttpOpenRequestA_rtn_0x40169a
+        2  HttpOpenRequestA_rtn_0x401863
+        4  HttpOpenRequestA_rtn_0x401a64
+
+    lpszHeaders
+        1  (ecx_in + 0x8831)
+        3  (ecx_in + 40)
+        1  (esp_in - 0x800)
+        3  0x408080
+
+  HttpEndRequestA
+
+    dwContext
+        1  0
+
+    dwFlags
+        1  8
+
+    hRequest
+        1  HttpOpenRequestA_rtn_0x401a64
+
+    lpBuffersOut
+        1  0
+
+  HttpOpenRequestA
+
+    dwContext
+        3  0
+
+    dwFlags
+        2  var.0044
+        1  var.2140
+
+    hConnect
+        3  ecx_in[8]_in
+
+    lplpszAcceptTypes
+        1  (esp_in - 0x834)
+        2  (esp_in - 8)
+
+    lpszObjectName
+        2  var.0060
+        1  var.2156
+
+    lpszReferer
+        3  arg.0008_in
+
+    lpszVerb
+        1  0x408090: "GET"
+        2  0x4080a4: "POST"
+
+    lpszVersion
+        3  0x408094: "HTTP/1.0"
+
+  HttpQueryInfoA
+
+    dwInfoLevel
+        1  22
+        1  33
+        1  5
+
+    hRequest
+        3  ecx_in[12]_in
+
+    lpdwBufferLength
+        1  (esp_in - 0x804)
+        1  (esp_in - 0x808)
+        1  (esp_in - 0x80c)
+
+    lpdwIndex
+        3  0
+
+    lpvBuffer
+        1  (ecx_in + 0x4028)
+        1  (ecx_in + 0x8031)
+        1  (esp_in - 0x800)
+
+  HttpSendRequestA
+
+    dwHeadersLength
+        1  0
+        1  var.0048
+
+    dwOptionalLength
+        1  0
+        1  ecx_in[32812]_in
+
+    hRequest
+        1  HttpOpenRequestA_rtn_0x40169a
+        1  HttpOpenRequestA_rtn_0x401863
+
+    lpOptional
+        1  0
+        1  ecx_in[32808]_in
+
+    lpszHeaders
+        1  (ecx_in + 0x8831)
+        1  0
+
+  HttpSendRequestExA
+
+    dwContext
+        1  0
+
+    dwFlags
+        1  8
+
+    hRequest
+        1  HttpOpenRequestA_rtn_0x401a64
+
+    lpBuffersIn
+        1  (esp_in - 0x828)
+
+    lpBuffersOut
+        1  0
+
+  InternetCloseHandle
+
+    hInternet
+        1  ?
+        1  HttpOpenRequestA_rtn_0x40169a
+        1  HttpOpenRequestA_rtn_0x401863
+        1  HttpOpenRequestA_rtn_0x401a64
+        2  ecx_in[12]_in
+        1  ecx_in[4]_in
+        1  ecx_in[8]_in
+
+  InternetConnectA
+
+    dwContext
+        2  0
+
+    dwFlags
+        2  0x400000
+
+    dwService
+        2  3
+
+    hInternet
+        2  ?
+
+    lpszPassword
+        2  0
+
+    lpszServerName
+        2  ?
+
+    lpszUsername
+        2  0
+
+    nServerPort
+        2  ?
+
+  InternetCrackUrlA
+
+    dwFlags
+        1  0
+
+    dwUrlLength
+        1  0
+
+    lpUrlComponents
+        1  (esp_in - 88)
+
+    lpszUrl
+        1  arg.0004_in
+
+  InternetOpenA
+
+    dwAccessType
+        2  0
+
+    dwFlags
+        2  0
+
+    lpszAgent
+        2  ?
+
+    lpszProxyBypass
+        2  0
+
+    lpszProxyName
+        2  0
+
+  InternetQueryOptionA
+
+    dwOption
+        3  31
+        1  40
+        1  75
+
+    hInternet
+        2  0
+        1  HttpOpenRequestA_rtn_0x40169a
+        1  HttpOpenRequestA_rtn_0x401863
+        1  HttpOpenRequestA_rtn_0x401a64
+
+    lpBuffer
+        1  (esp_in - 0x840)
+        2  (esp_in - 20)
+        1  (esp_in - 80)
+        1  (esp_in - 88)
+
+    lpdwBufferLength
+        1  (esp_in - 0x82c)
+        2  (esp_in - 4)
+        2  (esp_in - 92)
+
+  InternetReadFile
+
+    dwNumberOfBytesToRead
+        1  arg.0008_in
+
+    hFile
+        1  ecx_in[12]_in
+
+    lpBuffer
+        1  arg.0004_in
+
+    lpdwNumberOfBytesRead
+        1  (esp_in - 4)
+
+  InternetSetOptionA
+
+    dwBufferLength
+        3  4
+
+    dwOption
+        3  31
+
+    hInternet
+        1  HttpOpenRequestA_rtn_0x40169a
+        1  HttpOpenRequestA_rtn_0x401863
+        1  HttpOpenRequestA_rtn_0x401a64
+
+    lpBuffer
+        1  (esp_in - 0x840)
+        2  (esp_in - 20)
+
+  InternetWriteFile
+
+    dwNumberOfBytesToWrite
+        1  ecx_in[32812]_in
+
+    hFile
+        1  HttpOpenRequestA_rtn_0x401a64
+
+    lpBuffer
+        1  ecx_in[32808]_in
+
+    lpdwNumberOfbytesWritten
+        1  (esp_in - 0x830)
+
+WS2_32.dll
+
+  WSAStartup
+
+    lpWSAData
+        1  (esp_in - 400)
+
+    wVersionRequested
+        1  257
+
+  gethostbyname
+
+    name
+        1  arg.0004_in
+
+  gethostname
+
+    name
+        1  arg.0004_in
+
+    namelen
+        1  128
+
+  inet_ntoa
+
+    in_addr
+        1  inet_ntoa_rtn_0x40213c[0]

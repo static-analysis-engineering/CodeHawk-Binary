@@ -1,0 +1,38 @@
+$ python chx86_disassemble_file.py mwv:V001
+xdir: /Users/henny/gitrepo/CodeHawk-Binary-X86-PE-Targets/mw/vshare/V001/V001.iexe.ch/x
+Saving section RI_0x7000 (size: 3584)
+Saving section RXC_0x1000 (size: 23552)
+Saving section WRI_0x8000 (size: 4608)
+
+Disassembly        : 0.18
+Construct functions: 0.25
+Disassembly information: 
+   Instructions         : 7944
+   Unknown instructions : 0
+   Functions            : 62 (coverage: 93.62%)
+   Function overlap     : 0 (counting multiples: 0)
+   Jumptables           : 0
+   Data blocks          : 0
+
+   Imports
+    fns   summ   DLL
+       4    4   WS2_32.dll
+      42   38   MSVCRT.dll
+      14   14   WININET.dll
+       4    0   MSVCP60.dll
+       1    1   SHELL32.dll
+       3    3   ADVAPI32.dll
+      34   34   KERNEL32.dll
+
+Small functions
+--------------------------------------------------------------------------------
+    < 10 instrs: 4
+   < 100 instrs: 34
+  < 1000 instrs: 23
+
+Large functions
+address          instructions     blocks      complexity   
+--------------------------------------------------------------------------------
+0x4057e0            1399           398          1118
+--------------------------------------------------------------------------------
+Constructed 62 functions
