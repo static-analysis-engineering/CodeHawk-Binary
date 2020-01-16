@@ -63,15 +63,22 @@ if __name__ == '__main__':
             result[dll].setdefault(fname,[])
             result[dll][fname].append(instr)
 
+    summaryproblems = {}
+
     for dll in sorted(result):
         print('\n' + dll)
         for fname in sorted(result[dll]):
             print('\n  ' + fname)
             for instr in sorted(result[dll][fname],key=lambda i:(i.asmfunction.faddr,i.iaddr)):
                 faddr = instr.asmfunction.faddr
-                print('    ' + faddr + ',' + instr.iaddr + '  '
-                          + ', '.join([ n + ':' +  str(x)
-                                            for (n,x) in instr.get_annotated_call_arguments()]))
+                try:
+                    print('    ' + faddr + ',' + instr.iaddr + '  '
+                            + ', '.join([ n + ':' +  str(x)
+                                              for (n,x) in instr.get_annotated_call_arguments()]))
+                except UF.CHBError as e:
+                    summaryproblems.setdefault(dll,{})
+                    summaryproblems[dll].setdefault(fname,[])
+                    summaryproblems[dll][fname].append(str(e))
 
     if args.aggregate:
 
@@ -99,6 +106,11 @@ if __name__ == '__main__':
                     argentry = aggregates[dll][fname][argname]
                     for pv in sorted(argentry):
                         print('      ' + str(argentry[pv]).rjust(3) + '  ' + pv)
-                        
-                
-                
+
+    if len(summaryproblems) > 0:
+        print('\nProblems encountered with function summaries:')
+        for dll in summaryproblems:
+            for fname in summaryproblems[dll]:
+                print('\n' + dll + ',' + fname)
+                for e in summaryproblems[dll][fname]:
+                    print('  ' + str(e))

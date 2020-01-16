@@ -65,7 +65,6 @@ def extract(path,filename,deps,extracthex):
             print('*' * 80)
             exit(1)
         am.save_extract()
-        A.Annotate(path,filename).annotate_pe_sections()
     except subprocess.CalledProcessError as args:
         print(args.output)
         print(args)

@@ -74,8 +74,6 @@ def parse():
                             default=12,type=int)
     parser.add_argument('--extracthex',action='store_true',
                             help='take input from executable in hex form')
-    parser.add_argument('--save_cfgs',action='store_true',
-                            help='save control flow graphs')
     parser.add_argument('--verbose','-v',help='show intermediate results',
                             action='store_true')
     args = parser.parse_args()

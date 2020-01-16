@@ -41,7 +41,6 @@ def parse():
     parser.add_argument('--esp',help='show stackpointer offset',action='store_true')
     parser.add_argument('--bytestring',help='show bytes as a string', action='store_true')
     parser.add_argument('--hash',action='store_true',help='show hash of function bytes')
-    parser.add_argument('--operandvalues',action='store_true',help='show operand values')
     args = parser.parse_args()
     return args    
 
@@ -87,16 +86,6 @@ if __name__ == '__main__':
                         print('  ' + callinstr.iaddr + '  '
                                   + callinstr.to_string(opcodetxt=False))
 
-            if args.operandvalues:
-                print('\n\nOperand values')
-                opvalues = f.get_operand_values()
-                for ia in sorted(opvalues):
-                    print(str(ia) + '  ' + ', '.join(str(x) for x in opvalues[ia]))
-
-                print('\nOperands')
-                operands = f.get_operands()
-                for ia in sorted(operands):
-                    print(str(ia) + '  ' + ', '.join(str(x)  for x in operands[ia]))
         else:
             print('Function ' + faddr + ' not found')
             print('Functions available: ')
