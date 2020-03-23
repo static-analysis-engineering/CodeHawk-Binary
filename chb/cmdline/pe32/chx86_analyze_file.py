@@ -104,7 +104,7 @@ if __name__ == '__main__':
     try:
         (path,filename,deps) = UF.get_path_filename_deps('x86-pe',args.filename)
         if not UF.check_executable(path,filename):
-            extract(path,filename,deps)            
+            extract(path,filename,deps,args.extracthex)
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)

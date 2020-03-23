@@ -25,14 +25,18 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+import argparse
 import os
 
 import chb.util.fileutil as UF
 
 if __name__ == '__main__':
 
-    print('=' * 80)
-    print('Registered analysis targets for architecture x86-pe:')
-    print('=' * 80)
-    print(UF.get_analysis_target_executables_to_string('x86-pe'))
+    try:
+        print('=' * 80)
+        print('Registered analysis targets for architecture x86-pe:')
+        print('=' * 80)
+        print(UF.get_analysis_target_executables_to_string('x86-pe'))
+    except UF.CHBError as e:
+        print(str(e.wrap()))
 

@@ -152,8 +152,12 @@ if __name__ == '__main__':
         args.atfis = list(UF.get_analysis_target_executables('x86-pe').keys())
 
     for atfi in args.atfis:
-        executables = UF.get_atfi_executables('x86-pe',atfi)
-        (xcount,fncount) = collect_data(atfi,executables,includes,excludes,args)
+        try:
+            executables = UF.get_atfi_executables('x86-pe',atfi)
+            (xcount,fncount) = collect_data(atfi,executables,includes,excludes,args)
+        except UF.CHBError as e:
+            print(str(e.wrap()))
+            exit(1)
 
     print('\nStatistics')
     print('-' * 80)

@@ -64,6 +64,7 @@ if __name__ == '__main__':
             result[dll][fname].append(instr)
 
     summaryproblems = {}
+    nosummaries = {}
 
     for dll in sorted(result):
         print('\n' + dll)
@@ -75,10 +76,14 @@ if __name__ == '__main__':
                     print('    ' + faddr + ',' + instr.iaddr + '  '
                             + ', '.join([ n + ':' +  str(x)
                                               for (n,x) in instr.get_annotated_call_arguments()]))
+                except UF.CHBSummaryNotFoundError:
+                    nosummaries.setdefault(dll,{})
+                    nosummaries[dll].setdefault(fname,0)
+                    nosummaries[dll][fname] += 1
                 except UF.CHBError as e:
                     summaryproblems.setdefault(dll,{})
                     summaryproblems[dll].setdefault(fname,[])
-                    summaryproblems[dll][fname].append(str(e))
+                    summaryproblems[dll][fname].append(faddr + ',' + instr.iaddr + ': ' + str(e))
 
     if args.aggregate:
 
@@ -90,12 +95,15 @@ if __name__ == '__main__':
                 aggregates[dll][fname] = {}
                 fentry = aggregates[dll][fname]
                 for instr in result[dll][fname]:
-                    arguments = instr.get_annotated_call_arguments()
-                    for (name,v) in arguments:
-                        pv = str(v)
-                        fentry.setdefault(name,{})
-                        fentry[name].setdefault(pv,0)
-                        fentry[name][pv] += 1
+                    try:
+                        arguments = instr.get_annotated_call_arguments()
+                        for (name,v) in arguments:
+                            pv = str(v)
+                            fentry.setdefault(name,{})
+                            fentry[name].setdefault(pv,0)
+                            fentry[name][pv] += 1
+                    except UF.CHBError:
+                        pass
 
         for dll in sorted(aggregates):
             print('\n' + dll)
@@ -114,3 +122,10 @@ if __name__ == '__main__':
                 print('\n' + dll + ',' + fname)
                 for e in summaryproblems[dll][fname]:
                     print('  ' + str(e))
+
+    if len(nosummaries) > 0:
+        print('\nMissing summaries:')
+        for dll in sorted(nosummaries):
+            print('\n' + dll)
+            for fname in sorted(nosummaries[dll]):
+                print(str(nosummaries[dll][fname]).rjust(5) + '  ' + fname)
