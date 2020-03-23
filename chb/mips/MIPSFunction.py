@@ -102,6 +102,14 @@ class MIPSFunction(object):
         self.iter_instructions(f)
         return result
 
+    def get_app_calls(self):
+        result = []
+        def f(iaddr,instr):
+            if instr.is_call_instruction():
+                result.append(instr)
+        self.iter_instructions(f)
+        return result
+
     def get_global_refs(self):
         lhsresult = []
         rhsresult = []

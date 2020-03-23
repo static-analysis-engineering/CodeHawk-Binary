@@ -112,6 +112,16 @@ class  AppAccess(object):
         for faddr in self.get_function_addresses():
             f(faddr,self.get_function(faddr))
 
+    # Misc ---------------------------------------------------------------------
+    
+    # returns a dictionary of faddr -> string list
+    def get_strings(self):
+        result = {}
+        def f(faddr,fn):
+            result[faddr] = fn.get_strings()
+        self.iter_functions(f)
+        return result
+
 
     def get_md5_profile(self):
         """Creates a dictionary of function md5s.
@@ -253,7 +263,18 @@ class  AppAccess(object):
         self.iter_functions(f)
         return result
 
-        # Result Metrics -----------------------------------------------------------
+    # Global variables ---------------------------------------------------------
+    
+    # returns a dictionary of faddr -> gvar -> count
+    def get_global_variables(self):
+        result = {}
+        def f(faddr,fn):
+            result[faddr] = fn.get_global_variables()     # gvar -> count
+        self.iter_functions(f)
+        return result
+
+
+    # Result Metrics -----------------------------------------------------------
 
     def get_result_metrics(self):
         x = UF.get_resultmetrics_xnode(self.path,self.filename)

@@ -31,6 +31,7 @@ class VDictionaryRecord(object):
     def __init__(self,vd,index,tags,args):
         self.vd = vd
         self.xd = vd.xd
+        self.id = vd.app.interfacedictionary
         self.faddr = self.vd.asmfunction.faddr
         self.app = vd.app
         self.bd = self.app.bdictionary
@@ -424,6 +425,16 @@ class FunctionReturnValue(ConstantValueVariableBase):
             # return 'rtn_' + str(self.get_call_target()) + '@' + self.get_call_site()
         else:
             return 'rtn_' + str(self.get_call_site())
+
+class CallTargetValue(ConstantValueVariableBase):
+
+    def __init__(self,vd,index,tags,args):
+        ConstantValueVariableBase.__init__(self,vd,index,tags,args)
+
+    def get_call_target(self): return self.id.get_call_target(self.args[0])
+
+    def __str__(self):
+        return 'call_target:' + str(self.get_call_target())
 
 
 class SideEffectValue(ConstantValueVariableBase):

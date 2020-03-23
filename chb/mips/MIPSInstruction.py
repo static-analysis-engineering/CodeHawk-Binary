@@ -154,6 +154,11 @@ class MIPSInstruction(object):
             ctgtaddr = opcode.get_target()
             return  (not ctgtaddr is None) and str(ctgtaddr) == tgtaddr
 
+    def get_call_target(self):
+        opcode =  self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+        if opcode.is_call_instruction():
+            return opcode.get_target()
+
     def is_branch_instruction(self):
         opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
         return opcode.is_branch_instruction()

@@ -262,7 +262,7 @@ class X86Call(X.X86OpcodeBase):
                 else:
                     print(dll + ':' + name + ": params, args don't match")
             else:
-                print(dll + ':' + name + ': summary not found')
+                raise UF.CHBSummaryNotFoundError(name,dll=dll)
         return [ ('arg' + str(i+1),x) for (i,x) in enumerate(xprs) ]
 
     # xdata: [],[] no call target

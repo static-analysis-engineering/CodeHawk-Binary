@@ -147,6 +147,16 @@ class CHBFunctionNotFoundError(CHBError):
     def __str__(self):
         return ('Function ' + self.faddr + ' not found in ' + self.filename)
 
+class CHBSummaryNotFoundError(CHBError):
+
+    def __init__(self,fname,dll=None):
+        self.fname = fname
+        self.dll = dll
+
+    def __str__(self):
+        pdll = '' if dll is None else ' in dll: ' + dll
+        return ('Summary not found: ' + self.fname + pdll)
+
 class CHBSummaryUnicodeDecodeError(CHBError):
 
     def __init__(self,dll,fname,error):
@@ -259,7 +269,7 @@ def get_analysis_target_executables(arch):
                             get_atfi_executables(arch,atfi))
     return result
 
-def get_analysis_target_executables_to_string(arch):
+def get_analysis_target_executables_to_string(arch,sortby=None):
     """Returns a formatted string that lists all executables with their status."""
     d = get_analysis_target_executables(arch)
     lines = []
@@ -270,18 +280,22 @@ def get_analysis_target_executables_to_string(arch):
         lines.append('-' * 80)
         lines.append(atfi + ': ' + basepath)
         lines.append('-' * 80)
-        maxnamelen = max([ len(str(x)) for x in xindex ]) +  3
-        for x in sorted(xindex):
+        maxnamelen = max([ len(str(x)) for x in xindex ]) + 3
+        atxis = sorted(xindex.keys())
+        if sortby == 'size':
+            atxis = sorted(atxis,key=lambda x:int(xindex[x]['size']))
+        for x in atxis:
             xrec = xindex[x]
             path = os.path.join(basepath,xrec['path']) if 'path' in xrec else basepath
             xfile = xrec['file']
             xsize = str(xrec['size']) if 'size' in xrec else '?'
-            hasextract = '+' if has_extract(path,xfile) else ' '
-            hasresults = '+' if has_results(path,xfile) else ' '
+            hasextract = '+'.center(10) if has_extract(path,xfile) else ' '.ljust(10)
+            hasresults = '+'.center(10) if has_results(path,xfile) else ' '.ljust(10)
+            clusters = ' (' + ','.join(c for c in xrec['clusters']) + ')' if 'clusters' in xrec else ''
             rfilename = os.path.join(xrec['path'],xrec['file'])
-            lines.append('  ' + x.ljust(maxnamelen) + hasextract.ljust(3)
-                             + hasresults.ljust(3) + xsize.rjust(10)
-                             + '  ' + rfilename)
+            lines.append('  ' + x.ljust(maxnamelen) + hasextract
+                             + hasresults + xsize.rjust(10)
+                             + '  ' + rfilename  + clusters)
     return '\n'.join(lines)
 
 def is_atsc(name):
@@ -388,7 +402,7 @@ def check_executable(path,xfile):
 # Check presence of analysis results ------------------------------------------
 
 def check_analysis_results(path,xfile):
-    """Returns true if analysis results are present."""
+    """Raises an exception if analysis results are not present."""
     filename = get_resultmetrics_filename(path,xfile)
     if not os.path.isfile(filename):
         xfilename = os.path.join(path,xfile)
@@ -724,6 +738,11 @@ def get_ida_unresolved_calls_filename(path,xfile):
 def get_ida_unresolved_calls_xnode(path,xfile):
     filename = get_ida_unresolved_calls_filename(path,xfile)
     return get_chb_xnode(filename,'functions')
+
+def get_xref_filename(path,xfile,infotype):
+    xxfile = xfile.replace('.','_')
+    udir = get_userdata_dir(path,xfile)
+    return os.path.join(udir,xxfile + '_' + infotype + '_x.json')
 
 # Statistics directory ---------------------------------------------------------
 
