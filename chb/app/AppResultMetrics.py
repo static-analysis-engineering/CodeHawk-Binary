@@ -177,7 +177,7 @@ class AppResultMetrics(object):
         names = {}
         def f(fn):
             if fn.has_name():
-                name = fn.getname()
+                name = fn.get_name()
                 if not name in names: names[name] = []
                 names[name].append(fn.faddr)
         self.iter(f)

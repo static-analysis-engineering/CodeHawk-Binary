@@ -44,6 +44,7 @@ from chb.app.JumpTable import JumpTable
 from chb.userdata.UserData import UserData
 
 from chb.peformat.PEHeader import PEHeader
+from chb.elfformat.ELFHeader import ELFHeader
 
 from chb.asm.AsmFunction import AsmFunction
 from chb.mips.MIPSFunction import MIPSFunction
@@ -71,6 +72,7 @@ class  AppAccess(object):
         self.resultdata = None     # AppResultData
         self.functions = {}        # faddr -> AsmFunction / MIPSFunction
         self.functioninfos = {}    # faddr -> FunctionInfo
+        self.functionnames = None    # name -> function address
 
         self.models = ModelsAccess(self,dlljars=self.deps)
         
@@ -101,6 +103,25 @@ class  AppAccess(object):
             else:
                 self.functions[faddr] = AsmFunction(self,xnode)
         return self.functions[faddr]
+
+    def has_function_name(self,faddr):
+        return self.get_function(faddr).has_name()
+
+    def get_function_name(self,faddr):
+        if self.has_function_name(faddr):
+            return self.get_function(faddr).get_names()[0]
+
+    def is_app_function_name(self,name):
+        if self.functionnames is None: self._initialize_functionnames()
+        return name in self.functionnames
+
+    def is_unique_app_function_name(self,name):
+        return (self.is_app_function_name(name)
+                    and len(self.functionnames[name]) == 1)
+
+    def get_app_function_address(self,name):
+        if self.is_unique_app_function_name(name):
+            return self.functionnames[name][0]
 
     def get_function_info(self,faddr):
         if not faddr in self.functioninfos:
@@ -145,9 +166,20 @@ class  AppAccess(object):
         return profile
 
     def get_app_calls(self):
+        """Returns a dictionary faddr -> Asm/MIPSInstruction."""
         result = {}
         def f(faddr,fn):
             appcalls = fn.get_app_calls()
+            if len(appcalls) > 0:
+                result[faddr] = appcalls
+        self.iter_functions(f)
+        return result
+
+    def get_call_instructions(self):
+        """Returns a dictionary faddr -> Asm/MIPSInstruction."""
+        result = {}
+        def f(faddr,fn):
+            appcalls = fn.get_call_instructions()
             if len(appcalls) > 0:
                 result[faddr] = appcalls
         self.iter_functions(f)
@@ -290,12 +322,23 @@ class  AppAccess(object):
         self._get_pe_header()
         return self.peheader
 
-    # Initialization
+    # ELF data  ----------------------------------------------------------------
+
+    def get_elf_header(self):
+        self._get_elf_header()
+        return self.elfheader
+
+    # Initialization -----------------------------------------------------------
 
     def _get_pe_header(self):
         if self.peheader is None:
             x = UF.get_pe_header_xnode(self.path,self.filename)
             self.peheader = PEHeader(self,x)
+
+    def _get_elf_header(self):
+        if self.elfheader is None:
+            x = UF.get_elf_header_xnode(self.path,self.filename)
+            self.elfheader = ELFHeader(self,x)
 
     def _get_user_data(self):
         if self.userdata is None:
@@ -338,3 +381,13 @@ class  AppAccess(object):
         if self.resultdata is None:
             x = UF.get_resultdata_xnode(self.path,self.filename)
             self.resultdata = AppResultData(self,x)
+
+    def _initialize_functionnames(self):
+        self.functionnames = {}
+        def f(faddr,fn):
+            if fn.has_name():
+                fnames = fn.get_names()
+                for fname in fnames:
+                    self.functionnames.setdefault(fname,[])
+                    self.functionnames[fname].append(faddr)
+        self.iter_functions(f)
