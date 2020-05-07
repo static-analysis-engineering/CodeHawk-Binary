@@ -41,6 +41,8 @@ def parse():
     parser.add_argument('--reset',action='store_true',
                             help='remove existing analysis results')
     parser.add_argument('--verbose','-v',help='output progress info',action='store_true')
+    parser.add_argument('--specializations','-s',nargs='*',default=[],
+                            help='function specializations present in system_info')
     args = parser.parse_args()
     return args
 
@@ -75,7 +77,7 @@ if __name__ == '__main__':
         exit(1)
 
     UF.check_analyzer()
-    am = AM.AnalysisManager(path,filename,deps=deps)
+    am = AM.AnalysisManager(path,filename,deps=deps,specializations=args.specializations)
 
     if args.reset:
         chdir = UF.get_ch_dir(path,filename)

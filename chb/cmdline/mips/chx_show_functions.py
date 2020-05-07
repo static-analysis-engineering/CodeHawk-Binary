@@ -74,7 +74,7 @@ if __name__ == '__main__':
                 print('\nFunction ' + faddr)
             print('-' * 80)
             print(f.to_string(bytestring=args.bytestring,hash=args.hash,
-                                  sp=args.sp,opcodetxt=args.assembly))
+                                  sp=args.sp,opcodetxt=args.assembly,opcodewidth=25))
 
             if args.callers:
                 print('\nCallers:')

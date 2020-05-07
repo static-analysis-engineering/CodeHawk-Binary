@@ -53,6 +53,9 @@ def parse():
     parser.add_argument('--predicates',help='add branch predicates',action='store_true')
     parser.add_argument('--calls',help='add calls to nodes',action='store_true')
     parser.add_argument('--json',help='save cfg in json format',action='store_true')
+    parser.add_argument('--sink',help='restrict graph to paths to this basic block')
+    parser.add_argument('--segments',help='restrict graph to paths that include these basic blocks',
+                            nargs='*',default=[])
     args = parser.parse_args()
     return args    
 
@@ -78,20 +81,32 @@ if __name__ == '__main__':
             exit(1)
 
         graphname = 'cfg_' + args.faddr
+        if not args.sink is None:
+            graphname += '_'  + args.sink
+        if len(args.segments) > 0:
+            graphname += '_'.join(args.segments)
         dotcfg = DC.DotCfg(graphname,
                                f,
                                looplevelcolors=["#FFAAAAFF","#FF5555FF","#FF0000FF"],
                                showpredicates=args.predicates,
-                               showcalls=args.calls,mips=True)
+                               showcalls=args.calls,mips=True,
+                               sink=args.sink,segments=args.segments)
 
         functionname = args.faddr
         if has_function_name(args.faddr):
             functionname = functionname +  ' (' + get_function_name(args.faddr) + ')'
+
         pdffilename = UD.print_dot(app.path,filename,dotcfg.build())
-        print('~' * 80)
-        print('Control flow graph for ' + functionname + ' has been saved in '
-                  + pdffilename)
-        print('~' * 80)
+
+        if os.path.isfile(pdffilename):
+            print('~' * 80)
+            print('Control flow graph for ' + functionname + ' has been saved in '
+                    + pdffilename)
+            print('~' * 80)
+        else:
+            print('*' * 80)
+            print('Error in converting dot file to pdf')
+            print('*' * 80)
 
         if args.json:
             jsonsave = {}

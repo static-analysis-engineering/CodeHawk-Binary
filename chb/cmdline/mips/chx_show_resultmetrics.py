@@ -49,7 +49,7 @@ if __name__ == '__main__':
     try:
         (path,filename) = UF.get_path_filename('mips-elf',args.filename)
         UF.check_analysis_results(path,filename)
-    except UF.XHBError as e:
+    except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
 
