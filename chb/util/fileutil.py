@@ -83,7 +83,7 @@ class CHBResultsFileNotFoundError(CHBError):
     def __str__(self):
         return ('Results file: ' +  self.filename + ' not found; please run analysis first')
 
-class CHBExexutableContentNotFoundErro(CHBFileNotFoundError):
+class CHBExecutableContentNotFoundErro(CHBFileNotFoundError):
 
     def __init__(self,path,file,absfilename,tarfilename):
         CHBFileNotFoundError.__init__(self,absfilename)
@@ -108,7 +108,7 @@ class CHBXmlParseError(CHBError):
                     + str(self.errorcode) + ') at position  '
                     + str(self.position))
 
-class CHBXmlRootElementNotFound(CHBError):
+class CHBXmlRootElementNotFoundError(CHBError):
 
     def __init__(self,filename,roottag):
         self.filename = filename
@@ -644,7 +644,7 @@ def get_elf_section_filename(path,xfile,index):
 
 def get_elf_section_xnode(path,xfile,index):
     filename = get_elf_section_filename(path,xfile,index)
-    return get_chb_xnode(filename,'elf-section')
+    return get_chb_xnode(filename,'raw-section')
 
 # Results directory ------------------------------------------------------------
 

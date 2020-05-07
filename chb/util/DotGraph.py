@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-max_label_length = 64
+max_label_length = 200
 
 def sanitize(s):
     if not s is None:
@@ -91,6 +91,7 @@ class DotGraph(object):
 
     def add_node(self,name,labeltxt=None,shaded=False,color=None):
         if not name in self.nodes:
+            if labeltxt is None: labeltxt=name
             labeltxt=sanitize(labeltxt)
             self.nodes[name] = DotNode(name,labeltxt=labeltxt,shaded=shaded,color=color)
 
@@ -102,6 +103,8 @@ class DotGraph(object):
             self.edges[(src,tgt)] = DotEdge(src,tgt,labeltxt)
 
     def set_top_bottom(self): self.rankdir = 'TB'
+
+    def set_left_to_right(self): self.rankdir = 'LR'
 
     def __str__(self):
         lines = []
