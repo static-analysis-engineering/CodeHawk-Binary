@@ -40,7 +40,7 @@ import chb.util.xmlutil as UX
 class AnalysisManager(object):
     """Sets up the command-line arguments for and invokes the Binary Analyzer."""
 
-    def __init__(self,path,filename,deps=[]):
+    def __init__(self,path,filename,deps=[],specializations=[]):
         """Initializes the analyzer location and target file location
 
         Arguments:
@@ -51,6 +51,7 @@ class AnalysisManager(object):
         self.path = path
         self.filename = filename
         self.deps = deps
+        self.specializations = specializations
         self.config = Config()
         self.chx86_analyze = self.config.chx86_analyze
         self.chsummaries = self.config.summaries
@@ -108,6 +109,8 @@ class AnalysisManager(object):
         cmd = [ self.chx86_analyze, '-summaries', self.chsummaries ]
         for d in self.deps:
             cmd.extend([ '-summaries', d ])
+        for s in self.specializations:
+            cmd.extend([ '-specialization', s ])
         chcmd = '-disassemble_elf' if elf else '-disassemble'
         chcmd = '-disassemble_mips' if mips else chcmd
         if verbose: cmd.append('-verbose')
@@ -236,6 +239,8 @@ class AnalysisManager(object):
         cmd = [ self.chx86_analyze, '-summaries', self.chsummaries ]
         for d in self.deps:
             cmd.extend([ '-summaries', d ])
+        for s in self.specializations:
+            cmd.extend([ '-specialization', s ])
         if ignore_stable: cmd.append('-ignore_stable')
         if verbose: cmd.append('-verbose')
         cmd.extend([ chcmd, filename ])
