@@ -31,8 +31,8 @@ def simplify_result(id1,id2,x1,x2):
     else:
         return str(x1) + ' (= ' + str(x2) + ')'
 
-branch_opcodes = [ 'beq', 'bne',  'blez' ]
-call_opcodes = [ 'jal', 'jalr', 'bal' ]
+branch_opcodes = [ 'beq', 'bne',  'blez', 'bltz', 'bgez' ]
+call_opcodes = [ 'jal', 'jalr', 'bal', 'jr' ]
 
 class MIPSOpcodeBase(object):
 
@@ -103,8 +103,7 @@ class MIPSOpcodeBase(object):
     def is_branch_instruction(self):
         return self.tags[0] in branch_opcodes
 
-    def is_call_instruction(self):
-        return self.tags[0] in call_opcodes
+    def is_call_instruction(self,xdata): return False
 
     def has_branch_condition(self): return False
 

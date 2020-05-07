@@ -34,6 +34,7 @@ class MIPSRegisterBase(object):
         self.args = args
 
     def is_mips_register(self): return False
+    def is_mips_stack_pointer(self): return False
     def is_mips_argument_register(self): return False
     def is_mips_special_register(self): return False
     def is_mips_floating_point_register(self): return False
@@ -55,6 +56,9 @@ class MIPSRegister(MIPSRegisterBase):
 
     def is_mips_argument_register(self):
         return self.tags[1] in [ 'a0', 'a1', 'a2', 'a3' ]
+
+    def is_mips_stack_pointer(self):
+        return self.tags[1] in [ 'sp' ]
 
     def get_argument_index(self):
         if self.is_mips_argument_register():

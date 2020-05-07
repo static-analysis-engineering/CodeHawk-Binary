@@ -83,8 +83,8 @@ class MIPSInstrXData(D.DictionaryRecord):
 class MIPSInstruction(object):
 
     def __init__(self,asmb,xnode):
-        self.mipsblock = asmb                               # AsmBlock
-        self.mipsfunction = self.mipsblock.mipsfunction       # AsmFunction
+        self.mipsblock = asmb                               # MIPSBlock
+        self.mipsfunction = self.mipsblock.mipsfunction     # MIPSFunction
         self.xnode = xnode
         self.iaddr = self.xnode.get('ia')
         self.mipsdictionary = self.mipsfunction.app.mipsdictionary
@@ -146,18 +146,36 @@ class MIPSInstruction(object):
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_return()
 
     def is_call_instruction(self):
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_call_instruction()
+        xdata = self.idictionary.read_xml_instrx(self.xnode)
+        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_call_instruction(xdata)
 
     def is_call_to_app_function(self,tgtaddr):
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        if opcode.is_call_instruction():
-            ctgtaddr = opcode.get_target()
+        if self.is_call_instruction():
+            xdata = self.idictionary.read_xml_instrx(self.xnode)
+            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+            ctgtaddr = opcode.get_target(xdata)
             return  (not ctgtaddr is None) and str(ctgtaddr) == tgtaddr
+        return False
 
     def get_call_target(self):
-        opcode =  self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        if opcode.is_call_instruction():
-            return opcode.get_target()
+        if self.is_call_instruction():
+            xdata = self.idictionary.read_xml_instrx(self.xnode)            
+            opcode =  self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+            return opcode.get_target(xdata)
+
+    def get_call_arguments(self):
+        if self.is_call_instruction():
+            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+            xdata = self.idictionary.read_xml_instrx(self.xnode)
+            return opcode.get_arguments(xdata)
+        print('**Not a call instruction**')
+        print(str(self))
+        exit(1)
+
+    def has_string_arguments(self):
+        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+        xdata = self.idictionary.read_xml_instrx(self.xnode)
+        return opcode.is_call_instruction(xdata) and opcode.has_string_arguments(xdata)
 
     def is_branch_instruction(self):
         opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)

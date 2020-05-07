@@ -33,7 +33,7 @@ class MIPSBlock(object):
         self.mipsfunction = mipsf
         self.xnode = xnode
         self.baddr = self.xnode.get('ba')
-        self.instructions = {}           # hex-address -> AsmInstruction
+        self.instructions = {}           # hex-address -> MIPSInstruction
         self._get_instructions()
 
     def has_instruction(self,iaddr): return iaddr in self.instructions
@@ -71,10 +71,10 @@ class MIPSBlock(object):
                                  + '  ' + instr.to_string(sp=True,opcodetxt=True))
         return '\n'.join(lines)
 
-    def to_string(self,sp=False,opcodetxt=True):
+    def to_string(self,sp=False,opcodetxt=True,opcodewidth=40):
         lines = []
         for ia in sorted(self.instructions):
-            pinstr = self.instructions[ia].to_string(sp=sp,opcodetxt=opcodetxt)
+            pinstr = self.instructions[ia].to_string(sp=sp,opcodetxt=opcodetxt,opcodewidth=opcodewidth)
             lines.append(str(ia).rjust(10) + '  ' + pinstr)
         return '\n'.join(lines)
 

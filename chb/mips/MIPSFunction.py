@@ -53,6 +53,13 @@ class MIPSFunction(object):
         self.invariants = FnInvariants(self.invdictionary,invnode.find('locations'))
         self.dictionary = FnMIPSDictionary(self,self.xnode.find('instr-dictionary'))
 
+    def has_name(self): return self.app.functionsdata.has_name(self.faddr)
+
+    def get_names(self):
+        if self.has_name():
+            return self.app.functionsdata.get_names(self.faddr)
+        return []
+
     def get_block(self,baddr):
         self._get_blocks()
         if baddr in self.blocks:
@@ -103,10 +110,29 @@ class MIPSFunction(object):
         return result
 
     def get_app_calls(self):
+        """Returns a list of MIPSInstruction that are calls to application functions."""
         result = []
         def f(iaddr,instr):
             if instr.is_call_instruction():
                 result.append(instr)
+        self.iter_instructions(f)
+        return result
+
+    def get_call_instructions(self):
+        result = []
+        def f(iaddr,instr):
+            if instr.is_call_instruction():
+                result.append(instr)
+        self.iter_instructions(f)
+        return result
+
+    def get_call_instructions_to_target(self,tgt):
+        """Returns a list of MIPSInstruction that are calls to the given app/lib function."""
+        result = []
+        def f(iaddr,instr):
+            if instr.is_call_instruction():
+                if str(instr.get_call_target()) == tgt:
+                    result.append(instr)
         self.iter_instructions(f)
         return result
 
@@ -180,12 +206,12 @@ class MIPSFunction(object):
             lines.append('-' * 80)
         return '\n'.join(lines)
 
-    def to_string(self,bytestring=False,sp=False,opcodetxt=True,hash=False):
+    def to_string(self,bytestring=False,sp=False,opcodetxt=True,hash=False,opcodewidth=40):
         self._get_blocks()
         lines = []
         for b in sorted(self.blocks):
             lines.append(
-                self.blocks[b].to_string(sp=sp,opcodetxt=opcodetxt))
+                self.blocks[b].to_string(sp=sp,opcodetxt=opcodetxt,opcodewidth=opcodewidth))
             lines.append('-' * 80)
         if bytestring: lines.append(self.get_byte_string(chunksize=80))
         if hash: lines.append('hash: ' + self.get_md5_hash())

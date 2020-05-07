@@ -35,11 +35,13 @@ mips_opcode_constructors = {
     'addiu': lambda x: MIPSAddImmediateUnsigned(*x),
     'addu' : lambda x: MIPSAddUnsigned(*x),
     'andi' : lambda x: MIPSAndImmediate(*x),
+    'b'    : lambda x: MIPSBranch(*x),
     'bal'  : lambda x: MIPSBranchLink(*x),
     'bc1f' : lambda x: MIPSBranchFPFalse(*x),
     'bc1t' : lambda x: MIPSBranchFPTrue(*x),
     'beq'  : lambda x: MIPSBranchEqual(*x),
     'bgezal': lambda x: MIPSBranchGEZeroLink(*x),
+    'bgez' : lambda x: MIPSBranchGEZero(*x),
     'blez' : lambda x: MIPSBranchLEZero(*x),
     'bltz' : lambda x: MIPSBranchLTZero(*x),
     'bne'  : lambda x: MIPSBranchNotEqual(*x),
@@ -87,6 +89,12 @@ mips_opcode_constructors = {
     }
 
 def derefstr(x): return '*(' + str(x) + ')'
+
+def extract_string_manipulations(c1,c2):
+    if c1.is_string_manipulation_condition():
+        return (c1.string_condition_to_pretty(),
+                    c2.string_condition_to_pretty())
+    return (str(c1),str(c2))
 
 def get_mips_opcode(tag,args):
     if tag in mips_opcode_constructors:
@@ -191,6 +199,16 @@ class MIPSAndImmediate(X.MIPSOpcodeBase):
         else:
             return 'pending:' + self.tags[0]
 
+class MIPSBranch (X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_target(self): return self.mipsd.get_mips_operand(self.args[0])
+
+    def get_annotation(self,_):
+        return 'goto ' + str(self.get_target())
+
 class MIPSBranchEqual(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -207,7 +225,7 @@ class MIPSBranchEqual(X.MIPSOpcodeBase):
 
     def get_ft_conditions(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
-        return [ str(xprs[4]), str(xprs[3]) ]
+        return [ xprs[4], xprs[3] ]
 
 class MIPSBranchFPFalse(X.MIPSOpcodeBase):
 
@@ -238,6 +256,30 @@ class MIPSBranchGEZeroLink(X.MIPSOpcodeBase):
     def __init__(self,mipsd,index,tags,args):
         X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
 
+    def get_target(self,xdata): return self.mipsd.get_mips_operand(self.args[1])
+
+    def has_branch_condition(self): return True
+
+    def get_branch_condition(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[2]
+
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[3], xprs[2] ]
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[1]
+        rresult = xprs[2]
+        result = X.simplify_result(xargs[1],xargs[2],result,rresult)
+        return 'if ' + result + ' then call ' + str(self.get_target(xdata))
+
+class MIPSBranchGEZero(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
     def get_target(self): return self.mipsd.get_mips_operand(self.args[1])
 
     def has_branch_condition(self): return True
@@ -246,12 +288,16 @@ class MIPSBranchGEZeroLink(X.MIPSOpcodeBase):
         (xtags,xargs,xprs) = xdata.get_xprdata()
         return xprs[2]
 
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[3], xprs[2] ]
+
     def get_annotation(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
         result = xprs[1]
         rresult = xprs[2]
         result = X.simplify_result(xargs[1],xargs[2],result,rresult)
-        return 'if ' + result + ' then call ' + str(self.get_target())
+        return 'if ' + result + ' then goto ' + str(self.get_target())
 
 class MIPSBranchLEZero(X.MIPSOpcodeBase):
 
@@ -268,7 +314,7 @@ class MIPSBranchLEZero(X.MIPSOpcodeBase):
 
     def get_ft_conditions(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
-        return [ str(xprs[3]), str(xprs[2]) ]
+        return [ xprs[3], xprs[2] ]
 
     def get_annotation(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -289,6 +335,10 @@ class MIPSBranchLTZero(X.MIPSOpcodeBase):
     def get_branch_condition(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
         return xprs[2]
+
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[3], xprs[2] ]
 
     def get_annotation(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -319,7 +369,7 @@ class MIPSBranchNotEqual(X.MIPSOpcodeBase):
 
     def get_ft_conditions(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
-        return [ str(xprs[4]), str(xprs[3]) ]
+        return [ xprs[4], xprs[3] ]
 
 
 class MIPSBranchLink(X.MIPSOpcodeBase):
@@ -327,15 +377,29 @@ class MIPSBranchLink(X.MIPSOpcodeBase):
     def __init__(self,mipsd,index,tags,args):
         X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
 
-    def get_target(self): return self.mipsd.get_mips_operand(self.args[0])
+    def is_call_instruction(self,xdata): return True
+
+    def get_target(self,xdata): return self.mipsd.get_mips_operand(self.args[0])
+
+    def has_string_arguments(self,xdata):
+        return any([ x.is_string_reference() for x in self.get_arguments(xdata)  ])
+
+    def get_arguments(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 0:
+            return [ xprs[i] for i in range(0,len(xargs)-1) ]
 
     def get_annotation(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
         if len(xargs) == 1:
             tgt = self.ixd.get_call_target(xargs[0])
             return 'call ' + str(tgt)
+        elif len(xargs) > len(xprs):
+            tgt = self.ixd.get_call_target(xargs[-1])
+            args = [ xprs[i] for i in range(0,len(xargs)-1) ]
+            return 'call ' + str(tgt) + '(' + ','.join( [ str(x) for x in args ]) + ')'
         else:
-            return 'call ' + str(self.get_target())
+            return 'call ' + str(self.get_target(xdata))
         
 
 class MIPSFPCompare(X.MIPSOpcodeBase):
@@ -372,7 +436,18 @@ class MIPSJumpLink(X.MIPSOpcodeBase):
     def __init__(self,mipsd,index,tags,args):
         X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
 
-    def get_target(self): return self.mipsd.get_mips_operand(self.args[0])
+    def is_call_instruction(self,xdata): return True
+
+    def get_target(self,xdata): return self.mipsd.get_mips_operand(self.args[0])
+
+    def has_string_arguments(self,xdata):
+        return any([ x.is_string_reference() for x in self.get_arguments(xdata)  ])
+
+    def get_arguments(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 0:
+            return [ xprs[i] for i in range(0,len(xargs)-1) ]
+        return []
 
     def get_annotation(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -384,31 +459,74 @@ class MIPSJumpLink(X.MIPSOpcodeBase):
             tgt = self.ixd.get_call_target(xargs[0])
             return 'call ' + str(tgt)
         else:
-            return 'call ' + str(self.get_target())
+            return 'call ' + str(self.get_target(xdata))
 
 class MIPSJumpLinkRegister(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
         X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
 
+    def is_call_instruction(self,xdata): return True
+
+    def has_string_arguments(self,xdata):
+        return any([ x.is_string_reference() for x in self.get_arguments(xdata)  ])
+
+    def get_arguments(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 0:
+            return [ xprs[i] for i in range(0,len(xargs)-1) ]
+        return []
+
     def get_annotation(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
-        tgt = str(xprs[2])
-        lhs = str(xprs[0])
-        ra = str(xprs[1])
-        return 'call* ' + tgt #  + ' (' + lhs + ' := ' + ra + ')'
+        if len(xprs) == 1 and len(xargs) == 1:
+            tgt = str(xprs[0])
+            return 'call* ' + tgt
+        if len(xargs) > len(xprs):
+            tgt = self.ixd.get_call_target(xargs[-1])
+            args = [ xprs[i] for i in range(0,len(xargs)-1) ]
+            return 'call ' + str(tgt) + '(' + ','.join( [ str(x) for x in args ]) + ')'
+        else:
+            return '**call: invalid format**'
 
-    def get_target(self): return None
+    def get_target(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) == 1 and len(xargs) == 1:
+            return str(xprs[0])
+        if len(xargs) > len(xprs):
+            tgt = self.ixd.get_call_target(xargs[-1])
+            if tgt.is_app_target():
+                return str(tgt.get_address())
+            return str(tgt)
+        return "**call: invalid format**"
+
 
 class MIPSJumpRegister(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
         X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
 
+    def has_string_arguments(self,xdata):
+        return any([ x.is_string_reference() for x in self.get_arguments(xdata)  ])
+
+    def get_arguments(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 0:
+            return [ xprs[i] for i in range(0,len(xargs)-1) ]
+        return []
+
+    def is_call_instruction(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return (len(xargs) > len(xprs))
+
     def get_annotation(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xargs) > len(xprs):
+            tgt = self.ixd.get_call_target(xargs[-1])
+            args = [ xprs[i] for i in range(0,len(xargs)-1) ]
+            return 'call ' + str(tgt) + '(' + ','.join( [ str(x) for x in args ]) + ')'
         tgt = str(xprs[0])
-        if xtags[0] == 'table':
+        if len(xtags) > 0 and xtags[0] == 'table':
             tgtd = get_jump_table_targets(xargs[1:])
             tgtstr = ' ('
             for t in sorted(tgtd):
@@ -419,6 +537,18 @@ class MIPSJumpRegister(X.MIPSOpcodeBase):
         else:
             jtgts = ''
         return 'jmp* ' + tgt + '  ' + jtgts
+
+    def get_target(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) == 1 and len(xargs) == 1:
+            return str(xprs[0])
+        if len(xargs) > len(xprs):
+            tgt = self.ixd.get_call_target(xargs[-1])
+            if tgt.is_app_target():
+                return str(tgt.get_address())
+            return str(tgt)
+        return "**call: invalid format**"
+
 
 class MIPSLoadByte(X.MIPSOpcodeBase):
 

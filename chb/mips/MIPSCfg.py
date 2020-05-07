@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
@@ -25,14 +25,17 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+import chb.util.graphutil as UG
+
 from chb.mips.MIPSCfgBlock import MIPSCfgBlock
+from chb.mips.MIPSCfgPath import MIPSCfgPath
 
 class MIPSCfg(object):
 
     def __init__(self,mipsf,xnode):
         self.mipsfunction = mipsf
         self.xnode = xnode
-        self.blocks = {}   #  startaddr -> MIPSCfgBlock
+        self.blocks = {}   #  blockstartaddr -> MIPSCfgBlock
         self.edges = {}    #  srcaddr -> [ tgtaddresses ]  (if multiple, first is false branch)
         self._initialize()
 
@@ -46,6 +49,44 @@ class MIPSCfg(object):
         if baddr in self.blocks:
             return self.blocks[baddr].get_loop_levels()
         return []
+
+    def get_max_loop_level(self):
+        return max( [ len(self.blocks[b].get_loop_levels()) for b in self.blocks ])
+
+    def has_loops(self):
+        return self.get_max_loop_level() > 0
+
+    def get_paths(self,baddr):
+        """Returns a path from function entry to blockaddr baddr."""
+        g = UG.DirectedGraph(self.blocks.keys(),self.edges)
+        g.find_paths(self.mipsfunction.faddr,baddr)
+        return [ MIPSCfgPath(self,p) for p in g.paths ]
+
+    def get_branch_instruction(self,n):
+        block = self.blocks[n]
+        iaddr = int(block.lastaddr,16) - 4  #  account for delay slot
+        return self.mipsfunction.get_instruction(hex(iaddr))
+
+    def get_condition(self,src,tgt):
+        """Returns the condition, if any, that leads from src to tgt."""
+        if len(self.edges[src]) > 1:
+            brinstr = self.get_branch_instruction(src)
+            ftconditions = brinstr.get_ft_conditions()
+            if len(ftconditions) == 2:
+                for i,t in enumerate(self.edges[src]):
+                    if tgt == t:
+                        return ftconditions[i]
+                else:
+                    print('Error in get_condition')
+
+    def get_path_conditions(self,path):
+        result = {}
+        for i in range(len(path) - 1):
+            c = self.get_condition(path[i],path[i+1])
+            if c is None:
+                continue
+            result[path[i]] = c
+        return result
 
     def __str__(self):
         lines = []
