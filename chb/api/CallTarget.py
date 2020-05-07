@@ -54,7 +54,7 @@ class SOFunction(FunctionStubBase):
 
     def get_name(self): return self.bd.get_string(self.args[0])
 
-    def __str__(self): return 'SO:' + self.get_name()
+    def __str__(self): return self.get_name()
 
 class DllFunction(FunctionStubBase):
 
@@ -168,6 +168,8 @@ class AppTarget(CallTargetBase):
         addr = str(self.get_address())
         if self.d.app.userdata.functionnames.has_function_name(addr):
             return 'App:' + self.d.app.userdata.functionnames.get_function_name(addr)
+        elif self.d.app.has_function_name(addr):
+            return 'App:' + self.d.app.get_function_name(addr)
         else:
             return 'App:' + str(self.get_address())
 
