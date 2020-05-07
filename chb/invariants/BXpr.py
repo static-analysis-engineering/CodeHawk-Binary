@@ -25,6 +25,8 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+import chb.invariants.InputConstraint as IC
+
 xpr_operator_strings = {
     "": " % ",
     "band": " & ",
@@ -43,7 +45,7 @@ xpr_operator_strings = {
     "minus": " - " ,
     "mod": " % ",
     "mult": " * " ,
-    "ne": " <> ",
+    "ne": " != ",
     "neg": " -",
     "plus": " + ",
     "range": " range ",
@@ -248,16 +250,16 @@ class BXVariable(XDictionaryRecord):
             return self.get_denotation().get_argument_index()
 
     def __str__(self):
-        if self.finfo.has_variable_name(self.get_seqnr()):
+        if self.is_tmp():
             return str(self.get_name())
-        else:
-            if not self.is_tmp():
-                if self.get_denotation().is_bridge_variable():
-                    return '?'
-                else:
-                    return str(self.get_denotation())
-            else:
-                return (str(self.get_name()))
+        denotation = self.get_denotation()
+        if denotation.is_bridge_variable():
+            return '?'
+        if denotation.is_auxiliary_variable():
+            auxvar = denotation.get_auxiliary_variable()
+            if auxvar.is_function_return_value():
+                return str(auxvar)
+        return (str(self.get_name()))
 
 
 class BXXCstBase(XDictionaryRecord):
@@ -266,11 +268,9 @@ class BXXCstBase(XDictionaryRecord):
     def __init__(self,xd,index,tags,args):
         XDictionaryRecord.__init__(self,xd,index,tags,args)
 
-    def is_string_reference(self,i):
-        return self.xd.vd.app.stringxrefs.has_string(str(hex(i)))
+    def is_string_reference(self): return False
 
-    def get_string_reference(self,i):
-        return self.xd.vd.app.stringxrefs.get_string(str(hex(i)))
+    def get_string_reference(self): return None
 
     def is_symset(self): return False
     def is_intconst(self): return False
@@ -300,13 +300,21 @@ class BXIntConst(BXXCstBase):
 
     def is_intconst(self): return True
 
+    def is_string_reference(self):
+        xval = self.get_constant().get_value()
+        return self.xd.vd.app.stringxrefs.has_string(str(hex(xval)))
+
+    def get_string_reference(self):
+        xval = self.get_constant().get_value()
+        return self.xd.vd.app.stringxrefs.get_string(str(hex(xval)))
+
     def get_constant(self): return self.xd.get_numerical(int(self.args[0]))
 
     def __str__(self):
-        if (self.is_string_reference(self.get_constant().get_value())
-                and len(self.get_string_reference(self.get_constant().get_value())) > 1):
-            return (str(hex(self.get_constant().get_value()))
-                        + ': "' + self.get_string_reference(self.get_constant().get_value()) + '"')
+        if (self.is_string_reference()
+                and len(self.get_string_reference()) > 1):
+            strvalue = '"' + self.get_string_reference() + '"'
+            return strvalue
         elif self.get_constant().get_value() >  1000:
             return str(hex(self.get_constant().get_value()))
         else:
@@ -365,12 +373,28 @@ class BXXprBase(XDictionaryRecord):
     def is_op(self): return False
     def is_attr(self): return False
     def is_four_multiple(self): return False
+    def is_stack_base_address(self): return False
+    def is_stack_address(self): return False
+
+    def is_true(self): return False
+    def is_false(self): return False
 
     # returns true if this expression is a dereference
     def is_structured_expr(self): return False
 
+    # returns true if this expression is a constant string
+    def is_string_reference(self):
+        return self.is_const() and self.get_const().is_string_reference()
+
     # returns a dictionary gv -> count
     def get_global_variables(self): return {}
+
+    # returns true if this expression is a string-manipulation condition
+    def is_string_manipulation_condition(self): return False
+
+    # returns an InputConstraint object if conversion is successful
+    def to_input_constraint(self): return None
+    def to_input_constraint_value(self): return None
 
     def __str__(self): return 'basexpr:' + self.tags[0]
 
@@ -391,6 +415,64 @@ class BXVar(BXXprBase):
             result[str(self.get_variable().get_global_variable_base())] = 1
         return result
 
+    def is_function_return_value(self):
+        return (self.get_variable().has_denotation()
+                    and self.get_variable().get_denotation().is_function_return_value())
+
+    def is_argument_deref_value(self):
+        if (self.get_variable().has_denotation()
+            and self.get_variable().get_denotation().is_initial_memory_value()):
+            auxvar = self.get_variable().get_denotation().get_auxiliary_variable()
+            return auxvar.is_argument_deref_value()
+        return False
+
+    def is_command_line_argument_value(self):
+        if self.is_argument_deref_value():
+            auxvar = self.get_variable().get_denotation().get_auxiliary_variable()
+            (arg,offset) = auxvar.get_argument_deref_arg_offset()
+            return arg == 2
+        return False
+
+    def is_stack_base_address(self):
+        if self.get_variable().has_denotation():
+            return self.get_variable().get_dentation().is_stack_base_address()
+
+    def get_command_line_argument_value_index(self):
+        if self.is_command_line_argument_value():
+            auxvar = self.get_variable().get_denotation().get_auxiliary_variable()
+            (arg,offset) = auxvar.get_argument_deref_arg_offset()
+            return offset
+
+    def get_returnval_target(self):
+        if self.is_function_return_value():
+            xaux = self.get_variable().get_denotation().get_auxiliary_variable()
+            if xaux.has_call_target():
+                return str(xaux.get_call_target())
+
+    def get_returnval_arguments(self):
+        if self.is_function_return_value():
+            xaux  = self.get_variable().get_denotation().get_auxiliary_variable()
+            return xaux.get_call_arguments()
+
+    def to_input_constraint_value(self):
+        if self.is_function_return_value():
+            tgt = self.get_returnval_target()
+            if tgt is None:
+                return
+            if tgt == 'getenv':
+                envarg = self.get_returnval_arguments()[0]
+                return IC.EnvironmentInputValue(str(envarg))
+            if tgt in [ 'strchr', 'strrchr' ]:
+                strk = self.get_returnval_arguments()[0].to_input_constraint_value()
+                if not strk is None:
+                    cchar = self.get_returnval_arguments()[1]
+                    charval = cchar.get_const().get_constant().get_value()
+                    charcode = "'" + chr(charval) + "'"
+                    return IC.StringSuffixValue(strk,charcode,lastpos=(tgt == 'strrchr'))
+        elif self.is_command_line_argument_value():
+            argindex = self.get_command_line_argument_value_index()
+            return IC.CommandLineArgument(argindex)
+
     def __str__(self): return str(self.get_variable())
 
 class BXConst(BXXprBase):
@@ -403,6 +485,16 @@ class BXConst(BXXprBase):
     def is_int_const_value(self,n):
         return (self.get_const().is_intconst()
                     and self.get_const().get_constant().get_value() == n)
+
+    def is_zero(self): return self.is_int_const_value(0)
+
+    def is_boolconst(self): return self.get_const().is_boolconst()
+
+    def is_false(self):
+        return self.is_boolconst() and self.get_const().is_false()
+
+    def is_true(self):
+        return self.is_boolconst() and self.get_const().is_true()
 
     def get_negated_value(self):
         return -(self.get_const().get_constant().get_value())
@@ -422,6 +514,145 @@ class BXOp(BXXprBase):
 
     def is_structured_expr(self):
         return any([ arg.is_structured_expr() for arg in self.get_args() ])
+
+    def is_stack_address(self):
+        args = self.get_args()
+        if len(args) == 2:
+            return (args[0].is_stack_base_address and args[1].is_const())
+
+    def is_string_manipulation_condition(self):
+        string_manipulation_functions = [
+            'strcmp', 'strncmp', 'strchr', 'strrchr', 'strcasecmp', 'strstr',
+            'strncasecmp' ]
+        args = self.get_args()
+        if self.get_args()[0].is_var():
+            xvar = args[0].get_variable()
+            if xvar.has_denotation():
+                xden = xvar.get_denotation()
+                if xden.is_function_return_value():
+                    xaux = xden.get_auxiliary_variable()
+                    if xaux.has_call_target():
+                        tgt = xaux.get_call_target()
+                        return str(tgt) in string_manipulation_functions
+        return False
+
+    def is_returnval_comparison(self):
+        """Returns true if the first argument of a comparison is a function return value."""
+        args = self.get_args()
+        return (args[0].is_var()
+                    and args[0].is_function_return_value()
+                    and self.get_op() in [ 'eq', 'ne' ])
+
+    def is_returnval_arithmetic_expr(self):
+        """Returns true if the first argument of an arithmetic expression is a return value."""
+        args = self.get_args()
+        return (args[0].is_var()
+                    and args[0].is_function_return_value()
+                    and self.get_op() in [ 'plus', 'minus' ])
+
+    def get_returnval_comparison_target(self):
+        if self.is_returnval_comparison():
+            return self.get_args()[0].get_returnval_target()
+
+    def get_returnval_comparison_arguments(self):
+        if self.is_returnval_comparison():
+            return self.get_args()[0].get_returnval_arguments()
+
+    def to_input_constraint_value(self):
+        if self.is_returnval_arithmetic_expr():
+            arg1 = self.get_args()[0].to_input_constraint_value()
+            if not arg1 is None and self.get_args()[1].is_const():
+                return IC.InputConstraintValueExpr(xpr_operator_strings[self.get_op()],
+                                                       arg1,
+                                                       str(self.get_args()[1]))
+
+    def to_input_constraint(self):
+        if self.is_returnval_comparison():
+            tgt = self.get_returnval_comparison_target()
+            if tgt == 'getenv':
+                if self.get_op() == 'ne' and self.get_args()[1].is_zero():
+                    envarg = self.get_returnval_comparison_arguments()[0]
+                    return IC.EnvironmentTestConstraint(str(envarg))
+                elif self.get_op() == 'eq' and self.get_args()[1].is_zero():
+                    envarg  = self.get_returnval_comparison_arguments()[0]
+                    return IC.EnvironmentAbsentConstraint(str(envarg))
+            if tgt in [ 'strncmp', 'strncasecmp' ]:
+                callargs = self.get_returnval_comparison_arguments()
+                cstr = callargs[1]
+                argk = callargs[0].to_input_constraint_value()
+                if not argk is None:
+                    if self.get_op() == 'eq' and self.get_args()[1].is_zero():
+                        return IC.StringStartsWithConstraint(argk,cstr)
+                    elif self.get_op() == 'ne' and self.get_args()[1].is_zero():
+                        return IC.StringNotStartsWithConstraint(argk,cstr)
+            if tgt in [ 'strcmp', 'strcasecmp' ]:
+                callargs = self.get_returnval_comparison_arguments()
+                cstr = callargs[1]
+                argk = callargs[0].to_input_constraint_value()
+                if not argk is None:
+                    if self.get_op() == 'eq' and self.get_args()[1].is_zero():
+                        return IC.StringEqualsConstraint(argk,cstr,
+                                                             case_insensitive=(tgt =='strcasecmp'))
+                    elif self.get_op() == 'ne' and self.get_args()[1].is_zero():
+                        return IC.StringNotEqualsConstraint(argk,cstr,
+                                                                case_insensitive=(tgt=='strcasecmp'))
+            if tgt == 'strstr':
+                callargs = self.get_returnval_comparison_arguments()
+                cvar = callargs[0]
+                cstr = callargs[1]
+                argk = callargs[0].to_input_constraint_value()
+                if not argk is None:
+                    if self.get_op() == 'ne' and self.get_args()[1].is_zero():
+                        return IC.StringContainsConstraint(argk,cstr)
+                    elif self.get_op() == 'eq' and self.get_args()[1].is_zero():
+                        return IC.StringNotContainsConstraint(argk,cstr)
+            if tgt in [ 'strchr', 'strrchr' ]:
+                callargs = self.get_returnval_comparison_arguments()
+                argk = callargs[0].to_input_constraint_value()
+                cchar = callargs[1]
+                if argk is not None and cchar.is_const():
+                    charval = cchar.get_const().get_constant().get_value()
+                    charcode = "'" + chr(charval) + "'"
+                    if self.get_op() == 'eq' and self.get_args()[1].is_zero():
+                        return IC.StringNotContainsConstraint(argk,str(charcode))
+                    elif self.get_op() == 'ne' and self.get_args()[1].is_zero():
+                        return IC.StringContainsConstraint(argk,str(charcode))
+
+
+    def string_condition_to_pretty(self):
+        if self.is_string_manipulation_condition():
+            arg0 = self.get_args()[0]
+            xden = arg0.get_variable().get_denotation().get_auxiliary_variable()
+            xtgt = str(xden.get_call_target())
+            if xtgt == 'strcmp' or xtgt  == 'strcasecmp' or xtgt == 'strncmp':
+                callargs = xden.get_call_arguments()
+                cvar = callargs[0]
+                cstr = callargs[1]
+                if self.get_op() == 'eq':
+                    return str(cvar) + ' = ' + str(cstr)
+                else:
+                    return str(cvar) + ' != ' + str(cstr)
+            if xtgt == 'strrchr' or xtgt == 'strchr':
+                callargs = xden.get_call_arguments()
+                cxpr = callargs[0]
+                cchar = callargs[1]
+                if cchar.is_const():
+                    charval = cchar.get_const().get_constant().get_value()
+                    charcode = chr(charval)
+                    if self.get_op() == 'eq':
+                        return "'" + str(charcode) + "'" + ' not in ' + str(cxpr)
+                    else:
+                        return "'" + str(charcode) + "'" + ' in ' + str(cxpr)
+            if xtgt == 'strstr':
+                callargs = xden.get_call_arguments()
+                cxpr = callargs[0]
+                cstr = callargs[1]
+                if self.get_op() == 'eq':
+                    return "'" + str(cstr) + "'" + ' not in ' + str(cxpr)
+                else:
+                    return "'" + str(cstr) + "'" + ' in ' + str(cxpr)
+        return str(self)
+
 
     def is_four_multiple(self):
         if self.get_op() == 'mult':

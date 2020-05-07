@@ -25,6 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+import chb.util.fileutil as UF
 
 class VDictionaryRecord(object):
 
@@ -154,9 +155,17 @@ class AssemblyVariableBase(VDictionaryRecord):
     def is_cpu_flag_variable(self): return False
     def is_auxiliary_variable(self): return False
 
+    def is_stack_base_address(self):
+        return (self.is_auxiliary_variable()
+                    and self.get_auxiliary_variable().is_stack_base_address())
+
     def is_function_return_value(self):
         return (self.is_auxiliary_variable()
                     and self.get_auxiliary_variable().is_function_return_value())
+
+    def is_initial_memory_value(self):
+        return (self.is_auxiliary_variable()
+                    and self.get_auxiliary_variable().is_initial_memory_value())
 
     def is_bridge_variable(self):
         return (self.is_auxiliary_variable()
@@ -301,6 +310,7 @@ class ConstantValueVariableBase(VDictionaryRecord):
     def is_side_effect_value(self): return False
     def is_special_value(self): return False
     def is_structured_value(self): return False
+    def is_stack_base_address(self): return False
 
     def is_argument_value(self): return False
 
@@ -310,6 +320,9 @@ class InitialRegisterValue(ConstantValueVariableBase):
         ConstantValueVariableBase.__init__(self,vd,index,tags,args)
 
     def is_initial_register_value(self): return True
+
+    def is_stack_base_address(self):
+        return self.get_register().is_mips_register() and self.get_register().is_mips_stack_pointer()
 
     def get_register(self): return self.bd.get_register(self.args[0])
 
@@ -356,7 +369,7 @@ class InitialMemoryValue(ConstantValueVariableBase):
             offset = d.get_memory_offset()
             return (basevar.get_argument_index(),offset.get_offset() / 4)
         else:
-            raise CHBError('BVar:Error in get_argument_deref_arg_offset')
+            raise UF.CHBError('BVar:Error in get_argument_deref_arg_offset')
 
     def get_argument_index(self):
         if self.is_argument_value():
@@ -413,6 +426,12 @@ class FunctionReturnValue(ConstantValueVariableBase):
 
     def get_call_site(self): return str(self.tags[1])
 
+    def get_call_instruction(self):
+        return self.vd.asmfunction.get_instruction(self.get_call_site())
+
+    def get_call_arguments(self):
+        return self.get_call_instruction().get_call_arguments()
+
     def has_call_target(self):
         return self.get_function_info().has_call_target(self.get_call_site())
 
@@ -421,8 +440,12 @@ class FunctionReturnValue(ConstantValueVariableBase):
 
     def __str__(self):
         if self.has_call_target():
-            return 'rtn_' + str(self.get_call_target())
-            # return 'rtn_' + str(self.get_call_target()) + '@' + self.get_call_site()
+            args = self.get_call_arguments()
+            if args is None:
+                pargs = '(?)'
+            else:
+                pargs = '(' + ','.join([ str(a) for a in self.get_call_arguments() ]) + ')'
+            return 'rtn_' + str(self.get_call_target()) + pargs
         else:
             return 'rtn_' + str(self.get_call_site())
 
