@@ -31,7 +31,7 @@ def simplify_result(id1,id2,x1,x2):
     else:
         return str(x1) + ' (= ' + str(x2) + ')'
 
-branch_opcodes = [ 'beq', 'bne',  'blez', 'bltz', 'bgez' ]
+branch_opcodes = [ 'beq', 'beql', 'bne',  'blez', 'bltz', 'bgez' ]
 call_opcodes = [ 'jal', 'jalr', 'bal', 'jr' ]
 
 class MIPSOpcodeBase(object):

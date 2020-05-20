@@ -40,6 +40,7 @@ mips_opcode_constructors = {
     'bc1f' : lambda x: MIPSBranchFPFalse(*x),
     'bc1t' : lambda x: MIPSBranchFPTrue(*x),
     'beq'  : lambda x: MIPSBranchEqual(*x),
+    'beql' : lambda x: MIPSBranchEqualLikely(*x),
     'bgezal': lambda x: MIPSBranchGEZeroLink(*x),
     'bgez' : lambda x: MIPSBranchGEZero(*x),
     'blez' : lambda x: MIPSBranchLEZero(*x),
@@ -215,6 +216,24 @@ class MIPSBranchEqual(X.MIPSOpcodeBase):
         X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
 
     def get_target(self): return self.mipsd.get_mips_operand(self.args[2])        
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[2]
+        rresult = xprs[3]
+        result = X.simplify_result(xargs[2],xargs[3],result,rresult)
+        return 'if ' + result + ' then goto ' + str(self.get_target())
+
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[4], xprs[3] ]
+
+class MIPSBranchEqualLikely(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_target(self): return self.mipsd.get_mips_operand(self.args[2])
 
     def get_annotation(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
