@@ -76,8 +76,8 @@ def parse():
 def extract(path,filename,deps):
     print('Extracting executable content into xml ...')
     try:
-        am = AM.AnalysisManager(path,filename,deps)
-        chcmd = '-extract_elf'
+        am = AM.AnalysisManager(path,filename,deps,elf=True,mips=True)
+        chcmd = '-extract'
         result = am.extract_executable(chcmd=chcmd)
         if not (result == 0):
             print('*' * 80)
@@ -104,7 +104,8 @@ if __name__ == '__main__':
         exit(1)
 
     UF.check_analyzer()
-    am = AM.AnalysisManager(path,filename,deps=deps,specializations=args.specializations)
+    am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True,
+                                specializations=args.specializations)
 
     if args.reset:
         chdir = UF.get_ch_dir(path,filename)
@@ -118,7 +119,7 @@ if __name__ == '__main__':
             exit(1)
 
     try:
-        am.analyze(iterations=args.iterations,verbose=args.verbose,mips=True)
+        am.analyze(iterations=args.iterations,verbose=args.verbose)
     except subprocess.CalledProcessError as e:
         print(e.output)
         print(e.args)

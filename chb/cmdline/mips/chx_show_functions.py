@@ -53,9 +53,8 @@ if __name__ == '__main__':
         exit(1)
 
     app = AP.AppAccess(path,filename,mips=True)
-    functionnames = app.userdata.get_function_names()
-    def has_function_name(faddr): return functionnames.has_function_name(faddr)
-    def get_function_name(faddr): return functionnames.get_function_name(faddr)
+    def has_function_name(faddr): return app.has_function_name(faddr)
+    def get_function_name(faddr): return app.get_function_name(faddr)
 
     if 'all' in args.functions:
         showfunctions = sorted(app.get_function_addresses())
