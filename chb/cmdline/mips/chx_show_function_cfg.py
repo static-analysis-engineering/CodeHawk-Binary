@@ -56,6 +56,8 @@ def parse():
     parser.add_argument('--sink',help='restrict graph to paths to this basic block')
     parser.add_argument('--segments',help='restrict graph to paths that include these basic blocks',
                             nargs='*',default=[])
+    parser.add_argument('--replacements',help='apply node/edge text replacements',
+                            action='store_true')
     args = parser.parse_args()
     return args    
 
@@ -68,6 +70,10 @@ if __name__ == '__main__':
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    replacements = {}
+    if args.replacements:
+        replacements = UF.get_cfg_replacement_texts(path,filename)
 
     app = AP.AppAccess(path,filename,mips=True)
     functionnames = app.userdata.get_function_names()
@@ -90,7 +96,8 @@ if __name__ == '__main__':
                                looplevelcolors=["#FFAAAAFF","#FF5555FF","#FF0000FF"],
                                showpredicates=args.predicates,
                                showcalls=args.calls,mips=True,
-                               sink=args.sink,segments=args.segments)
+                               sink=args.sink,segments=args.segments,
+                               replacements=replacements)
 
         functionname = args.faddr
         if has_function_name(args.faddr):
