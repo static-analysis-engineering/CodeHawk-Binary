@@ -165,6 +165,16 @@ class  AppAccess(object):
         profile['md5s'] = result
         return profile
 
+    def get_calls_to_app_function(self,tgtaddr):
+        """Returns a dictionary faddr -> Asm/MIPSInstruction list."""
+        result = {}
+        def f(faddr,fn):
+            calls = fn.get_calls_to_app_function(tgtaddr)
+            if len(calls) > 0:
+                result[faddr] = calls
+        self.iter_functions(f)
+        return result
+
     def get_app_calls(self):
         """Returns a dictionary faddr -> Asm/MIPSInstruction."""
         result = {}
