@@ -40,7 +40,7 @@ import chb.util.xmlutil as UX
 class AnalysisManager(object):
     """Sets up the command-line arguments for and invokes the Binary Analyzer."""
 
-    def __init__(self,path,filename,deps=[],specializations=[]):
+    def __init__(self,path,filename,deps=[],specializations=[],elf=False,mips=False):
         """Initializes the analyzer location and target file location
 
         Arguments:
@@ -52,6 +52,8 @@ class AnalysisManager(object):
         self.filename = filename
         self.deps = deps
         self.specializations = specializations
+        self.elf = elf
+        self.mips = mips
         self.config = Config()
         self.chx86_analyze = self.config.chx86_analyze
         self.chsummaries = self.config.summaries
@@ -59,19 +61,11 @@ class AnalysisManager(object):
 
     # Extraction and directory preparation -------------------------------------
 
-    def extract_executable(self,chcmd='-extract',elf=False):
+    def extract_executable(self,chcmd='-extract'):
         os.chdir(self.path)
         xdir = UF.get_executable_dir(self.path,self.filename)
         print('xdir: ' + xdir)
         self._makedir(xdir)
-        cmd = [ self.chx86_analyze, chcmd, '-summaries', self.chsummaries ]
-        for d in self.deps:
-            cmd.extend([ '-summaries', d ])
-        cmd.append(self.filename)
-        p = subprocess.call(cmd,stderr=subprocess.STDOUT)
-        if not (p == 0):
-            shutil.rmtree(os.path.join(self.filename + '.ch', 'x'))
-            return p
 
         # create userdata directory
         udir = UF.get_userdata_dir(self.path,self.filename)
@@ -79,6 +73,17 @@ class AnalysisManager(object):
         self._makedir(udir)
         self._makedir(fndir)
         self._make_userdata_file()
+
+        cmd = [ self.chx86_analyze, chcmd, '-summaries', self.chsummaries ]
+        if self.mips: cmd.append('-mips')
+        if self.elf: cmd.append('-elf')
+        for d in self.deps:
+            cmd.extend([ '-summaries', d ])
+        cmd.append(self.filename)
+        p = subprocess.call(cmd,stderr=subprocess.STDOUT)
+        if not (p == 0):
+            shutil.rmtree(os.path.join(self.filename + '.ch', 'x'))
+            return p
 
         # create analysis directory
         adir = UF.get_analysis_dir(self.path,self.filename)
@@ -104,17 +109,17 @@ class AnalysisManager(object):
 
     # Disassembly --------------------------------------------------------------
 
-    def disassemble(self,elf=False,mips=False,save_xml=False,timeout=None,verbose=False):
+    def disassemble(self,save_xml=False,timeout=None,verbose=False):
         os.chdir(self.path)
         cmd = [ self.chx86_analyze, '-summaries', self.chsummaries ]
         for d in self.deps:
             cmd.extend([ '-summaries', d ])
         for s in self.specializations:
             cmd.extend([ '-specialization', s ])
-        chcmd = '-disassemble_elf' if elf else '-disassemble'
-        chcmd = '-disassemble_mips' if mips else chcmd
+        if self.mips: cmd.append('-mips')
+        if self.elf: cmd.append('-elf')
         if verbose: cmd.append('-verbose')
-        cmd.extend([ chcmd, self.filename ])
+        cmd.extend([ '-disassemble', self.filename ])
         if sys.version_info > (3, 0) and timeout:
             try:
                 result = subprocess.call(cmd,stderr=subprocess.STDOUT,timeout=timeout)
@@ -127,14 +132,14 @@ class AnalysisManager(object):
 
     # Analysis -----------------------------------------------------------------
 
-    def analyze(self,iterations=10,extract=False,resetfiles=False,elf=False,mips=False,
+    def analyze(self,iterations=10,extract=False,resetfiles=False,
                     verbose=False,ignore_stable=False,save_asm=False,
                     mem=False,timeout=None):
         """Create and invoke the command to analyze to the Binary Analyzer."""
         self.fnsanalyzed = []
-        self._analysis_setup(self.filename,extract,resetfiles,elf,mips)
+        self._analysis_setup(self.filename,extract,resetfiles)
         result = self._analyze_until_stable(
-            self.filename,iterations,elf,ignore_stable,mips=mips,
+            self.filename,iterations,ignore_stable,
             asm=save_asm,mem=mem,timeout=timeout,verbose=verbose)
         return result
                     
@@ -160,8 +165,8 @@ class AnalysisManager(object):
         snode.extend(children)
         ufile.write(UX.doc_to_pretty(tree))
 
-    def _analysis_setup(self,filename,extract,resetfiles,elf=False,mips=False):
-        if extract: self.extract_executable(filename,elf)
+    def _analysis_setup(self,filename,extract,resetfiles):
+        if extract: self.extract_executable(filename)
         if resetfiles: self.reset_files()
 
     def _get_results(self,filename):
@@ -191,8 +196,8 @@ class AnalysisManager(object):
                 self.fnsanalyzed = self.fnsanalyzed[1:]
         return (isstable,line)
 
-    def _save_asm(self,asm,elf,timeout,cmd,filename):
-        if asm and not elf:
+    def _save_asm(self,asm,timeout,cmd,filename):
+        if asm and not self.elf:
             cmd = cmd[:-2]
             cmd.extend([ '-analyze_a', filename ])
             result = self._call_analysis(cmd,timeout=timeout)
@@ -224,26 +229,22 @@ class AnalysisManager(object):
             result = subprocess.check_call(cmd,cwd=self.path,stderr=subprocess.STDOUT)
             return result
                    
-    def _analyze_until_stable(self,filename,iterations,elf=False,ignore_stable=False,
-                                  mips=False,asm=False,mem=False,timeout=None,
+    def _analyze_until_stable(self,filename,iterations,ignore_stable=False,
+                                  asm=False,mem=False,timeout=None,
                                   verbose=False):
         os.chdir(self.path)
         functionsjarfile = UF.get_functionsjar_filename(self.path,filename)
         analysisdir = UF.get_analysis_dir(self.path,filename)
-        if elf:
-            chcmd = '-analyze_elf'
-        elif mips:
-            chcmd = '-analyze_mips'
-        else:
-            chcmd = '-analyze'
         cmd = [ self.chx86_analyze, '-summaries', self.chsummaries ]
+        if self.elf: cmd.append('-elf')
+        if self.mips: cmd.append('-mips')
         for d in self.deps:
             cmd.extend([ '-summaries', d ])
         for s in self.specializations:
             cmd.extend([ '-specialization', s ])
         if ignore_stable: cmd.append('-ignore_stable')
         if verbose: cmd.append('-verbose')
-        cmd.extend([ chcmd, filename ])
+        cmd.extend([ '-analyze', filename ])
         jarcmd = [ 'jar', 'cf',  functionsjarfile, '-C', analysisdir, 'functions']
         print('Analyzing ' +  filename + ' (max ' + str(iterations) + ' iterations)')
         self._print_analysis_header()
@@ -257,12 +258,12 @@ class AnalysisManager(object):
             if mem: self.check_pause_analysis()
 
             if isstable == 'yes' and not ignore_stable:
-                self._save_asm(asm,elf,timeout,cmd,filename)
+                self._save_asm(asm,timeout,cmd,filename)
                 return True
             
             subprocess.call(jarcmd,stderr=subprocess.STDOUT)
             if count > iterations:
-                self._save_asm(asm,elf,timeout,cmd,filename)
+                self._save_asm(asm,timeout,cmd,filename)
                 return False
 
             result = self._call_analysis(cmd,timeout=timeout)
@@ -271,26 +272,3 @@ class AnalysisManager(object):
             count += 1
             (isstable,results) = self._get_results(filename)
             print(results)
-            
-                
-    
-        
-if __name__ == '__main__':
-
-    atsc = ':V006'
-    (path,filename) = UF.get_path_filename('x86-pe',atsc)
-    am = AnalysisManager(path,filename)
-    am._make_userdata_file()
-
-    atsc = ':Vde3'
-    (path,filename) = UF.get_path_filename('x86-pe',atsc)
-    am = AnalysisManager(path,filename)
-    try:
-        if not UF.check_executable(path,filename):
-            am.extract_executable(chcmd='-extracthex')
-            am.save_extract()
-    except UF.CHBError as e:
-        print(str(e.wrap()))
-    am.disassemble()
-
-    am.analyze()
