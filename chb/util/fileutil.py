@@ -522,7 +522,6 @@ def get_chb_json(filename):
                                + ': ' + str(e))
     else:
         raise CHBFileNotFoundError(filename)
-    
 
 # Analysis directory -----------------------------------------------------------
 
@@ -718,6 +717,18 @@ def get_user_system_data_filename(path,xfile):
 def get_user_system_data_xnode(path,xfile):
     filename = get_user_system_data_filename(path,xfile)
     return get_chb_xnode(filename,'system-info')
+
+def get_cfg_replacement_texts(path,xfile):
+    fdir = get_userdata_dir(path,xfile)
+    filename = get_chb_filename(fdir,xfile,'cfg_replacements.json')
+    if os.path.isfile(filename):
+        try:
+            with open(filename,'r') as fp:
+                d = json.load(fp)
+        except ValueError as e:
+            raise CHBJSONParseError(filename,e)
+        return d
+    return {}
 
 def get_annotation_system_data_filename(path,xfile):
     fdir = get_userdata_dir(path,xfile)
