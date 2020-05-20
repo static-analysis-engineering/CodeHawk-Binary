@@ -261,6 +261,20 @@ class ELFHeader():
         except KeyError as e:
             raise UF.KTKeyError(str(e))
 
+    def section_layout_to_string(self):
+        lines = []
+        lines.append('\nSection Layout\n')
+        lines.append('index'.ljust(8)
+                         + 'name'.ljust(16) + 'start'.rjust(10) + 'size'.rjust(10)
+                         + '   ' + 'flags')
+        lines.append('-' * 80)
+        for s in sorted(self.sectionheaders,key=lambda s:s.index):
+            lines.append(str(s.index).rjust(3) + '     '
+                             + s.name.ljust(16) + s.get_vaddr().rjust(10)
+                             + s.get_size().rjust(10)
+                             + '   ' + s.get_flags_string())
+        return '\n'.join(lines)
+
     def __str__(self):
         d = self.as_dictionary()
         lines = []
@@ -273,7 +287,7 @@ class ELFHeader():
             lines.append('Program header ' + str(p.get_index()))
             lines.append(str(p))
             lines.append(' ')
-        for s in self.sectionheaders:
+        for s in sorted(self.sectionheaders,key=lambda s:s.index):
             lines.append('Section header ' + str(s.index) + ' (' + str(s.name) + ')')
             lines.append(str(s))
             lines.append(' ')
@@ -304,6 +318,7 @@ class ELFHeader():
             lines.append('-- linked string table section: '
                              + str(int(table.sectionheader.get_linked_section(),16)))
             lines.append(str(self.get_dynamic_table()))
+        lines.append(self.section_layout_to_string())
         return '\n'.join(lines)
 
     def _initialize(self):

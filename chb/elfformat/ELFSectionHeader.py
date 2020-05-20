@@ -106,6 +106,16 @@ class ELFSectionHeader():
         shtype = self.xnode.get('sh_type','0x0')
         return get_section_header_type(shtype)
 
+    def get_vaddr(self):
+        return self.xnode.get('sh_addr','0x0')
+
+    def get_size(self):
+        return self.xnode.get('sh_size','0x0')
+
+    def get_flags_string(self):
+        shflags = self.xnode.get('sh_flags','0x0')
+        return get_section_header_flags(shflags)
+
     def get_linked_section(self):
         return self.xnode.get('sh_link')
 
