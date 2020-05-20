@@ -37,7 +37,8 @@ class DotCfg(object):
                      showcalls=False,        # show call instrs on nodes
                      mips=False,     # for mips subtract 4 from block end addr
                      sink=None,      # restrict paths to basic block destination
-                     segments=[]):   # restrict paths to include these basic blocks
+                     segments=[],    # restrict paths to include these basic blocks
+                     replacements={}): # replacement text for node and edge labels
         self.fn = fn
         self.graphname = graphname
         self.looplevelcolors = looplevelcolors
@@ -46,6 +47,7 @@ class DotCfg(object):
         self.mips = mips
         self.sink = sink
         self.segments = segments
+        self.replacements = replacements
         self.pathnodes = set([])
         self.dotgraph = DotGraph(graphname)
 
@@ -137,6 +139,12 @@ class DotCfg(object):
                 default()
         return d
 
+    def replace_text(self,txt):
+        result = txt
+        for src in sorted(self.replacements,key=lambda x:len(x),reverse=True):
+            result = result.replace(src,self.replacements[src])
+        return result
+
     def add_cfg_node(self,n):
         if not n in self.pathnodes:
             return
@@ -161,6 +169,7 @@ class DotCfg(object):
                     color = self.looplevelcolors[level-1]
         if n == self.fn.faddr:
             color = 'purple'
+        blocktxt = self.replace_text(blocktxt)
         self.dotgraph.add_node(str(n),labeltxt=str(blocktxt),color=color)
 
     def add_cfg_edge(self,e):
@@ -180,6 +189,7 @@ class DotCfg(object):
                         for i,tgt in enumerate(self.fn.cfg.edges[e]):
                             if tgt in self.pathnodes:
                                 labeltxt = str(ftconditions[i])
+                                labeltxt = self.replace_text(labeltxt)
                                 self.dotgraph.add_edge(str(e),str(tgt),labeltxt=labeltxt)
                     else:
                         default()

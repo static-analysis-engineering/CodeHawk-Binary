@@ -39,6 +39,7 @@ class DotCallgraph(object):
         self.sinks = sinks
         self.pathnodes = set([])
         self.getname = getname
+        self.restrict_nodes()
 
     def build(self,coloring=lambda n:'purple'):  # name -> color / None
         if len(self.sinks) > 0:
@@ -50,7 +51,7 @@ class DotCallgraph(object):
                 self.add_cg_edge(n,d,self.callgraph[n][d],coloring)
         return self.dotgraph
 
-    def restrict_nodes(self):
+    def restrict_nodes(self,startaddr):
         nodes = set([])
         edges = {}
         for n in self.callgraph:
@@ -60,11 +61,14 @@ class DotCallgraph(object):
                 edges.setdefault(n,[])
                 edges[n].append(d)
         g = UG.DirectedGraph(nodes,edges)
-        g.find_paths('0x402900',self.sinks[0])
-        for p in g.paths:
-            print('Path: ' + str(p))
-            self.pathnodes = self.pathnodes.union(p)
-        if len(self.pathnodes) == 0:
+        if len(self.sinks) > 0:
+            g.find_paths(startaddr,self.sinks[0])
+            for p in g.paths:
+                print('Path: ' + str(p))
+                self.pathnodes = self.pathnodes.union(p)
+            if len(self.pathnodes) == 0:
+                self.pathnodes = nodes
+        else:
             self.pathnodes = nodes
 
     def add_cg_node(self,n,color):
