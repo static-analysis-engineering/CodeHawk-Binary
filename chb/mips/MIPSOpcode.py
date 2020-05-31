@@ -156,9 +156,8 @@ class MIPSAddImmediateUnsigned(X.MIPSOpcodeBase):
         if result.is_const():
             c = result.get_const()
             if c.is_intconst():
-                cv = c.get_constant().get_value()
-                if c.is_string_reference(cv):
-                    s = c.get_string_reference(cv)
+                if c.is_string_reference():
+                    s = c.get_string_reference()
                     return [ s ]
         return []
 

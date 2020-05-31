@@ -85,7 +85,7 @@ if __name__ == '__main__':
                 blocks = [ instr.mipsblock.baddr for instr in instrs ]
                 for b in blocks:
                     bcfgpaths = f.cfg.get_paths(b)
-                    callgraphpathlengths[pname] += max( [ len(bp) for bp in bcfgpaths ])
+                    callgraphpathlengths[pname] += max( [ len(bp.path) for bp in bcfgpaths ])
                     pathcounts.setdefault((p[i],p[i+1]),0)
                     pathcounts[(p[i],p[i+1])] += len(bcfgpaths)
 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
                 else:
                     return None
             return None
-        graphname = args.src + '_' + args.dst
+        graphname = 'callgraph_' + args.src + '_' + args.dst
         dotgraph = DG.DotGraph(graphname)
         dotgraph.set_left_to_right()
         for p in paths:

@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-max_label_length = 200
+max_label_length = 1000
 
 def sanitize(s):
     if not s is None:

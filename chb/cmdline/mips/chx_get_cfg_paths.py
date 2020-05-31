@@ -231,10 +231,10 @@ if __name__ == '__main__':
         dotgraph = DG.DotGraph(graphname)
         paths = sum(cfgpaths.values(),[])
         for p in paths:
-            for i in range(len(p) - 1):
-                dotgraph.add_node(p[i],color=getcolor(p[i]))
-                dotgraph.add_node(p[i+1],color=getcolor(p[i+1]))
-                dotgraph.add_edge(p[i],p[i+1],labeltxt=get_edge_label(p[i],p[i+1]))
+            for i in range(len(p.path) - 1):
+                dotgraph.add_node(p.path[i],color=getcolor(p.path[i]))
+                dotgraph.add_node(p.path[i+1],color=getcolor(p.path[i+1]))
+                dotgraph.add_edge(p.path[i],p.path[i+1],labeltxt=get_edge_label(p.path[i],p.path[i+1]))
 
         pdffilename = UD.print_dot(app.path,filename,dotgraph)
         print('~' * 80)

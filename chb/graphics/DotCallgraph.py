@@ -31,12 +31,13 @@ from chb.util.DotGraph import DotGraph
 
 class DotCallgraph(object):
 
-    def __init__(self,graphname,callgraph,sinks=[],getname=lambda x:x):
+    def __init__(self,graphname,callgraph,sinks=[],startaddr=None,getname=lambda x:x):
         self.graphname = graphname
         self.callgraph = callgraph             # address -> address/name -> count
         self.dotgraph = DotGraph(graphname)
         self.dotgraph.rankdir = 'LR'
         self.sinks = sinks
+        self.startaddr = startaddr
         self.pathnodes = set([])
         self.getname = getname
         self.restrict_nodes()
@@ -51,7 +52,7 @@ class DotCallgraph(object):
                 self.add_cg_edge(n,d,self.callgraph[n][d],coloring)
         return self.dotgraph
 
-    def restrict_nodes(self,startaddr):
+    def restrict_nodes(self):
         nodes = set([])
         edges = {}
         for n in self.callgraph:
@@ -60,9 +61,12 @@ class DotCallgraph(object):
                 nodes.add(d)
                 edges.setdefault(n,[])
                 edges[n].append(d)
+        if self.startaddr is None:
+            self.pathnodes = nodes
+            return
         g = UG.DirectedGraph(nodes,edges)
         if len(self.sinks) > 0:
-            g.find_paths(startaddr,self.sinks[0])
+            g.find_paths(self.startaddr,self.sinks[0])
             for p in g.paths:
                 print('Path: ' + str(p))
                 self.pathnodes = self.pathnodes.union(p)

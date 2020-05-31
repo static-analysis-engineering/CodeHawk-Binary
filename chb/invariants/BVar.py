@@ -445,7 +445,8 @@ class FunctionReturnValue(ConstantValueVariableBase):
                 pargs = '(?)'
             else:
                 pargs = '(' + ','.join([ str(a) for a in self.get_call_arguments() ]) + ')'
-            return 'rtn_' + str(self.get_call_target()) + pargs
+            # return 'rtn_' + str(self.get_call_target()) + pargs + '@' + str(self.get_call_site())
+            return 'rtn_' + str(self.get_call_target()) + pargs + ')'
         else:
             return 'rtn_' + str(self.get_call_site())
 
