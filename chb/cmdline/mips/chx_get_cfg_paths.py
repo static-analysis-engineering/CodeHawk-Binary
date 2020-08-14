@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ------------------------------------------------------------------------------
 # Access to the CodeHawk Binary Analyzer Analysis Results
 # Author: Henny Sipma
@@ -227,7 +228,8 @@ if __name__ == '__main__':
                     return str(c)
             else:
                 return None
-        graphname = 'cfg_' + args.function + '_' + args.calltarget
+        target = args.calltarget if args.calltarget else args.block
+        graphname = 'cfg_' + args.function + '_' + target
         dotgraph = DG.DotGraph(graphname)
         paths = sum(cfgpaths.values(),[])
         for p in paths:

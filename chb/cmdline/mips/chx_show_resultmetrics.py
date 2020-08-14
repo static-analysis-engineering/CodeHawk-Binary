@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ------------------------------------------------------------------------------
 # Access to the CodeHawk Binary Analyzer Analysis Results
 # Author: Henny Sipma
@@ -59,11 +60,11 @@ if __name__ == '__main__':
     print(metrics.header_to_string())
 
     if args.sortbytime:
-        for f in sorted(metrics.get_function_results(),key=lambda(f):(f.get_time(),f.faddr)):
+        for f in sorted(metrics.get_function_results(),key=lambda f:(f.get_time(),f.faddr)):
             print(f.metrics_to_string(shownocallees=args.nocallees))
 
     else:
-        for f in sorted(metrics.get_function_results(),key=lambda(f):(f.get_espp(),f.faddr)):
+        for f in sorted(metrics.get_function_results(),key=lambda f:(f.get_espp(),f.faddr)):
             print(f.metrics_to_string(shownocallees=args.nocallees))
     
     print(metrics.disassembly_to_string())

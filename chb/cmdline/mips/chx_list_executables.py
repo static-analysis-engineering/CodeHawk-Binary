@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ------------------------------------------------------------------------------
 # Access to the CodeHawk Binary Analyzer Analysis Results
 # Author: Henny Sipma
