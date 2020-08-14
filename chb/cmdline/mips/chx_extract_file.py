@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # ------------------------------------------------------------------------------
 # Access to the CodeHawk Binary Analyzer Analysis Results
 # Author: Henny Sipma
@@ -46,7 +47,7 @@ def parse():
 def extract(path,filename,deps):
     print('Extracting executable content into xml ...')
     try:
-        am = AM.AnalysisManager(path,filename,deps)
+        am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True)
         chcmd = '-extract_elf'
         result = am.extract_executable(chcmd=chcmd)
         if not (result == 0):
@@ -75,7 +76,7 @@ if __name__ == '__main__':
         extract(path,filename,deps)
 
     UF.check_analyzer()
-    am = AM.AnalysisManager(path,filename,deps=deps)
+    am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True)
 
     if args.reset:
         chdir = UF.get_ch_dir(path,filename)
@@ -89,7 +90,7 @@ if __name__ == '__main__':
             exit(1)
 
     try:
-        am.disassemble(elf=True,mips=True)
+        am.disassemble()
     except subprocess.CalledProcessError as e:
         print(e.args.output)
         print(e.args)
