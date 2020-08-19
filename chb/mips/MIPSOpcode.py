@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +27,7 @@
 # ------------------------------------------------------------------------------
 
 import chb.util.fileutil as UF
+import chb.api.LinuxSyscalls as SC
 
 import chb.mips.MIPSOpcodeBase as X
 
@@ -70,6 +72,8 @@ mips_opcode_constructors = {
     'ori'  : lambda x: MIPSOrImmediate(*x),
     'ret'  : lambda x: MIPSReturn(*x),
     'sb'   : lambda x: MIPSStoreByte(*x),
+    'seb'  : lambda x: MIPSSignExtendByte(*x),
+    'seh'  : lambda x: MIPSSignExtendHalfword(*x),
     'sh'   : lambda x: MIPSStoreHalfWord(*x),
     'sll'  : lambda x: MIPSShiftLeftLogical(*x),
     'sllv' : lambda x: MIPSShiftLeftLogicalVariable(*x),
@@ -85,6 +89,7 @@ mips_opcode_constructors = {
     'sw'   : lambda x: MIPSStoreWord(*x),
     'swl'  : lambda x: MIPSStoreWordLeft(*x),
     'swr'  : lambda x: MIPSStoreWordRight(*x),
+    'syscall 0': lambda x: MIPSSyscall(*x),
     'xor'  : lambda x: MIPSXor(*x),
     'xori' : lambda x: MIPSXorImmediate(*x)
     }
@@ -985,6 +990,39 @@ class MIPSShiftRightLogicalVariable(X.MIPSOpcodeBase):
         else:
             return 'pending:' + self.tags[0]
 
+class MIPSSignExtendByte(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if xprs:
+            lhs = str(xprs[0])
+            rhs = xprs[1]
+            rrhs = xprs[2]
+            rrhs = X.simplify_result(xargs[1],xargs[2],rhs,rrhs)
+            return lhs + ' := ' + rrhs
+        else:
+            return 'pending:' + self.tags[0]
+
+class MIPSSignExtendHalfword(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if xprs:
+            lhs = str(xprs[0])
+            rhs = xprs[1]
+            rrhs = xprs[2]
+            rrhs = X.simplify_result(xargs[1],xargs[2],rhs,rrhs)
+            return lhs + ' := ' + rrhs
+        else:
+            return 'pending:' + self.tags[0]
+
+
 class MIPSStoreByte(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -1126,6 +1164,40 @@ class MIPSSubtractUnsigned(X.MIPSOpcodeBase):
         rresult = xprs[4]
         result = X.simplify_result(xargs[3],xargs[4],result,rresult)
         return lhs + ' := ' + result
+
+class MIPSSyscall(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_operands(self): return []
+
+    def get_code(self): return int(self.args[0])
+
+    def get_mnemonic(self): return self.tags[0]
+
+    def get_arguments(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 1:
+            return [ xprs[i] for i in range(i,len(xargs)-1) ]
+        return []
+
+    def get_annotation(self):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if not xprs:
+            return 'linux-systemcall'
+        rhs = str(xprs[0])
+        args = self.get_arguments(xdata)
+        if args:
+            args = '(' + ','.join([ str(a) for a in args ]) + ')'
+        else:
+            args = ''
+        if rhs.startswith('0x'):
+            syscallnumber = int(rhs,16)
+            syscallfunction = SC.get_linux_syscall(syscallnumber)
+            return 'linux-systemcall:' + syscallfunction + args
+        else:
+            return 'linux-systemcall(' + rhs + ')'
 
 class MIPSXor(X.MIPSOpcodeBase):
 

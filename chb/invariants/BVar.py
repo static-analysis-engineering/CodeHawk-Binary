@@ -252,7 +252,7 @@ class MemoryVariable(AssemblyVariableBase):
             offset = self.get_memory_offset().get_offset()
             return 'var.' + '{0:04d}'.format(-offset)
         elif self.is_return_address():
-            return 'return-address'
+            return 'var.0000'
         elif self.is_realigned_stack_variable():
             offset = self.get_memory_offset().get_offset()
             return 'varr.' + '{0:04d}'.format(offset)

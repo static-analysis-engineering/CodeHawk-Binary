@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -127,7 +128,7 @@ class AsmFunction(object):
 
     def get_md5_hash(self):
         m = hashlib.md5()
-        def f(ia,i): m.update(i.get_byte_string())
+        def f(ia,i): m.update(i.get_byte_string().encode('utf-8'))
         self.iter_instructions(f)
         return m.hexdigest()
 

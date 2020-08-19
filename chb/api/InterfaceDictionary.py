@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +33,7 @@ import chb.api.CallTarget as CT
 
 function_stub_constructors = {
     'so': lambda x:CT.SOFunction(*x),
+    'sc': lambda x:CT.SyscallFunction(*x),
     'dll': lambda x:CT.DllFunction(*x),
     'jni': lambda x:CT.JniFunction(*x),
     'pck': lambda x:CT.PckFunction(*x)

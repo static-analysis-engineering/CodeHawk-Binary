@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c)           Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,11 +40,16 @@ class MIPSOperand(D.DictionaryRecord):
 
     def is_mips_register(self): return self.get_mips_opkind().is_mips_register()
 
-    def is_mips_indirect_register(self): return self.get_mips_opkind().is_mips_indirect_register()
+    def is_mips_indirect_register(self):
+        return self.get_mips_opkind().is_mips_indirect_register()
 
     def is_mips_immediate(self): return self.get_mips_opkind().is_mips_immediate()
 
     def is_mips_absolute(self): return self.get_mips_opkind().is_mips_absolute()
+
+    def is_mips_indirect_register_with_reg(self,reg):
+        return (self.is_mips_indirect_register()
+                and str(self.get_mips_indirect_register()) == reg)
 
     def get_mips_register(self):
         if self.is_mips_register():
@@ -54,6 +60,11 @@ class MIPSOperand(D.DictionaryRecord):
         if self.is_mips_indirect_register():
             return self.get_mips_opkind().get_mips_register()
         raise UF.CHBError('Operand is not an indirect register: '  + str(self))
+
+    def get_mips_indirect_register_offset(self):
+        if self.is_mips_indirect_register():
+            return self.get_mips_opkind().get_offset()
+        raise UF.CHBError('Operand is not an indirect register: ' + str(self))
 
     def to_expr_string(self): return self.get_mips_opkind().to_expr_string()
 
