@@ -58,11 +58,7 @@ class MIPSOpcodeBase(object):
 
     # returns a list of the operands of the opcode
     def get_operands(self):
-        try:
-            return [ self.mipsd.get_mips_operand(i) for i in self.args ]
-        except:
-            print('Error in retrieving operands for '  + str(self))
-            exit(1)
+        return [ self.mipsd.get_mips_operand(i) for i in self.args ]
 
     # returns rhs-values of operands
     def get_operand_values(self,xdata): return []

@@ -48,7 +48,7 @@ def extract(path,filename,deps):
     print('Extracting executable content into xml ...')
     try:
         am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True)
-        chcmd = '-extract_elf'
+        chcmd = '-extract'
         result = am.extract_executable(chcmd=chcmd)
         if not (result == 0):
             print('*' * 80)

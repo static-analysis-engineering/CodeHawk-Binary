@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,6 +43,7 @@ class FunctionStubBase(D.DictionaryRecord):
 
     def is_dll_stub(self): return False
     def is_so_stub(self): return False
+    def is_syscall_stub(self): return False
 
     def __str__(self): return 'function-stub:' + self.tags[0]
 
@@ -55,6 +57,17 @@ class SOFunction(FunctionStubBase):
     def get_name(self): return self.bd.get_string(self.args[0])
 
     def __str__(self): return self.get_name()
+
+class SyscallFunction(FunctionStubBase):
+
+    def __init__(self,d,index,tags,args):
+        FunctionStubBase.__init__(self,d,index,tags,args)
+
+    def is_syscall_stub(self): return True
+
+    def get_index(self): return self.args[0]
+
+    def __str__(self): return 'syscall-' + self.get_index()
 
 class DllFunction(FunctionStubBase):
 

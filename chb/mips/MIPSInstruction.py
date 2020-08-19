@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -94,7 +95,9 @@ class MIPSInstruction(object):
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_mnemonic()
 
     def get_opcode_text(self):
-        return self.mipsdictionary.read_xml_mips_opcode_text(self.xnode)
+        mnemonic = self.get_mnemonic()
+        operands = self.get_operands()
+        return mnemonic.ljust(8) + ','.join([ str(op) for op in operands ])
 
     def get_operands(self):
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_operands()

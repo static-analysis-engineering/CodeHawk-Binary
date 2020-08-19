@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,7 +50,6 @@ class MIPSDictionary(object):
         self.operand_table = IT.IndexedTable('mips-operand-table')
         self.opcode_table = IT.IndexedTable('mips-opcode-table')
         self.bytestring_table = SI.StringIndexedTable('mips-bytestring-table')
-        self.opcode_text_table = SI.StringIndexedTable('mips-opcode-text-table')
         self.tables = [
             (self.opkind_table,self._read_xml_mips_opkind_table),
             (self.operand_table,self._read_xml_mips_operand_table),
@@ -57,7 +57,6 @@ class MIPSDictionary(object):
             ]
         self.string_tables = [
             (self.bytestring_table,self._read_xml_mips_bytestring_table),
-            (self.opcode_text_table,self._read_xml_mips_opcode_text_table)
             ]
         self.initialize(xnode)
     
@@ -71,12 +70,7 @@ class MIPSDictionary(object):
 
     def get_mips_bytestring(self,ix): return self.bytestring_table.retrieve(ix)
 
-    def get_mips_opcode_text(self,ix): return self.opcode_text_table.retrieve(ix)
-
     # ----------------------- xml accessors ------------------------------------
-
-    def read_xml_mips_opcode_text(self,n):
-        return self.get_mips_opcode_text(int(n.get('itxt')))
 
     def read_xml_mips_opcode(self,n):
         return self.get_mips_opcode(int(n.get('iopc')))
@@ -118,5 +112,3 @@ class MIPSDictionary(object):
     def _read_xml_mips_bytestring_table(self,txnode):
         self.bytestring_table.read_xml(txnode)
 
-    def _read_xml_mips_opcode_text_table(self,txnode):
-        self.opcode_text_table.read_xml(txnode)

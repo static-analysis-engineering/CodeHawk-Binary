@@ -663,6 +663,14 @@ def get_mips_dictionary_xnode(path,xfile):
     filename = get_mips_dictionary_filename(path,xfile)
     return get_chb_xnode(filename,'mips-dictionary')
 
+def get_mips_asm_filename(path,xfile):
+    fdir = get_results_dir(path,xfile)
+    return get_chb_filename(fdir,xfile,'mips_asm.xml')
+
+def get_mips_asm_xnode(path,xfile):
+    filename = get_mips_asm_filename(path,xfile)
+    return get_chb_xnode(filename,'mips-assembly-instructions')
+
 def get_resultmetrics_filename(path,xfile):
     fdir = get_results_dir(path,xfile)
     return get_chb_filename(fdir,xfile,'metrics.xml')

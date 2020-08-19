@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2017-2020 Kestrel Technology LLC
+# Copyright (c)           Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +38,7 @@ class IndexedTableError(UF.CHBError):
 
     def __str__(self):
         lines = []
-        if len(self.items) > 0:
+        if len(self.items) > 0 and len(self.items) < 20:
             lines.append('-')
             for (index,i) in self.items:
                 lines.append(str(index).rjust(3) + ': ' + str(i))
