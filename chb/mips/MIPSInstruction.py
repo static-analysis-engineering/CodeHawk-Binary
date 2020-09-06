@@ -28,6 +28,8 @@
 
 
 import chb.app.DictionaryRecord as D
+import chb.util.IndexedTable as IT
+import chb.util.fileutil as UF
 
 class SpOffset(D.DictionaryRecord):
 
@@ -95,9 +97,14 @@ class MIPSInstruction(object):
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_mnemonic()
 
     def get_opcode_text(self):
-        mnemonic = self.get_mnemonic()
-        operands = self.get_operands()
-        return mnemonic.ljust(8) + ','.join([ str(op) for op in operands ])
+        try:
+            mnemonic = self.get_mnemonic()
+            operands = self.get_operands()
+            return mnemonic.ljust(8) + ','.join([ str(op) for op in operands ])
+        except IT.IndexedTableError as e:
+            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+            raise UF.CHBError('Error for MIPS opcode ' + str(opcode) + ': '
+                              + str(e))
 
     def get_operands(self):
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_operands()
@@ -179,6 +186,11 @@ class MIPSInstruction(object):
         opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
         xdata = self.idictionary.read_xml_instrx(self.xnode)
         return opcode.is_call_instruction(xdata) and opcode.has_string_arguments(xdata)
+
+    def has_stack_arguments(self):
+        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+        xdata = self.idictionary.read_xml_instrx(self.xnode)
+        return opcode.is_call_instruction(xdata) and opcode.has_stack_arguments(xdata)
 
     def is_branch_instruction(self):
         opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
