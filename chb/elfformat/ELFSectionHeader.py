@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -102,6 +103,14 @@ class ELFSectionHeader():
         self.name = self.xnode.get('name')
         self.index = int(self.xnode.get('index'))
 
+    def get_values(self):
+        result = {}
+        result['index'] = int(self.xnode.get('index'))
+        result['name'] = self.xnode.get('name')
+        for p in sectionheader_attributes:
+            result[p] = self.xnode.get(p,'0x0')
+        return result
+
     def get_section_header_type(self):
         shtype = self.xnode.get('sh_type','0x0')
         return get_section_header_type(shtype)
@@ -146,7 +155,7 @@ class ELFSectionHeader():
             if p == 'sh_flags':
                 flags = get_section_header_flags(propertyvalue)
                 if len(flags) > 0:
-                    propertyvalue += ' (' + flags + ')'
+                    propertyvalue += ' (' + str(flags) + ')'
             result[p] = {}
             result[p]['value'] = propertyvalue
             result[p]['heading'] = localetable['elfsectionheader'][p]
