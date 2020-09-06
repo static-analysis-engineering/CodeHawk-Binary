@@ -34,9 +34,11 @@ import chb.mips.MIPSOpcodeBase as X
 mips_opcode_constructors = {
     'add'  : lambda x: MIPSAdd(*x),
     'and'  : lambda x: MIPSAnd(*x),
+    'addi' : lambda x: MIPSAddImmediate(*x),
     'addiu': lambda x: MIPSAddImmediateUnsigned(*x),
     'addu' : lambda x: MIPSAddUnsigned(*x),
     'andi' : lambda x: MIPSAndImmediate(*x),
+    'aui'  : lambda x: MIPSAddUpperImmediate(*x),
     'b'    : lambda x: MIPSBranch(*x),
     'bal'  : lambda x: MIPSBranchLink(*x),
     'bc1f' : lambda x: MIPSBranchFPFalse(*x),
@@ -45,10 +47,20 @@ mips_opcode_constructors = {
     'beql' : lambda x: MIPSBranchEqualLikely(*x),
     'bgezal': lambda x: MIPSBranchGEZeroLink(*x),
     'bgez' : lambda x: MIPSBranchGEZero(*x),
+    'bgezl': lambda x: MIPSBranchGEZeroLikely(*x),
+    'bgtz' : lambda x: MIPSBranchGTZero(*x),
+    'bgtzl': lambda x: MIPSBranchGTZeroLikely(*x),
     'blez' : lambda x: MIPSBranchLEZero(*x),
+    'blezl': lambda x: MIPSBranchLEZeroLikely(*x),
     'bltz' : lambda x: MIPSBranchLTZero(*x),
+    'bltzal': lambda x: MIPSBranchLTZeroLink(*x),
+    'bltzl': lambda x: MIPSBranchLTZeroLikely(*x),
     'bne'  : lambda x: MIPSBranchNotEqual(*x),
+    'bnel' : lambda x: MIPSBranchNotEqualLikely(*x),
+    'break': lambda x: MIPSBreak(*x),
     'c.olt.d': lambda x: MIPSFPCompare(*x),
+    'clz'  : lambda x: MIPSCountLeadingZeros(*x),
+    'div'  : lambda x: MIPSDivideWord(*x),
     'hlt'  : lambda x: MIPSHalt(*x),
     'j'    : lambda x: MIPSJump(*x),
     'jal'  : lambda x: MIPSJumpLink(*x),
@@ -57,21 +69,38 @@ mips_opcode_constructors = {
     'lb'   : lambda x: MIPSLoadByte(*x),
     'lbu'  : lambda x: MIPSLoadByteUnsigned(*x),
     'ldc1' : lambda x: MIPSLoadDoublewordToFP(*x),
+    'lh'   : lambda x: MIPSLoadHalfWord(*x),
     'lhu'  : lambda x: MIPSLoadHalfWordUnsigned(*x),
     'li'   : lambda x: MIPSLoadImmediate(*x),
+    'll'   : lambda x: MIPSLoadLinkedWord(*x),
     'lui'  : lambda x: MIPSLoadUpperImmediate(*x),
     'lw'   : lambda x: MIPSLoadWord(*x),
+    'lwc1' : lambda x: MIPSLoadWordFP(*x),
     'lwl'  : lambda x: MIPSLoadWordLeft(*x),
     'lwr'  : lambda x: MIPSLoadWordRight(*x),
+    'madd' : lambda x: MIPSMultiplyAddWord(*x),
+    'maddu': lambda x: MIPSMultiplyAddUnsignedWord(*x),
+    'mfc2' : lambda x: MIPSMoveWordFromCoprocessor2(*x),
+    'mfhc2': lambda x: MIPSMoveWordFromHighHalfCoprocessor2(*x),
+    'mfhi':  lambda x: MIPSMoveFromHi(*x),
     'mflo' : lambda x: MIPSMoveFromLo(*x),
     'move' : lambda x: MIPSMove(*x),
+    'movn' : lambda x: MIPSMoveConditionalNotZero(*x),
+    'movz' : lambda x: MIPSMoveConditionalZero(*x),
+    'mtc2' : lambda x: MIPSMoveWordToCoprocessor2(*x),
+    'mthi' : lambda x: MIPSMoveToHi(*x),
+    'mtlo' : lambda x: MIPSMoveToLo(*x),
     'mult' : lambda x: MIPSMultiplyWord(*x),
+    'multu': lambda x: MIPSMultiplyUnsignedWord(*x),
     'nop'  : lambda x: MIPSNoOperation(*x),
     'nor'  : lambda x: MIPSNor(*x),
     'or'   : lambda x: MIPSOr(*x),
     'ori'  : lambda x: MIPSOrImmediate(*x),
+    'pref' : lambda x: MIPSPrefetch(*x),
     'ret'  : lambda x: MIPSReturn(*x),
     'sb'   : lambda x: MIPSStoreByte(*x),
+    'sc'   : lambda x: MIPSStoreConditionalWord(*x),
+    'sdc1' : lambda x: MIPSStoreDoubleWordFromFP(*x),
     'seb'  : lambda x: MIPSSignExtendByte(*x),
     'seh'  : lambda x: MIPSSignExtendHalfword(*x),
     'sh'   : lambda x: MIPSStoreHalfWord(*x),
@@ -87,6 +116,7 @@ mips_opcode_constructors = {
     'srlv' : lambda x: MIPSShiftRightLogicalVariable(*x),
     'subu' : lambda x: MIPSSubtractUnsigned(*x),
     'sw'   : lambda x: MIPSStoreWord(*x),
+    'swc1' : lambda x: MIPSStoreWordFromFP(*x),
     'swl'  : lambda x: MIPSStoreWordLeft(*x),
     'swr'  : lambda x: MIPSStoreWordRight(*x),
     'syscall 0': lambda x: MIPSSyscall(*x),
@@ -149,6 +179,55 @@ class MIPSAnd(X.MIPSOpcodeBase):
         else:
             return 'pending:' + self.tags[0]
 
+class MIPSAddImmediate(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_strings(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[4]
+        if result.is_const():
+            c = result.get_const()
+            if c.is_intconst():
+                if c.is_string_reference():
+                    s = c.get_string_reference()
+                    return [ s ]
+        return []
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rsum = xprs[3]
+        rrsum = xprs[4]
+        rsum = X.simplify_result(xargs[3],xargs[4],rsum,rrsum)
+        addxpr = lhs + ' := ' + rsum
+        return addxpr
+
+class MIPSAddUpperImmediate(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_strings(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[4]
+        if result.is_const():
+            c = result.get_const()
+            if c.is_intconst():
+                if c.is_string_reference():
+                    s = c.get_string_reference()
+                    return [ s ]
+        return []
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rsum = xprs[3]
+        rrsum = xprs[4]
+        rsum = X.simplify_result(xargs[3],xargs[4],rsum,rrsum)
+        addxpr = lhs + ' := ' + rsum
+        return addxpr
 
 class MIPSAddImmediateUnsigned(X.MIPSOpcodeBase):
 
@@ -322,7 +401,103 @@ class MIPSBranchGEZero(X.MIPSOpcodeBase):
         result = X.simplify_result(xargs[1],xargs[2],result,rresult)
         return 'if ' + result + ' then goto ' + str(self.get_target())
 
+class MIPSBranchGEZeroLikely(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_target(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def has_branch_condition(self): return True
+
+    def get_branch_condition(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[2]
+
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[3], xprs[2] ]
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[1]
+        rresult = xprs[2]
+        result = X.simplify_result(xargs[1],xargs[2],result,rresult)
+        return 'if ' + result + ' then goto ' + str(self.get_target())
+
+class MIPSBranchGTZero(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_target(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def has_branch_condition(self): return True
+
+    def get_branch_condition(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[2]
+
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[3], xprs[2] ]
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[1]
+        rresult = xprs[2]
+        result = X.simplify_result(xargs[1],xargs[2],result,rresult)
+        return 'if ' + result + ' then goto ' + str(self.get_target())
+
+class MIPSBranchGTZeroLikely(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_target(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def has_branch_condition(self): return True
+
+    def get_branch_condition(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[2]
+
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[3], xprs[2] ]
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[1]
+        rresult = xprs[2]
+        result = X.simplify_result(xargs[1],xargs[2],result,rresult)
+        return 'if ' + result + ' then goto ' + str(self.get_target())
+
 class MIPSBranchLEZero(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_target(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def has_branch_condition(self): return True
+
+    def get_branch_condition(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[2]
+
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[3], xprs[2] ]
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[1]
+        rresult = xprs[2]
+        result = X.simplify_result(xargs[1],xargs[2],result,rresult)
+        return 'if ' + result + ' then goto ' + str(self.get_target())
+
+class MIPSBranchLEZeroLikely(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
         X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
@@ -370,6 +545,53 @@ class MIPSBranchLTZero(X.MIPSOpcodeBase):
         result = X.simplify_result(xargs[1],xargs[2],result,rresult)
         return 'if ' + result + ' then goto ' + str(self.get_target())
 
+class MIPSBranchLTZeroLikely(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_target(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def has_branch_condition(self): return True
+
+    def get_branch_condition(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[2]
+
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[3], xprs[2] ]
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[1]
+        rresult = xprs[2]
+        result = X.simplify_result(xargs[1],xargs[2],result,rresult)
+        return 'if ' + result + ' then goto ' + str(self.get_target())
+
+class MIPSBranchLTZeroLink(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_target(self,xdata): return self.mipsd.get_mips_operand(self.args[1])
+
+    def has_branch_condition(self): return True
+
+    def get_branch_condition(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[2]
+
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[3], xprs[2] ]
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[1]
+        rresult = xprs[2]
+        result = X.simplify_result(xargs[1],xargs[2],result,rresult)
+
 class MIPSBranchNotEqual(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -394,6 +616,29 @@ class MIPSBranchNotEqual(X.MIPSOpcodeBase):
         (xtags,xargs,xprs) = xdata.get_xprdata()
         return [ xprs[4], xprs[3] ]
 
+class MIPSBranchNotEqualLikely(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_target(self): return self.mipsd.get_mips_operand(self.args[2])
+
+    def has_branch_condition(self): return True
+
+    def get_branch_condition(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[3]
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        result = xprs[2]
+        rresult = xprs[3]
+        result = X.simplify_result(xargs[2],xargs[3],result,rresult)
+        return 'if ' + result + ' then goto ' + str(self.get_target())
+
+    def get_ft_conditions(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[4], xprs[3] ]
 
 class MIPSBranchLink(X.MIPSOpcodeBase):
 
@@ -405,7 +650,18 @@ class MIPSBranchLink(X.MIPSOpcodeBase):
     def get_target(self,xdata): return self.mipsd.get_mips_operand(self.args[0])
 
     def has_string_arguments(self,xdata):
-        return any([ x.is_string_reference() for x in self.get_arguments(xdata)  ])
+        args = self.get_arguments(xdata)
+        if args:
+            return any([ x.is_string_reference() for x in self.get_arguments(xdata) ])
+        else:
+            False
+
+    def has_stack_arguments(self,xdata):
+        args = self.get_arguments(xdata)
+        if args:
+            return any([ x.is_stack_address() for x in self.get_arguments(xdata) ])
+        else:
+            False
 
     def get_arguments(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -423,7 +679,16 @@ class MIPSBranchLink(X.MIPSOpcodeBase):
             return 'call ' + str(tgt) + '(' + ','.join( [ str(x) for x in args ]) + ')'
         else:
             return 'call ' + str(self.get_target(xdata))
-        
+
+class MIPSBreak(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_operands(self): return []
+
+    def get_annotation(self,xdata):
+        return 'break ' + str(self.args[0])
 
 class MIPSFPCompare(X.MIPSOpcodeBase):
 
@@ -435,6 +700,37 @@ class MIPSFPCompare(X.MIPSOpcodeBase):
 
     def get_annotation(self,xdata):
         return self.tags[0] + ':pending'
+
+class MIPSCountLeadingZeros(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        rrhs = str(xprs[2])
+        return lhs + ' := count-leading-zeros(' + rhs + ')'
+
+class MIPSDivideWord(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhslo = str(xprs[0])
+        lhshi = str(xprs[1])
+        resultlo = str(xprs[4])
+        rresultlo = str(xprs[6])
+        resulthi = str(xprs[5])
+        rresulthi = str(xprs[7])
+        resultlo = X.simplify_result(xargs[4],xargs[6],resultlo,rresultlo)
+        resulthi = X.simplify_result(xargs[5],xargs[7],resulthi,rresulthi)
+        pdiv = lhslo + ' := ' + resultlo
+        pmod = lhshi + ' := ' + resulthi
+        return pdiv + '; ' + pmod
 
 class MIPSHalt(X.MIPSOpcodeBase):
 
@@ -466,6 +762,13 @@ class MIPSJumpLink(X.MIPSOpcodeBase):
     def has_string_arguments(self,xdata):
         return any([ x.is_string_reference() for x in self.get_arguments(xdata)  ])
 
+    def has_stack_arguments(self,xdata):
+        args = self.get_arguments(xdata)
+        if args:
+            return any([ x.is_stack_address() for x in self.get_arguments(xdata) ])
+        else:
+            False
+
     def get_arguments(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
         if len(xprs) > 0:
@@ -493,6 +796,13 @@ class MIPSJumpLinkRegister(X.MIPSOpcodeBase):
 
     def has_string_arguments(self,xdata):
         return any([ x.is_string_reference() for x in self.get_arguments(xdata)  ])
+
+    def has_stack_arguments(self,xdata):
+        args = self.get_arguments(xdata)
+        if args:
+            return any([ x.is_stack_address() for x in self.get_arguments(xdata) ])
+        else:
+            False
 
     def get_arguments(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -531,6 +841,13 @@ class MIPSJumpRegister(X.MIPSOpcodeBase):
 
     def has_string_arguments(self,xdata):
         return any([ x.is_string_reference() for x in self.get_arguments(xdata)  ])
+
+    def has_stack_arguments(self,xdata):
+        args = self.get_arguments(xdata)
+        if args:
+            return any([ x.is_stack_address() for x in self.get_arguments(xdata) ])
+        else:
+            False
 
     def get_arguments(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -620,6 +937,21 @@ class MIPSLoadDoublewordToFP(X.MIPSOpcodeBase):
         rhs = str(xprs[1])
         return lhs + ' := ' + rhs
 
+class MIPSLoadHalfWord(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_global_variables(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[1].get_global_variables()
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        return lhs + ' := ' + rhs
+
 class MIPSLoadHalfWordUnsigned(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -658,6 +990,56 @@ class MIPSLoadUpperImmediate(X.MIPSOpcodeBase):
         return lhs + ' := ' + rhs
 
 class MIPSLoadWord(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_lhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[0] ]
+
+    def get_rhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[1] ]
+
+    def get_global_variables(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[1].get_global_variables()
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        if rhs == '?' and len(xprs) == 3:
+            rhs = '*(' + str(xprs[2]) + ')'
+        return lhs + ' := ' + rhs
+
+class MIPSLoadWordFP(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_lhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[0] ]
+
+    def get_rhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[1] ]
+
+    def get_global_variables(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[1].get_global_variables()
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        if rhs == '?' and len(xprs) == 3:
+            rhs = '*(' + str(xprs[2]) + ')'
+        return lhs + ' := ' + rhs
+
+class MIPSLoadLinkedWord(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
         X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
@@ -728,7 +1110,70 @@ class MIPSLoadWordRight(X.MIPSOpcodeBase):
         rhs = str(xprs[1])
         return lhs + ' := ' + rhs
 
+class MIPSMoveWordFromCoprocessor2(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        return lhs + ' := word from coprocessor 2'
+
+class MIPSMoveWordFromHighHalfCoprocessor2(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        return lhs + ' := word from high half coprocessor 2'
+
+class MIPSMoveWordToCoprocessor2(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        rhs = str(xprs[0])
+        return Coprocessor2[reg] + " := " + rhs
+
+class MIPSMoveFromHi(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        return lhs + ' := ' + rhs
+
 class MIPSMoveFromLo(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        return lhs + ' := ' + rhs
+
+class MIPSMoveToLo(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        return lhs + ' := ' + rhs
+
+class MIPSMoveToHi(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
         X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
@@ -757,6 +1202,92 @@ class MIPSMove(X.MIPSOpcodeBase):
         lhs = str(xprs[0])
         rhs = str(xprs[1])
         return lhs + ' := ' + rhs
+
+class MIPSMoveConditionalNotZero(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_lhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[0] ]
+
+    def get_rhs(self,xdata):
+        (xtags,xargs,xprs) = xata.get_xprdata()
+        return [ xprs[1] ]
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        cond = str(xprs[2])
+        ccond = str(xprs[3])
+        cond = X.simplify_result(xargs[2],xargs[3],cond,ccond)
+        return 'if ' + cond + ' then ' + lhs + ' := ' + rhs
+
+class MIPSMoveConditionalZero(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_lhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[0] ]
+
+    def get_rhs(self,xdata):
+        (xtags,xargs,xprs) = xata.get_xprdata()
+        return [ xprs[1] ]
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        cond = str(xprs[2])
+        ccond = str(xprs[3])
+        cond = X.simplify_result(xargs[2],xargs[3],cond,ccond)
+        return 'if ' + cond + ' then ' + lhs + ' := ' + rhs
+
+class MIPSMultiplyAddUnsignedWord(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        hi = str(xprs[0])
+        lo = str(xprs[1])
+        result = str(xprs[6])
+        rresult = str(xprs[7])
+        result = X.simplify_result(xargs[6],xargs[7],result,rresult)
+        return '(' + hi + ',' + lo + ') := ' + result
+
+class MIPSMultiplyAddWord(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        hi = str(xprs[0])
+        lo = str(xprs[1])
+        result = str(xprs[6])
+        rresult = str(xprs[7])
+        result = X.simplify_result(xargs[6],xargs[7],result,rresult)
+        return '(' + hi + ',' + lo + ') := ' + result
+
+class MIPSMultiplyUnsignedWord(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        hi = str(xprs[0])
+        lo = str(xprs[1])
+        result = str(xprs[4])
+        rresult = str(xprs[5])
+        result = X.simplify_result(xargs[4],xargs[5],result,rresult)
+        return '(' + hi + ',' + lo + ') := ' + result
 
 class MIPSMultiplyWord(X.MIPSOpcodeBase):
 
@@ -821,6 +1352,15 @@ class MIPSNor(X.MIPSOpcodeBase):
         result = X.simplify_result(xargs[3],xargs[4],result,rresult)
         return lhs + ' := ' + result
 
+class MIPSPrefetch(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        addr = str(xprs[0])
+        return 'prefetch ' + addr
 
 class MIPSReturn(X.MIPSOpcodeBase):
 
@@ -1075,6 +1615,33 @@ class MIPSStoreHalfWord(X.MIPSOpcodeBase):
         rhs = X.simplify_result(xargs[1],xargs[2],rhs,rrhs)
         return lhs + ' := ' + rhs
 
+class MIPSStoreConditionalWord(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_lhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[0] ]
+
+    def get_rhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[1] ]
+
+    def get_global_variables(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[0].get_global_variables()
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        rrhs = str(xprs[2])
+        rhs = X.simplify_result(xargs[1],xargs[2],rhs,rrhs)
+        if lhs == '?' and len(xprs) == 4:
+            lhs = derefstr(xprs[3])
+        return lhs + ' := ' + rhs
+
 class MIPSStoreWord(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -1100,6 +1667,56 @@ class MIPSStoreWord(X.MIPSOpcodeBase):
         rhs = X.simplify_result(xargs[1],xargs[2],rhs,rrhs)
         if lhs == '?' and len(xprs) == 4:
             lhs = derefstr(xprs[3])
+        return lhs + ' := ' + rhs
+
+class MIPSStoreDoubleWordFromFP(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_lhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[0] ]
+
+    def get_rhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[1] ]
+
+    def get_global_variables(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[0].get_global_variables()
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        if lhs == '?' and len(xprs) == 3:
+            lhs = derefstr(xprs[2])
+        return lhs + ' := ' + rhs
+
+class MIPSStoreWordFromFP(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_lhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[0] ]
+
+    def get_rhs(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return [ xprs[1] ]
+
+    def get_global_variables(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[0].get_global_variables()
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        lhs = str(xprs[0])
+        rhs = str(xprs[1])
+        if lhs == '?' and len(xprs) == 3:
+            lhs = derefstr(xprs[2])
         return lhs + ' := ' + rhs
 
 class MIPSStoreWordLeft(X.MIPSOpcodeBase):
@@ -1179,10 +1796,10 @@ class MIPSSyscall(X.MIPSOpcodeBase):
     def get_arguments(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
         if len(xprs) > 1:
-            return [ xprs[i] for i in range(i,len(xargs)-1) ]
+            return [ xprs[i] for i in range(1,len(xargs)-1) ]
         return []
 
-    def get_annotation(self):
+    def get_annotation(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
         if not xprs:
             return 'linux-systemcall'
