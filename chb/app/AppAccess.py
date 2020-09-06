@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -105,7 +106,7 @@ class  AppAccess(object):
         return self.functions[faddr]
 
     def has_function_name(self,faddr):
-        return self.get_function(faddr).has_name()
+        return self.has_function(faddr) and self.get_function(faddr).has_name()
 
     def get_function_name(self,faddr):
         if self.has_function_name(faddr):
