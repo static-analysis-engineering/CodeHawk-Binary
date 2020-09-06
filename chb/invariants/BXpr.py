@@ -386,6 +386,9 @@ class BXXprBase(XDictionaryRecord):
     def is_string_reference(self):
         return self.is_const() and self.get_const().is_string_reference()
 
+    # returns true if this expression is an expression involving the stack pointer
+    def is_stack_address(self): return False
+
     # returns a dictionary gv -> count
     def get_global_variables(self): return {}
 
@@ -473,7 +476,12 @@ class BXVar(BXXprBase):
             argindex = self.get_command_line_argument_value_index()
             return IC.CommandLineArgument(argindex)
 
-    def __str__(self): return str(self.get_variable())
+    def __str__(self):
+        if self.is_function_return_value():
+            tgtval = self.get_returnval_target()
+            if tgtval:
+                return 'rtn_' + tgtval
+        return str(self.get_variable())
 
 class BXConst(BXXprBase):
 
