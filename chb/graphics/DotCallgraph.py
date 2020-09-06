@@ -40,7 +40,10 @@ class DotCallgraph(object):
         self.startaddr = startaddr
         self.pathnodes = set([])
         self.getname = getname
-        self.restrict_nodes()
+        if self.startaddr and not self.sinks:
+            self.restrict_nodes_from(self.startaddr)
+        else:
+            self.restrict_nodes()
 
     def build(self,coloring=lambda n:'purple'):  # name -> color / None
         if len(self.sinks) > 0:
@@ -74,6 +77,27 @@ class DotCallgraph(object):
                 self.pathnodes = nodes
         else:
             self.pathnodes = nodes
+
+    def restrict_nodes_from(self,startaddr):
+        nodes = set([])
+        edges = {}
+        nodes.add(startaddr)
+        for d in self.callgraph[startaddr]:
+            nodes.add(d)
+            edges.setdefault(startaddr,[])
+            edges[startaddr].append(d)
+        nodecount = len(nodes)
+        while True:
+            for n in self.callgraph:
+                if n in nodes:
+                    for d in self.callgraph[n]:
+                        nodes.add(d)
+                        edges.setdefault(n,[])
+                        edges[n].append(d)
+            if len(nodes) == nodecount:
+                break
+            nodecount = len(nodes)
+        self.pathnodes = nodes
 
     def add_cg_node(self,n,color):
         blocktxt = self.getname(str(n))
