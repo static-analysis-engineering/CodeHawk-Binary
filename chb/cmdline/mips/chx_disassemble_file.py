@@ -6,6 +6,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -72,12 +73,12 @@ if __name__ == '__main__':
     try:
         (path,filename,deps) = UF.get_path_filename_deps('mips-elf',args.filename)
         if not UF.check_executable(path,filename):
-            extract(path,filename,deps)            
+            extract(path,filename,deps)
+        UF.check_analyzer()
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
 
-    UF.check_analyzer()
     am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True,
                                 specializations=args.specializations)
 
