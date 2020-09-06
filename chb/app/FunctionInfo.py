@@ -41,7 +41,8 @@ class FunctionInfo(object):
         if self.has_call_target(faddr):
             return self.calltargets[faddr]
 
-    def has_call_target(self,faddr): return faddr in self.calltargets
+    def has_call_target(self,faddr):
+        return faddr in self.calltargets
 
     def has_variable_name(self,index): return index in self.variablenames
 
@@ -50,7 +51,7 @@ class FunctionInfo(object):
 
     def _initialize_call_targets(self):
         ctnode = self.xnode.find('call-targets')
-        for x in ctnode.findall('ctgt'):
+        for x in ctnode.findall('ctinfo'):
             self.calltargets[ x.get('a') ] = self.ixd.read_xml_call_target(x)
         vnnode = self.xnode.find('variable-names')
         if not vnnode is None:
