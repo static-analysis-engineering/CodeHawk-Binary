@@ -30,6 +30,7 @@ import argparse
 import json
 
 import chb.app.AppAccess as AP
+import chb.app.Callgraph as CG
 import chb.util.fileutil as UF
 import chb.util.dotutil as UD
 import chb.graphics.DotCallgraph as DC
@@ -40,6 +41,8 @@ def parse():
     parser.add_argument('--libcalls',nargs='*',help='show library calls',default=[])
     parser.add_argument('--sinks',nargs='*',help='restrict paths to these nodes',default=[])
     parser.add_argument('--startaddr',help='restrict paths starting from this node')
+    parser.add_argument('--reverse',help='reverse the callgraph',action='store_true')
+    parser.add_argument('--save',help='save the callgraph to a json file',action='store_true')
     args = parser.parse_args()
     return args
 
@@ -55,22 +58,20 @@ if __name__ == '__main__':
         exit(1)
 
     app = AP.AppAccess(path,filename,mips=True)
-    appcalls = app.get_app_calls()
+    callgraph = CG.Callgraph(app)
 
-    result = {}   # address of function -> instr
+    if args.reverse:
+        callgraphdata = callgraph.get_reverse_callgraph()
+    else:
+        callgraphdata = callgraph.edges
 
-    for faddr in appcalls:
-        result[faddr] = {}
-        for instr in appcalls[faddr]:
-            tgt = instr.get_call_target()
-            if not tgt is None:
-                tgt = str(tgt)
-                result[faddr].setdefault(tgt,0)
-                result[faddr][tgt] += 1
-
-    jsonfilename = UF.get_xref_filename(path,filename,'callgraph')
-    with open(jsonfilename,'w') as fp:
-        json.dump(result,fp,sort_keys=True,indent=3)
+    if args.save:
+        if args.reverse:
+            jsonfilename = UF.get_xref_filename(path,filename,'callgraph_r')
+        else:
+            jsonfilename = UF.get_xref_filename(path,filename,'callgraph')
+        with open(jsonfilename,'w') as fp:
+            json.dump(callgraphdata,fp,sort_keys=True,indent=3)
 
     def getname(n):
         if app.has_function_name(n):
@@ -79,7 +80,7 @@ if __name__ == '__main__':
             return n
 
     graphname = 'callgraph_' + filename
-    dotcg = DC.DotCallgraph(graphname,result,startaddr=args.startaddr,sinks=args.sinks,getname=getname)
+    dotcg = DC.DotCallgraph(graphname,callgraphdata,startaddr=args.startaddr,sinks=args.sinks,getname=getname)
 
     def coloring(n):
         if n.startswith('0x'):
