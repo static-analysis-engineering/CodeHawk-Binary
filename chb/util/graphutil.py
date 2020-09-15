@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +25,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+import time
 
+class SearchTimeoutException(Exception):
+
+    def __init__(self,timespent):
+        self.timespent = timespent
+
+    def __str__(self):
+        return 'timeout at ' + str(self.timespent)
 
 class DirectedGraph(object):
 
@@ -32,21 +41,34 @@ class DirectedGraph(object):
         self.nodes = nodes
         self.edges = edges    # adjacency list: n -> [ n ]
         self.paths = []
+        self.maxtime = None
+        self.starttime = 0.0
 
-    def find_paths_aux(self,src,dst,visited,path):
+    def find_paths_aux(self,src,dst,visited,path,depth=0):
         visited[src] = True
         path.append(src)
-        if src == dst:
+        if not dst and (not src in self.edges):
+            self.paths.append(path[:])
+        elif src == dst:
             self.paths.append(path[:])
         elif src in self.edges:
             for d in self.edges[src]:
                 if not visited[d]:
-                    self.find_paths_aux(d,dst,visited,path)
+                    self.find_paths_aux(d,dst,visited,path,depth+1)
         path.pop()
         visited[src] = False
+        if self.maxtime:
+            timespent = time.time() - self.starttime
+            if timespent > self.maxtime:
+                raise SearchTimeoutException(timespent)
 
-    def find_paths(self,src,dst):
+    def find_paths(self,src,dst=None,maxtime=None):
+        self.starttime = time.time()
+        self.maxtime = maxtime
         visited = {}
         for n in self.nodes:
             visited[n] = False
-        self.find_paths_aux(src,dst,visited,[])
+        try:
+            self.find_paths_aux(src,dst,visited,[])
+        except SearchTimeoutException as e:
+            print(str(e))
