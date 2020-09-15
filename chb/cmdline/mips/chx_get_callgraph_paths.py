@@ -6,6 +6,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,11 +41,12 @@ def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('filename',help='name of executable')
     parser.add_argument('src',help='address of starting function')
-    parser.add_argument('dst',help='name or address of deestination function')
+    parser.add_argument('--dst',help='name or address of destination function')
     parser.add_argument('--countcfgpaths',help='count the numher of paths through cfgs',
                             action='store_true')
     parser.add_argument('--graph',help='produce a graphical representation using dot',
                             action='store_true')
+    parser.add_argument('--reverse',help='reverse the call graph',action='store_true')
     args  = parser.parse_args()
     return args
 
@@ -60,17 +62,27 @@ if __name__ == '__main__':
 
     app = AP.AppAccess(path,filename,mips=True)
 
-    if not app.has_function(args.src):
-        print('*' * 80)
-        print('No function found with address ' + args.src)
-        print('*' * 80)
-        exit(1)
+    if args.src.startswith('0x'):
+        if not app.has_function(args.src):
+            print('*' * 80)
+            print('No function found with address ' + args.src)
+            print('*' * 80)
+            exit(1)
 
     callgraph = CG.Callgraph(app)
 
-    paths = callgraph.get_paths(args.src,args.dst)
+    def getname(n):
+        if n.startswith('0x') and app.has_function_name(n):
+            return app.get_function_name(n) + ' (' + n + ')'
+        else:
+            return n
+
+    if args.reverse:
+        paths = callgraph.get_reverse_paths(args.src)
+    else:
+        paths = callgraph.get_paths(args.src,args.dst)
     for p in paths:
-        print(str(p))
+        print(', '.join(getname(n) for n in p))
 
     pathcounts = {}  #  (src,dst) -> number of paths through src cfg to reach dst           
     callgraphpathlengths = {}  # maximum length in basic blocks through all cfgs in path
@@ -110,7 +122,8 @@ if __name__ == '__main__':
                 else:
                     return None
             return None
-        graphname = 'callgraph_' + args.src + '_' + args.dst
+        dst = '_all_' if args.dst is None else args.dst
+        graphname = 'callgraph_' + args.src + '_' + dst
         dotgraph = DG.DotGraph(graphname)
         dotgraph.set_left_to_right()
         for p in paths:
