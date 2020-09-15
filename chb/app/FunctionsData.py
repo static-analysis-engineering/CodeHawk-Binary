@@ -36,6 +36,7 @@ class FunctionData(object):
           'nr': non-returning
           'nc': not-complete
           'ida': provided by IDA Pro
+          'pre': obtained by preamble
           'u': user-provided
           'v': virtual
           'c': member of a c++ class
@@ -57,6 +58,8 @@ class FunctionData(object):
         self.faddr = str(hex(int(self.id)))
 
     def is_class_member(self): return 'c' in self.tags
+
+    def is_by_preamble(self): return 'pre' in self.tags
 
     def has_name(self): return len(self.get_names()) > 0
 
