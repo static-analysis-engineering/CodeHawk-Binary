@@ -109,6 +109,7 @@ class DotCallgraph(object):
         if coloring(d) is None:
             return
         if str(n) in self.pathnodes and str(d) in self.pathnodes:
-            self.dotgraph.add_node(str(d),labeltxt=str(d),color=coloring(d))
+            blocktxt = self.getname(str(d))
+            self.dotgraph.add_node(str(d),labeltxt=blocktxt,color=coloring(d))
             self.dotgraph.add_edge(str(n),str(d))
         
