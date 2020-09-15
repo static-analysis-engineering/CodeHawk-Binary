@@ -56,10 +56,10 @@ class MIPSCfg(object):
     def has_loops(self):
         return self.get_max_loop_level() > 0
 
-    def get_paths(self,baddr):
+    def get_paths(self,baddr,maxtime=None):
         """Returns a path from function entry to blockaddr baddr."""
         g = UG.DirectedGraph(self.blocks.keys(),self.edges)
-        g.find_paths(self.mipsfunction.faddr,baddr)
+        g.find_paths(self.mipsfunction.faddr,baddr,maxtime=maxtime)
         return [ MIPSCfgPath(self,p) for p in g.paths ]
 
     def get_branch_instruction(self,n):
