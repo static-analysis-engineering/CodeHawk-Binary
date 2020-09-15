@@ -254,6 +254,21 @@ class MIPSAddImmediateUnsigned(X.MIPSOpcodeBase):
         addxpr = lhs + ' := ' + rsum
         return addxpr
 
+    def get_dst_operand(self): return self.mipsd.get_mips_operand(self.args[0])
+
+    def get_src_operand(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def get_imm_operand(self): return self.mipsd.get_mips_operand(self.args[2])
+
+    def simulate(self,iaddr,simstate):
+        dstop = self.get_dst_operand()
+        srcop = self.get_src_operand()
+        srcval = simstate.get_rhs(iaddr,srcop)
+        imm = self.get_imm_operand()
+        result = srcval.add(imm)
+        simstate.set(iaddr,dstop,result)
+
+
 class MIPSAddUnsigned(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -1014,6 +1029,15 @@ class MIPSLoadWord(X.MIPSOpcodeBase):
             rhs = '*(' + str(xprs[2]) + ')'
         return lhs + ' := ' + rhs
 
+    def get_src_operand(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def get_dst_operand(self): return self.mipsd.get_mips_operand(self.args[0])
+
+    def simulate(self,iaddr,simstate):
+        srcval = simstate.get_rhs(iaddr,self.get_src_operand())
+        simstate.set(iaddr,self.get_dst_operand(),srcval)
+        simstate.increment_program_counter()
+
 class MIPSLoadWordFP(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -1376,6 +1400,7 @@ class MIPSReturn(X.MIPSOpcodeBase):
         rtnxpr = str(self.get_return_expr(xdata))
         rtnxpr = '' if rtnxpr == 'v0' else rtnxpr                         
         return 'return ' + rtnxpr
+
 
 class MIPSSetLT(X.MIPSOpcodeBase):
 

@@ -25,6 +25,8 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+import chb.simulate.SimUtil as SU
+
 def simplify_result(id1,id2,x1,x2):
     if id1 == id2:
         return str(x1)
@@ -107,6 +109,11 @@ class MIPSOpcodeBase(object):
     def is_call_instruction(self,xdata): return False
 
     def has_branch_condition(self): return False
+
+    def simulate(self,iaddr,simstate):
+        raise SU.CHBSimError(simstate,iaddr,
+                             'Simulation not yet supported for ' + str(self)
+                             + ' at address ' + str(iaddr))
 
     def __str__(self):
         return self.tags[0] + ':pending'

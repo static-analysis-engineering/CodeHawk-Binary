@@ -29,6 +29,7 @@
 
 import chb.app.DictionaryRecord as D
 import chb.util.IndexedTable as IT
+import chb.simulate.SimUtil as SU
 import chb.util.fileutil as UF
 
 class SpOffset(D.DictionaryRecord):
@@ -236,6 +237,14 @@ class MIPSInstruction(object):
             opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
             return opcode.get_ft_conditions(xdata)
         return []
+
+    def simulate(self,simstate):
+        try:
+            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+            opcode.simulate(self.iaddr,simstate)
+        except SU.CHBSimError as e:
+            e.instrtxt = self.to_string(align=False)
+            raise e
 
     def to_string(self,sp=False,opcodetxt=True,align=True,opcodewidth=40):
         pesp = str(self.get_sp_offset()) + '  ' if sp else ''
