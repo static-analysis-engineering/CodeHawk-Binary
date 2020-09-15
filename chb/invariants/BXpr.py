@@ -596,7 +596,7 @@ class BXOp(BXXprBase):
             if tgt in [ 'strcmp', 'strcasecmp' ]:
                 callargs = self.get_returnval_comparison_arguments()
                 cstr = callargs[1]
-                argk = callargs[0].to_input_constraint_value()
+                argk = callargs[0]
                 if not argk is None:
                     if self.get_op() == 'eq' and self.get_args()[1].is_zero():
                         return IC.StringEqualsConstraint(argk,cstr,
@@ -604,11 +604,11 @@ class BXOp(BXXprBase):
                     elif self.get_op() == 'ne' and self.get_args()[1].is_zero():
                         return IC.StringNotEqualsConstraint(argk,cstr,
                                                                 case_insensitive=(tgt=='strcasecmp'))
-            if tgt == 'strstr':
+            if tgt in [ 'strstr', 'stristr']:
                 callargs = self.get_returnval_comparison_arguments()
                 cvar = callargs[0]
                 cstr = callargs[1]
-                argk = callargs[0].to_input_constraint_value()
+                argk = callargs[0]
                 if not argk is None:
                     if self.get_op() == 'ne' and self.get_args()[1].is_zero():
                         return IC.StringContainsConstraint(argk,cstr)
