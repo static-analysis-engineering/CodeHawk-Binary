@@ -376,7 +376,7 @@ class SimulationState(object):
                                 + str(address))
 
     def add_logmsg(self,iaddr,msg):
-        if not iaddr in self.fnlog: self.fnlog[iaddr] =  []
+        self.fnlog.setdefault(iaddr,[])
         self.fnlog[iaddr].append(msg)
 
     def __str__(self):

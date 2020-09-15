@@ -118,9 +118,9 @@ class SimMemory(object):
             lowaddr = sorted(self.mem.keys())[0]
             highaddr = sorted(self.mem.keys())[-1]
             if lowaddr < 0:
-                lowaddr = ((lowaddr / 4) - 1) * 4
+                lowaddr = ((lowaddr // 4) - 1) * 4
             else:
-                lowaddr = (lowaddr / 4) * 4
+                lowaddr = (lowaddr // 4) * 4
             for a in range(lowaddr,highaddr,4):
                 try:
                     lines.append(str(hex(a)).rjust(12) + '  ' + str(self.get(0,a,4)))
