@@ -50,6 +50,8 @@ class MIPSRegisterOp(MIPSOperandKindBase):
 
     def is_mips_register(self): return True
 
+    def get_size(self): return 4
+
     def get_mips_register(self): return self.tags[1]
 
     def __str__(self): return str(self.get_mips_register())
@@ -77,6 +79,8 @@ class MIPSIndirectRegisterOp(MIPSOperandKindBase):
 
     def get_offset(self): return int(self.tags[2])
 
+    def get_size(self): return 4
+
     def to_expr_string(self):
         if self.get_offset() == 0:
             return '*(' + str(self.get_mips_register() + ')' )
@@ -94,6 +98,10 @@ class MIPSImmediateOp(MIPSOperandKindBase):
     def is_mips_immediate(self): return True
 
     def get_value(self): return int(self.tags[1])
+
+    def to_unsigned_int(self): return self.get_value()
+
+    def to_signed_int(self): return self.get_value()
 
     def __str__(self): return str(hex(self.get_value()))
 

@@ -38,6 +38,8 @@ class MIPSOperand(D.DictionaryRecord):
 
     def get_mips_opkind(self): return self.d.get_mips_opkind(self.args[0])
 
+    def get_size(self): return self.get_mips_opkind().get_size()
+
     def is_mips_register(self): return self.get_mips_opkind().is_mips_register()
 
     def is_mips_indirect_register(self):
@@ -65,6 +67,8 @@ class MIPSOperand(D.DictionaryRecord):
         if self.is_mips_indirect_register():
             return self.get_mips_opkind().get_offset()
         raise UF.CHBError('Operand is not an indirect register: ' + str(self))
+
+    def to_signed_int(self): return self.get_mips_opkind().to_signed_int()
 
     def to_expr_string(self): return self.get_mips_opkind().to_expr_string()
 
