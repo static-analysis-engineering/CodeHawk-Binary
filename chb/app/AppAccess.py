@@ -134,6 +134,13 @@ class  AppAccess(object):
         for faddr in self.get_function_addresses():
             f(faddr,self.get_function(faddr))
 
+    def find_function(self,iaddr):
+        for faddr in self.get_function_addresses():
+            f = self.get_function(faddr)
+            if f.has_instruction(iaddr):
+                return f
+        return None
+
     # Misc ---------------------------------------------------------------------
     
     # returns a dictionary of faddr -> string list

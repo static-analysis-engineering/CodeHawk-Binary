@@ -33,6 +33,7 @@ class FunctionData(object):
     rep-record representation
     id: function address (decimal)
     tags: (all optional)
+          'l': library stub
           'nr': non-returning
           'nc': not-complete
           'ida': provided by IDA Pro
@@ -61,7 +62,15 @@ class FunctionData(object):
 
     def is_by_preamble(self): return 'pre' in self.tags
 
+    def is_library_stub(self): return 'l' in self.tags
+
     def has_name(self): return len(self.get_names()) > 0
+
+    def get_name(self):
+        if len(self.get_names()) > 0:
+            return self.get_names()[0]
+        else:
+            return faddr
 
     def get_names(self):
         if self.is_class_member():
@@ -104,6 +113,13 @@ class FunctionsData(object):
             return self.functions[faddr].get_names()
         else:
             return []
+
+    def get_library_stubs(self):   #  hexaddr -> name
+        result = {}
+        for f in self.functions.values():
+            if f.is_library_stub():
+                result[f.faddr] = f.get_name()
+        return result
 
     def __str__(self):
         lines = []
