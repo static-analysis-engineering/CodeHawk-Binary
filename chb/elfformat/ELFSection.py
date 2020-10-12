@@ -93,12 +93,32 @@ class ELFSection(object):
         self.elfheader = elfheader
         self.xnode = xnode
         self.sectionheader = sectionheader
+        self.values = None     # int -> value (byte values)
 
     def get_name(self): return self.sectionheader.name
+
+    def get_byte_value(self,address):
+        if not self.values:
+            self._initialize_section()
+        if address in self.values:
+            return self.values[address]
 
     def get_linked_stringtable(self):
         shlink = int(self.sectionheader.get_linked_section(),16)
         return self.elfheader.get_string_table(shlink)
+
+    def _initialize_section(self):
+        self.values = {}
+        hexdata = self.xnode.find('hex-data')
+        blockcount = hexdata.get('blocks')
+        for blockdata in hexdata.findall('ablock'):
+            for hexline in blockdata.findall('aline'):
+                address = int(hexline.get('va'),16)
+                bytestring = hexline.get('bytes')
+                bytestring = bytestring.replace(' ','')
+                for i in range(0,len(bytestring),2):
+                    byteval = bytestring[i:i+2]
+                    self.values[address+(i//2)] = int(byteval,16)
 
 
 class ELFStringTable(ELFSection):

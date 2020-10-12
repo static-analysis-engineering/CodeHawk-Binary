@@ -29,6 +29,7 @@ import xml.etree.ElementTree as ET
 import chb.util.fileutil as UF
 from chb.elfformat.ELFProgramHeader import ELFProgramHeader
 from chb.elfformat.ELFSectionHeader import ELFSectionHeader
+from chb.elfformat.ELFSection import ELFSection
 from chb.elfformat.ELFSection import ELFStringTable
 from chb.elfformat.ELFSection import ELFSymbolTable
 from chb.elfformat.ELFSection import ELFRelocationTable
@@ -108,6 +109,19 @@ class ELFHeader():
     def get_file_header(self):
         return self.xnode.find('elf-file-header')
 
+    def get_image_base(self):
+        result = 0xffffffff
+        for ph in self.programheaders:
+            vaddr = ph.get_virtual_address()
+            if vaddr:
+                vaddr = int(vaddr,16)
+                if vaddr < result:
+                    result = vaddr
+        return hex(result)
+
+    def is_big_endian(self):
+        return self.xnode.get('endian','little') == 'big'
+
     def get_e_machine(self):
         return self.get_file_header().get('e-machine')
 
@@ -172,6 +186,31 @@ class ELFHeader():
                     result.append(self.sections[index])
         return result
 
+    def get_raw_sections(self):
+        for (index,h) in enumerate(self.sectionheaders):
+            sectionx = UF.get_elf_section_xnode(self.app.path,self.app.filename,index)
+            if sectionx is None:
+                print('Section ' + str(index) + ' could not be found')
+                continue
+            else:
+                self.sections[index] = ELFSection(self,sectionx,self.sectionheaders[index])
+
+    def get_memory_value(self,address,index):
+        if not index in self.sections:
+            self.get_raw_sections()
+        if index in self.sections:
+            return self.sections[index].get_byte_value(address)
+        else:
+            return None
+
+    def get_elf_section_index(self,address):
+        for h in self.sectionheaders:
+            vaddr = int(h.get_vaddr(),16)
+            size = int(h.get_size(),16)
+            if address >= vaddr and address < vaddr + size:
+                return h.index
+        return None
+
     def get_symbol_table(self):
         index = self.get_symbol_table_index()
         if index in self.sections:
@@ -224,6 +263,7 @@ class ELFHeader():
             else:
                 self.sections[index] = ELFDynamicTable(self,sectionx,self.sectionheaders[index])
                 return self.sections[index]
+
 
     def as_dictionary(self):
         ## note: update for multiple string tables

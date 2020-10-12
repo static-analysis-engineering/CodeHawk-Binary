@@ -83,6 +83,8 @@ class ELFProgramHeader():
 
     def get_index(self): return int(self.xnode.get('index'))
 
+    def get_virtual_address(self): return self.xnode.get('p_vaddr')
+
     def as_dictionary(self):
         result = {}
         result['index'] = int(self.xnode.get('index'))
