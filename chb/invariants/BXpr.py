@@ -520,6 +520,19 @@ class BXOp(BXXprBase):
 
     def is_op(self): return True
 
+    def get_terms(self):
+        result = []
+        if self.get_op() == 'plus':
+            for a in self.get_args():
+                if a.is_op():
+                    result.extend(a.get_terms())
+                else:
+                    result.append(a)
+            else: pass
+        else:
+            result.append(self)
+        return result
+
     def is_structured_expr(self):
         return any([ arg.is_structured_expr() for arg in self.get_args() ])
 
@@ -527,6 +540,16 @@ class BXOp(BXXprBase):
         args = self.get_args()
         if len(args) == 2:
             return (args[0].is_stack_base_address and args[1].is_const())
+
+    def get_stack_address_offset(self):
+        if self.is_stack_address():
+            stackoffset = self.get_args()[1]
+            if self.get_op() == 'minus':
+                return stackoffset.get_negated_value()
+            else:
+                return stackoffset.get_constant_value()
+        else:
+            raise UF.CHBError('Expression is not a stack address')
 
     def is_string_manipulation_condition(self):
         string_manipulation_functions = [
