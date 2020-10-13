@@ -156,6 +156,9 @@ class MIPSInstruction(object):
     def is_return_instruction(self):
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_return()
 
+    def is_restore_register_instruction(self):
+        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_restore_register()
+
     def is_call_instruction(self):
         xdata = self.idictionary.read_xml_instrx(self.xnode)
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_call_instruction(xdata)

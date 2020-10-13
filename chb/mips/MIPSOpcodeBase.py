@@ -101,14 +101,19 @@ class MIPSOpcodeBase(object):
 
     def get_ft_conditions(self,xdata): return []
 
-    def is_return(self): return self.tags[0] == 'ret'
+    def is_return(self):
+        return self.tags[0] == 'jr' and str(self.get_operands()[0]) == 'ra'
 
     def is_branch_instruction(self):
         return self.tags[0] in branch_opcodes
 
     def is_call_instruction(self,xdata): return False
 
+    def is_restore_register(self): return False
+
     def has_branch_condition(self): return False
+
+    def is_return_instruction(self): return False
 
     def simulate(self,iaddr,simstate):
         raise SU.CHBSimError(simstate,iaddr,

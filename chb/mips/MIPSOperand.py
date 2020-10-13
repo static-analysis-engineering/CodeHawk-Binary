@@ -40,7 +40,12 @@ class MIPSOperand(D.DictionaryRecord):
 
     def get_size(self): return self.get_mips_opkind().get_size()
 
+    def get_value(self): return self.to_signed_int()
+
     def is_mips_register(self): return self.get_mips_opkind().is_mips_register()
+
+    def is_zero_register(self):
+        return self.is_mips_register() and self.get_mips_register() == 'zero'
 
     def is_mips_indirect_register(self):
         return self.get_mips_opkind().is_mips_indirect_register()
@@ -68,7 +73,20 @@ class MIPSOperand(D.DictionaryRecord):
             return self.get_mips_opkind().get_offset()
         raise UF.CHBError('Operand is not an indirect register: ' + str(self))
 
-    def to_signed_int(self): return self.get_mips_opkind().to_signed_int()
+    def get_mips_absolute_address_value(self):
+        if self.is_mips_absolute():
+            return self.get_mips_opkind().get_address().get_int()
+        raise UF.CHBError('Operand is not an absolute address: ' + str(self))
+
+    def to_signed_int(self):
+        if self.is_mips_immediate():
+            return self.get_mips_opkind().to_signed_int()
+        raise UF.CHBError('Operand is not an immediate: ' + str(self))
+
+    def to_unsigned_int(self):
+        if self.is_mips_immediate():
+            return self.get_mips_opkind().to_unsigned_int()
+        raise UF.CHBError('Operand is not an immediate: ' + str(self))
 
     def to_expr_string(self): return self.get_mips_opkind().to_expr_string()
 
