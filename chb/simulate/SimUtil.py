@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -51,6 +52,12 @@ def is_qlow_reg(reg):
 def is_qhigh_reg(reg):
     return reg in [ 'ah', 'bh', 'ch', 'dh' ]
 
+mips_register_order = [
+    'zero', 'at', 'v0', 'v1', 'a0', 'a1', 'a2', 'a3',
+    't0', 't1', 't2', 't3', 't4', 't5', 't6', 't7',
+    's0', 's1', 's2', 's3', 's4', 's5', 's6', 's7',
+    't8', 't9', 'k0', 'k1', 'gp', 'sp', 'fp', 'ra' ]
+
 fullregmap = {
     'al': 'eax',
     'ah': 'eax',
@@ -80,6 +87,24 @@ def get_full_reg(reg):
 
 def compute_dw_value(byte1,byte2,byte3,byte4):
     return (byte1 + (byte2 << 8) + (byte3 << 16) + (byte4 << 24))
+
+def compute_dw_value_eb(byte1,byte2,byte3,byte4):
+    return (byte4 + (byte3 << 8) + (byte2 << 8) + (byte1 << 24))
+
+def simassign(iaddr,simstate,lhs,rhs,intermediates=''):
+    lhs = simstate.get_lhs(iaddr,lhs)
+    intermediates = ' ; ' + intermediates if intermediates else ''
+    return str(lhs) + ' := ' + str(rhs) + intermediates
+
+def simcall(iaddr,simstate,tgtval,returnaddr,intermediates=''):
+    return 'call ' + str(tgtval) + ', ra := ' + returnaddr
+
+def simbranch(iaddr,simstate,truetgt,falsetgt,expr,result):
+    if result.is_defined():
+        taken = 'T' if str(result) == '1' else 'F'
+    else:
+        taken = '?'
+    return 'if ' + expr + ' then goto ' + str(truetgt) + ' (' + taken + ')'
         
 
 class CHBSimError(UF.CHBError):
@@ -105,7 +130,7 @@ class CHBSimError(UF.CHBError):
             for i in self.processed:
                 lines.append('  ' + str(i.iaddr) + '  ' + i.to_string(opcodewidth=30))
             lines.append('-' * 80)
-        lines.append(str(self.simstate))
+        # lines.append(str(self.simstate))
         return '\n'.join(lines)
 
 class CHBSimOpError(UF.CHBError):
@@ -122,6 +147,56 @@ class CHBSimOpError(UF.CHBError):
         for op in self.ops:
             lines.append('  ' + str(op))
         return '\n'.join(lines)
+
+class CHBSimStaticLibFunction(CHBSimError):
+
+    def __init__(self,iaddr,startaddr,registers):
+        CHBSimError.__init__(self,None,iaddr,'enter static library with startaddr ' + startaddr)
+        self.startaddr = startaddr
+        self.registers = registers
+
+class CHBSimBranchUnknownError(CHBSimError):
+
+    def __init__(self,simstate,iaddr,truetgt,falsetgt,msg):
+        CHBSimError.__init__(self,simstate,iaddr,msg)
+        self.truetgt = truetgt
+        self.falsetgt = falsetgt
+
+class CHBSimCallTargetUnknownError(CHBSimError):
+
+    def __init__(self,simstate,iaddr,calltgt,msg):
+        CHBSimError.__init__(self,simstate,iaddr,msg)
+        self.calltgt = calltgt
+
+class CHBSimJumpTargetUnknownError(CHBSimError):
+
+    def __init__(self,simstate,iaddr,jumptgt,msg):
+        CHBSimError.__init__(self,simstate,iaddr,msg)
+        self.jumptgt = jumptgt
+
+class CHBSymbolicExpression(CHBSimError):
+
+    def __init__(self,simstate,iaddr,dstop,msg):
+        CHBSimError.__init__(self,simstate,iaddr,msg)
+        self.dstop = dstop
+
+class CHBSymbolicPointer(CHBSimError):
+
+    def __init__(self,simstate,iaddr,base,offset):
+        CHBSimError.__init__(self,simstate,iaddr,
+                             'symbolic pointer with base ' + base + ' and offset ' + offset)
+        self.base = base
+        self.offset = offset
+
+class CHBSimValueUndefinedError(UF.CHBError):
+
+    def __init__(self,msg):
+        UF.CHBError.__init__(self,msg)
+
+class CHBSimValueSymbolicError(UF.CHBError):
+
+    def __init__(self,msg):
+        UF.CHBError.__init__(self,msg)
 
 
 class CHBSimFunctionReturn(Exception):

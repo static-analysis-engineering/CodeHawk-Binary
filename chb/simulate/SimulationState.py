@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,13 +26,13 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-import chb.util.fileutil as UF
-
-import chb.simulate.SimAddress as SA
-import chb.simulate.SimMemory as M
-import chb.simulate.SimUtil as SU
-import chb.simulate.SimValue as SV
 import chb.simulate.SimLocation as SL
+import chb.simulate.SimMemory as M
+import chb.simulate.SimSymbolicValue as SSV
+import chb.simulate.SimValue as SV
+import chb.simulate.SimUtil as SU
+
+import chb.util.fileutil as UF
 
 
 class SimulationState(object):
@@ -45,11 +46,11 @@ class SimulationState(object):
         self.globalmem = M.SimGlobalMemory(self)        
         self.stackmem = M.SimStackMemory(self)
         self.fnlog = {}             # iaddr -> msg list
-        self.registers['esp'] = SA.SimStackAddress(0)
+        self.registers['esp'] = SSV.SimStackAddress(0)
         self.registers['ebp'] = SV.mk_symbolic_simvalue('ebp-in')
         self.registers['eax'] = SV.mk_symbolic_simvalue('eax-in')
         self.registers['ecx'] = SV.mk_symbolic_simvalue('ecx-in')
-        self.stackmem.set(0,0,SA.SimReturnAddress())
+        self.stackmem.set(0,0,SSV.SimReturnAddress())
         self.flags['DF'] = SV.simflagclr         # direction forward
         self.flags['CF'] = SV.simflagclr         # no carry
         self.flags['PF'] = SV.simflagclr         # even parity
@@ -58,7 +59,7 @@ class SimulationState(object):
         self.flags['OF'] = SV.simflagclr         # no overflow occurred
 
     def set_image_base(self,value): 
-        self.imagebase = SA.SimGlobalAddress(int(value,16))
+        self.imagebase = SSV.SimGlobalAddress(int(value,16))
 
     def set_initial_register(self,reg,regval):
         if SU.is_full_reg(reg):
@@ -129,13 +130,13 @@ class SimulationState(object):
     def push_value(self,iaddr,simval):
         stackoffset = self.get_regval(iaddr,'esp').get_offset()
         newoffset = stackoffset - 4
-        self.registers['esp'] = SA.SimStackAddress(newoffset)
+        self.registers['esp'] = SSV.SimStackAddress(newoffset)
         self.stackmem.set(iaddr,newoffset,simval)
 
     def pop_value(self,iaddr):
         stackoffset = self.get_regval(iaddr,'esp').get_offset()
         newoffset = stackoffset + 4
-        self.registers['esp'] = SA.SimStackAddress(newoffset)
+        self.registers['esp'] = SSV.SimStackAddress(newoffset)
         return self.stackmem.get(iaddr,stackoffset,4)
 
     def set_flag(self,flag):
@@ -210,7 +211,7 @@ class SimulationState(object):
                 address = regval.add_offset(offset)
                 return self.get_memval(iaddr,address,op.get_size())
             elif regval.value > self.imagebase.value:
-                address = SA.SimGlobalAddress(regval.value)
+                address = SSV.SimGlobalAddress(regval.value)
                 address = address.add_offset(offset)
                 return  self.get_memval(iaddr,address,op.get_size())
             else:
@@ -257,7 +258,7 @@ class SimulationState(object):
             if regval.is_address():
                 return SL.SimMemoryLocation(regval.add_offset(offset))
             elif regval.value > self.imagebase.value:
-                address = SA.SimGlobalAddress(regval.value + offset)
+                address = SSV.SimGlobalAddress(regval.value + offset)
                 return SL.SimMemoryLocation(address)
             else:
                 raise SU.CHBSimError(self,iaddr,
@@ -303,7 +304,7 @@ class SimulationState(object):
             elif regval.is_address():
                 return regval.add_offset(offset)
             elif regval > self.imagebase.value:
-                return SA.SimGlobalAddress(regval.value + offset)
+                return SSV.SimGlobalAddress(regval.value + offset)
             else:
                 raise SU.CHBSimError(self,iaddr,
                                         'get-address-val: indirect register: ' + str(op))
@@ -319,7 +320,7 @@ class SimulationState(object):
                 if regval.is_address():
                     return regval.add_offset(offset)
                 elif regval > self.imagebase.value:
-                    return SA.SimGlobalAddress(regval.value + offset)
+                    return SSV.SimGlobalAddress(regval.value + offset)
                 else:
                     raise SU.CHBSimError(self,iaddr,
                                                'get-address-val: indirect-scaled-register: '
