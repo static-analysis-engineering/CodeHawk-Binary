@@ -46,6 +46,10 @@ config = Config()
 
 class CHError(Exception):
 
+    def __init__(self,msg):
+        Exception.__init__(self,msg)
+        self.msg = msg
+
     def wrap(self):
         lines = []
         lines.append('*' * 80)
