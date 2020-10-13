@@ -64,6 +64,13 @@ class MIPSFunction(object):
         self._get_blocks()
         if baddr in self.blocks:
             return self.blocks[baddr]
+
+    def has_instruction(self,iaddr):
+        self._get_blocks()
+        for b in self.blocks:
+            if self.blocks[b].has_instruction(iaddr):
+                return True
+        return False
     
     def get_instruction(self,iaddr):
         self._get_blocks()
@@ -172,6 +179,22 @@ class MIPSFunction(object):
             iresult = instr.get_registers()
             for r in iresult:
                 result.setdefault(r,iresult[r])
+        self.iter_instructions(f)
+        return result
+
+    def get_return_instructions(self):
+        result = []
+        def f(iaddr,instr):
+            if instr.is_return_instruction():
+                result.append(instr)
+        self.iter_instructions(f)
+        return result
+
+    def get_restore_register_instructions(self):
+        result = []
+        def f(iaddr,instr):
+            if instr.is_restore_register_instruction():
+                result.append(instr)
         self.iter_instructions(f)
         return result
 
