@@ -217,43 +217,6 @@ class MIPStub_calculate_checksum(MIPSimStub):
         pargs = ','.join(str(a) for a in [ a0, a1, a2])
         return self.add_logmsg(iaddr,simstate,pargs,returnval='-1')
 
-
-class MIPStub_fopen64(MIPSimStub):
-
-    def __init__(self,app):
-        MIPSimStub.__init__(self,app,'fopen64')
-
-    def simulate_success(self,iaddr,simstate,pargs,comment=''):
-        returnval = SSV.mk_symbol('fopen64_rtn_' + iaddr)
-        simstate.set_register(iaddr,'v0',returnval)
-        return self.add_logmsg(iaddr,simstate,pargs,returnval=str(returnval))
-
-    def simulate_failure(self,iaddr,simstate,pargs,comment=''):
-        returnval = SV.simZero
-        simstate.set_register(iaddr,'v0',returnval)
-        return self.add_logmsg(iaddr,simstate,pargs,returnval=str(returnval))
-
-    def simulate(self,iaddr,simstate):
-        """Logs i/o; returns 0 in v0."""
-        a0 = self.get_arg_val(iaddr,simstate,'a0')
-        a1 = self.get_arg_val(iaddr,simstate,'a1')
-        a0str = self.get_arg_string(iaddr,simstate,'a0')
-        a1str = self.get_arg_string(iaddr,simstate,'a1')
-        pargs = ','.join( str(a) + ':' + str(s) for (a,s) in [ (a0,a0str), (a1,a1str) ])
-        simstate.add_logmsg('i/o', self.name + '(' + pargs + ')')        
-        if (simstate.has_stub_directive(self.name)
-            and simstate.get_stub_directive(self.name).has_address(iaddr)):
-            directive = simstate.get_stub_directive(self.name)
-            value = directive.get_value(iaddr)
-            comment = directive.get_comment(iaddr)
-            if value == 'success':
-                return self.simulate_success(iaddr,simstate,pargs,comment)
-            else:
-                return self.simulate_failure(iaddr,simstate,pargs,comment)
-        else:
-            return self.simulate_failure(iaddr,simstate,pargs)
-
-
 class MIPStub_close(MIPSimStub):
 
     def __init__(self,app):
@@ -379,6 +342,44 @@ class MIPStub_fileno(MIPSimStub):
         simstate.set_register(iaddr,'v0',result)
         simstate.add_logmsg('i/o',self.name + '(' + str(a0) + ') with return value ' + str(result))
         return self.add_logmsg(iaddr,simstate,str(a0),returnval=str(result))
+
+class MIPStub_fopen64(MIPSimStub):
+
+    def __init__(self,app):
+        MIPSimStub.__init__(self,app,'fopen64')
+
+    def simulate_success(self,iaddr,simstate,pargs,comment=''):
+        returnval = SSV.mk_symbol('fopen64_rtn_' + iaddr)
+        simstate.set_register(iaddr,'v0',returnval)
+        return self.add_logmsg(iaddr,simstate,pargs,returnval=str(returnval))
+
+    def simulate_failure(self,iaddr,simstate,pargs,comment=''):
+        returnval = SV.simZero
+        simstate.set_register(iaddr,'v0',returnval)
+        return self.add_logmsg(iaddr,simstate,pargs,returnval=str(returnval))
+
+    def simulate(self,iaddr,simstate):
+        """Logs i/o; returns 0 in v0."""
+        a0 = self.get_arg_val(iaddr,simstate,'a0')
+        a1 = self.get_arg_val(iaddr,simstate,'a1')
+        a0str = self.get_arg_string(iaddr,simstate,'a0')
+        a1str = self.get_arg_string(iaddr,simstate,'a1')
+        pargs = ','.join( str(a) + ':' + str(s) for (a,s) in [ (a0,a0str), (a1,a1str) ])
+        simstate.add_logmsg('i/o', self.name + '(' + pargs + ')')
+        if (simstate.has_stub_directive(self.name)
+            and simstate.get_stub_directive(self.name).has_address(iaddr)):
+            directive = simstate.get_stub_directive(self.name)
+            value = directive.get_value(iaddr)
+            comment = directive.get_comment(iaddr)
+            if value == 'success':
+                return self.simulate_success(iaddr,simstate,pargs,comment)
+            else:
+                return self.simulate_failure(iaddr,simstate,pargs,comment)
+        elif a0str == '/dev/console':
+            return self.simulate_success(iaddr,simstate,pargs,
+                                         'assume access to /dev/console is always enabled')
+        else:
+            return self.simulate_failure(iaddr,simstate,pargs)
 
 class MIPStub_fwrite(MIPSimStub):
 
