@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -36,6 +37,9 @@ if os.path.isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)),'Confi
 class Config():
 
     def __init__(self):
+        # platform settings
+        if os.uname()[0] == 'Linux': self.platform = 'linux'
+        elif os.uname()[0] == 'Darwin': self.platform = 'macOS'
 
         # general settings
         self.utildir = os.path.dirname(os.path.abspath(__file__))
@@ -48,14 +52,14 @@ class Config():
         self.summariesdir = os.path.join(self.chbdir,'summaries')
         self.summaries = os.path.join(self.summariesdir,'bchsummaries.jar')
         
-        # platform-settings
-        if os.uname()[0] == 'Linux': self.platform = 'linux'
-        elif os.uname()[0] == 'Darwin': self.platform = 'mac'
-
+        # analyzer location
         if self.platform == 'linux':
-            self.chx86_analyze = os.path.join(self.binariesdir,'chx86_analyze_linux')
-        else:
-            self.chx86_analyze = os.path.join(self.binariesdir,'chx86_analyze_mac')
+            self.linuxdir = os.path.join(self.binariesdir,'linux')
+            self.chx86_analyze = os.path.join(self.linuxdir,'chx86_analyze')
+
+        elif self.platform == 'macOS':
+            self,macOSdir = os.path.join(self.binariesdir,'macOS')
+            self.chx86_analyze = os.path.join(self.macOSdir,'chx86_analyze')
 
         # optional: set architecture-specific analysis targets to provide
         #   shortcuts to filenames, and to maintain meta data on analysis targets
