@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -61,7 +62,7 @@ class AnalysisManager(object):
 
     # Extraction and directory preparation -------------------------------------
 
-    def extract_executable(self,chcmd='-extract'):
+    def extract_executable(self,chcmd='-extract',xuserdata=None):
         os.chdir(self.path)
         xdir = UF.get_executable_dir(self.path,self.filename)
         print('xdir: ' + xdir)
@@ -72,7 +73,7 @@ class AnalysisManager(object):
         fndir = os.path.join(udir,'functions')
         self._makedir(udir)
         self._makedir(fndir)
-        self._make_userdata_file()
+        self._make_userdata_file(xuserdata)
 
         cmd = [ self.chx86_analyze, chcmd, '-summaries', self.chsummaries ]
         if self.mips: cmd.append('-mips')
@@ -109,9 +110,10 @@ class AnalysisManager(object):
 
     # Disassembly --------------------------------------------------------------
 
-    def disassemble(self,save_xml=False,timeout=None,verbose=False):
+    def disassemble(self,save_xml=False,timeout=None,verbose=False,preamble_cutoff=12):
         os.chdir(self.path)
         cmd = [ self.chx86_analyze, '-summaries', self.chsummaries ]
+        cmd.extend([ '-preamble_cutoff', str(preamble_cutoff) ])
         for d in self.deps:
             cmd.extend([ '-summaries', d ])
         for s in self.specializations:
@@ -134,13 +136,14 @@ class AnalysisManager(object):
 
     def analyze(self,iterations=10,extract=False,resetfiles=False,
                     verbose=False,ignore_stable=False,save_asm=False,
-                    mem=False,timeout=None):
+                    mem=False,timeout=None,preamble_cutoff=12):
         """Create and invoke the command to analyze to the Binary Analyzer."""
         self.fnsanalyzed = []
         self._analysis_setup(self.filename,extract,resetfiles)
         result = self._analyze_until_stable(
             self.filename,iterations,ignore_stable,
-            asm=save_asm,mem=mem,timeout=timeout,verbose=verbose)
+            asm=save_asm,mem=mem,timeout=timeout,verbose=verbose,
+            preamble_cutoff=preamble_cutoff)
         return result
                     
 
@@ -148,7 +151,7 @@ class AnalysisManager(object):
         if os.path.isdir(name): return
         os.makedirs(name)
 
-    def _make_userdata_file(self):
+    def _make_userdata_file(self,xuserdata):
         ufilename = UF.get_user_system_data_filename(self.path,self.filename)
         if os.path.exists(ufilename):
             print('File: ' + os.path.basename(ufilename)
@@ -163,6 +166,8 @@ class AnalysisManager(object):
                      'non-returning-functions', 'esp-adjustments' ]
         children = [ ET.Element(t) for t in tags ]
         snode.extend(children)
+        if xuserdata:
+            snode.append(xuserdata)
         ufile.write(UX.doc_to_pretty(tree))
 
     def _analysis_setup(self,filename,extract,resetfiles):
@@ -231,11 +236,12 @@ class AnalysisManager(object):
                    
     def _analyze_until_stable(self,filename,iterations,ignore_stable=False,
                                   asm=False,mem=False,timeout=None,
-                                  verbose=False):
+                                  verbose=False,preamble_cutoff=12):
         os.chdir(self.path)
         functionsjarfile = UF.get_functionsjar_filename(self.path,filename)
         analysisdir = UF.get_analysis_dir(self.path,filename)
         cmd = [ self.chx86_analyze, '-summaries', self.chsummaries ]
+        cmd.extend([ '-preamble_cutoff', str(preamble_cutoff) ])
         if self.elf: cmd.append('-elf')
         if self.mips: cmd.append('-mips')
         for d in self.deps:

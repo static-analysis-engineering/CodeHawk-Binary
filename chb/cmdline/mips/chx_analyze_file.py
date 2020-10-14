@@ -6,6 +6,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -56,9 +57,9 @@ import os
 import subprocess
 import shutil
 
-import chb.util.fileutil as UF
 import chb.cmdline.AnalysisManager as AM
-
+import chb.util.fileutil as UF
+import chb.util.xmlutil as UX
 
 def parse():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -71,15 +72,18 @@ def parse():
                             action='store_true')
     parser.add_argument('--specializations','-s',nargs='*',default=[],
                             help='function specializations present in system_info')
+    parser.add_argument('--sh_init_size',help='provide size of .init section header')
+    parser.add_argument('--preamble_cutoff',type=int,
+                        help='minimum cutoff for function entry preamble',
+                        default=12)
     args = parser.parse_args()
     return args
 
-def extract(path,filename,deps):
+def extract(am,path,filename,deps,xuserdata=None):
     print('Extracting executable content into xml ...')
     try:
-        am = AM.AnalysisManager(path,filename,deps,elf=True,mips=True)
         chcmd = '-extract'
-        result = am.extract_executable(chcmd=chcmd)
+        result = am.extract_executable(chcmd=chcmd,xuserdata=xuserdata)
         if not (result == 0):
             print('*' * 80)
             print('Error in extracting executable; please check format')
@@ -96,17 +100,27 @@ if __name__ == '__main__':
 
     args = parse()
 
+    xuserdata = []
+    if args.sh_init_size:
+        xdata = [ ('.init',[('size',args.sh_init_size)]) ]
+        xuserdata = UX.create_xml_section_header_userdata(xdata)
+
     try:
         (path,filename,deps) = UF.get_path_filename_deps('mips-elf',args.filename)
-        if not UF.check_executable(path,filename):
-            extract(path,filename,deps)
+        UF.check_analyzer()
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
 
-    UF.check_analyzer()
     am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True,
-                                specializations=args.specializations)
+                            specializations=args.specializations)
+
+    try:
+        if not UF.check_executable(path,filename):
+            extract(am,path,filename,deps,xuserdata=xuserdata)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
 
     if args.reset:
         chdir = UF.get_ch_dir(path,filename)
@@ -120,7 +134,8 @@ if __name__ == '__main__':
             exit(1)
 
     try:
-        am.analyze(iterations=args.iterations,verbose=args.verbose)
+        am.analyze(iterations=args.iterations,verbose=args.verbose,
+                   preamble_cutoff=args.preamble_cutoff)
     except subprocess.CalledProcessError as e:
         print(e.output)
         print(e.args)

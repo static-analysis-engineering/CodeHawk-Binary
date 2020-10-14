@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -73,3 +74,16 @@ def doc_to_pretty (t):
     lines = [ '<?xml version="1.0" encoding="UTF-8"?>\n' ]
     lines.extend(element_to_pretty(t.getroot()))
     return ''.join(lines)
+
+def create_xml_section_header_userdata(items):
+    root = ET.Element('section-headers')
+    for (section,attributes) in items:
+        sh = ET.Element('sh')
+        root.append(sh)
+        sh.set('name',section)
+        for (fname,fvalue) in attributes:
+            fld = ET.Element('fld')
+            sh.append(fld)
+            fld.set('name',fname)
+            fld.set('value',fvalue)
+    return root
