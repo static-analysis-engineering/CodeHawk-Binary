@@ -186,9 +186,25 @@ class ELFHeader():
                     result.append(self.sections[index])
         return result
 
+    def set_path_filename(self,path,filename):
+        self.path = path
+        self.filename = filename
+
+    def get_path(self):
+        if self.app:
+            return self.app.path
+        else:
+            return self.path
+
+    def get_filename(self):
+        if self.app:
+            return self.app.filename
+        else:
+            return self.filename
+
     def get_raw_sections(self):
         for (index,h) in enumerate(self.sectionheaders):
-            sectionx = UF.get_elf_section_xnode(self.app.path,self.app.filename,index)
+            sectionx = UF.get_elf_section_xnode(self.get_path(),self.get_filename(),index)
             if sectionx is None:
                 print('Section ' + str(index) + ' could not be found')
                 continue
@@ -201,14 +217,25 @@ class ELFHeader():
         if index in self.sections:
             return self.sections[index].get_byte_value(address)
         else:
+            print('Section ' + str(index) + ' not found')
+            return None
+
+    def get_string(self,index,address):
+        if not index in self.sections:
+            self.get_raw_sections()
+        if index in self.sections:
+            return self.sections[index].get_string(address)
+        else:
+            print('Index not found: ' + str(index))
             return None
 
     def get_elf_section_index(self,address):
         for h in self.sectionheaders:
-            vaddr = int(h.get_vaddr(),16)
-            size = int(h.get_size(),16)
-            if address >= vaddr and address < vaddr + size:
-                return h.index
+            if h.is_initialized():
+                vaddr = int(h.get_vaddr(),16)
+                size = int(h.get_size(),16)
+                if address >= vaddr and address < vaddr + size:
+                    return h.index
         return None
 
     def get_symbol_table(self):
@@ -368,6 +395,7 @@ class ELFHeader():
         sectionheaders = self.xnode.find('elf-section-headers')
         for sh in sectionheaders.findall('section-header'):
             self.sectionheaders.append(ELFSectionHeader(self,sh))
-        xdictionary = UF.get_elf_dictionary_xnode(self.app.path,self.app.filename)
-        self.dictionary.initialize(xdictionary)
+        if self.app:
+            xdictionary = UF.get_elf_dictionary_xnode(self.app.path,self.app.filename)
+            self.dictionary.initialize(xdictionary)
     
