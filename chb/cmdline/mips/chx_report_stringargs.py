@@ -6,6 +6,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,9 +30,8 @@
 
 This script lists strings that are referenced in functions to enable 
 function maching between a binary and its (conjectured) source code 
-(the KTAdvance C analyzer can produce a similar list for source code 
-as a reference). The script prints out the strings per function and 
-saves a json file in the .chu directory associated with the executable.
+(the CodeHawk C analyzer can produce a similar list for source code 
+as a reference). 
 """
 
 import argparse
@@ -43,8 +43,15 @@ import chb.util.fileutil as UF
 def parse():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('filename',help='name of executable to be analyzed')
+    parser.add_argument('--target',help='restrict output to these call targets')
     args = parser.parse_args()
     return args
+
+def get_function_name(app,faddr):
+    if app.has_function_name(faddr):
+        return app.get_function_name(faddr) + ' (' + faddr + ')'
+    else:
+        return faddr
 
 if __name__ == '__main__':
 
@@ -57,33 +64,43 @@ if __name__ == '__main__':
         print(str(e.wrap()))
         exit(1)
 
-    result = {}  # gvar -> faddr -> count
-
     app = AP.AppAccess(path,filename,mips=True)
     callinstrs = app.get_app_calls()
 
-    callees = {} # target -> [ instruction ]
+    if args.target:
+        result = {}  # faddr -> instrs
+        for faddr in sorted(callinstrs):
+            for i in callinstrs[faddr]:
+                if i.has_string_arguments() and str(i.get_call_target()) == args.target:
+                    result.setdefault(faddr,[])
+                    result[faddr].append(i)
 
-    for faddr in sorted(callinstrs):
-        print('-' * 80)
-        if app.has_function_name(faddr):
-            print(app.get_function_name(faddr) + ' (' + faddr + ')')
-        else:
-            print(faddr)
-        for i in callinstrs[faddr]:
-            if i.has_string_arguments():
-                callee = str(i.get_call_target())
-                callees.setdefault(callee,[])
-                callees[callee].append(i)
-                print('  ' + str(i))
+        for faddr in sorted(result):
+            print('\n' + get_function_name(app,faddr))
+            print('-' * 80)
+            for i in result[faddr]:
+                print('  ' + i.iaddr + '  ' + i.get_annotation())
+
+    else:
+        callees = {} # target -> [ instruction ]
+
+        for faddr in sorted(callinstrs):
+            print('\n' + get_function_name(app,faddr))
+            print('-' * 80)
+            for i in callinstrs[faddr]:
+                if i.has_string_arguments():
+                    callee = str(i.get_call_target())
+                    callees.setdefault(callee,[])
+                    callees[callee].append(i)
+                    print('  ' + str(i))
 
 
-    print('Callees')
-    print('=' * 80)
-    for callee in sorted(callees):
-        print('\n' + callee)
-        print('-' * 80)
-        for i in sorted(callees[callee],key=lambda i:i.get_annotation()):
-            print('  (' + str(i.mipsfunction.faddr) + ','
+        print('Callees')
+        print('=' * 80)
+        for callee in sorted(callees):
+            print('\n' + callee)
+            print('-' * 80)
+            for i in sorted(callees[callee],key=lambda i:i.get_annotation()):
+                print('  (' + str(i.mipsfunction.faddr) + ','
                       + str(i.iaddr) + ')   ' + i.get_annotation())
     
