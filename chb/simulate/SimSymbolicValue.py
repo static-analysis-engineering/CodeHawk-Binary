@@ -35,6 +35,9 @@ import chb.simulate.SimValue as SV
 def mk_global_address(offset):    # integer
     return SimGlobalAddress(SV.mk_simvalue(offset))
 
+def mk_stack_address(offset):     # integer
+    return SimStackAddress(SV.mk_simvalue(offset))
+
 def mk_base_address(base,offset=0,buffersize=None,tgttype=None):
     """Makes a base address with offset (int) and buffer size (simvalue)."""
     return SimBaseAddress(base,
@@ -46,6 +49,12 @@ def mk_string_address(s): return SimStringAddress(s)
 
 def mk_symbol(name,type=None,minval=None,maxval=None):
     return SimSymbol(name,type=type,minval=minval,maxval=maxval)
+
+def mk_filepointer(filename,filepointer):
+    return SimSymbolicFilePointer(filename,filepointer)
+
+def mk_filedescriptor(filename,filedescriptor):
+    return SimSymbolicFileDescriptor(filename,filedescriptor)
 
 class SimSymbolicValue(SV.SimValue):
 
@@ -61,6 +70,8 @@ class SimSymbolicValue(SV.SimValue):
     def is_environment_string(self): return False
     def is_environment_string_entry(self): return False
     def is_tainted_data(self): return False
+    def is_file_pointer(self): return False
+    def is_file_descriptor(self): return False
 
     def __str__(self): return 'symbolic value'
 
@@ -82,6 +93,8 @@ class SimAddress(SimSymbolicValue):
     def is_base_address(self): return False
 
     def get_offset(self): return self.offset
+
+    def get_alignment(self): return self.get_offset_value() % 4
 
     def get_offset_value(self):
         if self.offset.is_defined():
@@ -137,7 +150,19 @@ class SimStackAddress(SimAddress):
 
     def sub(self,simval): return self.add_offset(-simval.to_signed_int())
 
+    def subu(self,simval):
+        if simval.is_literal() and simval.is_defined():
+            return self.add_offset(-simval.to_unsigned_int())
+        elif simval.is_stack_address():
+            return SV.mk_simvalue(self.get_offset_value() - simval.get_offset_value())
+        else:
+            return self.add_offset(-simval.to_unsigned_int())
+
     def add_unsigned(self,simval): return self.add_offset(simval.to_unsigned_int())
+
+    def bitwise_and(self,simval):
+        newoffset = self.offset.bitwise_and(simval)
+        return SimStackAddress(newoffset)
 
     def is_stack_address(self): return True
 
@@ -152,7 +177,11 @@ class SimBaseAddress(SimAddress):
 
     def is_equal(self,other):
         if other.is_literal() and other.is_defined() and other.is_zero():
-            return SV.SimBoolValue(0)
+            return SV.simfalse
+
+    def is_not_equal(self,other):
+        if other.is_literal() and other.is_defined() and other.is_zero():
+            return SV.simtrue
 
     def add_offset(self,intval):
         newoffset = self.offset.add(SV.SimDoubleWordValue(intval))
@@ -187,6 +216,23 @@ class SimStringAddress(SimSymbolicValue):
 
     def is_string_address(self): return True
 
+    def add(self,v):
+        if v.is_literal() and v.is_defined():
+            if v.value == 0:
+                return self
+            elif v.value > 0:
+                if len(self.stringval) > v.value:
+                    return mk_string_address(self.stringval[v.value:])
+                else:
+                    raise UF.CHBError('Cannot add ' + str(v.value)
+                                      + ' to string of length: '
+                                      + str(len(self.stringval)))
+            else:
+                raise UF.CHBError('Unable to add negative number to string address: '
+                                  + str(v.value))
+        else:
+            raise UF.CHBError('String address: value to be added is undefined')
+
     def get_string(self):
         """Return string pointed to by this address."""
         return self.stringval
@@ -220,6 +266,15 @@ class SimSymbol(SimSymbolicValue):
         else:
             return SV.simUndefinedBool
 
+    def is_negative(self):
+        if self.has_minval():
+            if self.minval >= 0:
+                return SV.simfalse
+            else:
+                return SV.simtrue
+        else:
+            return SV.simUndefinedBool
+
     def has_minval(self): return not self.minval is None
 
     def has_maxval(self): return not self.maxval is None
@@ -245,6 +300,48 @@ class SimSymbol(SimSymbolicValue):
         else:
             prange = ''
         return 'sym:' + self.name + ptype + prange
+
+class SimSymbolicFilePointer(SimSymbol):
+
+    def __init__(self,filename,fp):
+        SimSymbol.__init__(self,filename + '_filepointer',type='ptr2FILE')
+        self.filename = filename
+        self.fp = fp
+
+    def is_file_pointer(self): return True
+
+    def is_not_equal(self,other):
+        if other.is_literal() and other.is_defined():
+            if other.value == 0:
+                return SV.simtrue
+        raise UF.CHBError('SimSymbolicFilePointer.equal(' + str(other) + ')')
+
+    def is_equal(self,other):
+        if other.is_literal() and other.is_defined():
+            if other.value == 0:
+                return SV.simfalse
+        raise UF.CHBError('SimSymbolicFilePointer.equal(' + str(other) + ')')
+
+    def __str__(self): return 'fp_' + self.filename
+
+class SimSymbolicFileDescriptor(SimSymbol):
+
+    def __init__(self,filename,fd):
+        SimSymbol.__init__(self,filename + '_filedescriptor',type='int')
+        self.filename = filename
+        self.fd = fd
+
+    def is_file_descriptor(self): return True
+
+    def is_non_negative(self): return SV.simtrue
+
+    def is_not_equal(self,other):
+        if other.is_literal() and other.is_defined() and other.to_signed_int() == -1:
+            return SV.simtrue
+        else:
+            return SV.simfalse
+
+    def __str__(self): return 'fd_' + self.filename
 
 
 class SimEnvironmentString(SimSymbolicValue):
