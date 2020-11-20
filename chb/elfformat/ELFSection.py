@@ -103,6 +103,15 @@ class ELFSection(object):
         if address in self.values:
             return self.values[address]
 
+    def get_string(self,address):
+        b = self.get_byte_value(address)
+        result = ''
+        while b:
+            result += chr(b)
+            address += 1
+            b = self.get_byte_value(address)
+        return result
+
     def get_linked_stringtable(self):
         shlink = int(self.sectionheader.get_linked_section(),16)
         return self.elfheader.get_string_table(shlink)

@@ -143,6 +143,9 @@ class ELFSectionHeader():
     def is_dynamic_table(self):
         return self.get_section_header_type() == 'SHT_Dynamic'
 
+    def is_initialized(self):
+        return not(self.get_section_header_type() == 'SHT_NoBits')
+
     def as_dictionary(self):
         result = {}
         result['index'] = int(self.xnode.get('index'));
