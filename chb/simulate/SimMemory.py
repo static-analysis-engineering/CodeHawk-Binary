@@ -36,6 +36,7 @@ class SimMemory(object):
 
     def __init__(self,simstate,initialized,name):
         self.simstate = simstate
+        self.bigendian = self.simstate.bigendian
         self.mem = {}       # address -> SimByteValue
         self.initialized = initialized
         self.name = name
@@ -65,14 +66,14 @@ class SimMemory(object):
             self.mem[address+2] = srcval
             self.mem[address+3] = srcval
 
-    def set(self,iaddr,address,srcval,bigendian=False):
+    def set(self,iaddr,address,srcval):
         address = address.get_offset_value()
         if srcval.is_symbolic():
             self.mem[address] = srcval
             self.mem[address+1] = srcval
             self.mem[address+2] = srcval
             self.mem[address+3] = srcval
-        elif bigendian:
+        elif self.bigendian:
             self.set_big_endian(iaddr,address,srcval)
         else:
             self.set_little_endian(iaddr,address,srcval)
@@ -118,7 +119,7 @@ class SimMemory(object):
                                            self.name + ' memory location at ' + str(hex(address))
                                            + ' not initialized')
 
-    def get(self,iaddr,address,size,bigendian=False):
+    def get(self,iaddr,address,size):
         address = address.get_offset_value()
         if not address in self.mem:
             raise SU.CHBSimError(self.simstate,iaddr,
@@ -127,10 +128,30 @@ class SimMemory(object):
             return self.mem[address]
         if size == 1:
             return self.get_byte(iaddr,address)
-        if bigendian:
+        if self.bigendian:
             return self.get_big_endian(iaddr,address,size)
         else:
             return self.get_little_endian(iaddr,address,size)
+
+    def get_char_string(self,iaddr,address,size):
+        address = address.get_offset_value()
+        if not address in self.mem:
+            raise SU.CHBSimError(self.simstate,iaddr,
+                                'Address ' + str(address) + ' not found in memory')
+        if self.mem[address].is_symbolic():
+            return '----'
+        if size == 4 and self.bigendian:
+            b1 = self.get_byte(iaddr,address+3)
+            b2 = self.get_byte(iaddr,address+2)
+            b3 = self.get_byte(iaddr,address+1)
+            b4 = self.get_byte(iaddr,address)
+            result = ''
+            for b in [ b4, b3, b2, b1 ]:
+                if b.value > 10 and b.value < 127:
+                    result += chr(b.value)
+                else:
+                    result += '?'
+            return result
 
     def get_little_endian(self,iaddr,address,size):
         if size == 2:
@@ -207,11 +228,19 @@ class SimMemory(object):
                 try:
                     if a in self.mem:
                         address = self.mk_address(a)
-                        lines.append(str(hex(a)).rjust(12) + '  ' + str(self.get(0,address,4)))
+                        try:
+                            charstring = self.get_char_string(0,address,4)
+                        except:
+                            charstring = '?'
+                        lines.append(str(hex(a)).rjust(12)
+                                     + '  ' + str(a).rjust(12)
+                                     + '  ' + str(self.get(0,address,4))
+                                     + '  ' + str(charstring))
                 except SU.CHBSimValueUndefinedError:
                     lines.append(str(hex(a)).rjust(12) + '  ?')
                 except SU.CHBSimError:
                     lines.append(str(hex(a)).rjust(12) + '  ?')
+
         return '\n'.join(lines)
 
 

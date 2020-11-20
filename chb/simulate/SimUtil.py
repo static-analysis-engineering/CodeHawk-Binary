@@ -92,7 +92,7 @@ def compute_dw_value_eb(byte1,byte2,byte3,byte4):
     return (byte4 + (byte3 << 8) + (byte2 << 8) + (byte1 << 24))
 
 def simassign(iaddr,simstate,lhs,rhs,intermediates=''):
-    lhs = simstate.get_lhs(iaddr,lhs)
+    # lhs = simstate.get_lhs(iaddr,lhs)
     intermediates = ' ; ' + intermediates if intermediates else ''
     return str(lhs) + ' := ' + str(rhs) + intermediates
 
@@ -168,6 +168,12 @@ class CHBSimCallTargetUnknownError(CHBSimError):
         CHBSimError.__init__(self,simstate,iaddr,msg)
         self.calltgt = calltgt
 
+class CHBSimSystemCallException(CHBSimError):
+
+    def __init__(self,simstate,iaddr,syscallindex):
+        CHBSimError.__init__(self,simstate,iaddr,'system call: ' + str(syscallindex))
+        self.syscallindex = syscallindex
+
 class CHBSimJumpTargetUnknownError(CHBSimError):
 
     def __init__(self,simstate,iaddr,jumptgt,msg):
@@ -187,6 +193,13 @@ class CHBSymbolicPointer(CHBSimError):
                              'symbolic pointer with base ' + base + ' and offset ' + offset)
         self.base = base
         self.offset = offset
+
+class CHBSimExitException(UF.CHBError):
+
+    def __init__(self,simstate,iaddr,exitvalue):
+        CHBSimError.__init__(self,simstate,iaddr,
+                             'system exit with exit value ' + exitvalue)
+        self.exitvalue = exitvalue
 
 class CHBSimValueUndefinedError(UF.CHBError):
 
