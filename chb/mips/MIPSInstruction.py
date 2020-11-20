@@ -163,6 +163,9 @@ class MIPSInstruction(object):
         xdata = self.idictionary.read_xml_instrx(self.xnode)
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_call_instruction(xdata)
 
+    def is_load_word_instruction(self):
+        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_load_word()
+
     def is_call_to_app_function(self,tgtaddr):
         if self.is_call_instruction():
             xdata = self.idictionary.read_xml_instrx(self.xnode)
@@ -175,7 +178,7 @@ class MIPSInstruction(object):
         if self.is_call_instruction():
             xdata = self.idictionary.read_xml_instrx(self.xnode)            
             opcode =  self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-            return opcode.get_target(xdata)
+            return opcode.get_call_target(xdata)
 
     def get_call_arguments(self):
         if self.is_call_instruction():
@@ -232,6 +235,10 @@ class MIPSInstruction(object):
     def get_return_expr(self):
         xdata = self.idictionary.read_xml_instrx(self.xnode)
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_return_expr(xdata)
+
+    def get_rhs_expr(self):
+        xdata = self.idictionary.read_xml_instrx(self.xnode)
+        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_rhs(xdata)
 
     # false, true condition
     def get_ft_conditions(self):

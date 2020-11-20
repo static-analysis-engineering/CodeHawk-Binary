@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -129,6 +130,14 @@ class MIPSFunction(object):
         result = []
         def f(iaddr,instr):
             if instr.is_call_instruction():
+                result.append(instr)
+        self.iter_instructions(f)
+        return result
+
+    def get_load_word_instructions(self):
+        result = []
+        def f(iaddr,instr):
+            if instr.is_load_word_instruction():
                 result.append(instr)
         self.iter_instructions(f)
         return result

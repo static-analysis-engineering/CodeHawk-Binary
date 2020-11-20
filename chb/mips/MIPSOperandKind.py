@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -64,6 +65,8 @@ class MIPSSpecialRegisterOp(MIPSOperandKindBase):
     def is_mips_special_register(self): return True
 
     def get_mips_register(self): return self.tags[1]
+
+    def get_size(self): return 4
 
     def __str__(self): return str(self.get_mips_register())
 
