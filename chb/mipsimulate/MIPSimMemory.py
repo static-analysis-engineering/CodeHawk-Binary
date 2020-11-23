@@ -34,33 +34,43 @@ import chb.simulate.SimUtil as SU
 
 class MIPSimStackMemory(M.SimMemory):
 
-    def __init__(self,simstate,initialized,stackvalues=None,stackvaluesstart=0):
+    def __init__(self,simstate,initialized=False):
         M.SimMemory.__init__(self,simstate,initialized,'stack')
-        self.stackvalues = stackvalues
-        self.stackvaluesstart = stackvaluesstart
-        self._initialize()
 
     def set_environment_string(self,iaddr): pass
 
-    def _initialize(self):
-        if self.stackvalues:
-            for i in range(0,len(self.stackvalues),2):
-                b = int(self.stackvalues[i:i+2],16)
-                offset = (i//2) + self.stackvaluesstart
-                self.set_byte(0,offset,SV.SimByteValue(b))
 
 class MIPSimGlobalMemory(M.SimMemory):
 
     def __init__(self,simstate,app,initialized=False):
         M.SimMemory.__init__(self,simstate,initialized,'global')
-        self.bigendian = self.simstate.bigendian
         self.app = app
         self.accesses = {}
+        self.patched_globals = self.simstate.simsupport.get_patched_globals()
 
-    def get(self,iaddr,address,size): return self.get_from_section(iaddr,address,size)
+    def get(self,iaddr,address,size):
+        try:
+            result = M.SimMemory.get(self,iaddr,address,size)
+            if result.is_defined():
+                return result
+            else:
+                return self.get_from_section(iaddr,address,size)
+        except SU.CHBSimError:
+            return self.get_from_section(iaddr,address,size)
+
+    def has_patched_global(self,address):
+        return hex(address.get_offset_value()) in self.patched_globals
+
+    def get_patched_global(self,address):
+        if self.has_patched_global(address):
+            hexval = self.patched_globals[hex(address.get_offset_value())]
+            return SV.mk_simvalue(int(hexval,16))
+        raise UF.CHBError('No patched global found for ' + str(address))
 
     def get_from_section(self,iaddr,address,size):
         if address.is_defined():
+            if self.has_patched_global(address):
+                return self.get_patched_global(address)
             elfheader = self.app.get_elf_header()
             sectionindex = elfheader.get_elf_section_index(address.get_offset_value())
             if sectionindex is None:
@@ -71,7 +81,7 @@ class MIPSimGlobalMemory(M.SimMemory):
         for i in range(offset,offset+size):
             byteval = self.app.get_elf_header().get_memory_value(i,sectionindex)
             self.set_byte(iaddr,i,SV.SimByteValue(byteval))
-        memval = M.SimMemory.get(self,iaddr,address,size,bigendian=self.bigendian)
+        memval = M.SimMemory.get(self,iaddr,address,size)
         if not memval.is_defined():
             memval = mk_simvalue(0,size=size)
             self.simstate.add_logmsg('global memory', str(address) + ' uninitialized')
@@ -98,7 +108,7 @@ class MIPSimBaseMemory(M.SimMemory):
 
     def get(self,iaddr,address,size,bigendian=False):
         try:
-            memval = M.SimMemory.get(self,iaddr,address,size,bigendian=self.bigendian)
+            memval = M.SimMemory.get(self,iaddr,address,size)
         except SU.CHBSimError:
             name = self.name + '[' + str(address.get_offset()) + ']'
             return SSV.SimSymbol(name)

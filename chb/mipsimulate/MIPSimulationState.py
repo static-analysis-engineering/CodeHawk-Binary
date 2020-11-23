@@ -27,7 +27,6 @@
 
 import chb.util.fileutil as UF
 
-import chb.mipsimulate.MIPSimDirectives as MSD
 import chb.mipsimulate.MIPSimLocation as MSL
 import chb.mipsimulate.MIPSimMemory as MM
 import chb.mipsimulate.MIPSimStubs as Stubs
@@ -47,7 +46,11 @@ class FunctionContext(object):
 
     def push(self,fn): self.functions.append(fn)
 
-    def pop(self): return self.functions.pop()
+    def pop(self):
+        if self.is_empty():
+            return 'nothing to pop'
+        else:
+            return self.functions.pop()
 
     def peek(self): return self.functions[len(self.functions)-1]
 
@@ -62,16 +65,16 @@ class FunctionContext(object):
 class MIPSimulationState(object):
 
     def __init__(self,app,basename,
-                 environment={},
-                 directives={},
-                 stackvalues=None,
-                 stackvaluesstart=0,
                  bigendian=False,
-                 libapp=None):
+                 simsupport=None,   # support class with custom initialization and stubs
+                 baseaddress=0,     # load address, to be added to imagebase
+                 libapp=None,   # library to statically include functions from
+                 xapp=None):    # target executable for dynamic loading
         self.app = app
         self.basename = basename
-        self.baseaddress = 0
+        self.baseaddress = baseaddress
         self.bigendian = bigendian
+        self.simsupport = simsupport
 
         self.imagebase = None
         self.context = FunctionContext()
@@ -79,8 +82,7 @@ class MIPSimulationState(object):
         # registers and memory
         self.registers = {}      # register name -> SimValue
         self.registers['zero'] = SV.SimDoubleWordValue(0)        
-        self.stackmem = MM.MIPSimStackMemory(self,not (stackvalues is None),
-                                             stackvalues=stackvalues,stackvaluesstart=stackvaluesstart)
+        self.stackmem = MM.MIPSimStackMemory(self)
         self.globalmem = MM.MIPSimGlobalMemory(self,self.app)
         self.basemem = {} # base -> MM.MIPSimBaseMemory
 
@@ -90,10 +92,18 @@ class MIPSimulationState(object):
             self.libstubs = {}   # int (int-address) -> (name,stub)
             self.libglobalmem = MM.MIPSimGlobalMemory(self,libapp)
             self.static_lib = {}  # function-name -> function address in static lib
-            self.instaticlib = False            
+            libimgbase = self.libapp.get_elf_header().get_image_base()
+            self.libimagebase = SSV.SimGlobalAddress(SV.SimDoubleWordValue(int(libimgbase,16)))
+
+        self.instaticlib = False
+
+        # target executable for dynamic loading (optional)
+        self.xapp = xapp
+        if self.xapp:
+            self.xglobalmem = MM.MIPSimGlobalMemory(self,xapp)
             
         # log
-        self.fnlog = {}          # iaddr -> msg list
+        self.fnlog = {}          # iaddr -> msg list2
         
         # program counter
         self.programcounter = None                 # SimAddress
@@ -101,16 +111,17 @@ class MIPSimulationState(object):
 
         # environment
         self.environment = {}   # string -> string
+        self.nvram = {}   # string -> string ; non-volatile ram default values
+        self.network_input = {}    # string -> f() -> string
         
         self.stubs = {}   # int (int-address) -> (name,stub)
-        self.directives = MSD.MIPSimDirectives(directives)
-
-        self._initialize(environment)
+        self._initialize()
 
     def function_start_initialization(self):
         self.registers['sp'] = SSV.SimStackAddress(SV.simZero)   # stackpointer
         for reg in [ 'ra','gp','fp','s0','s1','s2','s3','s4','s5','s6','s7' ]:
             self.registers[reg] = SSV.SimSymbol(reg + '_in')
+        self.simsupport.do_initialization(self)
 
     def set_base_address(self,base): self.baseaddress = base
 
@@ -130,18 +141,6 @@ class MIPSimulationState(object):
 
     def get_function_stub(self,addrvalue): return self.stubs[addrvalue][1]    
 
-    def set_stub_directive(self,fname,d):
-        self.directives.set_stub_directives(fname,d)
-
-    def has_stub_directive(self,fname):
-        return self.directives.has_stub_directive(fname)
-
-    def get_stub_directive(self,fname):
-        if self.has_stub_directive(fname):
-            return self.directives.get_stub_directive(fname)
-        else:
-            raise UF.CHBError('No stub directive found for ' + fname)
-
     # --- statically included library ---
 
     def set_in_static_lib(self,v): self.instaticlib = v
@@ -152,9 +151,8 @@ class MIPSimulationState(object):
 
     def get_lib_function_stub(self,addrvalue):
         return self.libstubs[addrvalue][1]
-            
 
-    # --- environment ---
+    # --- environment / nvram ---
 
     def has_environment_variable(self,name): return name in self.environment
 
@@ -170,6 +168,24 @@ class MIPSimulationState(object):
     def set_environment(self,d):
         for key in d:
             self.environment[key] = d[key]
+
+    def set_nvram(self,d):
+        for key in d:
+            self.nvram[key] = d[key]
+
+    # --- network input ---
+
+    def set_network_input(self,iaddr,f):
+        self.network_input[iaddr] = f
+
+    def get_network_input(self,iaddr):
+        if self.has_network_input(iaddr):
+            return self.network_input[iaddr]
+        else:
+            raise CHBError('No network input found for address ' + iaddr)
+
+    def has_network_input(self,iaddr):
+        return iaddr in self.network_input
 
     # --- program counter ---
         
@@ -235,12 +251,13 @@ class MIPSimulationState(object):
             self.set_memval(iaddr,lhs.get_address(),srcval)
         else:
             raise SU.CHBSimError(self,iaddr,'lhs not recognized: ' + str(lhs))
+        return lhs
 
     def get_rhs(self,iaddr,op,opsize=4):
         opkind = op.get_mips_opkind()
-        if opkind.is_mips_register():
+        if opkind.is_mips_register() or opkind.is_mips_special_register():
             reg = opkind.get_mips_register()
-            return self.get_regval(iaddr,reg)
+            return self.get_regval(iaddr,reg,opsize)
         elif opkind.is_mips_immediate():
             return SV.mk_simvalue(opsize,opkind.get_value())
         elif opkind.is_mips_indirect_register():
@@ -249,6 +266,15 @@ class MIPSimulationState(object):
             regval = self.get_regval(iaddr,reg)
             if not regval.is_defined():
                 return SV.mk_undefined_simvalue(opsize)
+            if regval.is_string_address() and opsize==1:
+                regstring = regval.get_string()
+                if offset == len(regstring):
+                    return SV.SimByteValue(0)
+                elif offset > len(regstring):
+                    print('Accessing string value out of bounds')
+                    exit(1)
+                else:
+                    return SV.mk_simvalue(ord(regval.get_string()[offset]),size=1)
             if regval.is_symbol():
                 base = regval.get_name()
                 if not base in self.basemem:
@@ -257,6 +283,10 @@ class MIPSimulationState(object):
                 return self.get_memval(iaddr,address,opsize)
             elif regval.is_address():
                 address = regval.add_offset(offset)
+                return self.get_memval(iaddr,address,opsize)
+            elif (regval.is_literal() and self.instaticlib
+                  and regval.value > self.libimagebase.get_offset_value()):
+                address = SSV.mk_global_address(regval.value + offset)
                 return self.get_memval(iaddr,address,opsize)
             elif (regval.is_literal() and regval.value > self.imagebase.get_offset_value()):
                 address = SSV.mk_global_address(regval.value + offset)
@@ -268,6 +298,12 @@ class MIPSimulationState(object):
                 s = regval.get_string()
                 if offset < len(s):
                     return SV.mk_simvalue(ord(s[0]),size=opsize)
+                elif offset == len(s):
+                    return SV.mk_simvalue(0,size=opsize)   # null terminator
+                else:
+                    raise SU.CHBSimError(self,iaddr,
+                                         'string address: ' + s.get_string()
+                                         + ' with offset: ' + str(offset))
             else:
                 raise SU.CHBSimError(self,iaddr,
                                      'register used in indirect register operand has no base: '
@@ -277,13 +313,16 @@ class MIPSimulationState(object):
 
     def get_lhs(self,iaddr,op):
         opkind = op.get_mips_opkind()
-        if opkind.is_mips_register():
+        if opkind.is_mips_register() or opkind.is_mips_special_register():
             return MSL.MIPSimRegister(opkind.get_mips_register())
-
         elif opkind.is_mips_indirect_register():
             reg = opkind.get_mips_register()
             offset = opkind.get_offset()
             regval = self.get_regval(iaddr,reg)
+            if self.instaticlib:
+                if regval.is_literal() and regval.value > self.libimagebase.get_offset_value():
+                    address = SSV.SimGlobalAddress(regval).add_offset(offset)
+                    return MSL.MIPSimMemoryLocation(address)
             if regval.is_literal() and regval.value > self.imagebase.get_offset_value():
                 address = SSV.SimGlobalAddress(regval).add_offset(offset)
                 return MSL.MIPSimMemoryLocation(address)
@@ -297,9 +336,18 @@ class MIPSimulationState(object):
         else:
             raise SU.CHBSimError(self,iaddr,'get-lhs: ' + str(op))
 
-    def get_regval(self,iaddr,reg):
+    def get_regval(self,iaddr,reg,opsize=4):
         if reg in self.registers:
-            return self.registers[reg]
+            if opsize == 4:
+                return self.registers[reg]
+            elif opsize == 1:
+                return self.registers[reg].get_byte1()
+            elif opsize == 2:
+                return self.registers[reg].get_low_word()
+            else:
+                raise SU.CHBSimError(self.iaddr,
+                                     'get-regval: opsize: ' + str(opsize)
+                                     + ' not recognized')
         else:
             self.add_logmsg(iaddr,'no value for register ' + reg)
             return SV.simUndefinedDW
@@ -312,9 +360,9 @@ class MIPSimulationState(object):
                 elif address.is_global_address():
                     return self.globalmem.get(iaddr,address,size)
                 elif address.is_stack_address():
-                    return self.stackmem.get(iaddr,address,size,bigendian=self.bigendian)
+                    return self.stackmem.get(iaddr,address,size)
                 elif address.is_base_address() and address.get_base() in self.basemem:
-                    return self.basemem[address.get_base()].get(iaddr,address,size,bigendian=self.bigendian)
+                    return self.basemem[address.get_base()].get(iaddr,address,size)
                 else:
                     self.add_logmsg(iaddr,'base ' + address.base
                                     + ' not yet supported')
@@ -322,7 +370,7 @@ class MIPSimulationState(object):
             else:
                 self.add_logmsg(iaddr,'attempt to address memory with absolute value: '
                                 + str(address))
-                return SV.SimDoubleWordValue(0,undefined=True)
+                return SV.simUndefinedDW
         except SU.CHBSimError as e:
             self.add_logmsg(iaddr,'no value for memory address ' + str(address)
                             + ' (' + str(e) + ')')
@@ -334,15 +382,15 @@ class MIPSimulationState(object):
                 if address.is_global_address() and self.libapp and self.instaticlib:
                     return self.libglobalmem.set(iaddr,address,srcval)
                 if address.is_global_address():
-                    self.globalmem.set(iaddr,address,srcval,bigendian=self.bigendian)
+                    self.globalmem.set(iaddr,address,srcval)
                 elif address.is_stack_address():
-                    self.stackmem.set(iaddr,address,srcval,bigendian=self.bigendian)
+                    self.stackmem.set(iaddr,address,srcval)
                 elif address.is_base_address():
                     base = address.get_base()
                     if not base in self.basemem:
                         self.basemem[base] = MM.MIPSimBaseMemory(self,base,
                                                                  buffersize=address.get_buffer_size())
-                    self.basemem[base].set(iaddr,address,srcval,bigendian=self.bigendian)
+                    self.basemem[base].set(iaddr,address,srcval)
                 else:
                     raise SU.CHBSimError(self,iaddr,'set-memval: ' + str(address) + ' not recognized')
             else:
@@ -401,9 +449,9 @@ class MIPSimulationState(object):
             pregs = []
             for r in SU.mips_register_order[i*4:(i+1)*4]:
                 if r in self.registers:
-                    pregs.append(str(self.registers[r]).rjust(10))
+                    pregs.append(str(self.registers[r]).rjust(16))
                 else:
-                    pregs.append('?'.rjust(10))
+                    pregs.append('?'.rjust(16))
             pregs = ' '.join(p for p in pregs)                     
             lines.append('$' + str(i*4).rjust(2) + '  : ' + pregs)
         lines.append('=' * 80)
@@ -443,20 +491,27 @@ class MIPSimulationState(object):
                 lines.append('  ' + ma + ': '
                              + ','.join(ia for ia in sorted(self.globalmem.accesses[ma])))
             lines.append('=' * 80)
+        lines.append('\n\nFunction context')
+        lines.append('  ' + str(self.context))
         return '\n'.join(lines)
 
-    def _initialize(self,env):
+    def _initialize(self):
         # obtain dynamically linked library functions
+        customstubs = self.simsupport.get_lib_stubs()
         librarystubs = self.app.functionsdata.get_library_stubs()  # hexaddr -> name
+        librarystubs.update(self.simsupport.get_supplemental_library_stubs())
         for addr in librarystubs:
             name = librarystubs[addr]
-            if name in Stubs.stubbed_libc_functions:
+            if name in customstubs:
+                stub = customstubs[name](self.app)
+            elif name in Stubs.stubbed_libc_functions:
                 stub = Stubs.stubbed_libc_functions[name](self.app)
             else:
                 stub = None
             self.stubs[int(addr,16)] = (name,stub)
 
         # set environment variables
+        env = self.simsupport.get_environment()
         for key in env:
             self.environment[key] = env[key]
 
