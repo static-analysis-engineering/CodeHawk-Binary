@@ -50,6 +50,13 @@ def mk_string_address(s): return SimStringAddress(s)
 def mk_symbol(name,type=None,minval=None,maxval=None):
     return SimSymbol(name,type=type,minval=minval,maxval=maxval)
 
+def mk_libc_table_address(name): return SimLibcTableAddress(name)
+
+def mk_libc_table_value(name,offset=0): return SimLibcTableValue(name,offset)
+
+def mk_libc_table_value_deref(name,offset1=0,offset2=0):
+    return SimLibcTableValueDeref(name,offset1,offset2)
+
 def mk_filepointer(filename,filepointer):
     return SimSymbolicFilePointer(filename,filepointer)
 
@@ -66,6 +73,9 @@ class SimSymbolicValue(SV.SimValue):
 
     def is_address(self): return False
     def is_string_address(self): return False
+    def is_libc_table_address(self): return False
+    def is_libc_table_value(self): return False
+    def is_libc_table_value_deref(self): return False
     def is_symbol(self): return False
     def is_environment_string(self): return False
     def is_environment_string_entry(self): return False
@@ -113,6 +123,18 @@ class SimGlobalAddress(SimAddress):
         SimAddress.__init__(self,'global',offset)
 
     def is_global_address(self): return True
+
+    def is_equal(self,other):
+        if other.is_literal() and other.is_defined() and other.value == 0:
+            return SV.simfalse
+        if other.is_symbolic() and other.is_global_address():
+            if other.get_offset_value() == self.get_offset_value():
+                return SV.simtrue
+            else:
+                return SV.simfalse
+        else:
+            raise UF.CHBError('Comparison of global address with non-address: ' +
+                              str(other))
 
     def add(self,simval): return self.add_offset(simval.to_signed_int())
 
@@ -193,6 +215,14 @@ class SimBaseAddress(SimAddress):
 
     def sub(self,simval): return self.add_offset(-simval.to_signed_int())
 
+    def subu(self,simval):
+        if simval.is_literal() and simval.is_defined():
+            return self.add_offset(-simval.to_unsigned_int())
+        elif simval.is_base_address() and simval.get_base() == self.get_base():
+            return SV.mk_simvalue(self.get_offset_value() - simval.get_offset_value())
+        else:
+            raise UF.CHBError('Argument ' + str(simval) + ' not recognized in SimBaseAddress.subu')
+
     def add_unsigned(self,simval): return self.add_offset(simval.to_unsigned_int())
 
     def is_base_address(self): return True
@@ -238,6 +268,59 @@ class SimStringAddress(SimSymbolicValue):
         return self.stringval
 
     def __str__(self): return 'string:' + self.stringval
+
+class SimLibcTableAddress(SimSymbolicValue):
+
+    def __init__(self,name):
+        SimSymbolicValue.__init__(self)
+        self.name = name
+
+    def is_libc_table_address(self): return True
+
+    def __str__(self):
+        return 'libc-table-address:' + self.name
+
+class SimLibcTableValue(SimSymbolicValue):
+
+    def __init__(self,name,offset=0):
+        SimSymbolicValue.__init__(self)
+        self.name = name
+        self.offset = offset
+
+    def is_libc_table_value(self): return True
+
+    def add(self,other):
+        if other.is_defined() and other.is_literal():
+            return mk_libc_table_value(self.name,self.offset + other.value)
+        else:
+            raise SU.CHBError('Argument to libc-table-value.add not recognized: ' +
+                              str(other))
+
+
+    def __str__(self):
+        poffset = '' if self.offset == 0 else '[' + str(self.offset) + ']'
+        return 'libc-table-value:' + self.name + poffset
+
+class SimLibcTableValueDeref(SimSymbolicValue):
+
+    def __init__(self,name,offset1=0,offset2=0):
+        SimSymbolicValue.__init__(self)
+        self.name = name
+        self.offset1 = offset1
+        self.offset2 = offset2
+
+    def is_libc_table_value_deref(self): return True
+
+    def get_result(self):
+        if self.offset1 >= 97 and self.offset2 <= 122:
+            return SV.mk_simvalue(self.offset1 // 2)
+        else:
+            return SV.mk_simvalue(self.offset1)
+
+    def __str__(self):
+        return ('libc-table-value-deref:' + self.name
+                + '[' + str(self.offset1) + ']'
+                + '[' + str(self.offset2) + ']')
 
 
 class SimSymbol(SimSymbolicValue):
@@ -334,6 +417,8 @@ class SimSymbolicFileDescriptor(SimSymbol):
     def is_file_descriptor(self): return True
 
     def is_non_negative(self): return SV.simtrue
+
+    def is_negative(self): return SV.simfalse
 
     def is_not_equal(self,other):
         if other.is_literal() and other.is_defined() and other.to_signed_int() == -1:
