@@ -215,7 +215,8 @@ class ELFHeader():
         if not index in self.sections:
             self.get_raw_sections()
         if index in self.sections:
-            return self.sections[index].get_byte_value(address)
+            result = self.sections[index].get_byte_value(address)
+            return result
         else:
             print('Section ' + str(index) + ' not found')
             return None

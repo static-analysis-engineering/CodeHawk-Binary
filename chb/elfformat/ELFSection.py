@@ -102,6 +102,9 @@ class ELFSection(object):
             self._initialize_section()
         if address in self.values:
             return self.values[address]
+        else:
+            print('Address: ' + hex(address) + ' not found')
+            print('Length of section: ' + hex(len(self.values)))
 
     def get_string(self,address):
         b = self.get_byte_value(address)
