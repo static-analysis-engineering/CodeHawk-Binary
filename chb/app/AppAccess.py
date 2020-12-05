@@ -127,7 +127,7 @@ class  AppAccess(object):
     def get_function_info(self,faddr):
         if not faddr in self.functioninfos:
             xnode = UF.get_function_info_xnode(self.path,self.filename,faddr)
-            self.functioninfos[faddr] = FunctionInfo(self,xnode)
+            self.functioninfos[faddr] = FunctionInfo(self,faddr,xnode)
         return self.functioninfos[faddr]
 
     def iter_functions(self,f):

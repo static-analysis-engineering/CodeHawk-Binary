@@ -25,12 +25,14 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-
+import chb.util.IndexedTable as UI
+import chb.util.fileutil as UF
 
 class FunctionInfo(object):
 
-    def __init__(self,app,xnode):
+    def __init__(self,app,faddr,xnode):
         self.app = app                  # AppAccess
+        self.faddr = faddr              # Function address
         self.ixd = self.app.interfacedictionary   # InterfaceDictionary
         self.xnode = xnode
         self.calltargets = {}           # faddr -> CallTarget
@@ -50,10 +52,13 @@ class FunctionInfo(object):
         if index in self.variablenames: return self.variablenames[index]
 
     def _initialize_call_targets(self):
-        ctnode = self.xnode.find('call-targets')
-        for x in ctnode.findall('ctinfo'):
-            self.calltargets[ x.get('a') ] = self.ixd.read_xml_call_target(x)
-        vnnode = self.xnode.find('variable-names')
-        if not vnnode is None:
-            for x in  vnnode.findall('n'):
-                self.variablenames[ int(x.get('vix')) ] = x.get('name')
+        try:
+            ctnode = self.xnode.find('call-targets')
+            for x in ctnode.findall('ctinfo'):
+                self.calltargets[ x.get('a') ] = self.ixd.read_xml_call_target(x)
+            vnnode = self.xnode.find('variable-names')
+            if not vnnode is None:
+                for x in  vnnode.findall('n'):
+                    self.variablenames[ int(x.get('vix')) ] = x.get('name')
+        except UI.IndexedTableError as e:
+            raise UF.CHBError('Error in initialize_call_targets for function: ' + self.faddr)
