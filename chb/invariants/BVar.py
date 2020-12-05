@@ -362,12 +362,15 @@ class InitialMemoryValue(ConstantValueVariableBase):
             return basevar.is_argument_value() and offset.is_constant_offset()
         return False
 
-    def get_argument_deref_arg_offset(self):
+    def get_argument_deref_arg_offset(self,inbytes=False):
         if self.is_argument_deref_value():
             d = self.get_original_variable().get_denotation()
             basevar = d.get_basevar()
             offset = d.get_memory_offset()
-            return (basevar.get_argument_index(),offset.get_offset() / 4)
+            if inbytes:
+                return (basevar.get_argument_index(),offset.get_offset())
+            else:
+                return (basevar.get_argument_index(),offset.get_offset() / 4)
         else:
             raise UF.CHBError('BVar:Error in get_argument_deref_arg_offset')
 
