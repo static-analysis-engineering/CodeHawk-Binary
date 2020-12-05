@@ -27,6 +27,7 @@
 
 import chb.util.fileutil as UF
 
+import chb.mipsimulate.BaseMIPSimSupport as BMS
 import chb.mipsimulate.MIPSimLocation as MSL
 import chb.mipsimulate.MIPSimMemory as MM
 import chb.mipsimulate.MIPSimStubs as Stubs
@@ -66,7 +67,7 @@ class MIPSimulationState(object):
 
     def __init__(self,app,basename,
                  bigendian=False,
-                 simsupport=None,   # support class with custom initialization and stubs
+                 simsupport=BMS.BaseMIPSimSupport('0x0'),   # support class with custom initialization and stubs
                  baseaddress=0,     # load address, to be added to imagebase
                  libapp=None,   # library to statically include functions from
                  xapp=None):    # target executable for dynamic loading
@@ -113,9 +114,16 @@ class MIPSimulationState(object):
         self.environment = {}   # string -> string
         self.nvram = {}   # string -> string ; non-volatile ram default values
         self.network_input = {}    # string -> f() -> string
-        
+
+        # library/application function stubs
         self.stubs = {}   # int (int-address) -> (name,stub)
+        self.appstubs = {}  # int (int-address) -> (name,stub)
+
+        # libc functions implemented by tables
+        self.ctype_toupper = None
+
         self._initialize()
+
 
     def function_start_initialization(self):
         self.registers['sp'] = SSV.SimStackAddress(SV.simZero)   # stackpointer
@@ -139,7 +147,16 @@ class MIPSimulationState(object):
 
     # --- stubs ---
 
-    def get_function_stub(self,addrvalue): return self.stubs[addrvalue][1]    
+    def get_function_stub(self,addrvalue):
+        if addrvalue in self.stubs:
+            return self.stubs[addrvalue][1]
+        elif addrvalue in self.appstubs:
+            return self.appstubs[addrvalue][1]
+        else:
+            raise UF.CHBError('No stub found for addr: ' + hex(addrvalue))
+
+    def is_libc_ctype_toupper(self,iaddr):    # integer address
+        return iaddr == self.ctype_toupper
 
     # --- statically included library ---
 
@@ -216,6 +233,11 @@ class MIPSimulationState(object):
                     else:
                         print('Missing stub: ' + self.stubs[addrvalue][0])
                         exit(1)
+                elif addrvalue in self.appstubs:
+                    msg = self.get_function_stub(addrvalue).simulate(iaddr,self)
+                    print('    ' + hex(addrvalue) + ': ' + msg)
+                    self.programcounter = self.get_regval(addrvalue,'ra')
+                    self.delayed_programcounter = None
                 elif self.libapp and self.instaticlib and addrvalue in self.libstubs:
                     if self.libstubs[addrvalue][1]:
                         msg = self.get_lib_function_stub(addrvalue).simulate(iaddr,self)
@@ -304,6 +326,10 @@ class MIPSimulationState(object):
                     raise SU.CHBSimError(self,iaddr,
                                          'string address: ' + s.get_string()
                                          + ' with offset: ' + str(offset))
+            elif regval.is_libc_table_address():
+                return SSV.mk_libc_table_value(regval.name)
+            elif regval.is_libc_table_value():
+                return SSV.mk_libc_table_value_deref(regval.name,regval.offset)
             else:
                 raise SU.CHBSimError(self,iaddr,
                                      'register used in indirect register operand has no base: '
@@ -352,11 +378,16 @@ class MIPSimulationState(object):
             self.add_logmsg(iaddr,'no value for register ' + reg)
             return SV.simUndefinedDW
 
+    def _handle_ctype_toupper(self):
+        return SSV.mk_libc_table_address('ctype_toupper')
+
     def get_memval(self,iaddr,address,size,signextend=False):
         try:
             if address.is_address():
                 if address.is_global_address() and self.libapp and self.instaticlib:
                     return self.libglobalmem.get(iaddr,address,size)
+                if address.is_global_address and self.is_libc_ctype_toupper(address.get_offset_value()):
+                    return self._handle_ctype_toupper()
                 elif address.is_global_address():
                     return self.globalmem.get(iaddr,address,size)
                 elif address.is_stack_address():
@@ -478,7 +509,7 @@ class MIPSimulationState(object):
             lines.append('Log messages:')
             lines.append('-' * 80)
             for a in sorted(self.fnlog):
-                lines.append('  ' + str(a))
+                lines.append('  ' + str(a) + ' (' + str(len(self.fnlog[a])) + ')')
                 for x in self.fnlog[a]:
                     lines.append('    ' + str(x))
             lines.append('=' * 80)
@@ -510,6 +541,13 @@ class MIPSimulationState(object):
                 stub = None
             self.stubs[int(addr,16)] = (name,stub)
 
+        # set application stubs
+        appstubs = self.simsupport.get_app_stubs()
+        for addr in appstubs:
+            name = self.app.get_function_name(addr) if self.app.has_function_name(addr) else addr
+            stub = appstubs[addr](self.app)
+            self.appstubs[int(addr,16)] = (name,stub)
+
         # set environment variables
         env = self.simsupport.get_environment()
         for key in env:
@@ -525,4 +563,9 @@ class MIPSimulationState(object):
                 else:
                     stub = None
                 self.libstubs[int(addr,16)] = (name,stub)
+
+        # set functions implemented by libc lookup tables
+        ctype_toupper = self.simsupport.get_ctype_toupper()
+        if not ctype_toupper is None:
+            self.ctype_toupper = int(ctype_toupper,16)
         
