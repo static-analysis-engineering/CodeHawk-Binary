@@ -75,15 +75,21 @@ def doc_to_pretty (t):
     lines.extend(element_to_pretty(t.getroot()))
     return ''.join(lines)
 
-def create_xml_section_header_userdata(items):
+def create_xml_section_header_userdata(d):
     root = ET.Element('section-headers')
-    for (section,attributes) in items:
+    for section in d:
         sh = ET.Element('sh')
         root.append(sh)
         sh.set('name',section)
-        for (fname,fvalue) in attributes:
+        for attr in d[section]:
             fld = ET.Element('fld')
             sh.append(fld)
-            fld.set('name',fname)
-            fld.set('value',fvalue)
+            fld.set('name',attr)
+            fld.set('value',d[section][attr])
     return root
+
+def create_xml_userdata(d):
+    result = []
+    if 'section-headers' in d:
+        result.append(create_xml_section_header_userdata(d['section-headers']))
+    return result
