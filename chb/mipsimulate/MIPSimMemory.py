@@ -30,6 +30,7 @@ import chb.simulate.SimMemory as M
 import chb.simulate.SimSymbolicValue as SSV
 import chb.simulate.SimValue as SV
 import chb.simulate.SimUtil as SU
+import chb.util.fileutil as UF
 
 
 class MIPSimStackMemory(M.SimMemory):
@@ -77,17 +78,21 @@ class MIPSimGlobalMemory(M.SimMemory):
                 memval = SV.mk_simvalue(0,size=size)
                 self.simstate.add_logmsg('global memory', str(address) + ' uninitialized')
                 return memval
-        offset = address.get_offset_value()
-        for i in range(offset,offset+size):
-            byteval = self.app.get_elf_header().get_memory_value(i,sectionindex)
-            self.set_byte(iaddr,i,SV.SimByteValue(byteval))
-        memval = M.SimMemory.get(self,iaddr,address,size)
-        if not memval.is_defined():
-            memval = mk_simvalue(0,size=size)
-            self.simstate.add_logmsg('global memory', str(address) + ' uninitialized')
-        self.accesses.setdefault(str(address),[])
-        self.accesses[str(address)].append(str(iaddr) + ':' + str(memval))
-        return memval
+            offset = address.get_offset_value()
+            for i in range(offset,offset+size):
+                byteval = self.app.get_elf_header().get_memory_value(i,sectionindex)
+                if byteval is not None:
+                    self.set_byte(iaddr,i,SV.SimByteValue(byteval))
+                else:
+                    raise UF.CHBError('No value found for ' + hex(i) + ' in section ' +
+                                      str(sectionindex))
+            memval = M.SimMemory.get(self,iaddr,address,size)
+            if not memval.is_defined():
+                memval = mk_simvalue(0,size=size)
+                self.simstate.add_logmsg('global memory', str(address) + ' uninitialized')
+            self.accesses.setdefault(str(address),[])
+            self.accesses[str(address)].append(str(iaddr) + ':' + str(memval))
+            return memval
 
 
 class MIPSimBaseMemory(M.SimMemory):
