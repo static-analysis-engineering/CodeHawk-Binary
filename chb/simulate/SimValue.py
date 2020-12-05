@@ -499,7 +499,7 @@ class SimDoubleWordValue(SimLiteralValue):
 
     def set_byte4(self,b4):
         if b4.is_byte():
-            newval = SU.compute_dw_value(self,byte1,self.byte2,self.byte3,b4.value)
+            newval = SU.compute_dw_value(self.byte1,self.byte2,self.byte3,b4.value)
             newdefined = self.b1defined and self.b2defined and self.b3defined and b4.is_defined()
             return SimDoubleWordValue(newval,
                                       defined=newdefined,
@@ -804,7 +804,7 @@ def compose_simvalue(bytes):
         b1 = bytes[0]
         b2 = bytes[1]
         if b1.is_defined() and b2.is_defined():
-            return SimWordValue(b2.value << 8 + b1.value)
+            return SimWordValue((b2.value << 8) + b1.value)
         else:
             return SimWordValue(0,defined=False)
     elif len(bytes) == 4:
