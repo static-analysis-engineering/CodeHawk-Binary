@@ -95,6 +95,7 @@ mips_opcode_constructors = {
     'mtc2' : lambda x: MIPSMoveWordToCoprocessor2(*x),
     'mthi' : lambda x: MIPSMoveToHi(*x),
     'mtlo' : lambda x: MIPSMoveToLo(*x),
+    'mul'  : lambda x: MIPSMultiplyWordToGPR(*x),
     'mult' : lambda x: MIPSMultiplyWord(*x),
     'multu': lambda x: MIPSMultiplyUnsignedWord(*x),
     'nop'  : lambda x: MIPSNoOperation(*x),
@@ -1742,14 +1743,23 @@ class MIPSLoadHalfWord(X.MIPSOpcodeBase):
     # --------------------------------------------------------------------------
     def simulate(self,iaddr,simstate):
         dstop = self.get_dst_operand()
-        srcval = simstate.get_rhs(iaddr,self.get_src_operand(),opsize=2)
+        srcop = self.get_src_operand()
+        srcval = simstate.get_rhs(iaddr,srcop,opsize=2)
+        print('srcval = ' + str(srcval))
         if srcval.is_literal() and srcval.is_defined():
             srcval = srcval.sign_extend(4)
+        elif srcval.is_libc_table_value_deref():    # __ctype_toupper table
+            srcval = srcval.get_result()
+            simstate.add_logmsg('ctype_toupper: ', str(srcval) + ' (' + str(chr(srcval.value)) + ')')
         else:
             srcval = SV.simUndefinedDW
+        try:
+            intermediates = 'val(' + str(simstate.get_lhs(iaddr,srcop)) + ') = ' + str(srcval)
+        except:
+            intermediates = ''
         lhs = simstate.set(iaddr,dstop,srcval)
         simstate.increment_program_counter()
-        return SU.simassign(iaddr,simstate,lhs,srcval)
+        return SU.simassign(iaddr,simstate,lhs,srcval,intermediates)
 
 class MIPSLoadHalfWordUnsigned(X.MIPSOpcodeBase):
 
@@ -1866,6 +1876,10 @@ class MIPSLoadWord(X.MIPSOpcodeBase):
     def get_rhs(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
         return [ xprs[1] ]
+
+    def get_load_address(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        return xprs[2]
 
     def get_global_variables(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -2028,44 +2042,45 @@ class MIPSLoadWordLeft(X.MIPSOpcodeBase):
         # bytes are set in the destination value with b1 = lsf byte, etc.
         if simstate.bigendian:
             if alignment == 0:
-                srcval = simstate.get_rhs(iaddr,srcop)
-                simstate.set(iaddr,dstop,srcval)
+                dstval = simstate.get_rhs(iaddr,srcop)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 1:   # set byte1, byte2, byte3
                 b4 = simstate.get_memval(iaddr,srcaddress,1)
-                b3 = simstate.get_memval(iaddr,srcaddress+1,1)
-                b2 = simstate.get_memval(iaddr,srcaddress+2,1)
+                b3 = simstate.get_memval(iaddr,srcaddress.add_offset(1),1)
+                b2 = simstate.get_memval(iaddr,srcaddress.add_offset(2),1)
                 dstval = dstvalue.set_byte2(b2).set_byte3(b3).set_byte4(b4)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 2:   # set byte1, byte2
                 b4 = simstate.get_memval(iaddr,srcaddress,1)
-                b3 = simstate.get_memval(iaddr,srcaddress+1,1)
+                b3 = simstate.get_memval(iaddr,srcaddress.add_offset(1),1)
                 dstval = dstvalue.set_byte3(b3).set_byte4(b4)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 3:   # set byte1
                 b4 = simstate.get_memval(iaddr,srcaddress,1)
                 dstval = dstvalue.set_byte4(b4)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             else: pass
         else:
             if alignment == 0:     # set byte 1
                 b1 = simstate.get_memval(iaddr,srcaddress,1)
                 dstval = dstvalue.set_byte1(b1)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 1:   # set byte1, byte2
                 b1 = simstate.get_memval(iaddr,srcaddress.add_offset(-1),1)
                 b2 = simstate.get_memval(iaddr,srcaddress,1)
                 dstval = dstvalue.set_byte1(b1).set_byte2(b2)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 2:   # set byte1, byte2, byte3
                 b1 = simstate.get_memval(iaddr,srcaddress-2,1)
                 b2 = simstate.get_memval(iaddr,srcaddress-1,1)
                 b3 = simstate.get_memval(iaddr,srcaddress,1)
                 dstval = dstvalue.set_byte1(b1).set_byte(b2).set_byte(b3)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 3:
-                srcval = simstate.get_rhs(iaddr,srcop)
-                simstate.set(iaddr,dstop,srcval)
+                dstval = simstate.get_rhs(iaddr,srcop)
+                lhs = simstate.set(iaddr,dstop,dstval)
         simstate.increment_program_counter()
+        return SU.simassign(iaddr,simstate,lhs,dstval)
 
 
 class MIPSLoadWordRight(X.MIPSOpcodeBase):
@@ -2135,43 +2150,44 @@ class MIPSLoadWordRight(X.MIPSOpcodeBase):
             if alignment == 0:
                 b1 = simstate.get_memval(iaddr,srcaddress,1)
                 dstval = dstvalue.set_byte1(b1)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 1:
                 b1 = simstate.get_memval(iaddr,srcaddress,1)
                 b2 = simstate.get_memval(iaddr,srcaddress-1,1)
                 dstval = dstvalue.set_byte1(b1).set_byte2(b2)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 2:
                 b1 = simstate.get_memval(iaddr,srcaddress,1)
                 b2 = simstate.get_memval(iaddr,srcaddress-1,1)
                 b3 = simstate.get_memval(iaddr,srcaddress-2,1)
                 dstval = dstvalue.set_byte1(b1).set_byte2(b2).set_byte3(b3)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 3:
-                srcval = simstate.get_rhs(iaddr,srcop)
-                simstate.set(iaddr,dstop,dstval)
+                dstval = simstate.get_rhs(iaddr,srcop)
+                lhs = simstate.set(iaddr,dstop,dstval)
             else: pass
         else:
             if alignment == 0:
-                srcval = simstate.get_rhs(iaddr,srcop)
-                simstate.set(iaddr,dstop,srcval)
+                dstval = simstate.get_rhs(iaddr,srcop)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 1:
                 b3 = simstate.get_memval(iaddr,srcaddress.add_offset(-2),1)
                 b2 = simstate.get_memval(iaddr,srcaddress.add_offset(-1),1)
                 b1 = simstate.get_memval(iaddr,srcaddress,1)
                 dstval = dstvalue.set_byte1(b1).set_byte2(b2).set_byte3(b3)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 2:
                 b2 = simstate.get_memval(iaddr,srcaddress.add_offset(-1),1)
                 b1 = simstate.get_memval(iaddr,srcaddress,1)
                 dstval = dstvalue.set_byte2(b2).set_byte1(b1)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             elif alignment == 3:
                 byte4 = simstate.get_memval(iaddr,srcaddress,1)
                 dstval = dstvalue.set_byte4(byte4)
-                simstate.set(iaddr,dstop,dstval)
+                lhs = simstate.set(iaddr,dstop,dstval)
             else: pass
         simstate.increment_program_counter()
+        return SU.simassign(iaddr,simstate,lhs,dstval)
 
 
 class MIPSMoveWordFromCoprocessor2(X.MIPSOpcodeBase):
@@ -2334,6 +2350,36 @@ class MIPSMoveConditionalNotZero(X.MIPSOpcodeBase):
         cond = X.simplify_result(xargs[2],xargs[3],cond,ccond)
         return 'if ' + cond + ' then ' + lhs + ' := ' + rhs
 
+    def get_con_operand(self): return self.mipsd.get_mips_operand(self.args[2])
+
+    def get_src_operand(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def get_dst_operand(self): return self.mipsd.get_mips_operand(self.args[0])
+
+
+    # --------------------------------------------------------------------------
+    # Operation:
+    #   if GPR[rt] <> 0 then
+    #       GPR[rd] <- GPR[rs]
+    #   endif
+    # ---------------------------------------------------------------------------
+    def simulate(self,iaddr,simstate):
+        conop = self.get_con_operand()
+        conval = simstate.get_rhs(iaddr,conop)
+        if conval.is_defined() and conval.is_literal():
+            if conval.value != 0:
+                dstop = self.get_dst_operand()
+                srcop = self.get_src_operand()
+                srcval = simstate.get_rhs(iaddr,srcop)
+                lhs = simstate.set(iaddr,dstop,srcval)
+                result = SU.simassign(iaddr,simstate,lhs,srcval)
+            else:
+                result = 'nop'
+        else:
+            result = '?'
+        simstate.increment_program_counter()
+        return result
+
 class MIPSMoveConditionalZero(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -2428,6 +2474,96 @@ class MIPSMultiplyUnsignedWord(X.MIPSOpcodeBase):
         result = X.simplify_result(xargs[4],xargs[5],result,rresult)
         return '(' + hi + ',' + lo + ') := ' + result
 
+    def get_dstlo_operand(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def get_dsthi_operand(self): return self.mipsd.get_mips_operand(self.args[0])
+
+    def get_src1_operand(self): return self.mipsd.get_mips_operand(self.args[2])
+
+    def get_src2_operand(self): return self.mipsd.get_mips_operand(self.args[3])
+
+    # --------------------------------------------------------------------------
+    # Operation:
+    #    prod <- (0 || GPR[rs][31..0]) . (0 || GPR[rt][31..0])
+    #    LO <- prod[31..0]
+    #    HI <- prod[63..32]
+    # --------------------------------------------------------------------------
+    def simulate(self,iaddr,simstate):
+        dstlo = self.get_dstlo_operand()
+        dsthi = self.get_dsthi_operand()
+        src1op = self.get_src1_operand()
+        src2op = self.get_src2_operand()
+        src1val = simstate.get_rhs(iaddr,src1op)
+        src2val = simstate.get_rhs(iaddr,src2op)
+        if src1val.is_symbol() or src2val.is_symbol():
+            expr = str(src1val) + ' * ' + str(src2val)
+            raise SU.CHBSymbolicExpression(simstate,iaddr,dstop,expr)
+        elif (src1val.is_literal() and src1val.is_defined()
+              and src2val.is_literal() and src2val.is_defined()):
+            p = src1val.value * src2val.value
+            loval = SV.mk_simvalue(p % (SU.max32 + 1))
+            hival = SV.mk_simvalue(p >> 32)
+        else:
+            loval = SV.simUndefinedDW
+            hival = SV.simUndefinedDW
+        lhslo = simstate.set(iaddr,dstlo,loval)
+        lhshi = simstate.set(iaddr,dsthi,hival)
+        simstate.increment_program_counter()
+        return SU.simassign(iaddr,simstate,lhslo,str(loval),
+                            intermediates=str(lhshi) + ' := ' + str(hival))
+
+class MIPSMultiplyWordToGPR(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 0:
+            lhs = str(xprs[0])
+            result = str(xprs[3])
+            rresult = str(xprs[4])
+            result = X.simplify_result(xargs[3],xargs[4],result,rresult)
+            return (lhs + ' := ' + result)
+        else:
+            return 'mul pending'
+
+    def get_dst_operand(self): return self.mipsd.get_mips_operand(self.args[0])
+
+    def get_src1_operand(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def get_src2_operand(self): return self.mipsd.get_mips_operand(self.args[2])
+
+    # --------------------------------------------------------------------------
+    # Operation:
+    #    temp <- GPR[rs] * GPR[rt]
+    #    GPR[rd] <- temp[31..0]
+    #    HI <- UNPREDICTABLE
+    #    LO <- UNPREDICTABLE
+    # --------------------------------------------------------------------------
+    def simulate(self,iaddr,simstate):
+        dstop = self.get_dst_operand()
+        src1op = self.get_src1_operand()
+        src2op = self.get_src2_operand()
+        src1val = simstate.get_rhs(iaddr,src1op)
+        src2val = simstate.get_rhs(iaddr,src2op)
+        if src1val.is_symbol() or src2val.is_symbol():
+            expr = str(src1val) + ' * ' + str(src2val)
+            raise SU.CHBSymbolicExpression(simstate,iaddr,dstop,expr)
+        else:
+            if (src1val.is_literal() and src1val.is_defined()
+                and src2val.is_literal() and src2val.is_defined()):
+                result = SV.mk_simvalue(src1val.value * src2val.value)
+            else:
+                raise SU.CHBSimError(simstate,iaddr,'mul undefined: '
+                                     + str(src1op) + ':' + str(src1val) + ', '
+                                     + str(src2op) + ':' + str(src2val))
+        lhs = simstate.set(iaddr,dstop,result)
+        simstate.increment_program_counter()
+        return SU.simassign(iaddr,simstate,lhs,str(result),
+                            intermediates=str(lhs) + ' := ' + str(src1val) + ' * '
+                            + str(src2val))
+
 class MIPSMultiplyWord(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -2461,8 +2597,8 @@ class MIPSMultiplyWord(X.MIPSOpcodeBase):
         dstlo = self.get_dstlo_operand()
         src1op = self.get_src1_operand()
         src2op = self.get_src2_operand()
-        src1val = simstate.get_rhs(iaddr,self.get_src1_operand())
-        src2val = simstate.get_rhs(iaddr,self.get_src2_operand())
+        src1val = simstate.get_rhs(iaddr,src1op)
+        src2val = simstate.get_rhs(iaddr,src2op)
         if src1val.is_defined() and src2val.is_defined():
             p = src1val.value * src2val.value
             loval = p % (SU.max32 + 1)
@@ -3223,7 +3359,8 @@ class MIPSStoreHalfWord(X.MIPSOpcodeBase):
     # --------------------------------------------------------------------------
     def simulate(self,iaddr,simstate):
         dstop = self.get_dst_operand()
-        srcval = simstate.get_rhs(iaddr,self.get_src_operand())
+        srcop = self.get_src_operand()
+        srcval = simstate.get_rhs(iaddr,srcop,opsize=2)
         lhs = simstate.set(iaddr,dstop,srcval)
         simstate.increment_program_counter()
         return SU.simassign(iaddr,simstate,lhs,srcval)
@@ -3417,32 +3554,36 @@ class MIPSStoreWordLeft(X.MIPSOpcodeBase):
             raise SU.CHBSimError(simstate,iaddr,
                                  'Store-word-left destination is not a memory location: '
                                  + str(dstlocation))
+        lhss = []
         if simstate.bigendian:
             if alignment == 0:
-                simstate.set(iaddr,self.get_dst_operand(),srcval)
+                lhss.append(simstate.set(iaddr,self.get_dst_operand(),srcval))
             elif alignment == 1:
-                simstate.set_memval(iaddr,dstaddr,srcval.get_third_byte())
-                simstate.set_memval(iaddr,dstaddr+1,srcval.get_snd_byte())
-                simstate.set_memval(iaddr,dstaddr+2,srcval.get_low_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_third_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr+1,srcval.get_snd_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr+2,srcval.get_low_byte()))
             elif alignment == 2:
-                simstate.set_memval(iaddr,dstaddr,srcval.get_snd_byte())
-                simstate.set_memval(iaddr,dstaddr+1,srcval.get_low_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_snd_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr+1,srcval.get_low_byte()))
             elif alignment == 3:
-                simstate.set_memval(iaddr,dstaddr,srcval.get_low_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_low_byte()))
             else:
                 pass
         else:
             if alignment == 0:
-                simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte()))
             elif alignment == 1:
-                simstate.set_memval(iaddr,dstaddr-1,srcval.get_third_byte())
-                simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr-1,srcval.get_third_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte()))
             elif alignment == 2:
-                simstate.set_memval(iaddr,dstaddr-2,srcval.get_snd_byte())
-                simstate.set_memval(iaddr,dstaddr-1,srcval.get_third_byte())
-                simstate.set_memval(iaddr,dstaddr,srcval.get_hight_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr-2,srcval.get_snd_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr-1,srcval.get_third_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_hight_byte()))
+            elif alignment == 3:
+                lhss.append(simstate.set(iaddr,self.get_dst_operand(),srcval))
             else: pass
         simstate.increment_program_counter()
+        return "assign " + ','.join(str(lhs) for lhs in lhss)
 
 
 class MIPSStoreWordRight(X.MIPSOpcodeBase):
@@ -3504,35 +3645,37 @@ class MIPSStoreWordRight(X.MIPSOpcodeBase):
             raise SU.CHBSimError(simstate,iaddr,
                                  'Store-word-right destination is not a memory location: '
                                  + str(dstlocation))
+        lhss = []
         if simstate.bigendian:
             if alignment == 0:
-                simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte()))
             elif alignment == 1:
-                simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte())
-                simstate.set_memval(iaddr,dstaddr+1,srcval.get_third_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr+1,srcval.get_third_byte()))
             elif alignment == 2:
-                simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte())
-                simstate.set_memval(iaddr,dstaddr+1,srcval.get_third_byte())
-                simstate.set_memval(iaddr,dstaddr+2,srcval.get_snd_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr+1,srcval.get_third_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr+2,srcval.get_snd_byte()))
             elif alignment == 3:
-                simstate.set(iaddr,self.get_dst_operand(),srcval)
+                lhss.append(simstate.set(iaddr,self.get_dst_operand(),srcval))
             else:
                 pass
         else:
             if alignment == 0:
-                simstate.set(iaddr,self.get_dst_operand(),srcval)
+                lhss.append(simstate.set(iaddr,self.get_dst_operand(),srcval))
             elif alignment == 1:
-                simstate.set_memval(iaddr,dstaddr-2,srcval.get_snd_byte())
-                simstate.set_memval(iaddr,dstaddr-1,srcval.get_third_byte())
-                simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr-2,srcval.get_snd_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr-1,srcval.get_third_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte()))
             elif alignment == 2:
-                simstate.set_memval(iaddr,dstaddr-1,srcval.get_third_byte())
-                simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte())
+                lhs.append(simstate.set_memval(iaddr,dstaddr-1,srcval.get_third_byte()))
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte()))
             elif alignment == 1:
-                simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte())
+                lhss.append(simstate.set_memval(iaddr,dstaddr,srcval.get_high_byte()))
             else:
                 pass
         simstate.increment_program_counter()
+        return 'assign ' + ','.join(str(lhs) for lhs in lhss)
 
 class MIPSSubtractUnsigned(X.MIPSOpcodeBase):
 
