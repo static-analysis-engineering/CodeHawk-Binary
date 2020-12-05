@@ -112,11 +112,10 @@ if __name__ == '__main__':
         print(str(e.wrap()))
         exit(1)
 
-    am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True,
-                            specializations=args.specializations)
-
     try:
         if not UF.check_executable(path,filename):
+            am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True,
+                                    specializations=args.specializations)
             extract(am,path,filename,deps,xuserdata=xuserdata)
     except UF.CHBError as e:
         print(str(e.wrap()))
@@ -132,6 +131,9 @@ if __name__ == '__main__':
             print('Error in unpacking tar.gz file with executable content')
             print('*' * 80)
             exit(1)
+
+    am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True,
+                            specializations=args.specializations)
 
     try:
         am.analyze(iterations=args.iterations,verbose=args.verbose,
