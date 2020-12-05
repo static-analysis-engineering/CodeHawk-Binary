@@ -140,18 +140,25 @@ class SimMemory(object):
                                 'Address ' + str(address) + ' not found in memory')
         if self.mem[address].is_symbolic():
             return '----'
-        if size == 4 and self.bigendian:
+        if size == 4:
             b1 = self.get_byte(iaddr,address+3)
             b2 = self.get_byte(iaddr,address+2)
             b3 = self.get_byte(iaddr,address+1)
             b4 = self.get_byte(iaddr,address)
             result = ''
-            for b in [ b4, b3, b2, b1 ]:
+            if b1.value == 0 and b2.value == 0 and b3.value == 0 and b4.value == 0:
+                return ''
+            if self.bigendian:
+                seq = [ b4, b3, b3, b1 ]
+            else:
+                seq = [ b1, b2, b3, b4 ]
+            for b in seq:
                 if b.value > 10 and b.value < 127:
                     result += chr(b.value)
                 else:
                     result += '?'
             return result
+        return '?'
 
     def get_little_endian(self,iaddr,address,size):
         if size == 2:
