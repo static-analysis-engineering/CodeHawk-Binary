@@ -120,6 +120,10 @@ class MIPSInstruction(object):
         xdata = self.idictionary.read_xml_instrx(self.xnode)
         return self.mipsdictionary.read_xml_mips_opcode(self.xnode).get_operand_values(xdata)
 
+    def get_load_address(self):
+        xdata = self.idictionary.read_xml_instrx(self.xnode)
+        return self.mipsdictionary.read_xml_mips_opcode(self.xnode).get_load_address()
+
     # returns a pair of (lhs,rhs) global references
     def get_global_refs(self):
         xdata = self.idictionary.read_xml_instrx(self.xnode)
