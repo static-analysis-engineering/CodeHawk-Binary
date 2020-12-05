@@ -203,9 +203,9 @@ class BXVariable(XDictionaryRecord):
         return (self.get_denotation().is_auxiliary_variable()
                     and self.get_denotation().get_auxiliary_variable().is_argument_deref_value())
 
-    def get_argument_deref_arg_offset(self):
+    def get_argument_deref_arg_offset(self,inbytes=False):
         if self.is_argument_deref_value():
-            return self.get_denotation().get_auxiliary_variable().get_argument_deref_arg_offset()
+            return self.get_denotation().get_auxiliary_variable().get_argument_deref_arg_offset(inbytes)
         else:
             raise CHBError('BXpr:Error in get_argument_deref_arg_offset')
 
@@ -392,6 +392,12 @@ class BXXprBase(XDictionaryRecord):
     # returns a dictionary gv -> count
     def get_global_variables(self): return {}
 
+    # returns the terms in the expression
+    def get_terms(self): return [ self ]
+
+    # returns the factors in the expression
+    def get_factors(self): return [ self ]
+
     # returns true if this expression is a string-manipulation condition
     def is_string_manipulation_condition(self): return False
 
@@ -526,6 +532,19 @@ class BXOp(BXXprBase):
             for a in self.get_args():
                 if a.is_op():
                     result.extend(a.get_terms())
+                else:
+                    result.append(a)
+            else: pass
+        else:
+            result.append(self)
+        return result
+
+    def get_factors(self):
+        result = []
+        if self.get_op() == 'mult':
+            for a in self.get_args():
+                if a.is_op():
+                    result.extend(a.get_factors())
                 else:
                     result.append(a)
             else: pass
