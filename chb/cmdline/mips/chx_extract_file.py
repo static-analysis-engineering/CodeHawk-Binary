@@ -29,6 +29,7 @@
 """Extracts executable content and saves it in xml."""
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -44,7 +45,9 @@ def parse():
     parser.add_argument('filename',help='file to extract')
     parser.add_argument('--reset',action='store_true',
                         help='remove existing xml extract and analysis directories')
-    parser.add_argument('--sh_init_size',help='provide size of .init section header')
+    parser.add_argument('--fixup',help='name of json file with disassembly fixup')
+    parser.add_argument('--force_fixup',help='replace existing user data file',
+                        action='store_true')
     args = parser.parse_args()
     return args
 
@@ -69,10 +72,16 @@ if __name__ == '__main__':
 
     args = parse()
 
-    xuserdata = []
-    if args.sh_init_size:
-        xdata = [ ('.init',[('size',args.sh_init_size)]) ]
-        xuserdata = UX.create_xml_section_header_userdata(xdata)
+    fixup = {}
+    if args.fixup:
+        try:
+            with open(args.fixup) as fp:
+                fixup = json.load(fp)['fixups']
+        except Exception as e:
+            print('*' * 80)
+            print('Error in loading fixup file: ' + str(e))
+            print('*' * 80)
+            exit(1)
 
     try:
         (path,filename,deps) = UF.get_path_filename_deps('mips-elf',args.filename)
@@ -92,10 +101,11 @@ if __name__ == '__main__':
             print('Removing ' + xmlextract)
             os.remove(xmlextract)
 
-    am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True)
+    am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True,
+                            fixup=fixup,force_fixup=args.force_fixup)
 
     if not UF.check_executable(path,filename):
-        extract(am,path,filename,deps,xuserdata=xuserdata)
+        extract(am,path,filename,deps)
 
     if not UF.unpack_tar_file(path,filename):
         print('*' * 80)

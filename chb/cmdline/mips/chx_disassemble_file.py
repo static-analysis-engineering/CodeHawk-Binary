@@ -45,7 +45,10 @@ def parse():
     parser.add_argument('--verbose','-v',help='output progress info',action='store_true')
     parser.add_argument('--specializations','-s',nargs='*',default=[],
                             help='function specializations present in system_info')
-    parser.add_argument('--sh_init_size',help='provide size of .init section header')
+    parser.add_argument('--sh_init_size',help='size of .init section for section header')
+    parser.add_argument('--sh_text_size',help='size of .text section for section header')
+    parser.add_argument('--sh_rodata_addr',help='addr of .rodata section for section header')
+    parser.add_argument('--sh_rodata_size',help='size of .rodata section for section header')
     parser.add_argument('--preamble_cutoff',type=int,
                         help='minimum cutoff for function entry preamble',
                         default=12)
@@ -74,8 +77,12 @@ if __name__ == '__main__':
     args = parse()
 
     xuserdata = []
-    if args.sh_init_size:
-        xdata = [ ('.init',[('size',args.sh_init_size)]) ]
+    if args.sh_init_size or args.sh_text_size or args.sh_rodata_addr or args.sh_rodata_size:
+        xdata = []
+        if args.sh_init_size: xdata.append(('.init',[('size',args.sh_init_size)]))
+        if args.sh_text_size: xdata.append(('.text',[('size',args.sh_text_size)]))
+        if args.sh_rodata_addr and args.sh_rodata_size:
+            xdata.append(('.rodata',[('size',args.sh_rodata_size),('addr',args.sh_rodata_addr)]))
         xuserdata = UX.create_xml_section_header_userdata(xdata)
 
     try:

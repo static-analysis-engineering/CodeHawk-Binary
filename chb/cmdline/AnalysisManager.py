@@ -41,7 +41,9 @@ import chb.util.xmlutil as UX
 class AnalysisManager(object):
     """Sets up the command-line arguments for and invokes the Binary Analyzer."""
 
-    def __init__(self,path,filename,deps=[],specializations=[],elf=False,mips=False):
+    def __init__(self,path,filename,deps=[],specializations=[],
+                 elf=False,mips=False,
+                 fixup={},force_fixup=False):
         """Initializes the analyzer location and target file location
 
         Arguments:
@@ -55,6 +57,8 @@ class AnalysisManager(object):
         self.specializations = specializations
         self.elf = elf
         self.mips = mips
+        self.fixup = fixup  # dictionary with user data to fix disassembly/analysis
+        self.force_fixup = force_fixup   # if true: replace existing .chu/<name>_system_info_u.xml file
         self.config = Config()
         self.chx86_analyze = self.config.chx86_analyze
         self.chsummaries = self.config.summaries
@@ -73,7 +77,7 @@ class AnalysisManager(object):
         fndir = os.path.join(udir,'functions')
         self._makedir(udir)
         self._makedir(fndir)
-        self._make_userdata_file(xuserdata)
+        self._make_userdata_file()
 
         cmd = [ self.chx86_analyze, chcmd, '-summaries', self.chsummaries ]
         if self.mips: cmd.append('-mips')
@@ -151,7 +155,8 @@ class AnalysisManager(object):
         if os.path.isdir(name): return
         os.makedirs(name)
 
-    def _make_userdata_file(self,xuserdata):
+    def _make_userdata_file(self):
+        userdata = self.fixup
         ufilename = UF.get_user_system_data_filename(self.path,self.filename)
         if os.path.exists(ufilename):
             print('File: ' + os.path.basename(ufilename)
@@ -166,8 +171,7 @@ class AnalysisManager(object):
                      'non-returning-functions', 'esp-adjustments' ]
         children = [ ET.Element(t) for t in tags ]
         snode.extend(children)
-        if xuserdata:
-            snode.append(xuserdata)
+        snode.extend(UX.create_xml_userdata(self.fixup))
         ufile.write(UX.doc_to_pretty(tree))
 
     def _analysis_setup(self,filename,extract,resetfiles):
