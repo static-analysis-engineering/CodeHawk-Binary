@@ -58,7 +58,7 @@ class Config():
             self.chx86_analyze = os.path.join(self.linuxdir,'chx86_analyze')
 
         elif self.platform == 'macOS':
-            self,macOSdir = os.path.join(self.binariesdir,'macOS')
+            self.macOSdir = os.path.join(self.binariesdir,'macOS')
             self.chx86_analyze = os.path.join(self.macOSdir,'chx86_analyze')
 
         # optional: set architecture-specific analysis targets to provide
