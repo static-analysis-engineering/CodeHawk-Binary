@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -405,6 +406,10 @@ class BXXprBase(XDictionaryRecord):
     def to_input_constraint(self): return None
     def to_input_constraint_value(self): return None
 
+    # returns a dictionary containing value and meta information
+    def to_annotated_value(self):
+        return { 'v': str(self) }
+
     def __str__(self): return 'basexpr:' + self.tags[0]
 
 class BXVar(BXXprBase):
@@ -482,6 +487,16 @@ class BXVar(BXXprBase):
             argindex = self.get_command_line_argument_value_index()
             return IC.CommandLineArgument(argindex)
 
+    def to_annotated_value(self):
+        result = BXXprBase.to_annotated_value(self)
+        if self.is_function_return_value():
+            result['k'] = 'sc:rv'
+            result['c'] = str(self.get_returnval_target())
+            callee_args = self.get_returnval_arguments()
+            if callee_args:
+                result['args'] = [ a.to_annotated_value() for a in self.get_returnval_arguments() ]
+        return result
+
     def __str__(self):
         if self.is_function_return_value():
             tgtval = self.get_returnval_target()
@@ -516,6 +531,17 @@ class BXConst(BXXprBase):
     def get_const(self): return self.xd.get_xcst(int(self.args[0]))
 
     def get_constant_value(self): return self.get_const().get_constant().get_value()
+
+    def to_annotated_value(self):
+        result = BXXprBase.to_annotated_value(self)
+        result['k'] = 'c'
+        const = self.get_const()
+        if const.is_string_reference():
+            result['t'] = 's'
+        elif const.is_intconst():
+            result['t'] = 'i'
+        return result
+
 
     def __str__(self): return str(self.get_const())
 
@@ -646,6 +672,16 @@ class BXOp(BXXprBase):
                     elif self.get_op() == 'ne' and self.get_args()[1].is_zero():
                         return IC.StringNotEqualsConstraint(argk,cstr,
                                                                 case_insensitive=(tgt=='strcasecmp'))
+            if tgt in [ 'memcmp' ]:
+                callargs = self.get_returnval_comparison_arguments()
+                cbytes = callargs[1]
+                argk = callargs[0]
+                clen = callargs[2]
+                if not argk is None:
+                    if self.get_op() == 'eq' and self.get_args()[1].is_zero():
+                        return IC.StringStartsWithConstraint(argk,cbytes)
+                    elif self.get_op() == 'ne' and self.get_args()[1].is_zero():
+                        return IC.StringNotStartsWithConstraint(argk,cbytes)
             if tgt in [ 'strstr', 'stristr']:
                 callargs = self.get_returnval_comparison_arguments()
                 cvar = callargs[0]
@@ -727,6 +763,13 @@ class BXOp(BXXprBase):
     def get_op(self): return self.tags[1]
 
     def get_args(self): return [ self.xd.get_xpr(int(i)) for i in self.args ]
+
+    def to_annotated_value(self):
+        result = BXXprBase.to_annotated_value(self)
+        result['k'] = 'x'
+        result['op'] = self.get_op()
+        result['args'] = [ a.to_annotated_value() for a in self.get_args() ]
+        return result
 
     def __str__(self):
         args = self.get_args()
