@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -131,6 +131,7 @@ class CallTargetBase(D.DictionaryRecord):
     def is_dll_target(self): return False
     def is_so_target(self): return False
     def is_app_target(self): return False
+    def is_unknown(self): return False
 
     def __str__(self): return 'call-target:' + self.tags[0]
 
@@ -218,3 +219,5 @@ class UnknownTarget(CallTargetBase):
 
     def __init__(self,d,index,tags,args):
         CallTargetBase.__init__(self,d,index,tags,args)
+
+    def is_unknown(self): return True
