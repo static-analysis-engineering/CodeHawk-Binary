@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2020 Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -91,7 +91,8 @@ class MIPSimGlobalMemory(M.SimMemory):
                 memval = mk_simvalue(0,size=size)
                 self.simstate.add_logmsg('global memory', str(address) + ' uninitialized')
             self.accesses.setdefault(str(address),[])
-            self.accesses[str(address)].append(str(iaddr) + ':' + str(memval))
+            chrrep = ' (' + chr(memval.value) + ')' if memval.value < 128 else ''
+            self.accesses[str(address)].append(str(iaddr) + ':' + str(memval) + chrrep)
             return memval
 
 
@@ -114,8 +115,8 @@ class MIPSimBaseMemory(M.SimMemory):
     def get(self,iaddr,address,size,bigendian=False):
         try:
             memval = M.SimMemory.get(self,iaddr,address,size)
-        except SU.CHBSimError:
-            name = self.name + '[' + str(address.get_offset()) + ']'
+        except SU.CHBSimError as e:
+            name = self.name + '[' + str(address.get_offset()) + ']' + ' (value not retrieved: ' + str(e) + ')'
             return SSV.SimSymbol(name)
         else:
             return memval

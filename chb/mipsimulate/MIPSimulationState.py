@@ -4,7 +4,8 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2020 Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,18 +41,68 @@ import chb.simulate.SimUtil as SU
 
 class FunctionContext(object):
 
-    def __init__(self):
+    def __init__(self,simstate,app):
+        self.simstate = simstate
+        self.app = app
         self.functions = []
+        self.addressref = app.get_address_reference() #  addr -> (baddr, [ faddr ]) (all hex)
+        self.callbacks = []    # [ SimAddress, [ args ] ]
+        self.callback_returnaddress = None
+        self.currentmipsfn = None
 
     def is_empty(self): return self.functions == []
 
-    def push(self,fn): self.functions.append(fn)
+    def get_context_string(self):
+        return ':'.join(f[-4:] for f in self.functions)
 
-    def pop(self):
+    def get_addr_reffn(self,iaddr):
+        if iaddr in self.addressref:
+            (baddr,fns) = self.addressref[iaddr]
+            if len(fns) == 1:
+                return (baddr,fns[0])
+            elif len(fns) == 0:
+                self.simstate.add_logmsg(iaddr,'addrreffn: no functions found')
+            else:
+                self.simstate.add_logmsg(iaddr,'addrreffn: multiple functions found: ' + ','.join(fns))
+        return None
+
+    def get_loop_nesting(self,iaddr):
+        if iaddr in self.addressref:
+            addrrefn = self.get_addr_reffn(iaddr)   #    (baddr,faddr)
+            if addrrefn:
+                if self.currentmipsfn and self.currentmipsfn.faddr == addrrefn[1]:
+                    return self.currentmipsfn.cfg.get_loop_levels(addrrefn[0])
+                elif self.currentmipsfn is None:
+                    self.simstate.add_logmsg(iaddr,'mips function has not been set')
+                else:
+                    self.simstate.add_logmsg(iaddr,'reffn: ' + addrrefn[1] + '; contextfn: '
+                                             + str(self.currentmipsfn.faddr)
+                                             + ' (all: ' + ','.join(self.functions) + ')')
+        return None
+
+    def push(self,faddr):
+        self.functions.append(faddr)
+        if self.app.has_function(faddr):
+            self.currentmipsfn = self.app.get_function(faddr)
+
+    def pop(self,programcounter):    # hex
         if self.is_empty():
             return 'nothing to pop'
         else:
-            return self.functions.pop()
+            returnfrom = self.functions.pop()
+            addrreffn = self.get_addr_reffn(programcounter)    #    (baddr,faddr)
+            if self.functions and addrreffn:
+                ctxtfn = self.peek()
+                if addrreffn[1] == ctxtfn:
+                    if self.app.has_function(ctxtfn):
+                        self.currentmipsfn = self.app.get_function(ctxtfn)
+                    else:
+                        self.simstate.add_logmsg(iaddr,'no function found for ' + ctxtfn)
+                else:
+                    return self.pop(programcounter)
+            else:
+                self.currentmipsfn = None
+            return returnfrom
 
     def peek(self): return self.functions[len(self.functions)-1]
 
@@ -65,7 +116,10 @@ class FunctionContext(object):
 
 class MIPSimulationState(object):
 
-    def __init__(self,app,basename,
+    def __init__(self,app,
+                 basename,      # name of executable
+                 imagebase,     # base address of the image (hex)
+                 startaddr,     # address to start simulation (hex)
                  bigendian=False,
                  simsupport=BMS.BaseMIPSimSupport('0x0'),   # support class with custom initialization and stubs
                  baseaddress=0,     # load address, to be added to imagebase
@@ -77,8 +131,11 @@ class MIPSimulationState(object):
         self.bigendian = bigendian
         self.simsupport = simsupport
 
-        self.imagebase = None
-        self.context = FunctionContext()
+        # context
+        self.imagebase = SSV.mk_global_address(int(imagebase,16))
+        self.context = FunctionContext(self,app)
+        self.programcounter = SSV.mk_global_address(int(startaddr,16))  # SimAddress
+        self.delayed_programcounter = None         # SimAddress
 
         # registers and memory
         self.registers = {}      # register name -> SimValue
@@ -105,10 +162,6 @@ class MIPSimulationState(object):
             
         # log
         self.fnlog = {}          # iaddr -> msg list2
-        
-        # program counter
-        self.programcounter = None                 # SimAddress
-        self.delayed_programcounter = None         # SimAddress
 
         # environment
         self.environment = {}   # string -> string
@@ -118,12 +171,15 @@ class MIPSimulationState(object):
         # library/application function stubs
         self.stubs = {}   # int (int-address) -> (name,stub)
         self.appstubs = {}  # int (int-address) -> (name,stub)
+        self.dlstubs = {}  # name -> stub ; dynamically linked symbols
 
         # libc functions implemented by tables
         self.ctype_toupper = None
+        self.ctype_b = None
 
         self._initialize()
-
+        self.function_start_initialization()
+        self.push_context(startaddr)
 
     def function_start_initialization(self):
         self.registers['sp'] = SSV.SimStackAddress(SV.simZero)   # stackpointer
@@ -141,7 +197,7 @@ class MIPSimulationState(object):
 
     def push_context(self,faddr): self.context.push(faddr)
 
-    def pop_context(self): return self.context.pop()
+    def pop_context(self,programcounter): return self.context.pop(programcounter)
 
     def restore_context(self,faddr): self.context.restore(faddr)
 
@@ -157,6 +213,23 @@ class MIPSimulationState(object):
 
     def is_libc_ctype_toupper(self,iaddr):    # integer address
         return iaddr == self.ctype_toupper
+
+    def is_libc_ctype_b(self,iaddr):    # integer address
+        return iaddr == self.ctype_b
+
+    def set_dlsym_stub(self,iaddr,name):
+        if name in Stubs.stubbed_libc_functions:
+            self.dlstubs[name] = Stubs.stubbed_libc_functions[name](self.app)
+            self.add_logmsg(iaddr,'dlsym:' + name + ' added')
+            return
+        else:
+            customstubs = self.simsupport.get_lib_stubs()
+            if name in customstubs:
+                self.dlstubs[name] = customstubs[name](self.app)
+                self.add_logmsg(iaddr,'dlsym:' + name + ' added')
+                return
+        self.add_logmsg(iaddr,'dlsym:' + name + ' not found')
+
 
     # --- statically included library ---
 
@@ -216,20 +289,45 @@ class MIPSimulationState(object):
 
     def increment_program_counter(self):
         if self.delayed_programcounter:
-            if self.delayed_programcounter.is_symbol():
+            if self.delayed_programcounter.is_dynamic_link_symbol():
+                iaddr = hex(self.programcounter.get_offset_value()-4)
+                dlsym = self.delayed_programcounter.name
+                if dlsym in self.dlstubs:
+                    msg = self.dlstubs[dlsym].simulate(iaddr,self)
+                    print('     dlsym: ' + msg)
+                    self.programcounter = self.get_regval(iaddr,'ra')
+                    self.delayed_programcounter = None
+                else:
+                    print('Missing dlsym stub: ' + dlsym)
+                    exit(1)
+            elif self.delayed_programcounter.is_symbol():
                 self.programcounter = self.delayed_programcounter
                 self.delayed_programcounter = None
             elif self.delayed_programcounter.is_global_address():
                 iaddr = hex(self.programcounter.get_offset_value()-4)
                 addrvalue = self.delayed_programcounter.get_offset().value
-                if self.libapp and addrvalue in self.static_lib:
-                    raise SU.CHBSimStaticLibFunction(iaddr,self.static_lib[addrvalue],self.registers)
+                if self.libapp and hex(addrvalue) in self.static_lib:
+                    raise SU.CHBSimStaticLibFunction(iaddr,self.static_lib[hex(addrvalue)],self.registers)
                 if addrvalue in self.stubs:
                     if self.stubs[addrvalue][1]:
-                        msg = self.get_function_stub(addrvalue).simulate(iaddr,self)
-                        print('     ' + hex(addrvalue) + ': ' + msg)
-                        self.programcounter = self.get_regval(addrvalue,'ra')
-                        self.delayed_programcounter = None
+                        returnaddr = self.get_regval(addrvalue,'ra')
+                        try:
+                            msg = self.get_function_stub(addrvalue).simulate(iaddr,self)
+                            print('     ' + hex(addrvalue) + ': ' + msg)
+                            self.programcounter = returnaddr
+                            self.delayed_programcounter = None
+                        except SU.CHBSimCallbackException as e:
+                            print('     ' + hex(addrvalue) + ': ' + e.msg)
+                            print('     ---> callback to ' + str(e.pc))
+                            self.programcounter = e.pc
+                            self.delayed_programcounter = None
+                            self.context.callback_returnaddress = returnaddr
+                            # self.push_context(e.pc.to_hex())
+                        except SU.CHBSimPopContextException as e:
+                            print('     ' + hex(addrvalue) + ': ' + e.msg)
+                            print('     ----> pop context: ' + str(self.pop_context(hex(addrvalue))))
+                            self.programcounter = returnaddr
+                            self.delayed_programcounter = None
                     else:
                         print('Missing stub: ' + self.stubs[addrvalue][0])
                         exit(1)
@@ -381,6 +479,9 @@ class MIPSimulationState(object):
     def _handle_ctype_toupper(self):
         return SSV.mk_libc_table_address('ctype_toupper')
 
+    def _handle_ctype_b(self):
+        return SSV.mk_libc_table_address('ctype_b')
+
     def get_memval(self,iaddr,address,size,signextend=False):
         try:
             if address.is_address():
@@ -388,6 +489,8 @@ class MIPSimulationState(object):
                     return self.libglobalmem.get(iaddr,address,size)
                 if address.is_global_address and self.is_libc_ctype_toupper(address.get_offset_value()):
                     return self._handle_ctype_toupper()
+                elif address.is_global_address and self.is_libc_ctype_b(address.get_offset_value()):
+                    return self._handle_ctype_b()
                 elif address.is_global_address():
                     return self.globalmem.get(iaddr,address,size)
                 elif address.is_stack_address():
@@ -406,6 +509,13 @@ class MIPSimulationState(object):
             self.add_logmsg(iaddr,'no value for memory address ' + str(address)
                             + ' (' + str(e) + ')')
             return SV.simUndefinedDW
+
+    def set_lib_memval(self,iaddr,address,srcval):
+        if address.is_address():
+            if address.is_global_address() and self.libapp:
+                self.libglobalmem.set(iaddr,address,srcval)
+                return
+        raise SU.CHBSimError(self,iaddr,'set-lib-memval: ' + str(address) + ' not supported')
 
     def set_memval(self,iaddr,address,srcval):
         try:
@@ -469,11 +579,6 @@ class MIPSimulationState(object):
         lines.append('\nProgram counter: ' + str(self.programcounter))
         lines.append('')
         lines.append('-' * 80)
-        # lines.append('Registers:')
-        # lines.append('-' * 80)
-        # for r in sorted(self.registers):
-        #    lines.append(r.ljust(10) + str(self.registers[r]))
-        # lines.append('=' * 80)
         lines.append('')
         lines.append('Registers in stack trace format')
         for i in range(0,8):
@@ -566,6 +671,9 @@ class MIPSimulationState(object):
 
         # set functions implemented by libc lookup tables
         ctype_toupper = self.simsupport.get_ctype_toupper()
+        ctype_b = self.simsupport.get_ctype_b()
         if not ctype_toupper is None:
             self.ctype_toupper = int(ctype_toupper,16)
+        if not ctype_b is None:
+            self.ctype_b = int(ctype_b,16)
         

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2020 Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,11 @@ class BaseMIPSimSupport(object):
     def __init__(self,startaddr,enable_file_operations=False):
         """Hex address of starting point of the simulation."""
         self.startaddr = startaddr
+        self.optargaddr = SV.simZero    # address where argument is saved by command-line processor
         self.enable_file_operations = enable_file_operations
+        self.diskfilenames = {}
+        self.forkchoices = {}
+        self.argumentrecorder = None
 
     def do_initialization(self,simstate): pass
 
@@ -43,11 +47,15 @@ class BaseMIPSimSupport(object):
 
     def get_step_count(self):
         """Return the number of instructions to be simulated."""
-        return 100
+        return 1000
 
     def get_environment(self):
         """Return dictionary of key-value pairs of environment variables."""
         return {}
+
+    def get_cwd(self):
+        """Return current working directory."""
+        return '/'
 
     def has_network_input(self,iaddr):
         """Return true if there is network input configured for this address."""
@@ -56,6 +64,13 @@ class BaseMIPSimSupport(object):
     def get_network_input(self,iaddr,simstate,size):
         """Return network input."""
         raise UF.CHBError('No network input configured for address ' + iaddr)
+
+    def get_read_input(self,iaddr,filedescriptor,buffer,buffersize):
+        """Return bytes that are read in at a read call at this address."""
+        return []
+
+    def substitute_formatstring(self,stub,iaddr,simstate,fmtstring):
+        return None
 
     def get_supplemental_library_stubs(self):
         """Return dictionary of hex-address,name pairs of library functions.
@@ -73,16 +88,11 @@ class BaseMIPSimSupport(object):
         return {}
 
     def get_app_stubs(self):
-        """Return diction of hexaddr-stubinvocation pairs of application functions.
+        """Return dictionary of hexaddr-stubinvocation pairs of application functions.
 
         Intended to stub out application functions that take a lot of execution
         steps without much relevant modification of state.
         """
-        return {}
-
-    def get_app_stubs(self):
-        """Return dictionary of hexaddress-stubinvocation pairs of application
-        functions to provide shortcuts."""
         return {}
 
     def get_patched_globals(self):
@@ -100,4 +110,8 @@ class BaseMIPSimSupport(object):
 
     def get_ctype_toupper(self):
         """Return the global access address for __ctype_toupper (as encountered statically)."""
+        return None
+
+    def get_ctype_b(self):
+        """Return the global access address for __ctype_b (as encountered statically)."""
         return None
