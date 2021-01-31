@@ -76,6 +76,8 @@ def parse():
     parser.add_argument('--preamble_cutoff',type=int,
                         help='minimum cutoff for function entry preamble',
                         default=12)
+    parser.add_argument('--thirdpartysummaries',nargs='*',default=[],
+                        help='summary jars for third party libraries')
     args = parser.parse_args()
     return args
 
@@ -111,6 +113,8 @@ if __name__ == '__main__':
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    deps = args.thirdpartysummaries
 
     try:
         if not UF.check_executable(path,filename):
