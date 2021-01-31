@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -105,6 +105,19 @@ class  AppAccess(object):
                 self.functions[faddr] = AsmFunction(self,xnode)
         return self.functions[faddr]
 
+    def get_address_reference(self):
+        """Return map of addr -> [ baddr, [ faddr ])."""
+        result = {}
+        def add(faddr,fn):
+            fnref = fn.get_address_reference()   #  addr -> baddr
+            for a in fnref:
+                if a in result:
+                    result[a][1].append(faddr)
+                else:
+                    result[a] = (fnref[a],[ faddr ])
+        self.iter_functions(add)
+        return result
+
     def has_function_name(self,faddr):
         return self.has_function(faddr) and self.get_function(faddr).has_name()
 
@@ -190,6 +203,16 @@ class  AppAccess(object):
             appcalls = fn.get_app_calls()
             if len(appcalls) > 0:
                 result[faddr] = appcalls
+        self.iter_functions(f)
+        return result
+
+    def get_jump_conditions(self):
+        """Returns a dictionary faddr -> iaddr -> { data }."""
+        result = {}
+        def f(faddr,fn):
+            jumpconditions = fn.get_jump_conditions()
+            if len(jumpconditions) > 0:
+                result[faddr] = jumpconditions
         self.iter_functions(f)
         return result
 
