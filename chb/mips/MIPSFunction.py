@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -66,6 +66,15 @@ class MIPSFunction(object):
         if baddr in self.blocks:
             return self.blocks[baddr]
 
+    def get_address_reference(self):
+        """Return map of addr -> block addr."""
+        result = {}
+        def add(baddr,block):
+            for a in block.instructions:
+                result[a] = baddr
+        self.iter_blocks(add)
+        return result
+
     def has_instruction(self,iaddr):
         self._get_blocks()
         for b in self.blocks:
@@ -85,6 +94,11 @@ class MIPSFunction(object):
         result = {}
         for b in self.blocks: result.update(self.blocks[b].instructions)
         return result
+
+    def iter_blocks(self,f):
+        self._get_blocks()
+        for baddr in sorted(self.blocks):
+            f(baddr,self.blocks[baddr])
 
     def iter_instructions(self,f):
         instrs = self.get_instructions()
@@ -138,6 +152,14 @@ class MIPSFunction(object):
         result = []
         def f(iaddr,instr):
             if instr.is_load_word_instruction():
+                result.append(instr)
+        self.iter_instructions(f)
+        return result
+
+    def get_store_word_instructions(self):
+        result = []
+        def f(iaddr,instr):
+            if instr.is_store_word_instruction():
                 result.append(instr)
         self.iter_instructions(f)
         return result
@@ -206,6 +228,8 @@ class MIPSFunction(object):
                 result.append(instr)
         self.iter_instructions(f)
         return result
+
+    def get_jump_conditions(self): return self.cfg.get_conditions()
 
     def get_return_expr(self):
         exprs = self.get_return_expressions()
