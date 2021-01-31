@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -43,6 +43,8 @@ class SpOffset(D.DictionaryRecord):
     def get_level(self): return int(self.args[0])
 
     def get_offset(self): return self.xd.get_interval(int(self.args[1]))
+
+    def is_closed(self): return self.get_offset().is_closed()
 
     def __str__(self):
         level = self.get_level() + 1
@@ -170,6 +172,9 @@ class MIPSInstruction(object):
     def is_load_word_instruction(self):
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_load_word()
 
+    def is_store_word_instruction(self):
+        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_store_word()
+
     def is_call_to_app_function(self,tgtaddr):
         if self.is_call_instruction():
             xdata = self.idictionary.read_xml_instrx(self.xnode)
@@ -178,20 +183,45 @@ class MIPSInstruction(object):
             return  (not ctgtaddr is None) and str(ctgtaddr) == tgtaddr
         return False
 
+    def get_call_facts(self):
+        if not self.is_call_instruction():
+            raise UF.CHBError("Not a call instruction: " + str(self))
+        xdata = self.idictionary.read_xml_instrx(self.xnode)
+        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+        result = {}
+        callargs = self.get_annotated_call_arguments()
+        if callargs:
+            result['args'] = callargs
+        tgt = self.get_call_target()
+        if tgt == 'call-target:u':
+            result['t'] = '?'
+        else:
+            result['t'] = str(tgt)
+        return result
+
+    def get_annotated_call_arguments(self):
+        if self.is_call_instruction():
+            xdata = self.idictionary.read_xml_instrx(self.xnode)
+            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+            return opcode.get_annotated_call_arguments(xdata)
+        else:
+            raise UF.CHBError("Not a call instruction: " + str(self))
+
     def get_call_target(self):
         if self.is_call_instruction():
             xdata = self.idictionary.read_xml_instrx(self.xnode)            
             opcode =  self.mipsdictionary.read_xml_mips_opcode(self.xnode)
             return opcode.get_call_target(xdata)
+        else:
+            raise UF.CHBError("Not a call instruction: " + str(self))
 
     def get_call_arguments(self):
         if self.is_call_instruction():
             opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
             xdata = self.idictionary.read_xml_instrx(self.xnode)
             return opcode.get_arguments(xdata)
-        print('**Not a call instruction**')
-        print(str(self))
-        exit(1)
+        else:
+            raise UF.CHBError("Not a call instruction: " + str(self))
 
     def has_string_arguments(self):
         opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
@@ -243,6 +273,10 @@ class MIPSInstruction(object):
     def get_rhs_expr(self):
         xdata = self.idictionary.read_xml_instrx(self.xnode)
         return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_rhs(xdata)
+
+    def get_lhs(self):
+        xdata = self.idictionary.read_xml_instrx(self.xnode)
+        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_lhs(xdata)
 
     # false, true condition
     def get_ft_conditions(self):

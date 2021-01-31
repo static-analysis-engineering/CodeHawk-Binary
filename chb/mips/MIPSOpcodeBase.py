@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -106,6 +106,8 @@ class MIPSOpcodeBase(object):
         return self.tags[0] == 'jr' and str(self.get_operands()[0]) == 'ra'
 
     def is_load_word(self): return self.tags[0] == 'lw'
+
+    def is_store_word(self): return self.tags[0] == 'sw'
 
     def is_branch_instruction(self):
         return self.tags[0] in branch_opcodes

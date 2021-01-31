@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -66,6 +67,23 @@ class MIPSCfg(object):
         block = self.blocks[n]
         iaddr = int(block.lastaddr,16) - 4  #  account for delay slot
         return self.mipsfunction.get_instruction(hex(iaddr))
+
+    def condition_to_annotated_value(self,src,b):
+        result = {}
+        ftconditions = b.get_ft_conditions()
+        if len(ftconditions) == 2:
+            result['c'] = ftconditions[1].to_annotated_value()
+            result['fb'] = self.edges[src][0]
+            result['tb'] = self.edges[src][1]
+        return result
+
+    def get_conditions(self):
+        result = {}
+        for src in self.edges:
+            if len(self.edges[src]) > 1:
+                brinstr = self.get_branch_instruction(src)
+                result[brinstr.iaddr] = self.condition_to_annotated_value(src,brinstr)
+        return result
 
     def get_condition(self,src,tgt):
         """Returns the condition, if any, that leads from src to tgt."""
