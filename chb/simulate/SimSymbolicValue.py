@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+
+import string
 
 import chb.util.fileutil as UF
 import chb.simulate.SimUtil as SU
@@ -63,6 +65,12 @@ def mk_filepointer(filename,filepointer):
 def mk_filedescriptor(filename,filedescriptor):
     return SimSymbolicFileDescriptor(filename,filedescriptor)
 
+def mk_symboltablehandle(name):
+    return SimSymbolTableHandle(name)
+
+def mk_dynamiclinksymbol(handle,name):
+    return SimDynamicLinkSymbol(handle,name)
+
 class SimSymbolicValue(SV.SimValue):
 
     def __init__(self):
@@ -82,6 +90,7 @@ class SimSymbolicValue(SV.SimValue):
     def is_tainted_data(self): return False
     def is_file_pointer(self): return False
     def is_file_descriptor(self): return False
+    def is_dynamic_link_symbol(self): return False
 
     def __str__(self): return 'symbolic value'
 
@@ -204,6 +213,13 @@ class SimBaseAddress(SimAddress):
     def is_not_equal(self,other):
         if other.is_literal() and other.is_defined() and other.is_zero():
             return SV.simtrue
+        if other.is_address() and other.base == self.base and other.get_offset_value() == self.get_offset_value():
+            return SV.simfalse
+        if other.base == self.base:
+            print('bases are equal')
+        if other.offset == self.offset:
+            print('offsets are equal')
+        return SV.simUndefinedBool
 
     def add_offset(self,intval):
         newoffset = self.offset.add(SV.SimDoubleWordValue(intval))
@@ -253,6 +269,8 @@ class SimStringAddress(SimSymbolicValue):
             elif v.value > 0:
                 if len(self.stringval) > v.value:
                     return mk_string_address(self.stringval[v.value:])
+                elif len(self.stringval) == v.value:
+                    return mk_string_address('')
                 else:
                     raise UF.CHBError('Cannot add ' + str(v.value)
                                       + ' to string of length: '
@@ -296,6 +314,16 @@ class SimLibcTableValue(SimSymbolicValue):
             raise SU.CHBError('Argument to libc-table-value.add not recognized: ' +
                               str(other))
 
+    def get_b_result(self):
+        if self.name == 'ctype_b':
+            result = 0
+            print('ctype_b: ' + str(self.offset) + ', ' + str(chr(self.offset // 2)))
+            c = chr(self.offset // 2)
+            if isspace(c):
+                result += 32
+            return SV.mk_simvalue(result)
+        else:
+            return SV.simZero
 
     def __str__(self):
         poffset = '' if self.offset == 0 else '[' + str(self.offset) + ']'
@@ -311,11 +339,41 @@ class SimLibcTableValueDeref(SimSymbolicValue):
 
     def is_libc_table_value_deref(self): return True
 
-    def get_result(self):
-        if self.offset1 >= 97 and self.offset2 <= 122:
-            return SV.mk_simvalue(self.offset1 // 2)
+    def get_toupper_result(self):
+        if self.name == 'ctype_toupper':
+            if self.offset1 >= 97 and self.offset2 <= 122:
+                return SV.mk_simvalue(self.offset1 // 2)
+            else:
+                return SV.mk_simvalue(self.offset1)
+
+    def get_b_result(self):
+        if self.name == 'ctype_b':
+            result = 0
+            print('ctype_b deref table value: ' + str(self.offset1) + ', ' + str(chr(self.offset1 // 2)))
+            c = str(chr(self.offset1 // 2))
+            if c.isupper():
+                result += 1
+            if c.islower():
+                result += 2
+            if c.isalpha():
+                result += 4
+            if c.isnumeric():
+                result += 8
+            if c.isspace() or c == '\r' or c == '\n':
+                result += 32
+            if c.isprintable():
+                result += 64
+            if c.isspace():
+                result += 256
+            if not c.isprintable():
+                result += 512
+            if c in string.punctuation:
+                result += 1024
+            if c.isalnum():
+                result += 2048
+            return SV.mk_simvalue(result)
         else:
-            return SV.mk_simvalue(self.offset1)
+            return SV.simZero
 
     def __str__(self):
         return ('libc-table-value-deref:' + self.name
@@ -427,6 +485,44 @@ class SimSymbolicFileDescriptor(SimSymbol):
             return SV.simfalse
 
     def __str__(self): return 'fd_' + self.filename
+
+class SimSymbolTableHandle(SimSymbol):
+
+    def __init__(self,name):
+        SimSymbol.__init__(self,'symboltablehandle:' + name)
+        self.name = name
+        self.table = {}  # name -> symbol
+
+    def is_symbol_table_handle(self): return True
+
+    def is_non_negative(self): return SV.simtrue
+
+    def is_negative(self): return SV.simfalse
+
+    def is_not_equal(self,other):
+        if other.is_literal() and other.is_defined() and other.to_signed_int() == 0:
+            return SV.simtrue
+        else:
+            return SV.simfalse
+
+    def __str__(self): return 'symboltablehandle:' + self.name
+
+class SimDynamicLinkSymbol(SimSymbol):
+
+    def __init__(self,handle,name):
+        SimSymbol.__init__(self,'dlsym:' + name)
+        self.handle = handle
+        self.name = name
+
+    def is_dynamic_link_symbol(self): return True
+
+    def is_not_equal(self,other):
+        if other.is_literal() and other.is_defined() and other.to_signed_int() == 0:
+            return SV.simtrue
+        else:
+            return SV.simfalse
+
+    def __str__(self): return 'dlsym:' + self.name
 
 
 class SimEnvironmentString(SimSymbolicValue):

@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -459,7 +459,7 @@ class SimDoubleWordValue(SimLiteralValue):
                 return SimDoubleWordValue(newval,self.is_defined())
             raise SU.CHBSimOpError('set word', [ self, w ])
         else:
-            return simundefineddw
+            return simundefinedDW
 
     def set_byte1(self,b1):
         if b1.is_byte():

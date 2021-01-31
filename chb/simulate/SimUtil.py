@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -151,7 +151,7 @@ class CHBSimOpError(UF.CHBError):
 class CHBSimStaticLibFunction(CHBSimError):
 
     def __init__(self,iaddr,startaddr,registers):
-        CHBSimError.__init__(self,None,iaddr,'enter static library with startaddr ' + startaddr)
+        CHBSimError.__init__(self,None,iaddr,'enter static library with startaddr ' + str(startaddr))
         self.startaddr = startaddr
         self.registers = registers
 
@@ -167,6 +167,19 @@ class CHBSimCallTargetUnknownError(CHBSimError):
     def __init__(self,simstate,iaddr,calltgt,msg):
         CHBSimError.__init__(self,simstate,iaddr,msg)
         self.calltgt = calltgt
+
+class CHBSimCallbackException(CHBSimError):
+
+    def __init__(self,simstate,iaddr,pc,msg):
+        CHBSimError.__init__(self,simstate,iaddr,'callback: ' + str(pc))
+        self.msg = msg
+        self.pc = pc
+
+class CHBSimPopContextException(CHBSimError):
+
+    def __init__(self,simstate,iaddr,msg):
+        CHBSimError.__init__(self,simstate,iaddr,'pop-context')
+        self.msg = msg
 
 class CHBSimSystemCallException(CHBSimError):
 
