@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2020-2021 Henny Sipma
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -125,6 +125,8 @@ mips_opcode_constructors = {
     'swl'  : lambda x: MIPSStoreWordLeft(*x),
     'swr'  : lambda x: MIPSStoreWordRight(*x),
     'syscall 0': lambda x: MIPSSyscall(*x),
+    'teq'  : lambda x: MIPSTrapIfEqual(*x),
+    'teqi' : lambda x: MIPSTrafIfEqualImmediate(*x),
     'xor'  : lambda x: MIPSXor(*x),
     'xori' : lambda x: MIPSXorImmediate(*x)
     }
@@ -496,11 +498,16 @@ class MIPSBranchEqual(X.MIPSOpcodeBase):
     def simulate(self,iaddr,simstate):
         src1val = simstate.get_rhs(iaddr,self.get_src1_operand())
         src2val = simstate.get_rhs(iaddr,self.get_src2_operand())
-        if src1val.is_string_address():
-            if src2val.is_literal() and src2val.value == 0:
+        if src1val.is_string_address() or src1val.is_address():
+            if src2val.is_literal():
                 result = SV.simfalse   #  constant string is not NULL
             else:
                 result = SV.simUndefinedBool   # no information on string address value
+        elif src1val.is_address() and src2val.is_address():
+            if src1val.offset_value == src2val.offset_value:
+                result = SV.simtrue
+            else:
+                result = SV.simUndefinedBool
         else:
             result = src1val.is_equal(src2val)
         truetgt = SSV.mk_global_address(self.get_tgt_offset().get_mips_absolute_address_value())
@@ -720,6 +727,40 @@ class MIPSBranchGEZeroLikely(X.MIPSOpcodeBase):
         result = X.simplify_result(xargs[1],xargs[2],result,rresult)
         return 'if ' + result + ' then goto ' + str(self.get_target())
 
+    def get_src_operand(self): return self.mipsd.get_mips_operand(self.args[0])
+
+    def get_tgt_offset(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def simulate(self,iaddr,simstate):
+        srcval = simstate.get_rhs(iaddr,self.get_src_operand())
+        truetgt = SSV.mk_global_address(self.get_tgt_offset().get_mips_absolute_address_value())
+        falsetgt = simstate.get_program_counter().add_offset(8)
+        if srcval.is_literal() and srcval.is_defined():
+            result = srcval.is_non_negative()
+            simstate.increment_program_counter()
+            if result:
+                result = SV.simtrue
+                simstate.set_delayed_program_counter(truetgt)
+            else:
+                result = SV.simfalse
+                simstate.set_delayed_program_counter(falsetgt)
+            expr = str(srcval) + ' >= 0'
+            return SU.simbranch(iaddr,simstate,truetgt,falsetgt,expr,result)
+        elif srcval.is_symbol():
+            result = srcval.is_non_negative()
+            simstate.increment_program_counter()
+            if result.is_defined():
+                if result.is_true():
+                    simstate.set_delayed_program_counter(truetgt)
+                else:
+                    simstate.set_delayed_program_counter(falsetgt)
+                expr = str(srcval) + ' >= 0'
+                return SU.simbranch(iaddr,simstate,truetgt,falsetgt,expr,result)
+        raise SU.CHBSimBranchUnknownError(simstate,iaddr,truetgt,falsetgt,
+                                          'branch greater or equal to zero condition: ' +
+                                          str(srcval) + ' >= 0')
+
+
 class MIPSBranchGTZero(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -902,6 +943,49 @@ class MIPSBranchLEZeroLikely(X.MIPSOpcodeBase):
         rresult = xprs[2]
         result = X.simplify_result(xargs[1],xargs[2],result,rresult)
         return 'if ' + result + ' then goto ' + str(self.get_target())
+
+    def get_src_operand(self): return self.mipsd.get_mips_operand(self.args[0])
+
+    def get_tgt_offset(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    # --------------------------------------------------------------------------
+    # Operation:
+    #   I: target_offset <- sign_extend(offset || 0[2])
+    #      condition <- GPR[rs] <= 0[GPRLEN]
+    #   I+1: if condition then
+    #           PC <- PC + target_offset
+    #        endif
+    # --------------------------------------------------------------------------
+    def simulate(self,iaddr,simstate):
+        srcop = self.get_src_operand()
+        tgt = self.get_tgt_offset().get_mips_absolute_address_value()
+        srcval = simstate.get_rhs(iaddr,srcop)
+        truetgt = SSV.mk_global_address(tgt)
+        falsetgt = simstate.get_program_counter().add_offset(8)
+        if srcval.is_literal() and srcval.is_defined():
+            result = srcval.is_non_positive()
+            simstate.increment_program_counter()
+            if result:
+                result = SV.simtrue
+                simstate.set_delayed_program_counter(truetgt)
+            else:
+                result = SV.simfalse
+                simstate.set_delayed_program_counter(falsetgt)
+            expr = str(srcval) + ' <= 0'
+            return SU.simbranch(iaddr,simstate,truetgt,falsetgt,expr,result)
+        elif srcval.is_symbol():
+            result = srcval.is_non_positive()
+            simstate.increment_program_counter()
+            if result.is_defined():
+                if result.is_true():
+                    simstate.set_delayed_program_counter(truetgt)
+                else:
+                    simstate.set_delayed_program_counter(falsetgt)
+                expr = str(srcval) + ' <= 0'
+                return SU.simbranch(iaddr,simstate,truetgt,falsetgt,expr,result)
+        raise SU.CHBSimBranchUnknownError(simstate,iaddr,truetgt,falsetgt,
+                                          'branch less than or equal to zero condition (likely): ' +
+                                          str(srcval) + ' <= 0')
 
 class MIPSBranchLTZero(X.MIPSOpcodeBase):
 
@@ -1097,6 +1181,13 @@ class MIPSBranchNotEqual(X.MIPSOpcodeBase):
                 result = SV.simtrue   #  constant string is not NULL
             else:
                 result = SV.simUndefinedBool   # no information on string address value
+        elif src1val.is_address():
+            if src2val.is_literal() and src2val.value == 0:
+                result = SV.simtrue
+            elif src2val.is_address():
+                result = src1val.is_not_equal(src2val)
+            else:
+                result = SV.simUndefinedBool
         else:
             result = src1val.is_not_equal(src2val)
         truetgt = SSV.mk_global_address(self.get_tgt_offset().get_mips_absolute_address_value())
@@ -1161,6 +1252,15 @@ class MIPSBranchNotEqualLikely(X.MIPSOpcodeBase):
                 result = SV.simtrue   #  constant string is not NULL
             else:
                 result = SV.simUndefinedBool   # no information on string address value
+        elif src1val.is_address():
+            print('src1val is address')
+            if src2val.is_literal() and src2val.value == 0:
+                result = SV.simtrue
+            elif src2val.is_address():
+                print('src2val is address')
+                result = src1val.is_not_equal(src2val)
+            else:
+                result = SV.simUndefinedBool
         else:
             result = src1val.is_not_equal(src2val)
         truetgt = SSV.mk_global_address(self.get_tgt_offset().get_mips_absolute_address_value())
@@ -1203,6 +1303,12 @@ class MIPSBranchLink(X.MIPSOpcodeBase):
             return any([ x.is_stack_address() for x in self.get_arguments(xdata) ])
         else:
             False
+
+    def get_annotated_call_arguments(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 0:
+            return [ xprs[i].to_annotated_value() for i in range(0,len(xargs)-1) ]
+        return []
 
     def get_arguments(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -1288,6 +1394,46 @@ class MIPSDivideWord(X.MIPSOpcodeBase):
         pdiv = lhslo + ' := ' + resultlo
         pmod = lhshi + ' := ' + resulthi
         return pdiv + '; ' + pmod
+
+    def get_dsthi_operand(self): return self.mipsd.get_mips_operand(self.args[0])
+
+    def get_dstlo_operand(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def get_rs_operand(self): return self.mipsd.get_mips_operand(self.args[2])
+
+    def get_rt_operand(self): return self.mipsd.get_mips_operand(self.args[3])
+
+    # --------------------------------------------------------------------------
+    # Operation:
+    #   q <- GPR[rs][31..0] div GPR[rt][31..0]
+    #   LO <- q
+    #   r <- GPRprs[p31..0] mod GPR[rt][31..0]
+    #   HI <- r
+    # --------------------------------------------------------------------------
+    def simulate(self,iaddr,simstate):
+        dsthi = self.get_dsthi_operand()
+        dstlo = self.get_dstlo_operand()
+        srcrs = self.get_rs_operand()
+        srcrt = self.get_rt_operand()
+        src1val = simstate.get_rhs(iaddr,srcrs)
+        src2val = simstate.get_rhs(iaddr,srcrt)
+        if src1val.is_symbol() or src2val.is_symbol():
+            expr = str(src1val) + ' / ' + str(src2val)
+            raise SU.CHBSymbolicExpression(simstate,iaddr,dstop,expr)
+        elif (src1val.is_literal() and src1val.is_defined()
+              and src2val.is_literal() and src2val.is_defined()):
+            q = src1val.value // src2val.value
+            r = src1val.value % src2val.value
+            loval = SV.mk_simvalue(q)
+            hival = SV.mk_simvalue(r)
+        else:
+            loval = SV.simUndefinedDW
+            hival = SV.simUndefinedDW
+        lhslo = simstate.set(iaddr,dstlo,loval)
+        lhshi = simstate.set(iaddr,dsthi,hival)
+        simstate.increment_program_counter()
+        return SU.simassign(iaddr,simstate,lhslo,str(loval),
+                            intermediates=str(lhshi) + ' := ' + str(hival))
 
 class MIPSDivideUnsignedWord(X.MIPSOpcodeBase):
 
@@ -1400,6 +1546,12 @@ class MIPSJumpLink(X.MIPSOpcodeBase):
         else:
             False
 
+    def get_annotated_call_arguments(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 0:
+            return [ xprs[i].to_annotated_value() for i in range(0,len(xargs)-1) ]
+        return []
+
     def get_arguments(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
         if len(xprs) > 0:
@@ -1448,6 +1600,12 @@ class MIPSJumpLinkRegister(X.MIPSOpcodeBase):
             return any([ x.is_stack_address() for x in self.get_arguments(xdata) ])
         else:
             False
+
+    def get_annotated_call_arguments(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 0:
+            return [ xprs[i].to_annotated_value() for i in range(0,len(xargs)-1) ]
+        return []
 
     def get_arguments(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -1508,6 +1666,9 @@ class MIPSJumpLinkRegister(X.MIPSOpcodeBase):
         elif tgtval.is_address():
             simstate.set_delayed_program_counter(tgtval)
             return SU.simcall(iaddr,simstate,tgtval,hex(returnaddr))
+        elif tgtval.is_symbolic() and tgtval.is_dynamic_link_symbol():
+            simstate.set_delayed_program_counter(tgtval)
+            return SU.simcall(iaddr,simstate,tgtval,hex(returnaddr))
         else:
             raise SU.CHBSimCallTargetUnknownError(simstate,iaddr,tgtval,
                                                   'target = ' + str(tgtval))
@@ -1533,6 +1694,12 @@ class MIPSJumpRegister(X.MIPSOpcodeBase):
             return any([ x.is_stack_address() for x in self.get_arguments(xdata) ])
         else:
             False
+
+    def get_annotated_call_arguments(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 0:
+            return [ xprs[i].to_annotated_value() for i in range(0,len(xargs)-1) ]
+        return []
 
     def get_arguments(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -1573,6 +1740,8 @@ class MIPSJumpRegister(X.MIPSOpcodeBase):
                 return str(tgt.get_address())
             return str(tgt)
         return "**call: invalid format**"
+
+    def get_target(self): return self.mipsd.get_mips_operand(self.args[0])
 
     def get_src_operand(self): return self.mipsd.get_mips_operand(self.args[0])
 
@@ -1642,6 +1811,10 @@ class MIPSLoadByte(X.MIPSOpcodeBase):
     def simulate(self,iaddr,simstate):
         dstop = self.get_dst_operand()
         srcval = simstate.get_rhs(iaddr,self.get_src_operand(),opsize=1)
+        if srcval.is_symbolic():
+            raise SU.CHBSimError(simstate,iaddr,'encountered symbolic value in lb: '
+                                 + str(srcval)
+                                 + ' at address: ' + str(self.get_src_operand()))
         if srcval.is_defined():
             srcval = srcval.sign_extend(4)
         else:
@@ -1746,13 +1919,19 @@ class MIPSLoadHalfWord(X.MIPSOpcodeBase):
         srcop = self.get_src_operand()
         srcval = simstate.get_rhs(iaddr,srcop,opsize=2)
         print('srcval = ' + str(srcval))
-        if srcval.is_literal() and srcval.is_defined():
-            srcval = srcval.sign_extend(4)
-        elif srcval.is_libc_table_value_deref():    # __ctype_toupper table
-            srcval = srcval.get_result()
+        if srcval.is_literal():
+            if srcval.is_defined():
+                srcval = srcval.sign_extend(4)
+            else:
+                srcval = SV.simUndefinedWord
+        elif srcval.is_libc_table_value_deref() and srcval.name == 'ctype_toupper':    # __ctype_toupper table
+            srcval = srcval.get_toupper_result()
             simstate.add_logmsg('ctype_toupper: ', str(srcval) + ' (' + str(chr(srcval.value)) + ')')
+        elif srcval.is_libc_table_value_deref() and srcval.name == 'ctype_b':
+            srcval = srcval.get_b_result()
+            simstate.add_logmsg('ctype_b: ', str(srcval) + ' (' + str(chr(srcval.value)) + ')')
         else:
-            srcval = SV.simUndefinedDW
+            srcval = SV.simUndefinedWord
         try:
             intermediates = 'val(' + str(simstate.get_lhs(iaddr,srcop)) + ') = ' + str(srcval)
         except:
@@ -1795,8 +1974,18 @@ class MIPSLoadHalfWordUnsigned(X.MIPSOpcodeBase):
     def simulate(self,iaddr,simstate):
         dstop = self.get_dst_operand()
         srcval = simstate.get_rhs(iaddr,self.get_src_operand(),opsize=2)
+        src1val = srcval
         if srcval.is_literal() and srcval.is_defined():
             srcval = srcval.zero_extend(4)
+        elif srcval.is_symbolic() and srcval.is_libc_table_value() and srcval.name == 'ctype_b':
+            srcval = srcval.get_b_result()
+            simstate.add_logmsg('ctype_b: ', str(srcval) + ' (' + str(src1val) + ')')
+        elif srcval.is_symbolic() and srcval.is_libc_table_value_deref() and srcval.name == 'ctype_toupper':    # __ctype_toupper table
+            srcval = srcval.get_toupper_result()
+            simstate.add_logmsg('ctype_toupper: ', str(srcval) + ' (' + str(chr(srcval.value)) + ')')
+        elif srcval.is_symbolic() and srcval.is_libc_table_value_deref() and srcval.name == 'ctype_b':
+            srcval = srcval.get_b_result()
+            simstate.add_logmsg('ctype_b: ', str(srcval) + ' (' + str(chr(srcval.value)) + ')')
         elif srcval.is_literal():
             srcval = SV.simUndefinedDW
         lhs = simstate.set(iaddr,dstop,srcval)
@@ -3135,6 +3324,35 @@ class MIPSShiftRightArithmeticVariable(X.MIPSOpcodeBase):
         else:
             return 'pending:' + self.tags[0]
 
+    def get_dst_operand(self): return self.mipsd.get_mips_operand(self.args[0])
+
+    def get_src1_operand(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def get_src2_operand(self): return self.mipsd.get_mips_operand(self.args[2])
+
+    # --------------------------------------------------------------------------
+    # Operation:
+    #   s <- GPR[rs][4..0]
+    #   temp <- (GPR[rt][31])^s || GPR[rt][31..6]
+    #   GPR[rd] <- temp
+    # --------------------------------------------------------------------------
+    def simulate(self,iaddr,simstate):
+        dstop = self.get_dst_operand()
+        src1op = self.get_src1_operand()
+        src2op = self.get_src2_operand()
+        src1val = simstate.get_rhs(iaddr,src1op)
+        src2val = simstate.get_rhs(iaddr,src2op)
+        if src2val.is_literal() and src2val.is_defined():
+            src2val = src2val.value % 32
+            result = src1val.bitwise_sra(src2val)
+            lhs = simstate.set(iaddr,dstop,result)
+            simstate.increment_program_counter()
+            return SU.simassign(iaddr,simstate,lhs,result,
+                                str(src1val) + ' >> ' + str(src2val))
+        else:
+            raise SU.CHBSimValueUndefinedError('Value undefined: ' + str(src2val))
+
+
 class MIPSShiftRightLogical(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -3404,7 +3622,7 @@ class MIPSStoreWord(X.MIPSOpcodeBase):
 
     def get_rhs(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
-        return [ xprs[1] ]
+        return [ xprs[2] ]
 
     def get_global_variables(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
@@ -3711,7 +3929,7 @@ class MIPSSubtractUnsigned(X.MIPSOpcodeBase):
             expr = str(src1val) + ' - ' + str(src2val)
             raise SU.CHBSymbolicExpression(simstate,iaddr,dstop,expr)
         if src1val.is_string_address() and src2val.is_string_address():
-            result = src1val.get_string().find(src2val.get_string())
+            result = src2val.get_string().find(src1val.get_string())
             result = SV.mk_simvalue(result)
         else:
             result = src1val.subu(src2val)
@@ -3763,10 +3981,56 @@ class MIPSSyscall(X.MIPSOpcodeBase):
     def simulate(self,iaddr,simstate):
         syscallindex = simstate.registers['v0']
         if syscallindex.is_literal() and syscallindex.is_defined():
-            raise SU.CHBSimSystemCallException(iaddr,simstate,syscallindex.value)
+            raise SU.CHBSimSystemCallException(simstate,iaddr,syscallindex.value)
         else:
             raise SU.CHBSimCallTargetUnknownError(simstate,iaddr,syscallindex,
                                                   'syscall = ' + str(syscallindex))
+
+class MIPSTrapIfEqual(X.MIPSOpcodeBase):
+
+    def __init__(self,mipsd,index,tags,args):
+        X.MIPSOpcodeBase.__init__(self,mipsd,index,tags,args)
+
+    def get_annotation(self,xdata):
+        (xtags,xargs,xprs) = xdata.get_xprdata()
+        if len(xprs) > 0:
+            rhs1 = str(xprs[0])
+            rhs2 = str(xprs[1])
+            result = xprs[3]
+            rresult = xprs[4]
+            result = X.simplify_result(xargs[3],xargs[4],result,rresult)
+            return 'trap if ' + rhs1 + ' == ' + rhs2 + ' (' + result + ')'
+        else:
+            return 'pending:' + self.tags[0]
+
+    def get_src1_operand(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    def get_src2_operand(self): return self.mipsd.get_mips_operand(self.args[2])
+
+    # --------------------------------------------------------------------------
+    # Operation:
+    #   if GPR[rs] = GPR[rt] then
+    #     SignalException(Trap)
+    #   endif
+    # --------------------------------------------------------------------------
+    def simulate(self,iaddr,simstate):
+        src1op = self.get_src1_operand()
+        src2op = self.get_src2_operand()
+        src1val = simstate.get_rhs(iaddr,src1op)
+        src2val = simstate.get_rhs(iaddr,src2op)
+        if src1val.is_symbol() or src2val.is_symbol():
+            expr = str(src1val) + ' == ' + str(src2val)
+            raise SU.CHBSymbolicExpression(simstate,iaddr,None,expr)
+        elif (src1val.is_literal() and src1val.is_defined()
+              and src2val.is_literal() and src2val.is_defined()):
+            if src1val.value == src2val.value:
+                raise SU.CHBTrapSignalException(src1val,src2val)
+            else:
+                simstate.increment_program_counter()
+                return 'trap if equal: ' + str(src1val) + ', ' + str(src2val)
+        else:
+            simstate.increment_program_counter()
+            return 'trap if equal: ?'
 
 class MIPSXor(X.MIPSOpcodeBase):
 
