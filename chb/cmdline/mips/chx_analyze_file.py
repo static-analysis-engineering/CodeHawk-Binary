@@ -7,6 +7,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
+# Copyricht (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -53,6 +54,7 @@ commandline option to delete any previous analysis results.
 """
 
 import argparse
+import json
 import os
 import subprocess
 import shutil
@@ -72,7 +74,7 @@ def parse():
                             action='store_true')
     parser.add_argument('--specializations','-s',nargs='*',default=[],
                             help='function specializations present in system_info')
-    parser.add_argument('--sh_init_size',help='provide size of .init section header')
+    parser.add_argument('--fixup',help='name of json file with disassembly fixup')
     parser.add_argument('--preamble_cutoff',type=int,
                         help='minimum cutoff for function entry preamble',
                         default=12)
@@ -81,11 +83,11 @@ def parse():
     args = parser.parse_args()
     return args
 
-def extract(am,path,filename,deps,xuserdata=None):
+def extract(am,path,filename,deps):
     print('Extracting executable content into xml ...')
     try:
         chcmd = '-extract'
-        result = am.extract_executable(chcmd=chcmd,xuserdata=xuserdata)
+        result = am.extract_executable(chcmd=chcmd)
         if not (result == 0):
             print('*' * 80)
             print('Error in extracting executable; please check format')
@@ -102,11 +104,6 @@ if __name__ == '__main__':
 
     args = parse()
 
-    xuserdata = []
-    if args.sh_init_size:
-        xdata = [ ('.init',[('size',args.sh_init_size)]) ]
-        xuserdata = UX.create_xml_section_header_userdata(xdata)
-
     try:
         (path,filename,deps) = UF.get_path_filename_deps('mips-elf',args.filename)
         UF.check_analyzer()
@@ -114,13 +111,24 @@ if __name__ == '__main__':
         print(str(e.wrap()))
         exit(1)
 
+    fixup = {}
+    if args.fixup:
+        try:
+            with open(args.fixup) as fp:
+                fixup = json.load(fp)['fixups']
+        except Exception as e:
+            print('*' * 80)
+            print('Error in loading fixup file: ' + str(e))
+            print('*' * 80)
+            exit(1)
+
     deps = args.thirdpartysummaries
 
     try:
         if not UF.check_executable(path,filename):
             am = AM.AnalysisManager(path,filename,deps=deps,mips=True,elf=True,
-                                    specializations=args.specializations)
-            extract(am,path,filename,deps,xuserdata=xuserdata)
+                                    specializations=args.specializations,fixup=fixup)
+            extract(am,path,filename,deps)
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
