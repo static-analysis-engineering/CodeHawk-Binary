@@ -65,6 +65,7 @@ stubbed_libc_functions = {
     "fclose": lambda app:MIPStub_fclose(app),
     "fcntl": lambda app:MIPStub_fcntl(app),
     "fcntl64": lambda app:MIPStub_fcntl64(app),
+    "fdopen": lambda app:MIPStub_fdopen(app),
     "feof": lambda app:MIPStub_feof(app),
     "__fgetc_unlocked": lambda app:MIPStub___fgetc_unlocked(app),
     "fflush": lambda app:MIPStub_fflush(app),
@@ -95,6 +96,7 @@ stubbed_libc_functions = {
     "getsockname": lambda app:MIPStub_getsockname(app),
     "gettimeofday": lambda app:MIPStub_gettimeofday(app),
     "getuid": lambda app:MIPStub_getuid(app),
+    "index": lambda app:MIPStub_index(app),
     "inet_addr": lambda app:MIPStub_inet_addr(app),
     "inet_aton": lambda app:MIPStub_inet_aton(app),
     "inet_ntoa": lambda app:MIPStub_inet_ntoa(app),
@@ -185,12 +187,14 @@ stubbed_libc_functions = {
     "strrchr": lambda app:MIPStub_strrchr(app),
     "strsep": lambda app:MIPStub_strsep(app),
     "strstr": lambda app:MIPStub_strstr(app),
+    "strtof": lambda app:MIPStub_strtof(app),
     "strtok": lambda app:MIPStub_strtok(app),
     "strtok_r": lambda app:MIPStub_strtok_r(app),
     "strtoul": lambda app:MIPStub_strtoul(app),
     "syslog": lambda app:MIPStub_syslog(app),
     "system": lambda app:MIPStub_system(app),
     "time": lambda app:MIPStub_time(app),
+    "tolower": lambda app:MIPStub_tolower(app),
     "umask": lambda app:MIPStub_umask(app),
     "unlink": lambda app:MIPStub_unlink(app),
     "usleep": lambda app:MIPStub_usleep(app),
@@ -774,7 +778,21 @@ class MIPStub_fcntl64(MIPSimStub):
             pargs = str(a0) + ',' + a1cmd
         simstate.set_register(iaddr,'v0',SV.SimDoubleWordValue(0))
         return self.add_logmsg(iaddr,simstate,pargs)
-        
+
+class MIPStub_fdopen(MIPSimStub):
+
+    def __init__(self,app):
+        MIPSimStub.__init__(self,app,'fdopen')
+
+    def is_io_operation(self): return True
+
+    def simulate(self,iaddr,simstate):
+        a0 = self.get_arg_val(iaddr,simstate,'a0')
+        a1 = self.get_arg_val(iaddr,simstate,'a1')
+        a1str = self.get_arg_string(iaddr,simstate,'a1')
+        pargs = str(a0) + ',' + str(a1) + ':' + a1str
+        simstate.set_register(iaddr,'v0',SV.simZero)
+        return self.add_logmsg(iaddr,simstate,pargs,returnval='0')
 
 class MIPStub_feof(MIPSimStub):
 
@@ -1375,6 +1393,24 @@ class MIPStub_getuid(MIPSimStub):
         simstate.set_register(iaddr,'v0',SV.simOne)
         return self.add_logmsg(iaddr,simstate,'')
 
+class MIPStub_index(MIPSimStub):
+
+    def __init__(self,app):
+        MIPSimStub.__init__(self,app,'index')
+
+    def simulate(self,iaddr,simstate):
+        a0 = self.get_arg_val(iaddr,simstate,'a0')
+        a0str = self.get_arg_string(iaddr,simstate,'a0')
+        a1 = self.get_arg_val(iaddr,simstate,'a1')
+        pargs = str(a0) + ':' + a0str + ',' + str(a1) + ' {' + str(chr(a1.value)) + '}'
+        index = a0str.find(str(chr(a1.value)))
+        if index >= 0:
+            result = a0.add_offset(index)
+        else:
+            result = SV.simZero
+        simstate.set_register(iaddr,'v0',result)
+        return self.add_logmsg(iaddr,simstate,pargs,returnval=str(result))
+
 class MIPStub_inet_addr(MIPSimStub):
 
     def __init__(self,app):
@@ -1495,7 +1531,22 @@ class MIPStub_localtime(MIPSimStub):
 
     def simulate(self,iaddr,simstate):
         a0 = self.get_arg_val(iaddr,simstate,'a0')
-        simstate.set_register(iaddr,'v0',SV.simZero)
+        base = 'localtime_'
+        address = SSV.mk_base_address(base,0,buffersize=36)
+        t = time.localtime()
+        print('time: ' + str(t))
+        def set_tm(off,tmval):
+            simstate.set_memval(iaddr,address.add_offset(off),SV.mk_simvalue(tmval))
+        set_tm(0,t.tm_sec)
+        set_tm(4,t.tm_min)
+        set_tm(8,t.tm_hour)
+        set_tm(12,t.tm_mday)
+        set_tm(16,t.tm_mon)
+        set_tm(20,t.tm_year)
+        set_tm(24,t.tm_wday)
+        set_tm(28,t.tm_yday)
+        set_tm(32,t.tm_isdst)
+        simstate.set_register(iaddr,'v0',address)
         return self.add_logmsg(iaddr,simstate,str(a0))
 
 class MIPStub_lockf(MIPSimStub):
@@ -1620,6 +1671,12 @@ class MIPStub_memcpy(MIPSimStub):
                         simstate.set_memval(iaddr,tgtaddr,srcval)
                     else:
                         pass
+                elif len(srcstr) + 1 == a2.value:
+                    for i in range(0,a2.value-1):
+                        srcval = SV.mk_simvalue(ord(srcstr[i]),1)
+                        tgtaddr = dstaddr.add_offset(i)
+                        simstate.set_memval(iaddr,tgtaddr,srcval)
+                    simstate.set_memval(iaddr,dstaddr.add_offset(a2.value-1),SV.mk_simvalue(0,size=1))
                 else:
                     raise UF.CHBError('Memcpy with source string of length: '
                                       + str(len(srcstr)) + ' and length argument: '
@@ -3064,6 +3121,20 @@ class MIPStub_strrchr(MIPSimStub):
         return self.add_logmsg(iaddr,simstate,pargs,returnval=str(returnval))
 
 class MIPStub_strsep(MIPSimStub):
+    """extract token from string
+
+    char *strsep(char **stringp, const char *delim);
+
+    Description:
+    If *stringp is NULL, the strsep() function returns NULL and does
+    nothing else. Otherwise, this function finds the first token in
+    the string *stringp that is delimited by one of the bytes in the
+    string delim. This token is terminated by overwriting the
+    delimiter with a null byte ('\0'), and *stringp is updated to
+    point past the token. In case no delimiter was found, the token
+    is taken to be the entire string *stringp, and *stringp is made
+    NULL.
+    """
 
     def __init__(self,app):
         MIPSimStub.__init__(self,app,'strsep')
@@ -3071,14 +3142,25 @@ class MIPStub_strsep(MIPSimStub):
     def is_string_operation(self): return True
 
     def simulate(self,iaddr,simstate):
-        """Default behavior for now: return *a0, set *a0 to NULL."""
         a0 = self.get_arg_val(iaddr,simstate,'a0')
         a1 = self.get_arg_val(iaddr,simstate,'a1')
         a1str = self.get_arg_string(iaddr,simstate,'a1')
-        pargs = str(a0) + ',' + a1str
-        tokenptr = simstate.get_memval(iaddr,a0,4)
-        simstate.set_memval(iaddr,a0,SV.simZero)
-        simstate.set_register(iaddr,'v0',tokenptr)
+        a0derefstr = 'NULL'
+        if a0.is_address():
+            a0deref = self.get_arg_deref_val(iaddr,simstate,'a0')
+            a0derefstr = self.get_arg_deref_string(iaddr,simstate,'a0')
+            for c in a1str:
+                index = a0derefstr.find(c)
+                if index >= 0:
+                    tokenptr = a0deref.add_offset(index+1)
+                    simstate.set_memval(iaddr,a0deref.add_offset(index),SV.mk_simvalue(0,size=1))
+                    simstate.set_memval(iaddr,a0,tokenptr)
+                    break
+            else:
+                simstate.set_memval(iaddr,a0,SV.simZero)
+        a1ordstr = '{' + ','.join(str(ord(c)) for c in a1str) + '}'
+        pargs = str(a0) + ':&' + a0derefstr + ',' + str(a1) + ':' + a1str + a1ordstr
+        simstate.set_register(iaddr,'v0',a0)
         return self.add_logmsg(iaddr,simstate,pargs)
 
 class MIPStub_strstr(MIPSimStub):
@@ -3105,6 +3187,26 @@ class MIPStub_strstr(MIPSimStub):
                 raise SU.CHBSimError(simstate,iaddr,'Invalid address in strstr: ' + str(a0))
         else:
             result = SV.simZero
+        simstate.set_register(iaddr,'v0',result)
+        return self.add_logmsg(iaddr,simstate,pargs,returnval=str(result))
+
+class MIPStub_strtof(MIPSimStub):
+
+    def __init__(self,app):
+        MIPSimStub.__init__(self,app,'strtof')
+
+    def simulate(self,iaddr,simstate):
+        a0 = self.get_arg_val(iaddr,simstate,'a0')
+        a0str = self.get_arg_string(iaddr,simstate,'a0')
+        a1 = self.get_arg_val(iaddr,simstate,'a1')
+        pargs = str(a0) + ':' + a0str + str(a1)
+        fstr = ''
+        for c in a0str:
+            if c.isdigit() or c == '.':
+                fstr += c
+            else:
+                break
+        result = SV.mk_floatvalue(float(fstr))
         simstate.set_register(iaddr,'v0',result)
         return self.add_logmsg(iaddr,simstate,pargs,returnval=str(result))
 
@@ -3271,6 +3373,17 @@ class MIPStub_time(MIPSimStub):
     def simulate(self,iaddr,simstate):
         a0 = self.get_arg_val(iaddr,simstate,'a0')
         result = int(time.time())
+        simstate.set_register(iaddr,'v0',SV.mk_simvalue(result))
+        return self.add_logmsg(iaddr,simstate,str(a0),returnval=str(result))
+
+class MIPStub_tolower(MIPSimStub):
+
+    def __init__(self,app):
+        MIPSimStub.__init__(self,app,'tolower')
+
+    def simulate(self,iaddr,simstate):
+        a0 = self.get_arg_val(iaddr,simstate,'a0')
+        result = ord(str(chr(a0.value)).lower()[0])
         simstate.set_register(iaddr,'v0',SV.mk_simvalue(result))
         return self.add_logmsg(iaddr,simstate,str(a0),returnval=str(result))
 
