@@ -66,7 +66,7 @@ class AnalysisManager(object):
 
     # Extraction and directory preparation -------------------------------------
 
-    def extract_executable(self,chcmd='-extract',xuserdata=None):
+    def extract_executable(self,chcmd='-extract'):
         os.chdir(self.path)
         xdir = UF.get_executable_dir(self.path,self.filename)
         print('xdir: ' + xdir)

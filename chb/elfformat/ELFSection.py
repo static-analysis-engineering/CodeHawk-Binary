@@ -323,7 +323,8 @@ class ELFDynamicEntry(object):
         self.d_tag = self.tags[0]
         self.d_un = self.tags[1]
 
-    def get_tag_name(self): return get_dynamic_array_tag_name(int(self.d_tag))
+    # def get_tag_name(self): return get_dynamic_array_tag_name(int(self.d_tag))
+    def get_tag_name(self): return self.d_tag
 
     def get_value(self):
         if self.get_tag_name() == 'DT_PLTREL':
@@ -337,7 +338,7 @@ class ELFDynamicEntry(object):
 
     def as_dictionary(self):
         result = {}
-        result['tag'] = self.get_tag_name()
+        result['tag'] = self.d_tag
         result['value'] = self.get_value()
         return result
 
