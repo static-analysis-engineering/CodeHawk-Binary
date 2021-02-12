@@ -5,7 +5,8 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c)           Henny Sipma
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -105,7 +106,7 @@ class SimMemory(object):
             self.set_byte(iaddr,address+2,srcval.get_byte2())
             self.set_byte(iaddr,address+3,srcval.get_byte1())
         else:
-            raise SU.CHBSimError(selof.simstate,iaddr,
+            raise SU.CHBSimError(self.simstate,iaddr,
                                  'Type of srcval not recognized: ' + str(srcval))
 
     def get_byte(self,iaddr,address):
@@ -149,7 +150,7 @@ class SimMemory(object):
             if b1.value == 0 and b2.value == 0 and b3.value == 0 and b4.value == 0:
                 return ''
             if self.bigendian:
-                seq = [ b4, b3, b3, b1 ]
+                seq = [ b4, b3, b2, b1 ]
             else:
                 seq = [ b1, b2, b3, b4 ]
             for b in seq:
