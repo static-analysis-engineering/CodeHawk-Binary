@@ -6,6 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
+# Copyrigth (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,6 +41,13 @@ class SimValue(object):
     significant byte is byte1. A SimValue representation is independent
     of endianness. The transfer from and to memory addresses ensures
     that bytes are interpreted correctly in accordance with endianness.
+
+    A SimBaseValue has a partial value. It consists of a symbolic base and
+    a one-, or two-bytes offset that can be subjected to arithmetic and
+    bitwise operations. A SimBaseValue, in contrast with a SimBaseAddress,
+    is not an address. A SimBaseValue maye be the result of some (generally
+    disallowed) operations on addresses. Examples are the result of complementing
+    a stack address to extract alignment information.
 
     A SimSymbolicValue does not have a value; it can be an address (e.g.,
     a stackaddress, for which we would not have a concrete value,
@@ -78,6 +86,7 @@ class SimLiteralValue(SimValue):
     def is_byte(self): return False
     def is_word(self): return False
     def is_doubleword(self): return False
+    def is_float(self): return False
 
     def is_zero(self): return self.is_defined() and self.value == 0
 
@@ -96,6 +105,33 @@ class SimLiteralValue(SimValue):
             return str(self.value)
         else:
             return '?'
+
+class SimBaseValue(SimValue):
+
+    def __init__(self,base,value,bytecount=2,defined=True):
+        SimValue.__init__(self,defined=defined)
+        self.base = base
+        self.bytecount = bytecount
+        if bytecount == 1:
+            self.value = value & 255
+        else:
+            self.value = value & 65535
+            self.byte1 = self.value & 255
+            self.byte2 = self.value >> 8
+
+    def bitwise_and(self,other):
+        if other.is_literal():
+            if other.value < self.value:
+                newval = self.value & other.value
+                return mk_simvalue(newval)
+            else:
+                return mk_simbasevalue('unknown',self.value & other.value)
+        else:
+            return SimUndefinedDW
+
+    def __str__(self):
+        return '[[' + self.base + ']]:' + str(self.value)
+
 
 
 class SimBoolValue(SimLiteralValue):
@@ -543,6 +579,8 @@ class SimDoubleWordValue(SimLiteralValue):
         if other.is_literal():
             newval = (self.value - other.value) % (SU.max32 + 1)
             return SimDoubleWordValue(newval,defined=self.is_defined() and other.is_defined())
+        elif other.is_stack_address() and self.value == 0:
+            return mk_simbasevalue('invertedstack',65536 - other.get_offset_value())
         raise SU.CHBSimValueUndefinedError('SimDoubleWordValue:subu ' + str(other))
 
     def sub_overflows(self,other):
@@ -820,6 +858,33 @@ def compose_simvalue(bytes):
     else:
         raise UF.CHBError('Number of bytes not supported: ' + str(len(bytes)))
 
+class SimFloatValue(SimLiteralValue):
+
+    def __init__(self,value):
+        SimLiteralValue.__init__(self,value)
+
+    def is_float(self): return True
+
+    def is_not_equal(self,other):
+        if other.is_literal() and other.is_defined():
+            if other.value == self.value:
+                return SimBoolValue(0)
+            else:
+                return SimBoolValue(1)
+        raise CHBSimValueUndefinedError('SimFloatValue.is_not_equal: ' + str(other))
+
+    def count_leading_zeros(self):
+        return 1
+
+    def bitwise_srl(self,value):
+        if value == 31:
+            if self.value >= 0.0:
+                return mk_simvalue(0)
+            else:
+                return mk_simvalue(1)
+        raise CHBSimValueUndefinedError('SimFloatValue.bitwise_srl: ' + str(value))
+
+
 # convenience functions
 
 def mk_simvalue(value,size=4):
@@ -838,6 +903,9 @@ def mk_simbytevalue(value):
 def mk_simcharvalue(c):
     return mk_simbytevalue(ord(c))
 
+def mk_floatvalue(value):
+    return SimFloatValue(value)
+
 def mk_undefined_simvalue(size):
     if size == 1:
         return simUndefinedByte
@@ -847,6 +915,8 @@ def mk_undefined_simvalue(size):
         return simUndefinedDW
     else:
         raise CHBError('Size of undefined value not supported: ' + str(size))
+
+def mk_simbasevalue(base,value): return SimBaseValue(base,value)
 
 def check_byte(b):
     return b.is_literal() and b.is_byte()
