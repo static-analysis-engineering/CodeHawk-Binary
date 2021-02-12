@@ -1376,6 +1376,31 @@ class MIPSCountLeadingZeros(X.MIPSOpcodeBase):
         rrhs = str(xprs[2])
         return lhs + ' := count-leading-zeros(' + rhs + ')'
 
+    def get_tgt_operand(self): return self.mipsd.get_mips_operand(self.args[0])
+
+    def get_src_operand(self): return self.mipsd.get_mips_operand(self.args[1])
+
+    # --------------------------------------------------------------------------
+    # Operation:
+    #   temp <- 32
+    #   for i in 31..0
+    #     if GPR[rs][i] = 1 then
+    #       temp <- 31 - 1
+    #       break
+    #     endif
+    #   endfor
+    #   GPR[rd] <- temp
+    # --------------------------------------------------------------------------
+    def simulate(self,iaddr,simstate):
+        srcop = self.get_src_operand()
+        dstop = self.get_tgt_operand()
+        srcval = simstate.get_rhs(iaddr,srcop)
+        result = srcval.count_leading_zeros()
+        result = SV.mk_simvalue(result)
+        lhs = simstate.set(iaddr,dstop,result)
+        simstate.increment_program_counter()
+        return SU.simassign(iaddr,simstate,lhs,result)
+
 class MIPSDivideWord(X.MIPSOpcodeBase):
 
     def __init__(self,mipsd,index,tags,args):
@@ -3993,7 +4018,7 @@ class MIPSTrapIfEqual(X.MIPSOpcodeBase):
 
     def get_annotation(self,xdata):
         (xtags,xargs,xprs) = xdata.get_xprdata()
-        if len(xprs) > 0:
+        if len(xprs) > 4:
             rhs1 = str(xprs[0])
             rhs2 = str(xprs[1])
             result = xprs[3]
