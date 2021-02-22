@@ -64,7 +64,6 @@ class MIPSOpcodeBase(object):
         try:
             return [ self.mipsd.get_mips_operand(i) for i in self.args ]
         except:
-            print('Instruction ' + str(self))
             return []
 
 
