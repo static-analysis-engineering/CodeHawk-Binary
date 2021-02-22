@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyrigth (c) 2021      Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -60,13 +61,15 @@ class AsmBlock(object):
                              + self.instructions[ia].to_opcode_operations_string())
         return '\n'.join(lines)
 
-    def to_string(self,bytestring=False,bytes=False,esp=False,opcodetxt=True):
+    def to_string(self,bytestring=False,bytes=False,esp=False,opcodetxt=True,
+                  opcodewidth=25):
         lines = []
         for ia in sorted(self.instructions):
             pinstr = self.instructions[ia].to_string(bytestring=bytestring,
-                                                         bytes=bytes,
-                                                         esp=esp,
-                                                         opcodetxt=opcodetxt)
+                                                     bytes=bytes,
+                                                     esp=esp,
+                                                     opcodewidth=opcodewidth,
+                                                     opcodetxt=opcodetxt)
             lines.append(str(ia).rjust(10) + '  ' + pinstr)
         return '\n'.join(lines)
 
