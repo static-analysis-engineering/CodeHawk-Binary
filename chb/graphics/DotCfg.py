@@ -182,7 +182,7 @@ class DotCfg(object):
         labeltxt = None
         if len(self.fn.cfg.edges[e]) > 1:
             branchinstr = self.get_branch_instruction(e)
-            if branchinstr.is_branch_instruction():
+            if branchinstr and branchinstr.is_branch_instruction():
                 if self.showpredicates:
                     ftconditions = branchinstr.get_ft_conditions()
                     if len(ftconditions) == 2:
