@@ -6,6 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -299,15 +300,17 @@ class AsmFunction(object):
             lines.append('-'  * 80)
         return '\n'.join(lines)
 
-    def to_string(self,bytestring=False,bytes=False,esp=False,opcodetxt=True,hash=False):
+    def to_string(self,bytestring=False,bytes=False,esp=False,opcodetxt=True,hash=False,
+                  opcodewidth=25):
         self._get_blocks()
         lines = []
         for b in sorted(self.blocks):
             lines.append(
                 self.blocks[b].to_string(bytestring=bytestring,
-                                             bytes=bytes,
-                                             esp=esp,
-                                             opcodetxt=opcodetxt))
+                                         bytes=bytes,
+                                         esp=esp,
+                                         opcodewidth=opcodewidth,
+                                         opcodetxt=opcodetxt))
             lines.append('-' * 80)
         if bytestring: lines.append(self.get_byte_string(chunksize=80))
         if hash: lines.append('hash: ' + self.get_md5_hash())
