@@ -1,0 +1,544 @@
+#!/usr/bin/env python3
+# ------------------------------------------------------------------------------
+# Access to the CodeHawk Binary Analyzer Analysis Results
+# Author: Henny Sipma
+# ------------------------------------------------------------------------------
+# The MIT License (MIT)
+#
+# Copyright (c) 2021 Aarno Labs, LLC
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ------------------------------------------------------------------------------
+"""Command-line interface to the CodeHawk Binary Analyzer.
+
+These are common commands to analyze an executable and view the
+analysis results (<xname> is name of executable):
+
+get information:
+   info                show configuration information
+   version             show version of analyzer and python api
+
+disassemble/analyze an executable:
+  These commands extract the content of the executable into xml and store
+  results in the directory <name>.ch
+    analyze <xname>      extract executable content, disassemble and analyze
+    analyze -d <xname>   extract executable content and disassemble
+    analyze -x <xname>   extract executable content into xml
+
+The following subcommands apply only after the executable has been analyzed:
+
+view analysis results
+    show metrics <xname>     show a summary of statistics for all functions
+    show elfdata <xname>     show ELF program and section headers (ELF only)
+    show pedata <xname>      show PE headers and import tables (PE32 only)
+    show functions <xname> ...  show annotated assembly code for selected functions
+    show cfg <xname> <faddr> show control flow graph for function at address faddr (hex)
+    show cfgpaths <xname> <faddr> ... show paths through a control flow graph
+
+create reports
+    report appcalls <xname>  output application calls
+    report dllcalls <xname>  output dll calls (PE32 only)
+    report iocs <xname>      output indicators of compromise (PE32 only)
+
+"""
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+import chb.cmdline.AnalysisManager as AM
+import chb.cmdline.cmdlineutil as UC
+import chb.util.dotutil as UD
+import chb.util.fileutil as UF
+import chb.app.AppAccess as AP
+import chb.graphics.DotCfg as DC
+
+from chb.util.DotGraph import DotGraph
+
+def showversion(args):
+    print('Version 0.3.0')
+    exit(0)
+
+def showinfo(args):
+    print('Analyzer: ?')
+    print('Projects: none')
+    exit(0)
+
+def showcommand(args):
+    print('The show command can be followed by the following subcommands:')
+    print('All commands take the name of the executable as first argument')
+    print('')
+    print('  elfdata <xname>              show elf headers')
+    print('  pedata <xname>               show pe headers and import tables')
+    print('  stats <xname>                show statistics for the executable')
+    print('  functions <xname> ....       output annotated assembly functions for the specified functions')
+    print('  cfg <xname> <faddr>          create control flow graph for the given function')
+    print('  cfgpaths <xname> <faddr> ... extract paths through the control flow graph for the given function')
+    exit(0)
+
+def reportcommand(args):
+    print('The report command can be followed by the following subcommands:')
+    print('All commands take the name of the executable as first argument')
+    print('')
+    print('  appcalls <xname>             output application calls')
+    print('  dllcalls <xname>             output dll calls (PE32 only)')
+    print('  iocs <xname>                 output indicators of compromise (PE32 only)')
+    print('  unresolvedcalls <xname>      output unresolved calls (PE32 only)')
+    exit(0)
+
+def analyzefile(args):
+    (path,filename) = UC.get_path(args.xname)
+    xinfo = UC.get_xinfo(path,filename)
+    UC.extract(path,filename,args,xinfo)
+    if args.extract:
+        exit(0)
+
+    deps = args.thirdpartysummaries
+    
+    if args.reset:
+        chdir = UF.get_ch_dir(path,filename)
+        if os.path.isdir(chdir):
+            print('Removing ' + chdir)
+            shutil.rmtree(chdir)
+        if not UF.unpack_tar_file(path,filename):
+           UC.exit_with_msg('Error in unpacking tar.gz file with executable content')
+
+    am = AM.AnalysisManager(path,filename,deps=deps,mips=xinfo.is_mips(),elf=xinfo.is_elf())
+    if args.disassemble:
+        try:
+            am.disassemble(verbose=args.verbose,preamble_cutoff=args.preamble_cutoff)
+        except subprocesses.CalledProcessError as e:
+            print(e.output)
+            print(e.args)
+            exit(1)
+        except UF.CHBError as e:
+            print(str(e.wrap()))
+            exit(1)
+        exit(0)
+    else:
+        try:
+            am.analyze(iterations=args.iterations,verbose=args.verbose,
+                       preamble_cutoff=args.preamble_cutoff)
+        except subprocess.CalledProcessError as e:
+            print(e.output)
+            print(e.args)
+            exit(1)
+        except UF.CHBError as e:
+            print(str(e.wrap()))
+            exit(1)
+        exit(0)
+
+def showelfdata(args):
+    (path,filename) = UC.get_path(args.xname)
+    xinfo = UC.get_xinfo(path,filename)
+    if not xinfo.is_elf():
+        UC.exit_with_msg('File is not an ELF file: ' + xinfo.get_format())
+    if not UF.check_executable(path,filename):
+        try:
+            UC.extract(path,filename,args,xinfo)
+        except UC.CHBError as e:
+            print(e.wrap())
+            exit(1)
+    app = AP.AppAccess(path,filename,initialize=False,mips=xinfo.is_mips())
+    elfheader = app.get_elf_header()
+    try:
+        print(str(elfheader))
+    except UC.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    if args.save_section_headers:
+        result = {}
+        md5 = UC.get_md5(os.path.join(path,filename))
+        result['md5'] = md5
+        result['section-headers'] = []
+        for s in elfheader.sectionheaders:
+            result['section-headers'].append(s.get_values())
+        filename = args.xname + '_section_headers.json'
+        with open(filename,'w') as fp:
+            json.dump(result,fp,indent=3)
+        print('saved section headers in ' + filename)
+
+def showpedata(args):
+    (path,filename) = UC.get_path(args.xname)
+    xinfo = UC.get_xinfo(path,filename)
+    if not xinfo.is_pe32():
+        UC.exit_with_msg('File is not a PE32 file: ' + xinfo.get_format())
+    if not UF.check_executable(path,filename):
+        try:
+            UC.extract(path,filename,args,xinfo)
+        except UC.CHBError as e:
+            print(e.wrap())
+            exit(1)
+    app = AP.AppAccess(path,filename,initialize=False,mips=False)
+    peheader = app.get_pe_header()
+    if args.headeronly:
+        print(peheader)
+        exit(0)
+    if args.imports:
+        for i in peheader.get_import_tables(): print(str(i))
+        exit(0)
+    if args.headers:
+        for h in peheader.get_section_headers(): print(str(h))
+        exit(0)
+    if args.sections:
+        for s in peheader.get_sections(): print(str(s))
+        exit(0)
+    if not args.section is None:
+        s = peheader.get_section(args.section)
+        if s is None:
+            UC.exit_with_msg('Could not find section at virtual address: ' + args.section)
+        print(str(s))
+        exit(0)
+    print(peheader)
+    for i in peheader.get_import_tables(): print(str(i))
+    for h in peheader.get_section_headers(): print(str(h))
+
+def showstats(args):
+    (path,filename) = UC.get_path(args.xname,checkresults=True)
+    xinfo = UC.get_xinfo(path,filename)
+    app = AP.AppAccess(path,filename,mips=xinfo.is_mips())
+    metrics = app.get_result_metrics()
+    print(metrics.header_to_string())
+    for f in sorted(metrics.get_function_results(),key=lambda f:(f.get_espp(),f.faddr)):
+        print(f.metrics_to_string(shownocallees=args.nocallees))
+    print(metrics.disassembly_to_string())
+    print(metrics.analysis_to_string())
+    exit(0)
+
+def showfunctions(args):
+    (path,filename) = UC.get_path(args.xname,checkresults=True)
+    xinfo = UC.get_xinfo(path,filename)
+    app = AP.AppAccess(path,filename,mips=xinfo.is_mips())
+    if 'all' in args.functions:
+        fns = sorted(app.get_function_addresses())
+    else:
+        fns = args.functions
+
+    for faddr in fns:
+        if app.has_function(faddr):
+            f = app.get_function(faddr)
+            if f is None:
+                print_error('Unable to find function ' + faddr)
+                continue
+            if app.has_function_name(faddr):
+                print('\nFunction ' + faddr + ' (' + app.get_function_name(faddr) + ')')
+            else:
+                print('\nFunction ' + faddr)
+            print('-' * 80)
+            if xinfo.is_mips():
+                print(f.to_string(bytestring=args.bytestring,hash=args.hash,
+                                  sp=True,opcodetxt=True,opcodewidth=args.opcodewidth))
+            else:
+                print(f.to_string(bytestring=args.bytestring,hash=args.hash,
+                                  esp=True,opcodetxt=True,opcodewidth=args.opcodewidth))
+        else:
+            print('\nFunction ' + faddr + ' not found')
+            continue
+                
+
+def showcfg(args):
+    (path,filename) = UC.get_path(args.xname,checkresults=True)
+    xinfo = UC.get_xinfo(path,filename)
+    ismips = xinfo.is_mips()
+    app = AP.AppAccess(path,filename,mips=ismips)
+    if app.has_function(args.faddr):
+        f = app.get_function(args.faddr)
+        if f is None:
+            UC.exit_with_msg('Unable to find function ' + faddr)
+        graphname = 'cfg_' + args.faddr
+        if not args.sink is None:
+            graphname += '_'  + args.sink
+        if len(args.segments) > 0:
+            graphname += '_' + '_'.join(args.segments)
+        dotcfg = DC.DotCfg(graphname,
+                               f,
+                               looplevelcolors=["#FFAAAAFF","#FF5555FF","#FF0000FF"],
+                               showpredicates=args.predicates,
+                               showcalls=args.calls,mips=True,
+                               sink=args.sink,segments=args.segments)
+
+        functionname = args.faddr
+        if app.has_function_name(args.faddr):
+            functionname = functionname +  ' (' + app.get_function_name(args.faddr) + ')'
+
+        pdffilename = UD.print_dot(app.path,filename,dotcfg.build())
+
+        if os.path.isfile(pdffilename):
+            UC.print_info('Control flow graph for ' + functionname + ' has been saved in '
+                    + pdffilename)
+        else:
+            UC.print_error('Error in converting dot file to pdf')
+    else:
+        UC.exit_with_msg('Function ' + args.faddr + ' not found')
+        
+def showcfgpaths(args):
+    (path,filename) = UC.get_path(args.xname,checkresults=True)
+    xinfo = UC.get_xinfo(path,filename)['file']
+    ismips = xinfo.get('arch','?') == 'mips'
+    if not ismips:
+        UC.print_not_supported('Not yet implemented for x86; coming soon')
+    app = AP.AppAccess(path,filename,mips=ismips)
+    if app.is_unique_app_function_name(args.faddr):
+        faddr = app.get_app_function_address(args.faddr)
+    else:
+        faddr = args.faddr
+    if not app.has_function(faddr):
+        UC.exit_with_msg('Function ' + faddr + ' not found')
+    f = app.get_function(faddr)
+    if f is None:
+        UC.exit_with_msg('Function ' + faddr + ' not found')
+
+    if args.calltarget:
+        if app.is_unique_app_function_name(args.calltarget):
+            calltarget = app.get_app_function_address(args.calltarget)
+        else:
+            calltarget = args.calltarget
+        instrs = f.get_call_instructions_to_target(calltarget)
+        if len(instrs) == 0:
+            exit_with_msg('No calls found to call target: ' + args.calltarget)
+        blocksinks = { i.mipsblock.baddr:i for i in instrs }
+    elif args.block:
+        blocksinks = { args.block:f.get_instruction(args.block) }
+
+    cfgpaths = {}  # blocksink -> list of paths
+    cfgconstraints = {} # blocksink -> [ baddr -> condition ]
+
+    for sink in blocksinks:
+        cfgpaths[sink] = f.cfg.get_paths(sink,maxtime=args.maxtime)  # [ MIPSCfgPath ]
+
+    feasiblepaths = {}
+    infeasiblepaths = 0
+    for sink in cfgpaths:
+        feasiblepaths[sink] = []
+        for p in cfgpaths[sink]:
+            if p.is_feasible():
+                feasiblepaths[sink].append(p)
+            else:
+                infeasiblepaths += 1
+
+    feasiblepathcount = sum([ len(feasiblepaths[b]) for b in feasiblepaths ])
+    pathcount = feasiblepathcount + infeasiblepaths
+
+    print('Feasible paths:   ' + str(feasiblepathcount).rjust(4))
+    print('Infeasible paths: ' + str(infeasiblepaths).rjust(4))
+    print('                  ' + ('-' * 4))
+    print('Total:            ' + str(pathcount).rjust(4))
+    print('\n\n')
+    
+def reportappcalls(args):
+    (path,filename) = UC.get_path(args.xname,checkresults=True)
+    xinfo = UC.get_xinfo(path,filename)
+    if xinfo.is_mips():
+        UC.print_not_supported('Not yet supported for mips')
+    app = AP.AppAccess(path,filename)
+    appcalls = app.get_app_calls()
+    result = {}  #  faddr -> [ instr ]
+    for faddr in sorted(appcalls):
+        for instr in appcalls[faddr]:
+            tgt = str(instr.get_call_target().get_address())
+            result.setdefault(tgt,[])
+            result[tgt].append(instr)
+    for tgt in sorted(result):
+        print('\n' + str(tgt))
+        for instr in sorted(result[tgt],key=lambda i:i.asmfunction.faddr):
+            faddr = instr.asmfunction.faddr
+            iaddr = instr.iaddr
+            print('    ' + faddr + ',' + iaddr
+                  + ': ' + ', '.join(str(x) for x in instr.get_call_arguments()))
+
+def reportdllcalls(args):
+    (path,filename) = UC.get_path(args.xname,checkresults=True)
+    xinfo = UC.get_xinfo(path,filename)
+    if xinfo.is_mips() or xinfo.is_elf():
+        UC.print_not_supported('Not supported for elf')
+    app = AP.AppAccess(path,filename)
+    dllcalls = app.get_dll_calls()
+    result = {}  # name of dll -> name of function -> [ instr ]
+    for faddr in dllcalls:
+        for instr in dllcalls[faddr]:
+            tgt = instr.get_call_target().get_stub()
+            dll = tgt.get_dll()
+            fname = tgt.get_name()
+            result.setdefault(dll,{})
+            result[dll].setdefault(fname,[])
+            result[dll][fname].append(instr)
+    print(UC.dll_results_tostring(args,result))
+
+def reportiocs(args):
+    (path,filename) = UC.get_path(args.xname,checkresults=True)
+    xinfo = UC.get_xinfo(path,filename)
+    if not xinfo.is_pe32():
+        UC.print_not_supported('Only supported for PE32')
+    app = AP.AppAccess(path,filename)
+    try:
+        (iocresults,problems) = app.get_ioc_arguments() # ioc -> role-name -> (faddr,iaddr,arg)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+    print(UC.ioc_results_tostring(args,iocresults,problems))
+
+def parse():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__,
+        epilog='See for more information ...')
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        exit(0)
+    subparsers = parser.add_subparsers(title='subcommands')
+    parser_info = subparsers.add_parser('info')
+    parser_info.set_defaults(func=showinfo)
+    
+    parser_version = subparsers.add_parser('version')
+    parser_version.set_defaults(func=showversion)
+
+    # ------------------------------------------------------------ analyze subcommand
+    parser_analyze = subparsers.add_parser('analyze')
+    parser_analyze.add_argument('xname',help='name of executable')
+    parser_analyze.add_argument('-d','--disassemble',help='extract and disassemble only',
+                                action='store_true')
+    parser_analyze.add_argument('-x','--extract',help='extract executable content only',
+                                action='store_true')
+    parser_analyze.add_argument('--reset',help='remove existing analysis results',
+                                action='store_true')
+    parser_analyze.add_argument('-v','--verbose',help='output intermediate information',
+                                action='store_true')
+    parser_analyze.add_argument('--iterations',type=int,default=12,
+                                help='maximum number of iterations')
+    parser_analyze.add_argument('--preamble_cutoff',type=int,default=12,
+                                help='minimum cutoff for function entry preamble')
+    parser_analyze.add_argument('--thirdpartysummaries',nargs='*',default=[],
+                                help='summary jars for third party libraries')
+    parser_analyze.add_argument('--fixup',help='name of json file with disassembly fixup')    
+    parser_analyze.set_defaults(func=analyzefile)
+
+    # ----------------------------------------------------------------- show subcommand
+    parser_show = subparsers.add_parser('show')
+    parser_show.set_defaults(func=showcommand)
+    showparsers = parser_show.add_subparsers(title='show options')
+
+    # -- show stats --
+    show_stats = showparsers.add_parser('stats')
+    show_stats.add_argument('xname',help='name of executable')
+    show_stats.add_argument('--nocallees',action='store_true',
+                              help='indicate if a function has no callees')
+    show_stats.set_defaults(func=showstats)
+
+    # -- show elfdata --
+    show_elfdata = showparsers.add_parser('elfdata')
+    show_elfdata.add_argument('xname',help='name of executable')
+    show_elfdata.add_argument('--save_section_headers',
+                              help='save the section headers in json format',
+                              action='store_true')
+    show_elfdata.set_defaults(func=showelfdata)
+
+    # -- show pe data --
+    show_pedata = showparsers.add_parser('pedata')
+    show_pedata.add_argument('xname',help='name of executable')
+    show_pedata.add_argument('--headeronly',help='show only the PE header',
+                             action='store_true')
+    show_pedata.add_argument('--imports',help='show only import tables',
+                             action='store_true')
+    show_pedata.add_argument('--headers',help='show only section headers',
+                             action='store_true')
+    show_pedata.add_argument('--sections',help='show only sections',
+                             action='store_true')
+    show_pedata.add_argument('--section',help='show only section at given address',
+                             default=None)
+    show_pedata.set_defaults(func=showpedata)
+
+    # -- show control flow graph --
+    show_cfg = showparsers.add_parser('cfg')
+    show_cfg.add_argument('xname',help='name of executable')
+    show_cfg.add_argument('faddr',help='address of function (in hex)')
+    show_cfg.add_argument('--predicates',help='add branch predicates',action='store_true')
+    show_cfg.add_argument('--calls',help='add calls to nodes',action='store_true')
+    show_cfg.add_argument('--sink',help='restrict graph to paths to this basic block')
+    show_cfg.add_argument('--segments',help='restrict graph to paths that include these basic blocks',
+                          nargs='*',default=[])
+    show_cfg.set_defaults(func=showcfg)
+
+    # -- show functions --
+    show_functions = showparsers.add_parser('functions')
+    show_functions.add_argument('xname',help='name of executable')
+    show_functions.add_argument('--functions',nargs='*',help='list of function addresses (in hex)',
+                                default=[])
+    show_functions.add_argument('--hash',help='show md5 hash',action='store_true')
+    show_functions.add_argument('--bytestring',help='show bytes as a string',action='store_true')
+    show_functions.add_argument('--opcodewidth',help='number of characters for opcode text',
+                                type=int,default=25)
+    show_functions.set_defaults(func=showfunctions)
+
+    # -- show control flow graph paths --
+    show_cfgpaths = showparsers.add_parser('cfgpaths')
+    show_cfgpaths.add_argument('xname',help='name of executable')
+    show_cfgpaths.add_argument('faddr',help='address of function (in hex)')
+    targetgroup = show_cfgpaths.add_mutually_exclusive_group(required=True)
+    targetgroup.add_argument('--calltarget',help='address or name of call target (e.g., strcpy)')
+    targetgroup.add_argument('--block',help='address of target block to reach')
+    show_cfgpaths.add_argument('--graph',help='produce a graphical representation using dot',
+                               action='store_true')
+    show_cfgpaths.add_argument('--conditions',help='show conditions along the path',
+                               action='store_true')
+    show_cfgpaths.add_argument('--calls',help='show calls made per basic block',
+                               action='store_true')
+    show_cfgpaths.add_argument('--stringconstraints',help='output string constraints',
+                               action='store_true')
+    show_cfgpaths.add_argument('--maxtime',type=int,help='maximum search time (in secs)')
+    show_cfgpaths.set_defaults(func=showcfgpaths)
+
+    # -------------------------------------------------------------- report subcommand
+    parser_report = subparsers.add_parser('report')
+    parser_report.set_defaults(func=reportcommand)
+    reportparsers = parser_report.add_subparsers(title='show options')
+
+    # -- report application calls --
+    report_appcalls = reportparsers.add_parser('appcalls')
+    report_appcalls.add_argument('xname',help='name of executable')
+    report_appcalls.set_defaults(func=reportappcalls)
+
+    # -- report dll calls --
+    report_dllcalls = reportparsers.add_parser('dllcalls')
+    report_dllcalls.add_argument('xname',help='name of executable')
+    report_dllcalls.add_argument('--aggregate',help='aggregate argument values per dll function',
+                                 action='store_true')
+    report_dllcalls.set_defaults(func=reportdllcalls)
+
+    # -- report indicators of compromise --
+    report_iocs = reportparsers.add_parser('iocs')
+    report_iocs.add_argument('xname',help='name of executable')
+    report_iocs.add_argument('--verbose','-v',help='show locations of iocs',
+                             action='store_true')
+    report_iocs.add_argument('--constants','-c',action='store_true',
+                             help='only show values that are constant literals')
+    report_iocs.set_defaults(func=reportiocs)
+
+
+    # -- parse --
+    args = parser.parse_args()
+    return args
+
+if __name__ == '__main__':
+
+    args = parse()
+    args.func(args)
+
