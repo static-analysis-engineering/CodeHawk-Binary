@@ -121,7 +121,8 @@ def analyzefile(args):
         if not UF.unpack_tar_file(path,filename):
            UC.exit_with_msg('Error in unpacking tar.gz file with executable content')
 
-    am = AM.AnalysisManager(path,filename,deps=deps,mips=xinfo.is_mips(),elf=xinfo.is_elf())
+    am = AM.AnalysisManager(path,filename,deps=deps,
+                            mips=xinfo.is_mips(),arm=xinfo.is_arm(),elf=xinfo.is_elf())
     if args.disassemble:
         try:
             am.disassemble(verbose=args.verbose,preamble_cutoff=args.preamble_cutoff)

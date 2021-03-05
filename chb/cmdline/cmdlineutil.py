@@ -54,11 +54,11 @@ def get_md5(fname):
     return md5.stdout.decode('utf-8')[:32]
 
 def print_architecture_failure(xinfo):
-    arch = xinfo.get('arch','?')
+    arch = xinfo.get_architecture()
     if arch == 'x64':
         exit_with_msg('x86-64 not yet supported; hopefully soon')
-    if arch == 'arm':
-        exit_with_msg('arm not yet supported; hopefully soon; we are currently working on it')
+    # if arch == 'arm':
+    #    exit_with_msg('arm not yet supported; hopefully soon; we are currently working on it')
     exit_with_msg('File architecture not recognized')
 
 def get_architecture(ftype):
@@ -97,9 +97,13 @@ class XInfo(object):
     def get_xinfo_filename(self):
         return self.get_absolute_filename() + '_xinfo.json'
 
+    def get_architecture(self): return self.fileinfo.get('arch','?')
+
     def is_mips(self): return self.fileinfo['arch'] == 'mips'
 
     def is_x86(self): return self.fileinfo['arch'] == 'x86'
+
+    def is_arm(self): return self.fileinfo['arch'] == 'arm'
 
     def is_elf(self): return self.fileinfo['format'] == 'elf'
 
@@ -186,7 +190,7 @@ def get_path(xname,checkresults=False):
 def extract(path,filename,args,xinfo):
     deps = args.thirdpartysummaries
 
-    if not (xinfo.is_mips() or xinfo.is_x86()):
+    if not (xinfo.is_mips() or xinfo.is_arm() or xinfo.is_x86()):
         print_architecture_failure(xinfo)
     if not (xinfo.is_elf() or xinfo.is_pe32()):
         print_format_failure(xinfo)
@@ -202,6 +206,7 @@ def extract(path,filename,args,xinfo):
         if not UF.check_executable(path,filename):
             am = AM.AnalysisManager(path,filename,deps=deps,
                                     mips=xinfo.is_mips(),
+                                    arm=xinfo.is_arm(),
                                     elf=xinfo.is_elf(),
                                     fixup=fixup)
             print('Extracting executable content into xml ...')

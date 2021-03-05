@@ -6,6 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,7 +43,7 @@ class AnalysisManager(object):
     """Sets up the command-line arguments for and invokes the Binary Analyzer."""
 
     def __init__(self,path,filename,deps=[],specializations=[],
-                 elf=False,mips=False,
+                 elf=False,mips=False,arm=False,
                  fixup={},force_fixup=False):
         """Initializes the analyzer location and target file location
 
@@ -57,6 +58,7 @@ class AnalysisManager(object):
         self.specializations = specializations
         self.elf = elf
         self.mips = mips
+        self.arm = arm
         self.fixup = fixup  # dictionary with user data to fix disassembly/analysis
         self.force_fixup = force_fixup   # if true: replace existing .chu/<name>_system_info_u.xml file
         self.config = Config()
@@ -81,6 +83,7 @@ class AnalysisManager(object):
 
         cmd = [ self.chx86_analyze, chcmd, '-summaries', self.chsummaries ]
         if self.mips: cmd.append('-mips')
+        if self.arm: cmd.append('-arm')
         if self.elf: cmd.append('-elf')
         for d in self.deps:
             cmd.extend([ '-summaries', d ])
@@ -123,9 +126,11 @@ class AnalysisManager(object):
         for s in self.specializations:
             cmd.extend([ '-specialization', s ])
         if self.mips: cmd.append('-mips')
+        if self.arm: cmd.append('-arm')
         if self.elf: cmd.append('-elf')
         if verbose: cmd.append('-verbose')
         cmd.extend([ '-disassemble', self.filename ])
+        print(cmd)
         if sys.version_info > (3, 0) and timeout:
             try:
                 result = subprocess.call(cmd,stderr=subprocess.STDOUT,timeout=timeout)
@@ -248,6 +253,7 @@ class AnalysisManager(object):
         cmd.extend([ '-preamble_cutoff', str(preamble_cutoff) ])
         if self.elf: cmd.append('-elf')
         if self.mips: cmd.append('-mips')
+        if self.arm: cmd.append('-arm')
         for d in self.deps:
             cmd.extend([ '-summaries', d ])
         for s in self.specializations:
