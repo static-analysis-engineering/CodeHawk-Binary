@@ -180,8 +180,11 @@ def get_path(xname,checkresults=False):
         name = os.path.abspath(xname)
         path = os.path.dirname(name)
         filename = os.path.basename(name)
-        if checkresults:
-            UF.check_analysis_results(path,filename)
+        if os.path.isfile(filename):
+            if checkresults:
+                UF.check_analysis_results(path,filename)
+        else:
+            raise UF.CHBFileNotFoundError(filename)
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
@@ -195,11 +198,11 @@ def extract(path,filename,args,xinfo):
     if not (xinfo.is_elf() or xinfo.is_pe32()):
         print_format_failure(xinfo)
 
-    fixup = {}
-    if args.fixup:
+    hints = {}
+    if args.hints:
         try:
-            with open(args.fixup) as fp:
-                fixup = json.load(fp)['fixups']
+            with open(args.hints) as fp:
+                hints = json.load(fp)
         except Exception as e:
             exit_with_msg('Error in loading fixup file: ' + str(e))
     try:
@@ -208,7 +211,7 @@ def extract(path,filename,args,xinfo):
                                     mips=xinfo.is_mips(),
                                     arm=xinfo.is_arm(),
                                     elf=xinfo.is_elf(),
-                                    fixup=fixup)
+                                    hints=hints)
             print('Extracting executable content into xml ...')
             result = am.extract_executable('-extract')
             if not (result == 0):
@@ -257,8 +260,8 @@ def dll_results_tostring(args,result):
             for fname in summaryproblems[dll]:
                 lines.append('')
                 lines.append(dll + ',' + fname)
-                for e in summaryproblems[dll][fname]:
-                    print('  ' + str(e))
+                for err in summaryproblems[dll][fname]:
+                    print('  ' + str(err))
 
     if len(nosummaries) > 0:
         lines.append('\nMissing summaries:')
