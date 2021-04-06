@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -55,6 +57,7 @@ class MemoryBase(VDictionaryRecord):
         VDictionaryRecord.__init__(self,vd,index,tags,args)
 
     def is_local_stack_frame(self): return False
+    def is_allocated_stack_frame(self): return False
     def is_realigned_stack_frame(self): return False
     def is_basevar(self): return False
 
@@ -66,6 +69,13 @@ class MemoryBaseLocalStackFrame(MemoryBase):
         MemoryBase.__init__(self,vd,index,tags,args)
 
     def is_local_stack_frame(self): return True
+
+class MemoryBaseAllocatedStackFrame(MemoryBase):
+
+    def __init__(self,vd,index,tags,args):
+        MemoryBase.__init__(self,vd,index,tags,args)
+
+    def is_allocated_stack_frame(self): return True
 
 
 class MemoryBaseRealignedStackFrame(MemoryBase):
@@ -116,7 +126,9 @@ class MemoryOffsetBase(VDictionaryRecord):
         VDictionaryRecord.__init__(self,vd,index,tags,args)
 
     def is_constant_offset(self): return False
+    def is_index_offset(self): return False
     def is_no_offset(self): return False
+    def is_unknown_offset(self): return False
 
 
 class MemoryOffsetNoOffset(MemoryOffsetBase):
@@ -139,6 +151,33 @@ class MemoryOffsetConstantOffset(MemoryOffsetBase):
 
     def __str__(self): return str(self.get_offset())
 
+class MemoryOffsetIndexOffset(MemoryOffsetBase):
+
+    def __init__(self,vd,index,tags,args):
+        MemoryOffsetBase.__init__(self,vd,index,tags,args)
+
+    def is_index_offset(self): return True
+
+    @property
+    def indexvar(self):
+        return self.vd.get_variable(self.args[0])
+
+    @property
+    def offset(self):
+        return self.vd.get_memory_offset(self.args[1])
+
+    def __str__(self):
+        return "[" + str(self.indevar) + "]" + str(self.offset)
+
+
+class MemoryOffsetUnknown(MemoryOffsetBase):
+
+    def __init__(self,vd,index,tags,args):
+        MemoryOffsetBase.__init__(self,vd,index,tags,args)
+
+    def is_unknown_offset(self): return True
+
+    def __str__(self): return "?"
 
 # ------------------------------------------------------------------------------
 # Assembly variable denotation
@@ -307,6 +346,7 @@ class ConstantValueVariableBase(VDictionaryRecord):
     def is_bridge_variable(self): return False
     def is_global_value(self): return False
     def is_function_return_value(self): return False
+    def is_function_pointer(self): return False
     def is_side_effect_value(self): return False
     def is_special_value(self): return False
     def is_structured_value(self): return False
@@ -452,6 +492,29 @@ class FunctionReturnValue(ConstantValueVariableBase):
             return 'rtn_' + str(self.get_call_target()) + pargs + ')'
         else:
             return 'rtn_' + str(self.get_call_site())
+
+class FunctionPointer(ConstantValueVariableBase):
+
+    def __init__(self,vd,index,tags,args):
+        ConstantValueVariableBase.__init__(self,vd,index,tags,args)
+
+    def is_function_pointer(self): return True
+
+    def __str__(self): return "function pointer"
+
+class MemoryAddress(ConstantValueVariableBase):
+
+    def __init__(self,vd,index,tags,args):
+        ConstantValueVariableBase.__init__(self,vd,index,tags,args)
+
+    def __str__(self): return "memory address"
+
+class FieldValue(ConstantValueVariableBase):
+
+    def __init__(self,vd,index,tags,args):
+        ConstantValueVariableBase.__init__(self,vd,index,tags,args)
+
+    def __str__(self): return "field value"
 
 class CallTargetValue(ConstantValueVariableBase):
 
