@@ -1,10 +1,11 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
 # Copyright (c) 2021      Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,18 +26,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-
+"""X86 Assembly Instruction Data."""
 
 import chb.util.fileutil as UF
 
-import chb.app.DictionaryRecord as D
+import chb.asm.FnX86DictionaryRecord as D
 import chb.simulate.SimulationState as S
 import chb.simulate.SimUtil as SU
 
-class EspOffset(D.DictionaryRecord):
+class EspOffset(D.FnX86DictionaryRecord):
 
     def __init__(self,d,index,tags,args):
-        D.DictionaryRecord.__init__(self,d,index,tags,args)
+        D.FnX86DictionaryRecord.__init__(self,d,index,tags,args)
         self.asmfunction = d.asmfunction
         self.vd = self.asmfunction.vardictionary
         self.xd = self.vd.xd
@@ -50,10 +51,10 @@ class EspOffset(D.DictionaryRecord):
         return ('[' * level) + ' ' + str(self.get_offset()).rjust(4) + ' ' + (']' * level)
         
 
-class AsmInstrXData(D.DictionaryRecord):
+class AsmInstrXData(D.FnX86DictionaryRecord):
 
     def __init__(self,d,index,tags,args):
-        D.DictionaryRecord.__init__(self,d,index,tags,args)
+        D.FnX86DictionaryRecord.__init__(self,d,index,tags,args)
         self.asmfunction = d.asmfunction
         self.vd = self.asmfunction.vardictionary
         self.xd = self.vd.xd

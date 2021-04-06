@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -24,27 +26,55 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Different kinds of operands of x86 assembly instructions."""
 
-import chb.app.DictionaryRecord as D
+from typing import List, TYPE_CHECKING
 
-class OperandKindBase(D.DictionaryRecord):
+if TYPE_CHECKING:
+    import chb.asm.X86Dictionary
 
-    def __init__(self,d,index,tags,args):
-        D.DictionaryRecord.__init__(self,d,index,tags,args)
+import chb.asm.X86DictionaryRecord as D
+
+class OperandKindBase(D.X86DictionaryRecord):
+
+    def __init__(
+            self,
+            d: "chb.asm.X86Dictionary.X86Dictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        D.X86DictionaryRecord.__init__(self, d, index, tags, args)
         self.bd = self.d.app.bdictionary
 
-    def is_flag(self): return False
-    def is_register(self): return False
-    def is_immediate(self): return False
-    def is_absolute(self): return False
-    def is_indirect_register(self): return False
-    def is_scaled_indirect_register(self): return False
-    def is_double_register(self): return False
+    def is_flag(self) -> bool:
+        return False
 
-    def to_operand_string(self): return self.__str__()
-    def to_address_string(self): return 'address-string?'
+    def is_register(self) -> bool:
+        return False
 
-    def __str__(self): return 'operandkind:' + self.tags[0]
+    def is_immediate(self) -> bool:
+        return False
+
+    def is_absolute(self) -> bool:
+        return False
+
+    def is_indirect_register(self) -> bool:
+        return False
+
+    def is_scaled_indirect_register(self) -> bool:
+        return False
+
+    def is_double_register(self) -> bool:
+        return False
+
+    def to_operand_string(self) -> str:
+        return self.__str__()
+
+    def to_address_string(self) -> str:
+        return 'address-string?'
+
+    def __str__(self) -> str:
+        return 'operandkind:' + self.tags[0]
 
 
 class FlagOp(OperandKindBase):
@@ -155,6 +185,11 @@ class IndirectRegisterOp(OperandKindBase):
         return str(self.get_offset()) + '(' + str(self.get_register()) + ')'
 
 class SegIndirectRegisterOp(OperandKindBase):
+
+    def __init__(self,d,index,tags,args):
+        OperandKindBase.__init__(self,d,index,tags,args)
+
+class DummyOp(OperandKindBase):
 
     def __init__(self,d,index,tags,args):
         OperandKindBase.__init__(self,d,index,tags,args)
