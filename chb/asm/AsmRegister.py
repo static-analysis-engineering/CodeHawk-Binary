@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,137 +28,192 @@
 # ------------------------------------------------------------------------------
 """X86 CPU Register data."""
 
-class AsmRegisterBase(object):
+from typing import List, TYPE_CHECKING
 
-    def __init__(self,bd,index,tags,args):
-        self.bd = bd
-        self.index = index
-        self.tags = tags
-        self.args = args
+if TYPE_CHECKING:
+    import chb.app.BDictionary
 
-    def is_cpu_register(self): return False
-    def is_segment_register(self): return False
-    def is_double_register(self): return False
-    def is_floating_point_register(self): return False
-    def is_control_register(self): return False
-    def is_debug_register(self): return False
-    def is_mmx_register(self): return False
-    def is_xmm_register(self): return False
+import chb.app.DictionaryRecord as D
 
-    def get_key(self):
-        return  (','.join(self.tags), ','.join([str(x) for x in self.args]))
 
-# ------------------------------------------------------------------------------
-# CPURegister
-# ------------------------------------------------------------------------------
+class AsmRegisterBase(D.BDictionaryRecord):
+
+    def __init__(
+            self,
+            bd: "chb.app.BDictionary.BDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        D.BDictionaryRecord.__init__(self, bd, index, tags, args)
+
+    def is_cpu_register(self) -> bool:
+        return False
+
+    def is_segment_register(self) -> bool:
+        return False
+
+    def is_double_register(self) -> bool:
+        return False
+
+    def is_floating_point_register(self) -> bool:
+        return False
+
+    def is_control_register(self) -> bool:
+        return False
+
+    def is_debug_register(self) -> bool:
+        return False
+
+    def is_mmx_register(self) -> bool:
+        return False
+
+    def is_xmm_register(self) -> bool:
+        return False
+
 
 class CPURegister(AsmRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
-        AsmRegisterBase.__init__(self,bd,index,tags,args)
+    def __init__(
+            self,
+            bd: "chb.app.BDictionary.BDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        AsmRegisterBase.__init__(self, bd, index, tags, args)
 
-    def is_cpu_register(self): return True
+    def is_cpu_register(self) -> bool:
+        return True
 
-    def __str__(self): return self.tags[1]
+    def __str__(self) -> str:
+        return self.tags[1]
 
-# ------------------------------------------------------------------------------
-# SegmentRegister
-# ------------------------------------------------------------------------------
 
 class SegmentRegister(AsmRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
-        AsmRegisterBase.__init__(self,bd,index,tags,args)
+    def __init__(
+            self,
+            bd: "chb.app.BDictionary.BDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        AsmRegisterBase.__init__(self, bd, index, tags, args)
 
-    def is_segment_register(self): return True
+    def is_segment_register(self) -> bool:
+        return True
 
-    def  __str__(self): return self.tags[1]
+    def  __str__(self) -> str:
+        return self.tags[1]
 
-# ------------------------------------------------------------------------------
-# DoubleRegister
-# ------------------------------------------------------------------------------
        
 class DoubleRegister(AsmRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
-        AsmRegisterBase.__init__(self,bd,index,tags,args)
+    def __init__(
+            self,
+            bd: "chb.app.BDictionary.BDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        AsmRegisterBase.__init__(self, bd, index, tags, args)
 
-    def is_double_register(self): return True
+    def is_double_register(self) -> bool:
+        return True
 
-    def __str__(self): return self.tags[1] + ':' + self.tags[2]
+    def __str__(self) -> str:
+        return self.tags[1] + ':' + self.tags[2]
 
-
-# ------------------------------------------------------------------------------
-# FloatingPointRegister
-# ------------------------------------------------------------------------------
 
 class FloatingPointRegister(AsmRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
-        AsmRegisterBase.__init__(self,bd,index,tags,args)
+    def __init__(
+            self,
+            bd: "chb.app.BDictionary.BDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        AsmRegisterBase.__init__(self, bd, index, tags, args)
 
-    def is_floating_point_register(self): return True
+    def is_floating_point_register(self) -> bool:
+        return True
 
-    def get_index(self): return self.args[0]
+    def get_index(self) -> int:
+        return self.args[0]
 
-    def __str__(self): return 'st(' + str(self.get_index()) + ')'
+    def __str__(self) -> str:
+        return 'st(' + str(self.get_index()) + ')'
     
-# ------------------------------------------------------------------------------
-# ControlRegister
-# ------------------------------------------------------------------------------
 
 class ControlRegister(AsmRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
-        AsmRegisterBase.__init__(self,bd,index,tags,args)
+    def __init__(
+            self,
+            bd: "chb.app.BDictionary.BDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        AsmRegisterBase.__init__(self, bd, index, tags, args)
 
-    def is_control_register(self): return True
+    def is_control_register(self) -> bool:
+        return True
 
-    def get_index(self): return self.args[0]
+    def get_index(self) -> int:
+        return self.args[0]
 
-    def __str__(self): return 'CR' + str(self.get_index())
+    def __str__(self) -> str:
+        return 'CR' + str(self.get_index())
 
-# ------------------------------------------------------------------------------
-# DebugRegister
-# ------------------------------------------------------------------------------
 
 class DebugRegister(AsmRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
+    def __init__(self,
+                 bd: "chb.app.BDictionary.BDictionary",
+                 index: int,
+                 tags: List[str],
+                 args: List[int]) -> None:
         AsmRegisterBase.__init__(self,bd,index,tags,args)
 
-    def is_debug_register(self): return True
+    def is_debug_register(self) -> bool:
+        return True
 
-    def get_index(self): return self.args[0]
+    def get_index(self) -> int:
+        return self.args[0]
 
-    def __str__(self): return 'DR' + str(self.get_index())
+    def __str__(self) -> str:
+        return 'DR' + str(self.get_index())
 
-# ------------------------------------------------------------------------------
-# MmxRegister
-# ------------------------------------------------------------------------------
 
 class MmxRegister(AsmRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
-        AsmRegisterBase.__init__(self,bd,index,tags,args)
+    def __init__(self,
+                 bd: "chb.app.BDictionary.BDictionary",
+                 index: int,
+                 tags: List[str],
+                 args: List[int]) -> None:
+        AsmRegisterBase.__init__(self, bd, index, tags, args)
 
-    def is_mmx_register(self): return True
+    def is_mmx_register(self) -> bool:
+        return True
 
-    def get_index(self): return self.args[0]
+    def get_index(self) -> int:
+        return self.args[0]
 
-    def __str__(self): return 'mm(' + str(self.get_index()) + ')'
+    def __str__(self) -> str:
+        return 'mm(' + str(self.get_index()) + ')'
 
-# ------------------------------------------------------------------------------
-# XmmRegister
-# ------------------------------------------------------------------------------
 
 class XmmRegister(AsmRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
-        AsmRegisterBase.__init__(self,bd,index,tags,args)
+    def __init__(self,
+                 bd: "chb.app.BDictionary.BDictionary",
+                 index: int,
+                 tags: List[str],
+                 args: List[int]) -> None:
+        AsmRegisterBase.__init__(self, bd, index, tags, args)
 
-    def is_xmm_register(self): return True
+    def is_xmm_register(self) -> bool:
+        return True
 
-    def get_index(self): return self.args[0]
+    def get_index(self) -> int:
+        return self.args[0]
 
-    def __str__(self): return 'xmm(' + str(self.get_index()) + ')'
+    def __str__(self) -> str:
+        return 'xmm(' + str(self.get_index()) + ')'

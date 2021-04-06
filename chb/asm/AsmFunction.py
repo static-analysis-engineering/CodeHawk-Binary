@@ -287,10 +287,10 @@ class AsmFunction(object):
                 raise SU.CHBSimError(simstate,baddr,'No block successors found'+
                                            str(self.cfg))
             else:
-                e = SU.CHBSimError(simstate,baddr,'Multiple block successors found: ' +
+                err = SU.CHBSimError(simstate,baddr,'Multiple block successors found: ' +
                                         ','.join([ str(x) for x in bsuccessors ]))
-                e.set_instructions_processed(processed)
-                raise e
+                err.set_instructions_processed(processed)
+                raise err
 
     def to_opcode_operations_string(self):
         self._get_blocks()
