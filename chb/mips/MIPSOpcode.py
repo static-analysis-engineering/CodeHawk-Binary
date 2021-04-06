@@ -1,11 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -126,7 +127,7 @@ mips_opcode_constructors = {
     'swr'  : lambda x: MIPSStoreWordRight(*x),
     'syscall 0': lambda x: MIPSSyscall(*x),
     'teq'  : lambda x: MIPSTrapIfEqual(*x),
-    'teqi' : lambda x: MIPSTrafIfEqualImmediate(*x),
+    # 'teqi' : lambda x: MIPSTrapIfEqualImmediate(*x),
     'xor'  : lambda x: MIPSXor(*x),
     'xori' : lambda x: MIPSXorImmediate(*x)
     }

@@ -1,10 +1,11 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +16,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -24,72 +25,99 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Representation of MIPS registers."""
 
-class MIPSRegisterBase(object):
+from typing import List, Optional, TYPE_CHECKING
 
-    def __init__(self,bd,index,tags,args):
+import chb.app.DictionaryRecord as D
+
+if TYPE_CHECKING:
+    import chb.app.BDictionary
+
+class MIPSRegisterBase(D.DictionaryRecord):
+
+    def __init__(
+            self,
+            bd: "chb.app.BDictionary.BDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        D.DictionaryRecord.__init__(self, index, tags, args)
         self.bd = bd
-        self.index = index
-        self.tags = tags
-        self.args = args
 
-    def is_mips_register(self): return False
-    def is_mips_stack_pointer(self): return False
-    def is_mips_argument_register(self): return False
-    def is_mips_special_register(self): return False
-    def is_mips_floating_point_register(self): return False
+    def is_mips_register(self) -> bool:
+        return False
 
-    def get_key(self):
-        return  (','.join(self.tags), ','.join([str(x) for x in self.args]))
+    def is_mips_stack_pointer(self) -> bool:
+        return False
 
+    def is_mips_argument_register(self) -> bool:
+        return False
 
-# ------------------------------------------------------------------------------
-# Regular MIPS Register
-# ------------------------------------------------------------------------------
+    def is_mips_special_register(self) -> bool:
+        return False
+
+    def is_mips_floating_point_register(self) -> bool:
+        return False
+
 
 class MIPSRegister(MIPSRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
-        MIPSRegisterBase.__init__(self,bd,index,tags,args)
+    def __init__(self,
+                 bd: "chb.app.BDictionary.BDictionary",
+                 index: int,
+                 tags: List[str],
+                 args: List[int]):
+        MIPSRegisterBase.__init__(self, bd, index, tags, args)
 
-    def is_mips_register(self): return True
+    def is_mips_register(self) -> bool:
+        return True
 
-    def is_mips_argument_register(self):
-        return self.tags[1] in [ 'a0', 'a1', 'a2', 'a3' ]
+    def is_mips_argument_register(self) -> bool:
+        return self.tags[1] in ['a0', 'a1', 'a2', 'a3']
 
-    def is_mips_stack_pointer(self):
-        return self.tags[1] in [ 'sp' ]
+    def is_mips_stack_pointer(self) -> bool:
+        return self.tags[1] in ['sp']
 
-    def get_argument_index(self):
+    def get_argument_index(self) -> Optional[int]:
         if self.is_mips_argument_register():
             return int(self.tags[1][1:]) + 1
+        return None
 
-    def __str__(self): return self.tags[1]
+    def __str__(self) -> str:
+        return self.tags[1]
 
-# ------------------------------------------------------------------------------
-# Regular MIPS Special Register
-# ------------------------------------------------------------------------------
 
 class MIPSSpecialRegister(MIPSRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
-        MIPSRegisterBase.__init__(self,bd,index,tags,args)
+    def __init__(self,
+                 bd: "chb.app.BDictionary.BDictionary",
+                 index: int,
+                 tags: List[str],
+                 args: List[int]) -> None:
+        MIPSRegisterBase.__init__(self, bd, index, tags, args)
 
-    def is_mips_special_register(self): return True
+    def is_mips_special_register(self) -> bool:
+        return True
 
-    def __str__(self): return self.tags[1]
+    def __str__(self) -> str:
+        return self.tags[1]
 
-# ------------------------------------------------------------------------------
-# Regular MIPS Floating Point Register
-# ------------------------------------------------------------------------------
 
 class MIPSFloatingPointRegister(MIPSRegisterBase):
 
-    def __init__(self,bd,index,tags,args):
-        MIPSRegisterBase.__init__(self,bd,index,tags,args)
+    def __init__(self,
+                 bd: "chb.app.BDictionary.BDictionary",
+                 index: int,
+                 tags: List[str],
+                 args: List[int]) -> None:
+        MIPSRegisterBase.__init__(self, bd, index, tags, args)
 
-    def is_mips_floating_point_register(self): return True
+    def is_mips_floating_point_register(self) -> bool:
+        return True
 
-    def get_register_index(self): return int(self.args[0])
+    def get_register_index(self) -> int:
+        return int(self.args[0])
 
-    def __str__(self): return '$f' + str(self.get_register_index()) 
+    def __str__(self) -> str:
+        return '$f' + str(self.get_register_index())
