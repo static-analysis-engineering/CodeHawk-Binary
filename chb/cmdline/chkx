@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
@@ -66,6 +66,7 @@ import sys
 
 import chb.cmdline.AnalysisManager as AM
 import chb.cmdline.cmdlineutil as UC
+import chb.cmdline.commandutil as UCC
 import chb.util.dotutil as UD
 import chb.util.fileutil as UF
 import chb.app.AppAccess as AP
@@ -103,157 +104,6 @@ def reportcommand(args):
     print('  iocs <xname>                 output indicators of compromise (PE32 only)')
     print('  unresolvedcalls <xname>      output unresolved calls (PE32 only)')
     exit(0)
-
-def analyzefile(args):
-    (path,filename) = UC.get_path(args.xname)
-    xinfo = UC.get_xinfo(path,filename)
-    UC.extract(path,filename,args,xinfo)
-    if args.extract:
-        exit(0)
-
-    deps = args.thirdpartysummaries
-    
-    if args.reset:
-        chdir = UF.get_ch_dir(path,filename)
-        if os.path.isdir(chdir):
-            print('Removing ' + chdir)
-            shutil.rmtree(chdir)
-        if not UF.unpack_tar_file(path,filename):
-           UC.exit_with_msg('Error in unpacking tar.gz file with executable content')
-
-    am = AM.AnalysisManager(path,filename,deps=deps,
-                            mips=xinfo.is_mips(),arm=xinfo.is_arm(),elf=xinfo.is_elf())
-    if args.disassemble:
-        try:
-            am.disassemble(verbose=args.verbose,preamble_cutoff=args.preamble_cutoff)
-        except subprocesses.CalledProcessError as e:
-            print(e.output)
-            print(e.args)
-            exit(1)
-        except UF.CHBError as e:
-            print(str(e.wrap()))
-            exit(1)
-        exit(0)
-    else:
-        try:
-            am.analyze(iterations=args.iterations,verbose=args.verbose,
-                       preamble_cutoff=args.preamble_cutoff)
-        except subprocess.CalledProcessError as e:
-            print(e.output)
-            print(e.args)
-            exit(1)
-        except UF.CHBError as e:
-            print(str(e.wrap()))
-            exit(1)
-        exit(0)
-
-def showelfdata(args):
-    (path,filename) = UC.get_path(args.xname)
-    xinfo = UC.get_xinfo(path,filename)
-    if not xinfo.is_elf():
-        UC.exit_with_msg('File is not an ELF file: ' + xinfo.get_format())
-    if not UF.check_executable(path,filename):
-        try:
-            UC.extract(path,filename,args,xinfo)
-        except UC.CHBError as e:
-            print(e.wrap())
-            exit(1)
-    app = AP.AppAccess(path,filename,initialize=False,mips=xinfo.is_mips())
-    elfheader = app.get_elf_header()
-    try:
-        print(str(elfheader))
-    except UC.CHBError as e:
-        print(str(e.wrap()))
-        exit(1)
-
-    if args.save_section_headers:
-        result = {}
-        md5 = UC.get_md5(os.path.join(path,filename))
-        result['md5'] = md5
-        result['section-headers'] = []
-        for s in elfheader.sectionheaders:
-            result['section-headers'].append(s.get_values())
-        filename = args.xname + '_section_headers.json'
-        with open(filename,'w') as fp:
-            json.dump(result,fp,indent=3)
-        print('saved section headers in ' + filename)
-
-def showpedata(args):
-    (path,filename) = UC.get_path(args.xname)
-    xinfo = UC.get_xinfo(path,filename)
-    if not xinfo.is_pe32():
-        UC.exit_with_msg('File is not a PE32 file: ' + xinfo.get_format())
-    if not UF.check_executable(path,filename):
-        try:
-            UC.extract(path,filename,args,xinfo)
-        except UC.CHBError as e:
-            print(e.wrap())
-            exit(1)
-    app = AP.AppAccess(path,filename,initialize=False,mips=False)
-    peheader = app.get_pe_header()
-    if args.headeronly:
-        print(peheader)
-        exit(0)
-    if args.imports:
-        for i in peheader.get_import_tables(): print(str(i))
-        exit(0)
-    if args.headers:
-        for h in peheader.get_section_headers(): print(str(h))
-        exit(0)
-    if args.sections:
-        for s in peheader.get_sections(): print(str(s))
-        exit(0)
-    if not args.section is None:
-        s = peheader.get_section(args.section)
-        if s is None:
-            UC.exit_with_msg('Could not find section at virtual address: ' + args.section)
-        print(str(s))
-        exit(0)
-    print(peheader)
-    for i in peheader.get_import_tables(): print(str(i))
-    for h in peheader.get_section_headers(): print(str(h))
-
-def showstats(args):
-    (path,filename) = UC.get_path(args.xname,checkresults=True)
-    xinfo = UC.get_xinfo(path,filename)
-    app = AP.AppAccess(path,filename,mips=xinfo.is_mips())
-    metrics = app.get_result_metrics()
-    print(metrics.header_to_string())
-    for f in sorted(metrics.get_function_results(),key=lambda f:(f.get_espp(),f.faddr)):
-        print(f.metrics_to_string(shownocallees=args.nocallees))
-    print(metrics.disassembly_to_string())
-    print(metrics.analysis_to_string())
-    exit(0)
-
-def showfunctions(args):
-    (path,filename) = UC.get_path(args.xname,checkresults=True)
-    xinfo = UC.get_xinfo(path,filename)
-    app = AP.AppAccess(path,filename,mips=xinfo.is_mips())
-    if 'all' in args.functions:
-        fns = sorted(app.get_function_addresses())
-    else:
-        fns = args.functions
-
-    for faddr in fns:
-        if app.has_function(faddr):
-            f = app.get_function(faddr)
-            if f is None:
-                print_error('Unable to find function ' + faddr)
-                continue
-            if app.has_function_name(faddr):
-                print('\nFunction ' + faddr + ' (' + app.get_function_name(faddr) + ')')
-            else:
-                print('\nFunction ' + faddr)
-            print('-' * 80)
-            if xinfo.is_mips():
-                print(f.to_string(bytestring=args.bytestring,hash=args.hash,
-                                  sp=True,opcodetxt=True,opcodewidth=args.opcodewidth))
-            else:
-                print(f.to_string(bytestring=args.bytestring,hash=args.hash,
-                                  esp=True,opcodetxt=True,opcodewidth=args.opcodewidth))
-        else:
-            print('\nFunction ' + faddr + ' not found')
-            continue
                 
 
 def showcfg(args):
@@ -412,61 +262,97 @@ def parse():
     parser_version = subparsers.add_parser('version')
     parser_version.set_defaults(func=showversion)
 
-    # ------------------------------------------------------------ analyze subcommand
-    parser_analyze = subparsers.add_parser('analyze')
-    parser_analyze.add_argument('xname',help='name of executable')
-    parser_analyze.add_argument('-d','--disassemble',help='extract and disassemble only',
-                                action='store_true')
-    parser_analyze.add_argument('-x','--extract',help='extract executable content only',
-                                action='store_true')
-    parser_analyze.add_argument('--reset',help='remove existing analysis results',
-                                action='store_true')
-    parser_analyze.add_argument('-v','--verbose',help='output intermediate information',
-                                action='store_true')
-    parser_analyze.add_argument('--iterations',type=int,default=12,
-                                help='maximum number of iterations')
-    parser_analyze.add_argument('--preamble_cutoff',type=int,default=12,
-                                help='minimum cutoff for function entry preamble')
-    parser_analyze.add_argument('--thirdpartysummaries',nargs='*',default=[],
-                                help='summary jars for third party libraries')
-    parser_analyze.add_argument('--fixup',help='name of json file with disassembly fixup')    
-    parser_analyze.set_defaults(func=analyzefile)
+    # ------------------------------------------------------------ analyze --
+    analyzecmd = subparsers.add_parser('analyze')
+    analyzecmd.add_argument('xname',help='name of executable')
+    analyzecmd.add_argument(
+        '-d', '--disassemble',
+        action='store_true',
+        help='extract and disassemble only')
+    analyzecmd.add_argument(
+        '-x','--extract',
+        action='store_true',
+        help='extract executable content only')
+    analyzecmd.add_argument(
+        '--reset',
+        action='store_true',
+        help='remove existing analysis results')
+    analyzecmd.add_argument(
+        '--resetx',
+        action='store_true',
+        help='remove extracted binary (chx.tar.gz) and analysis results')
+    analyzecmd.add_argument(
+        '-v','--verbose',
+        action='store_true',
+        help='output intermediate information')
+    analyzecmd.add_argument(
+        '--iterations',
+        type=int,
+        default=12,
+        help='maximum number of iterations')
+    analyzecmd.add_argument(
+        '--preamble_cutoff',
+        type=int,
+        default=12,
+        help='minimum cutoff for function entry preamble')
+    analyzecmd.add_argument(
+        '--thirdpartysummaries',
+        nargs='*',
+        default=[],
+        help='summary jars for third party libraries')
+    analyzecmd.add_argument(
+        '--hints',
+        default=[],
+        help='names of json files with disassembly/analysis hints')    
+    analyzecmd.set_defaults(func=UCC.analyzecmd)
 
-    # ----------------------------------------------------------------- show subcommand
-    parser_show = subparsers.add_parser('show')
-    parser_show.set_defaults(func=showcommand)
-    showparsers = parser_show.add_subparsers(title='show options')
+    # ----------------------------------------------------------------- show --
+    showcmd = subparsers.add_parser('show')
+    showcmd.set_defaults(func=showcommand)
+    showparsers = showcmd.add_subparsers(title='show options')
 
     # -- show stats --
-    show_stats = showparsers.add_parser('stats')
-    show_stats.add_argument('xname',help='name of executable')
-    show_stats.add_argument('--nocallees',action='store_true',
-                              help='indicate if a function has no callees')
-    show_stats.set_defaults(func=showstats)
+    showstats = showparsers.add_parser('stats')
+    showstats.add_argument('xname',help='name of executable')
+    showstats.add_argument(
+        '--nocallees',
+        action='store_true',
+        help='indicate if a function has no callees')
+    showstats.set_defaults(func=UCC.showstats)
 
     # -- show elfdata --
-    show_elfdata = showparsers.add_parser('elfdata')
-    show_elfdata.add_argument('xname',help='name of executable')
-    show_elfdata.add_argument('--save_section_headers',
-                              help='save the section headers in json format',
-                              action='store_true')
-    show_elfdata.set_defaults(func=showelfdata)
+    showelfdata = showparsers.add_parser('elfdata')
+    showelfdata.add_argument('xname',help='name of executable')
+    showelfdata.add_argument(
+        '--save_section_headers',
+        action='store_true',
+        help='save the section headers in json format')
+    showelfdata.set_defaults(func=UCC.showelfdata)
 
     # -- show pe data --
-    show_pedata = showparsers.add_parser('pedata')
-    show_pedata.add_argument('xname',help='name of executable')
-    show_pedata.add_argument('--headeronly',help='show only the PE header',
-                             action='store_true')
-    show_pedata.add_argument('--imports',help='show only import tables',
-                             action='store_true')
-    show_pedata.add_argument('--headers',help='show only section headers',
-                             action='store_true')
-    show_pedata.add_argument('--sections',help='show only sections',
-                             action='store_true')
-    show_pedata.add_argument('--section',help='show only section at given address',
-                             default=None)
-    show_pedata.set_defaults(func=showpedata)
-
+    showpedata = showparsers.add_parser('pedata')
+    showpedata.add_argument('xname',help='name of executable')
+    showpedata.add_argument(
+        '--headeronly',
+        action='store_true',
+        help='show only the PE header')
+    showpedata.add_argument(
+        '--imports',
+        action='store_true',
+        help='show only import tables')
+    showpedata.add_argument(
+        '--headers',
+        action='store_true',
+        help='show only section headers')
+    showpedata.add_argument(
+        '--sections',
+        action='store_true',
+        help='show only sections')
+    showpedata.add_argument(
+        '--section',
+        help='show only section at given address')
+    showpedata.set_defaults(func=UCC.showpedata)
+    '''
     # -- show control flow graph --
     show_cfg = showparsers.add_parser('cfg')
     show_cfg.add_argument('xname',help='name of executable')
@@ -477,18 +363,30 @@ def parse():
     show_cfg.add_argument('--segments',help='restrict graph to paths that include these basic blocks',
                           nargs='*',default=[])
     show_cfg.set_defaults(func=showcfg)
-
+    '''
     # -- show functions --
-    show_functions = showparsers.add_parser('functions')
-    show_functions.add_argument('xname',help='name of executable')
-    show_functions.add_argument('--functions',nargs='*',help='list of function addresses (in hex)',
-                                default=[])
-    show_functions.add_argument('--hash',help='show md5 hash',action='store_true')
-    show_functions.add_argument('--bytestring',help='show bytes as a string',action='store_true')
-    show_functions.add_argument('--opcodewidth',help='number of characters for opcode text',
-                                type=int,default=25)
-    show_functions.set_defaults(func=showfunctions)
-
+    showfunctions = showparsers.add_parser('functions')
+    showfunctions.add_argument('xname',help='name of executable')
+    showfunctions.add_argument(
+        '--functions',
+        nargs='*',
+        default=[],
+        help="list of function addresses (in hex) (all will print all) ")
+    showfunctions.add_argument(
+        '--hash',
+        action='store_true',
+        help='show md5 hash')
+    showfunctions.add_argument(
+        '--bytestring',
+        action='store_true',
+        help='show bytes as a string')
+    showfunctions.add_argument(
+        '--opcodewidth',
+        type=int,
+        default=25,
+        help='number of characters for opcode text')
+    showfunctions.set_defaults(func=UCC.showfunctions)
+    '''
     # -- show control flow graph paths --
     show_cfgpaths = showparsers.add_parser('cfgpaths')
     show_cfgpaths.add_argument('xname',help='name of executable')
@@ -506,7 +404,7 @@ def parse():
                                action='store_true')
     show_cfgpaths.add_argument('--maxtime',type=int,help='maximum search time (in secs)')
     show_cfgpaths.set_defaults(func=showcfgpaths)
-
+    '''
     # -------------------------------------------------------------- report subcommand
     parser_report = subparsers.add_parser('report')
     parser_report.set_defaults(func=reportcommand)
@@ -533,13 +431,12 @@ def parse():
                              help='only show values that are constant literals')
     report_iocs.set_defaults(func=reportiocs)
 
-
     # -- parse --
     args = parser.parse_args()
     return args
+
 
 if __name__ == '__main__':
 
     args = parse()
     args.func(args)
-
