@@ -6,6 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -16,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -26,17 +27,23 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+from typing import List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import chb.api.InterfaceDictionary
+
 import chb.util.fileutil as UF
-import chb.app.DictionaryRecord as D
+import chb.api.InterfaceDictionaryRecord as D
 
-# ==============================================================================
-#                                                                FunctionStub ==
-# ==============================================================================
 
-class FunctionStubBase(D.DictionaryRecord):
+class FunctionStubBase(D.InterfaceDictionaryRecord):
 
-    def __init__(self,d,index,tags,args):
-        D.DictionaryRecord.__init__(self,d,index,tags,args)
+    def __init__(self,
+                 d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+                 index: int,
+                 tags: List[str],
+                 args: List[int]) -> None:
+        D.InterfaceDictionaryRecord.__init__(self, d, index, tags, args)
         self.bd = self.d.bdictionary
         self.app = self.bd.app
         self.models = self.app.models
@@ -122,18 +129,32 @@ class PckFunction(FunctionStubBase):
 #                                                                  CallTarget ==
 # ==============================================================================
    
-class CallTargetBase(D.DictionaryRecord):
+class CallTargetBase(D.InterfaceDictionaryRecord):
 
-    def __init__(self,d,index,tags,args):
-        D.DictionaryRecord.__init__(self,d,index,tags,args)
+    def __init__(
+            self,
+            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        D.InterfaceDictionaryRecord.__init__(self, d, index, tags, args)
         self.bd = self.d.bdictionary
 
-    def is_dll_target(self): return False
-    def is_so_target(self): return False
-    def is_app_target(self): return False
-    def is_unknown(self): return False
+    def is_dll_target(self) -> bool:
+        return False
 
-    def __str__(self): return 'call-target:' + self.tags[0]
+    def is_so_target(self) -> bool:
+        return False
+
+    def is_app_target(self) -> bool:
+        return False
+
+    def is_unknown(self) -> bool:
+        return False
+
+    def __str__(self) -> str:
+        return 'call-target:' + self.tags[0]
+
 
 class StubTarget(CallTargetBase):
 
@@ -180,7 +201,9 @@ class AppTarget(CallTargetBase):
 
     def __str__(self):
         addr = str(self.get_address())
-        if self.d.app.userdata.functionnames.has_function_name(addr):
+        if (self.d.app.userdata
+            and self.d.app.userdata.functionnames
+            and self.d.app.userdata.functionnames.has_function_name(addr)):
             return 'App:' + self.d.app.userdata.functionnames.get_function_name(addr)
         elif self.d.app.has_function_name(addr):
             return 'App:' + self.d.app.get_function_name(addr)
