@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,20 +27,44 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+import xml.etree.ElementTree as ET
+from typing import List, Tuple, TYPE_CHECKING
 
-class DictionaryRecord(object):
-    '''Base class for all objects kept in a Dictionary.'''
+if TYPE_CHECKING:
+    import chb.app.BDictionary
 
-    def __init__(self,d,index,tags,args):
-        self.d = d
+
+class DictionaryRecord:
+    """Base class for all objects kept in a Dictionry."""
+
+    def __init__(
+            self,
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
         self.index = index
         self.tags = tags
         self.args = args
 
-    def get_key(self): return (','.join(self.tags), ','.join([str(x) for x in self.args]))
+    def get_key(self) -> Tuple[str, str]:
+        return (",".join(self.tags), ",".join([str(x) for x in self.args]))
 
-    def write_xml(self,node):
-        (tagstr,argstr) = self.get_key()
-        if len(tagstr) > 0: node.set('t',tagstr)
-        if len(argstr) > 0: node.set('a',argstr)
-        node.set('ix',str(self.index))
+    def write_xml(self, node: ET.Element) -> None:
+        (tagstr, argstr) = self.get_key()
+        if len(tagstr) > 0:
+            node.set("t", tagstr)
+        if len(argstr) > 0:
+            node.set("a", argstr)
+        node.set("ix", str(self.index))
+
+
+class BDictionaryRecord(DictionaryRecord):
+    """Base class for all objects kept in the BDictionary."""
+
+    def __init__(self,
+                 d: "chb.app.BDictionary.BDictionary",
+                 index: int,
+                 tags: List[str],
+                 args: List[int]) -> None:
+        DictionaryRecord.__init__(self, index, tags, args)
+        self.d = d

@@ -1,11 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -16,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,10 +28,13 @@
 # ------------------------------------------------------------------------------
 """Access point for most analysis results."""
 
+from typing import Any, Dict, List, Optional
+
 import chb.util.fileutil as UF
 
 from chb.app.BDictionary import BDictionary
 from chb.api.InterfaceDictionary import InterfaceDictionary
+from chb.arm.ARMDictionary import ARMDictionary
 from chb.asm.X86Dictionary import X86Dictionary
 from chb.mips.MIPSDictionary import MIPSDictionary
 
@@ -47,23 +51,34 @@ from chb.userdata.UserData import UserData
 from chb.peformat.PEHeader import PEHeader
 from chb.elfformat.ELFHeader import ELFHeader
 
+from chb.arm.ARMFunction import ARMFunction
 from chb.asm.AsmFunction import AsmFunction
 from chb.mips.MIPSFunction import MIPSFunction
 from chb.app.FunctionInfo import FunctionInfo
 
-class  AppAccess(object):
+class  AppAccess:
 
-    def __init__(self,path,filename,initialize=True,deps=[],mips=False):
+    def __init__(
+            self,
+            path: str,
+            filename: str,
+            initialize: bool = True,
+            deps: List[str] = [],
+            mips: bool = False,
+            arm: bool = False) -> None:
         """Initializes access to analysis results."""
         self.path = path
         self.filename = filename
         self.deps = deps           # list of summary jars registered as dependencies
         self.mips = mips
+        self.arm = arm
 
-        self.bdictionary = None          # BDictionary
-        self.interfacedictionary = None  # InterfaceDictionary
-        self.x86dictionary = None        # X86Dictionary
-        self.mipsdictionary = None       # MIPSDictionary
+        # application-wide dictionaroes
+        self._bd: Optional[BDictionary] = None
+        self._id: Optional[InterfaceDictionary] = None
+        self._x86d: Optional[X86Dictionary] = None
+        self._mipsd: Optional[MIPSDictionary] = None
+        self._armd: Optional[ARMDictionary] = None
 
         self.userdata = None             # UserData
 
@@ -71,8 +86,8 @@ class  AppAccess(object):
         self.elfheader = None
 
         self.resultdata = None     # AppResultData
-        self.functions = {}        # faddr -> AsmFunction / MIPSFunction
-        self.functioninfos = {}    # faddr -> FunctionInfo
+        self.functions: Dict[str, Any] = {}        # faddr -> AsmFunction / MIPSFunction
+        self.functioninfos: Dict[str, FunctionInfo] = {}    # faddr -> FunctionInfo
         self.functionnames = None    # name -> function address
 
         self.models = ModelsAccess(self,dlljars=self.deps)
@@ -82,10 +97,64 @@ class  AppAccess(object):
             self._get_interface_dictionary()
             if self.mips:
                 self._get_mips_dictionary()
+            elif self.arm:
+                self._get_arm_dictionary()
             else:
                 self._get_x86_dictionary()
             self._get_system_info()
             self._get_user_data()
+
+    # Properties ---------------------------------------------------------------
+
+    @property
+    def bdictionary(self) -> BDictionary:
+        if self._bd is None:
+            raise UF.CHBError("BDictionary has not been initialized")
+        return self._bd
+
+    @bdictionary.setter
+    def bdictionary(self, d: BDictionary) -> None:
+        self._bd = d
+
+    @property
+    def interfacedictionary(self) -> InterfaceDictionary:
+        if self._id is None:
+            raise UF.CHBError("InterfaceDictionary has not been initialized")
+        return self._id
+
+    @interfacedictionary.setter
+    def interfacedictionary(self, d: InterfaceDictionary) -> None:
+        self._id = d
+
+    @property
+    def x86dictionary(self) -> X86Dictionary:
+        if self._x86d is None:
+            raise UF.CHBError("X86Dictionary has not been initialized")
+        return self._x86d
+
+    @x86dictionary.setter
+    def x86dictionary(self, d: X86Dictionary) -> None:
+        self._x86d = d
+
+    @property
+    def mipsdictionary(self) -> MIPSDictionary:
+        if self._mipsd is None:
+            raise UF.CHBError("MIPSDictionary has not been initialized")
+        return self._mipsd
+
+    @mipsdictionary.setter
+    def mipsdictionary(self, d: MIPSDictionary) -> None:
+        self._mipsd = d
+
+    @property
+    def armdictionary(self) -> ARMDictionary:
+        if self._armd is None:
+            raise UF.CHBError("ARMDictionary has not been initialized")
+        return self._armd
+
+    @armdictionary.setter
+    def armdictionary(self, d: ARMDictionary) -> None:
+        self._armd = d
 
     # Functions ----------------------------------------------------------------
 
@@ -101,6 +170,8 @@ class  AppAccess(object):
             xnode = UF.get_function_results_xnode(self.path,self.filename,faddr)
             if self.mips:
                 self.functions[faddr] = MIPSFunction(self,xnode)
+            elif self.arm:
+                self.functions[faddr] = ARMFunction(self,xnode)
             else:
                 self.functions[faddr] = AsmFunction(self,xnode)
         return self.functions[faddr]
@@ -386,25 +457,25 @@ class  AppAccess(object):
             x = UF.get_user_system_data_xnode(self.path,self.filename)
             self.userdata = UserData(self,x)
 
-    def _get_bdictionary(self):
-        if self.bdictionary is None:
-            x = UF.get_bdictionary_xnode(self.path,self.filename)
-            self.bdictionary = BDictionary(self,x)
+    def _get_bdictionary(self) -> None:
+        x = UF.get_bdictionary_xnode(self.path,self.filename)
+        self.bdictionary = BDictionary(self,x)
 
-    def _get_interface_dictionary(self):
-        if self.interfacedictionary is None:
-            x = UF.get_interface_dictionary_xnode(self.path,self.filename)
-            self.interfacedictionary = InterfaceDictionary(self,x)
+    def _get_interface_dictionary(self) -> None:
+        x = UF.get_interface_dictionary_xnode(self.path,self.filename)
+        self.interfacedictionary = InterfaceDictionary(self,x)
 
-    def _get_x86_dictionary(self):
-        if self.x86dictionary is None:
-            x = UF.get_x86_dictionary_xnode(self.path,self.filename)
-            self.x86dictionary = X86Dictionary(self,x)
+    def _get_x86_dictionary(self) -> None:
+        x = UF.get_x86_dictionary_xnode(self.path,self.filename)
+        self.x86dictionary = X86Dictionary(self,x)
 
-    def _get_mips_dictionary(self):
-        if self.mipsdictionary is None:
-            x = UF.get_mips_dictionary_xnode(self.path,self.filename)
-            self.mipsdictionary = MIPSDictionary(self,x)
+    def _get_mips_dictionary(self) -> None:
+        x = UF.get_mips_dictionary_xnode(self.path,self.filename)
+        self.mipsdictionary = MIPSDictionary(self, x)
+
+    def _get_arm_dictionary(self) -> None:
+        x = UF.get_arm_dictionary_xnode(self.path, self.filename)
+        self.armdictionary = ARMDictionary(self, x)
 
     def _get_system_info(self):
         s = UF.get_systeminfo_xnode(self.path,self.filename)
