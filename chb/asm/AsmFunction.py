@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -26,47 +26,59 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""X86 assembly function."""
 
 import hashlib
+import xml.etree.ElementTree as ET
 
+from typing import Dict, Optional, TYPE_CHECKING
+
+import chb.app.Function as F
 import chb.util.fileutil as UF
 import chb.simulate.SimUtil as SU
 
 from chb.asm.FnX86Dictionary import FnX86Dictionary
 from chb.asm.AsmBlock import AsmBlock
-from chb.asm.Cfg import Cfg
+from chb.asm.X86Cfg import X86Cfg
 
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnInvariants import FnInvariants
 
+if TYPE_CHECKING:
+    import chb.app.AppAccess
 
-class AsmFunction(object):
+class AsmFunction(F.Function):
 
-    def __init__(self,app,xnode):
-        self.app = app    # AppAccess
-        self.xnode = xnode
-        self.blocks = {}      # baddr (hex-address) -> AsmBlock
-        self.cfg = Cfg(self,self.xnode.find('cfg'))
-        self.faddr = self.xnode.get('a')
-        vxnode = UF.get_function_vars_xnode(self.app.path,self.app.filename,self.faddr)
-        invnode = UF.get_function_invs_xnode(self.app.path,self.app.filename,self.faddr)
-        self.vardictionary = FnVarDictionary(self,vxnode.find('var-dictionary'))
-        self.invdictionary = FnInvDictionary(self.vardictionary,invnode.find('inv-dictionary'))
-        self.invariants = FnInvariants(self.invdictionary,invnode.find('locations'))
-        self.dictionary = FnX86Dictionary(self,self.xnode.find('instr-dictionary'))
+    def __init__(
+            self,
+            app: "chb.app.AppAccess.AppAccess",
+            xnode: ET.Element) -> None:
+        F.Function.__init__(self, app, xnode)
+        self._blocks: Dict[str, AsmBlock] = {}
+        self._cfg: Optional[X86Cfg] = None
 
-    def has_name(self): return self.app.functionsdata.has_name(self.faddr)
+    @property
+    def blocks(self) -> Dict[str, AsmBlock]:
+        if len(self._blocks) == 0:
+            xinstrs = self.xnode.find("instructions")
+            if xinstrs is None:
+                raise UF.CHBError("Xml element instructions missing form function xml")
+            for b in xinstrs.findall("bl"):
+                baddr = b.get("ba")
+                if baddr is None:
+                    raise UF.CHBError("Block address is missing from xml")
+                self._blocks[baddr] = AsmBlock(self, b)
+        return self._blocks
 
-    def get_names(self):
-        if self.has_name():
-            return self.app.functionsdata.get_names(self.faddr)
-        return []
-
-    def get_block(self,baddr):
-        self._get_blocks()
-        if baddr in self.blocks:
-            return self.blocks[baddr]
+    @property
+    def cfg(self) -> X86Cfg:
+        if self._cfg is None:
+            xcfg = self.xnode.find("cfg")
+            if xcfg is None:
+                raise UF.CHBError("Element cfg missing from function xml")
+            self._cfg = X86Cfg(self, xcfg)
+        return self._cfg
 
     def get_arg_count(self):
         xvalues = self.vardictionary.get_constant_value_variables()
@@ -77,25 +89,7 @@ class AsmFunction(object):
             if argindex > argcount: argcount = argindex
         return argcount
 
-    def get_instruction(self,iaddr):
-        self._get_blocks()
-        for b in self.blocks:
-            if self.blocks[b].has_instruction(iaddr):
-                return self.blocks[b].get_instruction(iaddr)
-        print('Instruction at ' + iaddr + ' not found in function ' + self.faddr)
-
-    def get_instructions(self):     # returns iaddr -> AsmInstruction
-        self._get_blocks()
-        result = {}
-        for b in self.blocks: result.update(self.blocks[b].instructions)
-        return result
-
     def get_instruction_count(self): return len(self.get_instructions())
-
-    def iter_instructions(self,f):
-        instrs = self.get_instructions()
-        for iaddr in sorted(instrs):
-            f(iaddr,instrs[iaddr])
 
     def get_operands(self):
         result = {}
@@ -126,12 +120,6 @@ class AsmFunction(object):
             size = len(s)
             chunks = [ s[i:i+chunksize] for i in range(0,size,chunksize) ]
             return '\n'.join(chunks)
-
-    def get_md5_hash(self):
-        m = hashlib.md5()
-        def f(ia,i): m.update(i.get_byte_string().encode('utf-8'))
-        self.iter_instructions(f)
-        return m.hexdigest()
 
     def get_calls_to_app_function(self,tgtaddr):
         result = []

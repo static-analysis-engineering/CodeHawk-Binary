@@ -30,13 +30,14 @@
 
 from typing import List, TYPE_CHECKING
 
+import chb.app.Operand as OP
 import chb.asm.X86DictionaryRecord as D
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     import chb.asm.X86Dictionary
 
-class AsmOperand(D.X86DictionaryRecord):
+class AsmOperand(OP.Operand, D.X86DictionaryRecord):
     """X86 assembly instruction operand.
 
     args[0]: size
@@ -50,6 +51,7 @@ class AsmOperand(D.X86DictionaryRecord):
             tags: List[str],
             args: List[int]) -> None:
         D.X86DictionaryRecord.__init__(self, d, index, tags, args)
+        OP.Operand.__init__(self)
 
     def get_size(self) -> int:
         return int(self.args[0])
