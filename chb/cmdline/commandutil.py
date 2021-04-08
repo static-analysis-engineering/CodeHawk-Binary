@@ -39,6 +39,8 @@ import chb.app.AppAccess as AP
 import chb.cmdline.AnalysisManager as AM
 import chb.cmdline.UserHints as UH
 import chb.cmdline.XInfo as XI
+import chb.graphics.DotCfg as DC
+import chb.util.dotutil as UD
 import chb.util.fileutil as UF
 import chb.util.xmlutil as UX
 
@@ -342,6 +344,69 @@ def showfunctions(args: argparse.Namespace) -> NoReturn:
         else:
             print_error("Function " + faddr + " not found")
             continue
+    exit(0)
+
+
+def showcfg(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    faddr: str = args.faddr
+    out: str = args.out
+    xview: bool = args.view
+    xpredicates: bool = args.predicates
+    xcalls: bool = args.calls
+    xsink: Optional[str] = args.sink
+    xsegments: List[str] = args.segments
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = AP.AppAccess(path, xfile, mips=xinfo.is_mips(), arm=xinfo.is_arm())
+    if app.has_function(faddr):
+        f = app.get_function(faddr)
+        if f is None:
+            print_error("Unable to find function " + faddr)
+            exit(1)
+        graphname = "cfg_" + faddr
+        if not xsink is None:
+            graphname += "_" + xsink
+        if len(xsegments) > 0:
+            graphname += "_" + "_".join(xsegments)
+        dotcfg = DC.DotCfg(
+            graphname,
+            f,
+            looplevelcolors=["#FFAAAAFF","#FF5555FF","#FF0000FF"],
+            showpredicates=xpredicates,
+            showcalls=xcalls,
+            mips=xinfo.is_mips(),
+            sink=xsink,
+            segments=xsegments)
+
+        fname = faddr
+        if app.has_function_name(faddr):
+            fname = fname + " (" + app.get_function_name(faddr) + ")"
+
+        pdffilename = UD.print_dot(app.path, out, dotcfg.build())
+
+        if os.path.isfile(pdffilename):
+            print_info("Control flow graph for "
+                       + fname
+                       + " has been saved in "
+                       + pdffilename)
+        else:
+            print_error("Error in converting dot file to pdf")
+            exit(1)
+    else:
+        print_error("Function " + faddr + " not found")
+        exit(1)
     exit(0)
 
 
