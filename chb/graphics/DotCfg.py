@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Python API to access CodeHawk Binary Analyzer analysis results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,18 +29,29 @@
 
 import chb.util.graphutil as UG
 
+from typing import Dict, List, Mapping, Set, Tuple, TYPE_CHECKING
+
 from chb.util.DotGraph import DotGraph
 
-class DotCfg(object):
+if TYPE_CHECKING:
+    import chb.app.CfgBlock
+    import chb.app.Function
+    import chb.app.Instruction
 
-    def __init__(self,graphname,fn,
-                     looplevelcolors=[],     # [ color numbers ]
-                     showpredicates=False,   # show branch predicates on edges
-                     showcalls=False,        # show call instrs on nodes
-                     mips=False,     # for mips subtract 4 from block end addr
-                     sink=None,      # restrict paths to basic block destination
-                     segments=[],    # restrict paths to include these basic blocks
-                     replacements={}): # replacement text for node and edge labels
+
+class DotCfg:
+
+    def __init__(
+            self,
+            graphname: str,
+            fn: "chb.app.Function.Function",
+            looplevelcolors: List[str] = [],     # [ color numbers ]
+            showpredicates: bool = False,   # show branch predicates on edges
+            showcalls: bool = False,        # show call instrs on nodes
+            mips: bool = False,     # for mips subtract 4 from block end addr
+            sink: str = None,      # restrict paths to basic block destination
+            segments: List[str] = [],    # restrict paths to include these basic blocks
+            replacements: Dict[str, str] = {}) -> None: # replacement text for node and edge labels
         self.fn = fn
         self.graphname = graphname
         self.looplevelcolors = looplevelcolors
@@ -48,28 +61,28 @@ class DotCfg(object):
         self.sink = sink
         self.segments = segments
         self.replacements = replacements
-        self.pathnodes = set([])
+        self.pathnodes: Set[str] = set([])
         self.dotgraph = DotGraph(graphname)
 
-    def build(self):
+    def build(self) -> DotGraph:
         if not self.sink is None:
             self.restrict_nodes(self.sink)
         elif len(self.segments) > 0:
             self.restrict_paths(self.segments)
         else:
-            self.pathnodes = self.fn.cfg.blocks
+            self.pathnodes = set(self.fn.cfg.blocks.keys())
         for n in self.fn.cfg.blocks:
             self.add_cfg_node(n)
         for e in self.fn.cfg.edges:
             self.add_cfg_edge(e)
         return self.dotgraph
 
-    def restrict_nodes(self,sink):
+    def restrict_nodes(self, sink: str) -> None:
         nodes = self.fn.cfg.blocks
         edges = self.fn.cfg.edges   # adjacency list n -> [ n ]
         if not sink in nodes:
             print('Sink ' + sink + ' not found in nodes')
-            self.pathnodes = nodes
+            self.pathnodes = set(nodes.keys())
             return
         g = UG.DirectedGraph(nodes,edges)
         g.find_paths(self.fn.faddr,sink)
@@ -77,15 +90,15 @@ class DotCfg(object):
             print('Path: ' +  str(p))
             self.pathnodes = self.pathnodes.union(p)
         if len(self.pathnodes) == 0:
-            self.pathnodes = nodes
+            self.pathnodes = set(nodes.keys())
 
-    def restrict_paths(self,segments):
+    def restrict_paths(self,segments) -> None:
         nodes = self.fn.cfg.blocks
         edges = self.fn.cfg.edges
         for b in segments:
             if not b in nodes:
                 print('Segment ' + b + ' not found in nodes')
-                self.pathnodes = nodes
+                self.pathnodes = set(nodes.keys())
                 return
         segments = [ self.fn.faddr ] + segments
         g  = UG.DirectedGraph(nodes,edges)
@@ -97,20 +110,24 @@ class DotCfg(object):
             print('Path: ' + str(p))
             self.pathnodes = self.pathnodes.union(p)
         if len(self.pathnodes) == 0:
-            self.pathnodes = nodes
+            self.pathnodes = set(nodes.keys())
 
-    def get_branch_instruction(self,edge):
+    def get_branch_instruction(
+            self,
+            edge: str) -> "chb.app.Instruction.Instruction":
         srcblock = self.fn.cfg.blocks[edge]
         instraddr = srcblock.lastaddr
         if instraddr.startswith('B'):
             ctxtaddr = instraddr[2:].split('_')
-            iaddr = int(ctxtaddr[1],16)
-            if self.mips: iaddr -= 4  # delay slot
-            instraddr = 'B:' + ctxtaddr[0] + '_' + hex(iaddr)
+            iaddr_i = int(ctxtaddr[1], 16)
+            if self.mips:
+                iaddr_i -= 4  # delay slot
+            instraddr = 'B:' + ctxtaddr[0] + '_' + hex(iaddr_i)
         else:
-            instraddr = int(instraddr,16)
-            if self.mips: instraddr -= 4  #  take into account delay slot
-            instraddr = hex(instraddr)
+            instraddr_i = int(instraddr, 16)
+            if self.mips:
+                instraddr_i -= 4  #  take into account delay slot
+            instraddr = hex(instraddr_i)
         return self.fn.get_instruction(instraddr)
 
     def to_json(self):
@@ -145,16 +162,16 @@ class DotCfg(object):
             result = result.replace(src,self.replacements[src])
         return result
 
-    def add_cfg_node(self,n):
+    def add_cfg_node(self, n: str) -> None:
         if not n in self.pathnodes:
             return
         basicblock = self.fn.get_block(str(n))
         blocktxt = str(n)
         color = 'lightblue'
         if self.showcalls:
-            callinstrs = basicblock.get_call_instructions()
-            callinstrs = [ str(i.get_annotation()) for i in callinstrs ]
-            print(' \n'.join( [ str(a) for a in callinstrs ]))
+            callinstrs = basicblock.call_instructions
+            pcallinstrs = [ str(i.annotation) for i in callinstrs ]
+            print(' \n'.join( [ str(a) for a in pcallinstrs ]))
             if len(callinstrs) > 0:
                 blocktxt = (blocktxt
                                 + '\\n'
@@ -181,9 +198,9 @@ class DotCfg(object):
                     self.dotgraph.add_edge(str(e),str(tgt),labeltxt=None)
         labeltxt = None
         if len(self.fn.cfg.edges[e]) > 1:
-            branchinstr = self.get_branch_instruction(e)
-            if branchinstr and branchinstr.is_branch_instruction():
-                if self.showpredicates:
+            if self.showpredicates:
+                branchinstr = self.get_branch_instruction(e)
+                if branchinstr and branchinstr.is_branch_instruction():
                     ftconditions = branchinstr.get_ft_conditions()
                     if len(ftconditions) == 2:
                         for i,tgt in enumerate(self.fn.cfg.edges[e]):
