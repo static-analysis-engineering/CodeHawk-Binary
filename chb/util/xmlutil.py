@@ -6,6 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,66 +31,74 @@ import xml.etree.ElementTree as ET
 import datetime
 import os
 
-def get_codehawk_xml_header(filename,info):
-    root = ET.Element('codehawk-binary-analyzer')
+from typing import Any, Dict, List
+
+def get_codehawk_xml_header(filename: str, info: str) -> ET.Element:
+    root = ET.Element("codehawk-binary-analyzer")
     tree = ET.ElementTree(root)
-    header = ET.Element('header')
-    header.set('info',info)
-    header.set('name',filename)
-    header.set('time',str(datetime.datetime.now()))
+    header = ET.Element("header")
+    header.set("info",info)
+    header.set("name",filename)
+    header.set("time",str(datetime.datetime.now()))
     root.append(header)
     return root
 
-def attributes_to_pretty (attr,indent=0): 
+
+def attributes_to_pretty (attr: Dict[str, str], indent: int = 0) -> str:
     if len(attr) == 0:
-        return ''
+        return ""
     if len(attr) > 4:
-        lines = []
+        lines: List[str] = []
         for key in sorted(attr):
             lines.append(((' ' * (indent + 2)) + key + '="' + attr[key] + '"'))
         return ('\n' + '\n'.join(lines))
     else:
         return (' ' + ' '.join(key + '="' + attr[key] + '"' for key in sorted(attr)))
 
-def element_to_pretty (e,indent=0):
-    lines = []
-    attrs = attributes_to_pretty(e.attrib,indent)
-    ind = ' ' * indent
+
+def element_to_pretty(e: ET.Element, indent: int = 0) -> List[str]:
+    lines: List[str] = []
+    attrs = attributes_to_pretty(e.attrib, indent)
+    ind = " " * indent
     if e.text is None:
-        children = list(e.findall('*'))
+        children = list(e.findall("*"))
         if children == []:
-            lines.append(ind + '<' + e.tag + attrs + '/>\n')
+            lines.append(ind + "<" + e.tag + attrs + "/>\n")
             return lines
         else:
-            lines.append(ind + '<' + e.tag + attrs + '>\n')
+            lines.append(ind + "<" + e.tag + attrs + ">\n")
             for c in children:
                 lines.extend(element_to_pretty(c,indent+2))
-            lines.append(ind + '</' + e.tag + '>\n')
+            lines.append(ind + "</" + e.tag + ">\n")
             return lines
     else:
-        lines.append(ind + '<' + e.tag + attrs + '>' + e.text + '</' + e.tag + '>\n')
+        lines.append(
+            ind + "<" + e.tag + attrs + ">" + e.text + "</" + e.tag + ">\n")
     return lines
 
-def doc_to_pretty (t):
+
+def doc_to_pretty (t: ET.ElementTree) -> str:
     lines = [ '<?xml version="1.0" encoding="UTF-8"?>\n' ]
     lines.extend(element_to_pretty(t.getroot()))
-    return ''.join(lines)
+    return "".join(lines)
 
-def create_xml_section_header_userdata(d):
-    root = ET.Element('section-headers')
+
+def create_xml_section_header_userdata(d: Dict[str, Any]) -> ET.Element:
+    root = ET.Element("section-headers")
     for section in d:
-        sh = ET.Element('sh')
+        sh = ET.Element("sh")
         root.append(sh)
-        sh.set('name',section)
+        sh.set("name",section)
         for attr in d[section]:
-            fld = ET.Element('fld')
+            fld = ET.Element("fld")
             sh.append(fld)
-            fld.set('name',attr)
-            fld.set('value',d[section][attr])
+            fld.set("name",attr)
+            fld.set("value",d[section][attr])
     return root
 
-def create_xml_userdata(d):
-    result = []
-    if 'section-headers' in d:
-        result.append(create_xml_section_header_userdata(d['section-headers']))
+
+def create_xml_userdata(d: Dict[str, Any]) -> List[ET.Element]:
+    result: List[ET.Element] = []
+    if "section-headers" in d:
+        result.append(create_xml_section_header_userdata(d["section-headers"]))
     return result
