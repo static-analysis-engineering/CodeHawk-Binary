@@ -27,69 +27,33 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, Dict, List, TYPE_CHECKING
+from typing import Callable, Dict, List, Mapping, TYPE_CHECKING
 
+import chb.app.BasicBlock as B
 import chb.util.fileutil as UF
 
 from chb.arm.ARMInstruction import ARMInstruction
 
 if TYPE_CHECKING:
     import chb.arm.ARMFunction
+    import chb.app.Instruction
 
 
-class ARMBlock:
+class ARMBlock(B.BasicBlock):
 
     def __init__(
             self,
             armf: "chb.arm.ARMFunction.ARMFunction",
             xnode: ET.Element) -> None:
-        self.armfunction = armf
-        self.xnode = xnode
-        self.instructions: Dict[str, ARMInstruction] = {}
-        self._get_instructions()
+        B.BasicBlock.__init__(self, armf, xnode)
+        self._instructions: Dict[str, ARMInstruction] = {}
 
     @property
-    def baddr(self) -> str:
-        baddr = self.xnode.get("ba")
-        if baddr is None:
-            raise UF.CHBError("Arm block address is missing from xml")
-        return baddr
-
-    def has_instruction(self, iaddr: str) -> bool:
-        return iaddr in self.instructions
-
-    def get_instruction(self, iaddr: str) -> ARMInstruction:
-        if iaddr in self.instructions:
-            return self.instructions[iaddr]
-        raise UF.CHBError("ARM instruction not found: " + iaddr)
-
-    def iter_instructions(self, f: Callable[[str, ARMInstruction], None]) -> None:
-        for iaddr in sorted(self.instructions):
-            f(iaddr, self.instructions[iaddr])
-
-    def to_string(self,
-                  sp: bool = False,
-                  opcodetxt: bool = True,
-                  opcodewidth: int = 40) -> str:
-        lines: List[str] = []
-        for iaddr in sorted(self.instructions):
-            pinstr = self.instructions[iaddr].to_string(
-                sp=sp,
-                opcodetxt=opcodetxt,
-                opcodewidth=opcodewidth)
-            lines.append(str(iaddr).rjust(10) + "  " + pinstr)
-        return "\n".join(lines)
-
-    def __str__(self) -> str:
-        return self.to_string()
-
-    def _get_instructions(self) -> None:
-        if len(self.instructions) > 0:
-            return
-        for n in self.xnode.findall("i"):
-            iaddr = n.get("ia")
-            if not iaddr:
-                raise UF.CHBError(
-                    "ARM instruction encountered without address in function: "
-                    + self.armfunction.faddr)
-            self.instructions[iaddr] = ARMInstruction(self, n)
+    def instructions(self) -> Mapping[str, "chb.app.Instruction.Instruction"]:
+        if len(self._instructions) == 0:
+            for n in self.xnode.findall("i"):
+                iaddr = n.get("ia")
+                if iaddr is None:
+                    raise UF.CHBError("ARM Instruction without address in xml")
+                self._instructions[iaddr] = ARMInstruction(self, n)
+        return self._instructions

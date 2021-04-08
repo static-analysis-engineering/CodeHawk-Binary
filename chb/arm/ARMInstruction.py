@@ -27,8 +27,11 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, Dict, List, TYPE_CHECKING
+from typing import Callable, Dict, List, Sequence, TYPE_CHECKING
 
+import chb.app.Instruction as I
+import chb.app.Operand as O
+import chb.app.StackPointerOffset as S
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
 
@@ -37,27 +40,25 @@ if TYPE_CHECKING:
     import chb.arm.ARMOperand
 
 
-class ARMInstruction:
+class ARMInstruction(I.Instruction):
 
     def __init__(
             self,
             armb: "chb.arm.ARMBlock.ARMBlock",
             xnode: ET.Element) -> None:
-        self.armblock = armb
-        self.armfunction = self.armblock.armfunction
-        self.xnode = xnode
-        self.iaddr = self.xnode.get("ia")
-        self.armdictionary = self.armfunction.app.armdictionary
+        I.Instruction.__init__(self, armb, xnode)
+        self.armdictionary = self.function.app.armdictionary
 
-    def get_mnemonic(self) -> str:
+    @property
+    def mnemonic(self) -> str:
         opcode = self.armdictionary.read_xml_arm_opcode(self.xnode)
         return opcode.get_mnemonic()
 
-    def get_opcode_text(self) -> str:
+    @property
+    def opcodetext(self) -> str:
         try:
-            mnemonic = self.get_mnemonic()
-            operands = self.get_operands()
-            return mnemonic.ljust(8) + ",".join([str(op) for op in operands])
+            operands = self.operands
+            return self.mnemonic.ljust(8) + ",".join([str(op) for op in operands])
         except IT.IndexedTableError as e:
             opcode = self.armdictionary.read_xml_arm_opcode(self.xnode)
             raise UF.CHBError(
@@ -66,18 +67,18 @@ class ARMInstruction:
                 + ": "
                 + str(e))
 
-    # -- STUB --
-    def get_sp_offset(self) -> int:
-        return 0
-
-    # -- STUB --
-    def get_operands(self) -> List["chb.arm.ARMOperand.ARMOperand"]:
+    @property
+    def operands(self) -> Sequence["chb.arm.ARMOperand.ARMOperand"]:
         opcode = self.armdictionary.read_xml_arm_opcode(self.xnode)
         return opcode.get_operands()
 
-    # -- STUB --
-    def get_annotation(self) -> str:
-        return self.get_opcode_text()
+    @property   # -- STUB --
+    def annotation(self) -> str:
+        return self.opcodetext
+
+    @property   # -- STUB --
+    def stackpointer_offset(self) -> S.StackPointerOffset:
+        return self.function.fndictionary.read_xml_sp_offset(self.xnode)
 
     def to_string(
             self,
@@ -85,13 +86,11 @@ class ARMInstruction:
             opcodetxt: bool = True,
             align: bool = True,
             opcodewidth: int = 40) -> str:
-        pesp = str(self.get_sp_offset()) + "  " if sp else ""
+        pesp = str(self.stackpointer_offset) + "  " if sp else ""
         if align:
             popcode = (
-                self.get_opcode_text().ljust(opcodewidth) if opcodetxt else "")
-            return pesp + popcode + self.get_annotation()
+                self.opcodetext.ljust(opcodewidth) if opcodetxt else "")
+            return pesp + popcode + self.annotation
         else:
-            popcode = self.get_opcode_text()
-            return popcode + "  [[" + self.get_annotation() + "]]"
-
-    def __str__(self): return self.to_string()
+            popcode = self.opcodetext
+            return popcode + "  [[" + self.annotation + "]]"

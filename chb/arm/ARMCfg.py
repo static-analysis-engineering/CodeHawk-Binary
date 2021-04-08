@@ -24,33 +24,38 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Operand of an ARM assembly instruction."""
+"""Control flow graph of ARM function."""
 
+import xml.etree.ElementTree as ET
 
-from typing import List, TYPE_CHECKING
+import chb.app.Cfg as C
+import chb.arm.ARMCfgBlock as B
+import chb.arm.ARMCfgPath as P
+import chb.util.fileutil as UF
 
-import chb.app.Operand as O
-import chb.arm.ARMDictionaryRecord as D
-import chb.arm.ARMOperandKind as K
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    import chb.arm.ARMFunction
 
 
-class ARMOperand(D.ARMDictionaryRecord, O.Operand):
+class ARMCfg(C.Cfg):
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.ARMDictionaryRecord.__init__(self, d, index, tags, args)
-        O.Operand.__init__(self)
+    def __init__(self,
+                 armf: "chb.arm.ARMFunction.ARMFunction",
+                 xnode: ET.Element) -> None:
+        C.Cfg.__init__(self, armf, xnode)
+        self._blocks: Dict[str, B.ARMCfgBlock] = {}
 
     @property
-    def arm_opkind(self) -> K.ARMOperandKind:
-        return self.d.get_arm_opkind(self.args[0])
-
-    def __str__(self) -> str:
-        return str(self.arm_opkind)
+    def blocks(self) -> Dict[str, B.ARMCfgBlock]:
+        if len(self._blocks) == 0:
+            cfgblocks = self.xnode.find("blocks")
+            if cfgblocks is None:
+                raise UF.CHBError("Blocks are missing from arm cfg xml")
+            for b in cfgblocks.findall("bl"):
+                baddr = b.get("ba")
+                if baddr is None:
+                    raise UF.CHBError("Block address is missing from arm cfg")
+                self._blocks[baddr] = B.ARMCfgBlock(self, b)
+        return self._blocks

@@ -24,33 +24,22 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Operand of an ARM assembly instruction."""
+"""Control flow graph path of ARM function."""
 
+import xml.etree.ElementTree as ET
 
-from typing import List, TYPE_CHECKING
+import chb.util.fileutil as UF
 
-import chb.app.Operand as O
-import chb.arm.ARMDictionaryRecord as D
-import chb.arm.ARMOperandKind as K
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    import chb.arm.ARMCfg
 
 
-class ARMOperand(D.ARMDictionaryRecord, O.Operand):
+class ARMCfgPath:
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.ARMDictionaryRecord.__init__(self, d, index, tags, args)
-        O.Operand.__init__(self)
-
-    @property
-    def arm_opkind(self) -> K.ARMOperandKind:
-        return self.d.get_arm_opkind(self.args[0])
-
-    def __str__(self) -> str:
-        return str(self.arm_opkind)
+            cfg: "chb.arm.ARMCfg.ARMCfg",
+            xnode: ET.Element) -> None:
+        self.armcfg = cfg
