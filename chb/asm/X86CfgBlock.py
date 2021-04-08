@@ -5,6 +5,8 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -24,49 +26,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Control flow graph block for an x86 function."""
 
-from chb.asm.CfgBlock import CfgBlock
+import xml.etree.ElementTree as ET
 
-class Cfg(object):
+from typing import TYPE_CHECKING
 
-    def __init__(self,asmf,xnode):
-        self.asmfunction = asmf
-        self.xnode = xnode
-        self.blocks = {}   #  startaddr -> CfgBlock
-        self.edges = {}    #  srcaddr -> [ tgtaddresses ]
-        self._initialize()
+import chb.app.CfgBlock as B
 
-    def get_successors(self,src):
-        if src in self.edges:
-            return self.edges[src]
-        else:
-            return []
+if TYPE_CHECKING:
+    import chb.asm.X86Cfg
 
-    def get_loop_levels(self,baddr):
-        if baddr in self.blocks:
-            return self.blocks[baddr].get_loop_levels()
-        return []
+class X86CfgBlock(B.CfgBlock):
 
-    def __str__(self):
-        lines = []
-        return (str(self.blocks) + '\n' + str(self.edges))
-
-    def _initialize(self):
-        self._get_blocks()
-        self._get_edges()
-
-    def _get_blocks(self):
-        if len(self.blocks) == 0:
-            blocks = self.xnode.find('blocks')
-            if blocks is None: return
-            for b in blocks.findall('bl'):
-                self.blocks[b.get('ba')] = CfgBlock(self,b)
-
-    def _get_edges(self):
-        if len(self.edges) == 0:
-            edges = self.xnode.find('edges')
-            if edges is None: return
-            for e in edges.findall('e'):
-                src = e.get('src')
-                if not src in self.edges: self.edges[src] = []
-                self.edges[src].append(e.get('tgt'))
+    def __init__(
+            self,
+            cfg: "chb.asm.X86Cfg.X86Cfg",
+            xnode: ET.Element) -> None:
+        B.CfgBlock.__init__(self, cfg, xnode)
