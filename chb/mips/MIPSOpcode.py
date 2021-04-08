@@ -2056,7 +2056,7 @@ class MIPSLoadUpperImmediate(X.MIPSOpcodeBase):
     # xdata: [ "a:vx" ] lhs, rhs
     # --------------------------------------------------------------------------
     def get_annotation(self,xdata):
-        (xtags,xargs,xprs) = xdata.get_xprdata()
+        (xtags,xargs,xprs) = xdata.xprdata
         lhs = str(xprs[0])
         rhs = str(xprs[1])
         return lhs + ' := ' + rhs

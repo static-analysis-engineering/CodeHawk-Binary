@@ -52,7 +52,9 @@ class MIPSOpcodeBase(object):
     def get_key(self):
         return (','.join(self.tags),','.join([str(x) for x in self.args]))
 
-    def get_mnemonic(self): return self.tags[0]
+    @property
+    def mnemonic(self) -> str:
+        return self.tags[0]
 
     # returns the lhs variables of an assignment if this is an assignment, else []
     def get_lhs(self,xdata): return []

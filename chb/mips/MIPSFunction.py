@@ -6,6 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,9 +28,18 @@
 # ------------------------------------------------------------------------------
 
 import hashlib
+import xml.etree.ElementTree as ET
+
+from typing import Dict, Mapping, Optional, TYPE_CHECKING
 
 import chb.util.fileutil as UF
 import chb.simulate.SimUtil as SU
+
+import chb.app.AppAccess as AP
+import chb.app.BasicBlock as B
+import chb.app.Cfg as C
+import chb.app.Function as F
+import chb.util.fileutil as UF
 
 from chb.mips.FnMIPSDictionary import FnMIPSDictionary
 from chb.mips.MIPSBlock import MIPSBlock
@@ -39,32 +49,40 @@ from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnInvariants import FnInvariants
 
-class MIPSFunction(object):
+if TYPE_CHECKING:
+    import chb.app.AppAccess
 
-    def __init__(self,app,xnode):
-        self.app = app    # AppAccess
-        self.xnode = xnode
-        self.blocks = {}      # baddr (hex-address) -> AsmBlock
-        self.cfg = MIPSCfg(self,self.xnode.find('cfg'))
-        self.faddr = self.xnode.get('a')
-        vxnode = UF.get_function_vars_xnode(self.app.path,self.app.filename,self.faddr)
-        invnode = UF.get_function_invs_xnode(self.app.path,self.app.filename,self.faddr)
-        self.vardictionary = FnVarDictionary(self,vxnode.find('var-dictionary'))
-        self.invdictionary = FnInvDictionary(self.vardictionary,invnode.find('inv-dictionary'))
-        self.invariants = FnInvariants(self.invdictionary,invnode.find('locations'))
-        self.dictionary = FnMIPSDictionary(self,self.xnode.find('instr-dictionary'))
 
-    def has_name(self): return self.app.functionsdata.has_name(self.faddr)
+class MIPSFunction(F.Function):
 
-    def get_names(self):
-        if self.has_name():
-            return self.app.functionsdata.get_names(self.faddr)
-        return []
+    def __init__(self,
+                 app: "chb.app.AppAccess.AppAccess",
+                 xnode: ET.Element):
+        F.Function.__init__(self, app, xnode)
+        self._blocks: Dict[str, MIPSBlock] = {}
+        self._cfg: Optional[MIPSCfg] = None
 
-    def get_block(self,baddr):
-        self._get_blocks()
-        if baddr in self.blocks:
-            return self.blocks[baddr]
+    @property
+    def blocks(self) -> Dict[str, MIPSBlock]:
+        if len(self._blocks) == 0:
+            xinstrs = self.xnode.find("instructions")
+            if xinstrs is None:
+                raise UF.CHBError("Xml element instructions missing from function xml")
+            for b in xinstrs.findall("bl"):
+                baddr = b.get("ba")
+                if baddr is None:
+                    raise UF.CHBError("Block address is missing from xml")
+                self._blocks[baddr] = MIPSBlock(self, b)
+        return self._blocks
+
+    @property
+    def cfg(self) -> C.Cfg:
+        if self._cfg is None:
+            xcfg = self.xnode.find("cfg")
+            if xcfg is None:
+                raise UF.CHBError("Element cfg missing from function xml")
+            self._cfg = MIPSCfg(self, xcfg)
+        return self._cfg
 
     def get_address_reference(self):
         """Return map of addr -> block addr."""
@@ -74,36 +92,6 @@ class MIPSFunction(object):
                 result[a] = baddr
         self.iter_blocks(add)
         return result
-
-    def has_instruction(self,iaddr):
-        self._get_blocks()
-        for b in self.blocks:
-            if self.blocks[b].has_instruction(iaddr):
-                return True
-        return False
-    
-    def get_instruction(self,iaddr):
-        self._get_blocks()
-        for b in self.blocks:
-            if self.blocks[b].has_instruction(iaddr):
-                return self.blocks[b].get_instruction(iaddr)
-        print('Instruction at ' + iaddr + ' not found in function ' + self.faddr)
-
-    def get_instructions(self):     # returns iaddr -> MIPSInstruction
-        self._get_blocks()
-        result = {}
-        for b in self.blocks: result.update(self.blocks[b].instructions)
-        return result
-
-    def iter_blocks(self,f):
-        self._get_blocks()
-        for baddr in sorted(self.blocks):
-            f(baddr,self.blocks[baddr])
-
-    def iter_instructions(self,f):
-        instrs = self.get_instructions()
-        for iaddr in sorted(instrs):
-            f(iaddr,instrs[iaddr])
 
     def get_byte_string(self,chunksize=None):
         s = []
@@ -116,12 +104,6 @@ class MIPSFunction(object):
             size = len(s)
             chunks = [ s[i:i+chunksize] for i in range(0,size,chunksize) ]
             return '\n'.join(chunks)
-
-    def get_md5_hash(self):
-        m = hashlib.md5()
-        def f(ia,i): m.update(i.get_byte_string())
-        self.iter_instructions(f)
-        return m.hexdigest()
 
     def get_calls_to_app_function(self,tgtaddr):
         result = []
@@ -263,7 +245,6 @@ class MIPSFunction(object):
         return '\n'.join(lines)
 
     def to_string(self,bytestring=False,sp=False,opcodetxt=True,hash=False,opcodewidth=40):
-        self._get_blocks()
         lines = []
         for b in sorted(self.blocks):
             lines.append(
@@ -274,12 +255,3 @@ class MIPSFunction(object):
         return '\n'.join(lines)
 
     def __str__(self): return self.to_string()
-
-    def _get_blocks(self):
-        if len(self.blocks) > 0: return
-        for n in self.xnode.find('instructions').findall('bl'):
-            self.blocks[ n.get('ba') ] = MIPSBlock(self,n)
-
-    def _get_cfg(self):
-        if self.cfg is None:
-            self.cfg = MIPSCfg(self,self.xnode)

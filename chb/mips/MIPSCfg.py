@@ -6,6 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -16,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,48 +26,54 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""MIPS Control flow graph."""
 
+import xml.etree.ElementTree as ET
+
+from typing import Dict, TYPE_CHECKING
+
+import chb.app.Cfg as C
+import chb.util.fileutil as UF
 import chb.util.graphutil as UG
 
 from chb.mips.MIPSCfgBlock import MIPSCfgBlock
 from chb.mips.MIPSCfgPath import MIPSCfgPath
 
-class MIPSCfg(object):
+if TYPE_CHECKING:
+    import chb.mips.MIPSFunction
 
-    def __init__(self,mipsf,xnode):
-        self.mipsfunction = mipsf
-        self.xnode = xnode
-        self.blocks = {}   #  blockstartaddr -> MIPSCfgBlock
-        self.edges = {}    #  srcaddr -> [ tgtaddresses ]  (if multiple, first is false branch)
-        self._initialize()
+class MIPSCfg(C.Cfg):
 
-    def get_successors(self,src):
-        if src in self.edges:
-            return self.edges[src]
-        else:
-            return []
+    def __init__(
+            self,
+            f: "chb.mips.MIPSFunction.MIPSFunction",
+            xnode: ET.Element) -> None:
+        C.Cfg.__init__(self, f, xnode)
+        self._blocks: Dict[str, MIPSCfgBlock] = {}
 
-    def get_loop_levels(self,baddr):
-        if baddr in self.blocks:
-            return self.blocks[baddr].get_loop_levels()
-        return []
-
-    def get_max_loop_level(self):
-        return max( [ len(self.blocks[b].get_loop_levels()) for b in self.blocks ])
-
-    def has_loops(self):
-        return self.get_max_loop_level() > 0
+    @property
+    def blocks(self) -> Dict[str, MIPSCfgBlock]:
+        if len(self._blocks) == 0:
+            xblocks = self.xnode.find('blocks')
+            if xblocks is None:
+                raise UF.CHBError("Element blocks missing in MIPSCfg")
+            for b in xblocks.findall("bl"):
+                baddr = b.get("ba")
+                if baddr is None:
+                    raise UF.CHBError("Attribute ba missing in Cfg block")
+                self._blocks[baddr] = MIPSCfgBlock(self, b)
+        return self._blocks
 
     def get_paths(self,baddr,maxtime=None):
         """Returns a path from function entry to blockaddr baddr."""
         g = UG.DirectedGraph(self.blocks.keys(),self.edges)
-        g.find_paths(self.mipsfunction.faddr,baddr,maxtime=maxtime)
+        g.find_paths(self.function.faddr,baddr,maxtime=maxtime)
         return [ MIPSCfgPath(self,p) for p in g.paths ]
 
     def get_branch_instruction(self,n):
         block = self.blocks[n]
         iaddr = int(block.lastaddr,16) - 4  #  account for delay slot
-        return self.mipsfunction.get_instruction(hex(iaddr))
+        return self.function.get_instruction(hex(iaddr))
 
     def condition_to_annotated_value(self,src,b):
         result = {}

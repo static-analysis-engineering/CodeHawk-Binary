@@ -28,6 +28,7 @@
 # ------------------------------------------------------------------------------
 """Operand of MIPS assembly instruction."""
 
+import chb.app.Operand as OP
 import chb.mips.MIPSDictionaryRecord as D
 import chb.mips.MIPSOperandKind as K
 import chb.mips.MIPSRegister as R
@@ -39,7 +40,7 @@ if TYPE_CHECKING:
     import chb.mips.MIPSDictionary
 
 
-class MIPSOperand(D.MIPSDictionaryRecord):
+class MIPSOperand(OP.Operand, D.MIPSDictionaryRecord):
 
     def __init__(
             self,
@@ -48,6 +49,7 @@ class MIPSOperand(D.MIPSDictionaryRecord):
             tags: List[str],
             args: List[int]) -> None:
         D.MIPSDictionaryRecord.__init__(self, d, index, tags, args)
+        OP.Operand.__init__(self)
         # args[0]: operand kind
 
     def get_mips_opkind(self) -> K.MIPSOperandKindBase:
