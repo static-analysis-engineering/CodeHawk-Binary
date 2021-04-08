@@ -27,34 +27,31 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, Mapping, Optional, TYPE_CHECKING
 
+import chb.app.Function as F
+import chb.app.Cfg as C
 import chb.arm.ARMBlock as B
+import chb.arm.ARMCfg as CFG
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     import chb.app.AppAccess
+    import chb.app.BasicBlock
 
 
-class ARMFunction:
+class ARMFunction(F.Function):
 
     def __init__(
             self,
             app: "chb.app.AppAccess.AppAccess",
-            xnode: ET.Element):
-        self.app = app
-        self.xnode = xnode
+            xnode: ET.Element) -> None:
+        F.Function.__init__(self, app, xnode)
+        self._cfg: Optional[CFG.ARMCfg] = None
         self._blocks: Dict[str, B.ARMBlock] = {}
 
     @property
-    def faddr(self) -> str:
-        faddr = self.xnode.get("a")
-        if faddr is None:
-            raise UF.CHBError("Arm function address is missing from xml")
-        return faddr
-
-    @property
-    def blocks(self) -> Dict[str, B.ARMBlock]:
+    def blocks(self) -> Mapping[str, "chb.app.BasicBlock.BasicBlock"]:
         if len(self._blocks) == 0:
             xinstrs = self.xnode.find("instructions")
             if xinstrs is None:
@@ -66,14 +63,14 @@ class ARMFunction:
                 self._blocks[baddr] = B.ARMBlock(self, n)
         return self._blocks
 
-    def has_name(self) -> bool:
-        return self.app.functionsdata.has_name(self.faddr)
-
-    def get_names(self) -> List[str]:
-        if self.has_name():
-            return self.app.functionsdata.get_names(self.faddr)
-        else:
-            return []
+    @property
+    def cfg(self) -> C.Cfg:
+        if self._cfg is None:
+            xcfg = self.xnode.find("cfg")
+            if xcfg is None:
+                raise UF.CHBError("cfg element is missing from arm function")
+            self._cfg = CFG.ARMCfg(self, xcfg)
+        return self._cfg
 
     def to_string(
             self,
