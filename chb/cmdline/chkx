@@ -105,41 +105,6 @@ def reportcommand(args):
     print('  unresolvedcalls <xname>      output unresolved calls (PE32 only)')
     exit(0)
                 
-
-def showcfg(args):
-    (path,filename) = UC.get_path(args.xname,checkresults=True)
-    xinfo = UC.get_xinfo(path,filename)
-    ismips = xinfo.is_mips()
-    app = AP.AppAccess(path,filename,mips=ismips)
-    if app.has_function(args.faddr):
-        f = app.get_function(args.faddr)
-        if f is None:
-            UC.exit_with_msg('Unable to find function ' + faddr)
-        graphname = 'cfg_' + args.faddr
-        if not args.sink is None:
-            graphname += '_'  + args.sink
-        if len(args.segments) > 0:
-            graphname += '_' + '_'.join(args.segments)
-        dotcfg = DC.DotCfg(graphname,
-                               f,
-                               looplevelcolors=["#FFAAAAFF","#FF5555FF","#FF0000FF"],
-                               showpredicates=args.predicates,
-                               showcalls=args.calls,mips=True,
-                               sink=args.sink,segments=args.segments)
-
-        functionname = args.faddr
-        if app.has_function_name(args.faddr):
-            functionname = functionname +  ' (' + app.get_function_name(args.faddr) + ')'
-
-        pdffilename = UD.print_dot(app.path,filename,dotcfg.build())
-
-        if os.path.isfile(pdffilename):
-            UC.print_info('Control flow graph for ' + functionname + ' has been saved in '
-                    + pdffilename)
-        else:
-            UC.print_error('Error in converting dot file to pdf')
-    else:
-        UC.exit_with_msg('Function ' + args.faddr + ' not found')
         
 def showcfgpaths(args):
     (path,filename) = UC.get_path(args.xname,checkresults=True)
@@ -352,18 +317,36 @@ def parse():
         '--section',
         help='show only section at given address')
     showpedata.set_defaults(func=UCC.showpedata)
-    '''
+
     # -- show control flow graph --
-    show_cfg = showparsers.add_parser('cfg')
-    show_cfg.add_argument('xname',help='name of executable')
-    show_cfg.add_argument('faddr',help='address of function (in hex)')
-    show_cfg.add_argument('--predicates',help='add branch predicates',action='store_true')
-    show_cfg.add_argument('--calls',help='add calls to nodes',action='store_true')
-    show_cfg.add_argument('--sink',help='restrict graph to paths to this basic block')
-    show_cfg.add_argument('--segments',help='restrict graph to paths that include these basic blocks',
-                          nargs='*',default=[])
-    show_cfg.set_defaults(func=showcfg)
-    '''
+    showcfg = showparsers.add_parser("cfg")
+    showcfg.add_argument("xname", help="name of executable")
+    showcfg.add_argument("faddr", help="address of function (in hex)")
+    showcfg.add_argument(
+        "out",
+        help="basename of file to save output (without extension)")
+    showcfg.add_argument(
+        '--view',
+        action="store_true",
+        help="open a viewer on the pdf file")
+    showcfg.add_argument(
+        '--predicates',
+        action="store_true",
+        help="add branch predicates")
+    showcfg.add_argument(
+        '--calls',
+        action="store_true",
+        help="add calls to nodes")
+    showcfg.add_argument(
+        '--sink',
+        help='restrict graph to paths to this basic block')
+    showcfg.add_argument(
+        '--segments',
+        nargs="*",
+        default=[],
+        help='restrict graph to paths that include these basic blocks')
+    showcfg.set_defaults(func=UCC.showcfg)
+
     # -- show functions --
     showfunctions = showparsers.add_parser('functions')
     showfunctions.add_argument('xname',help='name of executable')
