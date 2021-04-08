@@ -190,7 +190,7 @@ class  AppAccess:
         return result
 
     def has_function_name(self,faddr):
-        return self.has_function(faddr) and self.get_function(faddr).has_name()
+        return self.has_function(faddr) and self.get_function(faddr).has_name
 
     def get_function_name(self,faddr):
         if self.has_function_name(faddr):
