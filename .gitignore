@@ -4,6 +4,10 @@ ConfigLocal.py
 # MacOS
 .DS_Store
 
+# Emacs
+*.py~
+chkx~
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
