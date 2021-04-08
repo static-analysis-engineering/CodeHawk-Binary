@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -24,26 +26,39 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Basic block of a MIPS function."""
+
+import xml.etree.ElementTree as ET
+
+import chb.app.BasicBlock as B
+import chb.util.fileutil as UF
 
 from chb.mips.MIPSInstruction import MIPSInstruction
 
-class MIPSBlock(object):
+from typing import Dict, List, Mapping, Sequence, TYPE_CHECKING
 
-    def __init__(self,mipsf,xnode):
-        self.mipsfunction = mipsf
-        self.xnode = xnode
-        self.baddr = self.xnode.get('ba')
-        self.instructions = {}           # hex-address -> MIPSInstruction
-        self._get_instructions()
+if TYPE_CHECKING:
+    import chb.mips.MIPSFunction
 
-    def has_instruction(self,iaddr): return iaddr in self.instructions
 
-    def get_instruction(self,iaddr):
-        if self.has_instruction(iaddr): return self.instructions[iaddr]
+class MIPSBlock(B.BasicBlock):
 
-    def iter_instructions(self,f):
-        for iaddr in sorted(self.instructions):
-            f(iaddr,self.instructions[iaddr])
+    def __init__(
+            self,
+            mipsf: "chb.mips.MIPSFunction.MIPSFunction",
+            xnode: ET.Element) -> None:
+        B.BasicBlock.__init__(self, mipsf, xnode)
+        self._instructions: Dict[str, MIPSInstruction] = {}
+
+    @property
+    def instructions(self) -> Dict[str, MIPSInstruction]:
+        if len(self._instructions) == 0:
+            for n in self.xnode.findall("i"):
+                iaddr = n.get("ia")
+                if iaddr is None:
+                    raise UF.CHBError("ARM Instruction without address in xml")
+                self._instructions[iaddr] = MIPSInstruction(self, n)
+        return self._instructions
 
     def get_sliced_instructions(self,registers):
         result = []
@@ -53,12 +68,15 @@ class MIPSBlock(object):
                 result.append(instr)
         return result
 
-    def get_call_instructions(self):
-        result = []
+    @property
+    def call_instructions(self) -> Sequence[MIPSInstruction]:
+        result: List[MIPSInstruction] = []
+
         def f(_,i):
             if i.is_call_instruction():
                 result.append(i)
-        self.iter_instructions(f)
+
+        self.iter(f)
         return result
 
     def to_sliced_string(self,registers,loopdepth):
@@ -71,13 +89,6 @@ class MIPSBlock(object):
                                  + '  ' + instr.to_string(sp=True,opcodetxt=True))
         return '\n'.join(lines)
 
-    def to_string(self,sp=False,opcodetxt=True,opcodewidth=40):
-        lines = []
-        for ia in sorted(self.instructions):
-            pinstr = self.instructions[ia].to_string(sp=sp,opcodetxt=opcodetxt,opcodewidth=opcodewidth)
-            lines.append(str(ia).rjust(10) + '  ' + pinstr)
-        return '\n'.join(lines)
-
     def get_last_instruction(self):
         lastaddr = sorted(self.instructions.keys())[-2]
         return self.instructions[lastaddr]
@@ -87,10 +98,3 @@ class MIPSBlock(object):
 
     def get_return_expr(self):
         return self.get_last_instruction().get_return_expr()
-
-    def __str__(self): return self.to_string()
-
-    def _get_instructions(self):
-        if len(self.instructions) > 0: return
-        for n in self.xnode.findall('i'):
-            self.instructions[ n.get('ia') ] = MIPSInstruction(self,n)

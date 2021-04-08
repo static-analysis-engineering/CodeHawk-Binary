@@ -5,6 +5,8 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -24,21 +26,21 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Control flow graph block for a MIPS function."""
 
+import xml.etree.ElementTree as ET
 
-class MIPSCfgBlock(object):
+from typing import TYPE_CHECKING
 
-    def __init__(self,cfg,xnode):
-        self.mipscfg = cfg
-        self.xnode = xnode
-        self.firstaddr = self.xnode.get('ba')
-        self.lastaddr = self.xnode.get('ea')
+import chb.app.CfgBlock as B
 
-    def get_loop_levels(self):
-        if self.xnode.find('loops') is None:
-            return []
-        else:
-            return [ i.get('a') for i in self.xnode.find('loops').findall('lv') ]
+if TYPE_CHECKING:
+    import chb.mips.MIPSCfg
 
-    def is_in_loop(self):
-        return len(self.get_loop_levels()) > 0
+class MIPSCfgBlock(B.CfgBlock):
+
+    def __init__(
+            self,
+            cfg: "chb.mips.MIPSCfg.MIPSCfg",
+            xnode: ET.Element) -> None:
+        B.CfgBlock.__init__(self, cfg, xnode)
