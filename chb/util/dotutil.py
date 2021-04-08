@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Python API to access CodeHawk Binary Analyzer analysis results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -24,38 +26,62 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Utilities to print and save graphviz dot files."""
 
 import os
 import subprocess
 
+from typing import TYPE_CHECKING
 
-def print_dot(path,filename,g):
-    filename = filename + '_' + g.name
-    dotfilename = os.path.join(path,filename + '.dot')
-    pdffilename = os.path.join(path,filename + '.pdf')
-    with open(dotfilename,'w') as fp:
+if TYPE_CHECKING:
+    import chb.util.DotGraph
+
+
+def print_dot(
+        path: str,
+        filename: str,
+        g: "chb.util.DotGraph.DotGraph") -> str:
+    if not os.path.isabs(filename):
+        filename = os.path.join(path, filename)
+    dotfilename = filename + ".dot"
+    pdffilename = filename + ".pdf"
+
+    # write graph to dot format
+    with open(dotfilename,"w") as fp:
         fp.write(str(g))
-    cmd = [ 'dot', '-Tpdf', '-o', pdffilename, dotfilename ]
+
+    # convert dot file to pdf
+    cmd = ["dot", "-Tpdf", "-o", pdffilename, dotfilename]
     try:
         subprocess.call(cmd,stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        print('Error in processing dot file: ' + dotfilename)
+        print("Error in processing dot file: " + dotfilename)
         print(e.output)
         print(e.args)
         exit(1)
     return pdffilename        
 
-def save_dot(path,filename,g):
-    filename = filename + '_' + g.name
-    dotfilename = os.path.join(path,filename + '.dot')
-    with open(dotfilename,'w') as fp:
+
+def save_dot(path: str, filename: str, g) -> None:
+    if not os.path.isabs(filename):
+        filename = os.path.join(path, filename)
+    dotfilename = filename + ".dot"
+    with open(dotfilename, "w") as fp:
         fp.write(str(g))
 
-def save_svg(path,filename,g):
-    filename = filename + '_' + g.name
-    dotfilename = os.path.join(path,filename + '.dot')
-    svgfilename = os.path.join(path,filename + '.svg')
-    with open(dotfilename,'w') as fp:
+
+def save_svg(path: str, filename: str, g) -> None:
+    if not os.path.isabs(filename):
+        filename = os.path.join(path, filename)
+    dotfilename = filename + ".dot"
+    svgfilename = filename + ".svg"
+    with open(dotfilename, "w") as fp:
         fp.write(str(g))
-    cmd = [ 'dot', '-Tsvg', '-o', svgfilename, dotfilename ]
-    subprocess.call(cmd,stderr=subprocess.STDOUT)
+    cmd = ["dot", "-Tsvg", "-o", svgfilename, dotfilename]
+    try:
+        subprocess.call(cmd,stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        print("Error in processing dot file: " + dotfilename)
+        print(e.output)
+        print(e.args)
+        exit(1)
