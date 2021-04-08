@@ -78,9 +78,9 @@ class FnVarDictionary(object):
         self.app = self.asmfunction.app
         self.finfo = self.app.get_function_info(self.asmfunction.faddr)
         self.bdictionary = self.app.bdictionary
-        self.xd = FnXprDictionary(self,xnode.find('xpr-dictionary'))
+        self.xd = FnXprDictionary(self, xnode.find('xpr-dictionary'))
         self.memory_base_table = IT.IndexedTable('memory-base-table')
-        self.memory_offset_table =  IT.IndexedTable('memory-offset-table')
+        self.memory_offset_table = IT.IndexedTable('memory-offset-table')
         self.assembly_variable_denotation_table = IT.IndexedTable('assembly-variable-denotation-table')
         self.constant_value_variable_table = IT.IndexedTable('constant-value-variable-table')
         self.tables = [
