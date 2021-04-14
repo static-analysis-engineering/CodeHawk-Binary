@@ -60,6 +60,7 @@ class AnalysisManager(object):
             elf: bool = False,
             mips: bool = False,
             arm: bool = False,
+            thumb: bool = False,
             hints: Dict[str, Any] = {}):
         """Initializes the analyzer location and target file location
 
@@ -77,6 +78,7 @@ class AnalysisManager(object):
         self.elf = elf
         self.mips = mips
         self.arm = arm
+        self.thumb = thumb
         self.hints = hints
         self.config = Config()
         self.chx86_analyze = self.config.chx86_analyze
@@ -96,7 +98,7 @@ class AnalysisManager(object):
         fndir = os.path.join(udir, "functions")
         self._makedir(udir)
         self._makedir(fndir)
-        self._make_userdata_file()
+        # self._make_userdata_file()
 
         cmd: List[str] = [self.chx86_analyze,
                           chcmd,
@@ -162,6 +164,8 @@ class AnalysisManager(object):
             cmd.append("-elf")
         if verbose:
             cmd.append("-verbose")
+        if self.thumb:
+            cmd.append("-thumb")
         if save_xml:
             cmd.append("-save_disassembly_status_in_xml")
         cmd.extend(["-disassemble", self.filename])
@@ -324,6 +328,8 @@ class AnalysisManager(object):
             cmd.append("-mips")
         if self.arm:
             cmd.append("-arm")
+        if self.thumb:
+            cmd.append("-thumb")
         for d in self.deps:
             cmd.extend(["-summaries", d])
         for s in self.specializations:
