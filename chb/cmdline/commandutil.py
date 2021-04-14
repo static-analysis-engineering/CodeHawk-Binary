@@ -205,6 +205,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     dodisassemble: bool = args.disassemble
     doextract: bool = args.extract
     verbose: bool = args.verbose
+    save_asm: str = args.save_asm
     thumb: bool = args.thumb
     preamble_cutoff: int = args.preamble_cutoff
     iterations: int = args.iterations
@@ -234,7 +235,10 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
 
     if dodisassemble:
         try:
-            am.disassemble(verbose=verbose, preamble_cutoff=preamble_cutoff)
+            am.disassemble(
+                verbose=verbose,
+                preamble_cutoff=preamble_cutoff,
+                save_asm=save_asm)
         except subprocess.CalledProcessError as e:
             print(e.output)
             print(e.args)
