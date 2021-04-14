@@ -251,6 +251,10 @@ def parse():
         action='store_true',
         help='output intermediate information')
     analyzecmd.add_argument(
+        "--thumb",
+        action="store_true",
+        help="executable has thumb instructions (ARM32 only)")
+    analyzecmd.add_argument(
         '--iterations',
         type=int,
         default=12,
@@ -262,11 +266,12 @@ def parse():
         help='minimum cutoff for function entry preamble')
     analyzecmd.add_argument(
         '--thirdpartysummaries',
-        nargs='*',
+        nargs="*",
         default=[],
         help='summary jars for third party libraries')
     analyzecmd.add_argument(
         '--hints',
+        nargs="*",
         default=[],
         help='names of json files with disassembly/analysis hints')    
     analyzecmd.set_defaults(func=UCC.analyzecmd)

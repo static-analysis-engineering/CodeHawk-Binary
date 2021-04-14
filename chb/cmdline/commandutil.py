@@ -105,6 +105,7 @@ def setup_directories(path: str, xfile: str) -> None:
 def setup_user_data(path: str, xfile: str, hints: List[str]) -> None:
     """Convert hints to xml user data."""
     filenames = [os.path.abspath(s) for s in hints]
+    print("filenames: " + str(filenames))
     userhints = UH.UserHints(filenames)
     ufilename = UF.get_user_system_data_filename(path, xfile)
     with open(ufilename, "w") as fp:
@@ -204,6 +205,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     dodisassemble: bool = args.disassemble
     doextract: bool = args.extract
     verbose: bool = args.verbose
+    thumb: bool = args.thumb
     preamble_cutoff: int = args.preamble_cutoff
     iterations: int = args.iterations
     hints: List[str] = args.hints  # names of json files
@@ -227,7 +229,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         xfile,
         mips=xinfo.is_mips(),
         arm=xinfo.is_arm(),
-        elf=xinfo.is_elf())
+        elf=xinfo.is_elf(),
+        thumb=thumb)
 
     if dodisassemble:
         try:
@@ -317,30 +320,34 @@ def showfunctions(args: argparse.Namespace) -> NoReturn:
             if f is None:
                 print_error("Unable to find function " + faddr)
                 continue
-            if app.has_function_name(faddr):
-                print("\nFunction "
-                      + faddr
-                      + " ("
-                      + app.get_function_name(faddr)
-                      + ")")
-            else:
-                print("\nFunction " + faddr)
-            print("-" * 80)
 
-            if xinfo.is_mips() or xinfo.is_arm():
-                print(f.to_string(
-                    bytestring=bytestring,
-                    hash=hash,
-                    sp=True,
-                    opcodetxt=True,
-                    opcodewidth=opcodewidth))
-            else:
-                print(f.to_string(
-                    bytestring=bytestring,
-                    hash=hash,
-                    esp=True,
-                    opcodetxt=True,
-                    opcodewidth=opcodewidth))
+            try:
+                if app.has_function_name(faddr):
+                    print("\nFunction "
+                          + faddr
+                          + " ("
+                          + app.get_function_name(faddr)
+                          + ")")
+                else:
+                    print("\nFunction " + faddr)
+                print("-" * 80)
+
+                if xinfo.is_mips() or xinfo.is_arm():
+                    print(f.to_string(
+                        bytestring=bytestring,
+                        hash=hash,
+                        sp=True,
+                        opcodetxt=True,
+                        opcodewidth=opcodewidth))
+                else:
+                    print(f.to_string(
+                        bytestring=bytestring,
+                        hash=hash,
+                        esp=True,
+                        opcodetxt=True,
+                        opcodewidth=opcodewidth))
+            except UF.CHBError as e:
+                print(str(e.wrap()))
         else:
             print_error("Function " + faddr + " not found")
             continue

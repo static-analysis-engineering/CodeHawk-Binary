@@ -60,7 +60,7 @@ class UserHints:
         {r:[start-addr, end-addr (exclusive)], t: jumptable (optional)}."""
         self.userhints.setdefault("data-blocks", {})
         for r in hints:
-            if ("r"not in r):
+            if ("r" not in r):
                 raise UF.CHBError("Encountered data-block record without r field")
             if (not len(r["r"]) == 2):
                 raise UF.CHBError("Expected two elements in data-block record")
