@@ -35,7 +35,6 @@ from typing import Dict, Mapping, Optional, TYPE_CHECKING
 import chb.util.fileutil as UF
 import chb.simulate.SimUtil as SU
 
-import chb.app.AppAccess as AP
 import chb.app.BasicBlock as B
 import chb.app.Cfg as C
 import chb.app.Function as F
