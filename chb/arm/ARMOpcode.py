@@ -29,6 +29,7 @@
 from typing import List, Tuple, TYPE_CHECKING
 
 import chb.arm.ARMOpcodeBase as X
+import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
@@ -61,4 +62,13 @@ class ARMAdd(X.ARMOpcodeBase):
         X.ARMOpcodeBase.__init__(self, d, index, tags, args)
 
     def get_operands(self):
-        return [self.d.get_arm_operand(i) for i in self.args[1:]]
+        if len(self.args) > 0:
+            try:
+                return [self.d.get_arm_operand(i) for i in self.args if i > 0]
+            except Exception as e:
+                raise UF.CHBError(
+                    "Error in get_operands for args: "
+                    + ", ".join(str(i) for i in self.args)
+                    + ": "
+                    + str(e))
+        return []

@@ -64,6 +64,10 @@ class ARMInstruction(I.Instruction):
             raise UF.CHBError(
                 "Error for ARM opcode "
                 + str(opcode)
+                + " in function: "
+                + self.function.faddr
+                + " at address "
+                + self.iaddr
                 + ": "
                 + str(e))
 
@@ -74,7 +78,7 @@ class ARMInstruction(I.Instruction):
 
     @property   # -- STUB --
     def annotation(self) -> str:
-        return self.opcodetext
+        return ""
 
     @property   # -- STUB --
     def stackpointer_offset(self) -> S.StackPointerOffset:

@@ -49,7 +49,7 @@ class ARMOpcodeBase(D.ARMDictionaryRecord):
         return self.tags[0]
 
     def get_operands(self) -> List["chb.arm.ARMOperand.ARMOperand"]:
-        return [self.d.get_arm_operand(i) for i in self.args[1:]]
+        return [self.d.get_arm_operand(i) for i in self.args if i > 0]
 
     def __str__(self) -> str:
         return self.get_key()[0]
