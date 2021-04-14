@@ -251,6 +251,11 @@ def parse():
         action='store_true',
         help='output intermediate information')
     analyzecmd.add_argument(
+        '--save_asm',
+        default='yes',
+        choices=['yes', 'no'],
+        help='save asm listing in analysis directory')
+    analyzecmd.add_argument(
         "--thumb",
         action="store_true",
         help="executable has thumb instructions (ARM32 only)")

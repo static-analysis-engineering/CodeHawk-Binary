@@ -148,7 +148,8 @@ class AnalysisManager(object):
             save_xml: bool = False,
             timeout: Optional[int] = None,
             verbose: bool = False,
-            preamble_cutoff: int = 12) -> None:
+            preamble_cutoff: int = 12,
+            save_asm: str = "yes") -> None:
         os.chdir(self.path)
         cmd: List[str] = [self.chx86_analyze, "-summaries", self.chsummaries]
         cmd.extend(["-preamble_cutoff", str(preamble_cutoff)])
@@ -156,6 +157,8 @@ class AnalysisManager(object):
             cmd.extend(["-summaries", d])
         for s in self.specializations:
             cmd.extend(["-specialization", s])
+        if save_asm == "yes":
+            cmd.append("-save_asm")
         if self.mips:
             cmd.append("-mips")
         if self.arm:
