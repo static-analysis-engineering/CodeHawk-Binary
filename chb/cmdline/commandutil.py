@@ -102,10 +102,26 @@ def setup_directories(path: str, xfile: str) -> None:
     makedirc(rfndir)
 
 
-def setup_user_data(path: str, xfile: str, hints: List[str], thumb: List[str]) -> None:
-    """Convert hints to xml user data."""
+def setup_user_data(
+        path: str,
+        xfile: str,
+        hints: List[str],
+        thumb: List[str],
+        md5: str) -> None:
+    """Convert hints and command-line options to xml user data."""
+
+    # check for registered options
+    if UF.file_has_registered_options(md5):
+        cmdline_options = UF.get_file_registered_options(md5)
+        if "thumb" in cmdline_options["options"]:
+            thumb = cmdline_options["options"]["thumb"]
+            print("Use command-line options for " + cmdline_options["name"] + ": ")
+            print(" --thumb " + " ".join(thumb))
+
+    # read hints files
     filenames = [os.path.abspath(s) for s in hints]
-    print("filenames: " + str(filenames))
+    if len(filenames) > 0:
+        print("use hints files: " + ", ".join(filenames))
     userhints = UH.UserHints(filenames)
     userhints.add_thumb_switch_points(thumb)
     ufilename = UF.get_user_system_data_filename(path, xfile)
@@ -154,8 +170,10 @@ def prepare_executable(
             raise UF.CHBError("Error in unpacking tar.gz file")
 
         # set up user data from hints files
+        xinfo = XI.XInfo()
+        xinfo.load(path, xfile)
         setup_directories(path, xfile)
-        setup_user_data(path, xfile, hints, thumb)
+        setup_user_data(path, xfile, hints, thumb, xinfo.md5)
         return
 
     # executable content has to be extracted
@@ -176,7 +194,7 @@ def prepare_executable(
 
         # set up directories and user data
         setup_directories(path, xfile)
-        setup_user_data(path, xfile, hints, thumb)
+        setup_user_data(path, xfile, hints, thumb, xinfo.md5)
         xinfo.save(path, xfile)
 
         # extract executable content
@@ -215,7 +233,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
 
     try:
         (path, xfile) = get_path_filename(xname)
-        prepare_executable(path, xfile, doreset, doresetx, hints,thumb)
+        prepare_executable(path, xfile, doreset, doresetx, hints, thumb)
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)

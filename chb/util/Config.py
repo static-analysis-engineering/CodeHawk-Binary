@@ -69,6 +69,9 @@ class Config():
             self.macOSdir = os.path.join(self.binariesdir, "macOS")
             self.chx86_analyze = os.path.join(self.macOSdir, "chx86_analyze")
 
+        # registered command-line options
+        self.commandline_options = {}
+
         # personalization
         if localconfig:
             ConfigLocal.getLocals(self)

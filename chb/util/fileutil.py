@@ -816,3 +816,45 @@ def unpack_tar_file(path: str, xfile: str) -> bool:
     else:
         print('Successfully extracted ' + targzfile)
     return os.path.isdir(xdir)
+
+def file_has_registered_options(md5: str) -> bool:
+    for f in config.commandline_options:
+        filename = config.commandline_options[f]
+        if os.path.isfile(filename):
+            try:
+                with open(filename, "r") as fp:
+                    options = json.load(fp)
+                return md5 in options
+            except Exception as e:
+                print("*" * 80)
+                print("Error reading options file " + filename + ": " + str(e))
+                print("*" * 80)
+                exit(1)
+            else:
+                pass
+        else:
+            print("*" * 80)
+            print("Registered option file " + filename + " not found")
+            print("*" * 80)
+            exit(1)
+
+def get_file_registered_options(md5: str) -> Dict[str, Any]:
+    if file_has_registered_options(md5):
+        for f in config.commandline_options:
+            filename = config.commandline_options[f]
+            with open(filename, "r") as fp:
+                options = json.load(fp)
+            if md5 in options:
+                return options[md5]
+            else:
+                pass
+        else:
+            print("*" * 80)
+            print("Error in getting registered options for " + md5)
+            print("*" * 80)
+            exit(1)
+    else:
+        print("*" * 80)
+        print("No registered options found for " + md5)
+        print("*" * 80)
+        exit(1)
