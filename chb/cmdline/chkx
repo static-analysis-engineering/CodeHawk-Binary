@@ -257,8 +257,9 @@ def parse():
         help='save asm listing in analysis directory')
     analyzecmd.add_argument(
         "--thumb",
-        action="store_true",
-        help="executable has thumb instructions (ARM32 only)")
+        nargs="*",
+        default=[],
+        help="arm-thumb switch points (format <hex-addr>:T or <hex-addr>:A)")
     analyzecmd.add_argument(
         '--iterations',
         type=int,
