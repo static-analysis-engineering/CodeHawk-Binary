@@ -102,11 +102,12 @@ def setup_directories(path: str, xfile: str) -> None:
     makedirc(rfndir)
 
 
-def setup_user_data(path: str, xfile: str, hints: List[str]) -> None:
+def setup_user_data(path: str, xfile: str, hints: List[str], thumb: List[str]) -> None:
     """Convert hints to xml user data."""
     filenames = [os.path.abspath(s) for s in hints]
     print("filenames: " + str(filenames))
     userhints = UH.UserHints(filenames)
+    userhints.add_thumb_switch_points(thumb)
     ufilename = UF.get_user_system_data_filename(path, xfile)
     with open(ufilename, "w") as fp:
         fp.write(UX.doc_to_pretty(userhints.to_xml(xfile)))
@@ -117,7 +118,8 @@ def prepare_executable(
         xfile: str,
         doreset: bool,
         doresetx: bool,
-        hints: List[str]) -> None:
+        hints: List[str],
+        thumb: List[str]) -> None:
     """Extracts executable and sets up necessary directory structure. """
     xtargz = UF.get_executable_targz_filename(path, xfile)
     xfilename = os.path.join(path, xfile)
@@ -153,7 +155,7 @@ def prepare_executable(
 
         # set up user data from hints files
         setup_directories(path, xfile)
-        setup_user_data(path, xfile, hints)
+        setup_user_data(path, xfile, hints, thumb)
         return
 
     # executable content has to be extracted
@@ -174,7 +176,7 @@ def prepare_executable(
 
         # set up directories and user data
         setup_directories(path, xfile)
-        setup_user_data(path, xfile, hints)
+        setup_user_data(path, xfile, hints, thumb)
         xinfo.save(path, xfile)
 
         # extract executable content
@@ -206,14 +208,14 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     doextract: bool = args.extract
     verbose: bool = args.verbose
     save_asm: str = args.save_asm
-    thumb: bool = args.thumb
+    thumb: List[str] = args.thumb
     preamble_cutoff: int = args.preamble_cutoff
     iterations: int = args.iterations
     hints: List[str] = args.hints  # names of json files
 
     try:
         (path, xfile) = get_path_filename(xname)
-        prepare_executable(path, xfile, doreset, doresetx, hints)
+        prepare_executable(path, xfile, doreset, doresetx, hints,thumb)
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
@@ -231,7 +233,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         mips=xinfo.is_mips(),
         arm=xinfo.is_arm(),
         elf=xinfo.is_elf(),
-        thumb=thumb)
+        thumb = (len(thumb) > 0))
 
     if dodisassemble:
         try:

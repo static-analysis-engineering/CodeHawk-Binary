@@ -51,6 +51,8 @@ class UserHints:
             self.add_function_entry_points(hints["function-entry-points"])
         if "successors" in hints:
             self.add_successors(hints["successors"])
+        if "arm-thumb" in hints:
+            self.add_arm_thumb(hints["arm-thumb"])
 
     def add_data_blocks(
             self,
@@ -100,6 +102,31 @@ class UserHints:
                     addrs.append(hex(a))
                 self.userhints["successors"][r["ia"]] = addrs
 
+    def add_arm_thumb(self, hints: List[Dict[str, Any]]) -> None:
+        self.userhints.setdefault("arm-thumb", {})
+        for ia in hints:
+            try:
+                i = int(ia, 16)
+            except Exception as e:
+                raise UF.CHBError(
+                    "Encountered illegal hex address value: " + ia)
+            tgt: str = hints[ia]
+            if tgt in ["A", "T"]:
+                self.userhints["arm-thumb"][ia] = tgt
+            else:
+                raise UF.CHBError(
+                    "Target architecture spec should be 'A' or 'T', not " + tgt)
+
+    def add_thumb_switch_points(self, swpoints: List[str]) -> None:
+        if len(swpoints) > 0:
+            self.userhints.setdefault("arm-thumb", {})
+            for a in swpoints:
+                if a.endswith(":A") or a.endswith(":T"):
+                    self.userhints["arm-thumb"][a[:-2]] = a[-1]
+                else:
+                    raise UF.CHBError(
+                        "Error in thumb switch point. Expected format <addr>:A or <addr>:T")
+
     def add_xml_data_blocks(self, snode: ET.Element) -> None:
         if "data-blocks" in self.userhints:
             datablocks = ET.Element("data-blocks")
@@ -138,6 +165,16 @@ class UserHints:
                 xss.set("ss", ",".join(self.userhints["successors"][ia]))
                 xsucc.append(xss)
 
+    def add_xml_arm_thumb_switch_points(self, snode: ET) -> None:
+        if "arm-thumb" in self.userhints:
+            xat = ET.Element("arm-thumb")
+            snode.append(xat)
+            for ia in self.userhints["arm-thumb"]:
+                xs = ET.Element("switch")
+                xs.set("ia", ia)
+                xs.set("tgt", self.userhints["arm-thumb"][ia])
+                xat.append(xs)
+
     def to_xml(self, filename: str) -> ET.ElementTree:
         root = UX.get_codehawk_xml_header(filename, "system-userdata")
         tree = ET.ElementTree(root)
@@ -146,6 +183,7 @@ class UserHints:
         self.add_xml_data_blocks(snode)
         self.add_xml_function_entry_points(snode)
         self.add_xml_successors(snode)
+        self.add_xml_arm_thumb_switch_points(snode)
         return tree
 
     def _initialize(self) -> None:
