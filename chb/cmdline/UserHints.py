@@ -51,8 +51,14 @@ class UserHints:
             self.add_function_entry_points(hints["function-entry-points"])
         if "successors" in hints:
             self.add_successors(hints["successors"])
+        if "non-returning-functions" in hints:
+            self.add_non_returning_functions(hints["non-returning-functions"])
         if "arm-thumb" in hints:
             self.add_arm_thumb(hints["arm-thumb"])
+
+    def add_non_returning_functions(self, hints: List[str]) -> None:
+        """ List of hex addresses."""
+        self.userhints["non-returning-functions"] = hints
 
     def add_data_blocks(
             self,
@@ -165,7 +171,7 @@ class UserHints:
                 xss.set("ss", ",".join(self.userhints["successors"][ia]))
                 xsucc.append(xss)
 
-    def add_xml_arm_thumb_switch_points(self, snode: ET) -> None:
+    def add_xml_arm_thumb_switch_points(self, snode: ET.Element) -> None:
         if "arm-thumb" in self.userhints:
             xat = ET.Element("arm-thumb")
             snode.append(xat)
@@ -175,12 +181,22 @@ class UserHints:
                 xs.set("tgt", self.userhints["arm-thumb"][ia])
                 xat.append(xs)
 
+    def add_xml_non_returning_functions(self, snode: ET.Element) -> None:
+        if "non-returning-functions" in self.userhints:
+            xnrf = ET.Element("non-returning-functions")
+            snode.append(xnrf)
+            for a in self.userhints["non-returning-functions"]:
+                nr = ET.Element("nr")
+                nr.set("a", a)
+                xnrf.append(nr)
+
     def to_xml(self, filename: str) -> ET.ElementTree:
         root = UX.get_codehawk_xml_header(filename, "system-userdata")
         tree = ET.ElementTree(root)
         snode = ET.Element("system-info")
         root.append(snode)
         self.add_xml_data_blocks(snode)
+        self.add_xml_non_returning_functions(snode)
         self.add_xml_function_entry_points(snode)
         self.add_xml_successors(snode)
         self.add_xml_arm_thumb_switch_points(snode)
