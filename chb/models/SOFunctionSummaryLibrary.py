@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,22 +27,23 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+from typing import TYPE_CHECKING
 
-class DllFunctionSemantics(object):
+import chb.models.FunctionSummaryLibrary as L
 
-    def __init__(self,summary,xnode):
-        self.summary = summary
-        self.xnode = xnode
+if TYPE_CHECKING:
+    import chb.models.SummaryCollection
 
-    def get_categories(self):
-        if self.has_io_actions():
-            return [ x.get('cat') for x in self.xnode.find('io-actions').findall('io-action') ]
-        return []
 
-    def get_descriptions(self):
-        if self.has_io_actions():
-            return [ x.get('desc') for x in self.xnode.find('io-actions').findall('io-action') ]
+class SOFunctionSummaryLibrary(L.FunctionSummaryLibrary):
 
-    def has_io_actions(self):
-        return (not self.xnode.find('io-actions') is None)
+    def __init__(
+            self,
+            summarycollection: "chb.models.SummaryCollection.SummaryCollection",
+            directory: str,
+            name: str) -> None:
+        L.FunctionSummaryLibrary.__init__(self, summarycollection, directory, name)
 
+    @property
+    def is_shared_object(self) -> bool:
+        return True
