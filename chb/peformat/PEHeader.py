@@ -30,13 +30,17 @@
 import xml.etree.ElementTree as ET
 
 import chb.util.fileutil as UF
-import chb.util.xmlutil  as UX
+import chb.util.xmlutil as UX
 
-from typing import Dict
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
-from chb.peformat.PESection import PESection
-from chb.peformat.PESectionHeader import PESectionHeader
-from chb.peformat.PEImportDirectoryEntry import PEImportDirectoryEntry
+import chb.peformat.PESection as S
+import chb.peformat.PESectionHeader as H
+import chb.peformat.PEImportDirectoryEntry as E
+
+if TYPE_CHECKING:
+    import chb.app.AppAccess
+    import chb.models.ModelsAccess
 
 coff_header_attributes = [
     "machine",
@@ -70,137 +74,375 @@ optional_header_attributes = [
     "subsystem"
     ]
 
-valuedescriptor: Dict[str, str] = {}
+valuedescriptor: Dict[str, Callable[[str], str]] = {}
 
-class PEHeader():
-    '''Main entry point to access the raw data in the executable'''
 
-    def __init__(self,app,xnode):
-        self.app = app
+class PECoffFileHeader:
+
+    def __init__(self, xnode: ET.Element) -> None:
         self.xnode = xnode
-        self.sectionheaders = {}      # section name -> PESectionHeader
-        self.importtables = {}        # dll name -> PEImportDirectoryEntry
-        self.sections = {}            # virtual address -> PESection
 
-    def get_path_name(self): return self.app.path
+    def _get(self, tag: str, default: Optional[str] = None) -> str:
+        xval = self.xnode.get(tag)
+        if xval:
+            return xval
+        elif default:
+            return default
+        else:
+            raise UF.CHBError(tag + " not found in coff header")
 
-    def get_filename(self): return self.app.filename
+    def get(self, tag: str) -> str:
+        if tag in coff_header_attributes:
+            return self._get(tag)
+        else:
+            raise UF.CHBError(tag + " is not a valid coff-header element")
 
-    def get_section_headers(self):
-        self._get_section_headers()
-        return self.sectionheaders.values()
+    @property
+    def machine(self) -> str:
+        return self._get("machine")
 
-    def get_import_tables(self):
-        self._get_import_tables()
-        return self.importtables.values()
+    @property
+    def number_of_sections(self) -> str:
+        return self._get("number-of-sections")
 
-    def get_sections(self):
-        self._get_sections()
-        return self.sections.values()
+    @property
+    def size(self) -> str:
+        return self._get("size")
 
-    def get_section(self,va):
-        self._get_sections()
-        if va in self.sections: return self.sections[va]
-        for va in self.sections: print(va)
+    @property
+    def timestamp(self) -> str:
+        return self._get("time-stamp")
 
-    def get_coff_header(self): 
-        return self.xnode.find('coff-file-header')
+    @property
+    def file_characteristics(self) -> str:
+        return self._get("characteristics")
 
-    def get_machine(self): 
-        return self.get_coff_header().get('machine')
+    @property
+    def file_characteristics_text(self) -> List[str]:
+        xchar = self.xnode.find("file-characteristics")
+        if xchar is not None:
+            lines: List[str] = []
+            for x in xchar.findall("charx"):
+                xname = x.get("name")
+                if xname:
+                    lines.append((" " * 3) + xname)
+                else:
+                    raise UF.CHBError("Name not found in characteristics")
+            return lines
+        else:
+            raise UF.CHBError("file-characteristics not found in coff header")
 
-    def get_number_of_sections(self): 
-        return self.get_coff_header().get('number-of-sections')
 
-    def get_optional_header_size(self): 
-        return self.get_coff_header().get('size')
+class PEOptionalHeader:
 
-    def get_time_stamp(self): 
-        return self.get_coff_header().get('time-stamp')
+    def __init__(self, xnode: ET.Element) -> None:
+        self.xnode = xnode
 
-    def get_file_characteristics(self): 
-        return self.get_coff_header().get('characteristics')
+    def _get(self, tag: str, default: Optional[str] = None) -> str:
+        xval = self.xnode.get(tag)
+        if xval:
+            return xval
+        elif default:
+            return default
+        else:
+            raise UF.CHBError(tag + " not found in optional header")
 
-    def get_optional_header(self): 
-        return self.xnode.find('optional-header')
+    def get(self, tag: str) -> str:
+        if tag == "size-of-uninitialized-data":
+            return self.size_of_uninitialized_data
+        elif tag in optional_header_attributes:
+            return self._get(tag)
+        else:
+            raise UF.CHBError(tag + " is not a valid element for optional header")
 
-    def get_address_of_entry_point(self):
-        return self.get_optional_header().get('address-of-entry-point')
+    @property
+    def address_of_entry_point(self) -> str:
+        return self._get("address-of-entry-point")
 
-    def get_base_of_code(self):
-        return self.get_optional_header().get('base-of-code')
+    @property
+    def base_of_code(self) -> str:
+        return self._get("base-of-code")
 
-    def get_base_of_data(self):
-        return self.get_optional_header().get('base-of-data')
+    @property
+    def base_of_data(self) -> str:
+        return self._get("base-of-data")
 
-    def get_file_alignment(self):
-        return self.get_optional_header().get('file-alignment')
+    @property
+    def file_alignment(self) -> str:
+        return self._get("file-alignment")
 
-    def get_image_base(self):
-        return self.get_optional_header().get('image-base')
+    @property
+    def image_base(self) -> str:
+        return self._get("image-base")
 
-    def get_magic_number(self):
-        return self.get_optional_header().get('magic-number')
+    @property
+    def magic_number(self) -> str:
+        return self._get("magic-number")
 
-    def get_major_linker_version(self):
-        return self.get_optional_header().get('major-linker-version')
+    @property
+    def major_linker_version(self) -> str:
+        return self._get("major-linker-version")
 
-    def get_major_os_version(self):
-        return self.get_optional_header().get('major-os-version')
+    @property
+    def major_os_version(self) -> str:
+        return self._get("major-os-version")
 
-    def get_major_subsystem_version(self):
-        return self.get_optional_header().get('major-subsystem-version')
+    @property
+    def major_subsystem_version(self) -> str:
+        return self._get("major-subsystem-version")
 
-    def get_number_of_rva_and_sizes(self):
-        return self.get_optional_header().get('number-of-rva-and-sizes')
+    @property
+    def number_of_rva_and_sizes(self) -> str:
+        return self._get("number-of-rva-and-sizes")
 
-    def get_section_alignment(self):
-        return self.get_optional_header().get('section-alignment')
+    @property
+    def section_alignment(self) -> str:
+        return self._get("section-alignment")
 
-    def get_size_of_code(self):
-        return self.get_optional_header().get('size-of-code')
+    @property
+    def size_of_code(self) -> str:
+        return self._get("size-of-code")
 
-    def get_size_of_headers(self):
-        return self.get_optional_header().get('size-of-headers')
+    @property
+    def size_of_headers(self) -> str:
+        return self._get("size-of-headers")
 
-    def get_size_of_heap_commit(self):
-        return self.get_optional_header().get('size-of-heap-commit')
+    @property
+    def size_of_heap_commit(self) -> str:
+        return self._get("size-of-heap-commit")
 
-    def get_size_of_heap_reserve(self):
-        return self.get_optional_header().get('size-of-heap-reserve')
+    @property
+    def size_of_heap_reserve(self) -> str:
+        return self._get("size-of-heap-reserve")
 
-    def get_size_of_image(self):
-        return self.get_optional_header().get('size-of-image')
+    @property
+    def size_of_stack_reserve(self) -> str:
+        return self._get("size-of-stack-reserve")
 
-    def get_size_of_initialized_data(self):
-        return self.get_optional_header().get('size-of-initialized-data')
+    @property
+    def size_of_image(self) -> str:
+        return self._get("size-of-image")
 
-    def get_size_of_uninitialized_data(self):
-        return self.get_optional_header().get('size-of-uninitialized-data','0x0')
+    @property
+    def size_of_initialized_data(self) -> str:
+        return self._get("size-of-initialized-data")
 
-    def get_size_of_stack_commit(self):
-        return self.get_optional_header().get('size-of-stack-commit')
+    @property
+    def size_of_uninitialized_data(self) -> str:
+        return self._get("size-of-uninitialized-data", default="0x0")
 
-    def get_size_of_stack_reserve(self):
-        return self.get_optional_header().get('size-of-stack-reserve')
+    @property
+    def size_of_stack_commit(self) -> str:
+        return self._get("size-of-stack-commit")
 
-    def get_subsystem(self):
-        return self.get_optional_header().get('subsystem')
+    @property
+    def subsystem(self) -> str:
+        return self._get("subsystem")
 
-    def str_file_characteristics(self):
-        lines = []
-        for x in self.get_coff_header().find('file-characteristics').findall('charx'):
-            lines.append((' ' * 3) + x.get('name'))
-        return lines
 
-    def as_dictionary(self):
-        name = self.get_filename()
-        result = {}
-        result['name'] = name[:-5] if name.endswith('.iexe') else name[:-4] 
+class PEHeader:
+    """Main entry point to access the raw data in the executable."""
+
+    def __init__(
+            self,
+            app: "chb.app.AppAccess.AppAccess",
+            xnode: ET.Element) -> None:
+        self._app = app
+        self.xnode = xnode
+        self._sectionheaders: Dict[str, H.PESectionHeader] = {}
+        self._importtables: Dict[str, E.PEImportDirectoryEntry] = {}
+        self._sections: Dict[str, S.PESection] = {}
+        self._coffheader: Optional[PECoffFileHeader] = None
+        self._optionalheader: Optional[PEOptionalHeader] = None
+
+    @property
+    def pathname(self) -> str:
+        return self._app.path
+
+    @property
+    def filename(self) -> str:
+        return self._app.filename
+
+    @property
+    def models(self) -> "chb.models.ModelsAccess.ModelsAccess":
+        return self._app.models
+
+    @property
+    def section_headers(self) -> Dict[str, H.PESectionHeader]:
+        if len(self._sectionheaders) == 0:
+            xheaders = self.xnode.find("section-headers")
+            if xheaders is not None:
+                for h in xheaders.findall("section-header"):
+                    header = H.PESectionHeader(self, h)
+                    self._sectionheaders[header.name] = header
+            else:
+                raise UF.CHBError(
+                    "Element section-headers not found in PE header")
+        return self._sectionheaders
+
+    @property
+    def import_tables(self) -> Dict[str, E.PEImportDirectoryEntry]:
+        if len(self._importtables) == 0:
+            ximport = self.xnode.find("import-directory")
+            if ximport:
+                for i in ximport.findall("directory-entry"):
+                    entry = E.PEImportDirectoryEntry(self, i)
+                    self._importtables[entry.dllname] = entry
+        return self._importtables
+
+    @property
+    def sections(self) -> Dict[str, S.PESection]:
+        if len(self._sections) == 0:
+            for x in UF.get_pe_section_xnodes(self.pathname, self.filename):
+                section = S.PESection(self, x)
+                self._sections[section.virtual_address] = section
+        return self._sections
+
+    def has_section(self, va: str) -> bool:
+        return va in self.sections
+
+    def get_section(self, va: str) -> S.PESection:
+        if va in self.sections:
+            return self.sections[va]
+        else:
+            raise UF.CHBError("No section found for address " + va)
+
+    @property
+    def coff_header(self) -> PECoffFileHeader:
+        if self._coffheader is None:
+            xcoff = self.xnode.find("coff-file-header")
+            if xcoff:
+                self._coffheader = PECoffFileHeader(xcoff)
+            else:
+                raise UF.CHBError("No coff header found in PEHeader")
+        return self._coffheader
+
+    @property
+    def optional_header(self) -> PEOptionalHeader:
+        if self._optionalheader is None:
+            xoptional = self.xnode.find("optional-header")
+            if xoptional:
+                self._optionalheader = PEOptionalHeader(xoptional)
+            else:
+                raise UF.CHBError("No optional found in PEHeader")
+        return self._optionalheader
+
+    @property
+    def machine(self) -> str:
+        return self.coff_header.machine
+
+    @property
+    def number_of_sections(self) -> str:
+        return self.coff_header.number_of_sections
+
+    @property
+    def optional_header_size(self) -> str:
+        return self.coff_header.size
+
+    @property
+    def time_stamp(self) -> str:
+        return self.coff_header.timestamp
+
+    @property
+    def file_characteristics(self) -> str:
+        return self.coff_header.file_characteristics
+
+    @property
+    def address_of_entry_point(self) -> str:
+        return self.optional_header.address_of_entry_point
+
+    @property
+    def base_of_code(self) -> str:
+        return self.optional_header.base_of_code
+
+    @property
+    def base_of_data(self) -> str:
+        return self.optional_header.base_of_data
+
+    @property
+    def file_alignment(self) -> str:
+        return self.optional_header.file_alignment
+
+    @property
+    def image_base(self) -> str:
+        return self.optional_header.image_base
+
+    @property
+    def magic_number(self) -> str:
+        return self.optional_header.magic_number
+
+    @property
+    def major_linker_version(self) -> str:
+        return self.optional_header.major_linker_version
+
+    @property
+    def major_os_version(self) -> str:
+        return self.optional_header.major_os_version
+
+    @property
+    def major_subsystem_version(self) -> str:
+        return self.optional_header.major_subsystem_version
+
+    @property
+    def number_of_rva_and_sizes(self) -> str:
+        return self.optional_header.number_of_rva_and_sizes
+
+    @property
+    def section_alignment(self) -> str:
+        return self.optional_header.section_alignment
+
+    @property
+    def size_of_code(self) -> str:
+        return self.optional_header.size_of_code
+
+    @property
+    def size_of_headers(self) -> str:
+        return self.optional_header.size_of_headers
+
+    @property
+    def size_of_heap_commit(self) -> str:
+        return self.optional_header.size_of_heap_commit
+
+    @property
+    def size_of_heap_reserve(self) -> str:
+        return self.optional_header.size_of_heap_reserve
+
+    @property
+    def size_of_image(self) -> str:
+        return self.optional_header.size_of_image
+
+    @property
+    def size_of_initialized_data(self) -> str:
+        return self.optional_header.size_of_initialized_data
+
+    @property
+    def size_of_uninitialized_data(self) -> str:
+        return self.optional_header.size_of_uninitialized_data
+
+    @property
+    def size_of_stack_commit(self) -> str:
+        return self.optional_header.size_of_stack_commit
+
+    @property
+    def size_of_stack_reserve(self) -> str:
+        return self.optional_header.size_of_stack_reserve
+
+    @property
+    def subsystem(self) -> str:
+        return self.optional_header.subsystem
+
+    @property
+    def file_characteristics_text(self) -> List[str]:
+        return self.coff_header.file_characteristics_text
+
+    def as_dictionary(self) -> Dict[str, Any]:
+        name = self.filename
+        result: Dict[str, Any] = {}
+        result['name'] = name[:-5] if name.endswith('.iexe') else name[:-4]
         result['peheader'] = {}
         localetable = UF.get_locale_tables(categories=["PE"])
-        coffheader = self.get_coff_header()
-        optionalheader = self.get_optional_header()
+        coffheader = self.coff_header
+        optionalheader = self.optional_header
         for p in coff_header_attributes:
             propertyvalue = coffheader.get(p)
             if p in valuedescriptor:
@@ -216,71 +458,56 @@ class PEHeader():
             resultp['value'] = propertyvalue
             resultp['heading'] = localetable['peheader'][p]
         result['peheader']['file-characteristics'] = resultfc = {}
-        resultfc['value'] = ','.join(self.str_file_characteristics())
+        resultfc['value'] = ','.join(self.file_characteristics_text)
         resultfc['heading'] = 'File characteristics'
         result['import_tables'] = {}
-        for table in self.get_import_tables():
+        for tablename in self.import_tables:
+            table = self.import_tables[tablename]
             result['import_tables'][table.dllname] = table.as_dictionary()
         result['section_headers'] = {}
-        for header in self.get_section_headers():
+        for h in self.section_headers:
+            header = self.section_headers[h]
             result['section_headers'][header.name] = header.as_dictionary()
         return result
 
-    def __str__(self):
-        lines = []
-        def addline(tag,value):
-            lines.append(tag.ljust(32) + ': ' +  str(value))
+    def __str__(self) -> str:
+        lines: List[str] = []
+
+        def addline(tag: str, value: str) -> None:
+            lines.append(tag.ljust(32) + ': ' + str(value))
+
         lines.append('=~' * 30)
-        lines.append('PE Header for ' + self.get_filename())
+        lines.append('PE Header for ' + self.filename)
         lines.append('-' * 60)
-        addline('Machine', self.get_machine())
-        addline('Number of sections', self.get_number_of_sections())
-        addline('Size of optional header', self.get_optional_header_size())
-        addline('Time/date', self.get_time_stamp())
-        addline('Characteristics', self.get_file_characteristics())
+        addline('Machine', self.machine)
+        addline('Number of sections', self.number_of_sections)
+        addline('Size of optional header', self.optional_header_size)
+        addline('Time/date', self.time_stamp)
+        addline('Characteristics', self.file_characteristics)
         lines.append(' ')
-        lines.extend(self.str_file_characteristics())
+        lines.extend(self.file_characteristics_text)
         lines.append(' ')
-        addline('Magic number',self.get_magic_number())
-        addline('Major linker version', self.get_major_linker_version())
-        addline('Size of code', self.get_size_of_code())
-        addline('Size of initialized data', self.get_size_of_initialized_data())
-        addline('Size of uninitialized data', self.get_size_of_uninitialized_data())
-        addline('Address of entry point', self.get_address_of_entry_point())
-        addline('Base of code', self.get_base_of_code())
-        addline('Base of data', self.get_base_of_data())
-        addline('Image base', self.get_image_base())
-        addline('Section alignment', self.get_section_alignment())
-        addline('File alignment', self.get_file_alignment())
-        addline('Major Operating System version', self.get_major_os_version())
-        addline('Major Subsystem version', self.get_major_subsystem_version())
-        addline('Size of image', self.get_size_of_image())
-        addline('Size of headers', self.get_size_of_headers())
-        addline('Subsystem', self.get_subsystem())
+        addline('Magic number', self.magic_number)
+        addline('Major linker version', self.major_linker_version)
+        addline('Size of code', self.size_of_code)
+        addline('Size of initialized data', self.size_of_initialized_data)
+        addline('Size of uninitialized data', self.size_of_uninitialized_data)
+        addline('Address of entry point', self.address_of_entry_point)
+        addline('Base of code', self.base_of_code)
+        addline('Base of data', self.base_of_data)
+        addline('Image base', self.image_base)
+        addline('Section alignment', self.section_alignment)
+        addline('File alignment', self.file_alignment)
+        addline('Major Operating System version', self.major_os_version)
+        addline('Major Subsystem version', self.major_subsystem_version)
+        addline('Size of image', self.size_of_image)
+        addline('Size of headers', self.size_of_headers)
+        addline('Subsystem', self.subsystem)
         lines.append(' ')
-        addline('Size of stack reserve', self.get_size_of_stack_reserve())
-        addline('Size of stack commit', self.get_size_of_stack_commit())
-        addline('Size of heap reserve', self.get_size_of_heap_reserve())
-        addline('Size of heap commit', self.get_size_of_heap_commit())
-        addline('Number of rva and sizes', self.get_number_of_rva_and_sizes())
+        addline('Size of stack reserve', self.size_of_stack_reserve)
+        addline('Size of stack commit', self.size_of_stack_commit)
+        addline('Size of heap reserve', self.size_of_heap_reserve)
+        addline('Size of heap commit', self.size_of_heap_commit)
+        addline('Number of rva and sizes', self.number_of_rva_and_sizes)
         lines.append('-' * 60)
         return '\n'.join(lines)
-
-    def _get_section_headers(self):
-        if len(self.sectionheaders) == 0:
-            for h in self.xnode.find('section-headers').findall('section-header'):
-                header = PESectionHeader(self,h)
-                self.sectionheaders[header.name] = header
-
-    def _get_import_tables(self):
-        if len(self.importtables) == 0:
-            for i in self.xnode.find('import-directory').findall('directory-entry'):
-                entry = PEImportDirectoryEntry(self,i)
-                self.importtables[entry.dllname] = entry
-
-    def _get_sections(self):
-        if len(self.sections) == 0:
-            for x in UF.get_pe_section_xnodes(self.get_path_name(), self.get_filename()):
-                section = PESection(self,x)
-                self.sections[section.get_virtual_address()] = section
-                
