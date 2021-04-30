@@ -1,11 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -16,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,7 +28,12 @@
 # ------------------------------------------------------------------------------
 import xml.etree.ElementTree as ET
 
+from typing import Any, Dict, List, TYPE_CHECKING
+
 import chb.util.fileutil as UF
+
+if TYPE_CHECKING:
+    import chb.elfformat.ELFHeader
 
 sectionheader_attributes = [
     "sh_type",
@@ -42,7 +48,7 @@ sectionheader_attributes = [
     "sh_entsize"
     ]
 
-sectionheadertypes =  {
+sectionheadertypes = {
     "0x0": "SHT_NullSection",
     "0x1": "SHT_ProgBits",
     "0x2": "SHT_SymTab",
@@ -62,11 +68,13 @@ sectionheadertypes =  {
     "0x12": "SHT_SymTabShndx"
     }
 
-def get_section_header_type(s):
+
+def get_section_header_type(s: str) -> str:
     if s in sectionheadertypes:
         return sectionheadertypes[s]
     else:
         return s
+
 
 sectionheaderflags = {
     0: "WRITE",
@@ -82,94 +90,134 @@ sectionheaderflags = {
     11: "COMPRESSED"
     }
 
-def get_section_header_flag(i):
+
+def get_section_header_flag(i: int) -> str:
     if i in sectionheaderflags:
         return sectionheaderflags[i]
-    else: return '?'
+    else:
+        return "?"
 
-def get_section_header_flags(flags):
-    binstring = bin(int(flags,16))[2:].zfill(32)
-    result = ''
-    for (i,c) in enumerate(str(binstring)):
-        if c == "0": continue
-        result += ' ' + get_section_header_flag(31-i)
+
+def get_section_header_flags(flags: str) -> str:
+    binstring = bin(int(flags, 16))[2:].zfill(32)
+    result = ""
+    for (i, c) in enumerate(str(binstring)):
+        if c == "0":
+            continue
+        result += " " + get_section_header_flag(31-i)
     return result
-        
-class ELFSectionHeader():
 
-    def __init__(self,elfheader,xnode):
+
+class ELFSectionHeader:
+
+    def __init__(self,
+                 elfheader: "chb.elfformat.ELFHeader.ELFHeader",
+                 xnode: ET.Element):
         self.elfheader = elfheader
         self.xnode = xnode
-        self.name = self.xnode.get('name')
-        self.index = int(self.xnode.get('index'))
 
-    def get_values(self):
-        result = {}
-        result['index'] = int(self.xnode.get('index'))
-        result['name'] = self.xnode.get('name')
+    @property
+    def name(self) -> str:
+        xname = self.xnode.get("name")
+        if xname is not None:
+            return xname
+        else:
+            raise UF.CHBError("Name not found in section header")
+
+    @property
+    def index(self) -> str:
+        xindex = self.xnode.get("index")
+        if xindex:
+            return xindex
+        else:
+            raise UF.CHBError("Index not found in section header")
+
+    def get_default_attribute_value(self, tag: str, default: str) -> str:
+        xprop = self.xnode.get(tag)
+        if xprop:
+            return xprop
+        else:
+            return default
+
+    def attribute_values(self) -> Dict[str, str]:
+        result: Dict[str, str] = {}
+        result["index"] = self.index
+        result["name"] = self.name
         for p in sectionheader_attributes:
-            result[p] = self.xnode.get(p,'0x0')
+            result[p] = self.get_default_attribute_value(p, "0x0")
         return result
 
-    def get_section_header_type(self):
-        shtype = self.xnode.get('sh_type','0x0')
+    @property
+    def section_header_type(self) -> str:
+        shtype = self.get_default_attribute_value("sh_type", "0x0")
         return get_section_header_type(shtype)
 
-    def get_vaddr(self):
-        return self.xnode.get('sh_addr','0x0')
+    @property
+    def vaddr(self) -> str:
+        return self.get_default_attribute_value("sh_addr", "0x0")
 
-    def get_size(self):
-        return self.xnode.get('sh_size','0x0')
+    @property
+    def size(self) -> str:
+        return self.get_default_attribute_value("sh_size", "0x0")
 
-    def get_flags_string(self):
-        shflags = self.xnode.get('sh_flags','0x0')
+    @property
+    def flags_string(self) -> str:
+        shflags = self.get_default_attribute_value("sh_flags", "0x0")
         return get_section_header_flags(shflags)
 
-    def get_linked_section(self):
-        return self.xnode.get('sh_link')
+    @property
+    def linked_section(self) -> str:
+        return self.get_default_attribute_value("sh_link", "0x0")
 
-    def is_string_table(self):
-        return self.get_section_header_type() == 'SHT_StrTab'
+    @property
+    def is_string_table(self) -> bool:
+        return self.section_header_type == "SHT_StrTab"
 
-    def is_symbol_table(self):
-        return self.get_section_header_type() == 'SHT_SymTab'
+    @property
+    def is_symbol_table(self) -> bool:
+        return self.section_header_type == "SHT_SymTab"
 
-    def is_dynamic_symbol_table(self):
-        return self.get_section_header_type() == 'SHT_DynSym'
+    @property
+    def is_dynamic_symbol_table(self) -> bool:
+        return self.section_header_type == "SHT_DynSym"
 
-    def is_relocation_table(self):
-        return self.get_section_header_type() == 'SHT_Rel'
+    @property
+    def is_relocation_table(self) -> bool:
+        return self.section_header_type == "SHT_Rel"
 
-    def is_dynamic_table(self):
-        return self.get_section_header_type() == 'SHT_Dynamic'
+    @property
+    def is_dynamic_table(self) -> bool:
+        return self.section_header_type == "SHT_Dynamic"
 
-    def is_initialized(self):
-        return not(self.get_section_header_type() == 'SHT_NoBits')
+    @property
+    def is_initialized(self) -> bool:
+        return not(self.section_header_type == "SHT_NoBits")
 
-    def as_dictionary(self):
-        result = {}
-        result['index'] = int(self.xnode.get('index'));
-        result['name'] = self.xnode.get('name')
-        localetable = UF.get_locale_tables(tables=[ ("ELF","elfsectionheader")  ])
+    def as_dictionary(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        result["index"] = self.index
+        result["name"] = self.name
+        localetable = UF.get_locale_tables(tables=[("ELF", "elfsectionheader")])
         for p in sectionheader_attributes:
-            propertyvalue = self.xnode.get(p,'0x0')
-            if p == 'sh_type':
+            propertyvalue = self.get_default_attribute_value(p, "0x0")
+            if p == "sh_type":
                 propertyvalue = get_section_header_type(propertyvalue)
-            if p == 'sh_flags':
+            if p == "sh_flags":
                 flags = get_section_header_flags(propertyvalue)
                 if len(flags) > 0:
-                    propertyvalue += ' (' + str(flags) + ')'
+                    propertyvalue += " (" + str(flags) + ")"
             result[p] = {}
-            result[p]['value'] = propertyvalue
-            result[p]['heading'] = localetable['elfsectionheader'][p]
+            result[p]["value"] = propertyvalue
+            result[p]["heading"] = localetable["elfsectionheader"][p]
         return result
 
-    def __str__(self):
+    def __str__(self) -> str:
         d = self.as_dictionary()
-        lines = []
+        lines: List[str] = []
         for k in sorted(d):
-            if k == 'index': continue
-            if k == 'name': continue
-            lines.append(str(d[k]['heading']).ljust(18) + ': ' + str(d[k]['value']))
-        return '\n'.join(lines)
-        
+            if k == "index":
+                continue
+            if k == "name":
+                continue
+            lines.append(str(d[k]["heading"]).ljust(18) + ": " + str(d[k]["value"]))
+        return "\n".join(lines)
