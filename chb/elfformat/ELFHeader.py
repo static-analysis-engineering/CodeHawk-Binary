@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -26,7 +28,8 @@
 # ------------------------------------------------------------------------------
 import xml.etree.ElementTree as ET
 
-import chb.util.fileutil as UF
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+
 from chb.elfformat.ELFProgramHeader import ELFProgramHeader
 from chb.elfformat.ELFSectionHeader import ELFSectionHeader
 from chb.elfformat.ELFSection import ELFSection
@@ -35,6 +38,11 @@ from chb.elfformat.ELFSection import ELFSymbolTable
 from chb.elfformat.ELFSection import ELFRelocationTable
 from chb.elfformat.ELFSection import ELFDynamicTable
 from chb.elfformat.ELFDictionary import ELFDictionary
+
+import chb.util.fileutil as UF
+
+if TYPE_CHECKING:
+    import chb.app.AppAccess
 
 fileheader_attributes = [
     "e_machine",
@@ -77,326 +85,367 @@ versions = {
     "0x1": "Current version"
     }
 
-def get_value(d,v):
+
+def get_value(d: Dict[str, str], v: str) -> str:
     if v in d:
         return d[v]
     else:
         return v
 
-valuedescriptor = {
-    "e_machine": lambda v: get_value(machines,v),
-    "e_type": lambda v: get_value(filetypes,v),
+
+valuedescriptor: Dict[str, Callable[[str], str]] = {
+    "e_machine": lambda v: get_value(machines, v),
+    "e_type": lambda v: get_value(filetypes, v),
     "e_ehsize": lambda v: str(v) + " (bytes)",
     "e_phentsize": lambda v: str(v) + " (bytes)",
     "e_shentsize": lambda v: str(v) + " (bytes)",
     "e_phoff": lambda v: str(v) + " (bytes into file)",
     "e_shoff": lambda v: str(v) + " (bytes into file)",
-    "e_version": lambda v: get_value(versions,v)
+    "e_version": lambda v: get_value(versions, v)
     }
-    
+
 
 class ELFHeader():
 
-    def __init__(self,app,xnode):
+    def __init__(
+            self,
+            app: "chb.app.AppAccess.AppAccess",
+            xnode: ET.Element) -> None:
         self.app = app
         self.xnode = xnode
-        self.dictionary = ELFDictionary()
-        self.programheaders = []
-        self.sectionheaders = []
-        self.sections = {}
-        self._initialize()
+        self._dictionary = ELFDictionary()
+        self._programheaders: List[ELFProgramHeader] = []
+        self._sectionheaders: List[ELFSectionHeader] = []
+        self._sections: Dict[int, ELFSection] = {}
+        xdictionary = UF.get_elf_dictionary_xnode(self.app.path, self.app.filename)
+        self._dictionary.initialize(xdictionary)
 
-    def get_file_header(self):
-        return self.xnode.find('elf-file-header')
+    def _get_default_attribute(self, tag: str, default: str) -> str:
+        xprop = self.xnode.get(tag)
+        if xprop:
+            return xprop
+        else:
+            return default
 
-    def get_image_base(self):
+    @property
+    def dictionary(self) -> ELFDictionary:
+        return self._dictionary
+
+    @property
+    def xfile_header(self) -> ET.Element:
+        xheader = self.xnode.find("elf-file-header")
+        if xheader is not None:
+            return xheader
+        else:
+            raise UF.CHBError("File header not found in ELFHeader")
+
+    @property
+    def programheaders(self) -> List[ELFProgramHeader]:
+        if len(self._programheaders) == 0:
+            xheaders = self.xnode.find("elf-program-headers")
+            if xheaders:
+                for h in xheaders.findall("program-header"):
+                    self._programheaders.append(ELFProgramHeader(self, h))
+            else:
+                raise UF.CHBError("Elf-program-headers element not found")
+        return self._programheaders
+
+    @property
+    def sectionheaders(self) -> List[ELFSectionHeader]:
+        if len(self._sectionheaders) == 0:
+            xheaders = self.xnode.find("elf-section-headers")
+            if xheaders:
+                for h in xheaders.findall("section-header"):
+                    self._sectionheaders.append(ELFSectionHeader(self, h))
+            else:
+                raise UF.CHBError("Elf-section-headers element not found")
+        return self._sectionheaders
+
+    @property
+    def image_base(self) -> str:
         result = 0xffffffff
         for ph in self.programheaders:
-            vaddr = ph.get_virtual_address()
-            if vaddr:
-                vaddr = int(vaddr,16)
+            hexvaddr = ph.virtual_address
+            if hexvaddr:
+                vaddr = int(hexvaddr, 16)
                 if vaddr < result:
                     result = vaddr
         return hex(result)
 
-    def is_big_endian(self):
-        return self.xnode.get('endian','little') == 'big'
+    @property
+    def is_big_endian(self) -> bool:
+        return self._get_default_attribute("endian", "little") == "big"
 
-    def get_e_machine(self):
-        return self.get_file_header().get('e-machine')
+    def e_machine(self) -> str:
+        xmachine = self.xfile_header.get("e-machine")
+        if xmachine:
+            return xmachine
+        else:
+            raise UF.CHBError("E-machine attribute not found in ELFHeader")
 
-    def has_string_table(self):
-        return any( [ s.is_string_table() for s in self.sectionheaders ])
+    def has_string_table(self) -> bool:
+        return any([s.is_string_table for s in self.sectionheaders])
 
-    def has_symbol_table(self):
-        return any( [ s.is_symbol_table() for s in self.sectionheaders ])
+    def has_symbol_table(self) -> bool:
+        return any([s.is_symbol_table for s in self.sectionheaders])
 
-    def has_dynamic_symbol_table(self):
-        return any( [ s.is_dynamic_symbol_table() for s in self.sectionheaders ])
+    def has_dynamic_symbol_table(self) -> bool:
+        return any([s.is_dynamic_symbol_table for s in self.sectionheaders])
 
-    def has_dynamic_table(self):
-        return any( [ s.is_dynamic_table() for s in self.sectionheaders ])
+    def has_dynamic_table(self) -> bool:
+        return any([s.is_dynamic_table for s in self.sectionheaders])
 
-    def get_string_table_indices(self):      # there can be multiple
-        result = []
-        for (i,h) in enumerate(self.sectionheaders):
-            if h.is_string_table(): result.append(i)
+    def get_string_table_indices(self) -> List[int]:      # there can be multiple
+        result: List[int] = []
+        for (i, h) in enumerate(self.sectionheaders):
+            if h.is_string_table:
+                result.append(i)
         return result
 
-    def get_symbol_table_index(self):       # there is only one
-        for (i,h) in enumerate(self.sectionheaders):
-            if h.is_symbol_table(): return i
+    def get_symbol_table_index(self) -> int:       # there is only one
+        for (i, h) in enumerate(self.sectionheaders):
+            if h.is_symbol_table:
+                return i
         return -1
 
-    def get_dynamic_symbol_table_index(self):     # there is only one
-        for (i,h) in enumerate(self.sectionheaders):
-            if h.is_dynamic_symbol_table(): return i
+    def get_dynamic_symbol_table_index(self) -> int:     # there is only one
+        for (i, h) in enumerate(self.sectionheaders):
+            if h.is_dynamic_symbol_table:
+                return i
         return -1
 
-    def get_dynamic_table_index(self):      # there is only one
-        for (i,h) in enumerate(self.sectionheaders):
-            if h.is_dynamic_table(): return i
+    def get_dynamic_table_index(self) -> int:      # there is only one
+        for (i, h) in enumerate(self.sectionheaders):
+            if h.is_dynamic_table:
+                return i
         return -1
 
-    def get_string_table(self,index):
-        if index in self.sections:
-            return self.sections[index]
+    def get_string_table(self, index: int) -> ELFSection:
+        if index in self._sections:
+            return self._sections[index]
         else:
-            sectionx = UF.get_elf_section_xnode(self.app.path,self.app.filename,index)
-            if sectionx is None:
-                print('Section ' + str(index) + ' could not be found')
-                return
-            else:
-                self.sections[index] = ELFStringTable(self,sectionx,self.sectionheaders[index])
-                return self.sections[index]
+            sectionx = UF.get_elf_section_xnode(
+                self.path, self.filename, str(index))
+            self._sections[index] = ELFStringTable(
+                self, self.sectionheaders[index], sectionx)
+            return self._sections[index]
 
-    def get_string_tables(self):
+    def get_string_tables(self) -> List[ELFSection]:
         indices = self.get_string_table_indices()
-        result = []
+        result: List[ELFSection] = []
         for index in indices:
-            if index in self.sections:
-                result.append(self.sections[index])
+            if index in self._sections:
+                result.append(self._sections[index])
             else:
-                sectionx = UF.get_elf_section_xnode(self.app.path,self.app.filename,index)
-                if sectionx is None:
-                    print('Section ' + str(index) + ' could not be found')
-                    return
-                else:
-                    self.sections[index] = ELFStringTable(self,sectionx,self.sectionheaders[index])
-                    result.append(self.sections[index])
+                sectionx = UF.get_elf_section_xnode(
+                    self.path, self.filename, str(index))
+                self._sections[index] = ELFStringTable(
+                    self, self.sectionheaders[index], sectionx)
+                result.append(self._sections[index])
         return result
 
-    def set_path_filename(self,path,filename):
-        self.path = path
-        self.filename = filename
+    @property
+    def path(self) -> str:
+        return self.app.path
 
-    def get_path(self):
-        if self.app:
-            return self.app.path
-        else:
-            return self.path
+    @property
+    def filename(self) -> str:
+        return self.app.filename
 
-    def get_filename(self):
-        if self.app:
-            return self.app.filename
-        else:
-            return self.filename
-
-    def get_raw_sections(self):
-        for (index,h) in enumerate(self.sectionheaders):
-            sectionx = UF.get_elf_section_xnode(self.get_path(),self.get_filename(),index)
-            if sectionx is None:
-                print('Section ' + str(index) + ' could not be found')
+    @property
+    def sections(self) -> Dict[int, ELFSection]:
+        for (index, h) in enumerate(self.sectionheaders):
+            if index in self._sections:
                 continue
+            xsection = UF.get_elf_section_xnode(
+                self.path, self.filename, str(index))
+            if h.is_dynamic_table:
+                self._sections[index] = ELFDynamicTable(
+                    self, self.sectionheaders[index], xsection)
+            elif h.is_string_table:
+                self._sections[index] = ELFStringTable(
+                    self, self.sectionheaders[index], xsection)
+            elif h.is_dynamic_symbol_table or h.is_symbol_table:
+                self._sections[index] = ELFSymbolTable(
+                    self, self.sectionheaders[index], xsection)
             else:
-                self.sections[index] = ELFSection(self,sectionx,self.sectionheaders[index])
+                self._sections[index] = ELFSection(
+                    self, self.sectionheaders[index], xsection)
+        return self._sections
 
-    def get_memory_value(self,address,index):
-        if not index in self.sections:
-            self.get_raw_sections()
+    def get_memory_value(self, index: int, addr: int) -> int:
         if index in self.sections:
-            result = self.sections[index].get_byte_value(address)
-            return result
+            return self.sections[index].get_byte_value(addr)
         else:
-            print('Section ' + str(index) + ' not found')
-            return None
+            raise UF.CHBError("Section " + str(index) + " not found")
 
-    def get_string(self,index,address):
-        if not index in self.sections:
-            self.get_raw_sections()
+    def get_string(self, index: int, addr: int) -> str:
         if index in self.sections:
-            return self.sections[index].get_string(address)
+            return self.sections[index].get_string(addr)
         else:
-            print('Index not found: ' + str(index))
-            return None
+            raise UF.CHBError("Section " + str(index) + " not found")
 
-    def get_elf_section_index(self,address):
+    def get_elf_section_index(self, addr: int) -> Optional[int]:
         for h in self.sectionheaders:
-            if h.is_initialized():
-                vaddr = int(h.get_vaddr(),16)
-                size = int(h.get_size(),16)
-                if address >= vaddr and address < vaddr + size:
-                    return h.index
+            if h.is_initialized:
+                vaddr = int(h.vaddr, 16)
+                size = int(h.size, 16)
+                if addr >= vaddr and addr < vaddr + size:
+                    return int(h.index)
         return None
 
-    def get_symbol_table(self):
+    def get_symbol_table(self) -> ELFSection:
         index = self.get_symbol_table_index()
         if index in self.sections:
             return self.sections[index]
         else:
-            sectionx = UF.get_elf_section_xnode(self.app.path,self.app.filename,index)
-            if sectionx is None:
-                print('Section ' + str(index) + ' could not be found')
-                return
-            else:
-                self.sections[index] = ELFSymbolTable(self,sectionx,self.sectionheaders[index])
-                return self.sections[index]
+            xsection = UF.get_elf_section_xnode(
+                self.path, self.filename, str(index))
+            self.sections[index] = ELFSymbolTable(
+                self, self.sectionheaders[index], xsection)
+            return self.sections[index]
 
-    def get_dynamic_symbol_table(self):
+    def get_dynamic_symbol_table(self) -> ELFSection:
         index = self.get_dynamic_symbol_table_index()
         if index in self.sections:
             return self.sections[index]
         else:
-            sectionx = UF.get_elf_section_xnode(self.app.path,self.app.filename,index)
-            if sectionx is None:
-                print('Section ' + str(index) + ' could not be found')
-                return
-            else:
-                self.sections[index] = ELFSymbolTable(self,sectionx,self.sectionheaders[index])
-                return self.sections[index]
+            xsection = UF.get_elf_section_xnode(
+                self.path, self.filename, str(index))
+            self.sections[index] = ELFSymbolTable(
+                self, self.sectionheaders[index], xsection)
+            return self.sections[index]
 
-    def get_relocation_tables(self):
-        result = []
+    def get_relocation_tables(self) -> List[Tuple[ELFSectionHeader, ELFSection]]:
+        result: List[Tuple[ELFSectionHeader, ELFSection]] = []
         for sh in self.sectionheaders:
-            if sh.is_relocation_table():
-                if not sh.index in self.sections:
-                    sectionx = UF.get_elf_section_xnode(self.app.path,self.app.filename,sh.index)
-                if sectionx is None:
-                    print('Section ' + str(index) + ' could not be found')
-                    continue
-                else:
-                    self.sections[sh.index] = ELFRelocationTable(self,sectionx,self.sectionheaders[sh.index])
-                result.append((sh,self.sections[sh.index]))
+            if sh.is_relocation_table:
+                if sh.index not in self.sections:
+                    xsection = UF.get_elf_section_xnode(
+                        self.path, self.filename, sh.index)
+                    index = int(sh.index)
+                    self._sections[index] = ELFRelocationTable(
+                        self, self.sectionheaders[index], xsection)
+                result.append((sh, self.sections[index]))
         return result
 
-    def get_dynamic_table(self):
+    def get_dynamic_table(self) -> ELFSection:
         index = self.get_dynamic_table_index()
         if index in self.sections:
             return self.sections[index]
         else:
-            sectionx = UF.get_elf_section_xnode(self.app.path,self.app.filename,index)
-            if sectionx is None:
-                print('Section ' + str(index) + ' could not be found')
-                return
-            else:
-                self.sections[index] = ELFDynamicTable(self,sectionx,self.sectionheaders[index])
-                return self.sections[index]
+            xsection = UF.get_elf_section_xnode(
+                self.path, self.filename, str(index))
+            self.sections[index] = ELFDynamicTable(
+                self, self.sectionheaders[index], xsection)
+            return self.sections[index]
 
-
-    def as_dictionary(self):
-        ## note: update for multiple string tables
-        ##       add relocation tables
+    def as_dictionary(self) -> Dict[str, Any]:
+        # note: update for multiple string tables
+        #       add relocation tables
         try:
-            result = {}
-            result['name'] = self.app.filename
-            result['fileheader'] = {}
-            result['programheaders'] = []
-            result['sectionheaders'] = []
-            fileheader = self.get_file_header()
+            result: Dict[str, Any] = {}
+            result["name"] = self.filename
+            result["fileheader"] = {}
+            result["programheaders"] = []
+            result["sectionheaders"] = []
+            fileheader = self.xfile_header
             localetable = UF.get_locale_tables(categories=["ELF"])
             for p in fileheader_attributes:
                 propertyvalue = fileheader.get(p)
+                if propertyvalue is None:
+                    raise UF.CHBError("Property " + p + " not found in file-header")
                 if p in valuedescriptor:
                     propertyvalue = valuedescriptor[p](propertyvalue)
-                result['fileheader'][p] = {}
-                result['fileheader'][p]['value'] = propertyvalue
-                result['fileheader'][p]['heading'] = localetable['elfheader'][p]
-            for p in self.programheaders:
-                result['programheaders'].append(p.as_dictionary())
+                result["fileheader"][p] = {}
+                result["fileheader"][p]["value"] = propertyvalue
+                result["fileheader"][p]["heading"] = localetable["elfheader"][p]
+            for ph in self.programheaders:
+                result["programheaders"].append(ph.as_dictionary())
             for s in self.sectionheaders:
-                result['sectionheaders'].append(s.as_dictionary())
-            if  self.has_string_table():
-                result['stringtables'] = {}
-                for s in self.get_string_tables():
-                    result['stringtables'][s.get_name()] = s.as_dictionary()
+                result["sectionheaders"].append(s.as_dictionary())
+            if self.has_string_table():
+                result["stringtables"] = {}
+                for ss in self.get_string_tables():
+                    result["stringtables"][ss.name] = s.as_dictionary()
             if self.has_symbol_table():
-                result['symboltable'] = self.get_symbol_table().as_dictionary()
+                result["symboltable"] = self.get_symbol_table().as_dictionary()
             if self.has_dynamic_symbol_table():
-                result['dynamicsymboltable'] = self.get_dynamic_symbol_table().as_dictionary()
+                dynsymtable = self.get_dynamic_symbol_table()
+                result["dynamicsymboltable"] = dynsymtable.as_dictionary()
             if self.has_dynamic_table():
-                result['dynamictable'] = self.get_dynamic_table().as_dictionary()
+                result["dynamictable"] = self.get_dynamic_table().as_dictionary()
             return result
         except KeyError as e:
-            raise UF.KTKeyError(str(e))
+            raise UF.CHBError("KeyError in ELFHeader: " + str(e))
 
-    def section_layout_to_string(self):
-        lines = []
-        lines.append('\nSection Layout\n')
-        lines.append('index'.ljust(8)
-                         + 'name'.ljust(16) + 'start'.rjust(10) + 'size'.rjust(10)
-                         + '   ' + 'flags')
-        lines.append('-' * 80)
-        for s in sorted(self.sectionheaders,key=lambda s:s.index):
-            lines.append(str(s.index).rjust(3) + '     '
-                             + s.name.ljust(16) + s.get_vaddr().rjust(10)
-                             + s.get_size().rjust(10)
-                             + '   ' + s.get_flags_string())
-        return '\n'.join(lines)
+    def section_layout_to_string(self) -> str:
+        lines: List[str] = []
+        lines.append("\nSection Layout\n")
+        lines.append("index".ljust(8)
+                     + "name".ljust(16)
+                     + "start".rjust(10)
+                     + "size".rjust(10)
+                     + "   "
+                     + "flags")
+        lines.append("-" * 80)
+        for s in sorted(self.sectionheaders, key=lambda s: s.index):
+            lines.append(str(s.index).rjust(3)
+                         + "     "
+                         + s.name.ljust(16)
+                         + s.vaddr.rjust(10)
+                         + s.size.rjust(10)
+                         + "   "
+                         + s.flags_string)
+        return "\n".join(lines)
 
-    def __str__(self):
+    def __str__(self) -> str:
         d = self.as_dictionary()
-        lines = []
-        for k in d['fileheader']:
-            lines.append(str(d['fileheader'][k]['heading']).ljust(35)
-                             + ': ' + str(d['fileheader'][k]['value']))
-        lines.append('\nProgram Headers')
-        lines.append('-' * 80)
+        lines: List[str] = []
+        for k in d["fileheader"]:
+            lines.append(str(d["fileheader"][k]["heading"]).ljust(35)
+                         + ": "
+                         + str(d["fileheader"][k]["value"]))
+        lines.append("\nProgram Headers")
+        lines.append("-" * 80)
         for p in self.programheaders:
-            lines.append('Program header ' + str(p.get_index()))
+            lines.append("Program header " + str(p.index))
             lines.append(str(p))
-            lines.append(' ')
-        for s in sorted(self.sectionheaders,key=lambda s:s.index):
-            lines.append('Section header ' + str(s.index) + ' (' + str(s.name) + ')')
+            lines.append(" ")
+        for s in sorted(self.sectionheaders, key=lambda s: s.index):
+            lines.append("Section header " + str(s.index) + " (" + str(s.name) + ")")
             lines.append(str(s))
-            lines.append(' ')
+            lines.append(" ")
         if self.has_string_table():
-            for s in self.get_string_tables():
-                lines.append('\nString table: ' + s.get_name())
-                lines.append(str(s))
+            for ss in self.get_string_tables():
+                lines.append("\nString table: " + ss.name)
+                lines.append(str(ss))
         if self.has_symbol_table():
             symtab = self.get_symbol_table()
-            lines.append('\nSymbol Table')
-            lines.append('-- linked string table section: '
-                             + str(int(symtab.sectionheader.get_linked_section(),16)))
+            lines.append("\nSymbol Table")
+            lines.append("-- linked string table section: "
+                         + str(int(symtab.sectionheader.linked_section, 16)))
             lines.append(str(symtab))
         if self.has_dynamic_symbol_table():
             symtab = self.get_dynamic_symbol_table()
-            lines.append('\nDynamic Symbol Table')
-            lines.append('-- linked string table section: '
-                             + str(int(symtab.sectionheader.get_linked_section(),16)))
+            lines.append("\nDynamic Symbol Table")
+            lines.append("-- linked string table section: "
+                         + str(int(symtab.sectionheader.linked_section, 16)))
             lines.append(str(symtab))
-        for (sh,s) in self.get_relocation_tables():
-            lines.append('\nRelocation Table '  + str(sh.index) + ' (' + str(sh.name) + ')')
-            lines.append('-- linked symbol table section: '
-                             + str(int(sh.get_linked_section(),16)))
-            lines.append(str(s))
+        for (sh, section) in self.get_relocation_tables():
+            lines.append("\nRelocation Table "
+                         + str(sh.index)
+                         + " ("
+                         + str(sh.name)
+                         + ")")
+            lines.append("-- linked symbol table section: "
+                         + str(int(sh.linked_section, 16)))
+            lines.append(str(section))
         if self.has_dynamic_table():
             table = self.get_dynamic_table()
-            lines.append('\nDynamic Table')
-            lines.append('-- linked string table section: '
-                             + str(int(table.sectionheader.get_linked_section(),16)))
+            lines.append("\nDynamic Table")
+            lines.append("-- linked string table section: "
+                         + str(int(table.sectionheader.linked_section, 16)))
             lines.append(str(self.get_dynamic_table()))
         lines.append(self.section_layout_to_string())
-        return '\n'.join(lines)
-
-    def _initialize(self):
-        programheaders = self.xnode.find('elf-program-headers')
-        for ph in programheaders.findall('program-header'):
-            self.programheaders.append(ELFProgramHeader(self,ph))
-        sectionheaders = self.xnode.find('elf-section-headers')
-        for sh in sectionheaders.findall('section-header'):
-            self.sectionheaders.append(ELFSectionHeader(self,sh))
-        if self.app:
-            xdictionary = UF.get_elf_dictionary_xnode(self.app.path,self.app.filename)
-            self.dictionary.initialize(xdictionary)
-    
+        return "\n".join(lines)
