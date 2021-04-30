@@ -26,60 +26,77 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+
 import xml.etree.ElementTree as ET
 
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
+import chb.models.APIDoc as A
+import chb.models.FunctionSignature as F
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.models.FunctionParameter
+    import chb.models.FunctionSummaryLibrary
     import chb.models.SummaryCollection
 
 
-class ParameterRepresentation:
-    """Directive to represent a constant value with a name from a given enum set."""
+class FunctionSummary:
+    "Signature and summary semantics for a function."""
 
-    def __init__(
-            self,
-            fparam: "chb.models.FunctionParameter.FunctionParameter",
-            xnode: ET.Element) -> None:
-        self._fparam = fparam
+    def __init__(self,
+                 library: "chb.models.FunctionSummaryLibrary.FunctionSummaryLibrary",
+                 name: str,
+                 xnode: ET.Element) -> None:
+        self._name = name
+        self._library = library
         self.xnode = xnode
+        self._signature: Optional[F.FunctionSignature] = None
 
     @property
     def summarycollection(self) -> "chb.models.SummaryCollection.SummaryCollection":
-        return self.parameter.summarycollection
+        return self.library.summarycollection
 
     @property
-    def parameter(self) -> "chb.models.FunctionParameter.FunctionParameter":
-        return self._fparam
+    def library(self) -> "chb.models.FunctionSummaryLibrary.FunctionSummaryLibrary":
+        return self._library
 
     @property
-    def type(self) -> str:
-        xtype = self.xnode.get("type")
-        if xtype:
-            return xtype
-        else:
-            raise UF.CHBError("No type found for parameter representation of "
-                              + self.parameter.name)
+    def library_name(self) -> str:
+        return self._library.name
 
     @property
     def name(self) -> str:
-        xname = self.xnode.get("name")
-        if xname:
-            return xname
-        else:
-            raise UF.CHBError("No name found for parameter representation of "
-                              + self.parameter.name)
+        return self._name
 
     @property
-    def is_enum(self) -> bool:
-        return self.type == "enum"
+    def api_documentation(self) -> A.APIDoc:
+        xdoc = self.xnode.find("documentation")
+        if xdoc is not None:
+            return A.APIDoc(self, xdoc)
+        else:
+            raise UF.CHBError("Documentation is missing from function summary for "
+                              + self.name)
 
-    def represent(self, v: int) -> str:
-        if self.is_enum:
-            enumrep = self.summarycollection.get_enum_constant(self.name, v)
-            if enumrep:
-                return enumrep
-        return str(v)
+    @property
+    def char_type(self) -> str:
+        """Return ANSI/UNICODE for A/W functions."""
+        return ""
+
+    @property
+    def signature(self) -> F.FunctionSignature:
+        if self._signature is None:
+            xapi = self.xnode.find("api")
+            if xapi:
+                self._signature = F.FunctionSignature(self, xapi)
+            else:
+                raise UF.CHBError("No api element found in summary for "
+                                  + self.name)
+        return self._signature
+
+    def __str__(self) -> str:
+        try:
+            return str(self.signature)
+        except UF.CHBError as e:
+            print("Error in function summary " + self.name)
+            print(str(e.wrap()))
+            exit(1)

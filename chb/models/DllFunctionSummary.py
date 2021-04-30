@@ -26,62 +26,22 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+
 import xml.etree.ElementTree as ET
 
 from typing import TYPE_CHECKING
 
-import chb.util.fileutil as UF
+import chb.models.FunctionSummary as F
 
 if TYPE_CHECKING:
-    import chb.models.FunctionParameter
+    import chb.models.FunctionSummaryLibrary
 
 
-class ParameterRole:
+class DllFunctionSummary(F.FunctionSummary):
 
     def __init__(
             self,
-            fparam: "chb.models.FunctionParameter.FunctionParameter",
-            xnode: ET.Element):
-        self._fparam = fparam
-        self.xnode = xnode
-
-    @property
-    def parameter(self) -> "chb.models.FunctionParameter.FunctionParameter":
-        return self._fparam
-
-    @property
-    def is_ioc(self) -> bool:
-        return self.role_type[:4] == "ioc"
-
-    @property
-    def role_type(self) -> str:
-        xrt = self.xnode.get("rt")
-        if xrt:
-            return xrt
-        else:
-            raise UF.CHBError("Parameter "
-                              + self.parameter.name
-                              + " does not have a role type")
-
-    @property
-    def role_name(self) -> str:
-        xrn = self.xnode.get("rn")
-        if xrn:
-            return xrn
-        else:
-            raise UF.CHBError("Parameter "
-                              + self.parameter.name
-                              + " does not have a role name")
-
-    @property
-    def ioc_name(self) -> str:
-        if self.is_ioc:
-            return self.role_type[4:]
-        else:
-            raise UF.CHBError("Parameter "
-                              + self.parameter.name
-                              + " is not a designated ioc: "
-                              + str(self))
-
-    def __str__(self) -> str:
-        return ('(' + self.role_type + ',' + self.role_name + ')')
+            flib: "chb.models.FunctionSummaryLibrary.FunctionSummaryLibrary",
+            fname: str,
+            xnode: ET.Element) -> None:
+        F.FunctionSummary.__init__(self, flib, fname, xnode)

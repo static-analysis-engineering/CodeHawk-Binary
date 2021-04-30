@@ -30,58 +30,59 @@ import xml.etree.ElementTree as ET
 
 from typing import TYPE_CHECKING
 
+import chb.models.FunctionSignature as S
+import chb.models.FunctionSummary as F
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.models.FunctionParameter
+    import chb.models.FunctionSummaryLibrary
 
 
-class ParameterRole:
+class FunctionSummaryRef(F.FunctionSummary):
 
     def __init__(
             self,
-            fparam: "chb.models.FunctionParameter.FunctionParameter",
-            xnode: ET.Element):
-        self._fparam = fparam
-        self.xnode = xnode
+            flib: "chb.models.FunctionSummaryLibrary.FunctionSummaryLibrary",
+            name: str,
+            xnode: ET.Element) -> None:
+        F.FunctionSummary.__init__(self, flib, name, xnode)
 
     @property
-    def parameter(self) -> "chb.models.FunctionParameter.FunctionParameter":
-        return self._fparam
-
-    @property
-    def is_ioc(self) -> bool:
-        return self.role_type[:4] == "ioc"
-
-    @property
-    def role_type(self) -> str:
-        xrt = self.xnode.get("rt")
-        if xrt:
-            return xrt
+    def xref(self) -> ET.Element:
+        xref = self.xnode.find("refer-to")
+        if xref is not None:
+            return xref
         else:
-            raise UF.CHBError("Parameter "
-                              + self.parameter.name
-                              + " does not have a role type")
+            raise UF.CHBError("No refer-to node found in " + self.name)
 
     @property
-    def role_name(self) -> str:
-        xrn = self.xnode.get("rn")
-        if xrn:
-            return xrn
-        else:
-            raise UF.CHBError("Parameter "
-                              + self.parameter.name
-                              + " does not have a role name")
+    def refname(self) -> str:
+        return self.xref.get("name", self.name)
 
     @property
-    def ioc_name(self) -> str:
-        if self.is_ioc:
-            return self.role_type[4:]
-        else:
-            raise UF.CHBError("Parameter "
-                              + self.parameter.name
-                              + " is not a designated ioc: "
-                              + str(self))
+    def reflib(self) -> str:
+        return self.xref.get("lib", self.library_name)
 
-    def __str__(self) -> str:
-        return ('(' + self.role_type + ',' + self.role_name + ')')
+    @property
+    def refxnode(self) -> ET.Element:
+        raise UF.CHBError("FunctionSummary.refxnode is abstract")
+
+    @property
+    def char_type(self) -> str:
+        xchartype = self.xref.get("char-type")
+        if xchartype:
+            return xchartype
+        else:
+            return ""
+
+    @property
+    def signature(self) -> S.FunctionSignature:
+        if self._signature is None:
+            refxnode = self.refxnode
+            xapi = self.refxnode.find("api")
+            if xapi:
+                self._signature = S.FunctionSignature(self, xapi)
+            else:
+                raise UF.CHBError("No api element found in summary reference for "
+                                  + self.name)
+        return self._signature

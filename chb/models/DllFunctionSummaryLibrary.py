@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,17 +27,27 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-class DllEnumDefinition(object):
+from typing import TYPE_CHECKING
 
-    def __init__(self,stdpe,xnode):
-        self.stdpe = stdpe
-        self.xnode = xnode
-        self.names = {}   #  value -> name
-        self._initialize()
+import chb.models.FunctionSummaryLibrary as L
 
-    def get_name(self,v):
-        if v in self.names: return self.names[v]
+if TYPE_CHECKING:
+    import chb.models.SummaryCollection
 
-    def _initialize(self):
-        for xsymc in self.xnode.find('values').findall('symc'):
-            self.names[ xsymc.get('value') ] = xsymc.get('name')
+
+class DllFunctionSummaryLibrary(L.FunctionSummaryLibrary):
+
+    def __init__(
+            self,
+            summarycollection: "chb.models.SummaryCollection.SummaryCollection",
+            directory: str,
+            name: str) -> None:
+        L.FunctionSummaryLibrary.__init__(self, summarycollection, directory, name)
+
+    @property
+    def is_dll(self) -> bool:
+        return True
+
+    @property
+    def libfun_xmltag(self) -> str:
+        return "libfun"
