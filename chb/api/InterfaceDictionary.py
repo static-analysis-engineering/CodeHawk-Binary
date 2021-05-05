@@ -27,75 +27,84 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+import xml.etree.ElementTree as ET
 
-import chb.util.IndexedTable as IT
+from typing import Callable, List, Tuple, TYPE_CHECKING
 
 import chb.api.CallTarget as CT
+import chb.api.FunctionStub as FS
+import chb.api.InterfaceDictionaryRecord as D
+import chb.util.IndexedTable as IT
+import chb.util.fileutil as UF
 
-function_stub_constructors = {
-    'so': lambda x:CT.SOFunction(*x),
-    'sc': lambda x:CT.SyscallFunction(*x),
-    'dll': lambda x:CT.DllFunction(*x),
-    'jni': lambda x:CT.JniFunction(*x),
-    'pck': lambda x:CT.PckFunction(*x)
-    }
+if TYPE_CHECKING:
+    import chb.app.AppAccess
+    import chb.app.BDictionary
 
-call_target_constructors = {
-    'stub': lambda x:CT.StubTarget(*x),
-    'sstub': lambda x:CT.StaticStubTarget(*x),
-    'app': lambda x:CT.AppTarget(*x),
-    'inl': lambda x:CT.InlinedAppTarget(*x),
-    'wrap': lambda x:CT.WrappedTarget(*x),
-    'v': lambda x:CT.VirtualTarget(*x),
-    'i': lambda x:CT.IndirectTarget(*x),
-    'u': lambda x:CT.UnknownTarget(*x)
-    }
 
-class InterfaceDictionary(object):
+class InterfaceDictionary:
 
-    def __init__(self,app,xnode):
-        self.app = app
-        self.bdictionary = self.app.bdictionary
-        self.function_stub_table = IT.IndexedTable('function-stub-table')
-        self.call_target_table = IT.IndexedTable('call-target-table')
-        self.tables = [
+    def __init__(
+            self,
+            app: "chb.app.AppAccess.AppAccess",
+            xnode: ET.Element) -> None:
+        self._app = app
+        self.function_stub_table: IT.IndexedTable[FS.FunctionStub] = IT.IndexedTable('function-stub-table')
+        self.call_target_table: IT.IndexedTable[CT.CallTarget] = IT.IndexedTable('call-target-table')
+        self.tables: List[Tuple[IT.IndexedTableSuperclass, Callable[[ET.Element], None]]] = [
             (self.function_stub_table, self._read_xml_function_stub_table),
             (self.call_target_table, self._read_xml_call_target_table)
             ]
         self.initialize(xnode)
 
+    @property
+    def app(self) -> "chb.app.AppAccess.AppAccess":
+        return self._app
+
+    @property
+    def bdictionary(self) -> "chb.app.BDictionary.BDictionary":
+        return self.app.bdictionary
+
     # -------------- Retrieve items from dictionary tables ---------------------
 
-    def get_function_stub(self,ix): return self.function_stub_table.retrieve(ix)
+    def get_function_stub(self, ix: int) -> FS.FunctionStub:
+        return self.function_stub_table.retrieve(ix)
 
-    def get_call_target(self,ix): return self.call_target_table.retrieve(ix)
+    def get_call_target(self, ix: int) -> CT.CallTarget:
+        return self.call_target_table.retrieve(ix)
 
     # ----------------------- xml accessors ------------------------------------
 
-    def read_xml_call_target(self,n):
-        return self.get_call_target(int(n.get('ictgt')))
+    def read_xml_call_target(self, n: ET.Element) -> CT.CallTarget:
+        index = n.get("ictgt")
+        if index is not None:
+            return self.get_call_target(int(index))
+        else:
+            raise UF.CHBError("Index ictgt not found in call target node")
 
     # ---------------- Initialize dictionary from file -------------------------
 
-    def initialize(self,xnode):
-        if xnode is None: return
-        for (t,f) in self.tables:
-            t.reset()
-            f(xnode.find(t.name))
+    def initialize(self, xnode: ET.Element) -> None:
+        for (t, f) in self.tables:
+            xtable = xnode.find(t.name)
+            if xtable is not None:
+                t.reset()
+                f(xtable)
+            else:
+                raise UF.CHBError("Table "
+                                  + t.name
+                                  + " not found in interface dictionary")
 
-    def _read_xml_function_stub_table(self,txnode):
-        def get_value(node):
+    def _read_xml_function_stub_table(self, txnode: ET.Element) -> None:
+        def get_value(node: ET.Element) -> FS.FunctionStub:
             rep = IT.get_rep(node)
-            tag = rep[1][0]
             args = (self,) + rep
-            return function_stub_constructors[tag](args)
-        self.function_stub_table.read_xml(txnode,'n',get_value)
+            return D.apiregistry.construct_instance(*args, FS.FunctionStub)
+        self.function_stub_table.read_xml(txnode, "n", get_value)
 
-    def _read_xml_call_target_table(self,txnode):
-        def get_value(node):
+    def _read_xml_call_target_table(self, txnode: ET.Element) -> None:
+        def get_value(node: ET.Element) -> CT.CallTarget:
             rep = IT.get_rep(node)
-            tag = rep[1][0]
-            args = (self,)  + rep
-            return call_target_constructors[tag](args)
-        self.call_target_table.read_xml(txnode,'n',get_value)
-        
+            args = (self,) + rep
+            return D.apiregistry.construct_instance(*args, CT.CallTarget)
+        self.call_target_table.read_xml(txnode, "n", get_value)

@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
@@ -26,110 +26,60 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Target of a call instruction.
+
+Represents call_target_t from bchlib/bCHLibTypes:
+
+(* Call target types:
+   StubTarget: dynamically linked function external to the executable
+   StaticStubTarget:
+       library function with summary statically linked in the executable
+   AppTarget: application function with address
+   InlinedAppTarget: application function with address that is inlined
+   WrappedTarget:
+      application function that wraps a call to another function
+        a: address of wrapper function;
+        fapi: function api of wrapper function;
+        tgt: call target of wrapped function
+        mapping: maps wrapped function arguments to wrapper function arguments
+                 and constants provided by the wrapper function internally
+   VirtualTarget: virtual function specified in class vtable
+   IndirectTarget:
+      indirect call on external variable (global variable, function argument,
+      or return value)
+   UnknownTarget: target of indirect call that has not been resolved yet
+*)
+                                                    tags[0]   tags    args
+type call_target_t =
+  | StubTarget of function_stub_t                   "stub"      1       1
+  | StaticStubTarget of                            "sstub"      1       2
+      doubleword_int * function_stub_t
+  | AppTarget of doubleword_int                      "app"      1       1
+  | InlinedAppTarget of doubleword_int * string      "inl"      1       2
+  | WrappedTarget of                                "wrap"      1    3+length(pars)
+      doubleword_int
+      * function_api_t
+      * call_target_t
+      * (api_parameter_t * bterm_t) list
+  | VirtualTarget of function_api_t                    "v"      1        1
+  | IndirectTarget of                                  "i"      1     1+length(tgts)
+      bterm_t * call_target_t list
+  | UnknownTarget                                      "u"      1        0
+
+"""
 
 from typing import List, TYPE_CHECKING
+
+import chb.api.FunctionStub as F
+import chb.api.InterfaceDictionaryRecord as D
+import chb.app.BDictionary as B
+import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     import chb.api.InterfaceDictionary
 
-import chb.util.fileutil as UF
-import chb.api.InterfaceDictionaryRecord as D
 
-
-class FunctionStubBase(D.InterfaceDictionaryRecord):
-
-    def __init__(self,
-                 d: "chb.api.InterfaceDictionary.InterfaceDictionary",
-                 index: int,
-                 tags: List[str],
-                 args: List[int]) -> None:
-        D.InterfaceDictionaryRecord.__init__(self, d, index, tags, args)
-        self.bd = self.d.bdictionary
-        self.app = self.bd.app
-        self.models = self.app.models
-
-    def is_dll_stub(self): return False
-    def is_so_stub(self): return False
-    def is_syscall_stub(self): return False
-
-    def __str__(self): return 'function-stub:' + self.tags[0]
-
-class SOFunction(FunctionStubBase):
-
-    def __init__(self,d,index,tags,args):
-        FunctionStubBase.__init__(self,d,index,tags,args)
-
-    def is_so_stub(self): return True
-
-    def get_name(self): return self.bd.get_string(self.args[0])
-
-    def __str__(self): return self.get_name()
-
-class SyscallFunction(FunctionStubBase):
-
-    def __init__(self,d,index,tags,args):
-        FunctionStubBase.__init__(self,d,index,tags,args)
-
-    def is_syscall_stub(self): return True
-
-    def get_index(self): return self.args[0]
-
-    def __str__(self): return 'syscall-' + self.get_index()
-
-class DllFunction(FunctionStubBase):
-
-    def __init__(self,d,index,tags,args):
-        FunctionStubBase.__init__(self,d,index,tags,args)
-
-    def is_dll_stub(self): return True
-
-    def get_dll(self): return self.bd.get_string(self.args[0])
-
-    def get_name(self): return self.bd.get_string(self.args[1])
-
-    def has_summary(self):
-        return self.models.has_dll_summary(self.get_dll(),self.get_name())
-
-    def get_summary(self):
-        if self.has_summary():
-            return self.models.get_dll_summary(self.get_dll(),self.get_name())
-        else:
-            print('No summary for ' + str(self.get_dll()) + ':' + str(self.get_name()))
-            return None
-
-    def __str__(self): return self.get_name()
-
-class JniFunction(FunctionStubBase):
-
-    def __init__(self,d,index,tags,args):
-        FunctionStubBase.__init__(self,d,index,tags,args)
-
-    def get_jni_index(self): return self.args[0]
-
-    def __str__(self): return 'Jni:' + str(self.get_jni_index())
-
-class PckFunction(FunctionStubBase):
-
-    def __init__(self,d,index,tags,args):
-        FunctionStubBase.__init__(self,d,index,tags,args)
-
-    def get_lib(self): return self.bd.get_string(self.args[0])
-
-    def get_name(self): return self.bd.get_string(self.args[1])
-
-    def get_packages(self):
-        return [ self.bd.get_string(i) for i in self.args[2:] ]
-
-    def __str__(self):
-        return (self.get_lib() + ':' + '::'.join(self.get_packages())
-                    + self.get_name())
-
-
-# ==============================================================================
-#                                                                  CallTarget ==
-# ==============================================================================
-   
-class CallTargetBase(D.InterfaceDictionaryRecord):
+class CallTarget(D.InterfaceDictionaryRecord):
 
     def __init__(
             self,
@@ -138,7 +88,6 @@ class CallTargetBase(D.InterfaceDictionaryRecord):
             tags: List[str],
             args: List[int]) -> None:
         D.InterfaceDictionaryRecord.__init__(self, d, index, tags, args)
-        self.bd = self.d.bdictionary
 
     def is_dll_target(self) -> bool:
         return False
@@ -153,94 +102,205 @@ class CallTargetBase(D.InterfaceDictionaryRecord):
         return False
 
     def __str__(self) -> str:
-        return 'call-target:' + self.tags[0]
+        return "call-target:" + self.tags[0]
 
 
-class StubTarget(CallTargetBase):
+@D.apiregistry.register_tag("stub", CallTarget)
+class StubTarget(CallTarget):
+    """Call to a library function.
 
-    def __init__(self,d,index,tags,args):
-        CallTargetBase.__init__(self,d,index,tags,args)
+    args[0]: index of function stub in interface dictionary
+    """
 
-    def is_dll_target(self): return self.get_stub().is_dll_stub()
+    def __init__(
+            self,
+            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        CallTarget.__init__(self, d, index, tags, args)
 
-    def get_dll(self):
+    @property
+    def stub(self) -> F.FunctionStub:
+        return self.id.get_function_stub(self.args[0])
+
+    @property
+    def dll(self) -> str:
         if self.is_dll_target():
-            return  self.get_stub().get_dll()
-        raise UF.CHBError('Stub target is not a dll target: ' + str(self))
+            return self.stub.dll
+        else:
+            raise UF.CHBError("Target is not a dll target: " + str(self))
 
-    def get_name(self): return self.get_stub().get_name()
+    @property
+    def name(self) -> str:
+        return self.stub.name
 
-    def is_so_target(self): return self.get_stub().is_so_stub()
+    def is_dll_target(self) -> bool:
+        return self.stub.is_dll_stub()
 
-    def get_stub(self): return self.d.get_function_stub(self.args[0])
+    def is_so_target(self) -> bool:
+        return self.stub.is_so_stub()
 
-    def __str__(self): return str(self.get_stub())
+    def __str__(self) -> str:
+        return str(self.stub)
 
-class StaticStubTarget(CallTargetBase):
 
-    def __init__(self,d,index,tags,args):
-        CallTargetBase.__init__(self,d,index,tags,args)
+@D.apiregistry.register_tag("sstub", CallTarget)
+class StaticStubTarget(CallTarget):
+    """Call to a statically linked library function.
 
-    def get_address(self): return self.bd.get_address(self.args[0])
+    args[0]: index of application function address in bdictionary
+    args[1]: index of function stub in interface dictionary
+    """
 
-    def is_so_target(self): return self.get_stub().is_so_stub()
+    def __init__(
+            self,
+            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        CallTarget.__init__(self, d, index, tags, args)
 
-    def get_stub(self): return self.d.get_function_stub(self.args[1])
+    @property
+    def address(self) -> B.AsmAddress:
+        return self.bd.get_address(self.args[0])
 
-    def __str__(self):
-        return str(self.get_stub()) + '@' + str(self.get_address())
+    @property
+    def stub(self) -> F.FunctionStub:
+        return self.id.get_function_stub(self.args[1])
 
-class AppTarget(CallTargetBase):
+    def is_so_target(self) -> bool:
+        return self.stub.is_so_stub()
 
-    def __init__(self,d,index,tags,args):
-        CallTargetBase.__init__(self,d,index,tags,args)
+    def __str__(self) -> str:
+        return str(self.stub) + '@' + str(self.address)
 
-    def is_app_target(self): return True
 
-    def get_address(self): return self.bd.get_address(self.args[0])
+@D.apiregistry.register_tag("app", CallTarget)
+class AppTarget(CallTarget):
+    """Call to application function.
 
-    def __str__(self):
-        addr = str(self.get_address())
-        if (self.d.app.userdata
+    args[0]: index of application function address in bdictionary
+    """
+
+    def __init__(
+            self,
+            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        CallTarget.__init__(self, d, index, tags, args)
+
+    @property
+    def address(self) -> B.AsmAddress:
+        return self.bd.get_address(self.args[0])
+
+    def is_app_target(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        addr = str(self.address)
+        if (self.app.userdata
             and self.d.app.userdata.functionnames
             and self.d.app.userdata.functionnames.has_function_name(addr)):
-            return 'App:' + self.d.app.userdata.functionnames.get_function_name(addr)
-        elif self.d.app.has_function_name(addr):
-            return 'App:' + self.d.app.get_function_name(addr)
+            return 'App:' + self.app.userdata.functionnames.get_function_name(addr)
+        elif self.app.has_function_name(addr):
+            return 'App:' + self.app.get_function_name(addr)
         else:
-            return 'App:' + str(self.get_address())
+            return 'App:' + addr
 
-class InlinedAppTarget(CallTargetBase):
 
-    # tags: [ 'inl' ]
-    # args: [ address of application function, string ]
-    def __init__(self,d,index,tags,args):
-        CallTargetBase.__init__(self,d,index,tags,args)
+@D.apiregistry.register_tag("inl", CallTarget)
+class InlinedAppTarget(CallTarget):
+    """Application function call that has been inlined.
 
-    def get_address(self): return self.bd.get_address(self.args[0])
+    args[0]: index of address of application function in bdictionary
+    args[1]: index of name of application function in bdictionary
+    """
 
-    def get_name(self): return self.bd.get_string(self.args[1])
+    def __init__(
+            self,
+            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        CallTarget.__init__(self, d, index, tags, args)
 
-    def __str__(self): return 'Inl:' + self.get_name()
+    @property
+    def address(self) -> B.AsmAddress:
+        return self.bd.get_address(self.args[0])
 
-class WrappedTarget(CallTargetBase):
+    @property
+    def name(self) -> str:
+        return self.bd.get_string(self.args[1])
 
-    def __init__(self,d,index,tags,args):
-        CallTargetBase.__init__(self,d,index,tags,args)
+    def __str__(self) -> str:
+        return 'Inl:' + self.name
 
-class VirtualTarget(CallTargetBase):
 
-    def __init__(self,d,index,tags,args):
-        CallTargetBase.__init__(self,d,index,tags,args)
+@D.apiregistry.register_tag("wrap", CallTarget)
+class WrappedTarget(CallTarget):
+    """Wrapped call to application function
 
-class IndirectTarget(CallTargetBase):
+    args[0]: index of address of application function in bdictionary
+    args[1]: index of function api in interface dictionary
+    args[2]: index of call target in interface dictionary
+    args[3..]: indices of api parameters in interface dictionary
+    """
 
-    def __init__(self,d,index,tags,args):
-        CallTargetBase.__init__(self,d,index,tags,args)
+    def __init__(
+            self,
+            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        CallTarget.__init__(self, d, index, tags, args)
 
-class UnknownTarget(CallTargetBase):
 
-    def __init__(self,d,index,tags,args):
-        CallTargetBase.__init__(self,d,index,tags,args)
+@D.apiregistry.register_tag("v", CallTarget)
+class VirtualTarget(CallTarget):
+    """Virtual call that is not resolved.
 
-    def is_unknown(self): return True
+    args[0]: index of function api in interface dictionary
+    """
+
+    def __init__(
+            self,
+            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        CallTarget.__init__(self, d, index, tags, args)
+
+
+@D.apiregistry.register_tag("i", CallTarget)
+class IndirectTarget(CallTarget):
+    """Indirect call with multiple potential targets.
+
+    args[0]: index of call-target expression in interface dictionary
+    args[1..]: indices of call targets in interface dictionary
+    """
+
+    def __init__(
+            self,
+            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        CallTarget.__init__(self, d, index, tags, args)
+
+
+@D.apiregistry.register_tag("u", CallTarget)
+class UnknownTarget(CallTarget):
+    """Unknown call target; no information about function being called."""
+
+    def __init__(
+            self,
+            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        CallTarget.__init__(self, d, index, tags, args)
+
+    def is_unknown(self) -> bool:
+        return True
