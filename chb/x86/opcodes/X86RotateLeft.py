@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,45 +27,73 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-import chb.asm.X86OpcodeBase as X
-import chb.simulate.SimulationState as S
-import chb.simulate.SimUtil as SU
-import chb.simulate.SimValue as SV
+from typing import cast, List, TYPE_CHECKING
 
-class X86RotateLeft(X.X86OpcodeBase):
+from chb.app.InstrXData import InstrXData
 
-    # tags: [ 'rol' ]
-    # args: [ dst-op, src-op ]
-    def __init__(self,x86d,index,tags,args):
-        X.X86OpcodeBase.__init__(self,x86d,index,tags,args)
+from chb.invariants.XVariable import XVariable
+from chb.invariants.XXpr import XXpr
 
-    def get_dst_operand(self): return self.x86d.get_operand(self.args[0])
+import chb.simulation.SimUtil as SU
+import chb.simulation.SimValue as SV
 
-    def get_src_operand(self): return self.x86d.get_operand(self.args[1])
+import chb.util.fileutil as UF
 
-    def get_operands(self):
-        return [ self.get_dst_operand(), self.get_src_operand() ]
+from chb.util.IndexedTable import IndexedTableValue
+
+from chb.x86.X86DictionaryRecord import x86registry
+from chb.x86.X86Opcode import X86Opcode
+from chb.x86.X86Operand import X86Operand
+
+if TYPE_CHECKING:
+    from chb.x86.X86Dictionary import X86Dictionary
+    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+
+
+@x86registry.register_tag("rol", X86Opcode)
+class X86RotateLeft(X86Opcode):
+    """ROL dst, src
+
+    args[0]: index of dst in x86dictionary
+    args[1]: index of src in x86dictionary
+    """
+
+    def __init__(
+            self,
+            x86d: "X86Dictionary",
+            ixval: IndexedTableValue) -> None:
+        X86Opcode.__init__(self, x86d, ixval)
+
+    @property
+    def dst_operand(self) -> X86Operand:
+        return self.x86d.get_operand(self.args[0])
+
+    @property
+    def src_operand(self) -> X86Operand:
+        return self.x86d.get_operand(self.args[1])
+
+    def get_operands(self) -> List[X86Operand]:
+        return [self.dst_operand, self.src_operand]
 
     # xdata: [ "a:vxx" ],[ lhs, number of bits to rotate, value to rotate ]
-    def get_annotation(self,xdata):
-        (xtags,xargs,xprs) = xdata.get_xprdata()
-        if len(xprs) == 3:
-            lhs = str(xprs[0])
-            rhs1 = str(xprs[1])
-            rhs2 = str(xprs[2])
-            return lhs + ' = ' + rhs2 + ' rotate-left-by' + rhs1
-        else:
-            return 'rol:????'
+    def get_annotation(self, xdata: InstrXData) -> str:
+        """data format: a:vxx
 
-    def get_lhs(self,xdata):
-        (xtags,xargs,xprs) = xdata.get_xprdata()
-        if len(xprs) == 3: return [ xprs[0] ]
-        else: return []
+        vars[0]: dst
+        xprs[0]: src
+        xprs[1]: dst-rhs
+        """
+        
+        lhs = str(xdata.vars[0])
+        rhs1 = str(xdata.xprs[0])
+        rhs2 = str(xdata.xprs[1])
+        return lhs + ' = ' + rhs2 + ' rotate-left-by' + rhs1
 
-    def get_rhs(self,xdata):
-        (xtags,xargs,xprs) = xdata.get_xprdata()
-        if len(xprs) == 3: return [ xprs[2] ]
-        else: return []
+    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+        return xdata.vars
+
+    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+        return xdata.xprs
 
     # --------------------------------------------------------------------------
     # Rotates the bits of the first operand (destination operand) the number of
@@ -102,18 +132,22 @@ class X86RotateLeft(X.X86OpcodeBase):
     # affected only for single-bit rotates; it is undefined for multi-bit
     # rotates. The SF, ZF, AF, and PF flags are not affected.
     # --------------------------------------------------------------------------
-    def simulate(self,iaddr,simstate):
-        srcop = self.get_src_operand()
-        dstop = self.get_dst_operand()
-        srcval = simstate.get_rhs(iaddr,srcop)
-        dstval = simstate.get_rhs(iaddr,dstop)
-        result = dstval.bitwise_rol(srcval)
-        simstate.set(iaddr,dstop,result)
-        if srcval.value > 0:
-            cflag = result.get_lsb()
-            simstate.update_flag('CF',cflag)
-            if srcval.value == 1:
-                oflag = result.get_msb() ^ cflag
-            else:
-                oflag = None
-            simstate.update_flag('OF',oflag)
+    def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
+        srcop = self.src_operand
+        dstop = self.dst_operand
+        srcval = simstate.get_rhs(iaddr, srcop)
+        dstval = simstate.get_rhs(iaddr, dstop)
+        if dstval.is_literal() and srcval.is_literal():
+            srcval = cast(SV.SimLiteralValue, srcval)
+            dstval = cast(SV.SimLiteralValue, dstval)
+            result = dstval.bitwise_rol(srcval)
+            simstate.set(iaddr,dstop,result)
+            if srcval.value > 0:
+                cflag = result.lsb
+                simstate.update_flag(iaddr, 'CF', cflag == 1)
+                if srcval.value == 1:
+                    oflag = result.msb ^ cflag
+                    simstate.update_flag(iaddr, 'OF', oflag == 1)                    
+                else:
+                    simstate.update_flag(iaddr, "OF", None)
+
