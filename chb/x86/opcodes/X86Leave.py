@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,20 +27,35 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-import chb.asm.X86OpcodeBase as X
-import chb.simulate.SimulationState as S
-import chb.simulate.SimUtil as SU
-import chb.simulate.SimValue as SV
+from typing import List, TYPE_CHECKING
 
-class X86Leave(X.X86OpcodeBase):
+from chb.app.InstrXData import InstrXData
 
-    # tags: [ 'leave' ]
-    # args: [ ]
-    def __init__(self,x86d,index,tags,args):
-        X.X86OpcodeBase.__init__(self,x86d,index,tags,args)
+import chb.simulation.SimUtil as SU
+import chb.simulation.SimValue as SV
 
-    def get_opcode_operations(self):
+import chb.util.fileutil as UF
+
+from chb.util.IndexedTable import IndexedTableValue
+
+from chb.x86.X86DictionaryRecord import x86registry
+from chb.x86.X86Opcode import X86Opcode
+
+if TYPE_CHECKING:
+    from chb.x86.X86Dictionary import X86Dictionary
+
+@x86registry.register_tag("leave", X86Opcode)
+class X86Leave(X86Opcode):
+    """LEAVE. """
+
+    def __init__(
+            self,
+            x86d: "X86Dictionary",
+            ixval: IndexedTableValue) -> None:
+        X86Opcode.__init__(self, x86d, ixval)
+
+    def get_opcode_operations(self) -> List[str]:
         op1 = 'esp = ebp'
         op2 = 'ebp = mem[esp]'
         op3 = 'esp = esp + 4'
-        return [ op1, op2, op3 ]
+        return [op1, op2, op3]
