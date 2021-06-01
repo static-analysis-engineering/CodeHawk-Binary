@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,34 +27,52 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+from typing import List, TYPE_CHECKING
+
+from chb.app.InstrXData import InstrXData
+
+import chb.simulation.SimUtil as SU
+import chb.simulation.SimValue as SV
+
 import chb.util.fileutil as UF
 
-import chb.asm.X86OpcodeBase as X
-import chb.simulate.SimulationState as S
-import chb.simulate.SimUtil as SU
-import chb.simulate.SimValue as SV
+from chb.util.IndexedTable import IndexedTableValue
+
+from chb.x86.simulation.X86SimulationState import X86SimulationState
+
+from chb.x86.X86DictionaryRecord import x86registry
+from chb.x86.X86Opcode import X86Opcode
+from chb.x86.X86Operand import X86Operand
+
+if TYPE_CHECKING:
+    from chb.x86.X86Dictionary import X86Dictionary
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
-class X86Jump(X.X86OpcodeBase):
+@x86registry.register_tag("jmp", X86Opcode)
+class X86Jump(X86Opcode):
+    """JMP dst
 
-    # tags: [ 'jmp' ]
-    # args: [ op ]
-    def __init__(self,x86d,index,tags,args):
-        X.X86OpcodeBase.__init__(self,x86d,index,tags,args)
+    args[0]: index of dst in x86dictionary
+    """
 
-    def get_target_address(self):
+    def __init__(
+            self,
+            x86d: "X86Dictionary",
+            ixval: IndexedTableValue) -> None:
+        X86Opcode.__init__(self, x86d, ixval)
+
+    @property
+    def target_address(self) -> X86Operand:
         return self.x86d.get_operand(self.args[0])
 
-    def get_operands(self): return [ self.get_target_address() ]
+    def get_operands(self) -> List[X86Operand]:
+        return [ self.target_address]
 
-    def get_annotation(self,xdata):
-        (xtags,xargs,xprs) = xdata.get_xprdata()
-        if len(xargs) > 0:
-            tgtaddr = self.bd.get_address(xargs[0])
-            return 'goto ' + str(tgtaddr)
-        else:
-            return '??jmp??'
+    def get_annotation(self, xdata: InstrXData) -> str:
+        tgtaddr = self.bd.get_address(xdata.args[0])
+        return 'goto ' + str(tgtaddr)
 
-    def simulate(self,iaddr,simstate):
-        raise SU.KTSimJumpException(iaddr,self.get_target_address())
+    def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
+        raise SU.CHBSimJumpException(iaddr, str(self.target_address))
         
