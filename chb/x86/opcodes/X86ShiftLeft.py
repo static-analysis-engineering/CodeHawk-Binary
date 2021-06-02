@@ -84,7 +84,7 @@ class X86ShiftLeft(X86Opcode):
         xprs[2]: rhs-result (syntactic)
         xprs[3]: rhs-result (simplified)
         """
-        
+
         lhs = str(xdata.vars[0])
         rhs = xdata.xprs[2]
         rrhs = xdata.xprs[3]
