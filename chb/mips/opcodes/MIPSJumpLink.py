@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Sequence, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -46,19 +46,19 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    from chb.api.CallTarget import CallTarget, AppTarget
     from chb.mips.MIPSDictionary import MIPSDictionary
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
 
-@mipsregistry.register_tag("bgezal", MIPSOpcode)
-class MIPSBranchGEZeroLink(MIPSOpcode):
-    """BGEZAL rs, offset.
+@mipsregistry.register_tag("jal", MIPSOpcode)
+class MIPSJumpLink(MIPSOpcode):
+    """JAL target
 
-    Branch on Greater Than or Equal to Zero and Link.
-    Test a GPR then do a PC-relative procedure call.
+    Jump and Link
+    Execute a procedure call within the current 256MB-aligned region.
 
-    args[0]: index of rs in mips dictionary
-    args[1]: index of offset in mips dictionary
+    args[0]: target
     """
 
     def __init__(
@@ -69,31 +69,54 @@ class MIPSBranchGEZeroLink(MIPSOpcode):
 
     @property
     def operands(self) -> Sequence[MIPSOperand]:
-        return [self.mipsd.mips_operand(i) for i in self.args]
+        return [self.target]
 
     @property
     def target(self) -> MIPSOperand:
-        return self.mipsd.mips_operand(self.args[1])
+        return self.mipsd.mips_operand(self.args[0])
 
-    def has_branch_condition(self) -> bool:
-        return True
+    def has_call_target(self, xdata: InstrXData) -> bool:
+        return xdata.has_call_target()
 
-    def branch_condition(self, xdata: InstrXData) -> XXpr:
-        return xdata.xprs[1]
+    def call_target(self, xdata: InstrXData) -> "CallTarget":
+        if xdata.has_call_target():
+            return xdata.call_target(self.ixd)
+        else:
+            raise UF.CHBError("Call target not found for " + str(self))
 
-    def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return [xdata.xprs[3], xdata.xprs[2]]
+    def has_string_arguments(self, xdata: InstrXData) -> bool:
+        return any([x.is_string_reference for x in self.arguments(xdata)])
+
+    def has_stack_arguments(self, xdata: InstrXData) -> bool:
+        return any([x.is_stack_address for x in self.arguments(xdata)])
+
+    def annotated_call_arguments(
+            self, xdata: InstrXData) -> Sequence[Dict[str, Any]]:
+        return [x.to_annotated_value() for x in self.arguments(xdata)]
+
+    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
+        return xdata.xprs
 
     def annotation(self, xdata: InstrXData) -> str:
-        """data format a:xxxx
+        cargs = ", ".join(str(x) for x in self.arguments(xdata))
+        if self.has_call_target(xdata):
+            tgt = self.call_target(xdata)
+            if tgt.is_app_target:
+                tgt = cast("AppTarget", tgt)
+            return "call " + str(tgt.address) + "(" + cargs + ")"
+        else:
+            return "call " + str(self.target) + "(" + cargs + ")"
 
-        xprs[0]: rhs
-        xprs[1]: branch condition (syntactic)
-        xprs[2]: branch condtiion (simplified)
-        xprs[3]: branch condition (negated)
-        """
-
-        result = xdata.xprs[1]
-        rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
-        return 'if ' + xresult + ' then call ' + str(self.target)
+    # ----------------------------------------------------------------------
+    # Operation:
+    #   I: GPR[31] <- PC + 8
+    #   I+1: PC <- PC[GPRLEN..28] || instr_index || 0[2]
+    # ----------------------------------------------------------------------
+    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+        tgtaddr = self.target.absolute_address_value
+        tgt = SSV.mk_global_address(tgtaddr)
+        returnaddr = SSV.mk_global_address(int(iaddr, 16) + 8)
+        simstate.registers['ra'] = returnaddr
+        simstate.increment_program_counter()
+        simstate.set_delayed_program_counter(tgt)
+        return SU.simcall(iaddr, simstate, tgt, returnaddr)

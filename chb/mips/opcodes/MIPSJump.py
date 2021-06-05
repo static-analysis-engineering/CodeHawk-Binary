@@ -50,15 +50,14 @@ if TYPE_CHECKING:
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
 
-@mipsregistry.register_tag("bgezal", MIPSOpcode)
-class MIPSBranchGEZeroLink(MIPSOpcode):
-    """BGEZAL rs, offset.
+@mipsregistry.register_tag("j", MIPSOpcode)
+class MIPSJump(MIPSOpcode):
+    """J target
 
-    Branch on Greater Than or Equal to Zero and Link.
-    Test a GPR then do a PC-relative procedure call.
+    Jump.
+    Branch within the current 256MB-aligend region.
 
-    args[0]: index of rs in mips dictionary
-    args[1]: index of offset in mips dictionary
+    args[0]: index of target in mips dictionary
     """
 
     def __init__(
@@ -69,31 +68,23 @@ class MIPSBranchGEZeroLink(MIPSOpcode):
 
     @property
     def operands(self) -> Sequence[MIPSOperand]:
-        return [self.mipsd.mips_operand(i) for i in self.args]
+        return [self.target]
 
     @property
     def target(self) -> MIPSOperand:
-        return self.mipsd.mips_operand(self.args[1])
-
-    def has_branch_condition(self) -> bool:
-        return True
-
-    def branch_condition(self, xdata: InstrXData) -> XXpr:
-        return xdata.xprs[1]
-
-    def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return [xdata.xprs[3], xdata.xprs[2]]
+        return self.mipsd.mips_operand(self.args[0])
 
     def annotation(self, xdata: InstrXData) -> str:
-        """data format a:xxxx
+        return 'goto ' + str(self.target)
 
-        xprs[0]: rhs
-        xprs[1]: branch condition (syntactic)
-        xprs[2]: branch condtiion (simplified)
-        xprs[3]: branch condition (negated)
-        """
-
-        result = xdata.xprs[1]
-        rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
-        return 'if ' + xresult + ' then call ' + str(self.target)
+    # --------------------------------------------------------------------------
+    # Operation:
+    #   I:
+    #   I+1: PC <- PC[GPRLEN-1..28] || instr_index || 00
+    # --------------------------------------------------------------------------
+    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+        tgtoffset = self.target.opkind.address.get_int()
+        tgt = SSV.SimGlobalAddress(SV.SimDoubleWordValue(tgtoffset))
+        simstate.increment_program_counter()
+        simstate.set_delayed_program_counter(tgt)
+        return "jump " + str(tgt)
