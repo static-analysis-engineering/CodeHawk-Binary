@@ -50,15 +50,14 @@ if TYPE_CHECKING:
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
 
-@mipsregistry.register_tag("bgezal", MIPSOpcode)
-class MIPSBranchGEZeroLink(MIPSOpcode):
-    """BGEZAL rs, offset.
+@mipsregistry.register_tag("clz", MIPSOpcode)
+class MIPSCountLeadingZeros(MIPSOpcode):
+    """CLZ rd, rs
 
-    Branch on Greater Than or Equal to Zero and Link.
-    Test a GPR then do a PC-relative procedure call.
+    Count leading zeros in Word.
 
-    args[0]: index of rs in mips dictionary
-    args[1]: index of offset in mips dictionary
+    args[0]: index of rd in mips dictionary
+    args[1]: index of rs in mips dictionary
     """
 
     def __init__(
@@ -71,29 +70,46 @@ class MIPSBranchGEZeroLink(MIPSOpcode):
     def operands(self) -> Sequence[MIPSOperand]:
         return [self.mipsd.mips_operand(i) for i in self.args]
 
-    @property
-    def target(self) -> MIPSOperand:
-        return self.mipsd.mips_operand(self.args[1])
-
-    def has_branch_condition(self) -> bool:
-        return True
-
-    def branch_condition(self, xdata: InstrXData) -> XXpr:
-        return xdata.xprs[1]
-
-    def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return [xdata.xprs[3], xdata.xprs[2]]
-
     def annotation(self, xdata: InstrXData) -> str:
-        """data format a:xxxx
+        """data format a:vxx
 
+        vars[0]: lhs
         xprs[0]: rhs
-        xprs[1]: branch condition (syntactic)
-        xprs[2]: branch condtiion (simplified)
-        xprs[3]: branch condition (negated)
+        xprs[0]: rhs (simplified)
         """
 
-        result = xdata.xprs[1]
-        rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
-        return 'if ' + xresult + ' then call ' + str(self.target)
+        lhs = str(xdata.vars[0])
+        rresult = str(xdata.xprs[1])
+        return lhs + ' := count-leading-zeros(' + rresult + ')'
+
+    @property
+    def dst_operand(self) -> MIPSOperand:
+        return self.mipsd.mips_operand(self.args[0])
+
+    @property
+    def src_operand(self) -> MIPSOperand:
+        return self.mipsd.mips_operand(self.args[1])
+
+    # --------------------------------------------------------------------------
+    # Operation:
+    #   temp <- 32
+    #   for i in 31..0
+    #     if GPR[rs][i] = 1 then
+    #       temp <- 31 - 1
+    #       break
+    #     endif
+    #   endfor
+    #   GPR[rd] <- temp
+    # --------------------------------------------------------------------------
+    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+        srcop = self.src_operand
+        dstop = self.dst_operand
+        srcval = simstate.get_rhs(iaddr, srcop)
+        if srcval.is_literal:
+            srcval = cast(SV.SimLiteralValue, srcval)
+            result = srcval.leading_zeroes
+        else:
+            result = SV.simUndefinedDW
+        lhs = simstate.set(iaddr, dstop, result)
+        simstate.increment_program_counter()
+        return SU.simassign(iaddr, simstate, lhs, result)

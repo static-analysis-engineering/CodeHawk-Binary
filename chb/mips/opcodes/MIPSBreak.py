@@ -27,6 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+
 from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
@@ -50,15 +51,13 @@ if TYPE_CHECKING:
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
 
-@mipsregistry.register_tag("bgezal", MIPSOpcode)
-class MIPSBranchGEZeroLink(MIPSOpcode):
-    """BGEZAL rs, offset.
+@mipsregistry.register_tag("break", MIPSOpcode)
+class MIPSBreak(MIPSOpcode):
+    """BREAK
 
-    Branch on Greater Than or Equal to Zero and Link.
-    Test a GPR then do a PC-relative procedure call.
+    Cause a breakpoint exception.
 
-    args[0]: index of rs in mips dictionary
-    args[1]: index of offset in mips dictionary
+    args[0]: code
     """
 
     def __init__(
@@ -69,31 +68,11 @@ class MIPSBranchGEZeroLink(MIPSOpcode):
 
     @property
     def operands(self) -> Sequence[MIPSOperand]:
-        return [self.mipsd.mips_operand(i) for i in self.args]
+        return []
 
     @property
-    def target(self) -> MIPSOperand:
-        return self.mipsd.mips_operand(self.args[1])
-
-    def has_branch_condition(self) -> bool:
-        return True
-
-    def branch_condition(self, xdata: InstrXData) -> XXpr:
-        return xdata.xprs[1]
-
-    def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return [xdata.xprs[3], xdata.xprs[2]]
+    def code(self) -> int:
+        return self.args[0]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """data format a:xxxx
-
-        xprs[0]: rhs
-        xprs[1]: branch condition (syntactic)
-        xprs[2]: branch condtiion (simplified)
-        xprs[3]: branch condition (negated)
-        """
-
-        result = xdata.xprs[1]
-        rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
-        return 'if ' + xresult + ' then call ' + str(self.target)
+        return 'break ' + str(self.code)
