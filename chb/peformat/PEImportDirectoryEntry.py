@@ -35,6 +35,7 @@ import chb.util.fileutil as UF
 import chb.peformat.PEImportDirectoryNameEntry as E
 
 if TYPE_CHECKING:
+    import chb.app.Instruction
     import chb.peformat.PEHeader
 
 

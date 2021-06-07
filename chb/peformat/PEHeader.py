@@ -29,18 +29,17 @@
 
 import xml.etree.ElementTree as ET
 
-import chb.util.fileutil as UF
-import chb.util.xmlutil as UX
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from chb.models.ModelsAccess import ModelsAccess
 
 import chb.peformat.PESection as S
 import chb.peformat.PESectionHeader as H
 import chb.peformat.PEImportDirectoryEntry as E
 
-if TYPE_CHECKING:
-    import chb.app.AppAccess
-    import chb.models.ModelsAccess
+import chb.util.fileutil as UF
+import chb.util.xmlutil as UX
+
 
 coff_header_attributes = [
     "machine",
@@ -245,10 +244,14 @@ class PEHeader:
 
     def __init__(
             self,
-            app: "chb.app.AppAccess.AppAccess",
-            xnode: ET.Element) -> None:
-        self._app = app
+            pathname: str,
+            filename: str,
+            xnode: ET.Element,
+            deps: Sequence[str] = []) -> None:
+        self._pathname = pathname
+        self._filename = filename
         self.xnode = xnode
+        self._models = ModelsAccess(deps)
         self._sectionheaders: Dict[str, H.PESectionHeader] = {}
         self._importtables: Dict[str, E.PEImportDirectoryEntry] = {}
         self._sections: Dict[str, S.PESection] = {}
@@ -257,15 +260,15 @@ class PEHeader:
 
     @property
     def pathname(self) -> str:
-        return self._app.path
+        return self._pathname
 
     @property
     def filename(self) -> str:
-        return self._app.filename
+        return self._filename
 
     @property
-    def models(self) -> "chb.models.ModelsAccess.ModelsAccess":
-        return self._app.models
+    def models(self) -> ModelsAccess:
+        return self._models
 
     @property
     def section_headers(self) -> Dict[str, H.PESectionHeader]:
