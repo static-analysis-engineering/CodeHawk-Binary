@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,7 +47,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("mul", X86Opcode)
@@ -72,20 +72,21 @@ class X86Mul(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
     @property
     def src1_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[2])
+        return self.x86d.operand(self.args[2])
 
     @property
     def src2_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[3])
+        return self.x86d.operand(self.args[3])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src1_operand, self.src2_operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format
 
         vars[0]: lhs
@@ -101,10 +102,10 @@ class X86Mul(X86Opcode):
         xrhs = simplify_result(xdata.args[3], xdata.args[4], rhs, rrhs)
         return lhs + ' = ' + xrhs
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -131,14 +132,14 @@ class X86Mul(X86Opcode):
         dstop = self.dst_operand
         src1val = simstate.get_rhs(iaddr, src1op)
         src2val = simstate.get_rhs(iaddr, src2op)
-        if src1val.is_literal() and src1val.is_doubleword() and src2val.is_literal():
+        if src1val.is_literal and src1val.is_doubleword and src2val.is_literal:
             src1val = cast(SV.SimDoubleWordValue, src1val)
             src2val = cast(SV.SimLiteralValue, src2val)
             result = src1val.mul(src2val)
             simstate.set(iaddr, dstop, result)
             highresult = result.highhalf
-            simstate.update_flag(iaddr, 'CF', not highresult.is_zero())
-            simstate.update_flag(iaddr, 'OF', not highresult.is_zero())
+            simstate.update_flag(iaddr, 'CF', not highresult.is_zero)
+            simstate.update_flag(iaddr, 'OF', not highresult.is_zero)
             simstate.undefine_flag(iaddr, 'SF')
             simstate.undefine_flag(iaddr, 'ZF')
             simstate.undefine_flag(iaddr, 'PF')
@@ -147,5 +148,3 @@ class X86Mul(X86Opcode):
                 simstate,
                 iaddr,
                 "Multiplication not yet supported for " + str(src1val))
-
-    

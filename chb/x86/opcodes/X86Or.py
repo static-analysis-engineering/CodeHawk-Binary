@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,7 +47,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("or", X86Opcode)
@@ -66,16 +66,17 @@ class X86Or(X86Opcode):
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data formats:
               a:v second operand is -1, result is -1
               a:vxxxx otherwise
@@ -86,7 +87,7 @@ class X86Or(X86Opcode):
         xprs[2]: src-rhs | dst-rhs (syntactic)
         xprs[3]: src-rhs | dst-rhs (simplified)
         """
-        
+
         if len(xdata.xprs) == 0:
             # second operand is -1
             lhs = str(xdata.vars[0])
@@ -98,10 +99,10 @@ class X86Or(X86Opcode):
             xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
             return lhs + ' = ' + xresult
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return [xdata.vars[0]]
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         if len(xdata.xprs) == 4:
             return [xdata.xprs[3]]
         else:
@@ -121,16 +122,16 @@ class X86Or(X86Opcode):
         dstop = self.dst_operand
         srcval = simstate.get_rhs(iaddr, srcop)
         dstval = simstate.get_rhs(iaddr, dstop)
-        if dstval.is_doubleword() and dstval.is_literal() and srcval.is_literal():
+        if dstval.is_doubleword and dstval.is_literal and srcval.is_literal:
             dstval = cast(SV.SimDoubleWordValue, dstval)
             srcval = cast(SV.SimLiteralValue, srcval)
             result = dstval.bitwise_or(srcval)
-            simstate.set(iaddr,dstop,result)
+            simstate.set(iaddr, dstop, result)
             simstate.clear_flag(iaddr, 'OF')
             simstate.clear_flag(iaddr, 'CF')
-            simstate.update_flag(iaddr, 'SF',result.is_negative())
-            simstate.update_flag(iaddr, 'ZF',result.is_zero())
-            simstate.update_flag(iaddr, 'PF',result.is_odd_parity())
+            simstate.update_flag(iaddr, 'SF', result.is_negative)
+            simstate.update_flag(iaddr, 'ZF', result.is_zero)
+            simstate.update_flag(iaddr, 'PF', result.is_odd_parity)
         else:
             raise SU.CHBSimError(
                 simstate,
@@ -144,4 +145,3 @@ class X86Or(X86Opcode):
                  + ":"
                  + str(srcval)
                  + " not yet supported"))
-

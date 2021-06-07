@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -52,7 +52,7 @@ class X86Test(X86Opcode):
     args[0]: index of op1 in x86dictionary
     args[1]: index of op2 in x86dictionary
     """
-    
+
     def __init__(
             self,
             x86d: "X86Dictionary",
@@ -61,16 +61,17 @@ class X86Test(X86Opcode):
 
     @property
     def operand_1(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
     @property
     def operand_2(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.operand_1, self.operand_2]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:xx
 
         xprs[0]: value of op1
@@ -95,14 +96,14 @@ class X86Test(X86Opcode):
         op2 = self.operand_2
         opval1 = simstate.get_rhs(iaddr, op1)
         opval2 = simstate.get_rhs(iaddr, op2)
-        if opval1.is_literal() and opval1.is_defined():
+        if opval1.is_literal and opval1.is_defined:
             opval1 = cast(SV.SimLiteralValue, opval1)
             testresult = opval1.bitwise_and(opval2)
             simstate.clear_flag(iaddr, 'OF')
             simstate.clear_flag(iaddr, 'CF')
-            simstate.update_flag(iaddr, 'SF', testresult.is_negative())
-            simstate.update_flag(iaddr, 'ZF', testresult.is_zero())
-            simstate.update_flag(iaddr, 'PF', testresult.is_odd_parity())
+            simstate.update_flag(iaddr, 'SF', testresult.is_negative)
+            simstate.update_flag(iaddr, 'ZF', testresult.is_zero)
+            simstate.update_flag(iaddr, 'PF', testresult.is_odd_parity)
         else:
             raise SU.CHBSimError(
                 simstate,

@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -46,7 +46,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("lea", X86Opcode)
@@ -65,24 +65,25 @@ class X86Lea(X86Opcode):
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    def get_opcode_operations(self) -> List[str]:
+    def opcode_operations(self) -> List[str]:
         src = self.src_operand
         dst = self.dst_operand
         return [dst.to_operand_string() + ' = ' + src.to_address_string()]
 
     # xdata: [ "a:vxx": lhs, rhs, rhs-simplified ]
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vxxx .
-        
+
         vars[0]: lhs
         xprs[0]: rhs
         xprs[1]: rhs simplified
@@ -91,13 +92,13 @@ class X86Lea(X86Opcode):
         lhs = str(xdata.vars[0])
         rhs = xdata.xprs[0]
         rrhs = xdata.xprs[1]
-        xrhs = simplify_result(xdata.args[1],xdata.args[2], rhs, rrhs)
+        xrhs = simplify_result(xdata.args[1], xdata.args[2], rhs, rrhs)
         return lhs + ' = ' + xrhs
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return [xdata.vars[0]]
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return [xdata.xprs[1]]
 
     # --------------------------------------------------------------------------

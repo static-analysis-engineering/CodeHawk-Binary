@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,7 +47,8 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
+
 
 @x86registry.register_tag("rcr", X86Opcode)
 class X86RotateRightCF(X86Opcode):
@@ -56,7 +57,7 @@ class X86RotateRightCF(X86Opcode):
     args[0]: index of dst in x86dictionary
     args[1]: index of src in x86dictionary
     """
-    
+
     def __init__(
             self,
             x86d: "X86Dictionary",
@@ -65,33 +66,33 @@ class X86RotateRightCF(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    # xdata: [ "a:vxx" ],[ lhs, number of bits to rotate, value to rotate ]
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vxx .
 
         vars[0]: dst
         xprs[0]: src
         xprs[1]: dst-rhs
         """
-        
+
         lhs = str(xdata.vars[0])
         rhs1 = str(xdata.xprs[0])
         rhs2 = str(xdata.xprs[1])
         return lhs + ' = ' + rhs2 + ' rotate-right by ' + rhs1 + ' CF'
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # TBD: incorporate CF
@@ -111,5 +112,3 @@ class X86RotateRightCF(X86Opcode):
              + str(srcop)
              + ":"
              + str(srcval)))
-
-

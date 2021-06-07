@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -65,13 +65,14 @@ class X86Negate(X86Opcode):
 
     @property
     def operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.operand]
 
     # xdata: [ "a:vxxx" ],[ lhs, rhs, rhs-operation, rhs-operation-simplified ]
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vxxx
 
         vars[0]: lhs
@@ -79,17 +80,17 @@ class X86Negate(X86Opcode):
         xprs[1]: rhs 2's complement (syntactic)
         xprs[2]: rhs 2's complement (simplified)
         """
-        
+
         lhs = str(xdata.vars[0])
         rhsx = xdata.xprs[1]
         rrhsx = xdata.xprs[2]
         xrhs = simplify_result(xdata.args[2], xdata.args[3], rhsx, rrhsx)
         return lhs + ' = ' + xrhs
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return [xdata.vars[0]]
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return [xdata.xprs[2]]
 
     # --------------------------------------------------------------------------
@@ -105,22 +106,21 @@ class X86Negate(X86Opcode):
         op = self.operand
         srcval = simstate.get_rhs(iaddr, op)
         zero = SV.mk_simvalue(0, op.size)
-        if zero.is_doubleword() and srcval.is_doubleword() and srcval.is_literal():
+        if zero.is_doubleword and srcval.is_doubleword and srcval.is_literal:
             zero = cast(SV.SimDoubleWordValue, zero)
             srcval = cast(SV.SimDoubleWordValue, srcval)
             result = zero.sub(srcval)
             simstate.set(iaddr, op, result)
-            if srcval.is_zero():
+            if srcval.is_zero:
                 simstate.set_flag(iaddr, 'CF')
             else:
                 simstate.clear_flag(iaddr, 'CF')
-            simstate.update_flag(iaddr, 'OF',zero.sub_overflows(srcval))
-            simstate.update_flag(iaddr, 'SF',result.is_negative())
-            simstate.update_flag(iaddr, 'ZF',result.is_zero())
-            simstate.update_flag(iaddr, 'PF',result.is_odd_parity())
+            simstate.update_flag(iaddr, 'OF', zero.sub_overflows(srcval))
+            simstate.update_flag(iaddr, 'SF', result.is_negative)
+            simstate.update_flag(iaddr, 'ZF', result.is_zero)
+            simstate.update_flag(iaddr, 'PF', result.is_odd_parity)
         else:
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
                 "Negation of " + str(op) + ":" + str(result) + " not yet supported")
-        

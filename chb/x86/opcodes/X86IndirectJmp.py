@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -43,7 +43,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    
+
 
 @x86registry.register_tag("jmp*", X86Opcode)
 class X86IndirectJmp(X86Opcode):
@@ -60,30 +60,31 @@ class X86IndirectJmp(X86Opcode):
 
     @property
     def operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.operand]
 
+    @property
     def is_indirect_jump(self) -> bool:
         return True
 
-    # xdata: [ "a:xx": tgtop, tgtop-simplified ]
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format a:xxi or a:xx or a:x .
 
         xprs[0]: target
         xprs[1]: target (simplified)
         """
-        
+
         if len(xdata.xprs) == 1:
             tgtop = str(xdata.xprs[0])
             return 'jmp*  ' + tgtop
         elif len(xdata.xprs) == 2:
             tgtop = str(xdata.xprs[0])
             vx = str(xdata.xprs[1])
-            reg = self.bd.get_register(xdata.args[2])
-            base = self.bd.get_address(xdata.args[3])
+            reg = self.bd.register(xdata.args[2])
+            base = self.bd.address(xdata.args[3])
             return str(reg) + ' ' + str(base)
         elif len(xdata.xprs) == 3:
             '''
@@ -105,7 +106,7 @@ class X86IndirectJmp(X86Opcode):
         else:
             return 'jmp* ?'
 
-    def get_targets(self, xdata: InstrXData) -> List[str]:
+    def targets(self, xdata: InstrXData) -> List[str]:
         '''
         if len(xprs) == 2:
             base = self.bd.get_address(xargs[3])
@@ -119,7 +120,7 @@ class X86IndirectJmp(X86Opcode):
         '''
         raise UF.CHBError('Jumptable not found')
 
-    def get_selector_expr(self, xdata: InstrXData) -> XXpr:
+    def selector_expr(self, xdata: InstrXData) -> XXpr:
         if len(xdata.xprs) == 2:
             return xdata.xprs[1]
         else:

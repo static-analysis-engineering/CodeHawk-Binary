@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -56,7 +56,7 @@ class X86BNot(X86Opcode):
 
     args[0]: index of operand in x86dictionary
     """
-    
+
     def __init__(
             self,
             x86d: "X86Dictionary",
@@ -65,12 +65,13 @@ class X86BNot(X86Opcode):
 
     @property
     def operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vxxx .
 
         vars[0]: dst-lhs
@@ -78,17 +79,17 @@ class X86BNot(X86Opcode):
         xprs[1]: not dst-rhs (syntactic)
         xprs[2]: not dst-rhs (simplified)
         """
-        
+
         lhs = str(xdata.vars[0])
         rhsx = xdata.xprs[1]
         rrhsx = xdata.xprs[2]
         xrhs = simplify_result(xdata.args[2], xdata.args[3], rhsx, rrhsx)
-        return lhs + ' = ' +  xrhs
+        return lhs + ' = ' + xrhs
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return [xdata.vars[0]]
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return [xdata.xprs[3]]
 
     # --------------------------------------------------------------------------
@@ -101,12 +102,11 @@ class X86BNot(X86Opcode):
     def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
         op = self.operand
         srcval = simstate.get_rhs(iaddr, op)
-        if srcval.is_doubleword() and srcval.is_literal():
+        if srcval.is_doubleword and srcval.is_literal:
             srcval = cast(SV.SimDoubleWordValue, srcval)
-            simstate.set(iaddr,op,srcval.bitwise_not())
+            simstate.set(iaddr, op, srcval.bitwise_not())
         else:
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
                 "bitwise-not not yet supported for " + str(op) + ":" + str(srcval))
-

@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -47,7 +47,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("nop", X86Opcode)
@@ -78,4 +78,3 @@ class X86Mov(X86Opcode):
 
     def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
         pass
-        

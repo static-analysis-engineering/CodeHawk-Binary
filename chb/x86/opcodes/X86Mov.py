@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,7 +47,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("mov", X86Opcode)
@@ -66,16 +66,17 @@ class X86Mov(X86Opcode):
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[2])
+        return self.x86d.operand(self.args[2])
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    def get_opcode_operations(self) -> List[str]:
+    def opcode_operations(self) -> List[str]:
         src = self.src_operand
         dst = self.dst_operand
         return [dst.to_operand_string() + ' = ' + src.to_operand_string()]
@@ -83,7 +84,7 @@ class X86Mov(X86Opcode):
     # xdata: [ "nop" ]  no state change
     #        [ "a:xx" ; "arg", callsite ],[ x, x, argindex ] function argument
     #        [ "a:vxx" ]  assignment (lhs, rhs, rhs-simplified)
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: """
 
         if len(xdata.tags) > 1 and xdata.tags[1] == 'arg':
@@ -103,13 +104,13 @@ class X86Mov(X86Opcode):
             else:
                 return 'mov:????'
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
-    def get_operand_values(self, xdata: InstrXData) -> List[XXpr]:
+    def operand_values(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------

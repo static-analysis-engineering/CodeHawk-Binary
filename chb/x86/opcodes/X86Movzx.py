@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,7 +47,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("movzx", X86Opcode)
@@ -71,16 +71,17 @@ class X86Movzx(X86Opcode):
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[2])
+        return self.x86d.operand(self.args[2])
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format a:vxx
 
         vars[0]: lhs
@@ -94,10 +95,10 @@ class X86Movzx(X86Opcode):
         xrhs = simplify_result(xdata.args[1], xdata.args[2], rhs, rrhs)
         return lhs + ' = ' + xrhs
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -110,7 +111,7 @@ class X86Movzx(X86Opcode):
         dstop = self.dst_operand
         srcop = self.src_operand
         srcval = simstate.get_rhs(iaddr, srcop)
-        if srcval.is_literal() and srcval.is_defined():
+        if srcval.is_literal and srcval.is_defined:
             srcval = cast(SV.SimLiteralValue, srcval)
             srcval = srcval.zero_extend(dstop.size)
             simstate.set(iaddr, dstop, srcval)
@@ -118,4 +119,3 @@ class X86Movzx(X86Opcode):
             simstate,
             iaddr,
             "Unable to zero extend non-literal value: " + str(srcval))
-

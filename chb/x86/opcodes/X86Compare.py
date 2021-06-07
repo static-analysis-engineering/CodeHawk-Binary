@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -45,6 +45,7 @@ from chb.x86.X86Operand import X86Operand
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
 
+
 @x86registry.register_tag("cmp", X86Opcode)
 class X86Compare(X86Opcode):
 
@@ -58,16 +59,17 @@ class X86Compare(X86Opcode):
 
     @property
     def operand_1(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
     @property
     def operand_2(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.operand_1, self.operand_2]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         return ''
 
     # --------------------------------------------------------------------------
@@ -86,27 +88,27 @@ class X86Compare(X86Opcode):
         op2 = self.operand_2
         val1 = simstate.get_rhs(iaddr, op1)
         val2 = simstate.get_rhs(iaddr, op2)
-        if val2.is_literal():
+        if val2.is_literal:
             val2 = cast(SV.SimLiteralValue, val2)
-            if val2.is_byte():
+            if val2.is_byte:
                 val2 = cast(SV.SimByteValue, val2)
                 val2 = val2.sign_extend(op1.size)
-            elif val2.is_word():
+            elif val2.is_word:
                 val2 = cast(SV.SimWordValue, val2)
                 val2 = val2.sign_extend(op1.size)
         if (
-                val1.is_doubleword()
-                and val1.is_literal()
-                and val2.is_doubleword()
-                and val2.is_literal()):
+                val1.is_doubleword
+                and val1.is_literal
+                and val2.is_doubleword
+                and val2.is_literal):
             val1 = cast(SV.SimDoubleWordValue, val1)
             val2 = cast(SV.SimDoubleWordValue, val2)
             result = val1.sub(val2)
-            simstate.update_flag(iaddr, 'CF',val1.sub_carries(val2))
-            simstate.update_flag(iaddr, 'OF',val1.sub_overflows(val2))
-            simstate.update_flag(iaddr, 'SF',result.is_negative())
-            simstate.update_flag(iaddr, 'ZF',result.is_zero())
-            simstate.update_flag(iaddr, 'PF',result.is_odd_parity())
+            simstate.update_flag(iaddr, 'CF', val1.sub_carries(val2))
+            simstate.update_flag(iaddr, 'OF', val1.sub_overflows(val2))
+            simstate.update_flag(iaddr, 'SF', result.is_negative)
+            simstate.update_flag(iaddr, 'ZF', result.is_zero)
+            simstate.update_flag(iaddr, 'PF', result.is_odd_parity)
         else:
             raise SU.CHBSimError(
                 simstate,
@@ -120,4 +122,3 @@ class X86Compare(X86Opcode):
                  + ":"
                  + str(val2)
                  + " not yet supported"))
-        

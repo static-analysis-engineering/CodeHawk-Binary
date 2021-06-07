@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -45,7 +45,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("imul", X86Opcode)
@@ -70,20 +70,21 @@ class X86IMul(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
     @property
     def src1_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[2])
+        return self.x86d.operand(self.args[2])
 
     @property
     def src2_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[3])
+        return self.x86d.operand(self.args[3])
 
-    def get_operands(self) -> List[X86Operand]:
-        return  [self.dst_operand, self.src1_operand, self.src2_operand]
+    @property
+    def operands(self) -> Sequence[X86Operand]:
+        return [self.dst_operand, self.src1_operand, self.src2_operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format a:vxxxx
 
         vars[0]: lhs
@@ -99,10 +100,10 @@ class X86IMul(X86Opcode):
         xrhs = simplify_result(xdata.args[3], xdata.args[4], rhs, rrhs)
         return lhs + ' = ' + xrhs
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -132,12 +133,12 @@ class X86IMul(X86Opcode):
         src1val = simstate.get_rhs(iaddr, src1op)
         src2val = simstate.get_rhs(iaddr, src2op)
         if (
-                src1val.is_literal()
-                and src1val.is_defined()
-                and src1val.is_doubleword()
-                and src2val.is_literal()
-                and src2val.is_defined()
-                and src2val.is_doubleword()):
+                src1val.is_literal
+                and src1val.is_defined
+                and src1val.is_doubleword
+                and src2val.is_literal
+                and src2val.is_defined
+                and src2val.is_doubleword):
             src1val = cast(SV.SimDoubleWordValue, src1val)
             src2val = cast(SV.SimDoubleWordValue, src2val)
             src2val = src2val.sign_extend(self.size)
@@ -147,9 +148,9 @@ class X86IMul(X86Opcode):
             if dstop.size < (result.width // 8):
                 simstate.set(iaddr, dstop, lowresult)
             else:
-                simstate.set(iaddr,dstop,result)
-            simstate.update_flag(iaddr, 'CF', not highresult.is_zero())
-            simstate.update_flag(iaddr, 'OF', not highresult.is_zero())
+                simstate.set(iaddr, dstop, result)
+            simstate.update_flag(iaddr, 'CF', not highresult.is_zero)
+            simstate.update_flag(iaddr, 'OF', not highresult.is_zero)
             simstate.undefine_flag(iaddr, 'SF')
             simstate.undefine_flag(iaddr, 'ZF')
             simstate.undefine_flag(iaddr, 'PF')
@@ -161,4 +162,3 @@ class X86IMul(X86Opcode):
                  + str(src1val)
                  + ", "
                  + str(src2val)))
-        

@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,7 +47,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("movsx", X86Opcode)
@@ -71,34 +71,35 @@ class X86Movsx(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[2])
+        return self.x86d.operand(self.args[2])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
     # xdata: [ "a:vxx" ],[ lhs, rhs, rhs-rewrittenn ]
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vxx
 
         vars[0]: lhs
         xprs[0]: rhs
         xprs[1]: rhs (simplified)
         """
-        
+
         lhs = str(xdata.vars[0])
         rhs = xdata.xprs[0]
         rrhs = xdata.xprs[1]
         xrhs = simplify_result(xdata.args[1], xdata.args[2], rhs, rrhs)
         return lhs + ' = ' + xrhs
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -112,7 +113,7 @@ class X86Movsx(X86Opcode):
         srcop = self.src_operand
         dstop = self.dst_operand
         srcval = simstate.get_rhs(iaddr, srcop)
-        if srcval.is_literal():
+        if srcval.is_literal:
             srcval = cast(SV.SimLiteralValue, srcval)
             srcval = srcval.sign_extend(dstop.size)
             simstate.set(iaddr, dstop, srcval)
@@ -121,4 +122,3 @@ class X86Movsx(X86Opcode):
                 simstate,
                 iaddr,
                 "Sign-extension not supported for " + str(srcval))
-        
