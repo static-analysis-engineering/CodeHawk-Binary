@@ -29,7 +29,7 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import List, TYPE_CHECKING
+from typing import List, Sequence, TYPE_CHECKING
 
 from chb.models.PEDataType import PEDataType
 from chb.models.PEDataType import PEDataBType
@@ -159,7 +159,7 @@ class FunctionParameter(object):
         else:
             raise UF.CHBError("Not a register parameter: " + str(self))
 
-    def get_roles(self) -> List[ParameterRole]:
+    def roles(self) -> Sequence[ParameterRole]:
         if "roles" in self.xnode.attrib:
             xrolesattr = self.xnode.get("roles")
             if xrolesattr:

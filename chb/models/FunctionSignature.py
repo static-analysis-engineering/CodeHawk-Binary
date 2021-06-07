@@ -104,9 +104,10 @@ class FunctionSignature:
         return [P.FunctionParameter(self, xpar) for xpar in xpars]
 
     def xcheck(self) -> None:
-        if (self.name != self.functionsummary.name
-            and (self.name + "A") != self.functionsummary.name
-            and (self.name + "W") != self.functionsummary.name):
+        if (
+                self.name != self.functionsummary.name
+                and (self.name + "A") != self.functionsummary.name
+                and (self.name + "W") != self.functionsummary.name):
             raise UF.CHBError("Name discrepancy in function signature for "
                               + self.functionsummary.name
                               + " ("
