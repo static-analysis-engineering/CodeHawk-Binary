@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 import xml.etree.ElementTree as ET
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from chb.elfformat.ELFProgramHeader import ELFProgramHeader
 from chb.elfformat.ELFSectionHeader import ELFSectionHeader
@@ -41,8 +41,6 @@ from chb.elfformat.ELFDictionary import ELFDictionary
 
 import chb.util.fileutil as UF
 
-if TYPE_CHECKING:
-    import chb.app.AppAccess
 
 fileheader_attributes = [
     "e_machine",
@@ -105,20 +103,20 @@ valuedescriptor: Dict[str, Callable[[str], str]] = {
     }
 
 
-class ELFHeader():
+class ELFHeader:
 
     def __init__(
             self,
-            app: "chb.app.AppAccess.AppAccess",
+            pathname: str,
+            filename: str,
             xnode: ET.Element) -> None:
-        self.app = app
+        self._pathname = pathname
+        self._filename = filename
         self.xnode = xnode
-        self._dictionary = ELFDictionary()
+        self._dictionary: Optional[ELFDictionary] = None
         self._programheaders: List[ELFProgramHeader] = []
         self._sectionheaders: List[ELFSectionHeader] = []
         self._sections: Dict[int, ELFSection] = {}
-        xdictionary = UF.get_elf_dictionary_xnode(self.app.path, self.app.filename)
-        self._dictionary.initialize(xdictionary)
 
     def _get_default_attribute(self, tag: str, default: str) -> str:
         xprop = self.xnode.get(tag)
@@ -128,7 +126,20 @@ class ELFHeader():
             return default
 
     @property
+    def pathname(self) -> str:
+        return self._pathname
+
+    @property
+    def filename(self) -> str:
+        return self._filename
+
+    @property
     def dictionary(self) -> ELFDictionary:
+        if self._dictionary is None:
+            xdictionary = UF.get_elf_dictionary_xnode(
+                self.pathname, self.filename)
+            self._dictionary = ELFDictionary()
+            self._dictionary.initialize(xdictionary)
         return self._dictionary
 
     @property
@@ -225,7 +236,7 @@ class ELFHeader():
             return self._sections[index]
         else:
             sectionx = UF.get_elf_section_xnode(
-                self.path, self.filename, str(index))
+                self.pathname, self.filename, str(index))
             self._sections[index] = ELFStringTable(
                 self, self.sectionheaders[index], sectionx)
             return self._sections[index]
@@ -238,19 +249,11 @@ class ELFHeader():
                 result.append(self._sections[index])
             else:
                 sectionx = UF.get_elf_section_xnode(
-                    self.path, self.filename, str(index))
+                    self.pathname, self.filename, str(index))
                 self._sections[index] = ELFStringTable(
                     self, self.sectionheaders[index], sectionx)
                 result.append(self._sections[index])
         return result
-
-    @property
-    def path(self) -> str:
-        return self.app.path
-
-    @property
-    def filename(self) -> str:
-        return self.app.filename
 
     @property
     def sections(self) -> Dict[int, ELFSection]:
@@ -258,7 +261,7 @@ class ELFHeader():
             if index in self._sections:
                 continue
             xsection = UF.get_elf_section_xnode(
-                self.path, self.filename, str(index))
+                self.pathname, self.filename, str(index))
             if h.is_dynamic_table:
                 self._sections[index] = ELFDynamicTable(
                     self, self.sectionheaders[index], xsection)
@@ -300,7 +303,7 @@ class ELFHeader():
             return self.sections[index]
         else:
             xsection = UF.get_elf_section_xnode(
-                self.path, self.filename, str(index))
+                self.pathname, self.filename, str(index))
             self.sections[index] = ELFSymbolTable(
                 self, self.sectionheaders[index], xsection)
             return self.sections[index]
@@ -311,7 +314,7 @@ class ELFHeader():
             return self.sections[index]
         else:
             xsection = UF.get_elf_section_xnode(
-                self.path, self.filename, str(index))
+                self.pathname, self.filename, str(index))
             self.sections[index] = ELFSymbolTable(
                 self, self.sectionheaders[index], xsection)
             return self.sections[index]
@@ -322,7 +325,7 @@ class ELFHeader():
             if sh.is_relocation_table:
                 if sh.index not in self.sections:
                     xsection = UF.get_elf_section_xnode(
-                        self.path, self.filename, sh.index)
+                        self.pathname, self.filename, sh.index)
                     index = int(sh.index)
                     self._sections[index] = ELFRelocationTable(
                         self, self.sectionheaders[index], xsection)
@@ -335,7 +338,7 @@ class ELFHeader():
             return self.sections[index]
         else:
             xsection = UF.get_elf_section_xnode(
-                self.path, self.filename, str(index))
+                self.pathname, self.filename, str(index))
             self.sections[index] = ELFDynamicTable(
                 self, self.sectionheaders[index], xsection)
             return self.sections[index]

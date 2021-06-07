@@ -41,8 +41,7 @@ class ELFDictionary:
 
     def __init__(self) -> None:
         self.string_table = SI.StringIndexedTable("string-table")
-        self.tables: List[Any] = []
-        self.string_tables: List[Any] = [
+        self.string_tables = [
             (self.string_table, self._read_xml_string_table)
             ]
 
@@ -59,13 +58,15 @@ class ELFDictionary:
     def initialize(self, xnode: ET.Element) -> None:
         if xnode is None:
             return
-        for (t, f) in self.tables + self.string_tables:
+        for (t, f) in self.string_tables:
             t.reset()
-            f(xnode.find(t.name))
+            xtable = xnode.find(t.name)
+            if xtable is not None:
+                f(xtable)
 
     def __str__(self) -> str:
         lines: List[str] = []
-        for (t, _) in self.tables:
+        for (t, _) in self.string_tables:
             if t.size() > 0:
                 lines.append(str(t))
         return '\n'.join(lines)
