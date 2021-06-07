@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -76,13 +76,14 @@ class X86Jcc(X86Opcode):
             ixval: IndexedTableValue) -> None:
         X86Opcode.__init__(self, x86d, ixval)
 
+    @property
     def is_conditional_branch(self) -> bool:
         return True
 
     def has_predicate(self, xdata: InstrXData) -> bool:
         return len(xdata.xprs) > 0
 
-    def get_predicate(self, xdata: InstrXData) -> XXpr:
+    def predicate(self, xdata: InstrXData) -> XXpr:
         if len(xdata.xprs) > 0:
             return xdata.xprs[0]
         else:
@@ -90,12 +91,13 @@ class X86Jcc(X86Opcode):
 
     @property
     def target_address(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.target_address]
 
-    def get_ft_conditions(self, xdata: InstrXData) -> List[XXpr]:
+    def ft_conditions(self, xdata: InstrXData) -> List[XXpr]:
         if len(xdata.xprs) > 0:
             return [xdata.xprs[1], xdata.xprs[0]]
         else:
@@ -103,9 +105,9 @@ class X86Jcc(X86Opcode):
 
     # xdata: [ "a:x": branch predicate ]
     #        [ ]: no predicate found
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
 
-        ### tgtaddr = str(self.target_address)
+        # tgtaddr = str(self.target_address)
         tgtaddr = "tgt"
         if len(xdata.xprs) > 0:
             return 'if ' + str(xdata.xprs[0]) + ' goto ' + tgtaddr
@@ -127,29 +129,34 @@ class X86Jcc(X86Opcode):
     def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
         tag = self.tags[0]
         tgt = str(self.target_address)
-        
+
         def jump() -> None:
             raise SU.CHBSimJumpException(iaddr, tgt)
-        
+
         def fallthrough() -> None:
             raise SU.CHBSimFallthroughException(iaddr, tgt)
-        
+
         def undefined(flag: str) -> None:
             raise UF.CHBError('Flag value ' + flag + ' is undefined')
 
         if tag == 'jc':
             cf = simstate.get_flag_value(iaddr, 'CF')
-            if cf == 1: jump()
-            elif cf == 0: fallthrough()
-            else: undefined('CF')
+            if cf == 1:
+                jump()
+            elif cf == 0:
+                fallthrough()
+            else:
+                undefined('CF')
         elif tag == 'jnz':
             zf = simstate.get_flag_value(iaddr, 'ZF')
-            if zf == 0: jump()
-            elif zf == 1: fallthrough()
-            else: undefined('ZF')
+            if zf == 0:
+                jump()
+            elif zf == 1:
+                fallthrough()
+            else:
+                undefined('ZF')
         else:
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
                 'Conditional jump tag not yet supported: ' + tag)
-                

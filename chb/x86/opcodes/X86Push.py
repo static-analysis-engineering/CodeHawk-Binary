@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -46,7 +46,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("push", X86Opcode)
@@ -69,21 +69,22 @@ class X86Push(X86Opcode):
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.src_operand]
 
-    def get_opcode_operations(self) -> List[str]:
+    def opcode_operations(self) -> List[str]:
         src = self.src_operand
         dec = 'esp = esp-4'
         mem = 'mem[esp] = ' + src.to_operand_string()
-        return [dec , mem]
+        return [dec, mem]
 
     # xdata: [ "a:x"; "arg" ; callsite ],[ x, x, argindex ] function argument
     #        [ "a:v", "save" ] save initial value of register to the stack
     #        [ "a:vx" ] push operand to the stack
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data formats:
                1) a:xx, arg, callsite : function argument
                2) a:v, save : save initial value of register to the stack
@@ -104,17 +105,16 @@ class X86Push(X86Opcode):
             xval = str(xdata.xprs[1])
             return "[" + str(callsite) + ":" + str(argindex) + ": " + xval + "]"
 
-
         elif len(xdata.tags) == 2 and xdata.tags[1] == "save":
             return "save " + str(xdata.vars[0])
 
         else:
-            return str(xdata.vars[0]) + " := " + str(xdata.xprs[0])            
+            return str(xdata.vars[0]) + " := " + str(xdata.xprs[0])
 
-    def get_operand_values(self, xdata: InstrXData) -> List[XXpr]:
+    def operand_values(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -129,6 +129,6 @@ class X86Push(X86Opcode):
     # --------------------------------------------------------------------------
     def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
         srcval = simstate.get_rhs(iaddr, self.src_operand)
-        if srcval.is_literal():
+        if srcval.is_literal:
             srcval = cast(SV.SimDoubleWordValue, srcval)
             simstate.push_value(iaddr, srcval.to_doubleword(signextend=True))

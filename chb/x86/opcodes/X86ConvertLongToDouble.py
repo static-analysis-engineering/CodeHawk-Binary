@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -58,23 +58,24 @@ class X86ConvertLongToDouble(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
-        return  [self.dst_operand, self.src_operand]
+    @property
+    def operands(self) -> Sequence[X86Operand]:
+        return [self.dst_operand, self.src_operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format a:vxx
 
         vars[0]: dst
         xprs[0]: src
         xprs[1]: src simplified
         """
-        
+
         lhs = str(xdata.vars[0])
         rhs = xdata.xprs[0]
         rrhs = xdata.xprs[1]

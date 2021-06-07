@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -69,15 +69,12 @@ class X86PushRegisters(X86Opcode):
     # Flags affected: None
     # --------------------------------------------------------------------------
     def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
-        espval = simstate.get_regval(iaddr,'esp')
-        simstate.push_value(iaddr, simstate.get_regval(iaddr,'eax'))
-        simstate.push_value(iaddr, simstate.get_regval(iaddr,'ecx'))
-        simstate.push_value(iaddr, simstate.get_regval(iaddr,'edx'))
-        simstate.push_value(iaddr, simstate.get_regval(iaddr,'ebx'))
+        espval = simstate.get_regval(iaddr, 'esp')
+        simstate.push_value(iaddr, simstate.get_regval(iaddr, 'eax'))
+        simstate.push_value(iaddr, simstate.get_regval(iaddr, 'ecx'))
+        simstate.push_value(iaddr, simstate.get_regval(iaddr, 'edx'))
+        simstate.push_value(iaddr, simstate.get_regval(iaddr, 'ebx'))
         simstate.push_value(iaddr, espval)
-        simstate.push_value(iaddr, simstate.get_regval(iaddr,'ebp'))
-        simstate.push_value(iaddr, simstate.get_regval(iaddr,'esi'))
-        simstate.push_value(iaddr, simstate.get_regval(iaddr,'edi'))
-                                
-        
-
+        simstate.push_value(iaddr, simstate.get_regval(iaddr, 'ebp'))
+        simstate.push_value(iaddr, simstate.get_regval(iaddr, 'esi'))
+        simstate.push_value(iaddr, simstate.get_regval(iaddr, 'edi'))

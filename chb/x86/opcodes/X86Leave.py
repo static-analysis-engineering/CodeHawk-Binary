@@ -44,6 +44,7 @@ from chb.x86.X86Opcode import X86Opcode
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
 
+
 @x86registry.register_tag("leave", X86Opcode)
 class X86Leave(X86Opcode):
     """LEAVE. """

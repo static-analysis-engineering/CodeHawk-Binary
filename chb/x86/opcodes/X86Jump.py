@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -64,15 +64,15 @@ class X86Jump(X86Opcode):
 
     @property
     def target_address(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
-        return [ self.target_address]
+    @property
+    def operands(self) -> Sequence[X86Operand]:
+        return [self.target_address]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
-        tgtaddr = self.bd.get_address(xdata.args[0])
+    def annotation(self, xdata: InstrXData) -> str:
+        tgtaddr = self.bd.address(xdata.args[0])
         return 'goto ' + str(tgtaddr)
 
     def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
         raise SU.CHBSimJumpException(iaddr, str(self.target_address))
-        

@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     import chb.x86.X86Instruction
     from chb.x86.simulation.X86SimulationState import X86SimulationState
 
+
 @x86registry.register_tag("and", X86Opcode)
 class X86And(X86Opcode):
     """AND dst, src
@@ -55,7 +56,7 @@ class X86And(X86Opcode):
     args[0]: index of dst operand in x86 dictionary
     args[1]: index of src operand in x86 dictionary
     """
-    
+
     def __init__(
             self,
             x86d: "X86Dictionary",
@@ -64,16 +65,17 @@ class X86And(X86Opcode):
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """Different formats dependent on operands.
 
         1) stack realignment: "stack-realign", with number of bytes
@@ -90,20 +92,20 @@ class X86And(X86Opcode):
         xprs[2]: src & dst (syntactic)
         xprs[3]: src & dst (simplified)
         """
-        
+
         if xdata.tags[0] == 'stack-realign':
             alignment = str(xdata.args[0])
             return 'align stack on ' + alignment + ' bytes'
-        
+
         elif len(xdata.xprs) == 0:  # rhs is zero, result is zero
             lhs = str(xdata.vars[0])
             return lhs + ' = 0'
-        
+
         elif len(xdata.xprs) == 1:  # dst = src, value is unchanged
             lhs = str(xdata.vars[0])
             rhs = str(xdata.xprs[1])
             return lhs + ' = ' + rhs + ' (unchanged)'
-        
+
         else:
             lhs = str(xdata.vars[0])
             result = xdata.xprs[2]
@@ -111,13 +113,13 @@ class X86And(X86Opcode):
             xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
             return lhs + ' = ' + xresult
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         if xdata.tags[0] == 'stack-realign':
             return []
         else:
             return [xdata.vars[0]]
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         if xdata.tags[0] == 'stack-realign':
             return []
         elif len(xdata.xprs) == 0:
@@ -144,16 +146,16 @@ class X86And(X86Opcode):
         src2op = self.src_operand
         src1val = simstate.get_rhs(iaddr, src1op)
         src2val = simstate.get_rhs(iaddr, src2op)
-        if src1val.is_doubleword() and src1val.is_literal() and src2val.is_literal():
+        if src1val.is_doubleword and src1val.is_literal and src2val.is_literal:
             src1val = cast(SV.SimDoubleWordValue, src1val)
             src2val = cast(SV.SimLiteralValue, src2val)
             result = src1val.bitwise_and(src2val)
             simstate.set(iaddr, dstop, result)
             simstate.clear_flag(iaddr, 'OF')
             simstate.clear_flag(iaddr, 'CF')
-            simstate.update_flag(iaddr, 'SF',result.is_negative())
-            simstate.update_flag(iaddr, 'ZF',result.is_zero())
-            simstate.update_flag(iaddr, 'PF',result.is_odd_parity())
+            simstate.update_flag(iaddr, 'SF', result.is_negative)
+            simstate.update_flag(iaddr, 'ZF', result.is_zero)
+            simstate.update_flag(iaddr, 'PF', result.is_odd_parity)
         else:
             raise SU.CHBSimError(
                 simstate,

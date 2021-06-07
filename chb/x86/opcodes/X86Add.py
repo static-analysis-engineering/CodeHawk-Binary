@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
     from chb.x86.simulation.X86SimulationState import X86SimulationState
 
+
 @x86registry.register_tag("add", X86Opcode)
 class X86Add(X86Opcode):
     """ADD dst, src
@@ -63,21 +64,22 @@ class X86Add(X86Opcode):
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    def get_opcode_operations(self) -> List[str]:
+    def opcode_operations(self) -> List[str]:
         src = self.src_operand.to_operand_string()
         dst = self.dst_operand.to_operand_string()
         return [dst + ' = ' + dst + ' + ' + src]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vxxxx .
 
         vars[0]: dst-lhs
@@ -92,19 +94,19 @@ class X86Add(X86Opcode):
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return lhs + ' := ' + xresult
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         if len(xdata.xprs) > 2:
             return [xdata.vars[0]]
         else:
             return []
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         if len(xdata.xprs) > 2:
             return [xdata.xprs[3]]
         else:
             return []
 
-    def get_operand_values(self, xdata: InstrXData) -> List[XXpr]:
+    def operand_values(self, xdata: InstrXData) -> Sequence[XXpr]:
         return [xdata.xprs[0], xdata.xprs[1]]
 
     # --------------------------------------------------------------------------
@@ -126,15 +128,15 @@ class X86Add(X86Opcode):
         src2op = self.src_operand
         src1val = simstate.get_rhs(iaddr, src1op)
         src2val = simstate.get_rhs(iaddr, src2op)
-        if src1val.is_doubleword() and src1val.is_literal():
+        if src1val.is_doubleword and src1val.is_literal:
             src1val = cast(SV.SimDoubleWordValue, src1val)
             result = src1val.add(src2val)
             simstate.set(iaddr, dstop, result)
-            simstate.update_flag(iaddr, 'CF',src1val.add_carries(src2val))
-            simstate.update_flag(iaddr, 'OF',src1val.add_overflows(src2val))
-            simstate.update_flag(iaddr, 'SF',result.is_negative())
-            simstate.update_flag(iaddr, 'ZF',result.is_zero())
-            simstate.update_flag(iaddr, 'PF',result.is_odd_parity())
+            simstate.update_flag(iaddr, 'CF', src1val.add_carries(src2val))
+            simstate.update_flag(iaddr, 'OF', src1val.add_overflows(src2val))
+            simstate.update_flag(iaddr, 'SF', result.is_negative)
+            simstate.update_flag(iaddr, 'ZF', result.is_zero)
+            simstate.update_flag(iaddr, 'PF', result.is_odd_parity)
         else:
             raise SU.CHBSimError(
                 simstate,
@@ -147,5 +149,3 @@ class X86Add(X86Opcode):
                  + str(src2op)
                  + ":"
                  + str(src2val)))
-                       
-

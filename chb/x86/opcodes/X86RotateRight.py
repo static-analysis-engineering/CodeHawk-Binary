@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Optional, TYPE_CHECKING
+from typing import cast, List, Optional, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,7 +47,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("ror", X86Opcode)
@@ -66,17 +66,17 @@ class X86RotateRight(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    # xdata: [ "a:vxx" ],[ lhs, number of bits to rotate, value to rotate ]
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vxx
 
         vars[0]: dst
@@ -89,10 +89,10 @@ class X86RotateRight(X86Opcode):
         rhs2 = str(xdata.xprs[1])
         return lhs + ' = ' + rhs2 + ' rotate-right-by ' + rhs1
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -136,14 +136,14 @@ class X86RotateRight(X86Opcode):
         dstop = self.dst_operand
         srcval = simstate.get_rhs(iaddr, srcop)
         dstval = simstate.get_rhs(iaddr, dstop)
-        if dstval.is_literal() and srcval.is_literal():
+        if dstval.is_literal and srcval.is_literal:
             dstval = cast(SV.SimLiteralValue, dstval)
             srcval = cast(SV.SimLiteralValue, srcval)
             result = dstval.bitwise_ror(srcval)
-            simstate.set(iaddr,dstop,result)
+            simstate.set(iaddr, dstop, result)
             if srcval.value > 0:
                 cflag = result.msb
-                simstate.update_flag(iaddr, 'CF',cflag == 1)
+                simstate.update_flag(iaddr, 'CF', cflag == 1)
                 if srcval.value == 1:
                     oflag: Optional[int] = result.msb ^ result.msb2
                     simstate.update_flag(iaddr, 'OF', oflag == 1)

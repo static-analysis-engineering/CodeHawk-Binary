@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,7 +47,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("rcl", X86Opcode)
@@ -66,33 +66,33 @@ class X86RotateLeftCF(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    # xdata: [ "a:vxx" ],[ lhs, number of bits to rotate, value to rotate ]
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vxx
 
         vars[0]: dst
         xprs[0]: src (number of bits to rotate)
         xprs[1]: dst-rhs  (value to rotate)
         """
-        
+
         lhs = str(xdata.vars[0])
         rhs1 = str(xdata.xprs[0])
         rhs2 = str(xdata.xprs[2])
         return lhs + ' = ' + rhs2 + ' rotate-left-by' + rhs1 + ' CF'
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -143,20 +143,18 @@ class X86RotateLeftCF(X86Opcode):
         cflag = simstate.get_flag_value(iaddr, 'CF')
         if cflag is None:
             simstate.set(iaddr, dstop, SV.mk_undefined_simvalue(dstop.size))
-        elif (dstval.is_literal()
-              and dstval.is_defined()
-              and srcval.is_literal()
-              and srcval.is_defined()):
+        elif (dstval.is_literal
+              and dstval.is_defined
+              and srcval.is_literal
+              and srcval.is_defined):
             dstval = cast(SV.SimLiteralValue, dstval)
             srcval = cast(SV.SimLiteralValue, srcval)
-            (cflag,result) = dstval.bitwise_rcl(srcval, cflag)
+            (cflag, result) = dstval.bitwise_rcl(srcval, cflag)
             simstate.set(iaddr, dstop, result)
             if srcval.value > 0:
                 simstate.update_flag(iaddr, 'CF', cflag == 1)
                 if srcval.value == 1:
                     oflag = result.msb ^ cflag
-                    simstate.update_flag(iaddr, 'OF', oflag == 1)                    
+                    simstate.update_flag(iaddr, 'OF', oflag == 1)
                 else:
                     simstate.update_flag(iaddr, "OF", None)
-            
-

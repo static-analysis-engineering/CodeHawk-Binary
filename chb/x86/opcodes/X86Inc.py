@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -63,12 +63,13 @@ class X86Inc(X86Opcode):
 
     @property
     def operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format a:vxxx .
 
         vars[0]: lhs
@@ -76,17 +77,17 @@ class X86Inc(X86Opcode):
         xprs[1]: rhs + 1 (syntactic)
         xprs[2]: rhs + 1 (simplified)
         """
-        
+
         lhs = str(xdata.vars[0])
         rhs = xdata.xprs[1]
         rrhs = xdata.xprs[2]
         xrhs = simplify_result(xdata.args[2], xdata.args[3], rhs, rrhs)
         return lhs + ' = ' + xrhs
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return [xdata.vars[0]]
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return [xdata.xprs[2]]
 
     # --------------------------------------------------------------------------
@@ -99,14 +100,14 @@ class X86Inc(X86Opcode):
         op = self.operand
         srcval = simstate.get_rhs(iaddr, op)
         incval = SV.mk_simvalue(1, size=op.size)
-        if srcval.is_literal() and srcval.is_doubleword():
+        if srcval.is_literal and srcval.is_doubleword:
             srcval = cast(SV.SimDoubleWordValue, srcval)
             newval = srcval.add(incval)
             simstate.set(iaddr, op, newval)
             simstate.update_flag(iaddr, 'OF', srcval.add_overflows(incval))
-            simstate.update_flag(iaddr, 'ZF', newval.is_zero())
-            simstate.update_flag(iaddr, 'SF', newval.is_negative())
-            simstate.update_flag(iaddr, 'PF', newval.is_odd_parity())
+            simstate.update_flag(iaddr, 'ZF', newval.is_zero)
+            simstate.update_flag(iaddr, 'SF', newval.is_negative)
+            simstate.update_flag(iaddr, 'PF', newval.is_odd_parity)
         else:
             raise SU.CHBSimError(
                 simstate,
@@ -115,4 +116,3 @@ class X86Inc(X86Opcode):
                  + str(op)
                  + ":"
                  + str(srcval)))
-        

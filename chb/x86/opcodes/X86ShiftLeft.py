@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -66,16 +66,17 @@ class X86ShiftLeft(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vxxxx
 
         vars[0]: lhs
@@ -91,10 +92,10 @@ class X86ShiftLeft(X86Opcode):
         xrhs = simplify_result(xdata.args[3], xdata.args[4], rhs, rrhs)
         return lhs + ' = ' + xrhs
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -127,13 +128,13 @@ class X86ShiftLeft(X86Opcode):
         dstop = self.dst_operand
         srcval = simstate.get_rhs(iaddr, srcop)
         dstval = simstate.get_rhs(iaddr, dstop)
-        if srcval.is_literal() and dstval.is_literal():
+        if srcval.is_literal and dstval.is_literal:
             srcval = cast(SV.SimLiteralValue, srcval)
             dstval = cast(SV.SimLiteralValue, dstval)
-            (cflag,result) = dstval.bitwise_shl(srcval)
-            simstate.set(iaddr,dstop,result)
+            (cflag, result) = dstval.bitwise_shl(srcval)
+            simstate.set(iaddr, dstop, result)
             if srcval.value > 0:
-                simstate.update_flag(iaddr, 'CF',cflag == 1)
+                simstate.update_flag(iaddr, 'CF', cflag == 1)
                 if srcval.value == 1:
                     msb = result.msb
                     if not (msb == cflag):
@@ -142,10 +143,10 @@ class X86ShiftLeft(X86Opcode):
                         simstate.set_flag(iaddr, 'OF')
                 else:
                     simstate.undefine_flag(iaddr, 'OF')
-                simstate.update_flag(iaddr, 'CF',cflag == 1)
-                simstate.update_flag(iaddr, 'SF',result.is_negative())
-                simstate.update_flag(iaddr, 'ZF',result.is_zero())
-                simstate.update_flag(iaddr, 'PF',result.is_odd_parity())
+                simstate.update_flag(iaddr, 'CF', cflag == 1)
+                simstate.update_flag(iaddr, 'SF', result.is_negative)
+                simstate.update_flag(iaddr, 'ZF', result.is_zero)
+                simstate.update_flag(iaddr, 'PF', result.is_odd_parity)
         else:
             raise SU.CHBSimError(
                 simstate,

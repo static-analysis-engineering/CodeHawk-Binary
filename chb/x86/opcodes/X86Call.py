@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import cast, List, Optional, Tuple, TYPE_CHECKING
+from typing import cast, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget, StubTarget, AppTarget
 from chb.api.FunctionStub import DllFunction
@@ -58,7 +58,7 @@ class X86Call(X86Opcode):
 
     args[0]: index of target in x86dictionary
     """
-    
+
     def __init__(
             self,
             x86d: "X86Dictionary",
@@ -67,11 +67,13 @@ class X86Call(X86Opcode):
 
     @property
     def tgtoperand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.tgtoperand]
 
+    @property
     def is_call(self) -> bool:
         return True
 
@@ -80,25 +82,25 @@ class X86Call(X86Opcode):
 
         return xdata.has_call_target()
 
-    def get_call_target(self, xdata: InstrXData) -> CallTarget:
-        return xdata.get_call_target(self.ixd)
+    def call_target(self, xdata: InstrXData) -> CallTarget:
+        return xdata.call_target(self.ixd)
 
     def is_dll_call(self, xdata: InstrXData) -> bool:
         return (self.has_call_target(xdata)
-                and self.get_call_target(xdata).is_dll_target())
+                and self.call_target(xdata).is_dll_target())
 
     def is_so_call(self, xdata: InstrXData) -> bool:
         return (self.has_call_target(xdata)
-                and self.get_call_target(xdata).is_so_target())
+                and self.call_target(xdata).is_so_target())
 
     def is_app_call(self, xdata: InstrXData) -> bool:
         return (self.has_call_target(xdata)
-                and self.get_call_target(xdata).is_app_target())
+                and self.call_target(xdata).is_app_target())
 
     def is_unresolved_call(self, xdata: InstrXData) -> bool:
         return xdata.has_indirect_call_target_exprs()
 
-    def get_unresolved_call_target_expr(self, xdata: InstrXData) -> XXpr:
+    def unresolved_call_target_expr(self, xdata: InstrXData) -> XXpr:
         if self.is_unresolved_call(xdata):
             return xdata.xprs[1]
         else:
@@ -107,36 +109,36 @@ class X86Call(X86Opcode):
 
     def has_global_value_unresolved_call_target(self, xdata: InstrXData) -> bool:
         if self.is_unresolved_call(xdata):
-            tgtxpr = self.get_unresolved_call_target_expr(xdata)
-            return tgtxpr.is_var() and tgtxpr.variable.is_global_value()
+            tgtxpr = self.unresolved_call_target_expr(xdata)
+            return tgtxpr.is_var and tgtxpr.variable.is_global_value
         else:
             return False
 
-    def get_target_dll(self, xdata: InstrXData) -> str:
+    def target_dll(self, xdata: InstrXData) -> str:
         if self.is_dll_call(xdata):
-            tgt = cast(StubTarget, self.get_call_target(xdata))
+            tgt = cast(StubTarget, self.call_target(xdata))
             return tgt.dll
         else:
             raise UF.CHBError(
                 "Instruction does not have a dll target: " + str(self))
 
-    def get_dll_target(self, xdata: InstrXData) -> DllFunction:
+    def dll_target(self, xdata: InstrXData) -> DllFunction:
         if self.is_dll_call(xdata):
-            tgt = cast(StubTarget, self.get_call_target(xdata))
+            tgt = cast(StubTarget, self.call_target(xdata))
             return cast(DllFunction, tgt.stub)
         else:
             raise UF.CHBError(
                 "Instruction does not have a dll target: " + str(self))
 
-    def get_app_target(self, xdata: InstrXData) -> AsmAddress:
+    def app_target(self, xdata: InstrXData) -> AsmAddress:
         if self.is_app_call(xdata):
-            tgt = cast(AppTarget, self.get_call_target(xdata))
+            tgt = cast(AppTarget, self.call_target(xdata))
             return tgt.address
         else:
             raise UF.CHBError(
                 "Instruction does not have an application target: " + str(self))
 
-    def get_arguments(self, xdata: InstrXData) -> List[XXpr]:
+    def arguments(self, xdata: InstrXData) -> List[XXpr]:
         if xdata.has_indirect_call_target_exprs():
             return xdata.xprs[2:]
         elif xdata.has_call_target():
@@ -144,25 +146,25 @@ class X86Call(X86Opcode):
         else:
             return []
 
-    def get_annotated_arguments(self, xdata: InstrXData) -> List[Tuple[str, str]]:
+    def annotated_arguments(self, xdata: InstrXData) -> List[Tuple[str, str]]:
         if self.is_dll_call(xdata):
-            dlltgt = self.get_dll_target(xdata)
+            dlltgt = self.dll_target(xdata)
             if self.app.models.has_dll_function_summary(dlltgt.dll, dlltgt.name):
-                summary = self.app.models.get_dll_function_summary(
+                summary = self.app.models.dll_function_summary(
                     dlltgt.dll, dlltgt.name)
                 params = summary.signature.parameters
-                args = self.get_arguments(xdata)
+                args = self.arguments(xdata)
                 if len(params) == len(args):
                     result: List[Tuple[str, str]] = []
                     for (p, x) in zip(params, args):
                         if p.type.is_string():
                             if self.app.stringsxrefs.has_string(str(x)):
                                 pvalue = (
-                                    '"' + self.app.stringsxrefs.get_string(str(x)) + '"')
+                                    '"' + self.app.stringsxrefs.string(str(x)) + '"')
                             else:
                                 pvalue = str(x)
                             result.append((p.name, pvalue))
-                        elif x.is_constant() and x.constant.is_intconst():
+                        elif x.is_constant and x.constant.is_intconst:
                             pvalue = p.represent_value(x.constant.value)
                             result.append((p.name, pvalue))
                         else:
@@ -176,11 +178,11 @@ class X86Call(X86Opcode):
                         + str(len(args)))
             else:
                 raise UF.CHBSummaryNotFoundError(dlltgt.dll, dlltgt.name)
-            
-        args = self.get_arguments(xdata)
+
+        args = self.arguments(xdata)
         return [("args" + str(i + 1), str(x)) for (i, x) in enumerate(args)]
-        
-    def get_annotation(self, xdata: InstrXData) -> str:
+
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:xx... + c
 
         direct call / resolved indirect call: xprs[0..] arguments
@@ -197,10 +199,9 @@ class X86Call(X86Opcode):
             return str(tgtx) + "(" + ",".join([str(x) for x in callargs]) + ")"
 
         elif xdata.has_call_target():
-            ctgt = xdata.get_call_target(self.ixd)
+            ctgt = xdata.call_target(self.ixd)
             callargs = xdata.xprs
             return str(ctgt) + "(" + ",".join([str(x) for x in callargs]) + ")"
 
         else:
             return "call to " + str(self.tgtoperand)
-

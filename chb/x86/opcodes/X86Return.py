@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
 @x86registry.register_tag("ret", X86Opcode)
 class X86Return(X86Opcode):
-    """RET. 
+    """RET.
 
     args[0]: number of bytes popped, otherwise absent
     """
@@ -71,7 +71,7 @@ class X86Return(X86Opcode):
             return self.args[0]
         else:
             return 0
-    
+
     def get_return_expr(self, xdata: InstrXData) -> XXpr:
         return xdata.xprs[1]
 
@@ -84,7 +84,7 @@ class X86Return(X86Opcode):
         xprs[0]: value of eax
         xprs[1]: value of eax simplified
         """
-        
+
         eax = xdata.xprs[0]
         reax = xdata.xprs[1]
         xeax = simplify_result(xdata.args[0], xdata.args[1], eax, reax)
@@ -96,4 +96,3 @@ class X86Return(X86Opcode):
 
     def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
         raise SU.CHBSimFunctionReturn(iaddr)
- 

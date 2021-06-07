@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,7 +47,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("movsx", X86Opcode)
@@ -75,21 +75,22 @@ class X86Movs(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[2])
+        return self.x86d.operand(self.args[2])
 
     @property
     def srcptr_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[3])
+        return self.x86d.operand(self.args[3])
 
     @property
     def dstptr_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[4])
+        return self.x86d.operand(self.args[4])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [
             self.dst_operand,
             self.src_operand,
@@ -128,16 +129,16 @@ class X86Movs(X86Opcode):
         return (
             lhs
             + ' = '
-            +  xrhs
+            + xrhs
             + '; esi = '
             + xsrcptrrhs
             + '; edi = '
             + xdstptrrhs)
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -171,10 +172,10 @@ class X86Movs(X86Opcode):
         incr = SV.mk_simvalue(srcptrop.size, self.size)
         simstate.set(iaddr, dstop, srcval)
         if (
-                srcptrval.is_literal()
-                and srcptrval.is_defined()
-                and dstptrval.is_literal()
-                and dstptrval.is_defined()):
+                srcptrval.is_literal
+                and srcptrval.is_defined
+                and dstptrval.is_literal
+                and dstptrval.is_defined):
             srcptrval = cast(SV.SimLiteralValue, srcptrval)
             dstptrval = cast(SV.SimLiteralValue, dstptrval)
             if dflag == 0:
@@ -200,5 +201,3 @@ class X86Movs(X86Opcode):
                  + str(dstptrop)
                  + ":"
                  + str(dstptrval)))
-                             
-            

@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -53,11 +53,11 @@ if TYPE_CHECKING:
 @x86registry.register_tag("xor", X86Opcode)
 class X86Xor(X86Opcode):
     """XOR dst, src
-    
+
     args[0]: index of dst in x86dictionary
     args[1]: index of src in x86dictionary
     """
-    
+
     def __init__(
             self,
             x86d: "X86Dictionary",
@@ -66,16 +66,17 @@ class X86Xor(X86Opcode):
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """"data format: a:vxxxx
 
         vars[0]: lhs
@@ -84,7 +85,7 @@ class X86Xor(X86Opcode):
         xprs[2]: rhs1 xor rhs2 (syntactic)
         xprs[3]: rhs1 xor rhs2 (simplified)
         """
-        
+
         if len(xdata.xprs) == 0:       # src, dst are the same, result is zero
             lhs = str(xdata.vars[0])
             return lhs + ' = 0'
@@ -96,10 +97,10 @@ class X86Xor(X86Opcode):
             xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
             return lhs + ' = ' + xresult
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -117,8 +118,8 @@ class X86Xor(X86Opcode):
         srcop = self.src_operand
         dstop = self.dst_operand
         if (
-                srcop.is_register()
-                and dstop.is_register()
+                srcop.is_register
+                and dstop.is_register
                 and srcop.register == dstop.register):
             simstate.set(iaddr, dstop, SV.simZero)
             simstate.set_flag(iaddr, 'ZF')
@@ -129,15 +130,15 @@ class X86Xor(X86Opcode):
         else:
             srcval = simstate.get_rhs(iaddr, srcop)
             dstval = simstate.get_rhs(iaddr, dstop)
-            if dstval.is_literal():
+            if dstval.is_literal:
                 dstval = cast(SV.SimLiteralValue, dstval)
                 result = dstval.bitwise_xor(srcval)
                 simstate.set(iaddr, dstop, result)
                 simstate.clear_flag(iaddr, 'OF')
                 simstate.clear_flag(iaddr, 'CF')
-                simstate.update_flag(iaddr, 'SF', result.is_negative())
-                simstate.update_flag(iaddr, 'ZF', result.is_zero())
-                simstate.update_flag(iaddr, 'PF', result.is_odd_parity())
+                simstate.update_flag(iaddr, 'SF', result.is_negative)
+                simstate.update_flag(iaddr, 'ZF', result.is_zero)
+                simstate.update_flag(iaddr, 'PF', result.is_odd_parity)
             else:
                 raise SU.CHBSimError(
                     simstate,

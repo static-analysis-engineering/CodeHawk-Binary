@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,7 +47,8 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
+
 
 @x86registry.register_tag("sar", X86Opcode)
 class X86ShiftARight(X86Opcode):
@@ -56,7 +57,7 @@ class X86ShiftARight(X86Opcode):
     args[0]: index of dst in x86dictionary
     args[1]: index of src in x86dictionary
     """
-    
+
     def __init__(
             self,
             x86d: "X86Dictionary",
@@ -65,16 +66,17 @@ class X86ShiftARight(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vxxxx
 
         vars[0]: dst
@@ -83,17 +85,17 @@ class X86ShiftARight(X86Opcode):
         xprs[2]: rhs-result (syntactic)
         xprs[3]: rhs-result (simplified)
         """
-        
+
         lhs = str(xdata.vars[0])
         rhs = xdata.xprs[2]
         rrhs = xdata.xprs[3]
         xrhs = simplify_result(xdata.args[3], xdata.args[4], rhs, rrhs)
         return lhs + ' = ' + xrhs
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return xdata.vars
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         return xdata.xprs
 
     # --------------------------------------------------------------------------
@@ -129,20 +131,20 @@ class X86ShiftARight(X86Opcode):
         dstop = self.dst_operand
         srcval = simstate.get_rhs(iaddr, srcop)
         dstval = simstate.get_rhs(iaddr, dstop)
-        if srcval.is_literal() and dstval.is_literal():
+        if srcval.is_literal and dstval.is_literal:
             srcval = cast(SV.SimLiteralValue, srcval)
             dstval = cast(SV.SimLiteralValue, dstval)
             (cflag, result) = dstval.bitwise_sar(srcval)
-            simstate.set(iaddr,dstop,result)
+            simstate.set(iaddr, dstop, result)
             if srcval.value > 0:
                 simstate.update_flag(iaddr, 'CF', cflag == 1)
                 if srcval.value == 1:
                     simstate.clear_flag(iaddr, 'OF')
                 else:
                     simstate.undefine_flag(iaddr, 'OF')
-                simstate.update_flag(iaddr, 'SF', result.is_negative())
-                simstate.update_flag(iaddr, 'ZF', result.is_zero())
-                simstate.update_flag(iaddr, 'PF', result.is_odd_parity())
+                simstate.update_flag(iaddr, 'SF', result.is_negative)
+                simstate.update_flag(iaddr, 'ZF', result.is_zero)
+                simstate.update_flag(iaddr, 'PF', result.is_odd_parity)
         else:
             raise SU.CHBSimError(
                 simstate,
@@ -155,4 +157,3 @@ class X86ShiftARight(X86Opcode):
                  + str(srcop)
                  + ":"
                  + str(srcval)))
-        

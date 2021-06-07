@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -44,7 +44,7 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
 @x86registry.register_tag("stosb", X86Opcode)
@@ -67,36 +67,36 @@ class X86Stos(X86Opcode):
     @property
     def dst_operand(self) -> X86Operand:
         """Return the memory location pointed to by EDI."""
-        
-        return self.x86d.get_operand(self.args[1])   # (Edi)
+
+        return self.x86d.operand(self.args[1])   # (Edi)
 
     @property
     def src_operand(self) -> X86Operand:
         """Return AL, AX, EAX. """
-        
-        return self.x86d.get_operand(self.args[2])
+
+        return self.x86d.operand(self.args[2])
 
     @property
     def edi_operand(self) -> X86Operand:
         """Return EDI. """
 
-        return self.x86d.get_operand(self.args[3])
+        return self.x86d.operand(self.args[3])
 
     @property
     def df_operand(self) -> X86Operand:
         """Return the direction flag."""
 
-        return self.x86d.get_operand(self.args[4])
+        return self.x86d.operand(self.args[4])
 
     @property
     def width(self) -> int:
         return self.args[0]
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
 
-    # xdata: [ "a:vvxxxxxx": lhs, edilhs, rhs, rrhs, edirhs, redirhs, dfrhs, rdfrhs ]
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format a:vvxxxxxx
 
         vars[0]: lhs
@@ -126,7 +126,7 @@ class X86Stos(X86Opcode):
             + '; '
             + edilhs
             + ' = '
-            +  edirhs
+            + edirhs
             + ediop
             + str(self.width)
             + ' (df = '
@@ -149,7 +149,7 @@ class X86Stos(X86Opcode):
     #
     # Flags affected: None
     # --------------------------------------------------------------------------
-    def simulate(self,iaddr: str, simstate: "X86SimulationState") -> None:
+    def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
         dstop = self.dst_operand
         srcop = self.src_operand
         size = dstop.size
@@ -159,17 +159,16 @@ class X86Stos(X86Opcode):
         edival = simstate.get_rhs(iaddr, ediop)
         dfval = cast(SV.SimBoolValue, simstate.get_rhs(iaddr, dfop))
         ediinc = SV.mk_simvalue(4, size)
-        if srcval.is_literal():
+        if srcval.is_literal:
             srcval = cast(SV.SimLiteralValue, srcval)
-            if dfval.is_set():
+            if dfval.is_set:
                 edinewval = srcval.sub(ediinc)
             else:
                 edinewval = srcval.add(ediinc)
-            simstate.set(iaddr, dstop, srcval)            
+            simstate.set(iaddr, dstop, srcval)
             simstate.set(iaddr, ediop, edinewval)
         else:
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
                 "Stosb not supported for src value: " + str(srcval))
-        

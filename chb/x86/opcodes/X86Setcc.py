@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -40,8 +40,24 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
 
-@x86registry.register_tag("set", X86Opcode)
+
+@x86registry.register_tag("seta", X86Opcode)
+@x86registry.register_tag("setbe", X86Opcode)
+@x86registry.register_tag("setc", X86Opcode)
+@x86registry.register_tag("setg", X86Opcode)
+@x86registry.register_tag("setge", X86Opcode)
+@x86registry.register_tag("setl", X86Opcode)
+@x86registry.register_tag("setle", X86Opcode)
+@x86registry.register_tag("setnc", X86Opcode)
+@x86registry.register_tag("setno", X86Opcode)
+@x86registry.register_tag("setns", X86Opcode)
 @x86registry.register_tag("setnz", X86Opcode)
+@x86registry.register_tag("seto", X86Opcode)
+@x86registry.register_tag("seta", X86Opcode)
+@x86registry.register_tag("setpe", X86Opcode)
+@x86registry.register_tag("setpo", X86Opcode)
+@x86registry.register_tag("sets", X86Opcode)
+@x86registry.register_tag("setz", X86Opcode)
 class X86Setcc(X86Opcode):
     """SET<cc> op.
 
@@ -56,18 +72,19 @@ class X86Setcc(X86Opcode):
 
     @property
     def operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format: a:vx
 
         vars[0]: lhs
         xprs[0]: rhs
         """
-        
+
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[0])
         return lhs + ' = ' + rhs

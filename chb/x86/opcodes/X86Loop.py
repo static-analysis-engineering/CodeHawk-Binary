@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -44,7 +44,8 @@ from chb.x86.X86Operand import X86Operand
 
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
-    from chb.x86.simulation.X86SimulationState import X86SimulationState    
+    from chb.x86.simulation.X86SimulationState import X86SimulationState
+
 
 @x86registry.register_tag("loop", X86Opcode)
 class X86Loop(X86Opcode):
@@ -61,12 +62,13 @@ class X86Loop(X86Opcode):
 
     @property
     def target_address(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[0])
+        return self.x86d.operand(self.args[0])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def operands(self) -> Sequence[X86Operand]:
         return [self.target_address]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         return 'loop ' + str(self.target_address)
 
     # --------------------------------------------------------------------------
@@ -84,7 +86,7 @@ class X86Loop(X86Opcode):
     # --------------------------------------------------------------------------
     def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
         ecxval = simstate.get_regval(iaddr, 'ecx')
-        if ecxval.is_literal():
+        if ecxval.is_literal:
             ecxval = cast(SV.SimLiteralValue, ecxval)
             newval = ecxval.sub(SV.simOne)
             simstate.set_register(iaddr, 'ecx', newval)
@@ -97,8 +99,3 @@ class X86Loop(X86Opcode):
                 simstate,
                 iaddr,
                 "Loop cannot be applied to " + str(ecxval))
-        
-        
-        
-
- 

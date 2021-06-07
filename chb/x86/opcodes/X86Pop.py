@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -70,12 +70,13 @@ class X86Pop(X86Opcode):
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.get_operand(self.args[1])
+        return self.x86d.operand(self.args[1])
 
-    def get_operands(self) -> List[X86Operand]:
+    @property
+    def get_operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format
              a:v, restore  : restore initial value of register
              a:vxxx  otherwise
@@ -85,7 +86,7 @@ class X86Pop(X86Opcode):
         xprs[1]: esp
         xprs[2]: esp (simplified)
         """
-        
+
         if len(xdata.tags) == 2 and xdata.tags[1] == "restore":
             return "restore " + str(xdata.vars[0])
         else:
@@ -96,10 +97,10 @@ class X86Pop(X86Opcode):
             xresp = simplify_result(xdata.args[2], xdata.args[3], esp, resp)
             return lhs + ' = ' + str(rhs) + '; esp = ' + xresp
 
-    def get_lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
         return [xdata.vars[0]]
 
-    def get_rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
         if len(xdata.xprs) == 3:
             return [xdata.xprs[2]]
         else:
