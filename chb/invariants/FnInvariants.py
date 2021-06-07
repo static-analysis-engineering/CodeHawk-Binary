@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,40 +27,69 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-class FnInvariants(object):
+import xml.etree.ElementTree as ET
 
-    def __init__(self,invd,xnode):
-        self.invd = invd
-        self.asmfunction = self.invd.asmfunction
-        self.invariants = {}           # instruction address -> BInvariantFact list
-        self.initialize(xnode)
+from typing import Dict, List, Mapping, Sequence, Tuple, TYPE_CHECKING
 
-    def get_invariants(self,ia):
-        if ia in self.invariants:
-            return self.invariants[ia]
+from chb.invariants.InvariantFact import InvariantFact
+import chb.util.fileutil as UF
+
+if TYPE_CHECKING:
+    from chb.app.Function import Function
+    from chb.invariants.FnInvDictionary import FnInvDictionary
+
+
+class FnInvariants:
+
+    def __init__(
+            self,
+            invd: "FnInvDictionary",
+            xnode: ET.Element) -> None:
+        self._invd = invd
+        self.xnode = xnode
+        self._invariants: Dict[str, List[InvariantFact]] = {}
+
+    @property
+    def invd(self) -> "FnInvDictionary":
+        return self._invd
+
+    '''
+    @property
+    def function(self) -> "chb.app.Function.Function":
+        return self.invd.function
+    '''
+
+    @property
+    def invariants(self) -> Mapping[str, Sequence[InvariantFact]]:
+        if len(self._invariants) == 0:
+            for xloc in self.xnode.findall("loc"):
+                ia = xloc.get("a")
+                ifacts = xloc.get("ifacts")
+                if ia is not None and ifacts is not None:
+                    self._invariants[ia] = []
+                    for findex in [int(x) for x in ifacts.split(",")]:
+                        self._invariants[ia].append(
+                            self.invd.invariant_fact(findex))
+                else:
+                    raise UF.CHBError("address or facts missing")
+        return self._invariants
+
+    def loc_invariants(self, addr: str) -> Sequence[InvariantFact]:
+        """Return the invariants for a particular location."""
+
+        if addr in self.invariants:
+            return self.invariants[addr]
         else:
-            return []
+            raise UF.CHBError("No invariant found for " + addr)
 
-    def initialize(self,xnode):
-        if not xnode is None:
-            self._read_xml(xnode)
-        else:
-            print('No invariants node found')
+    def has_invariant(self, addr: str) -> bool:
+        return addr in self.invariants
 
-    def __str__(self):
-        lines = []
+    def __str__(self) -> str:
+        lines: List[str] = []
         for loc in sorted(self.invariants):
             lines.append(str(loc) + ': ')
             locinv = self.invariants[loc]
             for i in locinv:
                 lines.append('  ' + str(i))
         return '\n'.join(lines)
-
-    def _read_xml(self,xnode):
-        for xloc in xnode.findall('loc'):
-            ia = xloc.get('a')
-            self.invariants[ia] = []
-            ifacts = xloc.get('ifacts')
-            if not ifacts is None:
-                for findex in [ int(x) for x in ifacts.split(',') ]:
-                    self.invariants[ia].append(self.invd.get_invariant_fact(findex))
