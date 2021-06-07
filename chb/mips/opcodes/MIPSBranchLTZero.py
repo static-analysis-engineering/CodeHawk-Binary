@@ -36,6 +36,7 @@ from chb.invariants.XXpr import XXpr
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
 from chb.mips.MIPSOperand import MIPSOperand
+from chb.mips.opcodes.MIPSBranchOpcode import MIPSBranchOpcode
 
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
@@ -51,7 +52,7 @@ if TYPE_CHECKING:
 
 
 @mipsregistry.register_tag("bltz", MIPSOpcode)
-class MIPSBranchLTZero(MIPSOpcode):
+class MIPSBranchLTZero(MIPSBranchOpcode):
     """BLTZ rs, offset
 
     Branch on Less Than Zero.
@@ -65,7 +66,7 @@ class MIPSBranchLTZero(MIPSOpcode):
             self,
             mipsd: "MIPSDictionary",
             ixval: IndexedTableValue) -> None:
-        MIPSOpcode.__init__(self, mipsd, ixval)
+        MIPSBranchOpcode.__init__(self, mipsd, ixval)
 
     @property
     def operands(self) -> Sequence[MIPSOperand]:
@@ -81,7 +82,7 @@ class MIPSBranchLTZero(MIPSOpcode):
     def branch_condition(self, xdata: InstrXData) -> XXpr:
         return xdata.xprs[2]
 
-    def ft_conditions(self, xdata: InstrXData) -> List[XXpr]:
+    def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         return [xdata.xprs[3], xdata.xprs[2]]
 
     def annotation(self, xdata: InstrXData) -> str:
