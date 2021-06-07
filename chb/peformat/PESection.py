@@ -33,6 +33,7 @@ from typing import Generator, List, Tuple, TYPE_CHECKING
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
+    import chb.app.Instruction
     import chb.peformat.PEHeader
 
 

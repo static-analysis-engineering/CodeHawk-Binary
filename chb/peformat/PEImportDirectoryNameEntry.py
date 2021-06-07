@@ -33,7 +33,7 @@ from typing import Dict, List, TYPE_CHECKING
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.peformat.PEImportDirectoryEntry
+    from chb.peformat.PEImportDirectoryEntry import PEImportDirectoryEntry
 
 
 class PEImportDirectoryNameEntry():
@@ -41,7 +41,7 @@ class PEImportDirectoryNameEntry():
 
     def __init__(
             self,
-            peimporttable: "chb.peformat.PEImportDirectoryEntry.PEImportDirectoryEntry",
+            peimporttable: "PEImportDirectoryEntry",
             xnode: ET.Element) -> None:
         self.peimporttable = peimporttable
         self.xnode = xnode
