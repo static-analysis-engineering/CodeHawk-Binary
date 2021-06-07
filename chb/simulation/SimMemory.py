@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, Dict, List, TYPE_CHECKING
+from typing import cast, Dict, List, Sequence, TYPE_CHECKING
 
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
@@ -60,6 +60,7 @@ class SimMemoryByteLink(SV.SimByteValue):
     def position(self) -> int:
         return self._position
 
+    @property
     def is_link(self) -> bool:
         return True
 
@@ -100,14 +101,14 @@ class SimMemory(object):
     @property
     def lowaddr(self) -> int:
         if self.size > 0:
-            return self.offsets()[0]
+            return self.offsets[0]
         else:
             raise UF.CHBError("Memory is empty")
 
     @property
     def highaddr(self) -> int:
         if self.size > 0:
-            return self.offsets()[-1]
+            return self.offsets[-1]
         else:
             raise UF.CHBError("Memory is empty")
 
@@ -117,12 +118,13 @@ class SimMemory(object):
 
         return len(self._mem)
 
-    def offsets(self) -> List[int]:
+    @property
+    def offsets(self) -> Sequence[int]:
         """Return a sorted list of offsets in this memory block."""
 
         return sorted(list(self._mem.keys()))
 
-    def get_start_address(self) -> int:
+    def start_address(self) -> int:
         """Return the lowest offset present in this memory block."""
 
         if self.size > 0:
@@ -130,7 +132,7 @@ class SimMemory(object):
         else:
             raise UF.CHBError(self.name + " memory is empty")
 
-    def get_extent(self) -> int:
+    def extent(self) -> int:
         """Return the difference between the highest and lowest offset."""
 
         if self.size > 0:
@@ -185,13 +187,13 @@ class SimMemory(object):
             address: SSV.SimAddress,
             srcval: SV.SimValue) -> None:
         offset = address.offsetvalue
-        if srcval.is_symbolic():
+        if srcval.is_symbolic:
             srcval = cast(SSV.SimSymbolicValue, srcval)
             if self.bigendian:
                 self.set_symbolic_big_endian(iaddr, offset, srcval)
             else:
                 self.set_symbolic_little_endian(iaddr, offset, srcval)
-        elif srcval.is_literal():
+        elif srcval.is_literal:
             srcval = cast(SV.SimLiteralValue, srcval)
             if self.bigendian:
                 self.set_big_endian(iaddr, offset, srcval)
@@ -203,14 +205,14 @@ class SimMemory(object):
             iaddr: str,
             offset: int,
             srcval: SV.SimLiteralValue) -> None:
-        if srcval.is_byte():
+        if srcval.is_byte:
             srcval = cast(SV.SimByteValue, srcval)
             self.set_byte(iaddr, offset, srcval)
-        elif srcval.is_word():
+        elif srcval.is_word:
             srcval = cast(SV.SimWordValue, srcval)
             self.set_byte(iaddr, offset, srcval.lowbyte)
             self.set_byte(iaddr, offset + 1, srcval.highbyte)
-        elif srcval.is_doubleword():
+        elif srcval.is_doubleword:
             srcval = cast(SV.SimDoubleWordValue, srcval)
             self.set_byte(iaddr, offset, srcval.simbyte1)
             self.set_byte(iaddr, offset + 1, srcval.simbyte2)
@@ -227,14 +229,14 @@ class SimMemory(object):
             iaddr: str,
             offset: int,
             srcval: SV.SimLiteralValue) -> None:
-        if srcval.is_byte():
+        if srcval.is_byte:
             srcval = cast(SV.SimByteValue, srcval)
             self.set_byte(iaddr, offset, srcval)
-        elif srcval.is_word():
+        elif srcval.is_word:
             srcval = cast(SV.SimWordValue, srcval)
             self.set_byte(iaddr, offset, srcval.highbyte)
             self.set_byte(iaddr, offset + 1, srcval.lowbyte)
-        elif srcval.is_doubleword():
+        elif srcval.is_doubleword:
             srcval = cast(SV.SimDoubleWordValue, srcval)
             self.set_byte(iaddr, offset, srcval.simbyte4)
             self.set_byte(iaddr, offset + 1, srcval.simbyte3)
@@ -246,10 +248,10 @@ class SimMemory(object):
                 iaddr,
                 "Type of srcval not recognized: " + str(srcval))
 
-    def get_byte(self, iaddr: str, offset: int) -> SV.SimByteValue:
+    def byte(self, iaddr: str, offset: int) -> SV.SimByteValue:
         if offset in self._mem:
             simbyte = self._mem[offset]
-            if simbyte.is_defined():
+            if simbyte.is_defined:
                 return simbyte
             else:
                 raise SU.CHBSimError(
@@ -282,22 +284,22 @@ class SimMemory(object):
                 self.simstate,
                 iaddr,
                 "Address " + str(address) + " not found in memory")
-        elif self._mem[offset].is_link():
+        elif self._mem[offset].is_link:
             if self.bigendian:
-                return self.get_symbolic_big_endian(iaddr, offset, size)
+                return self.symbolic_big_endian(iaddr, offset, size)
             else:
-                return self.get_symbolic_little_endian(iaddr, offset, size)
+                return self.symbolic_little_endian(iaddr, offset, size)
         elif size == 1:
-            return self.get_byte(iaddr, offset)
+            return self.byte(iaddr, offset)
         if self.bigendian:
-            return self.get_big_endian(iaddr, offset, size)
+            return self.big_endian(iaddr, offset, size)
         else:
-            return self.get_little_endian(iaddr, offset, size)
+            return self.little_endian(iaddr, offset, size)
 
-    def get_link_byte(self, iaddr: str, offset: int) -> SimMemoryByteLink:
+    def link_byte(self, iaddr: str, offset: int) -> SimMemoryByteLink:
         if offset in self._mem:
             simbyte = self._mem[offset]
-            if simbyte.is_link():
+            if simbyte.is_link:
                 return cast(SimMemoryByteLink, simbyte)
             else:
                 raise UF.CHBError(
@@ -306,11 +308,11 @@ class SimMemory(object):
             raise UF.CHBError(
                 iaddr + ": No byte found at offset " + hex(offset))
 
-    def get_symbolic_big_endian(
+    def symbolic_big_endian(
             self, iaddr: str, offset: int, size: int) -> SSV.SimSymbolicValue:
         if size == 2:
-            b1 = self.get_link_byte(iaddr, offset + 1)
-            b2 = self.get_link_byte(iaddr, offset)
+            b1 = self.link_byte(iaddr, offset + 1)
+            b2 = self.link_byte(iaddr, offset)
             if (
                     b1.linkedto is b2.linkedto
                     and b1.position == 0 and b2.position == 1
@@ -321,10 +323,10 @@ class SimMemory(object):
                     "Error in retrieving symbolic word value from memory: "
                     + hex(offset))
         elif size == 4:
-            b1 = self.get_link_byte(iaddr, offset + 3)
-            b2 = self.get_link_byte(iaddr, offset + 2)
-            b3 = self.get_link_byte(iaddr, offset + 1)
-            b4 = self.get_link_byte(iaddr, offset)
+            b1 = self.link_byte(iaddr, offset + 3)
+            b2 = self.link_byte(iaddr, offset + 2)
+            b3 = self.link_byte(iaddr, offset + 1)
+            b4 = self.link_byte(iaddr, offset)
             if (
                     b1.linkedto is b2.linkedto
                     and b1.linkedto is b3.linkedto
@@ -339,11 +341,11 @@ class SimMemory(object):
             raise UF.CHBError(
                 "Size " + str(size) + " not supported for symbolic memory values.")
 
-    def get_symbolic_little_endian(
+    def symbolic_little_endian(
             self, iaddr: str, offset: int, size: int) -> SSV.SimSymbolicValue:
         if size == 2:
-            b1 = self.get_link_byte(iaddr, offset)
-            b2 = self.get_link_byte(iaddr, offset + 1)
+            b1 = self.link_byte(iaddr, offset)
+            b2 = self.link_byte(iaddr, offset + 1)
             if (
                     b1.linkedto is b2.linkedto
                     and b1.position == 0 and b2.position == 1
@@ -354,10 +356,10 @@ class SimMemory(object):
                     "Error in retrieving symbolic word value from memory: "
                     + hex(offset))
         elif size == 4:
-            b1 = self.get_link_byte(iaddr, offset)
-            b2 = self.get_link_byte(iaddr, offset + 1)
-            b3 = self.get_link_byte(iaddr, offset + 2)
-            b4 = self.get_link_byte(iaddr, offset + 3)
+            b1 = self.link_byte(iaddr, offset)
+            b2 = self.link_byte(iaddr, offset + 1)
+            b3 = self.link_byte(iaddr, offset + 2)
+            b4 = self.link_byte(iaddr, offset + 3)
             if (
                     b1.linkedto is b2.linkedto
                     and b1.linkedto is b3.linkedto
@@ -372,17 +374,17 @@ class SimMemory(object):
             raise UF.CHBError(
                 "Size " + str(size) + " not supported for symbolic memory values.")
 
-    def get_little_endian(
+    def little_endian(
             self, iaddr: str, offset: int, size: int) -> SV.SimLiteralValue:
         if size == 2:
-            b1 = self.get_byte(iaddr, offset)
-            b2 = self.get_byte(iaddr, offset + 1)
+            b1 = self.byte(iaddr, offset)
+            b2 = self.byte(iaddr, offset + 1)
             return SV.compose_simvalue([b1, b2])
         elif size == 4:
-            b1 = self.get_byte(iaddr, offset)
-            b2 = self.get_byte(iaddr, offset + 1)
-            b3 = self.get_byte(iaddr, offset + 2)
-            b4 = self.get_byte(iaddr, offset + 3)
+            b1 = self.byte(iaddr, offset)
+            b2 = self.byte(iaddr, offset + 1)
+            b3 = self.byte(iaddr, offset + 2)
+            b4 = self.byte(iaddr, offset + 3)
             return SV.compose_simvalue([b1, b2, b3, b4])
         else:
             raise SU.CHBSimError(
@@ -390,17 +392,17 @@ class SimMemory(object):
                 iaddr,
                 "Size of memory value request not supported: " + str(size))
 
-    def get_big_endian(
+    def big_endian(
             self, iaddr: str, offset: int, size: int) -> SV.SimLiteralValue:
         if size == 2:
-            b1 = self.get_byte(iaddr, offset + 1)
-            b2 = self.get_byte(iaddr, offset)
+            b1 = self.byte(iaddr, offset + 1)
+            b2 = self.byte(iaddr, offset)
             return SV.compose_simvalue([b1, b2])
         elif size == 4:
-            b1 = self.get_byte(iaddr, offset + 3)
-            b2 = self.get_byte(iaddr, offset + 2)
-            b3 = self.get_byte(iaddr, offset + 1)
-            b4 = self.get_byte(iaddr, offset)
+            b1 = self.byte(iaddr, offset + 3)
+            b2 = self.byte(iaddr, offset + 2)
+            b3 = self.byte(iaddr, offset + 1)
+            b4 = self.byte(iaddr, offset)
             return SV.compose_simvalue([b1, b2, b3, b4])
         else:
             raise SU.CHBSimError(
@@ -409,7 +411,7 @@ class SimMemory(object):
                 ("Size of memory value request not supported: "
                  + str(size)))
 
-    def get_char_string(
+    def char_string(
             self, iaddr: str, address: SSV.SimAddress, size: int) -> str:
         offset = address.offsetvalue
         if offset not in self._mem:
@@ -417,13 +419,13 @@ class SimMemory(object):
                 self.simstate,
                 iaddr,
                 "Address " + str(address) + " not found in memory")
-        if self._mem[offset].is_link():
+        if self._mem[offset].is_link:
             return "----"
         if size == 4:
-            b1 = self.get_byte(iaddr, offset + 3)
-            b2 = self.get_byte(iaddr, offset + 2)
-            b3 = self.get_byte(iaddr, offset + 1)
-            b4 = self.get_byte(iaddr, offset)
+            b1 = self.byte(iaddr, offset + 3)
+            b2 = self.byte(iaddr, offset + 2)
+            b3 = self.byte(iaddr, offset + 1)
+            b4 = self.byte(iaddr, offset)
             result = ""
             if b1.value == 0 and b2.value == 0 and b3.value == 0 and b4.value == 0:
                 return result
@@ -445,7 +447,7 @@ class SimMemory(object):
             s = ""
             for a in range(self.lowaddr, self.highaddr+1):
                 if a in self._mem:
-                    if self._mem[a].is_link():
+                    if self._mem[a].is_link:
                         byte = 0
                     else:
                         byte = self._mem[a].value
@@ -481,7 +483,7 @@ class SimMemory(object):
                     if a in self._mem:
                         address = self.mk_address(a)
                         try:
-                            charstring = self.get_char_string("", address, 4)
+                            charstring = self.char_string("", address, 4)
                         except UF.CHBError:
                             charstring = "?"
                         lines.append(str(hex(a)).rjust(12)

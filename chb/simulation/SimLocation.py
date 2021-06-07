@@ -40,18 +40,23 @@ class SimLocation:
     def __init__(self) -> None:
         pass
 
+    @property
     def is_register(self) -> bool:
         return False
 
+    @property
     def is_double_register(self) -> bool:
         return False
 
+    @property
     def is_memory_location(self) -> bool:
         return False
 
+    @property
     def is_global(self) -> bool:
         return False
 
+    @property
     def is_aligned(self) -> bool:
         return False
 
@@ -62,26 +67,40 @@ class SimLocation:
 class SimRegister(SimLocation):
 
     def __init__(self, reg: str) -> None:
-        self.reg = reg
+        self._reg = reg
 
+    @property
+    def register(self) -> str:
+        return self._reg
+
+    @property
     def is_register(self) -> bool:
         return True
 
     def __str__(self) -> str:
-        return self.reg
+        return self.register
 
 
 class SimDoubleRegister(SimLocation):
 
     def __init__(self, reglow: str, reghigh: str) -> None:
-        self.reglow = reglow
-        self.reghigh = reghigh
+        self._reglow = reglow
+        self._reghigh = reghigh
 
+    @property
+    def lowregister(self) -> str:
+        return self._reglow
+
+    @property
+    def highregister(self) -> str:
+        return self._reghigh
+
+    @property
     def is_double_register(self) -> bool:
         return True
 
     def __str__(self) -> str:
-        return self.reglow + ':' + self.reghigh
+        return self.lowregister + ':' + self.highregister
 
 
 class SimMemoryLocation(SimLocation):
@@ -93,28 +112,29 @@ class SimMemoryLocation(SimLocation):
     def simaddress(self) -> SSV.SimAddress:
         return self._simaddress
 
+    @property
     def is_memory_location(self) -> bool:
         return True
 
     def is_aligned(self) -> bool:
         return self.simaddress.is_aligned()
 
+    @property
     def is_global(self) -> bool:
-        return self.simaddress.is_global_address()
-
-    def is_stack(self) -> bool:
-        return self.simaddress.is_stack_address()
+        return self.simaddress.is_global_address
 
     @property
+    def is_stack(self) -> bool:
+        return self.simaddress.is_stack_address
+
     def offset(self) -> SV.SimDoubleWordValue:
-        if self.is_stack():
+        if self.is_stack:
             return self.simaddress.offset
         else:
             raise UF.CHBError('Location is not a stack location: ' + str(self))
 
-    @property
     def address(self) -> int:
-        if self.is_global():
+        if self.is_global:
             return self.simaddress.offsetvalue
         else:
             raise UF.CHBError("Memory Location does not have an address: "
