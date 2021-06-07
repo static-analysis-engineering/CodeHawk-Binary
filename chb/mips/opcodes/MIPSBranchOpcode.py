@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Sequence, TYPE_CHECKING
+from typing import Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -35,46 +35,20 @@ from chb.invariants.XXpr import XXpr
 
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
-from chb.mips.MIPSOperand import MIPSOperand
-from chb.mips.opcodes.MIPSBranchOpcode import MIPSBranchOpcode
-
-import chb.simulation.SimSymbolicValue as SSV
-import chb.simulation.SimUtil as SU
-import chb.simulation.SimValue as SV
-
-import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
 
-@mipsregistry.register_tag("bgezal", MIPSOpcode)
-class MIPSBranchGEZeroLink(MIPSBranchOpcode):
-    """BGEZAL rs, offset.
-
-    Branch on Greater Than or Equal to Zero and Link.
-    Test a GPR then do a PC-relative procedure call.
-
-    args[0]: index of rs in mips dictionary
-    args[1]: index of offset in mips dictionary
-    """
+class MIPSBranchOpcode(MIPSOpcode):
 
     def __init__(
             self,
             mipsd: "MIPSDictionary",
             ixval: IndexedTableValue) -> None:
-        MIPSBranchOpcode.__init__(self, mipsd, ixval)
-
-    @property
-    def operands(self) -> Sequence[MIPSOperand]:
-        return [self.mipsd.mips_operand(i) for i in self.args]
-
-    @property
-    def target(self) -> MIPSOperand:
-        return self.mipsd.mips_operand(self.args[1])
+        MIPSOpcode.__init__(self, mipsd, ixval)
 
     def has_branch_condition(self) -> bool:
         return True
@@ -83,18 +57,4 @@ class MIPSBranchGEZeroLink(MIPSBranchOpcode):
         return xdata.xprs[1]
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return [xdata.xprs[3], xdata.xprs[2]]
-
-    def annotation(self, xdata: InstrXData) -> str:
-        """data format a:xxxx
-
-        xprs[0]: rhs
-        xprs[1]: branch condition (syntactic)
-        xprs[2]: branch condtiion (simplified)
-        xprs[3]: branch condition (negated)
-        """
-
-        result = xdata.xprs[1]
-        rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
-        return 'if ' + xresult + ' then call ' + str(self.target)
+        return []

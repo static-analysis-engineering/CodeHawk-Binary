@@ -36,6 +36,7 @@ from chb.invariants.XXpr import XXpr
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
 from chb.mips.MIPSOperand import MIPSOperand
+from chb.mips.opcodes.MIPSBranchOpcode import MIPSBranchOpcode
 
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
@@ -51,7 +52,7 @@ if TYPE_CHECKING:
 
 
 @mipsregistry.register_tag("blezl", MIPSOpcode)
-class MIPSBranchLEZeroLikely(MIPSOpcode):
+class MIPSBranchLEZeroLikely(MIPSBranchOpcode):
     """BLEZL rs, offset
 
     Branch on Less Than or Equal to Zero Likely.
@@ -66,7 +67,7 @@ class MIPSBranchLEZeroLikely(MIPSOpcode):
             self,
             mipsd: "MIPSDictionary",
             ixval: IndexedTableValue) -> None:
-        MIPSOpcode.__init__(self, mipsd, ixval)
+        MIPSBranchOpcode.__init__(self, mipsd, ixval)
 
     @property
     def operands(self) -> Sequence[MIPSOperand]:
