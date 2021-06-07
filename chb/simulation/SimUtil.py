@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, Mapping, Optional, TYPE_CHECKING
+from typing import List, Mapping, Optional, Sequence, TYPE_CHECKING
 
 import chb.util.fileutil as UF
 
@@ -150,7 +150,7 @@ def simbranch(
         falsetgt: "SimSymbolicValue",
         expr: str,
         result: "SimValue") -> str:
-    if result.is_defined():
+    if result.is_defined:
         taken = 'T' if str(result) == '1' else 'F'
     else:
         taken = '?'
@@ -171,7 +171,8 @@ class CHBSimError(UF.CHBError):
         self.processed: List["Instruction"] = []
 
     def set_instructions_processed(self, p: List["Instruction"]) -> None:
-        self.processed = p
+        for i in p:
+            self.processed.append(i)
 
     def __str__(self) -> str:
         lines: List[str] = []
@@ -242,7 +243,7 @@ class CHBSimCallTargetUnknownError(CHBSimError):
             self,
             simstate: "SimulationState",
             iaddr: str,
-            calltgt: "SimSymbolicValue",
+            calltgt: "SimValue",
             msg: str) -> None:
         CHBSimError.__init__(self, simstate, iaddr, msg)
         self.calltgt = calltgt
@@ -284,13 +285,27 @@ class CHBSimSystemCallException(CHBSimError):
         self.syscallindex = syscallindex
 
 
+class CHBSimTrapSignalException(CHBSimError):
+
+    def __init__(
+            self,
+            simstate: "SimulationState",
+            iaddr: str,
+            v1: "SimValue",
+            v2: "SimValue") -> None:
+        CHBSimError.__init__(
+            self, simstate, iaddr, "trap signal: " + str(v1) + ", " + str(v2))
+        self.v1 = v1
+        self.v2 = v2
+
+
 class CHBSimJumpTargetUnknownError(CHBSimError):
 
     def __init__(
             self,
             simstate: "SimulationState",
             iaddr: str,
-            jumptgt: "SimSymbolicValue",
+            jumptgt: "SimValue",
             msg: str) -> None:
         CHBSimError.__init__(self, simstate, iaddr, msg)
         self.jumptgt = jumptgt
@@ -373,11 +388,21 @@ class CHBSimFallthroughException(UF.CHBError):
         UF.CHBError.__init__(self, "Fall through")
         self.iaddr = iaddr
         self.tgtaddr = tgtaddr
-        self.blockaddr: Optional[str] = None
+        self._blockaddr: Optional[str] = None
         self.processed: List["Instruction"] = []
 
+    def has_blockaddr(self) -> bool:
+        return self._blockaddr is not None
+
+    @property
+    def blockaddr(self) -> str:
+        if self._blockaddr is not None:
+            return self._blockaddr
+        else:
+            return "?"
+
     def set_block_address(self, baddr: str) -> None:
-        self.blockaddr = baddr
+        self._blockaddr = baddr
 
     def set_instructions_processed(self, p: List["Instruction"]) -> None:
         self.processed = p

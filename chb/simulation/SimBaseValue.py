@@ -75,7 +75,7 @@ class SimBaseValue(SV.SimValue):
         return self._base
 
     def bitwise_and(self, other: SV.SimLiteralValue) -> SV.SimValue:
-        if other.is_literal():
+        if other.is_literal:
             if other.value < self.value:
                 newval = self.value & other.value
                 return SV.mk_simvalue(newval)

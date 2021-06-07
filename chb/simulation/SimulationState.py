@@ -36,7 +36,7 @@ import chb.simulation.SimUtil as SU
 import chb.util.fileutil as UF
 
 
-class SimulationState(object):
+class SimulationState:
 
     def __init__(
             self,

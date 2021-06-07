@@ -29,7 +29,9 @@
 
 import string
 
-from typing import Any, cast, Dict, List, Mapping, Optional, Tuple
+from abc import ABC, abstractmethod
+
+from typing import Any, BinaryIO, cast, Dict, IO, List, Mapping, Optional, Tuple
 
 import chb.simulation.SimUtil as SU
 import chb.simulation.SimValue as SV
@@ -88,17 +90,24 @@ def mk_libc_table_value_deref(
     return SimLibcTableValueDeref(name, offset1, offset2)
 
 
-def mk_filepointer(filename: str, filepointer: int) -> "SimSymbolicFilePointer":
+def mk_filepointer(
+        filename: str,
+        filepointer: IO[Any]) -> "SimSymbolicFilePointer":
     return SimSymbolicFilePointer(filename, filepointer)
 
 
 def mk_filedescriptor(
-        filename: str, filedescriptor: int) -> "SimSymbolicFileDescriptor":
+        filename: str,
+        filedescriptor: IO[Any]) -> "SimSymbolicFileDescriptor":
     return SimSymbolicFileDescriptor(filename, filedescriptor)
 
 
 def mk_symboltablehandle(name: str) -> "SimSymbolTableHandle":
     return SimSymbolTableHandle(name)
+
+
+def mk_dynamic_link_symbol(handle: int, name: str) -> "SimDynamicLinkSymbol":
+    return SimDynamicLinkSymbol(handle, name)
 
 
 class SimSymbolicValue(SV.SimValue):
@@ -128,51 +137,71 @@ class SimSymbolicValue(SV.SimValue):
     def width(self) -> int:
         return 8 * self.size
 
+    @property
     def is_symbolic(self) -> bool:
         return True
 
+    @property
     def is_address(self) -> bool:
         return False
 
+    @property
     def is_global_address(self) -> bool:
         return False
 
+    @property
     def is_stack_address(self) -> bool:
         return False
 
+    @property
     def is_base_address(self) -> bool:
         return False
 
+    @property
     def is_string_address(self) -> bool:
         return False
 
+    @property
+    def is_return_address(self) -> bool:
+        return False
+
+    @property
     def is_libc_table_address(self) -> bool:
         return False
 
+    @property
     def is_libc_table_value(self) -> bool:
         return False
 
+    @property
     def is_libc_table_value_deref(self) -> bool:
         return False
 
+    @property
     def is_symbol(self) -> bool:
         return False
 
+    @property
     def is_environment_string(self) -> bool:
         return False
 
+    @property
     def is_environment_string_entry(self) -> bool:
         return False
 
+    @property
     def is_tainted_data(self) -> bool:
         return False
 
+    @property
     def is_file_pointer(self) -> bool:
         return False
 
+    @property
     def is_file_descriptor(self) -> bool:
         return False
 
+    @property
     def is_dynamic_link_symbol(self) -> bool:
         return False
 
@@ -180,7 +209,7 @@ class SimSymbolicValue(SV.SimValue):
         return "symbolic value"
 
 
-class SimAddress(SimSymbolicValue):
+class SimAddress(SimSymbolicValue, ABC):
 
     def __init__(self, base: str, offset: SV.SimDoubleWordValue):
         SimSymbolicValue.__init__(self, size=4)
@@ -197,7 +226,7 @@ class SimAddress(SimSymbolicValue):
 
     @property
     def offsetvalue(self) -> int:
-        if self.offset.is_defined():
+        if self.offset.is_defined:
             return self.offset.to_signed_int()
         else:
             raise UF.CHBError("Address offset is not defined: "
@@ -207,21 +236,44 @@ class SimAddress(SimSymbolicValue):
     def alignment(self) -> int:
         return self.offsetvalue % 4
 
+    @abstractmethod
+    def add_offset(self, v: int) -> "SimAddress":
+        ...
+
+    @abstractmethod
+    def is_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
+        ...
+
+    def is_not_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
+        isequal = self.is_equal(other)
+        if isequal.is_defined:
+            if isequal.is_true:
+                return SV.simfalse
+            else:
+                return SV.simtrue
+        else:
+            return SV.simUndefinedBool
+
+    @property
     def is_address(self) -> bool:
         return True
 
     def is_aligned(self, size: int = 4) -> bool:
         return (self.offset.value % size) == 0
 
+    @property
     def is_defined(self) -> bool:
-        return self.offset.is_defined()
+        return self.offset.is_defined
 
+    @property
     def is_global_address(self) -> bool:
         return False
 
+    @property
     def is_stack_address(self) -> bool:
         return False
 
+    @property
     def is_base_address(self) -> bool:
         return False
 
@@ -237,6 +289,7 @@ class SimGlobalAddress(SimAddress):
     def __init__(self, offset: SV.SimDoubleWordValue) -> None:
         SimAddress.__init__(self, "global", offset)
 
+    @property
     def is_global_address(self) -> bool:
         return True
 
@@ -258,8 +311,8 @@ class SimGlobalAddress(SimAddress):
             the return value is an undefined boolvalue.
         """
 
-        if self.is_defined() and other.is_defined():
-            if other.is_literal():
+        if self.is_defined and other.is_defined:
+            if other.is_literal:
                 other = cast(SV.SimLiteralValue, other)
                 if other.value == 0:
                     return SV.simfalse
@@ -267,9 +320,9 @@ class SimGlobalAddress(SimAddress):
                     return SV.simtrue
                 else:
                     return SV.simfalse
-            elif other.is_symbolic():
+            elif other.is_symbolic:
                 other = cast(SimSymbolicValue, other)
-                if other.is_global_address():
+                if other.is_global_address:
                     other = cast("SimGlobalAddress", other)
                     if other.offsetvalue == self.offsetvalue:
                         return SV.simtrue
@@ -297,6 +350,7 @@ class SimStackAddress(SimAddress):
     def __init__(self, offset: SV.SimDoubleWordValue) -> None:
         SimAddress.__init__(self, "stack", offset)
 
+    @property
     def is_stack_address(self) -> bool:
         return True
 
@@ -311,16 +365,16 @@ class SimStackAddress(SimAddress):
         undefined if the other value is neither a stack address nor 0.
         """
 
-        if self.is_defined() and other.is_defined():
-            if other.is_literal():
+        if self.is_defined and other.is_defined:
+            if other.is_literal:
                 other = cast(SV.SimLiteralValue, other)
                 if other.value == 0:
                     return SV.simfalse
                 else:
                     return SV.simUndefinedBool
-            elif other.is_symbolic():
+            elif other.is_symbolic:
                 other = cast(SimSymbolicValue, other)
-                if other.is_stack_address():
+                if other.is_stack_address:
                     other = cast("SimStackAddress", other)
                     if other.offsetvalue == self.offsetvalue:
                         return SV.simtrue
@@ -347,12 +401,12 @@ class SimStackAddress(SimAddress):
         stack address.
         """
 
-        if simval.is_literal() and simval.is_defined():
+        if simval.is_literal and simval.is_defined:
             simval = cast(SV.SimLiteralValue, simval)
             return self.add_offset(-simval.value)
-        elif simval.is_symbolic():
+        elif simval.is_symbolic:
             simval = cast(SimSymbolicValue, simval)
-            if simval.is_stack_address():
+            if simval.is_stack_address:
                 simval = cast("SimStackAddress", simval)
                 return SV.mk_simvalue(
                     self.offsetvalue - simval.offsetvalue,
@@ -367,7 +421,7 @@ class SimStackAddress(SimAddress):
         return self.add_offset(simval.value)
 
     def bitwise_and(self, simval: SV.SimValue) -> "SimStackAddress":
-        if simval.is_literal() and simval.is_defined():
+        if simval.is_literal and simval.is_defined:
             simval = cast(SV.SimLiteralValue, simval)
             newoffset = self.offset.bitwise_and(simval)
             return SimStackAddress(newoffset)
@@ -410,13 +464,14 @@ class SimBaseAddress(SimAddress):
     def has_target_type(self) -> bool:
         return self.tgttype is not None
 
+    @property
     def is_base_address(self) -> bool:
         return True
 
     def is_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
-        if other.is_literal() and other.is_defined():
+        if other.is_literal and other.is_defined:
             other = cast(SV.SimLiteralValue, other)
-            if other.is_zero():
+            if other.is_zero:
                 return SV.simfalse
             else:
                 return SV.simUndefinedBool
@@ -435,12 +490,12 @@ class SimBaseAddress(SimAddress):
         return self.add_offset(-simval.to_signed_int())
 
     def subu(self, simval: SV.SimValue) -> SV.SimValue:
-        if simval.is_literal() and simval.is_defined():
+        if simval.is_literal and simval.is_defined:
             simval = cast(SV.SimLiteralValue, simval)
             return self.add_offset(-simval.value)
-        elif simval.is_symbolic():
+        elif simval.is_symbolic:
             simval = cast(SimSymbolicValue, simval)
-            if simval.is_base_address():
+            if simval.is_base_address:
                 simval = cast("SimBaseAddress", simval)
                 if simval.base == self.base:
                     return SV.mk_simvalue(self.offsetvalue - simval.offsetvalue)
@@ -458,10 +513,21 @@ class SimBaseAddress(SimAddress):
         return self.base + ':' + str(self.offset.to_signed_int())
 
 
+class SimReturnAddress(SimSymbolicValue):
+    """Address recorded for return after a function call."""
+
+    def __init__(self) -> None:
+        SimSymbolicValue.__init__(self)
+
+    @property
+    def is_return_address(self) -> bool:
+        return True
+
+
 class SimStringAddress(SimSymbolicValue):
     """Address of a constant string."""
 
-    def __init__(self, stringval: str):
+    def __init__(self, stringval: str) -> None:
         SimSymbolicValue.__init__(self)
         self._stringval = stringval
 
@@ -471,11 +537,12 @@ class SimStringAddress(SimSymbolicValue):
 
         return self._stringval
 
+    @property
     def is_string_address(self) -> bool:
         return True
 
     def add(self, v: SV.SimValue) -> "SimStringAddress":
-        if v.is_literal() and v.is_defined():
+        if v.is_literal and v.is_defined:
             v = cast(SV.SimLiteralValue, v)
             if v.value == 0:
                 return self
@@ -512,6 +579,7 @@ class SimLibcTableAddress(SimSymbolicValue):
     def name(self) -> str:
         return self._name
 
+    @property
     def is_libc_table_address(self) -> bool:
         return True
 
@@ -535,17 +603,18 @@ class SimLibcTableValue(SimSymbolicValue):
     def offset(self) -> int:
         return self._offset
 
+    @property
     def is_libc_table_value(self) -> bool:
         return True
 
     def add(self, other: SV.SimLiteralValue) -> "SimLibcTableValue":
-        if other.is_defined():
+        if other.is_defined:
             return mk_libc_table_value(self.name, self.offset + other.value)
         else:
             raise UF.CHBError('Argument to libc-table-value.add not recognized: ' +
                               str(other))
 
-    def get_b_result(self) -> SV.SimLiteralValue:
+    def b_result(self) -> SV.SimLiteralValue:
         if self.name == "ctype_b":
             result = 0
             print("ctype_b: " + str(self.offset) + ', ' + str(chr(self.offset // 2)))
@@ -585,10 +654,11 @@ class SimLibcTableValueDeref(SimSymbolicValue):
     def offset2(self) -> int:
         return self._offset2
 
+    @property
     def is_libc_table_value_deref(self) -> bool:
         return True
 
-    def get_toupper_result(self) -> SV.SimLiteralValue:
+    def toupper_result(self) -> SV.SimLiteralValue:
         if self.name == "ctype_toupper":
             if self.offset1 >= 97 and self.offset2 <= 122:
                 return SV.mk_simvalue(self.offset1 // 2)
@@ -597,7 +667,7 @@ class SimLibcTableValueDeref(SimSymbolicValue):
         else:
             return SV.simUndefinedDW
 
-    def get_b_result(self) -> SV.SimLiteralValue:
+    def b_result(self) -> SV.SimLiteralValue:
         if self.name == "ctype_b":
             result = 0
             print("ctype_b deref table value: "
@@ -685,6 +755,7 @@ class SimSymbol(SimSymbolicValue):
         else:
             raise UF.CHBError("Symbolic value has no upperbound: " + str(self))
 
+    @property
     def is_symbol(self) -> bool:
         return True
 
@@ -694,29 +765,47 @@ class SimSymbol(SimSymbolicValue):
     def is_not_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
         return SV.simfalse
 
+    @property
     def is_non_negative(self) -> SV.SimBoolValue:
         """Return true if it is bounded from below by zero."""
 
-        if self.has_minval():
-            if self.lowerbound >= 0:
-                return SV.simtrue
-            elif self.has_maxval() and self.upperbound < 0:
-                return SV.simfalse
-            else:
-                return SV.simUndefinedBool
+        if self.has_minval() and self.lowerbound >= 0:
+            return SV.simtrue
+        elif self.has_maxval() and self.upperbound < 0:
+            return SV.simfalse
         else:
             return SV.simUndefinedBool
 
+    @property
+    def is_positive(self) -> SV.SimBoolValue:
+        """Return true if it is bounded from below by one."""
+
+        if self.has_minval() and self.lowerbound >= 1:
+            return SV.simtrue
+        elif self.has_maxval() and self.upperbound <= 0:
+            return SV.simfalse
+        else:
+            return SV.simUndefinedBool
+
+    @property
+    def is_non_positive(self) -> SV.SimBoolValue:
+        """Return true if it is bounded from above by zero."""
+
+        if self.has_maxval() and self.upperbound <= 0:
+            return SV.simtrue
+        elif self.has_minval() and self.lowerbound > 0:
+            return SV.simfalse
+        else:
+            return SV.simUndefinedBool
+
+    @property
     def is_negative(self) -> SV.SimBoolValue:
         """Return true if it is bounded from above by zero."""
 
-        if self.has_minval():
-            if self.lowerbound >= 0:
-                return SV.simfalse
-            elif self.has_maxval() and self.upperbound < 0:
-                return SV.simtrue
-            else:
-                return SV.simUndefinedBool
+        if self.has_minval() and self.lowerbound >= 0:
+            return SV.simfalse
+        elif self.has_maxval() and self.upperbound < 0:
+            return SV.simtrue
         else:
             return SV.simUndefinedBool
 
@@ -752,7 +841,7 @@ class SimSymbolicFilePointer(SimSymbol):
     provided.
     """
 
-    def __init__(self, filename: str, fp: int):
+    def __init__(self, filename: str, fp: IO[Any]):
         SimSymbol.__init__(self, filename + '_filepointer', type='ptr2FILE')
         self._filename = filename
         self._fp = fp    # pointer returned by open
@@ -762,14 +851,15 @@ class SimSymbolicFilePointer(SimSymbol):
         return self._filename
 
     @property
-    def fp(self) -> int:
+    def fp(self) -> IO[Any]:
         return self._fp
 
+    @property
     def is_file_pointer(self) -> bool:
         return True
 
     def is_not_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
-        if other.is_literal() and other.is_defined():
+        if other.is_literal and other.is_defined:
             other = cast(SV.SimLiteralValue, other)
             if other.value == 0:
                 return SV.simtrue
@@ -779,7 +869,7 @@ class SimSymbolicFilePointer(SimSymbol):
             return SV.simUndefinedBool
 
     def is_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
-        if other.is_literal() and other.is_defined():
+        if other.is_literal and other.is_defined:
             other = cast(SV.SimLiteralValue, other)
             if other.value == 0:
                 return SV.simfalse
@@ -798,7 +888,7 @@ class SimSymbolicFileDescriptor(SimSymbol):
     It is assumed that this value is non-negative.
     """
 
-    def __init__(self, filename: str, fd: int) -> None:
+    def __init__(self, filename: str, fd: IO[Any]) -> None:
         SimSymbol.__init__(self, filename + '_filedescriptor', type="int")
         self._filename = filename
         self._fd = fd
@@ -808,20 +898,23 @@ class SimSymbolicFileDescriptor(SimSymbol):
         return self._filename
 
     @property
-    def filedescriptor(self) -> int:
+    def filedescriptor(self) -> IO[Any]:
         return self._fd
 
+    @property
     def is_file_descriptor(self) -> bool:
         return True
 
+    @property
     def is_non_negative(self) -> SV.SimBoolValue:
         return SV.simtrue
 
+    @property
     def is_negative(self) -> SV.SimBoolValue:
         return SV.simfalse
 
     def is_not_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
-        if other.is_literal() and other.is_defined():
+        if other.is_literal and other.is_defined:
             other = cast(SV.SimLiteralValue, other)
             if other.to_signed_int() == -1:
                 return SV.simtrue
@@ -841,20 +934,27 @@ class SimSymbolTableHandle(SimSymbol):
         self._name = name
         self._table: Dict[str, SV.SimValue] = {}  # name -> symbol
 
+    @property
     def table(self) -> Mapping[str, SV.SimValue]:
         return self._table
 
+    def set_value(self, symname: str, symval: SV.SimValue) -> None:
+        self._table[symname] = symval
+
+    @property
     def is_symbol_table_handle(self) -> bool:
         return True
 
+    @property
     def is_non_negative(self) -> SV.SimBoolValue:
         return SV.simtrue
 
+    @property
     def is_negative(self) -> SV.SimBoolValue:
         return SV.simfalse
 
     def is_not_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
-        if other.is_literal() and other.is_defined():
+        if other.is_literal and other.is_defined:
             other = cast(SV.SimLiteralValue, other)
             if other.to_signed_int() == 0:
                 return SV.simtrue
@@ -875,14 +975,19 @@ class SimDynamicLinkSymbol(SimSymbol):
         self._name = name
 
     @property
+    def name(self) -> str:
+        return self._name
+
+    @property
     def handle(self) -> int:
         return self._handle
 
+    @property
     def is_dynamic_link_symbol(self) -> bool:
         return True
 
     def is_not_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
-        if other.is_literal() and other.is_defined():
+        if other.is_literal and other.is_defined:
             other = cast(SV.SimLiteralValue, other)
             if other.to_signed_int() == 0:
                 return SV.simtrue
@@ -906,6 +1011,7 @@ class SimEnvironmentString(SimSymbolicValue):
     def offset(self) -> int:
         return self._offset
 
+    @property
     def is_environment_string(self) -> bool:
         return True
 
@@ -924,6 +1030,7 @@ class SimEnvironmentStringEntry(SimSymbolicValue):
     def entryoffset(self) -> int:
         return self._entryoffset
 
+    @property
     def is_environment_string_entry(self) -> bool:
         return True
 
@@ -942,12 +1049,15 @@ class SimTaintedData(SimSymbolicValue):
     def taintsource(self) -> str:
         return self._source
 
+    @property
     def is_tainted_data(self) -> bool:
         return True
 
+    @property
     def is_tainted_string(self) -> bool:
         return False
 
+    @property
     def is_tainted_value(self) -> bool:
         return False
 
@@ -982,6 +1092,7 @@ class SimTaintedString(SimTaintedData):
             raise UF.CHBError("Tainted string has not maxlen: "
                               + str(self))
 
+    @property
     def is_tainted_string(self) -> bool:
         return True
 
@@ -1034,11 +1145,12 @@ class SimTaintedValue(SimTaintedData):
     def has_maxval(self) -> bool:
         return self._maxval is not None
 
+    @property
     def is_bounded(self) -> bool:
         return self.has_minval() and self.has_maxval()
 
     def is_not_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
-        if other.is_literal() and other.is_defined() and self.is_bounded():
+        if other.is_literal and other.is_defined and self.is_bounded:
             other = cast(SV.SimLiteralValue, other)
             if other.value < self.minval or other.value > self.maxval:
                 return SV.simtrue
@@ -1047,5 +1159,6 @@ class SimTaintedValue(SimTaintedData):
                                  other))
         return SV.simUndefinedBool
 
+    @property
     def is_tainted_value(self) -> bool:
         return True

@@ -76,24 +76,67 @@ class SimValue(ABC):
 
         ...
 
+    @property
+    def is_byte(self) -> bool:
+        return self.size == 1
+
+    @property
+    def is_word(self) -> bool:
+        return self.size == 2
+
+    @property
+    def is_doubleword(self) -> bool:
+        return self.size == 4
+
+    @property
+    def is_quadword(self) -> bool:
+        return self.size == 8
+
+    @property
     def is_defined(self) -> bool:
         return self.defined
 
+    @property
     def is_literal(self) -> bool:
         return False
 
+    @property
     def is_symbolic(self) -> bool:
         return False
 
+    @property
     def is_address(self) -> bool:
         return False
 
+    @property
+    def is_file_pointer(self) -> bool:
+        return False
+
+    @property
+    def is_symbol_table_handle(self) -> bool:
+        return False
+
+    @property
+    def is_libc_table_address(self) -> bool:
+        return False
+
+    @property
+    def is_libc_table_value(self) -> bool:
+        return False
+
+    @property
+    def is_stack_address(self) -> bool:
+        return False
+
+    @property
     def is_string_address(self) -> bool:
         return False
 
+    @property
     def is_symbol(self) -> bool:
         return False
 
+    @property
     def is_membyte_link(self) -> bool:
         return False
 
@@ -113,30 +156,50 @@ class SimLiteralValue(SimValue):
 
         return self._value
 
+    @property
     def is_literal(self) -> bool:
         return True
 
+    @property
     def is_bool(self) -> bool:
         return False
 
+    @property
     def is_byte(self) -> bool:
         return False
 
+    @property
     def is_word(self) -> bool:
         return False
 
+    @property
     def is_doubleword(self) -> bool:
         return False
 
+    @property
+    def is_quadword(self) -> bool:
+        return False
+
+    @property
     def is_float(self) -> bool:
         return False
 
+    @property
     def is_zero(self) -> bool:
-        return self.is_defined() and self.value == 0
+        return self.is_defined and self.value == 0
 
+    @property
     def is_not_zero(self) -> bool:
-        return self.is_defined() and self.value != 0
+        return self.is_defined and self.value != 0
 
+    @property
+    def is_negative(self) -> bool:
+        return False
+
+    def is_equal(self, other: SimValue) -> "SimBoolValue":
+        return simUndefinedBool
+
+    @property
     def is_odd_parity(self) -> bool:
         result = False
         n = self.value
@@ -146,12 +209,104 @@ class SimLiteralValue(SimValue):
             n = n >> 1
         return result
 
+    @property
+    def leading_zeroes(self) -> "SimDoubleWordValue":
+        if self.is_defined:
+            x = self.value
+            if x == 0:
+                r = self.width
+            else:
+                t = 1 << (self.width - 1)
+                r = 0
+                while (x & t) == 0:
+                    t = t >> 1
+                    r = r + 1
+            return cast(SimDoubleWordValue, mk_simvalue(r))
+        else:
+            return simUndefinedDW
+
     @abstractmethod
     def to_signed_int(self) -> int:
         ...
 
+    @abstractmethod
+    def sign_extend(self, size: int) -> "SimLiteralValue":
+        ...
+
+    @abstractmethod
+    def zero_extend(self, size: int) -> "SimLiteralValue":
+        ...
+
+    @property
+    @abstractmethod
+    def lsb(self) -> int:
+        ...
+
+    @property
+    @abstractmethod
+    def msb(self) -> int:
+        ...
+
+    @property
+    @abstractmethod
+    def msb2(self) -> int:
+        ...
+
+    @abstractmethod
+    def add(self, other: SimValue) -> "SimLiteralValue":
+        ...
+
+    @abstractmethod
+    def sub(self, other: SimValue) -> "SimLiteralValue":
+        ...
+
+    @abstractmethod
+    def mul(self, other: SimValue) -> "SimLiteralValue":
+        ...
+
+    @abstractmethod
+    def bitwise_and(self, other: SimValue) -> "SimLiteralValue":
+        ...
+
+    @abstractmethod
+    def bitwise_or(self, other: SimValue) -> "SimLiteralValue":
+        ...
+
+    @abstractmethod
+    def bitwise_xor(self, other: SimValue) -> "SimLiteralValue":
+        ...
+
+    @abstractmethod
+    def bitwise_nor(self, other: SimValue) -> "SimLiteralValue":
+        ...
+
+    @abstractmethod
+    def bitwise_rol(self, other: SimValue) -> "SimLiteralValue":
+        ...
+
+    @abstractmethod
+    def bitwise_ror(self, other: SimValue) -> "SimLiteralValue":
+        ...
+
+    @abstractmethod
+    def bitwise_rcl(
+            self, other: SimValue, cflag: int) -> Tuple[int, "SimLiteralValue"]:
+        ...
+
+    @abstractmethod
+    def bitwise_sar(self, other: SimValue) -> Tuple[int, "SimLiteralValue"]:
+        ...
+
+    @abstractmethod
+    def bitwise_shl(self, other: SimValue) -> Tuple[int, "SimLiteralValue"]:
+        ...
+
+    @abstractmethod
+    def bitwise_sll(self, shiftamount: int) -> "SimLiteralValue":
+        ...
+
     def __str__(self) -> str:
-        if self.is_defined():
+        if self.is_defined:
             return str(self.value)
         else:
             return "?"
@@ -171,14 +326,39 @@ class SimBoolValue(SimLiteralValue):
     def width(self) -> int:
         return 1
 
+    @property
+    def lsb(self) -> int:
+        raise UF.CHBError("Least-significant bit not applicable to SimBoolValue")
+
+    @property
+    def msb(self) -> int:
+        raise UF.CHBError("Most-significant bit not applicable to SimBoolValue")
+
+    @property
+    def msb2(self) -> int:
+        raise UF.CHBError(
+            "Second most-significant bit not applicable to SimBoolValue")
+
+    @property
     def is_bool(self) -> bool:
         return True
 
+    @property
     def is_set(self) -> bool:
         return self.value > 0
 
+    @property
     def is_true(self) -> bool:
-        return self.value > 0
+        if self.is_defined:
+            return self.value > 0
+        else:
+            return False
+
+    def is_false(self) -> bool:
+        if self.is_defined:
+            return self.value == 0
+        else:
+            return False
 
     def to_signed_int(self) -> int:
         raise UF.CHBError("To_signed_int not applicable to SimBoolValue")
@@ -188,6 +368,52 @@ class SimBoolValue(SimLiteralValue):
 
     def clear(self) -> "SimBoolValue":
         return SimBoolValue(0)
+
+    def sign_extend(self, size: int) -> SimLiteralValue:
+        raise UF.CHBError("Sign-extend not applicable to SimBoolValue")
+
+    def zero_extend(self, size: int) -> SimLiteralValue:
+        raise UF.CHBError("Zero-extend not applicable to SimBoolValue")
+
+    def add(self, other: SimValue) -> SimLiteralValue:
+        raise UF.CHBError("Addition not applicable to SimBoolValue")
+
+    def sub(self, other: SimValue) -> SimLiteralValue:
+        raise UF.CHBError("Subtraction not applicable to SimBoolValue")
+
+    def mul(self, other: SimValue) -> SimLiteralValue:
+        raise UF.CHBError("Multiplication not applicable to SimBoolValue")
+
+    def bitwise_and(self, other: SimValue) -> SimLiteralValue:
+        raise UF.CHBError("Bitwise and not applicable to SimBoolValue")
+
+    def bitwise_or(self, other: SimValue) -> SimLiteralValue:
+        raise UF.CHBError("Bitwise or not applicable to SimBoolValue")
+
+    def bitwise_rol(self, other: SimValue) -> SimLiteralValue:
+        raise UF.CHBError("Bitwise rotation not applicable to SimBoolValue")
+
+    def bitwise_ror(self, other: SimValue) -> SimLiteralValue:
+        raise UF.CHBError("Bitwise rotation not applicable to SimBoolValue")
+
+    def bitwise_sar(self, other: SimValue) -> Tuple[int, SimLiteralValue]:
+        raise UF.CHBError("Bitwise shift not applicable to SimBoolValue")
+
+    def bitwise_rcl(
+            self, other: SimValue, cflag: int) -> Tuple[int, SimLiteralValue]:
+        raise UF.CHBError("Bitwise rcl not applicable to SimBoolValue")
+
+    def bitwise_shl(self, other: SimValue) -> Tuple[int, SimLiteralValue]:
+        raise UF.CHBError("Bitwise shift not applicable to SimBoolValue")
+
+    def bitwise_sll(self, shiftamount: int) -> SimLiteralValue:
+        raise UF.CHBError("Bitwise shift not applicable to SimBoolValue")
+
+    def bitwise_xor(self, other: SimValue) -> SimLiteralValue:
+        raise UF.CHBError("Bitwise xor not applicable to SimBoolValue")
+
+    def bitwise_nor(self, other: SimValue) -> SimLiteralValue:
+        raise UF.CHBError("Bitwise nor not applicable to SimBoolValue")
 
 
 class SimByteValue(SimLiteralValue):
@@ -214,14 +440,29 @@ class SimByteValue(SimLiteralValue):
     def msb(self) -> int:
         """Most significant bit."""
 
-        return self.value >> 7
+        if self.is_defined:
+            return self.value >> 7
+        else:
+            raise SU.CHBSimValueUndefinedError("SimByteValue.msb")
 
+    @property
+    def msb2(self) -> int:
+        """Second most significant bit."""
+
+        if self.is_defined:
+            return (self.value >> 6) % 2
+        else:
+            raise SU.CHBSimValueUndefinedError("SimByteValue:msb2")
+
+    @property
     def is_byte(self) -> bool:
         return True
 
+    @property
     def is_link(self) -> bool:
         return False
 
+    @property
     def is_negative(self) -> bool:
         return self.value > 127
 
@@ -232,20 +473,20 @@ class SimByteValue(SimLiteralValue):
         return v < 0 or v > 255
 
     def is_equal(self, other: SimValue) -> SimBoolValue:
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             result = 1 if self.value == other.value else 0
             return SimBoolValue(
-                result, defined=(self.is_defined() and other.is_defined()))
+                result, defined=(self.is_defined and other.is_defined))
         else:
             return SimBoolValue(0, defined=False)
 
     def add(self, other: SimValue) -> "SimByteValue":
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             newval = (self.value + other.value) % 256
             return SimByteValue(
-                newval, defined=self.is_defined() and other.is_defined())
+                newval, defined=self.is_defined and other.is_defined)
         else:
             return simUndefinedByte
 
@@ -257,13 +498,16 @@ class SimByteValue(SimLiteralValue):
         return self.is_outside_unsigned_bounds(self.value + other.value)
 
     def sub(self, other: SimValue) -> "SimByteValue":
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             newval = (self.value - other.value) % 256
             return SimByteValue(
-                newval, defined=self.is_defined() and other.is_defined())
+                newval, defined=self.is_defined and other.is_defined)
         else:
             return simUndefinedByte
+
+    def mul(self, other: SimValue) -> "SimByteValue":
+        raise UF.CHBError("Mul not yet implemented for SimByteValue")
 
     def sub_overflows(self, other: SimLiteralValue) -> bool:
         return self.is_outside_signed_bounds(
@@ -273,31 +517,31 @@ class SimByteValue(SimLiteralValue):
         return self.is_outside_unsigned_bounds(self.value - other.value)
 
     def bitwise_and(self, other: SimValue) -> "SimByteValue":
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             newval = self.value & other.value
             return SimByteValue(
-                newval, defined=self.is_defined() and other.is_defined())
+                newval, defined=self.is_defined and other.is_defined)
         else:
             return simUndefinedByte
 
     def bitwise_or(self, other: SimValue) -> "SimByteValue":
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             newval = self.value | other.value
             return SimByteValue(
-                newval, defined=self.is_defined() and other.is_defined())
+                newval, defined=self.is_defined and other.is_defined)
         else:
             return simUndefinedByte
 
     def bitwise_not(self) -> "SimByteValue":
         newval = ~self.value
-        return SimByteValue(newval, defined=self.is_defined())
+        return SimByteValue(newval, defined=self.is_defined)
 
     def bitwise_rol(self, other: SimValue) -> "SimByteValue":
         """Return value rotated left by the value of other % 8."""
 
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             otherval = other.value % 8
             if otherval == 0:
@@ -305,14 +549,14 @@ class SimByteValue(SimLiteralValue):
             else:
                 newval = (self.value << otherval) + (self.value >> (8 - otherval))
                 return SimByteValue(
-                    newval, defined=self.is_defined() and other.is_defined())
+                    newval, defined=self.is_defined and other.is_defined)
         else:
             return simUndefinedByte
 
     def bitwise_ror(self, other: SimValue) -> "SimByteValue":
         """Return value rotated right by the value of other % 8."""
 
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             otherval = other.value % 8
             if otherval == 0:
@@ -320,7 +564,7 @@ class SimByteValue(SimLiteralValue):
             else:
                 newval = (self.value >> otherval) + (self.value << (8 - otherval))
                 return SimByteValue(
-                    newval, defined=self.is_defined() and other.is_defined())
+                    newval, defined=self.is_defined and other.is_defined)
         else:
             return simUndefinedByte
 
@@ -330,7 +574,7 @@ class SimByteValue(SimLiteralValue):
         --- needs a reference.
         """
         SU.checkbit(cflag, "Cflag argument in SimByteValue.bitwise_rcl")
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             otherval = (other.value & 31) % 9
             if otherval == 0:
@@ -344,7 +588,7 @@ class SimByteValue(SimLiteralValue):
                 return (cflag,
                         SimByteValue(
                             newval,
-                            defined=self.is_defined() and other.is_defined()))
+                            defined=self.is_defined and other.is_defined))
         else:
             return (0, simUndefinedByte)
 
@@ -364,7 +608,7 @@ class SimByteValue(SimLiteralValue):
 
         """
 
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             otherval = other.value & 31
             if otherval == 0:
@@ -375,7 +619,7 @@ class SimByteValue(SimLiteralValue):
             msb = newval >> 7
             newval = newval << 1
             return (msb, SimByteValue(
-                newval, defined=self.is_defined() and other.is_defined()))
+                newval, defined=self.is_defined and other.is_defined))
         return (0, simUndefinedByte)
 
     def bitwise_shrd(
@@ -401,7 +645,7 @@ class SimByteValue(SimLiteralValue):
         the count operand is 0, flags are not affected.
         """
 
-        if srcval.is_literal() and shift.is_literal():
+        if srcval.is_literal and shift.is_literal:
             srcval = cast(SimLiteralValue, srcval)
             shift = cast(SimLiteralValue, shift)
             shiftvalue = shift.value & 31
@@ -420,16 +664,16 @@ class SimByteValue(SimLiteralValue):
                     cflag,
                     SimByteValue(
                         newvalue,
-                        defined=self.is_defined()
-                        and srcval.is_defined()
-                        and shift.is_defined()))
+                        defined=self.is_defined
+                        and srcval.is_defined
+                        and shift.is_defined))
         else:
             return (0, simUndefinedByte)
 
     def bitwise_sar(self, other: SimValue) -> Tuple[int, "SimByteValue"]:
         """Return value shifted to the right by other and a carry bit."""
 
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             otherval = other.value & 31
             if otherval == 0:
@@ -443,25 +687,31 @@ class SimByteValue(SimLiteralValue):
             return (
                 lsb,
                 SimByteValue(
-                    newval, defined=self.is_defined() and other.is_defined()))
+                    newval, defined=self.is_defined and other.is_defined))
         else:
             return (0, simUndefinedByte)
+
+    def bitwise_sll(self, shiftamount: int) -> "SimByteValue":
+        raise UF.CHBError("Bitwise shift left not yet implemented for SimByteValue")
 
     def bitwise_xor(self, other: SimValue) -> "SimByteValue":
         """Return exclusive or with other value."""
 
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             newval = self.value ^ other.value
             return SimByteValue(
-                newval, defined=self.is_defined() and other.is_defined())
+                newval, defined=self.is_defined and other.is_defined)
         else:
             return simUndefinedByte
+
+    def bitwise_nor(self, other: SimValue) -> "SimByteValue":
+        return self.bitwise_or(other).bitwise_not()
 
     def to_unsigned_int(self) -> int:
         """Return value if defined."""
 
-        if self.is_defined():
+        if self.is_defined:
             return self.value
         else:
             raise SU.CHBSimValueUndefinedError('SimByteValue: to_unsigned_int')
@@ -469,8 +719,8 @@ class SimByteValue(SimLiteralValue):
     def to_signed_int(self) -> int:
         """Return value interpreted as a signed integer, if defined."""
 
-        if self.is_defined():
-            if self.is_negative():
+        if self.is_defined:
+            if self.is_negative:
                 return self.value - 256
             else:
                 return self.value
@@ -480,7 +730,7 @@ class SimByteValue(SimLiteralValue):
     def zero_extend(self, size: int) -> SimLiteralValue:
         """Zero extends the byte to a word or doubleword value."""
 
-        if self.is_defined():
+        if self.is_defined:
             if size == 1:
                 return self
             elif size == 2:
@@ -496,7 +746,7 @@ class SimByteValue(SimLiteralValue):
     def sign_extend(self, size: int) -> SimLiteralValue:
         """Sign extends the byte to a word or doubleword value."""
 
-        if self.is_defined():
+        if self.is_defined:
             if size == 1:
                 return self
             elif size == 2:
@@ -510,7 +760,7 @@ class SimByteValue(SimLiteralValue):
             raise SU.CHBSimValueUndefinedError("SimByteValue.sign_extend")
 
     def to_word(self, signextend: bool = True) -> SimLiteralValue:
-        if self.is_defined():
+        if self.is_defined:
             if signextend:
                 return SimWordValue(self.to_signed_int())
             else:
@@ -519,7 +769,7 @@ class SimByteValue(SimLiteralValue):
             raise SU.CHBSimValueUndefinedError("SimByteValue.to_word")
 
     def to_doubleword(self, signextend: bool = True) -> SimLiteralValue:
-        if self.is_defined():
+        if self.is_defined:
             if signextend:
                 return SimDoubleWordValue(self.to_signed_int())
             else:
@@ -528,7 +778,7 @@ class SimByteValue(SimLiteralValue):
             raise SU.CHBSimValueUndefinedError("SimByteValue.to_doubleword")
 
     def __str__(self) -> str:
-        if self.is_defined():
+        if self.is_defined:
             return str(self.value)
         else:
             return "?"
@@ -557,6 +807,33 @@ class SimWordValue(SimLiteralValue):
         return 16
 
     @property
+    def lsb(self) -> int:
+        """Least significant bit."""
+
+        if self.is_defined:
+            return self.value % 2
+        else:
+            raise SU.CHBSimValueUndefinedError("SimWordValue:lsb")
+
+    @property
+    def msb(self) -> int:
+        """Most significant bit."""
+
+        if self.is_defined:
+            return (self.value >> 15)
+        else:
+            raise SU.CHBSimValueUndefinedError("SimWordValue:msb")
+
+    @property
+    def msb2(self) -> int:
+        """Second most significant bit."""
+
+        if self.is_defined:
+            return (self.value >> 14) % 2
+        else:
+            raise SU.CHBSimValueUndefinedError("SimWordValue:msb2")
+
+    @property
     def lowbyte(self) -> SimByteValue:
         return SimByteValue(self.byte1, self.b1defined)
 
@@ -564,11 +841,13 @@ class SimWordValue(SimLiteralValue):
     def highbyte(self) -> SimByteValue:
         return SimByteValue(self.byte2, self.b2defined)
 
+    @property
     def is_word(self) -> bool:
         return True
 
+    @property
     def is_negative(self) -> bool:
-        if self.is_defined():
+        if self.is_defined:
             return self.value > SU.max15
         else:
             raise SU.CHBSimValueUndefinedError('SimWordValue: is_negative')
@@ -580,15 +859,26 @@ class SimWordValue(SimLiteralValue):
         return v > SU.max16 or v < 0
 
     def add(self, other: SimValue) -> "SimWordValue":
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimWordValue, other)
             newval = (self.value + other.value) % (SU.max16 + 1)
-            return SimWordValue(newval, self.is_defined() and other.is_defined())
+            return SimWordValue(newval, self.is_defined and other.is_defined)
         else:
             return simUndefinedWord
 
+    def sub(self, other: SimValue) -> "SimWordValue":
+        if other.is_literal:
+            other = cast(SimWordValue, other)
+            newval = (self.value - other.value) % (SU.max16 + 1)
+            return SimWordValue(newval, self.is_defined and other.is_defined)
+        else:
+            return simUndefinedWord
+
+    def mul(self, other: SimValue) -> "SimWordValue":
+        raise UF.CHBError("Mul not yet implemented for SimWordValue")
+
     def add_overflows(self, other: SimValue) -> bool:
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             return self.outside_signed_bounds(
                 self.to_signed_int() + other.to_signed_int())
@@ -597,7 +887,7 @@ class SimWordValue(SimLiteralValue):
                               + str(other))
 
     def add_carries(self, other: SimValue) -> bool:
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             return self.outside_unsigned_bounds(self.value + other.value)
         else:
@@ -605,25 +895,50 @@ class SimWordValue(SimLiteralValue):
                               + str(other))
 
     def bitwise_and(self, other: SimValue) -> "SimWordValue":
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             newval = (self.value & other.value)
-            return SimWordValue(newval, self.is_defined() and other.is_defined())
+            return SimWordValue(newval, self.is_defined and other.is_defined)
         else:
             return simUndefinedWord
 
+    def bitwise_or(self, other: SimValue) -> "SimWordValue":
+        raise UF.CHBError("Bitwise or not yet implemented for SimWordValue")
+
+    def bitwise_nor(self, other: SimValue) -> "SimWordValue":
+        raise UF.CHBError("Bitwise nor not yet implemented for SimWordValue")
+
     def bitwise_xor(self, other: SimValue) -> "SimWordValue":
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             newval = self.value ^ other.value
-            return SimWordValue(newval, self.is_defined() and other.is_defined())
+            return SimWordValue(newval, self.is_defined and other.is_defined)
         else:
             return simUndefinedWord
+
+    def bitwise_rol(self, other: SimValue) -> "SimWordValue":
+        raise UF.CHBError("Bitwise rotation not yet implemented for SimWordValue")
+
+    def bitwise_ror(self, other: SimValue) -> "SimWordValue":
+        raise UF.CHBError("Bitwise rotation not yet implemented for SimWordValue")
+
+    def bitwise_shl(self, other: SimValue) -> Tuple[int, "SimWordValue"]:
+        raise UF.CHBError("Bitwise shift not yet implemented for SimWordValue")
+
+    def bitwise_sar(self, other: SimValue) -> Tuple[int, "SimWordValue"]:
+        raise UF.CHBError("Bitwise shift not yet implemented for SimWordValue")
+
+    def bitwise_sll(self, shiftamount: int) -> "SimWordValue":
+        raise UF.CHBError("Bitwise shift left not yet implemented for SimWordValue")
+
+    def bitwise_rcl(
+            self, other: SimValue, cflag: int) -> Tuple[int, "SimWordValue"]:
+        raise UF.CHBError("Bitwise rcl not yet implemented for SimWordValue")
 
     def zero_extend(self, size: int) -> SimLiteralValue:
         """Zero extends word to doubleword value."""
 
-        if self.is_defined():
+        if self.is_defined:
             if size == 2:
                 return self
             elif size == 4:
@@ -637,7 +952,7 @@ class SimWordValue(SimLiteralValue):
     def sign_extend(self, size: int) -> SimLiteralValue:
         """Sign extends to a doubleword."""
 
-        if self.is_defined():
+        if self.is_defined:
             if size == 2:
                 return self
             elif size == 4:
@@ -649,7 +964,7 @@ class SimWordValue(SimLiteralValue):
             raise SU.CHBSimValueUndefinedError('SimWordValue.sign_extend')
 
     def to_doubleword(self, signextend: bool = True) -> "SimDoubleWordValue":
-        if self.is_defined():
+        if self.is_defined:
             if signextend:
                 return SimDoubleWordValue(self.to_signed_int())
             else:
@@ -657,15 +972,22 @@ class SimWordValue(SimLiteralValue):
         else:
             raise SU.CHBSimValueUndefinedError('SimWordValue.to_doubleword')
 
+    def to_double_size(self, highval: "SimWordValue") -> "SimDoubleWordValue":
+        if self.is_defined and highval.is_defined:
+            newval = self.value + (highval.value << 16)
+            return SimDoubleWordValue(newval)
+        else:
+            return simUndefinedDW
+
     def to_unsigned_int(self) -> int:
-        if self.is_defined():
+        if self.is_defined:
             return self.value
         else:
             raise SU.CHBSimValueUndefinedError('SimWordValue: to_unsigned_int')
 
     def to_signed_int(self) -> int:
-        if self.is_defined():
-            if self.is_negative():
+        if self.is_defined:
+            if self.is_negative:
                 return self.value - (SU.max16 + 1)
             else:
                 return self.value
@@ -673,7 +995,7 @@ class SimWordValue(SimLiteralValue):
             raise SU.CHBSimValueUndefinedError('SimWordValue: to_signed_int')
 
     def to_hex(self) -> str:
-        if self.is_defined():
+        if self.is_defined:
             return hex(self.value)
         else:
             raise SU.CHBSimValueUndefinedError('SimWordValue: to_hex')
@@ -694,10 +1016,10 @@ class SimDoubleWordValue(SimLiteralValue):
         self._byte2 = (self.value >> 8) & 255
         self._byte3 = (self.value >> 16) & 255
         self._byte4 = (self.value >> 24) & 255
-        self.b1defined = b1defined and self.is_defined()
-        self.b2defined = b2defined and self.is_defined()
-        self.b3defined = b3defined and self.is_defined()
-        self.b4defined = b4defined and self.is_defined()
+        self.b1defined = b1defined and self.is_defined
+        self.b2defined = b2defined and self.is_defined
+        self.b3defined = b3defined and self.is_defined
+        self.b4defined = b4defined and self.is_defined
 
     @property
     def width(self) -> int:
@@ -711,7 +1033,7 @@ class SimDoubleWordValue(SimLiteralValue):
     def lsb(self) -> int:
         """Return least significant bit."""
 
-        if self.is_defined():
+        if self.is_defined:
             return self.value % 2
         else:
             raise SU.CHBSimValueUndefinedError("SimDoubleWordValue:lsb")
@@ -720,7 +1042,7 @@ class SimDoubleWordValue(SimLiteralValue):
     def msb(self) -> int:
         """Return most significant bit."""
 
-        if self.is_defined():
+        if self.is_defined:
             return self.value >> 31
         else:
             raise SU.CHBSimValueUndefinedError("SimDoubleWordValue:msb")
@@ -729,8 +1051,8 @@ class SimDoubleWordValue(SimLiteralValue):
     def msb2(self) -> int:
         """Return second most significant bit."""
 
-        if self.is_defined():
-            return (self.value >> 30) % 4
+        if self.is_defined:
+            return (self.value >> 30) % 2
         else:
             raise SU.CHBSimValueUndefinedError('SimDoubleWordValue:get_msb2')
 
@@ -794,36 +1116,37 @@ class SimDoubleWordValue(SimLiteralValue):
     def lowhalf(self) -> SimWordValue:
         return self.lowword
 
+    @property
     def is_doubleword(self) -> bool:
         return True
 
+    @property
     def is_positive(self) -> bool:
-        if self.is_defined():
+        if self.is_defined:
             return self.value <= SU.max31 and self.value > 0
         else:
-            raise SU.CHBSimValueUndefinedError(
-                "SimDoubleWordValue: is_positive")
+            return False
 
+    @property
     def is_negative(self) -> bool:
-        if self.is_defined():
+        if self.is_defined:
             return self.value > SU.max31
         else:
-            raise SU.CHBSimValueUndefinedError(
-                "SimDoubleWordValue: is_negative")
+            return False
 
+    @property
     def is_non_negative(self) -> bool:
-        if self.is_defined():
+        if self.is_defined:
             return self.value <= SU.max31
         else:
-            raise SU.CHBSimValueUndefinedError(
-                "SimDoubleWordValue: is_non_negative")
+            return False
 
+    @property
     def is_non_positive(self) -> bool:
-        if self.is_defined():
-            return self.value == 0 or self.is_negative()
+        if self.is_defined:
+            return self.value == 0 or self.is_negative
         else:
-            raise SU.CHBSimValueUndefinedError(
-                "SimDoubleWordValue: is_non_positive")
+            return False
 
     def outside_signed_bounds(self, v: int) -> bool:
         return v > SU.max31 or v < -(SU.max31 + 1)
@@ -832,12 +1155,12 @@ class SimDoubleWordValue(SimLiteralValue):
         return v > SU.max32 or v < 0
 
     def set_low_word(self, w: SimValue) -> "SimDoubleWordValue":
-        if w.is_literal():
+        if w.is_literal:
             w = cast(SimLiteralValue, w)
-            if w.is_word():
+            if w.is_word:
                 newval = w.value + ((self.value >> 16) << 16)
                 return SimDoubleWordValue(newval,
-                                          self.is_defined() and w.is_defined())
+                                          self.is_defined and w.is_defined)
             else:
                 raise SU.CHBSimOpError("set word", [self, w])
         else:
@@ -848,14 +1171,14 @@ class SimDoubleWordValue(SimLiteralValue):
         newval = SU.compute_dw_value(
             b.value, self.byte2, self.byte3, self.byte4)
         newdefined = (
-            b.is_defined()
+            b.is_defined
             and self.b2defined
             and self.b3defined
             and self.b4defined)
         return SimDoubleWordValue(
             newval,
             defined=newdefined,
-            b1defined=not b.is_defined(),
+            b1defined=not b.is_defined,
             b2defined=self.b2defined,
             b3defined=self.b3defined,
             b4defined=self.b4defined)
@@ -864,14 +1187,14 @@ class SimDoubleWordValue(SimLiteralValue):
         newval = SU.compute_dw_value(self.byte1, b.value, self.byte3, self.byte4)
         newdefined = (
             self.b1defined
-            and b.is_defined()
+            and b.is_defined
             and self.b3defined
             and self.b4defined)
         return SimDoubleWordValue(
             newval,
             defined=newdefined,
             b1defined=self.b1defined,
-            b2defined=b.is_defined(),
+            b2defined=b.is_defined,
             b3defined=self.b3defined,
             b4defined=self.b4defined)
 
@@ -880,14 +1203,14 @@ class SimDoubleWordValue(SimLiteralValue):
         newdefined = (
             self.b1defined
             and self.b2defined
-            and b.is_defined()
+            and b.is_defined
             and self.b4defined)
         return SimDoubleWordValue(
             newval,
             defined=newdefined,
             b1defined=self.b1defined,
             b2defined=self.b2defined,
-            b3defined=b.is_defined(),
+            b3defined=b.is_defined,
             b4defined=self.b4defined)
 
     def set_byte4(self, b: SimByteValue) -> "SimDoubleWordValue":
@@ -896,23 +1219,23 @@ class SimDoubleWordValue(SimLiteralValue):
             self.b1defined
             and self.b2defined
             and self.b3defined
-            and b.is_defined())
+            and b.is_defined)
         return SimDoubleWordValue(
             newval,
             defined=newdefined,
             b1defined=self.b1defined,
             b2defined=self.b2defined,
             b3defined=self.b3defined,
-            b4defined=b.is_defined())
+            b4defined=b.is_defined)
 
     def is_equal(self, other: SimValue) -> SimBoolValue:
         """Return a true BoolValue if both values are equal."""
 
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimBoolValue, other)
             result = 1 if self.value == other.value else 0
             return SimBoolValue(
-                result, defined=self.is_defined() and other.is_defined())
+                result, defined=self.is_defined and other.is_defined)
         else:
             raise SU.CHBSimValueUndefinedError(
                 "SimDoubleWordValue:is_equal " + str(other))
@@ -920,26 +1243,26 @@ class SimDoubleWordValue(SimLiteralValue):
     def is_not_equal(self, other: SimValue) -> SimBoolValue:
         """Return a true BoolValue if both values are not equal."""
 
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimBoolValue, other)
             result = 1 if self.value != other.value else 0
-            return SimBoolValue(result, self.is_defined() and other.is_defined())
+            return SimBoolValue(result, self.is_defined and other.is_defined)
         raise SU.CHBSimValueUndefinedError(
             "SimDoubleWordValue:is_not_equal " + str(other))
 
     def add(self, other: SimValue) -> "SimDoubleWordValue":
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             newval = (self.value + other.value) % (SU.max32 + 1)
             return SimDoubleWordValue(
-                newval, defined=self.is_defined() and other.is_defined())
+                newval, defined=self.is_defined and other.is_defined)
         raise SU.CHBSimValueUndefinedError("SimDoubleWordValue:add " + str(other))
 
     def add_int(self, v: int) -> "SimDoubleWordValue":
-        return SimDoubleWordValue(self.value + v, defined=self.is_defined())
+        return SimDoubleWordValue(self.value + v, defined=self.is_defined)
 
     def add_overflows(self, other: SimValue) -> bool:
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             return self.outside_signed_bounds(
                 self.to_signed_int() + other.to_signed_int())
@@ -949,7 +1272,7 @@ class SimDoubleWordValue(SimLiteralValue):
                               + str(other))
 
     def add_carries(self, other: SimValue) -> bool:
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             return self.outside_unsigned_bounds(self.value + other.value)
         else:
@@ -960,11 +1283,11 @@ class SimDoubleWordValue(SimLiteralValue):
     def sub(self, other: SimValue) -> "SimDoubleWordValue":
         """Signed subtraction."""
 
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             newval = (self.value - other.value) % (SU.max32 + 1)
             return SimDoubleWordValue(
-                newval, defined=self.is_defined() and other.is_defined())
+                newval, defined=self.is_defined and other.is_defined)
         else:
             raise SU.CHBSimValueUndefinedError(
                 "SimDoubleWordValue:sub " + str(other))
@@ -972,11 +1295,11 @@ class SimDoubleWordValue(SimLiteralValue):
     def subu(self, other: SimValue) -> "SimDoubleWordValue":
         """Unsigned subtraction."""
 
-        if other.is_literal():
+        if other.is_literal:
             other = cast(SimLiteralValue, other)
             newval = (self.value - other.value) % (SU.max32 + 1)
             return SimDoubleWordValue(
-                newval, defined=self.is_defined() and other.is_defined())
+                newval, defined=self.is_defined and other.is_defined)
 
         # need to investigate use of inverted stack
         # -----------------------------------------
@@ -992,15 +1315,19 @@ class SimDoubleWordValue(SimLiteralValue):
     def sub_carries(self, other: SimLiteralValue) -> bool:
         return self.outside_unsigned_bounds(self.value - other.value)
 
-    def mul(self, other: SimLiteralValue) -> "SimQuadWordValue":
+    def mul(self, other: SimValue) -> "SimQuadWordValue":
         """Signed multiplication into quadword.
 
         --- need to check implementation.
         """
 
-        newval = self.value * other.value
-        return SimQuadWordValue(
-            newval, defined=self.is_defined() and other.is_defined())
+        if other.is_literal and other.is_doubleword:
+            other = cast("SimDoubleWordValue", other)
+            newval = self.value * other.value
+            return SimQuadWordValue(
+                newval, defined=self.is_defined and other.is_defined)
+        else:
+            return simUndefinedQW
 
     def divu(self, other: SimLiteralValue) -> "SimDoubleWordValue":
         """Unsigned division."""
@@ -1008,7 +1335,7 @@ class SimDoubleWordValue(SimLiteralValue):
         if other.value > 0:
             newval = self.value // other.value
             return SimDoubleWordValue(
-                newval, defined=self.is_defined() and other.is_defined())
+                newval, defined=self.is_defined and other.is_defined)
         else:
             raise SU.CHBSimValueUndefinedError(
                 "SimDoubleWordValue:div " + str(other))
@@ -1019,74 +1346,98 @@ class SimDoubleWordValue(SimLiteralValue):
         if other.value > 0:
             newval = self.value % other.value
             return SimDoubleWordValue(
-                newval, defined=self.is_defined() and other.is_defined())
+                newval, defined=self.is_defined and other.is_defined)
         else:
             raise SU.CHBSimValueUndefinedError(
                 "SimDoubleWordValue:mod " + str(other))
 
-    def bitwise_and(self, other: SimLiteralValue) -> "SimDoubleWordValue":
-        newval = (self.value & other.value)
-        return SimDoubleWordValue(
-            newval, defined=self.is_defined() and other.is_defined())
+    def bitwise_and(self, other: SimValue) -> "SimDoubleWordValue":
+        if other.is_literal and other.is_doubleword:
+            other = cast("SimDoubleWordValue", other)
+            newval = (self.value & other.value)
+            return SimDoubleWordValue(
+                newval, defined=self.is_defined and other.is_defined)
+        else:
+            return simUndefinedDW
 
-    def bitwise_or(self, other: SimLiteralValue) -> "SimDoubleWordValue":
-        newval = (self.value | other.value)
-        return SimDoubleWordValue(
-            newval, defined=self.is_defined() and other.is_defined())
+    def bitwise_or(self, other: SimValue) -> "SimDoubleWordValue":
+        if other.is_literal and other.is_doubleword:
+            other = cast("SimDoubleWordValue", other)
+            newval = (self.value | other.value)
+            return SimDoubleWordValue(
+                newval, defined=self.is_defined and other.is_defined)
+        else:
+            return simUndefinedDW
 
-    def bitwise_nor(self, other: SimLiteralValue) -> "SimDoubleWordValue":
+    def bitwise_nor(self, other: SimValue) -> "SimDoubleWordValue":
         return self.bitwise_or(other).bitwise_not()
 
     def bitwise_not(self) -> "SimDoubleWordValue":
-        return SimDoubleWordValue(-(self.value+1), defined=self.is_defined())
+        return SimDoubleWordValue(-(self.value+1), defined=self.is_defined)
 
-    def bitwise_xor(self, other: SimLiteralValue) -> "SimDoubleWordValue":
-        newval = self.value ^ other.value
-        return SimDoubleWordValue(
-            newval, defined=self.is_defined() and other.is_defined())
+    def bitwise_xor(self, other: SimValue) -> "SimDoubleWordValue":
+        if other.is_literal and other.is_doubleword:
+            other = cast("SimDoubleWordValue", other)
+            newval = self.value ^ other.value
+            return SimDoubleWordValue(
+                newval, defined=self.is_defined and other.is_defined)
+        else:
+            return simUndefinedDW
 
-    def bitwise_rol(self, other: SimLiteralValue) -> "SimDoubleWordValue":
+    def bitwise_rol(self, other: SimValue) -> "SimDoubleWordValue":
         """Rotate left by other value."""
 
-        otherval = other.value % 32
-        if otherval == 0:
-            return self
+        if other.is_literal and other.is_doubleword:
+            other = cast("SimDoubleWordValue", other)
+            otherval = other.value % 32
+            if otherval == 0:
+                return self
+            else:
+                newval = (self.value << otherval) + (self.value >> (32 - otherval))
+                return SimDoubleWordValue(
+                    newval, defined=self.is_defined and other.is_defined)
         else:
-            newval = (self.value << otherval) + (self.value >> (32 - otherval))
-            return SimDoubleWordValue(
-                newval, defined=self.is_defined() and other.is_defined())
+            return simUndefinedDW
 
-    def bitwise_ror(self, other: SimLiteralValue) -> "SimDoubleWordValue":
+    def bitwise_ror(self, other: SimValue) -> "SimDoubleWordValue":
         """Rotate right by other value."""
 
-        otherval = other.value % 32
-        if otherval == 0:
-            return self
+        if other.is_literal and other.is_doubleword:
+            other = cast("SimDoubleWordValue", other)
+            otherval = other.value % 32
+            if otherval == 0:
+                return self
+            else:
+                newval = (self.value >> otherval) + (self.value << (32-otherval))
+                return SimDoubleWordValue(
+                    newval, defined=self.is_defined and other.is_defined)
         else:
-            newval = (self.value >> otherval) + (self.value << (32-otherval))
-            return SimDoubleWordValue(
-                newval, defined=self.is_defined() and other.is_defined())
+            return simUndefinedDW
 
     def bitwise_rcl(
             self,
-            other: SimLiteralValue,
+            other: SimValue,
             cflag: int) -> Tuple[int, "SimDoubleWordValue"]:
         """Rotate left, incorporating the carry flag."""
 
-        otherval = other.value & 31
-        if otherval == 0:
-            return (cflag, self)
+        if other.is_literal and other.is_doubleword:
+            other = cast("SimDoubleWordValue", other)
+            otherval = other.value & 31
+            if otherval == 0:
+                return (cflag, self)
+            else:
+                newval = self.value
+                for cnt in range(0, otherval):
+                    tempcf = newval >> 31
+                    newval = (newval * 2) + cflag
+                    cflag = tempcf
+                return (
+                    cflag,
+                    SimDoubleWordValue(
+                        newval,
+                        defined=self.is_defined and other.is_defined))
         else:
-            newval = self.value
-            for cnt in range(0, otherval):
-                tempcf = newval >> 31
-                newval = (newval * 2) + cflag
-                cflag = tempcf
-            return (
-                cflag,
-                SimDoubleWordValue(
-                    newval,
-                    defined=self.is_defined() and other.is_defined()))
+            return(0, simUndefinedDW)
 
     def bitwise_shrd(
             self,
@@ -1112,9 +1463,9 @@ class SimDoubleWordValue(SimLiteralValue):
                 cflag,
                 SimDoubleWordValue(
                     newval,
-                    defined=(self.is_defined()
-                             and srcval.is_defined()
-                             and shift.is_defined())))
+                    defined=(self.is_defined
+                             and srcval.is_defined
+                             and shift.is_defined)))
 
     def bitwise_shld(
             self,
@@ -1138,25 +1489,29 @@ class SimDoubleWordValue(SimLiteralValue):
                 cflag,
                 SimDoubleWordValue(
                     newval,
-                    defined=(self.is_defined()
-                             and srcval.is_defined()
-                             and shift.is_defined())))
+                    defined=(self.is_defined
+                             and srcval.is_defined
+                             and shift.is_defined)))
 
     def bitwise_shl(
-            self, other: SimLiteralValue) -> Tuple[int, "SimDoubleWordValue"]:
+            self, other: SimValue) -> Tuple[int, "SimDoubleWordValue"]:
         """Shift left by other value, and return carry flag."""
 
-        otherval = other.value & 31
-        if otherval == 0:
-            return (-1, self)
+        if other.is_literal and other.is_doubleword:
+            other = cast("SimDoubleWordValue", other)
+            otherval = other.value & 31
+            if otherval == 0:
+                return (-1, self)
+            else:
+                newval = self.value << (otherval - 1)
+                msb = newval >> 31
+                newval = newval << 1
+                return (
+                    msb,
+                    SimDoubleWordValue(
+                        newval, defined=self.is_defined and other.is_defined))
         else:
-            newval = self.value << (otherval - 1)
-            msb = newval >> 31
-            newval = newval << 1
-            return (
-                msb,
-                SimDoubleWordValue(
-                    newval, defined=self.is_defined() and other.is_defined()))
+            return (0, simUndefinedDW)
 
     def bitwise_sll(self, shiftamount: int) -> "SimDoubleWordValue":
         """Shift left by an integer amount."""
@@ -1166,7 +1521,7 @@ class SimDoubleWordValue(SimLiteralValue):
             return self
         else:
             newval = self.value << shiftamount
-            return SimDoubleWordValue(newval, defined=self.is_defined())
+            return SimDoubleWordValue(newval, defined=self.is_defined)
 
     def bitwise_shr(
             self, other: SimLiteralValue) -> Tuple[int, "SimDoubleWordValue"]:
@@ -1183,26 +1538,30 @@ class SimDoubleWordValue(SimLiteralValue):
                 lsb,
                 SimDoubleWordValue(
                     newval,
-                    defined=self.is_defined() and other.is_defined()))
+                    defined=self.is_defined and other.is_defined))
 
     def bitwise_sar(
-            self, other: SimLiteralValue) -> Tuple[int, "SimDoubleWordValue"]:
+            self, other: SimValue) -> Tuple[int, "SimDoubleWordValue"]:
         """Arithmetic shift right by other value."""
 
-        otherval = other.value & 31
-        if otherval == 0:
-            return (-1, self)
+        if other.is_doubleword and other.is_literal:
+            other = cast("SimDoubleWordValue", other)
+            otherval = other.value & 31
+            if otherval == 0:
+                return (-1, self)
+            else:
+                newval = self.value >> (otherval - 1)
+                lsb = newval % 2
+                newval = newval >> 1
+                if self.msb > 0:
+                    c = ((1 << (otherval + 1)) - 1) << (32 - otherval)
+                    newval += c
+                return (
+                    lsb,
+                    SimDoubleWordValue(
+                        newval, defined=self.is_defined and other.is_defined))
         else:
-            newval = self.value >> (otherval - 1)
-            lsb = newval % 2
-            newval = newval >> 1
-            if self.msb > 0:
-                c = ((1 << (otherval + 1)) - 1) << (32 - otherval)
-                newval += c
-            return (
-                lsb,
-                SimDoubleWordValue(
-                    newval, defined=self.is_defined() and other.is_defined()))
+            return (0, simUndefinedDW)
 
     def bitwise_sra(self, shift: int) -> "SimDoubleWordValue":
         """Arithmetic shift right by an integer value.
@@ -1214,7 +1573,7 @@ class SimDoubleWordValue(SimLiteralValue):
             return self
         else:
             newval = self.value >> shift
-            return SimDoubleWordValue(newval, defined=self.is_defined())
+            return SimDoubleWordValue(newval, defined=self.is_defined)
 
     def bitwise_srl(self, shift: int) -> "SimDoubleWordValue":
         """Logical shift right by an integer value."""
@@ -1224,21 +1583,43 @@ class SimDoubleWordValue(SimLiteralValue):
             return self
         else:
             newval = self.value >> shift
-            return SimDoubleWordValue(newval, defined=self.is_defined())
+            return SimDoubleWordValue(newval, defined=self.is_defined)
+
+    def zero_extend(self, size: int) -> SimLiteralValue:
+        if size == 4:
+            return self
+        elif size == 8:
+            return SimQuadWordValue(self.value)
+        else:
+            raise UF.CHBError(
+                "Zero extension to size "
+                + str(size)
+                + " not supported for SimDoubleWordValue")
+
+    def sign_extend(self, size: int) -> SimLiteralValue:
+        raise UF.CHBError(
+            "Sign extension not yet implemented for SimDoubleWordValue")
 
     def to_doubleword(self, signextend: bool = True) -> "SimDoubleWordValue":
         return self
 
+    def to_double_size(self, highval: "SimDoubleWordValue") -> "SimQuadWordValue":
+        if self.is_defined and highval.is_defined:
+            newval = self.value + (highval.value << 32)
+            return SimQuadWordValue(newval)
+        else:
+            return simUndefinedQW
+
     def to_unsigned_int(self) -> int:
-        if self.is_defined():
+        if self.is_defined:
             return self.value
         else:
             raise SU.CHBSimValueUndefinedError(
                 "SimDoubleWordValue:to_unsigned_int")
 
     def to_signed_int(self) -> int:
-        if self.is_defined():
-            if self.is_negative():
+        if self.is_defined:
+            if self.is_negative:
                 return self.value - (SU.max32 + 1)
             else:
                 return self.value
@@ -1247,7 +1628,7 @@ class SimDoubleWordValue(SimLiteralValue):
                 "SimDoubleWordValue:to_signed_int")
 
     def __str__(self) -> str:
-        if self.is_defined():
+        if self.is_defined:
             pb1 = "b1:" + str(self.byte1) if self.b1defined else "b1:?"
             pb2 = "b2:" + str(self.byte2) if self.b2defined else "b2:?"
             pb3 = "b3:" + str(self.byte3) if self.b3defined else "b3:?"
@@ -1278,24 +1659,113 @@ class SimQuadWordValue(SimLiteralValue):
     def lowhalf(self) -> SimDoubleWordValue:
         """Return the low doubleword value."""
 
-        return SimDoubleWordValue(self.value & SU.max32, self.is_defined())
+        return SimDoubleWordValue(self.value & SU.max32, self.is_defined)
 
     @property
     def highhalf(self) -> SimDoubleWordValue:
         """Return the high doubleword value."""
 
-        return SimDoubleWordValue(self.value >> 32, self.is_defined())
+        return SimDoubleWordValue(self.value >> 32, self.is_defined)
 
+    @property
+    def lsb(self) -> int:
+        """Return least-significant bit."""
+
+        if self.is_defined:
+            return self.value % 2
+        else:
+            raise SU.CHBSimValueUndefinedError("SimQuadWordValue:lsb")
+
+    @property
+    def msb(self) -> int:
+        """Return most-significant bit."""
+
+        if self.is_defined:
+            return (self.value >> 63)
+        else:
+            raise SU.CHBSimValueUndefinedError("SimQuadWordValue:msb")
+
+    @property
+    def msb2(self) -> int:
+        """Return second most-significant bit."""
+
+        if self.is_defined:
+            return (self.value >> 62) % 2
+        else:
+            raise SU.CHBSimValueUndefinedError("SimQuadWordValue.msb2")
+
+    def add(self, other: SimValue) -> "SimQuadWordValue":
+        raise UF.CHBError("Addition not yet implemented for QuadWordValue")
+
+    def sub(self, other: SimValue) -> "SimQuadWordValue":
+        raise UF.CHBError("Subtraction not yet implemented for QuadWordValue")
+
+    def mul(self, other: SimValue) -> "SimQuadWordValue":
+        raise UF.CHBError("Multiplication not yet implemented for QuadWordValue")
+
+    def bitwise_and(self, other: SimValue) -> "SimQuadWordValue":
+        raise UF.CHBError("Bitwise and not yet implemented for QuadWordValue")
+
+    def bitwise_or(self, other: SimValue) -> "SimQuadWordValue":
+        raise UF.CHBError("Bitwise or not yet implemented for QuadWordValue")
+
+    def bitwise_rol(self, other: SimValue) -> "SimQuadWordValue":
+        raise UF.CHBError("Bitwise rotation not yet implemented for QuadWordValue")
+
+    def bitwise_ror(self, other: SimValue) -> "SimQuadWordValue":
+        raise UF.CHBError("Bitwise rotation not yet implemented for QuadWordValue")
+
+    def bitwise_sar(self, other: SimValue) -> Tuple[int, "SimQuadWordValue"]:
+        raise UF.CHBError("Bitwise shift not yet implemented for QuadWordValue")
+
+    def bitwise_shl(self, other: SimValue) -> Tuple[int, "SimQuadWordValue"]:
+        raise UF.CHBError("Bitwise shift not yet implemented for QuadWordValue")
+
+    def bitwise_sll(self, shiftamount: int) -> "SimQuadWordValue":
+        raise UF.CHBError("Bitwise shift left not yet implemented for QuadWordValue")
+
+    def bitwise_rcl(
+            self, other: SimValue, cflag: int) -> Tuple[int, "SimQuadWordValue"]:
+        raise UF.CHBError("Bitwise rcl not yet implemented for QuadWordValue")
+
+    def bitwise_xor(self, other: SimValue) -> "SimQuadWordValue":
+        raise UF.CHBError("Bitwise xor not yet implemented for QuadWordValue")
+
+    def bitwise_nor(self, other: SimValue) -> "SimQuadWordValue":
+        raise UF.CHBError("Bitwise nor not yet implemented for QuadWordValue")
+
+    def sign_extend(self, size: int) -> SimLiteralValue:
+        if size == 8:
+            return self
+        else:
+            raise UF.CHBError(
+                "Sign extend with size "
+                + str(size)
+                + " not supported for SimQuadWordValue")
+
+    def zero_extend(self, size: int) -> SimLiteralValue:
+        if size == 8:
+            return self
+        else:
+            raise UF.CHBError(
+                "Zero extend with size "
+                + str(size)
+                + " not supported for SimQuadWordValue")
+
+    @property
+    def is_quadword(self) -> bool:
+        return True
+
+    @property
     def is_negative(self) -> bool:
-        if self.is_defined():
+        if self.is_defined:
             return self.value > SU.max63
         else:
-            raise SU.CHBSimValueUndefinedError(
-                "SimQuadWordValue.is_negative")
+            return False
 
     def to_signed_int(self) -> int:
-        if self.is_defined():
-            if self.is_negative():
+        if self.is_defined:
+            if self.is_negative:
                 return self.value - (SU.max64 + 1)
             else:
                 return self.value
@@ -1304,7 +1774,7 @@ class SimQuadWordValue(SimLiteralValue):
                 "SimQuadWordValue.to_signed_int")
 
     def __str__(self) -> str:
-        if self.is_defined():
+        if self.is_defined:
             return str(hex(self.value))
         else:
             return "?"
@@ -1328,11 +1798,12 @@ class SimFloatValue(SimValue):
     def size(self) -> int:
         return 4
 
+    @property
     def is_float(self) -> bool:
         return True
 
     def is_not_equal(self, other: "SimFloatValue") -> SimBoolValue:
-        if other.is_defined():
+        if other.is_defined:
             if other.value == self.value:
                 return SimBoolValue(0)
             else:
@@ -1360,7 +1831,7 @@ def compose_simvalue(bytes: List[SimByteValue]) -> SimLiteralValue:
     elif len(bytes) == 2:
         b1 = bytes[0]
         b2 = bytes[1]
-        if b1.is_defined() and b2.is_defined():
+        if b1.is_defined and b2.is_defined:
             return SimWordValue((b2.value << 8) + b1.value)
         else:
             return SimWordValue(0, defined=False)
@@ -1370,10 +1841,10 @@ def compose_simvalue(bytes: List[SimByteValue]) -> SimLiteralValue:
         b3 = bytes[2]
         b4 = bytes[3]
         if (
-                b1.is_defined()
-                and b2.is_defined()
-                and b3.is_defined()
-                and b4.is_defined()):
+                b1.is_defined
+                and b2.is_defined
+                and b3.is_defined
+                and b4.is_defined):
             bval = SU.compute_dw_value(b1.value, b2.value, b3.value, b4.value)
             return SimDoubleWordValue(bval)
         else:
@@ -1431,6 +1902,8 @@ simUndefinedBool = SimBoolValue(0, defined=False)
 simUndefinedByte = SimByteValue(0, defined=False)
 simUndefinedWord = SimWordValue(0, defined=False)
 simUndefinedDW = SimDoubleWordValue(0, defined=False)
+simUndefinedQW = SimQuadWordValue(0, defined=False)
+
 simZerobyte = SimByteValue(0)
 simZero = SimDoubleWordValue(0)
 simOne = SimDoubleWordValue(1)
