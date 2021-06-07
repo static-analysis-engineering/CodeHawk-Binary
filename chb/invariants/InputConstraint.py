@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,182 +27,293 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+from typing import Optional, TYPE_CHECKING
 
-class InputConstraint(object):
+import chb.invariants.InputConstraintValue as ICV
 
-    def __init__(self):
+import chb.util.fileutil as UF
+
+if TYPE_CHECKING:
+    import chb.invariants.XXpr
+
+
+class InputConstraint:
+
+    def __init__(self) -> None:
         pass
 
-    def is_env_test(self): return False
-    def is_env_absent(self): return False
-    def is_string_starts_with(self): return False
-    def is_string_not_starts_with(self): return False
-    def is_string_equals(self): return False
-    def is_string_not_equals(self): return False
-    def is_string_contains(self): return False
-    def is_string_not_contains(self): return False
+    def is_env_test(self) -> bool:
+        return False
+
+    def is_env_absent(self) -> bool:
+        return False
+
+    def is_string_starts_with(self) -> bool:
+        return False
+
+    def is_string_not_starts_with(self) -> bool:
+        return False
+
+    def is_string_equals(self) -> bool:
+        return False
+
+    def is_string_not_equals(self) -> bool:
+        return False
+
+    def is_string_contains(self) -> bool:
+        return False
+
+    def is_string_not_contains(self) -> bool:
+        return False
 
 
 class EnvironmentTestConstraint(InputConstraint):
 
-    def __init__(self,name):
+    def __init__(self, name: str):
         InputConstraint.__init__(self)
-        self.name = name
+        self._name = name
 
-    def is_env_test(self): return True
+    @property
+    def name(self) -> str:
+        return self._name
 
-    def __str__(self):
-        return 'env(' + self.name + ')'
+    def is_env_test(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return "env(" + self.name + ")"
+
 
 class EnvironmentAbsentConstraint(InputConstraint):
 
-    def __init__(self,name):
+    def __init__(self, name: str):
         InputConstraint.__init__(self)
-        self.name = name
+        self._name = name
 
-    def is_env_absent(self): return True
+    @property
+    def name(self) -> str:
+        return self._name
 
-    def __str__(self):
-        return '!env(' + self.name + ')'
+    def is_env_absent(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return "!env(" + self.name + ")"
+
 
 class StringEqualsConstraint(InputConstraint):
 
-    def __init__(self,kvalue,cvalue,case_insensitive=False):
+    def __init__(
+            self,
+            stringexpr: ICV.InputConstraintValue,
+            stringconst: "chb.invariants.XXpr.XXpr",
+            case_insensitive: bool = False) -> None:
         InputConstraint.__init__(self)
-        self.kvalue = kvalue
-        self.cvalue = cvalue
+        self._stringexpr = stringexpr
+        self._stringconst = stringconst
         self.case_insensitive = case_insensitive
 
-    def is_string_equals(self): return True
+    @property
+    def stringexpr(self) -> ICV.InputConstraintValue:
+        return self._stringexpr
 
-    def __str__(self):
-        predicate = 'equalsIgnoreCase' if self.case_insensitive else 'equals'
-        return predicate +  '(' + str(self.kvalue) + ',' + str(self.cvalue) + ')'
+    @property
+    def stringconst(self) -> "chb.invariants.XXpr.XXpr":
+        return self._stringconst
+
+    def is_string_equals(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        predicate = "equalsIgnoreCase" if self.case_insensitive else "equals"
+        return (predicate
+                + "("
+                + str(self.stringexpr)
+                + ","
+                + str(self.stringconst)
+                + ")")
+
 
 class StringNotEqualsConstraint(InputConstraint):
 
-    def __init__(self,kvalue,cvalue,case_insensitive=False):
+    def __init__(
+            self,
+            stringexpr: ICV.InputConstraintValue,
+            stringconst: "chb.invariants.XXpr.XXpr",
+            case_insensitive: bool = False) -> None:
         InputConstraint.__init__(self)
-        self.kvalue = kvalue
-        self.cvalue = cvalue
+        self._stringexpr = stringexpr
+        self._stringconst = stringconst
         self.case_insensitive = case_insensitive
 
-    def is_string_not_equals(self): return True
+    @property
+    def stringexpr(self) -> ICV.InputConstraintValue:
+        return self._stringexpr
 
-    def __str__(self):
-        predicate = 'equalsIgnoreCase' if self.case_insensitive else 'equals'
-        return '!' + predicate +  '(' + str(self.kvalue) + ',' + str(self.cvalue) + ')'
+    @property
+    def stringconst(self) -> "chb.invariants.XXpr.XXpr":
+        return self._stringconst
+
+    def is_string_not_equals(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        predicate = "equalsIgnoreCase" if self.case_insensitive else "equals"
+        return ("!"
+                + predicate
+                + "("
+                + str(self.stringexpr)
+                + ","
+                + str(self.stringconst)
+                + ")")
+
 
 class StringStartsWithConstraint(InputConstraint):
 
-    def __init__(self,kvalue,cvalue,length=None,case_insensitive=False):
+    def __init__(
+            self,
+            stringexpr: ICV.InputConstraintValue,
+            stringconst: "chb.invariants.XXpr.XXpr",
+            length: Optional[int] = None,
+            case_insensitive: bool = False) -> None:
         InputConstraint.__init__(self)
-        self.kvalue = kvalue
-        self.cvalue = cvalue
-        self.length = length
+        self._stringexpr = stringexpr
+        self._stringconst = stringconst
+        self._length = length
         self.case_insensitive = case_insensitive
 
-    def is_string_starts_with(self): return True
+    @property
+    def stringexpr(self) -> ICV.InputConstraintValue:
+        return self._stringexpr
 
-    def __str__(self):
-        predicate = 'startswithIgnoreCase' if self.case_insensitive else 'startswith'
-        return predicate + '(' + str(self.kvalue) + ',' + str(self.cvalue) + ')'
+    @property
+    def stringconst(self) -> "chb.invariants.XXpr.XXpr":
+        return self._stringconst
 
-        
+    @property
+    def length(self) -> int:
+        if self._length is not None:
+            return self._length
+        else:
+            raise UF.CHBError("String constraint has no length: "
+                              + str(self))
+
+    def has_length(self) -> bool:
+        return self._length is not None
+
+    def is_string_starts_with(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        predicate = "startswithIgnoreCase" if self.case_insensitive else "startswith"
+        return (predicate
+                + '(' +
+                str(self.stringexpr)
+                + ','
+                + str(self.stringconst)
+                + ')')
+
+
 class StringNotStartsWithConstraint(InputConstraint):
 
-    def __init__(self,kvalue,cvalue,length=None,case_insensitive=False):
+    def __init__(
+            self,
+            stringexpr: ICV.InputConstraintValue,
+            stringconst: "chb.invariants.XXpr.XXpr",
+            length: Optional[int] = None,
+            case_insensitive: bool = False) -> None:
         InputConstraint.__init__(self)
-        self.kvalue = kvalue
-        self.cvalue = cvalue
-        self.length = length
+        self._stringexpr = stringexpr
+        self._stringconst = stringconst
+        self._length = length
         self.case_insensitive = case_insensitive
 
-    def is_string_not_starts_with(self): return True
+    @property
+    def stringexpr(self) -> ICV.InputConstraintValue:
+        return self._stringexpr
 
-    def __str__(self):
-        predicate = 'startswithIgnoreCase' if self.case_insensitive else 'startswith'
-        return '!' + predicate  + '(' + str(self.kvalue) + ',' + str(self.cvalue) + ')'
+    @property
+    def stringconst(self) -> "chb.invariants.XXpr.XXpr":
+        return self._stringconst
+
+    @property
+    def length(self) -> int:
+        if self._length is not None:
+            return self._length
+        else:
+            raise UF.CHBError("String constraint has no length: "
+                              + str(self))
+
+    def has_length(self) -> bool:
+        return self._length is not None
+
+    def is_string_not_starts_with(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        predicate = "startswithIgnoreCase" if self.case_insensitive else "startswith"
+        return ("!"
+                + predicate
+                + "(" +
+                str(self.stringexpr)
+                + ","
+                + str(self.stringconst)
+                + ")")
+
 
 class StringContainsConstraint(InputConstraint):
 
-    def __init__(self,kvalue,cvalue):
+    def __init__(
+            self,
+            stringexpr: ICV.InputConstraintValue,
+            stringconst: str) -> None:
         InputConstraint.__init__(self)
-        self.kvalue = kvalue
-        self.cvalue = cvalue
+        self._stringexpr = stringexpr
+        self._stringconst = stringconst
 
-    def is_string_contains(self): return True
+    @property
+    def stringexpr(self) -> ICV.InputConstraintValue:
+        return self._stringexpr
 
-    def __str__(self):
-        return 'contains(' +  str(self.kvalue) + ',' + str(self.cvalue) + ')'
+    @property
+    def stringconst(self) -> str:
+        return self._stringconst
+
+    def is_string_contains(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return ("contains("
+                + str(self.stringexpr)
+                + ','
+                + self.stringconst
+                + ')')
+
 
 class StringNotContainsConstraint(InputConstraint):
 
-    def __init__(self,kvalue,cvalue):
+    def __init__(
+            self,
+            stringexpr: ICV.InputConstraintValue,
+            stringconst: str) -> None:
         InputConstraint.__init__(self)
-        self.kvalue = kvalue
-        self.cvalue = cvalue
+        self._stringexpr = stringexpr
+        self._stringconst = stringconst
 
-    def is_string_not_contains(self): return True
+    @property
+    def stringexpr(self) -> ICV.InputConstraintValue:
+        return self._stringexpr
 
-    def __str__(self):
-        return '!contains(' + str(self.kvalue) + ',' + str(self.cvalue) + ')'
+    @property
+    def stringconst(self) -> str:
+        return self._stringconst
 
-class InputConstraintValue(object):
+    def is_string_not_contains(self) -> bool:
+        return True
 
-    def __init__(self):
-        pass
-
-    def is_env_value(self): return False
-    def is_string_suffix_value(self): return False
-    def is_command_line_argument(self): return False
-    def is_constraint_value_expr(self): return False
-
-class EnvironmentInputValue(InputConstraintValue):
-
-    def __init__(self,name):
-        InputConstraintValue.__init__(self)
-        self.name = name
-
-    def is_env_value(self): return True
-
-    def __str__(self):
-        return 'env(' + self.name + ')'
-
-class StringSuffixValue(InputConstraintValue):
-
-    def __init__(self,strkonstraint,charcode,lastpos=False):
-        InputConstraintValue.__init__(self)
-        self.strkonstraint = strkonstraint
-        self.charcode = charcode
-        self.lastpos = lastpos
-
-    def is_string_suffix_value(self): return True
-
-    def __str__(self):
-        pos = 'lastpos' if self.lastpos else 'pos'
-        return 'suffix(' + str(self.strkonstraint) + ',' + pos + '(' + self.charcode + '))'
-
-class CommandLineArgument(InputConstraintValue):
-
-    def __init__(self,argindex):
-        InputConstraintValue.__init__(self)
-        self.argindex = argindex
-
-    def is_command_line_argument(self): return True
-
-    def __str__(self):
-        return 'cmdline-arg(' + str(self.argindex) + ')'
-
-class InputConstraintValueExpr(InputConstraintValue):
-
-    def __init__(self,op,x,y):
-        InputConstraintValue.__init__(self)
-        self.op = op
-        self.x = x
-        self.y = y
-
-    def is_constraint_value_expr(self): return True
-
-    def __str__(self):
-        return str(self.x) + str(self.op) + str(self.y)
+    def __str__(self) -> str:
+        return ("!contains("
+                + str(self.stringexpr)
+                + ","
+                + str(self.stringconst)
+                + ")")
