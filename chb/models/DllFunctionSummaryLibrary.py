@@ -29,20 +29,20 @@
 
 from typing import TYPE_CHECKING
 
-import chb.models.FunctionSummaryLibrary as L
+from chb.models.FunctionSummaryLibrary import FunctionSummaryLibrary
 
 if TYPE_CHECKING:
-    import chb.models.SummaryCollection
+    from chb.models.SummaryCollection import SummaryCollection
 
 
-class DllFunctionSummaryLibrary(L.FunctionSummaryLibrary):
+class DllFunctionSummaryLibrary(FunctionSummaryLibrary):
 
     def __init__(
             self,
-            summarycollection: "chb.models.SummaryCollection.SummaryCollection",
+            summarycollection: "SummaryCollection",
             directory: str,
             name: str) -> None:
-        L.FunctionSummaryLibrary.__init__(self, summarycollection, directory, name)
+        FunctionSummaryLibrary.__init__(self, summarycollection, directory, name)
 
     @property
     def is_dll(self) -> bool:

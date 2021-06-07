@@ -33,8 +33,8 @@ from typing import TYPE_CHECKING
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.models.FunctionParameter
-    import chb.models.SummaryCollection
+    from chb.models.FunctionParameter import FunctionParameter
+    from chb.models.SummaryCollection import SummaryCollection
 
 
 class ParameterRepresentation:
@@ -42,17 +42,17 @@ class ParameterRepresentation:
 
     def __init__(
             self,
-            fparam: "chb.models.FunctionParameter.FunctionParameter",
+            fparam: "FunctionParameter",
             xnode: ET.Element) -> None:
         self._fparam = fparam
         self.xnode = xnode
 
     @property
-    def summarycollection(self) -> "chb.models.SummaryCollection.SummaryCollection":
+    def summarycollection(self) -> "SummaryCollection":
         return self.parameter.summarycollection
 
     @property
-    def parameter(self) -> "chb.models.FunctionParameter.FunctionParameter":
+    def parameter(self) -> "FunctionParameter":
         return self._fparam
 
     @property
@@ -79,7 +79,7 @@ class ParameterRepresentation:
 
     def represent(self, v: int) -> str:
         if self.is_enum:
-            enumrep = self.summarycollection.get_enum_constant(self.name, v)
+            enumrep = self.summarycollection.enum_constant(self.name, v)
             if enumrep:
                 return enumrep
         return str(v)

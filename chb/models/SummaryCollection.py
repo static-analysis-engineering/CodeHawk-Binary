@@ -31,23 +31,23 @@ import os
 import xml.etree.ElementTree as ET
 import zipfile
 
-from typing import Dict, List, Optional, Set, TYPE_CHECKING
+from typing import Dict, List, Mapping, Optional, Sequence, Set, TYPE_CHECKING
 
-import chb.models.DllEnumDefinitions as E
-import chb.models.DllFunctionSummary as DF
-import chb.models.DllFunctionSummaryLibrary as DL
-import chb.models.DllFunctionSummaryRef as DFR
-import chb.models.FunctionSummary as F
-import chb.models.FunctionSummaryLibrary as L
-import chb.models.JniFunctionSummary as JF
-import chb.models.JniFunctionSummaryLibrary as JL
-import chb.models.SOFunctionSummary as SF
-import chb.models.SOFunctionSummaryLibrary as SL
+from chb.models.DllEnumDefinitions import DllEnumDefinitions, DllEnumValue
+from chb.models.DllFunctionSummary import DllFunctionSummary
+from chb.models.DllFunctionSummaryLibrary import DllFunctionSummaryLibrary
+from chb.models.DllFunctionSummaryRef import DllFunctionSummaryRef
+from chb.models.FunctionSummary import FunctionSummary
+from chb.models.FunctionSummaryLibrary import FunctionSummaryLibrary
+from chb.models.JniFunctionSummary import JniFunctionSummary
+from chb.models.JniFunctionSummaryLibrary import JniFunctionSummaryLibrary
+from chb.models.SOFunctionSummary import SOFunctionSummary
+from chb.models.SOFunctionSummaryLibrary import SOFunctionSummaryLibrary
 
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.models.ModelsAccess
+    from chb.models.ModelsAccess import ModelsAccess
 
 
 class SummaryCollection:
@@ -55,17 +55,26 @@ class SummaryCollection:
 
     def __init__(
             self,
-            models: "chb.models.ModelsAccess.ModelsAccess",
+            models: "ModelsAccess",
             jarfilename: str) -> None:
-        self.models = models
+        self._models = models
         self._jarfilename = jarfilename
-        self.jarfile = zipfile.ZipFile(self.jarfilename, "r")
+        self._jarfile = zipfile.ZipFile(self.jarfilename, "r")
         self._filenames: List[str] = []
         self._directorynames: List[str] = []
-        self.dlllibraries: Dict[str, DL.DllFunctionSummaryLibrary] = {}
-        self.solibraries: Dict[str, SL.SOFunctionSummaryLibrary] = {}
-        self.jnilibraries: Dict[str, JL.JniFunctionSummaryLibrary] = {}
-        self._dllenumdefinitions: Dict[str, E.DllEnumDefinitions] = {}
+        self._dlls: List[str] = []
+        self._dlllibraries: Dict[str, DllFunctionSummaryLibrary] = {}
+        self._solibraries: Dict[str, SOFunctionSummaryLibrary] = {}
+        self._jnilibraries: Dict[str, JniFunctionSummaryLibrary] = {}
+        self._dllenumdefinitions: Dict[str, DllEnumDefinitions] = {}
+
+    @property
+    def models(self) -> "ModelsAccess":
+        return self._models
+
+    @property
+    def jarfile(self) -> zipfile.ZipFile:
+        return self._jarfile
 
     @property
     def jarfilename(self) -> str:
@@ -79,7 +88,7 @@ class SummaryCollection:
         return self._filenames
 
     @property
-    def directorynames(self) -> List[str]:
+    def directorynames(self) -> Sequence[str]:
         if len(self._directorynames) == 0:
             result: Set[str] = set([])
             for f in self.filenames:
@@ -88,7 +97,7 @@ class SummaryCollection:
         return self._directorynames
 
     @property
-    def enumdefinitions(self) -> Dict[str, E.DllEnumDefinitions]:
+    def enumdefinitions(self) -> Mapping[str, DllEnumDefinitions]:
         if len(self._dllenumdefinitions) == 0:
             for filename in self.filenames:
                 if os.path.dirname(filename) == "constants":
@@ -107,7 +116,7 @@ class SummaryCollection:
                     try:
                         xnode = self._get_summary_xnode(
                             filename, "symbolic-constants")
-                        self._dllenumdefinitions[enumname] = E.DllEnumDefinitions(
+                        self._dllenumdefinitions[enumname] = DllEnumDefinitions(
                             self, enumname, xnode)
                     except Exception:
                         print("Problem with loading " + filename)
@@ -115,6 +124,32 @@ class SummaryCollection:
                     else:
                         continue
         return self._dllenumdefinitions
+
+    @property
+    def dlllibraries(self) -> Mapping[str, DllFunctionSummaryLibrary]:
+        if len(self._dlllibraries) == 0:
+            for d in self.directorynames:
+                if d.endswith("_dll") or d.endswith("_drv"):
+                    self._dlllibraries[d[:-4]] = DllFunctionSummaryLibrary(
+                        self, d, d[:-4])
+        return self._dlllibraries
+
+    @property
+    def solibraries(self) -> Mapping[str, SOFunctionSummaryLibrary]:
+        if len(self._solibraries) == 0:
+            if "so_functions" in self.directorynames:
+                self._solibraries[
+                    "so_functions"] = SOFunctionSummaryLibrary(
+                        self, "so_functions", "so_functions")
+        return self._solibraries
+
+    @property
+    def dlls(self) -> Sequence[str]:
+        if len(self._dlls) == 0:
+            for d in self.directorynames:
+                if d.endswith("_dll") or d.endswith("_drv"):
+                    self._dlls.append(d[:-4])
+        return self._dlls
 
     def has_dll_enum_definition(self, name: str) -> bool:
         return name in self.enumdefinitions
@@ -124,7 +159,7 @@ class SummaryCollection:
             return self.enumdefinitions[name].has_name(v)
         return False
 
-    def get_dll_enum_value(self, name: str, v: int) -> str:
+    def dll_enum_value(self, name: str, v: int) -> str:
         if self.has_dll_enum_value(name, v):
             return self.enumdefinitions[name].get_name(v)
         else:
@@ -133,50 +168,22 @@ class SummaryCollection:
                               + " and value "
                               + str(v))
 
-    def get_enum_constant(self, name: str, v: int) -> str:
+    def enum_constant(self, name: str, v: int) -> str:
         if self.has_dll_enum_value(name, v):
-            return self.get_dll_enum_value(name, v)
+            return self.dll_enum_value(name, v)
         else:
             return str(v)
 
-    def get_dll_enum_definition(self, name: str) -> Dict[str, E.DllEnumValue]:
+    def dll_enum_definition(self, name: str) -> Mapping[str, DllEnumValue]:
         if self.has_dll_enum_definition(name):
             return self.enumdefinitions[name].constants
         return {}
 
-    @property
-    def dlls(self) -> List[str]:
-        result: List[str] = []
-        for d in self.directorynames:
-            if d.endswith("_dll") or d.endswith("_drv"):
-                result.append(d[:-4])
-        return result
-
-    @property
     def has_so_functions(self) -> bool:
-        if "so_functions" in self.solibraries:
-            return True
-        if "so_functions" in self.directorynames:
-            self.solibraries["so_functions"] = SL.SOFunctionSummaryLibrary(
-                self, "so_functions", "so_functions")
-            return True
-        return False
+        return "so_functions" in self.solibraries
 
     def has_dll(self, dll: str) -> bool:
-        if dll in self.dlllibraries:
-            return True
-        else:
-            filename1: str = dll.lower().replace(".", "_")
-            filename2: str = filename1 + "_dll"
-            if filename1 in self.directorynames:
-                self.dlllibraries[dll] = DL.DllFunctionSummaryLibrary(
-                    self, filename1, dll)
-                return True
-            if filename2 in self.directorynames:
-                self.dlllibraries[dll] = DL.DllFunctionSummaryLibrary(
-                    self, filename2, dll)
-                return True
-        return False
+        return dll in self._dlllibraries
 
     def has_dll_function_summary(self, dll: str, fname: str) -> bool:
         if dll in self.dlllibraries or self.has_dll(dll):
@@ -189,31 +196,31 @@ class SummaryCollection:
             return self.solibraries["so_functions"].has_function_summary(fname)
         return False
 
-    def get_dll_function_summary(self, dll: str, fname: str) -> F.FunctionSummary:
+    def dll_function_summary(self, dll: str, fname: str) -> FunctionSummary:
         if dll in self.dlllibraries:
-            return self.dlllibraries[dll].get_function_summary(fname)
+            return self.dlllibraries[dll].function_summary(fname)
         else:
             raise UF.CHBError("No function summary found for " + dll + ":" + fname)
 
-    def get_so_function_summary(self, fname: str) -> F.FunctionSummary:
-        return self.solibraries["so_functions"].get_function_summary(fname)
+    def so_function_summary(self, fname: str) -> FunctionSummary:
+        return self.solibraries["so_functions"].function_summary(fname)
 
-    def get_all_function_summaries_in_dll(self, dll: str) -> List[F.FunctionSummary]:
+    def all_function_summaries_in_dll(self, dll: str) -> Sequence[FunctionSummary]:
         if self.has_dll(dll):
-            return self.dlllibraries[dll].get_all_function_summaries()
+            return self.dlllibraries[dll].all_function_summaries()
         else:
             return []
 
-    def get_all_so_function_summaries(self) -> List[F.FunctionSummary]:
+    def all_so_function_summaries(self) -> Sequence[FunctionSummary]:
         if self.has_so_functions:
-            return self.solibraries["so_functions"].get_all_function_summaries()
+            return self.solibraries["so_functions"].all_function_summaries()
         else:
             return []
 
     def retrieve_function_summary(
             self,
-            flib: L.FunctionSummaryLibrary,
-            fname: str) -> Optional[F.FunctionSummary]:
+            flib: FunctionSummaryLibrary,
+            fname: str) -> Optional[FunctionSummary]:
         if flib.is_dll:
             return self.retrieve_dll_function_summary(flib, fname)
         elif flib.is_shared_object:
@@ -239,44 +246,45 @@ class SummaryCollection:
 
     def retrieve_all_function_summaries(
             self,
-            flib: L.FunctionSummaryLibrary) -> List[F.FunctionSummary]:
+            flib: FunctionSummaryLibrary) -> List[FunctionSummary]:
         libdir = flib.directory
-        result: List[F.FunctionSummary] = []
+        result: List[FunctionSummary] = []
         for filename in self.filenames:
-            if (os.path.dirname(filename) == libdir
-                and filename.endswith(".xml")
-                and not filename.endswith("_ordinal_table.xml")):
+            if (
+                    os.path.dirname(filename) == libdir
+                    and filename.endswith(".xml")
+                    and not filename.endswith("_ordinal_table.xml")):
                 xnode = self._get_summary_xnode(filename, flib.libfun_xmltag)
                 if flib.is_dll:
                     xname = xnode.get("name")
                     if xname:
                         xreferto = xnode.find("refer-to")
                         if xreferto is not None:
-                            dllsumref = DFR.DllFunctionSummaryRef(flib, xname, xnode)
+                            dllsumref = DllFunctionSummaryRef(flib, xname, xnode)
                             result.append(dllsumref)
                         else:
-                            dllsum = DF.DllFunctionSummary(flib, xname, xnode)
+                            dllsum = DllFunctionSummary(flib, xname, xnode)
                             result.append(dllsum)
                 if flib.is_shared_object:
                     xname = xnode.get("name")
                     if xname:
-                        sosum = SF.SOFunctionSummary(flib, xname, xnode)
+                        sosum = SOFunctionSummary(flib, xname, xnode)
                         result.append(sosum)
 
         return result
 
     def retrieve_dll_function_summary(
             self,
-            dll: L.FunctionSummaryLibrary,
-            fname: str) -> Optional[F.FunctionSummary]:
+            dll: FunctionSummaryLibrary,
+            fname: str) -> Optional[FunctionSummary]:
         filename = os.path.join(dll.directory, fname + ".xml")
         if filename in self.filenames:
             xnode = self._get_summary_xnode(filename, "libfun")
             xreferto = xnode.find("refer-to")
             if xreferto is not None:
-                return DFR.DllFunctionSummaryRef(dll, fname, xnode)
+                return DllFunctionSummaryRef(dll, fname, xnode)
             else:
-                return DF.DllFunctionSummary(dll, fname, xnode)
+                return DllFunctionSummary(dll, fname, xnode)
         else:
             return None
 
@@ -293,12 +301,12 @@ class SummaryCollection:
 
     def retrieve_so_function_summary(
             self,
-            sofunctions: L.FunctionSummaryLibrary,
-            fname: str) -> Optional[F.FunctionSummary]:
+            sofunctions: FunctionSummaryLibrary,
+            fname: str) -> Optional[FunctionSummary]:
         filename = os.path.join("so_functions", fname + ".xml")
         if filename in self.filenames:
             xnode = self._get_summary_xnode(filename, "libfun")
-            return SF.SOFunctionSummary(sofunctions, fname, xnode)
+            return SOFunctionSummary(sofunctions, fname, xnode)
         else:
             return None
 
@@ -313,12 +321,12 @@ class SummaryCollection:
 
     def retrieve_jni_function_summary(
             self,
-            jnilib: L.FunctionSummaryLibrary,
-            index: str) -> Optional[F.FunctionSummary]:
+            jnilib: FunctionSummaryLibrary,
+            index: str) -> Optional[FunctionSummary]:
         filename = os.path.join("jni", "jni_" + index + ".xml")
         if filename in self.filenames:
             xnode = self._get_summary_xnode(filename, "jnifun")
-            return JF.JniFunctionSummary(jnilib, index, xnode)
+            return JniFunctionSummary(jnilib, index, xnode)
         else:
             return None
 

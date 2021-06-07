@@ -66,6 +66,9 @@ class ModelsType(ABC):
     def kind(self) -> str:
         return "abstract"
 
+    def is_string(self) -> bool:
+        return False
+
     @property
     def name(self) -> str:
         raise UF.CHBError("Method name only applicable to named type, not to "
@@ -110,6 +113,10 @@ class MNamedType(ModelsType):
             raise UF.CHBError("Named type in function signature for "
                               + self.function_signature.name
                               + " does not have a name")
+
+    def is_string(self) -> bool:
+        return self.typename in [
+            "LPCTSTR", "LPCSTR", "LPCWSTR"]
 
     def __str__(self) -> str:
         return self.typename

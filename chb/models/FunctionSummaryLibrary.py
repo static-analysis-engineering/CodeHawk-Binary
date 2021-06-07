@@ -29,28 +29,28 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, Dict, List, TYPE_CHECKING
+from typing import Callable, Dict, List, Sequence, TYPE_CHECKING
 
-import chb.models.FunctionSummary as F
+from chb.models.FunctionSummary import FunctionSummary
 
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.models.SummaryCollection
+    from chb.models.SummaryCollection import SummaryCollection
 
 
 class FunctionSummaryLibrary:
     "Represents function summaries from a single dll or SO library."""
 
     def __init__(self,
-                 summarycollection: "chb.models.SummaryCollection.SummaryCollection",
+                 summarycollection: "SummaryCollection",
                  directory: str,
                  name: str) -> None:
         self._name = name
         self._directory = directory
         self._summarycollection = summarycollection
         self.has_all_summaries: bool = False
-        self._functionsummaries: Dict[str, F.FunctionSummary] = {}
+        self._functionsummaries: Dict[str, FunctionSummary] = {}
 
     @property
     def name(self) -> str:
@@ -61,7 +61,7 @@ class FunctionSummaryLibrary:
         return self._directory
 
     @property
-    def summarycollection(self) -> "chb.models.SummaryCollection.SummaryCollection":
+    def summarycollection(self) -> "SummaryCollection":
         return self._summarycollection
 
     @property
@@ -92,7 +92,7 @@ class FunctionSummaryLibrary:
             self._functionsummaries[fname] = fsummary
         return fname in self._functionsummaries
 
-    def get_function_summary(self, fname: str) -> F.FunctionSummary:
+    def function_summary(self, fname: str) -> FunctionSummary:
         if self.has_function_summary(fname):
             return self._functionsummaries[fname]
         raise UF.CHBError("No function summary found for "
@@ -100,11 +100,11 @@ class FunctionSummaryLibrary:
                           + ", "
                           + fname)
 
-    def get_all_function_summaries(self) -> List[F.FunctionSummary]:
+    def all_function_summaries(self) -> Sequence[FunctionSummary]:
         self.load_all_summaries()
         return list(self._functionsummaries.values())
 
-    def iter(self, f: Callable[[str, F.FunctionSummary], None]) -> None:
+    def iter(self, f: Callable[[str, FunctionSummary], None]) -> None:
         self.load_all_summaries()
         for fname in sorted(self._functionsummaries):
             f(fname, self._functionsummaries[fname])
