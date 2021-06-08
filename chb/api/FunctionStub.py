@@ -44,48 +44,52 @@ type function_stub_t =
         (* PE, with package names *)
 
 """
+from abc import ABC, abstractmethod
+
 from typing import List, TYPE_CHECKING
 
-import chb.api.InterfaceDictionaryRecord as D
-import chb.models.FunctionSummary as F
+from chb.api.InterfaceDictionaryRecord import InterfaceDictionaryRecord, apiregistry
+from chb.models.FunctionSummary import FunctionSummary
+
 import chb.util.fileutil as UF
+
+from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.api.InterfaceDictionary
 
 
-class FunctionStub(D.InterfaceDictionaryRecord):
+class FunctionStub(ABC, InterfaceDictionaryRecord):
 
     def __init__(
             self,
-            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.InterfaceDictionaryRecord.__init__(self, d, index, tags, args)
+            id: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            ixval: IndexedTableValue) -> None:
+        InterfaceDictionaryRecord.__init__(self, id, ixval)
 
+    @property
     def is_dll_stub(self) -> bool:
         return False
 
+    @property
     def is_so_stub(self) -> bool:
         return False
 
+    @property
     def is_syscall_stub(self) -> bool:
         return False
 
     @property
-    def dll(self) -> str:
-        raise UF.CHBError("Dll not supported for " + str(self))
-
-    @property
+    @abstractmethod
     def name(self) -> str:
-        raise UF.CHBError("Name not supported for " + str(self))
+        """Return the print name of this stub."""
+        ...
 
     def __str__(self) -> str:
         return 'function-stub:' + self.tags[0]
 
 
-@D.apiregistry.register_tag("so", FunctionStub)
+@apiregistry.register_tag("so", FunctionStub)
 class SOFunction(FunctionStub):
     """Shared object library function (ELF) stub.
 
@@ -95,24 +99,23 @@ class SOFunction(FunctionStub):
     def __init__(
             self,
             d: "chb.api.InterfaceDictionary.InterfaceDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        FunctionStub.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        FunctionStub.__init__(self, d, ixval)
 
     @property
     def name(self) -> str:
-        return self.bd.get_string(self.args[0])
+        return self.bd.string(self.args[0])
 
     def has_summary(self) -> bool:
         return self.models.has_so_function_summary(self.name)
 
-    def get_summary(self) -> F.FunctionSummary:
+    def summary(self) -> FunctionSummary:
         if self.has_summary():
-            return self.models.get_so_function_summary(self.name)
+            return self.models.so_function_summary(self.name)
         else:
             raise UF.CHBError("No so function summary found for " + self.name)
 
+    @property
     def is_so_stub(self) -> bool:
         return True
 
@@ -120,7 +123,7 @@ class SOFunction(FunctionStub):
         return self.name
 
 
-@D.apiregistry.register_tag("sc", FunctionStub)
+@apiregistry.register_tag("sc", FunctionStub)
 class SyscallFunction(FunctionStub):
     """System call stub (ELF).
 
@@ -130,15 +133,18 @@ class SyscallFunction(FunctionStub):
     def __init__(
             self,
             d: "chb.api.InterfaceDictionary.InterfaceDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        FunctionStub.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        FunctionStub.__init__(self, d, ixval)
+
+    @property
+    def name(self) -> str:
+        return "syscall-" + str(int)
 
     @property
     def index(self) -> int:
         return self.args[0]
 
+    @property
     def is_syscall_stub(self) -> bool:
         return True
 
@@ -146,7 +152,7 @@ class SyscallFunction(FunctionStub):
         return 'syscall-' + str(self.index)
 
 
-@D.apiregistry.register_tag("dll", FunctionStub)
+@apiregistry.register_tag("dll", FunctionStub)
 class DllFunction(FunctionStub):
     """Dll function stub (PE).
 
@@ -157,28 +163,27 @@ class DllFunction(FunctionStub):
     def __init__(
             self,
             d: "chb.api.InterfaceDictionary.InterfaceDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        FunctionStub.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        FunctionStub.__init__(self, d, ixval)
 
     @property
     def dll(self) -> str:
-        return self.bd.get_string(self.args[0])
+        return self.bd.string(self.args[0])
 
     @property
     def name(self) -> str:
-        return self.bd.get_string(self.args[1])
+        return self.bd.string(self.args[1])
 
+    @property
     def is_dll_stub(self) -> bool:
         return True
 
     def has_summary(self) -> bool:
         return self.models.has_dll_function_summary(self.dll, self.name)
 
-    def get_summary(self) -> F.FunctionSummary:
+    def summary(self) -> FunctionSummary:
         if self.has_summary():
-            return self.models.get_dll_function_summary(self.dll, self.name)
+            return self.models.dll_function_summary(self.dll, self.name)
         else:
             raise UF.CHBError("No dll summary found for "
                               + self.dll
@@ -189,7 +194,7 @@ class DllFunction(FunctionStub):
         return self.dll + ":" + self.name
 
 
-@D.apiregistry.register_tag("jni", FunctionStub)
+@apiregistry.register_tag("jni", FunctionStub)
 class JniFunction(FunctionStub):
     """Java native method function stub (PE)
 
@@ -199,10 +204,8 @@ class JniFunction(FunctionStub):
     def __init__(
             self,
             d: "chb.api.InterfaceDictionary.InterfaceDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        FunctionStub.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        FunctionStub.__init__(self, d, ixval)
 
     @property
     def jni_index(self) -> int:
@@ -212,7 +215,7 @@ class JniFunction(FunctionStub):
         return 'Jni:' + str(self.index)
 
 
-@D.apiregistry.register_tag("pck", FunctionStub)
+@apiregistry.register_tag("pck", FunctionStub)
 class PckFunction(FunctionStub):
     """Library function stub from a C++ package.
 
@@ -224,22 +227,20 @@ class PckFunction(FunctionStub):
     def __init__(
             self,
             d: "chb.api.InterfaceDictionary.InterfaceDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        FunctionStub.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        FunctionStub.__init__(self, d, ixval)
 
     @property
     def lib(self) -> str:
-        return self.bd.get_string(self.args[0])
+        return self.bd.string(self.args[0])
 
     @property
     def name(self) -> str:
-        return self.bd.get_string(self.args[1])
+        return self.bd.string(self.args[1])
 
     @property
     def packages(self) -> List[str]:
-        return [self.bd.get_string(i) for i in self.args[2:]]
+        return [self.bd.string(i) for i in self.args[2:]]
 
     def __str__(self) -> str:
         return (self.lib + ":" + "::".join(self.packages) + "::" + self.name)
