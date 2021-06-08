@@ -44,14 +44,18 @@ class MIPSimMemoryLocation(SimMemoryLocation):
         SimMemoryLocation.__init__(self, simaddress)
 
     def is_base_location(self) -> bool:
-        return self.simaddress.is_base_address()
+        return self.simaddress.is_base_address
 
     def __str__(self) -> str:
-        if self.is_stack():
+        if self.is_stack:
             return "stack[" + str(self.simaddress.offsetvalue) + "]"
-        elif self.is_global():
+        elif self.is_global:
             return "global[" + str(self.simaddress.offsetvalue) + "]"
-        elif self.is_base_location():
-            return self.simaddress.base + "[" + str(self.simaddress.offsetvalue) + "]"
+        elif self.is_base_location:
+            return (
+                self.simaddress.base
+                + "["
+                + str(self.simaddress.offsetvalue)
+                + "]")
         else:
             return str("loc@" + str(self.simaddress))

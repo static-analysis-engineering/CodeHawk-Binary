@@ -16,7 +16,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -90,8 +90,8 @@ class MIPSimGlobalMemory(SimMemory):
             address: SSV.SimAddress,
             size: int) -> SV.SimValue:
         try:
-            result = SimMemory.get(self,iaddr,address,size)
-            if result.is_defined():
+            result = SimMemory.get(self, iaddr, address, size)
+            if result.is_defined:
                 return result
             else:
                 return self.get_from_section(iaddr, address, size)
@@ -105,7 +105,7 @@ class MIPSimGlobalMemory(SimMemory):
             self, address: SSV.SimAddress) -> SV.SimDoubleWordValue:
         if self.has_patched_global(address):
             hexval = self.patched_globals[hex(address.offsetvalue)]
-            return cast(SV.SimDoubleWordValue, SV.mk_simvalue(int(hexval,16)))
+            return cast(SV.SimDoubleWordValue, SV.mk_simvalue(int(hexval, 16)))
         else:
             raise UF.CHBError('No patched global found for ' + str(address))
 
@@ -114,7 +114,7 @@ class MIPSimGlobalMemory(SimMemory):
             iaddr: str,
             address: SSV.SimAddress,
             size: int) -> SV.SimValue:
-        if address.is_defined():
+        if address.is_defined:
             offset = address.offsetvalue
 
             # address has been patched by user
@@ -128,8 +128,8 @@ class MIPSimGlobalMemory(SimMemory):
 
                     # address is not in file image
                     self.simstate.add_logmsg(
-                        "global memory", str(address) + " uninitialized")                
-                    return SV.mk_simvalue(0,size=size)
+                        "global memory", str(address) + " uninitialized")
+                    return SV.mk_simvalue(0, size=size)
 
                 # store in global memory data structure
                 for i in range(offset, offset + size):
@@ -145,9 +145,10 @@ class MIPSimGlobalMemory(SimMemory):
 
                 # retrieve from global memory data structure
                 memval = SimMemory.get(self, iaddr, address, size)
-                if not memval.is_defined():
+                if not memval.is_defined:
                     memval = SV.mk_simvalue(0, size=size)
-                self.simstate.add_logmsg('global memory', str(address) + ' uninitialized')
+                self.simstate.add_logmsg(
+                    'global memory', str(address) + ' uninitialized')
 
                 self._accesses.setdefault(str(address), [])
                 self._accesses[str(address)].append(str(iaddr) + ':' + str(memval))

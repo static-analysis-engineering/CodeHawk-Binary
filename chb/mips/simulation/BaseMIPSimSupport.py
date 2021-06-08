@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from chb.mips.simulation.MIPSimStubs import MIPSimStub
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
+
 class BaseMIPSimSupport:
 
     def __init__(
@@ -48,7 +49,8 @@ class BaseMIPSimSupport:
         """Hex address of starting point of the simulation."""
         self._startaddr = startaddr
         self._optoptaddr = SV.simZero
-        self._optargaddr = SV.simZero    # address where argument is saved by command-line processor
+        # address where argument is saved by command-line processor
+        self._optargaddr = SV.simZero
         self._enable_file_operations = enable_file_operations
         self.diskfilenames: Dict[str, str] = {}
         self.forkchoices: Dict[str, int] = {}
@@ -117,7 +119,7 @@ class BaseMIPSimSupport:
             fmtstring: str) -> Optional[Tuple[str, List[str]]]:
         return None
 
-    def get_supplemental_library_stubs(self) -> Mapping[str, str]:
+    def get_supplemental_library_stubs(self) -> Dict[str, str]:
         """Return dictionary of hex-address,name pairs of library functions.
 
         Sometimes library functions are not captured correctly.
@@ -126,13 +128,14 @@ class BaseMIPSimSupport:
 
     def get_lib_stubs(self) -> Mapping[str, Callable[["MIPSAccess"], "MIPSimStub"]]:
         """Return dictionary of name-stubinvocation pairs of imported functions.
-        
-        Can include both stubs for library functions from libraries other than 
+
+        Can include both stubs for library functions from libraries other than
         libc, or stubs of libc functions that override the default libc stubs.
         """
         return {}
 
-    def get_app_stubs(self) -> Mapping[str, Callable[["MIPSAccess"], "MIPSimStub"]]:
+    def get_app_stubs(self) -> Mapping[
+            str, Callable[["MIPSAccess"], "MIPSimStub"]]:
         """Return dictionary of hexaddr-stubinvocation pairs of application functions.
 
         Intended to stub out application functions that take a lot of execution
