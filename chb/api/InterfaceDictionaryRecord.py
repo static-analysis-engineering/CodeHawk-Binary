@@ -24,11 +24,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Basis for dictionary records in the interface dictionary."""
 
 from typing import cast, Callable, Dict, List, Tuple, Type, TypeVar, TYPE_CHECKING
 
-import chb.app.DictionaryRecord as D
 import chb.util.fileutil as UF
+import chb.util.IndexedTable as IT
 
 if TYPE_CHECKING:
     import chb.api.InterfaceDictionary
@@ -37,20 +38,18 @@ if TYPE_CHECKING:
     import chb.models.ModelsAccess
 
 
-class InterfaceDictionaryRecord(D.DictionaryRecord):
+class InterfaceDictionaryRecord(IT.IndexedTableValue):
 
     def __init__(
             self,
-            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.DictionaryRecord.__init__(self, index, tags, args)
-        self._d = d
+            id: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            ixval: IT.IndexedTableValue) -> None:
+        IT.IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
+        self._id = id
 
     @property
     def id(self) -> "chb.api.InterfaceDictionary.InterfaceDictionary":
-        return self._d
+        return self._id
 
     @property
     def bd(self) -> "chb.app.BDictionary.BDictionary":
@@ -82,16 +81,16 @@ class InterfaceDictionaryRegistry:
             return t
         return handler
 
-    def construct_instance(
+    def mk_instance(
             self,
             id: "chb.api.InterfaceDictionary.InterfaceDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int],
+            ixval: IT.IndexedTableValue,
             superclass: type) -> IdR:
-        if (superclass, tags[0]) not in self.register:
-            raise UF.CHBError("Unknown interface dictionary type: " + tags[0])
-        return cast(IdR, self.register[(superclass, tags[0])](id, index, tags, args))
+        tag = ixval.tags[0]
+        if (superclass, tag) not in self.register:
+            raise UF.CHBError("Unknown interface dictionary type: " + tag)
+        instance = self.register[(superclass, tag)](id, ixval)
+        return cast(IdR, instance)
 
 
 apiregistry: InterfaceDictionaryRegistry = InterfaceDictionaryRegistry()

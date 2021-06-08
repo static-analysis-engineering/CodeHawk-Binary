@@ -26,85 +26,77 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Dictionary for indexing data structures related to interprocedural analysis."""
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, List, Tuple, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 
-import chb.api.CallTarget as CT
-import chb.api.FunctionStub as FS
-import chb.api.InterfaceDictionaryRecord as D
+from chb.api.CallTarget import CallTarget
+from chb.api.FunctionStub import FunctionStub
+
+from chb.api.InterfaceDictionaryRecord import apiregistry
+
 import chb.util.IndexedTable as IT
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.app.AppAccess
-    import chb.app.BDictionary
+    from chb.app.AppAccess import AppAccess
+    from chb.app.BDictionary import BDictionary
 
 
 class InterfaceDictionary:
 
     def __init__(
             self,
-            app: "chb.app.AppAccess.AppAccess",
+            app: "AppAccess",
             xnode: ET.Element) -> None:
         self._app = app
-        self.function_stub_table: IT.IndexedTable[FS.FunctionStub] = IT.IndexedTable('function-stub-table')
-        self.call_target_table: IT.IndexedTable[CT.CallTarget] = IT.IndexedTable('call-target-table')
-        self.tables: List[Tuple[IT.IndexedTableSuperclass, Callable[[ET.Element], None]]] = [
-            (self.function_stub_table, self._read_xml_function_stub_table),
-            (self.call_target_table, self._read_xml_call_target_table)
-            ]
+        self.function_stub_table = IT.IndexedTable('function-stub-table')
+        self.call_target_table = IT.IndexedTable('call-target-table')
+        self.tables: List[IT.IndexedTable] = [
+            self.function_stub_table,
+            self.call_target_table
+        ]
         self.initialize(xnode)
 
     @property
-    def app(self) -> "chb.app.AppAccess.AppAccess":
+    def app(self) -> "AppAccess":
         return self._app
 
     @property
-    def bdictionary(self) -> "chb.app.BDictionary.BDictionary":
+    def bdictionary(self) -> "BDictionary":
         return self.app.bdictionary
 
     # -------------- Retrieve items from dictionary tables ---------------------
 
-    def get_function_stub(self, ix: int) -> FS.FunctionStub:
-        return self.function_stub_table.retrieve(ix)
+    def function_stub(self, ix: int) -> FunctionStub:
+        return apiregistry.mk_instance(
+            self, self.function_stub_table.retrieve(ix), FunctionStub)
 
-    def get_call_target(self, ix: int) -> CT.CallTarget:
-        return self.call_target_table.retrieve(ix)
+    def call_target(self, ix: int) -> CallTarget:
+        return apiregistry.mk_instance(
+            self, self.call_target_table.retrieve(ix), CallTarget)
 
     # ----------------------- xml accessors ------------------------------------
 
-    def read_xml_call_target(self, n: ET.Element) -> CT.CallTarget:
+    def read_xml_call_target(self, n: ET.Element) -> CallTarget:
         index = n.get("ictgt")
         if index is not None:
-            return self.get_call_target(int(index))
+            return self.call_target(int(index))
         else:
             raise UF.CHBError("Index ictgt not found in call target node")
 
     # ---------------- Initialize dictionary from file -------------------------
 
     def initialize(self, xnode: ET.Element) -> None:
-        for (t, f) in self.tables:
+        for t in self.tables:
+            t.reset()
             xtable = xnode.find(t.name)
             if xtable is not None:
-                t.reset()
-                f(xtable)
+                t.read_xml(xtable, "n")
             else:
-                raise UF.CHBError("Table "
-                                  + t.name
-                                  + " not found in interface dictionary")
-
-    def _read_xml_function_stub_table(self, txnode: ET.Element) -> None:
-        def get_value(node: ET.Element) -> FS.FunctionStub:
-            rep = IT.get_rep(node)
-            args = (self,) + rep
-            return D.apiregistry.construct_instance(*args, FS.FunctionStub)
-        self.function_stub_table.read_xml(txnode, "n", get_value)
-
-    def _read_xml_call_target_table(self, txnode: ET.Element) -> None:
-        def get_value(node: ET.Element) -> CT.CallTarget:
-            rep = IT.get_rep(node)
-            args = (self,) + rep
-            return D.apiregistry.construct_instance(*args, CT.CallTarget)
-        self.call_target_table.read_xml(txnode, "n", get_value)
+                raise UF.CHBError(
+                    "Table "
+                    + t.name
+                    + " not found in interface dictionary")
