@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -28,16 +28,22 @@
 # ------------------------------------------------------------------------------
 """Operand of x86 assembly instruction."""
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, TYPE_CHECKING
 
-import chb.app.Operand as OP
-import chb.asm.X86DictionaryRecord as D
+from chb.app.Operand import Operand
+
+from chb.x86.X86DictionaryRecord import X86DictionaryRecord
+from chb.x86.X86OperandKind import X86OperandKind, X86RegisterOp
+
 import chb.util.fileutil as UF
 
-if TYPE_CHECKING:
-    import chb.asm.X86Dictionary
+from chb.util.IndexedTable import IndexedTableValue
 
-class AsmOperand(OP.Operand, D.X86DictionaryRecord):
+if TYPE_CHECKING:
+    import chb.x86.X86Dictionary
+
+
+class X86Operand(Operand, X86DictionaryRecord):
     """X86 assembly instruction operand.
 
     args[0]: size
@@ -46,37 +52,44 @@ class AsmOperand(OP.Operand, D.X86DictionaryRecord):
 
     def __init__(
             self,
-            d: "chb.asm.X86Dictionary.X86Dictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.X86DictionaryRecord.__init__(self, d, index, tags, args)
-        OP.Operand.__init__(self)
+            d: "chb.x86.X86Dictionary.X86Dictionary",
+            ixval: IndexedTableValue) -> None:
+        X86DictionaryRecord.__init__(self, d, ixval)
+        Operand.__init__(self)
+        self.check_key(1, 2, "X86Operand")
 
-    def get_size(self) -> int:
-        return int(self.args[0])
+    @property
+    def size(self) -> int:
+        return self.args[0]
 
-    def get_opkind(self): return self.d.get_opkind(self.args[1])
+    @property
+    def opkind(self) -> X86OperandKind:
+        return self.x86d.opkind(self.args[1])
 
+    @property
     def is_register(self) -> bool:
-        return self.get_opkind().is_register()
+        return self.opkind.is_register
 
+    @property
     def is_immediate(self) -> bool:
-        return self.get_opkind().is_immediate()
+        return self.opkind.is_immediate
 
+    @property
     def is_absolute(self) -> bool:
-        return self.get_opkind().is_absolute()
+        return self.opkind.is_absolute
 
-    def get_register(self):
-        if self.is_register():
-            return self.get_opkind().get_register()
-        raise UF.CHBrror('Operand is not a register: ' + str(self))
+    @property
+    def register(self) -> str:
+        if self.is_register:
+            return cast(X86RegisterOp, self.opkind).register
+        else:
+            raise UF.CHBError('Operand is not a register: ' + str(self))
 
     def to_operand_string(self) -> str:
-        return self.get_opkind().to_operand_string()
+        return self.opkind.to_operand_string()
 
     def to_address_string(self) -> str:
-        return self.get_opkind().to_address_string()
+        return self.opkind.to_address_string()
 
     def __str__(self) -> str:
-        return str(self.get_opkind())
+        return str(self.opkind)
