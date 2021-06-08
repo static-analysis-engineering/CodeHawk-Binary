@@ -61,9 +61,9 @@ class ARMUnsignedExtendByte(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.get_arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(i) for i in self.args]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxxx .
 
         vars[0]: lhs

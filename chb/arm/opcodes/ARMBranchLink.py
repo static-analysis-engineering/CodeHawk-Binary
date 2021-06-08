@@ -41,15 +41,12 @@ if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("UXTH", ARMOpcode)
-class ARMUnsignedExtendHalfword(ARMOpcode):
-    """Extracts a 16-bit value from a register, zero-extends it, and writes it to a register.
-
-    UXTH<c> <Rd>, <Rm>{, <rotation>}
+@armregistry.register_tag("BL", ARMOpcode)
+class ARMBranchLink(ARMOpcode):
+    """Calls a subroutine at a PC-relative address.
 
     tags[1]: <c>
-    args[0]: index of op1 in armdictionary
-    args[1]: index of op2 in armdictionary
+    args[0]: index of target operand in armdictionary
     """
 
     def __init__(
@@ -57,22 +54,17 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
+        self.check_key(2, 1, "BranchLink")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(self.args[0])]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxx .
+        """xdata format: a:x .
 
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: value to be stored (syntactic)
-        xprs[2]: value to be stored (simplified)
+        xprs[0]: target operand
         """
 
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[1]
-        rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
-        return lhs + " := " + xresult
+        tgt = str(xdata.xprs[0])
+        return "call " + tgt

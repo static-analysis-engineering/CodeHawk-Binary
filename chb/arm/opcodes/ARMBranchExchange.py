@@ -56,10 +56,11 @@ class ARMBranchExchange(ARMOpcode):
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 1, "BranchExchange")
 
-    def get_operands(self) -> List[ARMOperand]:
-        return [self.armd.get_arm_operand(self.args[0])]
+    @property
+    def operands(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[0])]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:x .
 
         xprs[0]: target operand

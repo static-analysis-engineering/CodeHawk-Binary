@@ -62,9 +62,9 @@ class ARMBranch(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.get_arm_operand(self.args[0])]
+        return [self.armd.arm_operand(self.args[0])]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:x .
 
         xprs[0]: target address (absolute)
