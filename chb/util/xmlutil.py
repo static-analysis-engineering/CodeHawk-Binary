@@ -17,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -33,18 +33,19 @@ import os
 
 from typing import Any, Dict, List
 
+
 def get_codehawk_xml_header(filename: str, info: str) -> ET.Element:
     root = ET.Element("codehawk-binary-analyzer")
     tree = ET.ElementTree(root)
     header = ET.Element("header")
-    header.set("info",info)
-    header.set("name",filename)
-    header.set("time",str(datetime.datetime.now()))
+    header.set("info", info)
+    header.set("name", filename)
+    header.set("time", str(datetime.datetime.now()))
     root.append(header)
     return root
 
 
-def attributes_to_pretty (attr: Dict[str, str], indent: int = 0) -> str:
+def attributes_to_pretty(attr: Dict[str, str], indent: int = 0) -> str:
     if len(attr) == 0:
         return ""
     if len(attr) > 4:
@@ -68,7 +69,7 @@ def element_to_pretty(e: ET.Element, indent: int = 0) -> List[str]:
         else:
             lines.append(ind + "<" + e.tag + attrs + ">\n")
             for c in children:
-                lines.extend(element_to_pretty(c,indent+2))
+                lines.extend(element_to_pretty(c, indent + 2))
             lines.append(ind + "</" + e.tag + ">\n")
             return lines
     else:
@@ -77,8 +78,8 @@ def element_to_pretty(e: ET.Element, indent: int = 0) -> List[str]:
     return lines
 
 
-def doc_to_pretty (t: ET.ElementTree) -> str:
-    lines = [ '<?xml version="1.0" encoding="UTF-8"?>\n' ]
+def doc_to_pretty(t: ET.ElementTree) -> str:
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>\n']
     lines.extend(element_to_pretty(t.getroot()))
     return "".join(lines)
 
@@ -88,12 +89,12 @@ def create_xml_section_header_userdata(d: Dict[str, Any]) -> ET.Element:
     for section in d:
         sh = ET.Element("sh")
         root.append(sh)
-        sh.set("name",section)
+        sh.set("name", section)
         for attr in d[section]:
             fld = ET.Element("fld")
             sh.append(fld)
-            fld.set("name",attr)
-            fld.set("value",d[section][attr])
+            fld.set("name", attr)
+            fld.set("value", d[section][attr])
     return root
 
 

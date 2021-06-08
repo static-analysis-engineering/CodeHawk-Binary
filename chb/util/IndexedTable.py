@@ -31,24 +31,57 @@ import xml.etree.ElementTree as ET
 
 import chb.util.fileutil as UF
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, TypeVar
 
 
 class IndexedTableError(UF.CHBError):
 
-    def __init__(self, msg: str, items: List[Tuple[int, Any]] = []) -> None:
-        self.msg = msg
-        self.items = items
+    def __init__(
+            self,
+            msg: str,
+            itemlist: List[Tuple[int, "IndexedTableValue"]] = []) -> None:
+        UF.CHBError.__init__(self, msg)
+        self._itemlist = itemlist
+
+    @property
+    def itemlist(self) -> List[Tuple[int, "IndexedTableValue"]]:
+        return self._itemlist
 
     def __str__(self) -> str:
         lines: List[str] = []
-        if len(self.items) > 0 and len(self.items) < 20:
+        if len(self.itemlist) > 0 and len(self.itemlist) < 20:
             lines.append('-')
-            for (index, i) in self.items:
+            for (index, i) in self.itemlist:
                 lines.append(str(index).rjust(3) + ': ' + str(i))
             lines.append('-')
         lines.append(self.msg)
         return '\n'.join(lines)
+
+
+class IndexedTableValueMismatchError(UF.CHBError):
+
+    def __init__(
+            self,
+            tag: str,
+            reqtagcount: int,
+            reqargcount: int,
+            acttagcount: int,
+            actargcount: int,
+            name: str) -> None:
+        UF.CHBError.__init__(
+            self,
+            "Dictionary record mismatch for "
+            + tag
+            + " in "
+            + name
+            + ": Expected "
+            + str(reqtagcount)
+            + " tags and "
+            + str(reqargcount)
+            + " args, but found "
+            + str(acttagcount)
+            + " tags and "
+            + str(actargcount))
 
 
 def get_rep(
@@ -74,7 +107,7 @@ def get_rep(
     except Exception as e:
         print('tags: ' + str(tags))
         print('args: ' + str(args))
-        print(e)
+        print(str(e))
         raise
 
 
@@ -82,7 +115,85 @@ def get_key(tags: List[str], args: List[int]) -> Tuple[str, str]:
     return (','.join(tags), ','.join([str(x) for x in args]))
 
 
-class IndexedTable (object):
+class IndexedTableValue:
+
+    def __init__(
+            self,
+            index: int,
+            tags: List[str],
+            args: List[int]) -> None:
+        self._index = index
+        self._tags = tags
+        self._args = args
+
+    @property
+    def index(self) -> int:
+        return self._index
+
+    @property
+    def tags(self) -> List[str]:
+        return self._tags
+
+    @property
+    def args(self) -> List[int]:
+        return self._args
+
+    @property
+    def key(self) -> Tuple[str, str]:
+        return (",".join(self.tags), ",".join([str(x) for x in self.args]))
+
+    def check_key(self, reqtagcount: int, reqargcount: int, name: str) -> None:
+        """Check if the constructed value has the expected tags and args."""
+        acttagcount = len(self.tags)
+        actargcount = len(self.args)
+        if acttagcount == reqtagcount and actargcount == reqargcount:
+            return
+        raise IndexedTableValueMismatchError(
+            self.tags[0], reqtagcount, reqargcount, acttagcount, actargcount, name)
+
+    def write_xml(self, node: ET.Element) -> None:
+        (tagstr, argstr) = self.key
+        if len(tagstr) > 0:
+            node.set("t", tagstr)
+        if len(argstr) > 0:
+            node.set("a", argstr)
+        node.set("ix", str(self.index))
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("\nIndex table value\n--------------------------")
+        lines.append("index: " + str(self.index))
+        lines.append("tags : [" + ", ".join(self.tags) + "]")
+        lines.append("args : [" + ", ".join(str(x) for x in self.args) + "]")
+        lines.append("")
+        return "\n".join(lines)
+
+
+def get_value(node: ET.Element) -> IndexedTableValue:
+    rep = get_rep(node)
+    return IndexedTableValue(*rep)
+
+
+class IndexedTableSuperclass:
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def size(self) -> int:
+        raise UF.CHBError("Size not overridden in IndexedTableSuperclass")
+
+    def reset(self) -> None:
+        raise UF.CHBError("Reset not overridden in IndexedTableSuperclass")
+
+
+V = TypeVar("V", bound=IndexedTableValue)
+
+
+class IndexedTable(IndexedTableSuperclass):
     """Table that provides unique indices to objects represented by a key string.
 
     The table can be checkpointed and reset to that checkpoint with
@@ -94,9 +205,9 @@ class IndexedTable (object):
     """
 
     def __init__(self, name: str) -> None:
-        self.name = name
-        self.keytable: Dict[str, int] = {}              # key -> index
-        self.indextable: Dict[int, Any] = {}            # index -> object
+        IndexedTableSuperclass.__init__(self, name)
+        self.keytable: Dict[Tuple[str, str], int] = {}  # key -> index
+        self.indextable: Dict[int, IndexedTableValue] = {}  # index -> object
         self.next: int = 1
         self.reserved: List[int] = []
         self.checkpoint: Optional[int] = None
@@ -115,7 +226,7 @@ class IndexedTable (object):
         raise IndexedTableError("Checkpoint has already been set at "
                                 + str(self.checkpoint))
 
-    def iter(self, f: Callable[[int, Any], None]) -> None:
+    def iter(self, f: Callable[[int, IndexedTableValue], None]) -> None:
         for (i, v) in self.items():
             f(i, v)
 
@@ -139,7 +250,10 @@ class IndexedTable (object):
     def remove_checkpoint(self) -> None:
         self.checkpoint = None
 
-    def add(self, key: str, f: Callable[[int, str], Any]) -> int:
+    def add(
+            self,
+            key: Tuple[str, str],
+            f: Callable[[int, Tuple[str, str]], IndexedTableValue]) -> int:
         if key in self.keytable:
             return self.keytable[key]
         else:
@@ -156,31 +270,37 @@ class IndexedTable (object):
         self.next += 1
         return index
 
-    def values(self) -> List[Any]:
-        result: List[Any] = []
+    def keys(self) -> List[int]:
+        return sorted(list(self.indextable.keys()))
+
+    def values(self) -> List[IndexedTableValue]:
+        result: List[IndexedTableValue] = []
         for i in sorted(self.indextable):
             result.append(self.indextable[i])
         return result
 
-    def items(self) -> List[Tuple[int, Any]]:
-        result: List[Tuple[int, Any]] = []
+    def items(self) -> List[Tuple[int, IndexedTableValue]]:
+        result: List[Tuple[int, IndexedTableValue]] = []
         for i in sorted(self.indextable):
             result.append((i, self.indextable[i]))
         return result
 
-    def commit_reserved(self, index: int, key: str, obj: Any) -> None:
+    def commit_reserved(
+            self,
+            index: int,
+            key: Tuple[str, str], obj: IndexedTableValue) -> None:
         if index in self.reserved:
             self.keytable[key] = index
             self.indextable[index] = obj
             self.reserved.remove(index)
         else:
-            raise IndexedTableError("Trying to commit nonexisting index: "
-                                    + str(index))
+            raise IndexedTableError(
+                "Trying to commit nonexisting index: " + str(index))
 
     def size(self) -> int:
         return (self.next - 1)
 
-    def retrieve(self, index: int) -> Any:
+    def retrieve(self, index: int) -> IndexedTableValue:
         if index in self.indextable:
             return self.indextable[index]
         else:
@@ -199,10 +319,13 @@ class IndexedTable (object):
                 + self.name
                 + ', size: '
                 + str(self.size()),
-                items=items)
+                itemlist=items)
 
-    def retrieve_by_key(self, f: Callable[[str], bool]) -> List[Tuple[str, Any]]:
-        result: List[Tuple[str, Any]] = []
+    def retrieve_by_key(
+            self,
+            f: Callable[[Tuple[str, str]], bool]) -> List[
+                Tuple[Tuple[str, str], IndexedTableValue]]:
+        result: List[Tuple[Tuple[str, str], IndexedTableValue]] = []
         for key in self.keytable:
             if f(key):
                 result.append((key, self.indextable[self.keytable[key]]))
@@ -211,8 +334,8 @@ class IndexedTable (object):
     def write_xml(
             self,
             node: ET.Element,
-            f: Callable[[ET.Element, Any], None],
-            tag: str = 'n') -> None:
+            f: Callable[[ET.Element, IndexedTableValue], None],
+            tag: str = "n") -> None:
         for key in sorted(self.indextable):
             snode = ET.Element(tag)
             f(snode, self.indextable[key])
@@ -221,9 +344,12 @@ class IndexedTable (object):
     def read_xml(self,
                  node: Optional[ET.Element],
                  tag: str,
-                 get_value: Callable[[ET.Element], Any],
-                 get_key: Callable[[Any], str] = lambda x: x.get_key(),
-                 get_index: Callable[[Any], int] = lambda x: x.index) -> None:
+                 get_value: Callable[
+                     [ET.Element], IndexedTableValue] = lambda x: get_value(x),
+                 get_key: Callable[
+                     [IndexedTableValue], Tuple[str, str]] = lambda x: x.key,
+                 get_index: Callable[
+                     [IndexedTableValue], int] = lambda x: x.index) -> None:
         if node is None:
             print('Xml node not present in ' + self.name)
             raise IndexedTableError(self.name)
@@ -246,14 +372,3 @@ class IndexedTable (object):
         if self.checkpoint is not None:
             lines.append('Checkpoint: ' + str(self.checkpoint))
         return '\n'.join(lines)
-
-
-if __name__ == '__main__':
-
-    table = IndexedTable('test')
-    print('Size: ' + str(table.size()))
-
-    try:
-        table.retrieve(1)
-    except UF.CHBError as e:
-        print(str(e.wrap()))
