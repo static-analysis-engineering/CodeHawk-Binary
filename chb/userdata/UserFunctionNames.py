@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,28 +27,53 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-class UserFunctionName(object):
+from typing import Dict, Mapping
 
-    def __init__(self,xnode):
+import xml.etree.ElementTree as ET
+
+import chb.util.fileutil as UF
+
+
+class UserFunctionName:
+
+    def __init__(self, xnode: ET.Element) -> None:
         self.xnode = xnode
-        self.addr = self.xnode.get('a')
-        self.name = self.xnode.get('n')
 
-class UserFunctionNames(object):
+    @property
+    def addr(self) -> str:
+        xaddr = self.xnode.get("a")
+        if xaddr is not None:
+            return xaddr
+        else:
+            raise UF.CHBError("Address missing from function name")
 
-    def __init__(self,app,xnode):
-        self.app = app
+    @property
+    def name(self) -> str:
+        xname = self.xnode.get("n")
+        if xname is not None:
+            return xname
+        else:
+            raise UF.CHBError("Name missing from function name")
+
+
+class UserFunctionNames:
+
+    def __init__(self, xnode: ET.Element):
         self.xnode = xnode
-        self.names = {}
-        self._initialize()
+        self._names: Dict[str, UserFunctionName] = {}
 
-    def has_function_name(self,addr): return addr in self.names
+    def names(self) -> Mapping[str, UserFunctionName]:
+        if len(self._names) == 0:
+            for x in self.xnode.findall("fn"):
+                fname = UserFunctionName(x)
+                self._names[fname.addr] = fname
+        return self._names
 
-    def get_function_name(self,addr):
-        if addr in self.names: return self.names[addr].name
-        return addr
+    def has_function_name(self, addr: str) -> bool:
+        return addr in self.names()
 
-    def _initialize(self):
-        names = [ UserFunctionName(x) for x in self.xnode.findall('fn') ]
-        for n in names:
-            self.names[n.addr] = n
+    def get_function_name(self, addr: str) -> str:
+        if addr in self.names():
+            return self.names()[addr].name
+        else:
+            return addr

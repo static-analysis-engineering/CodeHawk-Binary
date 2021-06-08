@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,32 +27,60 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-class SymbolicAddress(object):
+from typing import Dict, Mapping
 
-    def __init__(self,xnode):
+import xml.etree.ElementTree as ET
+
+import chb.util.fileutil as UF
+
+
+class SymbolicAddress:
+
+    def __init__(self, xnode: ET.Element) -> None:
         self.xnode = xnode
-        self.addr = self.xnode.get('a')
-        self.name = self.xnode.get('name')
-        self.size = int(self.xnode.get('size'))
 
-class SymbolicAddresses(object):
+    @property
+    def addr(self) -> str:
+        xa = self.xnode.get("a")
+        if xa is not None:
+            return xa
+        else:
+            raise UF.CHBError("Address missing from symbolic address")
 
-    def __init__(self,user,xnode):
-        self.user = user
+    @property
+    def name(self) -> str:
+        xname = self.xnode.get("name")
+        if xname is not None:
+            return xname
+        else:
+            raise UF.CHBError("Name missing from symbolic address")
+
+    @property
+    def size(self) -> int:
+        xsize = self.xnode.get("size")
+        if xsize is not None:
+            return int(xsize)
+        else:
+            raise UF.CHBError("Size missing from symbolic address")
+
+
+class SymbolicAddresses:
+
+    def __init__(self, xnode: ET.Element) -> None:
         self.xnode = xnode
-        self.addresses = {} 
-        self._initialize()
+        self._addresses: Dict[str, SymbolicAddress] = {}
 
-    def has_symbolic_address(self,addr): return addr in self.addresses
+    def addresses(self) -> Mapping[str, SymbolicAddress]:
+        if len(self._addresses) == 0:
+            for x in self.xnode.findall("syma"):
+                symaddr = SymbolicAddress(x)
+                self._addresses[symaddr.addr] = symaddr
+        return self._addresses
 
-    def get_symbolic_address_name(self,addr):
-        if addr in self.addresses:
-            return self.addresses[addr].name
+    def has_symbolic_address(self, addr: str) -> bool:
+        return addr in self.addresses()
+
+    def get_symbolic_address_name(self, addr: str) -> str:
+        if addr in self.addresses():
+            return self.addresses()[addr].name
         return addr
-
-    def _initialize(self):
-        symaddresses =  [ SymbolicAddress(x) for x in self.xnode.findall('syma') ]
-        for a in symaddresses:
-            self.addresses[a.addr] = a
-
-        

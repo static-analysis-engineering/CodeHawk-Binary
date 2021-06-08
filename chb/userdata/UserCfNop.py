@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,14 +27,39 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-class UserCfNop():
+import xml.etree.ElementTree as ET
 
-    def __init__(self,userdata,xnode):
-        self.userdata = userdata
+import chb.util.fileutil as UF
+
+
+class UserCfNop:
+
+    def __init__(self, xnode: ET.Element):
         self.xnode = xnode
-        self.start = self.xnode.get('start')
-        self.end = self.xnode.get('end')
-        self.desc = self.xnode.get('desc')
 
-    def __str__(self): 
-        return (self.start + ' - ' + self.end + ': ' + self.desc)
+    @property
+    def start(self) -> str:
+        xstart = self.xnode.get("start")
+        if xstart is not None:
+            return xstart
+        else:
+            raise UF.CHBError("Start address missing from cfnop")
+
+    @property
+    def endaddr(self) -> str:
+        xend = self.xnode.get("end")
+        if xend is not None:
+            return xend
+        else:
+            raise UF.CHBError("End address missing from cfnop")
+
+    @property
+    def description(self) -> str:
+        xdesc = self.xnode.get("desc")
+        if xdesc is not None:
+            return xdesc
+        else:
+            raise UF.CHBError("Description missing from cfnop")
+
+    def __str__(self) -> str:
+        return (self.start + ' - ' + self.endaddr + ': ' + self.description)
