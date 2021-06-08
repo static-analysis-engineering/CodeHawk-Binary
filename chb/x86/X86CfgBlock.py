@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
@@ -32,15 +32,17 @@ import xml.etree.ElementTree as ET
 
 from typing import TYPE_CHECKING
 
-import chb.app.CfgBlock as B
+from chb.app.CfgBlock import CfgBlock
 
 if TYPE_CHECKING:
-    import chb.asm.X86Cfg
+    from chb.x86.X86Cfg import X86Cfg
 
-class X86CfgBlock(B.CfgBlock):
+
+class X86CfgBlock(CfgBlock):
 
     def __init__(
             self,
-            cfg: "chb.asm.X86Cfg.X86Cfg",
+            cfg: "X86Cfg",
             xnode: ET.Element) -> None:
-        B.CfgBlock.__init__(self, cfg, xnode)
+        CfgBlock.__init__(self, xnode)
+        self._cfg = cfg
