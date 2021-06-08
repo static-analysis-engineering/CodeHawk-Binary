@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,6 +27,10 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+from typing import Dict, List, Optional, Sequence
+
+import xml.etree.ElementTree as ET
+
 from chb.userdata.UserXorEncoding import UserXorEncoding
 from chb.userdata.UserCallTarget import UserCallTarget
 from chb.userdata.UserCfNop import UserCfNop
@@ -32,74 +38,103 @@ from chb.userdata.UserStackAdjustment import UserStackAdjustment
 from chb.userdata.UserFunctionNames import UserFunctionNames
 from chb.userdata.SymbolicAddresses import SymbolicAddresses
 
-class UserData(object):
+import chb.util.fileutil as UF
 
-    def __init__(self,app,xnode):
-        self.app = app
+
+class UserData:
+
+    def __init__(self, xnode: ET.Element) -> None:
         self.xnode = xnode
-        self.symbolicaddresses = None   # SymbolicAddresses
-        self.functionnames = None       # UserFunctionNames
-        self.get_symbolic_addresses()
-        self.get_function_names()
+        self._symbolicaddresses: Optional[SymbolicAddresses] = None
+        self._functionnames: Optional[UserFunctionNames] = None
+        self._calltargets: List[UserCallTarget] = []
+        self._xorencodings: List[UserXorEncoding] = []
+        self._cfnops: List[UserCfNop] = []
+        self._stackadjustments: List[UserStackAdjustment] = []
 
-    def get_symbolic_addresses(self):
-        if self.symbolicaddresses is None:
-            xsymaddresses = self.xnode.find('symbolic-addresses')
-            if not xsymaddresses is None:
-                self.symbolicaddresses = SymbolicAddresses(self,xsymaddresses)
-        return self.symbolicaddresses
+    def has_symbolic_addresses(self) -> bool:
+        return "symbolic-addresses" in self.xnode.attrib
 
-    def has_symbolic_address(self,addr):
-        if self.symbolicaddresses is None:
+    @property
+    def symbolicaddresses(self) -> SymbolicAddresses:
+        if self._symbolicaddresses is None:
+            if self.has_symbolic_addresses():
+                xsymaddresses = self.xnode.find('symbolic-addresses')
+                if xsymaddresses is not None:
+                    self._symbolicaddresses = SymbolicAddresses(xsymaddresses)
+                else:
+                    raise UF.CHBError("No symbolic addresses found in userdata")
+            else:
+                raise UF.CHBError("No symbolic addresses present in userdata")
+        return self._symbolicaddresses
+
+    def has_symbolic_address(self, addr: str) -> bool:
+        if self.has_symbolic_addresses():
+            return self.symbolicaddresses.has_symbolic_address(addr)
+        else:
             return False
-        return self.symbolicaddresses.has_symbolic_address(addr)
 
-    def get_function_names(self):
-        if self.functionnames is None:
-            xfunctionnames = self.xnode.find('function-names')
-            if not xfunctionnames is None:
-                self.functionnames = UserFunctionNames(self,xfunctionnames)
-        return self.functionnames
+    def has_function_names(self) -> bool:
+        return "function-names" in self.xnode.attrib
 
-    def get_call_targets(self):
-        calltargets = self.xnode.find('call-targets')
-        if not calltargets is None:
-            return [ UserCallTarget(self,x) for x in calltargets.findall('tgt') ]
-        return []
+    @property
+    def functionnames(self) -> UserFunctionNames:
+        if self._functionnames is None:
+            if self.has_function_names():
+                xfunctionnames = self.xnode.find('function-names')
+                if xfunctionnames is not None:
+                    self._functionnames = UserFunctionNames(xfunctionnames)
+                else:
+                    raise UF.CHBError("No function names found in userdata")
+            else:
+                raise UF.CHBError("No function names present in userdata")
+        return self._functionnames
 
-    def get_xor_encodings(self):
-        encodings = self.xnode.find('encodings')
-        if not encodings is None:
-            return [ UserXorEncoding(self,x) for x in encodings.findall('encoding') ]
-        return []
+    def get_call_targets(self) -> Sequence[UserCallTarget]:
+        if len(self._calltargets) == 0:
+            xtgts = self.xnode.find('call-targets')
+            if xtgts is not None:
+                for xtgt in xtgts.findall("tgt"):
+                    self._calltargets.append(UserCallTarget(xtgt))
+        return self._calltargets
 
-    def get_cfnops(self):
-        cfnops = self.xnode.find('cfnops')
-        if not cfnops is None:
-            return [ UserCfNop(self,x) for x in cfnops.findall('nop') ]
-        return []
+    def get_xor_encodings(self) -> Sequence[UserXorEncoding]:
+        if len(self._xorencodings) == 0:
+            xencs = self.xnode.find("encodings")
+            if xencs is not None:
+                for xenc in xencs.findall("encoding"):
+                    self._xorencodings.append(UserXorEncoding(xenc))
+        return self._xorencodings
 
-    def get_stack_adjustments(self):
-        adjs = self.xnode.find('esp-adjustments')
-        if not adjs is None:
-            return [ UserStackAdjustment(self,x) for x in adjs.findall('esp-adj') ]
-        return []
+    def get_cfnops(self) -> Sequence[UserCfNop]:
+        if len(self._cfnops) == 0:
+            xnops = self.xnode.find('cfnops')
+            if xnops is not None:
+                for xnop in xnops.findall("nop"):
+                    self._cfnops.append(UserCfNop(xnop))
+        return self._cfnops
 
-    def get_cfnop_summary(self):
-        cfnops = self.get_cfnops()
-        if not cfnops is None:
-            result = {}
-            for nop in cfnops:
-                desc = nop.getdesc()
-                if not desc in result: result[desc] = 0
-                result[desc] += 1
-            return result
+    def get_stack_adjustments(self) -> Sequence[UserStackAdjustment]:
+        if len(self._stackadjustments) == 0:
+            xadjs = self.xnode.find('esp-adjustments')
+            if xadjs is not None:
+                for xadj in xadjs.findall("esp-adj"):
+                    self._stackadjustments.append(UserStackAdjustment(xadj))
+        return self._stackadjustments
 
-    def __str__(self):
-        lines = []
+    def get_cfnop_summary(self) -> Dict[str, int]:
+        result: Dict[str, int] = {}
+        for nop in self.get_cfnops():
+            desc = nop.description
+            result.setdefault(desc, 0)
+            result[desc] += 1
+        return result
+
+    def __str__(self) -> str:
+        lines: List[str] = []
         calltargets = self.get_call_targets()
         xorencodings = self.get_xor_encodings()
-        cfnops =  self.get_cfnops()
+        cfnops = self.get_cfnops()
         stackadjustments = self.get_stack_adjustments()
         if len(calltargets) > 0:
             lines.append('Call targets')
@@ -111,10 +146,9 @@ class UserData(object):
                 lines.append('  ' + str(x))
         if len(cfnops) > 0:
             lines.append('Control flow nops')
-            for c in cfnops:
-                lines.append('  ' + str(c))
+            for cfnop in cfnops:
+                lines.append('  ' + str(cfnop))
         if len(stackadjustments) > 0:
             for s in stackadjustments:
                 lines.append('  ' + str(s))
         return '\n'.join(lines)
-

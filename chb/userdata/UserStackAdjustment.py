@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,17 +27,42 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+import xml.etree.ElementTree as ET
 
-class UserStackAdjustment():
+import chb.util.fileutil as UF
 
-    def __init__(self,iuser,xnode):
-        self.iuser = iuser
+
+class UserStackAdjustment:
+
+    def __init__(self, xnode: ET.Element) -> None:
         self.xnode = xnode
-        self.faddr = self.xnode.get('fa')
-        self.iaddr = self.xnode.get('ia')
-        self.adjustment = int(self.xnode.get('adj'))
 
-    def __str__(self):
+    @property
+    def faddr(self) -> str:
+        xfaddr = self.xnode.get("fa")
+        if xfaddr is not None:
+            return xfaddr
+        else:
+            raise UF.CHBError("Function address missing from stack adjustment")
+
+    @property
+    def iaddr(self) -> str:
+        xiaddr = self.xnode.get("ia")
+        if xiaddr is not None:
+            return xiaddr
+        else:
+            raise UF.CHBError("Instruction address missing from stack adjustment")
+
+    @property
+    def adjustment(self) -> int:
+        """Returns the number of bytes popped off the stack."""
+
+        xadj = self.xnode.get("adj")
+        if xadj is not None:
+            return int(xadj)
+        else:
+            raise UF.CHBError("Stack adjustment missing from user record")
+
+    def __str__(self) -> str:
         addr = self.faddr.ljust(10) + ',' + self.iaddr.ljust(10)
-        return  addr + ': ' + str(self.adjustment)
-        
+        return addr + ': ' + str(self.adjustment)
