@@ -30,28 +30,24 @@
 
 import xml.etree.ElementTree as ET
 
-import chb.app.DictionaryRecord as D
-import chb.arm.ARMRegister as ARM
-import chb.asm.AsmRegister as AR
-import chb.mips.MIPSRegister as MR
+from chb.app.BDictionaryRecord import bdregistry
+from chb.app.Register import Register
+
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
 import chb.util.StringIndexedTable as SI
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import Callable, List, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import chb.app.AppAccess
 
-class AsmAddress:
 
-    def __init__(self, index: int, tags: List[str], args: List[int]):
-        self.index = index
-        self.tags = tags
-        self.args = args
+class AsmAddress(IT.IndexedTableValue):
 
-    def get_key(self) -> Tuple[str, str]:
-        return (','.join(self.tags), ','.join([str(x) for x in self.args]))
+    def __init__(self, ixvalue: IT.IndexedTableValue):
+        IT.IndexedTableValue.__init__(
+            self, ixvalue.index, ixvalue.tags, ixvalue.args)
 
     def get_hex(self) -> str:
         return(self.tags[0])
@@ -63,90 +59,59 @@ class AsmAddress:
         return self.get_hex()
 
 
-register_constructors = {
-    'a': lambda x: ARM.ARMRegister(*x),
-    's': lambda x: AR.SegmentRegister(*x),
-    'c': lambda x: AR.CPURegister(*x),
-    'd': lambda x: AR.DoubleRegister(*x),
-    'f': lambda x: AR.FloatingPointRegister(*x),
-    'ctr': lambda x: AR.ControlRegister(*x),
-    'dbg': lambda x: AR.DebugRegister(*x),
-    'm': lambda x: AR.MmxRegister(*x),
-    'x': lambda x: AR.XmmRegister(*x),
-    'p': lambda x: MR.MIPSRegister(*x),
-    'ps': lambda x: MR.MIPSSpecialRegister(*x),
-    'pfp': lambda x: MR.MIPSFloatingPointRegister(*x)
-    }
-
-
 class BDictionary:
 
     def __init__(
             self,
             app: "chb.app.AppAccess.AppAccess",
             xnode: ET.Element):
-        self.app = app
+        self._app = app
         self.string_table = SI.StringIndexedTable('string-table')
         self.address_table = IT.IndexedTable('address-table')
         self.register_table = IT.IndexedTable('register-table')
-        self.tables = [
-            (self.address_table, self._read_xml_address_table),
-            (self.register_table, self._read_xml_register_table)
-            ]
-        self.string_tables = [
-            (self.string_table, self._read_xml_string_table)
-            ]
+        self.tables: List[IT.IndexedTable] = [
+            self.address_table,
+            self.register_table]
         self.initialize(xnode)
+
+    @property
+    def app(self) -> "chb.app.AppAccess.AppAccess":
+        return self._app
 
     # -------------- Retrieve items from dictionary tables ---------------------
 
-    def get_string(self, ix: int) -> str:
+    def string(self, ix: int) -> str:
         return self.string_table.retrieve(ix)
 
-    def get_address(self, ix: int) -> AsmAddress:
-        return self.address_table.retrieve(ix)
+    def address(self, ix: int) -> AsmAddress:
+        return AsmAddress(self.address_table.retrieve(ix))
 
-    def get_register(self, ix: int) -> D.BDictionaryRecord:
-        return self.register_table.retrieve(ix)
+    def register(self, ix: int) -> Register:
+        return bdregistry.mk_instance(
+            self, self.register_table.retrieve(ix), Register)
 
     # ----------------------- xml accessors ------------------------------------
 
     def read_xml_string(self, n: ET.Element) -> str:
         index = n.get("istr")
         if index:
-            return self.get_string(int(index))
+            return self.string(int(index))
         raise UF.CHBError("Error in reading from string table: tag missing")
 
     # ---------------- Initialize dictionary from file -------------------------
 
     def initialize(self, xnode: ET.Element) -> None:
-        if xnode is None:
-            return
-        for (t, f) in self.tables:
+        for t in self.tables:
             t.reset()
-            tablename = xnode.find(t.name)
-            if tablename:
-                f(tablename)
-        for (ts, fs) in self.string_tables:
-            ts.reset()
-            tablename = xnode.find(ts.name)
-            if tablename:
-                fs(tablename)
-
-    def _read_xml_string_table(self, txnode: ET.Element) -> None:
-        self.string_table.read_xml(txnode)
-
-    def _read_xml_address_table(self, txnode: ET.Element) -> None:
-        def get_value(node):
-            rep = IT.get_rep(node)
-            args = rep
-            return AsmAddress(*args)
-        self.address_table.read_xml(txnode, 'n', get_value)
-
-    def _read_xml_register_table(self, txnode: ET.Element) -> None:
-        def get_value(node):
-            rep = IT.get_rep(node)
-            tag = rep[1][0]
-            args = (self,) + rep
-            return register_constructors[tag](args)
-        self.register_table.read_xml(txnode, 'n', get_value)
+            xtable = xnode.find(t.name)
+            if xtable is not None:
+                t.read_xml(xtable, "n")
+            else:
+                raise UF.CHBError("Error reading table " + t.name)
+        self.string_table.reset()
+        xstable = xnode.find(self.string_table.name)
+        if xstable is not None:
+            self.string_table.read_xml(xstable)
+        else:
+            raise UF.CHError("Error reading stringtable "
+                             + self.string_table.name)

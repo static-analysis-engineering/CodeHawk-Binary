@@ -34,27 +34,25 @@ Subclasses:
 
 import xml.etree.ElementTree as ET
 
+from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
-import chb.app.Instruction as I
+from chb.app.Instruction import Instruction
+
+from chb.invariants.XXpr import XXpr
+
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     import chb.app.Function
 
 
-class BasicBlock:
+class BasicBlock(ABC):
 
     def __init__(
             self,
-            f: "chb.app.Function.Function",
             xnode: ET.Element) -> None:
-        self._function = f
         self.xnode = xnode
-
-    @property
-    def function(self) -> "chb.app.Function.Function":
-        return self._function
 
     @property
     def baddr(self) -> str:
@@ -64,40 +62,42 @@ class BasicBlock:
         return _baddr
 
     @property
-    def instructions(self) -> Mapping[str, I.Instruction]:
-        raise UF.CHBError(
-            "Property instructions not implemented for BasicBlock")
+    def last_instruction(self) -> Instruction:
+        lastaddr = sorted(self.instructions.keys())[-1]
+        return self.instructions[lastaddr]
 
     @property
-    def call_instructions(self) -> Sequence[I.Instruction]:
+    def has_return(self) -> bool:
+        return self.last_instruction.is_return_instruction
+
+    @property
+    @abstractmethod
+    def instructions(self) -> Mapping[str, Instruction]:
+        ...
+
+    @property
+    @abstractmethod
+    def call_instructions(self) -> Sequence[Instruction]:
+        ...
         raise UF.CHBError(
             "Property call instruction not implemented for BasicBlock")
 
     def has_instruction(self, iaddr: str) -> bool:
         return iaddr in self.instructions
 
-    def get_instruction(self, iaddr: str) -> I.Instruction:
+    def instruction(self, iaddr: str) -> Instruction:
         if iaddr in self.instructions:
             return self.instructions[iaddr]
         raise UF.CHBError("Instruction " + iaddr + " not found")
 
-    def iter(self, f: Callable[[str, I.Instruction], None]) -> None:
-        for iaddr in sorted(self.instructions):
-            f(iaddr, self.instructions[iaddr])
-
+    @abstractmethod
     def to_string(
             self,
-            sp: bool = True,
+            bytes: bool = False,
             opcodetxt: bool = True,
-            opcodewidth: int = 40) -> str:
-        lines: List[str] = []
-
-        def f(iaddr: str, instr: I.Instruction) -> None:
-            line = instr.to_string(
-                sp=sp, opcodetxt=opcodetxt, opcodewidth=opcodewidth)
-            lines.append(str(iaddr).rjust(10) + "  " + line)
-        self.iter(f)
-        return "\n".join(lines)
+            opcodewidth: int = 25,
+            sp: bool = True) -> str:
+        ...
 
     def __str__(self) -> str:
         return self.to_string()

@@ -27,40 +27,86 @@
 """Abstract superclass for different types of assembly functions.
 
 Subclasses:
- - AsmFunction
- - MIPSFunction
- - ARMFunction
+   arm/ARMFunction
+   mips/MIPSFunction
+   x86/X86Function
+
 """
 
 import hashlib
 import xml.etree.ElementTree as ET
 
-from typing import Callable, Dict, List, Mapping, Optional, TYPE_CHECKING
+from abc import ABC, abstractmethod
+from typing import Callable, Dict, List, Mapping, Optional, Sequence
 
-import chb.app.BasicBlock as B
-import chb.app.Cfg as C
-import chb.app.FunctionDictionary as F
-import chb.app.Instruction as I
-import chb.invariants.FnInvDictionary as INV
-import chb.invariants.FnXprDictionary as X
-import chb.invariants.FnVarDictionary as V
+from chb.api.InterfaceDictionary import InterfaceDictionary
+
+from chb.app.BasicBlock import BasicBlock
+from chb.app.BDictionary import BDictionary
+from chb.app.Cfg import Cfg
+from chb.app.FunctionInfo import FunctionInfo
+from chb.app.Instruction import Instruction
+from chb.app.StringXRefs import StringsXRefs
+
+from chb.invariants.FnInvDictionary import FnInvDictionary
+from chb.invariants.FnVarDictionary import FnVarDictionary
+from chb.invariants.FnXprDictionary import FnXprDictionary
+from chb.invariants.InvariantFact import InvariantFact
+
 import chb.util.fileutil as UF
 
-if TYPE_CHECKING:
-    import chb.app.AppAccess
 
-
-class Function:
+class Function(ABC):
 
     def __init__(
             self,
-            app: "chb.app.AppAccess.AppAccess",
+            path: str,
+            filename: str,
+            bd: BDictionary,
+            ixd: InterfaceDictionary,
+            finfo: FunctionInfo,
+            stringsxrefs: StringsXRefs,
+            names: Sequence[str],
             xnode: ET.Element) -> None:
-        self._app = app
         self.xnode = xnode
-        self._vd: Optional[V.FnVarDictionary] = None
-        self._id: Optional[INV.FnInvDictionary] = None
-        self._fnd: Optional[F.FunctionDictionary] = None
+        self._path = path
+        self._filename = filename
+        self._bd = bd
+        self._ixd = ixd
+        self._finfo = finfo
+        self._stringsxrefs = stringsxrefs
+        self._names = names
+        self._vd: Optional[FnVarDictionary] = None
+        self._id: Optional[FnInvDictionary] = None
+        self._invariants: Dict[str, List[InvariantFact]] = {}
+
+    @property
+    def path(self) -> str:
+        return self._path
+
+    @property
+    def filename(self) -> str:
+        return self._filename
+
+    @property
+    def bd(self) -> BDictionary:
+        return self._bd
+
+    @property
+    def ixd(self) -> InterfaceDictionary:
+        return self._ixd
+
+    @property
+    def finfo(self) -> FunctionInfo:
+        return self._finfo
+
+    @property
+    def stringsxrefs(self) -> StringsXRefs:
+        return self._stringsxrefs
+
+    @property
+    def names(self) -> Sequence[str]:
+        return self._names
 
     @property
     def faddr(self) -> str:
@@ -69,119 +115,116 @@ class Function:
             raise UF.CHBError("Assembly function address is missing from xml")
         return faddr
 
-    @property
-    def app(self) -> "chb.app.AppAccess.AppAccess":
-        return self._app
+    @abstractmethod
+    def set_fnvar_dictionary(self, xnode: ET.Element) -> FnVarDictionary:
+        ...
 
     @property
-    def fndictionary(self) -> F.FunctionDictionary:
-        if self._fnd is None:
-            xfnd = self.xnode.find("instr-dictionary")
-            if xfnd is None:
-                raise UF.CHBError("Element instr-dictionary missing from xml")
-            self._fnd = F.FunctionDictionary(self, xfnd)
-        return self._fnd
-
-    @property
-    def vardictionary(self) -> V.FnVarDictionary:
+    def vardictionary(self) -> FnVarDictionary:
         if self._vd is None:
             xvd = UF.get_function_vars_xnode(
-                self.app.path, self.app.filename, self.faddr)
+                self.path, self.filename, self.faddr)
             xvard = xvd.find("var-dictionary")
             if xvard is None:
                 raise UF.CHBError("Var-dictionary element not found")
-            self._vd = V.FnVarDictionary(self, xvard)
+            self._vd = self.set_fnvar_dictionary(xvard)
         return self._vd
 
     @property
-    def xprdictionary(self) -> X.FnXprDictionary:
+    def xprdictionary(self) -> FnXprDictionary:
         return self.vardictionary.xd
 
     @property
-    def invdictionary(self) -> INV.FnInvDictionary:
+    def invdictionary(self) -> FnInvDictionary:
         if self._id is None:
             xinvnode = UF.get_function_invs_xnode(
-                self.app.path, self.app.filename, self.faddr)
-            xinvd = xinvnode.get("inv-dictionary")
+                self.path, self.filename, self.faddr)
+            xinvd = xinvnode.find("inv-dictionary")
             if xinvd is None:
                 raise UF.CHBError("Inv-dictionary element not found")
-            self._id = INV.FnInvDictionary(self.vardictionary, xinvd)
+            self._id = FnInvDictionary(self.vardictionary, xinvd)
         return self._id
 
     @property
+    def invariants(self) -> Mapping[str, Sequence[InvariantFact]]:
+        if len(self._invariants) == 0:
+            xinvnode = UF.get_function_invs_xnode(
+                self.path, self.filename, self.faddr)
+            xfacts = xinvnode.find("locations")
+            if xfacts is None:
+                raise UF.CHBError("Location invariants element not found")
+            for xloc in xfacts.findall("loc"):
+                xaddr = xloc.get("a")
+                xifacts = xloc.get("ifacts")
+                if xaddr is not None and xifacts is not None:
+                    ifacts = [int(i) for i in xifacts.split(",")]
+                    self._invariants[xaddr] = []
+                    for ix in ifacts:
+                        self._invariants[xaddr].append(
+                            self.invdictionary.invariant_fact(ix))
+        return self._invariants
+
     def has_name(self) -> bool:
-        return self.app.functionsdata.has_name(self.faddr)
+        return len(self.names) > 0
 
     @property
-    def names(self) -> List[str]:
+    def name(self) -> str:
         if self.has_name:
-            return self.app.functionsdata.get_names(self.faddr)
-        return []
+            return self.names[0]
+        else:
+            return self.faddr
 
     @property
-    def blocks(self) -> Mapping[str, B.BasicBlock]:
-        raise UF.CHBError("Property blocks not implemented for Function")
+    @abstractmethod
+    def blocks(self) -> Mapping[str, BasicBlock]:
+        ...
 
     @property
-    def instructions(self) -> Mapping[str, I.Instruction]:
-        result: Dict[str, I.Instruction] = {}
-        for b in self.blocks:
-            result.update(self.blocks[b].instructions)
-        return result
+    @abstractmethod
+    def instructions(self) -> Mapping[str, Instruction]:
+        ...
 
     @property
-    def cfg(self) -> C.Cfg:
+    def instruction_count(self) -> int:
+        return len(self.instructions)
+
+    @property
+    def cfg(self) -> Cfg:
         raise UF.CHBError("Property cfg not implemented for Function")
 
-    @property
-    def strings(self) -> List[str]:
-        result: List[str] = []
-
-        def f(iaddr: str, instr: I.Instruction) -> None:
-            result.extend(instr.strings)
-
-        self.iter_instructions(f)
-        return result
+    @abstractmethod
+    def strings_referenced(self) -> List[str]:
+        ...
 
     @property
     def md5(self) -> str:
         m = hashlib.md5()
-
-        def f(iaddr: str, instr: I.Instruction) -> None:
+        for instr in self.instructions.values():
             m.update(instr.bytestring.encode("utf-8"))
-
-        self.iter_instructions(f)
         return m.hexdigest()
 
-    def get_block(self, baddr: str) -> B.BasicBlock:
+    def block(self, baddr: str) -> BasicBlock:
         if baddr in self.blocks:
             return self.blocks[baddr]
         else:
-            raise UF.CHBError("Block with address " + baddr + " not found")
+            raise UF.CHBError("Block " + baddr + " not found in " + self.faddr)
 
     def has_instruction(self, iaddr: str) -> bool:
-        for b in self.blocks:
-            if self.blocks[b].has_instruction(iaddr):
-                return True
-        return False
+        return iaddr in self.instructions
 
-    def get_instruction(self, iaddr: str) -> I.Instruction:
-        for b in self.blocks:
-            if self.blocks[b].has_instruction(iaddr):
-                return self.blocks[b].get_instruction(iaddr)
+    def instruction(self, iaddr: str) -> Instruction:
+        if iaddr in self.instructions:
+            return self.instructions[iaddr]
         else:
             raise UF.CHBError("No instruction found at address " + iaddr)
 
-    def iter_blocks(self, f: Callable[[str, B.BasicBlock], None]) -> None:
-        for baddr in sorted(self.blocks):
-            f(baddr, self.blocks[baddr])
-
-    def iter_instructions(self, f: Callable[[str, I.Instruction], None]) -> None:
-        for iaddr in sorted(self.instructions):
-            f(iaddr, self.instructions[iaddr])
-
-    def get_names(self) -> List[str]:
-        if self.has_name:
-            return self.app.functionsdata.get_names(self.faddr)
-        else:
-            return []
+    @abstractmethod
+    def to_string(
+            self,
+            bytes: bool = False,          # instruction bytes
+            bytestring: bool = False,     # bytestring of the function
+            hash: bool = False,           # md5 of the bytestring
+            opcodetxt: bool = True,       # instruction opcode text
+            opcodewidth: int = 25,        # alignment width for opcode text
+            sp: bool = True) -> str:
+        ...

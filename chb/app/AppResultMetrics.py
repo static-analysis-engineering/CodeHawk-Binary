@@ -1,10 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,12 +27,13 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-
 import xml.etree.ElementTree as ET
 
-import chb.util.fileutil as UF
+from typing import Any, Callable, Dict, List, Optional
 
 from chb.app.AppResultFunctionMetrics import AppResultFunctionMetrics
+import chb.util.fileutil as UF
+
 
 disassembly_attributes = [
     "instrcount",
@@ -54,234 +57,373 @@ analysis_attributes = [
     "iterations"
     ]
 
-class AppResultMetrics(object):
 
-    def __init__(self,app,xnode,xheader):
-        self.app = app
-        self.xresults = xnode
+class AppResultMetrics:
+
+    def __init__(
+            self,
+            filename: str,
+            xnode: ET.Element,
+            xheader: ET.Element) -> None:
+        self._filename = filename
+        self.xnode = xnode
         self.xheader = xheader
-        self.functiontotals = self.xresults.find('function-totals')
-        self.disassembly = self.xresults.find('disassembly')
-        self.functions = {}
+        self._functiontotals: Optional[ET.Element] = None
+        self._calls: Optional[ET.Element] = None
+        self._jumps: Optional[ET.Element] = None
+        self._precision: Optional[ET.Element] = None
+        self._disassembly: Optional[ET.Element] = None
+        self._functions: Dict[str, AppResultFunctionMetrics] = {}
+        self._imports: Optional[ET.Element] = None
 
-    def get_name(self):
-        return self.app.filename
+    @property
+    def filename(self) -> str:
+        return self._filename
 
-    def get_date_time(self):
-        return self.xheader.get('time')
+    def functions(self) -> Dict[str, AppResultFunctionMetrics]:
+        if len(self._functions) == 0:
+            fxnode = self.xnode.find("functions")
+            if fxnode is None:
+                raise UF.CHBError("Functions element missing from resultmetrics")
+            else:
+                for f in fxnode.findall("fn"):
+                    addr = f.get("a")
+                    if addr is None:
+                        raise UF.CHBError(
+                            "Address missing from function in resultmetrics")
+                    else:
+                        self._functions[addr] = AppResultFunctionMetrics(f)
+        return self._functions
 
-    def get_stable(self):
-        return self.xresults.find.get('stable')
+    @property
+    def functiontotals(self) -> ET.Element:
+        if self._functiontotals is None:
+            self._functiontotals = self.xnode.find("function-totals")
+            if self._functiontotals is None:
+                raise UF.CHBError("Function totals missing from resultmetrics")
+        return self._functiontotals
 
-    def get_analysis_time(self):
-        return self.xresults.get('time')
+    @property
+    def calls(self) -> ET.Element:
+        if self._calls is None:
+            self._calls = self.functiontotals.find("calls")
+            if self._calls is None:
+                raise UF.CHBError(
+                    "Calls missing from function totals in resultmetrics")
+        return self._calls
 
-    def get_run_count(self):
-        return self.xresults.find('runs').find('run').get('index')
+    @property
+    def jumps(self) -> ET.Element:
+        if self._jumps is None:
+            self._jumps = self.functiontotals.find("jumps")
+            if self._jumps is None:
+                raise UF.CHBError(
+                    "Jumps missing from function totals in resultmetrics")
+        return self._jumps
 
-    def get_esp(self):
-        return float(self.functiontotals.find('prec').get('esp'))
+    @property
+    def precision(self) -> ET.Element:
+        if self._precision is None:
+            self._precision = self.functiontotals.find("prec")
+            if self._precision is None:
+                raise UF.CHBError(
+                    "Aggregate precision is missing from resultmetrics")
+        return self._precision
 
-    def get_reads(self):
-        return float(self.functiontotals.find('prec').get('reads'))
+    @property
+    def disassembly(self) -> ET.Element:
+        if self._disassembly is None:
+            self._disassembly = self.xnode.find("disassembly")
+            if self._disassembly is None:
+                raise UF.CHBError("Disassembly is missing from resultmetrics")
+        return self._disassembly
 
-    def get_writes(self):
-        return float(self.functiontotals.find('prec').get('writes'))
+    @property
+    def imports(self) -> ET.Element:
+        if self._imports is None:
+            self._imports = self.disassembly.find("imports")
+            if self._imports is None:
+                raise UF.CHBError(
+                    "Imports is missing from disassembly in resultmetrics")
+        return self._imports
 
-    def get_calls(self):
-        return int(self.functiontotals.find('calls').get('count','0'))
+    @property
+    def date_time(self) -> str:
+        r = self.xheader.get("time")
+        if r is not None:
+            return r
+        else:
+            raise UF.CHBError("Time is missing from header resultmetrics header")
 
-    def get_unresolved_calls(self):
-        return int(self.functiontotals.find('calls').get('unr','0'))
+    @property
+    def stable(self) -> str:
+        r = self.xnode.get("stable")
+        if r is not None:
+            return r
+        else:
+            raise UF.CHBError("Stable is missing from resultmetrics")
 
-    def get_dll_calls(self):
-        return int(self.functiontotals.find('calls').get('dll','0'))
+    @property
+    def analysis_time(self) -> str:
+        r = self.xnode.get("time")
+        if r is not None:
+            return r
+        else:
+            raise UF.CHBError("Analysis time is missing from resultmetrics")
 
-    def get_application_calls(self):
-        return int(self.functiontotals.find('calls').get('app','0'))
+    @property
+    def run_count(self) -> int:
+        xruns = self.xnode.find("runs")
+        if xruns is not None:
+            xrun = xruns.find("run")
+            if xrun is not None:
+                r = xrun.get("index")
+                if r is not None:
+                    return int(r)
+                else:
+                    raise UF.CHBError("Index of run is missing from resultmetrics")
+            else:
+                raise UF.CHBError("Run is missing from resultmetrics")
+        else:
+            raise UF.CHBError("Runs is missing from resultmetrics")
 
-    def get_inlined_calls(self):
-        return int(self.functiontotals.find('calls').get('inlined','0'))
+    @property
+    def esp_precision(self) -> float:
+        r = self.precision.get("esp")
+        if r is not None:
+            return float(r)
+        else:
+            raise UF.CHBError("Esp precision is missing from resultmetrics")
 
-    def get_static_dll_calls(self):
-        return int(self.functiontotals.find('calls').get('staticdll','0'))
+    @property
+    def reads_precision(self) -> float:
+        r = self.precision.get("reads")
+        if r is not None:
+            return float(r)
+        else:
+            raise UF.CHBError("Reads precision is missing from resultmetrics")
 
-    def get_wrapped_calls(self):
-        return int(self.functiontotals.find('calls').get('wrapped','0'))
+    @property
+    def writes_precision(self) -> float:
+        r = self.precision.get("writes")
+        if r is not None:
+            return float(r)
+        else:
+            raise UF.CHBError("Writes precision is missing from resultmetrics")
 
-    def get_unresolved_jumps(self):
-        return int(self.functiontotals.find('jumps').get('unr','0'))
+    @property
+    def calls_count(self) -> int:
+        return int(self.calls.get("count", "0"))
 
-    def get_no_sum(self):
-        return int(self.functiontotals.find('calls').get('no-sum',0))
+    @property
+    def unresolved_calls(self) -> int:
+        return int(self.calls.get("unr", "0"))
 
-    def get_instr_count(self):
-        return int(self.disassembly.get('instrs'))
+    @property
+    def dll_calls(self) -> int:
+        return int(self.calls.get("dll", "0"))
 
-    def get_function_count(self):
-        return int(self.disassembly.get('functions'))
+    @property
+    def application_calls(self) -> int:
+        return int(self.calls.get("app", "0"))
 
-    def get_unknown_instrs(self):
-        return int(self.disassembly.get('unknown-instrs','0'))
+    @property
+    def inlined_calls(self) -> int:
+        return int(self.calls.get("inlined", "0"))
 
-    def get_pcoverage(self):
-        return float(self.disassembly.get('pcoverage'))
+    @property
+    def static_dll_calls(self) -> int:
+        return int(self.calls.get("staticdll", "0"))
 
-    def get_fn_instr_counts(self):
-        self._initializefunctions()
-        result = []
-        for fn in self.functions:
-            result.append(int(self.functions[fn].get_instrs()))
+    @property
+    def wrapped_calls(self) -> int:
+        return int(self.calls.get("wrapped", "0"))
+
+    @property
+    def unresolved_jumps(self) -> int:
+        return int(self.jumps.get("unr", "0"))
+
+    @property
+    def no_summary(self) -> int:
+        return int(self.calls.get("no-sum", "0"))
+
+    @property
+    def instruction_count(self) -> int:
+        return int(self.disassembly.get('instrs', "0"))
+
+    @property
+    def function_count(self) -> int:
+        return int(self.disassembly.get('functions', "0"))
+
+    @property
+    def unknown_instructions(self) -> int:
+        return int(self.disassembly.get('unknown-instrs', '0'))
+
+    @property
+    def pcoverage(self) -> float:
+        return float(self.disassembly.get('pcoverage', "0.0"))
+
+    def get_fn_instr_counts(self) -> List[int]:
+        result: List[int] = []
+        for fn in self.functions():
+            result.append(self.functions()[fn].instruction_count)
         return result
 
-    def get_fn_esp_precisions(self,mininstructioncount=0):
-        self._initializefunctions()
-        result = []
-        for fn in self.functions:
-            instrcount = int(self.functions[fn].get_instrs())
+    def get_fn_esp_precisions(self, mininstructioncount: int = 0) -> List[float]:
+        result: List[float] = []
+        for fn in self.functions():
+            instrcount = int(self.functions()[fn].instruction_count)
             if instrcount >= mininstructioncount:
-                result.append(float(self.functions[fn].get_espp()))
+                result.append(float(self.functions()[fn].espp))
         return result
 
-    def get_runtime_loads(self):
-        result = {}
-        for f in self.disassembly.find('imports').findall('import'):
+    def get_runtime_loads(self) -> Dict[str, int]:
+        result: Dict[str, int] = {}
+        for f in self.imports.findall('import'):
             if 'loaded' in f.attrib:
                 name = f.get('name')
-                if not name in result: result[name] = 0
-                result[name] += int(f.get('count'))
+                if name is not None:
+                    result.setdefault(name, 0)
+                    result[name] += int(f.get("count", "0"))
         return result
 
-    def get_imported_dll_functions(self):
-        result = {}
-        for f in self.disassembly.find('imports').findall('import'):
-            if not 'loaded' in f.attrib:
+    def get_imported_dll_functions(self) -> Dict[str, int]:
+        result: Dict[str, int] = {}
+        for f in self.imports.findall('import'):
+            if 'loaded' not in f.attrib:
                 name = f.get('name')
-                if not name in result: result[name] = 0
-                result[name] += int(f.get('count'))
+                if name is not None:
+                    result.setdefault(name, 0)
+                    result[name] += int(f.get("count", "0"))
         return result
 
-    def get_function_results(self):
-        self._initialize_functions()
-        return self.functions.values()
+    def get_function_results(self) -> List[AppResultFunctionMetrics]:
+        return list(self.functions().values())
 
-    def get_function_metrics(self,f):
-        self._initialize_functions()
-        if f in self.functions:
-            return self.functions[f]
+    def get_function_metrics(self, f: str) -> AppResultFunctionMetrics:
+        if f in self.functions():
+            return self.functions()[f]
+        else:
+            raise UF.CHBError("Function " + f + " not found")
 
-    def iter(self,f):
-        for fn in self.get_function_results(): f(fn)
+    def iter(self, f: Callable[[AppResultFunctionMetrics], None]) -> None:
+        for fn in self.get_function_results():
+            f(fn)
 
-    def get_names(self):
-        names = {}
-        def f(fn):
+    def get_names(self) -> Dict[str, List[str]]:
+        """Return a mapping from function names to function addresses."""
+
+        names: Dict[str, List[str]] = {}
+
+        def f(fn: AppResultFunctionMetrics) -> None:
             if fn.has_name():
-                name = fn.get_name()
-                if not name in names: names[name] = []
+                name = fn.name
+                names.setdefault(name, [])
                 names[name].append(fn.faddr)
+
         self.iter(f)
         return names
 
-    def as_dictionary(self):
-        result = {}
-        result['name'] = self.get_name()
+    def as_dictionary(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        result['name'] = self.filename
         result['functions'] = {}
-        def f(fn): result['functions'][fn.faddr] = fn.as_dictionary()
+
+        def f(fn: AppResultFunctionMetrics) -> None:
+            result['functions'][fn.faddr] = fn.as_dictionary()
+
         self.iter(f)
         result['disassembly'] = self.disassembly_as_dictionary()
         result['analysis'] = self.analysis_as_dictionary()
         return result
 
-    def disassembly_as_dictionary(self):
-        localetable = UF.get_locale_tables(categories=[ "ResultMetrics" ])
-        result = {}
-        '''
-        for p in disassembly_attributes:
-            result[p] = {}
-            result[p]['heading'] = localetable['disassembly'][p]
-        '''
-        result['instrcount'] = self.get_instr_count()
-        result['unknown'] = self.get_unknown_instrs()
-        result['functioncount'] = self.get_function_count()
-        result['coverage'] = self.get_pcoverage()
+    def disassembly_as_dictionary(self) -> Dict[str, Any]:
+        localetable = UF.get_locale_tables(categories=["ResultMetrics"])
+        result: Dict[str, Any] = {}
+        result['instrcount'] = self.instruction_count
+        result['unknown'] = self.unknown_instructions
+        result['functioncount'] = self.function_count
+        result['coverage'] = self.pcoverage
         return result
 
-    def disassembly_to_string(self):
-        lines = []
+    def disassembly_to_string(self) -> str:
+        lines: List[str] = []
         lines.append('-' * 80)
         lines.append('Disassembly Summary')
         lines.append('-' * 80)
-        lines.append('Instruction count: ' + str(self.get_instr_count()).rjust(8))
-        lines.append('Unknown instrs   : ' + str(self.get_unknown_instrs()).rjust(8))
-        lines.append('Function count   : ' + str(self.get_function_count()).rjust(8))
-        lines.append('Function coverage: ' + str(self.get_pcoverage()).rjust(8) + '%')
+        lines.append('Instruction count: ' + str(self.instruction_count).rjust(8))
+        lines.append('Unknown instrs   : ' + str(self.unknown_instructions).rjust(8))
+        lines.append('Function count   : ' + str(self.function_count).rjust(8))
+        lines.append('Function coverage: ' + str(self.pcoverage).rjust(8) + '%')
         lines.append('-' * 80)
         return '\n'.join(lines)
 
-    def analysis_as_dictionary(self):
-        localetable = UF.get_locale_tables(categories=[ "ResultMetrics" ])
-        result = {}
-        '''
-        for p in analysis_attributes:
-            result[p] = {}
-            result[p]['heading'] = localetable['analysis'][p]
-        '''
-        result['datetime'] = self.get_date_time()
-        result['espp'] = self.get_esp()
-        result['readsp'] = self.get_reads()
-        result['writesp'] = self.get_writes()
-        result['unrjumps'] = self.get_unresolved_jumps()
-        result['calls'] = self.get_calls()
-        result['unrcalls'] =  self.get_unresolved_calls()
-        result['nosummaries'] = self.get_no_sum()
-        result['dllcalls'] = self.get_dll_calls()
-        result['inlinedcalls'] = self.get_inlined_calls()
-        result['analysistime'] = self.get_analysis_time()
-        result['iterations'] = self.get_run_count()
+    def analysis_as_dictionary(self) -> Dict[str, Any]:
+        localetable = UF.get_locale_tables(categories=["ResultMetrics"])
+        result: Dict[str, Any] = {}
+        result['datetime'] = self.date_time
+        result['espp'] = self.esp_precision
+        result['readsp'] = self.reads_precision
+        result['writesp'] = self.writes_precision
+        result['unrjumps'] = self.unresolved_jumps
+        result['calls'] = self.calls_count
+        result['unrcalls'] = self.unresolved_calls
+        result['nosummaries'] = self.no_summary
+        result['dllcalls'] = self.dll_calls
+        result['inlinedcalls'] = self.inlined_calls
+        result['analysistime'] = self.analysis_time
+        result['iterations'] = self.run_count
         return result
 
-    def summary(self):
+    def summary(self) -> Dict[str, Any]:
         result = self.analysis_as_dictionary()
         result.update(self.disassembly_as_dictionary())
         return result
 
-    def analysis_to_string(self):
-        lines = []
+    def analysis_to_string(self) -> str:
+        lines: List[str] = []
         lines.append('-' * 80)
         lines.append('Analysis Summary')
         lines.append('-' * 80)
-        lines.append('Esp precision   : ' + str(self.get_esp()).rjust(8) + '%')
-        lines.append('Reads precision : ' + str(self.get_reads()).rjust(8) + '%')
-        lines.append('Writes precision: ' + str(self.get_writes()).rjust(8) + '%')
-        lines.append('Unresolved jumps: ' + str(self.get_unresolved_jumps()).rjust(8))
-        lines.append('Calls           : ' + str(self.get_calls()).rjust(8))
-        lines.append('Unresolved calls: ' + str(self.get_unresolved_calls()).rjust(8))
-        lines.append('No summaries    : ' + str(self.get_no_sum()).rjust(8))
-        lines.append('Dll calls       : ' + str(self.get_dll_calls()).rjust(8))
-        lines.append('Static dll calls: ' + str(self.get_static_dll_calls()).rjust(8))
-        lines.append('Inlined calls   : ' + str(self.get_inlined_calls()).rjust(8))
-        lines.append('Wrapped calls   : ' + str(self.get_wrapped_calls()).rjust(8))
-        lines.append('Analysis time   : ' + str(self.get_analysis_time()).rjust(8) + ' secs')
-        lines.append('Iterations      : ' + str(self.get_run_count()).rjust(8))
+        lines.append(
+            'Esp precision   : ' + str(self.esp_precision).rjust(8) + '%')
+        lines.append(
+            'Reads precision : ' + str(self.reads_precision).rjust(8) + '%')
+        lines.append(
+            'Writes precision: ' + str(self.writes_precision).rjust(8) + '%')
+        lines.append(
+            'Unresolved jumps: ' + str(self.unresolved_jumps).rjust(8))
+        lines.append('Calls           : ' + str(self.calls_count).rjust(8))
+        lines.append('Unresolved calls: ' + str(self.unresolved_calls).rjust(8))
+        lines.append('No summaries    : ' + str(self.no_summary).rjust(8))
+        lines.append('Dll calls       : ' + str(self.dll_calls).rjust(8))
+        lines.append('Static dll calls: ' + str(self.static_dll_calls).rjust(8))
+        lines.append('Inlined calls   : ' + str(self.inlined_calls).rjust(8))
+        lines.append('Wrapped calls   : ' + str(self.wrapped_calls).rjust(8))
+        lines.append(
+            'Analysis time   : ' + str(self.analysis_time).rjust(8) + ' secs')
+        lines.append('Iterations      : ' + str(self.run_count).rjust(8))
         lines.append('-' * 80)
         return '\n'.join(lines)
 
-    def header_to_string(self,space='   '):
-        lines  = []
+    def header_to_string(self, space: str = "   ") -> str:
+        lines: List[str] = []
         lines.append('-' * 80)
-        lines.append('function   ' + space + 'esp'.center(6) + space
-                        + 'reads'.center(6) + space
-                        + 'writes'.center(6) + space
-                        + 'unrc'.center(6) + space
-                        + 'blocks'.center(6) + space
-                        + 'instrs'.center(6) + space
-                        + 'time'.center(8))
+        lines.append(
+            'function   '
+            + space
+            + 'esp'.center(6)
+            + space
+            + 'reads'.center(6)
+            + space
+            + 'writes'.center(6)
+            + space
+            + 'unrc'.center(6)
+            + space
+            + 'blocks'.center(6)
+            + space
+            + 'instrs'.center(6)
+            + space
+            + 'time'.center(8))
         lines.append('-' * 80)
         return '\n'.join(lines)
-    
-    def _initialize_functions(self):
-        if len(self.functions) > 0: return
-        for f in self.xresults.find('functions').findall('fn'):
-            self.functions[f.get('a')] = AppResultFunctionMetrics(self,f)
-                                    

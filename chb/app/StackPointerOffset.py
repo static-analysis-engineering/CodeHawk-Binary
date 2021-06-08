@@ -26,42 +26,52 @@
 # ------------------------------------------------------------------------------
 """Stack pointer offset from position at start of function."""
 
-import chb.app.DictionaryRecord as D
-
 from typing import List, TYPE_CHECKING
+
+from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.app.FunctionDictionary
-    import chb.invariants.BXpr
+    import chb.app.Instruction
+    import chb.invariants.FnVarDictionary
+    import chb.invariants.FnXprDictionary
+    import chb.invariants.XInterval
 
 
-class StackPointerOffset(D.DictionaryRecord):
+class StackPointerOffset(IndexedTableValue):
 
     def __init__(
             self,
             d: "chb.app.FunctionDictionary.FunctionDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.DictionaryRecord.__init__(self, index, tags, args)
-        self.fnd = d
-        self._fn = d.function
-        self._vd = self._fn.vardictionary
-        self._xd = self._fn.xprdictionary
+            ixval: IndexedTableValue) -> None:
+        IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
+        self._d = d
+
+    @property
+    def function(self) -> "chb.app.Function.Function":
+        return self._d.function
+
+    @property
+    def vd(self) -> "chb.invariants.FnVarDictionary.FnVarDictionary":
+        return self.function.vardictionary
+
+    @property
+    def xd(self) -> "chb.invariants.FnXprDictionary.FnXprDictionary":
+        return self.function.xprdictionary
 
     @property
     def level(self) -> int:
         return self.args[0]
 
     @property
-    def offset(self) -> "chb.invariants.BXpr.BXInterval":
-        return self._xd.get_interval(self.args[1])
+    def offset(self) -> "chb.invariants.XInterval.XInterval":
+        return self.xd.interval(self.args[1])
 
     @property
     def is_closed(self) -> bool:
-        return self.offset.is_closed()
+        return self.offset.is_closed
 
-    def __str__(self):
+    def __str__(self) -> str:
         level = self.level + 1
         return (("[" * level)
                 + " "
