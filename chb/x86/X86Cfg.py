@@ -35,19 +35,25 @@ from typing import Dict, List, TYPE_CHECKING
 import chb.app.Cfg as C
 import chb.util.fileutil as UF
 
-from chb.asm.X86CfgBlock import X86CfgBlock
+from chb.x86.X86CfgBlock import X86CfgBlock
 
 if TYPE_CHECKING:
-    import chb.asm.AsmFunction
+    from chb.x86.X86Function import X86Function
+
 
 class X86Cfg(C.Cfg):
 
     def __init__(
             self,
-            f: "chb.asm.AsmFunction.AsmFunction",
+            x86f: "X86Function",
             xnode: ET.Element) -> None:
-        C.Cfg.__init__(self, f, xnode)
+        C.Cfg.__init__(self, xnode)
+        self._x86f = x86f
         self._blocks: Dict[str, X86CfgBlock] = {}
+
+    @property
+    def x86function(self) -> "X86Function":
+        return self._x86f
 
     @property
     def blocks(self) -> Dict[str, X86CfgBlock]:
