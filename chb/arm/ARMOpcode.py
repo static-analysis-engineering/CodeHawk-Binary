@@ -28,47 +28,71 @@
 
 from typing import List, Tuple, TYPE_CHECKING
 
-import chb.arm.ARMOpcodeBase as X
+from chb.app.InstrXData import InstrXData
+
+from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
+from chb.arm.ARMOperand import ARMOperand
+
+from chb.invariants.XXpr import XXpr
+
 import chb.util.fileutil as UF
+
+from chb.util.IndexedTable import IndexedTableValue
+
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
-arm_opcode_constructors = {
-    "ADD": lambda x: ARMAdd(*x)
+
+def simplify_result(id1: int, id2: int, x1: XXpr, x2: XXpr) -> str:
+    if id1 == id2:
+        return str(x1)
+    else:
+        return str(x1) + ' (= ' + str(x2) + ')'
+
+
+extensions = {
+    "eq": "EQ",
+    "ne": "NE",
+    "le": "LE",
+    "a": ""
     }
 
 
-def get_arm_opcode(
-        tag: str,
-        args: Tuple["chb.arm.ARMDictionary.ARMDictionary",
-                    int,
-                    List[str],
-                    List[int]]) -> X.ARMOpcodeBase:
-    if tag in arm_opcode_constructors:
-        return arm_opcode_constructors[tag](args)
+def get_extension(e: str) -> str:
+    if e in extensions:
+        return extensions[e]
     else:
-        return X.ARMOpcodeBase(*args)
+        return e
 
 
-class ARMAdd(X.ARMOpcodeBase):
+class ARMOpcode(ARMDictionaryRecord):
 
     def __init__(
             self,
             d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        X.ARMOpcodeBase.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        ARMDictionaryRecord.__init__(self, d, ixval)
 
-    def get_operands(self):
-        if len(self.args) > 0:
-            try:
-                return [self.d.get_arm_operand(i) for i in self.args if i > 0]
-            except Exception as e:
-                raise UF.CHBError(
-                    "Error in get_operands for args: "
-                    + ", ".join(str(i) for i in self.args)
-                    + ": "
-                    + str(e))
+    @property
+    def mnemonic(self) -> str:
+        return self.tags[0]
+
+    def get_annotation(self, xdata: InstrXData) -> str:
+        return self.__str__()
+
+    @property
+    def mnemonic_extension(self) -> str:
+        if self.mnemonic == "ITE NE":
+            return ""
+        elif len(self.tags) > 1:
+            return get_extension(self.tags[1])
+        else:
+            return ""
+
+    @property
+    def operands(self) -> List[ARMOperand]:
         return []
+
+    def __str__(self) -> str:
+        return self.tags[0] + ":pending"

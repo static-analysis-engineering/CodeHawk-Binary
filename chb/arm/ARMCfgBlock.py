@@ -34,13 +34,14 @@ import chb.util.fileutil as UF
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import chb.arm.ARMCfg
+    from chb.arm.ARMCfg import ARMCfg
 
 
 class ARMCfgBlock(B.CfgBlock):
 
     def __init__(
             self,
-            cfg: "chb.arm.ARMCfg.ARMCfg",
+            cfg: "ARMCfg",
             xnode: ET.Element) -> None:
-        B.CfgBlock.__init__(self, cfg, xnode)
+        B.CfgBlock.__init__(self, xnode)
+        self._armcfg = cfg

@@ -24,129 +24,170 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Operand of an ARM assembly instruction."""
+"""Different types of operand of an ARM assembly instruction.
+
+Corresponds to arm_operand_kind_t in bchlibarm32/BCHARMTypes
+
+                                                    tags[0]   tags         args
+type arm_operand_kind_t =
+  | ARMDMBOption of dmb_option_t                      "d"       2            0
+  | ARMReg of arm_reg_t                               "r"       2            0
+  | ARMRegList of arm_reg_t list                      "l"     1+len(regs)    0
+  | ARMShiftedReg of                                  "s"       2            1
+     arm_reg_t
+     * register_shift_rotate_t
+  | ARMRegBitSequence of arm_reg_t * int * int        "b"       2            2
+     (* lsb, widthm1 *)
+  | ARMImmediate of immediate_int                     "i"       2            0
+  | ARMAbsolute of doubleword_int                     "a"       1            1
+  | ARMMemMultiple of arm_reg_t * int                 "m"       2            1
+     (* number of locations *)
+  | ARMOffsetAddress of                               "o"       2            4
+      arm_reg_t  (* base register *)
+      * arm_memory_offset_t (* offset *)
+      * bool (* isadd *)
+      * bool (* iswback *)
+      * bool (* isindex *)
+"""
 
 from typing import List, TYPE_CHECKING
 
-import chb.arm.ARMDictionaryRecord as D
+from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord, armregistry
+
 import chb.util.fileutil as UF
 
+from chb.util.IndexedTable import IndexedTableValue
+
 if TYPE_CHECKING:
-    import chb.app.BDictionary
-    import chb.arm.ARMDictionary
-    import chb.arm.ARMMemoryOffset
-    import chb.arm.ARMShiftRotate
+    from chb.app.BDictionary import BDictionary, AsmAddress
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMMemoryOffset import ARMMemoryOffset
+    from chb.arm.ARMShiftRotate import ARMShiftRotate
 
 
-class ARMOperandKind(D.ARMDictionaryRecord):
+class ARMOperandKind(ARMDictionaryRecord):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.ARMDictionaryRecord.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMDictionaryRecord.__init__(self, d, ixval)
 
+    @property
     def is_arm_absolute(self) -> bool:
         return False
 
+    @property
     def is_arm_immediate(self) -> bool:
         return False
 
+    def __str__(self) -> str:
+        return "operandkind: " + self.tags[0]
 
+
+@armregistry.register_tag("r", ARMOperandKind)
 class ARMRegisterOp(ARMOperandKind):
+    """Regular register.
+
+    tags[1]: name of register
+    """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMOperandKind.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
 
-    def get_register(self) -> str:
+    @property
+    def register(self) -> str:
         return self.tags[1]
 
     def __str__(self) -> str:
-        return self.get_register()
+        return self.register
 
 
+@armregistry.register_tag("l", ARMOperandKind)
 class ARMRegListOp(ARMOperandKind):
+    """List of regular registers.
+
+    tags[1...]: names of registers
+    """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMOperandKind.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
 
-    def get_registers(self) -> List[str]:
+    @property
+    def registers(self) -> List[str]:
         return self.tags[1:]
 
     def __str__(self) -> str:
-        return "{" + ",".join(self.get_registers()) + "}"
+        return "{" + ",".join(self.registers) + "}"
 
 
+@armregistry.register_tag("s", ARMOperandKind)
 class ARMShiftedRegisterOp(ARMOperandKind):
+    """Value of register shifted by a certain amount.
+
+    tags[1]: name of register
+    args[0]: index of register-shift-rotate in armdictionary
+    """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMOperandKind.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
 
-    def get_register(self) -> str:
+    @property
+    def register(self) -> str:
         return self.tags[1]
 
-    def get_srt(self) -> "chb.arm.ARMShiftRotate.ARMShiftRotate":
-        return self.d.get_arm_register_shift(self.args[0])
+    @property
+    def shift_rotate(self) -> "ARMShiftRotate":
+        return self.armd.arm_register_shift(self.args[0])
 
-    def __str__(self):
-        return self.get_register() + "," + str(self.get_srt())
+    def __str__(self) -> str:
+        return self.register + "," + str(self.shift_rotate)
 
 
+@armregistry.register_tag("b", ARMOperandKind)
 class ARMRegBitSequenceOp(ARMOperandKind):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMOperandKind.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
 
 
+@armregistry.register_tag("a", ARMOperandKind)
 class ARMAbsoluteOp(ARMOperandKind):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMOperandKind.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
 
     @property
-    def address(self) -> "chb.app.BDictionary.AsmAddress":
-        return self.d.app.bdictionary.get_address(self.args[0])
+    def address(self) -> "AsmAddress":
+        return self.bd.address(self.args[0])
 
     def __str__(self) -> str:
         return str(self.address)
 
 
+@armregistry.register_tag("m", ARMOperandKind)
 class ARMMemMultipleOp(ARMOperandKind):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMOperandKind.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
 
     @property
     def register(self) -> str:
@@ -156,26 +197,26 @@ class ARMMemMultipleOp(ARMOperandKind):
     def count(self) -> int:
         return self.args[1]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.register
 
 
+@armregistry.register_tag("o", ARMOperandKind)
 class ARMOffsetAddressOp(ARMOperandKind):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMOperandKind.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
 
     @property
     def register(self) -> str:
         return self.tags[1]
 
-    def get_memory_offset(self) -> "chb.arm.ARMMemoryOffset.ARMMemoryOffset":
-        return self.d.get_arm_memory_offset(self.args[0])
+    @property
+    def memory_offset(self) -> "ARMMemoryOffset":
+        return self.armd.arm_memory_offset(self.args[0])
 
     @property
     def is_add(self) -> bool:
@@ -190,7 +231,7 @@ class ARMOffsetAddressOp(ARMOperandKind):
         return self.args[3] == 1
 
     def __str__(self) -> str:
-        memoffset = str(self.get_memory_offset())
+        memoffset = str(self.memory_offset)
         if not self.is_add:
             memoffset = "-" + memoffset
         if self.is_write_back:
@@ -202,15 +243,14 @@ class ARMOffsetAddressOp(ARMOperandKind):
             return "[" + self.register + ", " + memoffset + "]"
 
 
+@armregistry.register_tag("i", ARMOperandKind)
 class ARMImmediateOp(ARMOperandKind):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMOperandKind.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
 
     @property
     def value(self) -> int:
@@ -222,7 +262,8 @@ class ARMImmediateOp(ARMOperandKind):
     def to_signed_int(self) -> int:
         return self.value
 
-    def is_arm_immediate(self):
+    @property
+    def is_arm_immediate(self) -> bool:
         return True
 
     def __str__(self) -> str:

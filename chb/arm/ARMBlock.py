@@ -27,29 +27,41 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, Dict, List, Mapping, TYPE_CHECKING
+from typing import Callable, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
-import chb.app.BasicBlock as B
+from chb.app.BasicBlock import BasicBlock
+
 import chb.util.fileutil as UF
 
+from chb.arm.ARMDictionary import ARMDictionary
 from chb.arm.ARMInstruction import ARMInstruction
 
+from chb.invariants.XXpr import XXpr
+
 if TYPE_CHECKING:
-    import chb.arm.ARMFunction
-    import chb.app.Instruction
+    from chb.arm.ARMFunction import ARMFunction
 
 
-class ARMBlock(B.BasicBlock):
+class ARMBlock(BasicBlock):
 
     def __init__(
             self,
-            armf: "chb.arm.ARMFunction.ARMFunction",
+            armf: "ARMFunction",
             xnode: ET.Element) -> None:
-        B.BasicBlock.__init__(self, armf, xnode)
+        BasicBlock.__init__(self, xnode)
+        self._armf = armf
         self._instructions: Dict[str, ARMInstruction] = {}
 
     @property
-    def instructions(self) -> Mapping[str, "chb.app.Instruction.Instruction"]:
+    def armfunction(self) -> "ARMFunction":
+        return self._armf
+
+    @property
+    def armdictionary(self) -> ARMDictionary:
+        return self.armfunction.armdictionary
+
+    @property
+    def instructions(self) -> Mapping[str, ARMInstruction]:
         if len(self._instructions) == 0:
             for n in self.xnode.findall("i"):
                 iaddr = n.get("ia")
@@ -57,3 +69,23 @@ class ARMBlock(B.BasicBlock):
                     raise UF.CHBError("ARM Instruction without address in xml")
                 self._instructions[iaddr] = ARMInstruction(self, n)
         return self._instructions
+
+    @property
+    def call_instructions(self) -> Sequence[ARMInstruction]:
+        return []
+
+    def to_string(
+            self,
+            bytes: bool = False,
+            opcodetxt: bool = True,
+            opcodewidth: int = 25,
+            sp: bool = True) -> str:
+        lines: List[str] = []
+        for (ia, instr) in sorted(self.instructions.items()):
+            pinstr = instr.to_string(
+                bytes=bytes,
+                opcodetxt=opcodetxt,
+                opcodewidth=opcodewidth,
+                sp=sp)
+            lines.append(str(ia).rjust(10) + "  " + pinstr)
+        return "\n".join(lines)

@@ -26,33 +26,33 @@
 # ------------------------------------------------------------------------------
 """Representation of ARM registers."""
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-import chb.app.DictionaryRecord as D
+from chb.app.BDictionaryRecord import bdregistry
+from chb.app.Register import Register
+
+from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.app.BDictionary
 
 
-class ARMRegisterBase(D.BDictionaryRecord):
+class ARMRegisterBase(Register):
 
     def __init__(
             self,
             bd: "chb.app.BDictionary.BDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.BDictionaryRecord.__init__(self, bd, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        Register.__init__(self, bd, ixval)
 
 
+@bdregistry.register_tag("a", Register)
 class ARMRegister(ARMRegisterBase):
 
     def __init__(self,
                  bd: "chb.app.BDictionary.BDictionary",
-                 index: int,
-                 tags: List[str],
-                 args: List[int]) -> None:
-        ARMRegisterBase.__init__(self, bd, index, tags, args)
+                 ixval: IndexedTableValue) -> None:
+        ARMRegisterBase.__init__(self, bd, ixval)
 
     def __str__(self) -> str:
         return self.tags[1]
