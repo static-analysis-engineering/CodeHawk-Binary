@@ -26,31 +26,30 @@
 # ------------------------------------------------------------------------------
 """Operand of an ARM assembly instruction."""
 
-
 from typing import List, TYPE_CHECKING
 
-import chb.app.Operand as O
-import chb.arm.ARMDictionaryRecord as D
-import chb.arm.ARMOperandKind as K
+from chb.app.Operand import Operand
+from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
+from chb.arm.ARMOperandKind import ARMOperandKind
+
+from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
-class ARMOperand(D.ARMDictionaryRecord, O.Operand):
+class ARMOperand(ARMDictionaryRecord, Operand):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.ARMDictionaryRecord.__init__(self, d, index, tags, args)
-        O.Operand.__init__(self)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMDictionaryRecord.__init__(self, d, ixval)
+        Operand.__init__(self)
 
     @property
-    def arm_opkind(self) -> K.ARMOperandKind:
-        return self.d.get_arm_opkind(self.args[0])
+    def arm_opkind(self) -> ARMOperandKind:
+        return self.armd.arm_opkind(self.args[0])
 
     def __str__(self) -> str:
         return str(self.arm_opkind)

@@ -27,31 +27,65 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Mapping, Optional, TYPE_CHECKING
+from typing import Callable, cast, Dict, List, Mapping, Optional, Sequence
 
-import chb.app.Function as F
-import chb.app.Cfg as C
-import chb.arm.ARMBlock as B
-import chb.arm.ARMCfg as CFG
+from chb.api.InterfaceDictionary import InterfaceDictionary
+
+from chb.app.BasicBlock import BasicBlock
+from chb.app.BDictionary import BDictionary
+from chb.app.Function import Function
+from chb.app.FunctionDictionary import FunctionDictionary
+from chb.app.FunctionInfo import FunctionInfo
+from chb.app.Cfg import Cfg
+from chb.app.StringXRefs import StringsXRefs
+
+from chb.invariants.FnVarDictionary import FnVarDictionary
+from chb.invariants.FnXprDictionary import FnXprDictionary
+
+from chb.arm.ARMBlock import ARMBlock
+from chb.arm.ARMDictionary import ARMDictionary
+from chb.arm.ARMInstruction import ARMInstruction
+from chb.arm.ARMCfg import ARMCfg
+
 import chb.util.fileutil as UF
 
-if TYPE_CHECKING:
-    import chb.app.AppAccess
-    import chb.app.BasicBlock
 
-
-class ARMFunction(F.Function):
+class ARMFunction(Function):
 
     def __init__(
             self,
-            app: "chb.app.AppAccess.AppAccess",
+            path: str,
+            filename: str,
+            bd: BDictionary,
+            ixd: InterfaceDictionary,
+            finfo: FunctionInfo,
+            armd: ARMDictionary,
+            stringsxrefs: StringsXRefs,
+            names: Sequence[str],
             xnode: ET.Element) -> None:
-        F.Function.__init__(self, app, xnode)
-        self._cfg: Optional[CFG.ARMCfg] = None
-        self._blocks: Dict[str, B.ARMBlock] = {}
+        Function.__init__(
+            self, path, filename, bd, ixd, finfo, stringsxrefs, names, xnode)
+        self._armd = armd
+        self._cfg: Optional[ARMCfg] = None
+        self._blocks: Dict[str, ARMBlock] = {}
+        self._instructions: Dict[str, ARMInstruction] = {}
+        self._armfnd: Optional[FunctionDictionary] = None
 
     @property
-    def blocks(self) -> Mapping[str, "chb.app.BasicBlock.BasicBlock"]:
+    def armdictionary(self) -> ARMDictionary:
+        return self._armd
+
+    @property
+    def armfunctiondictionary(self) -> FunctionDictionary:
+        if self._armfnd is None:
+            xfnd = self.xnode.find("instr-dictionary")
+            if xfnd is None:
+                raise UF.CHBError("Element instr-dictionary missing from xml")
+            self._armfnd = FunctionDictionary(self, xfnd)
+        return self._armfnd
+
+    @property
+    def blocks(self) -> Mapping[str, ARMBlock]:
         if len(self._blocks) == 0:
             xinstrs = self.xnode.find("instructions")
             if xinstrs is None:
@@ -60,29 +94,67 @@ class ARMFunction(F.Function):
                 baddr = n.get("ba")
                 if baddr is None:
                     raise UF.CHBError("ARM block address missing from xml")
-                self._blocks[baddr] = B.ARMBlock(self, n)
+                self._blocks[baddr] = ARMBlock(self, n)
         return self._blocks
 
     @property
-    def cfg(self) -> C.Cfg:
+    def instructions(self) -> Mapping[str, ARMInstruction]:
+        if len(self._instructions) == 0:
+            result: Dict[str, ARMInstruction] = {}
+
+            def f(baddr: str, block: ARMBlock) -> None:
+                result.update(block.instructions)
+
+            self.iter_blocks(f)
+            return result
+        return self._instructions
+
+    def iter_blocks(self, f: Callable[[str, ARMBlock], None]) -> None:
+        for (ba, block) in self.blocks.items():
+            armblock = cast(ARMBlock, block)
+            f(ba, armblock)
+
+    def iter_instructions(self, f: Callable[[str, ARMInstruction], None]) -> None:
+        for (ia, instr) in self.instructions.items():
+            arminstr = cast(ARMInstruction, instr)
+            f(ia, arminstr)
+
+    def set_fnvar_dictionary(self, xnode: ET.Element) -> FnVarDictionary:
+        return FnVarDictionary(self, xnode)
+
+    def strings_referenced(self) -> List[str]:
+        result: List[str] = []
+
+        def f(iaddr: str, instr: ARMInstruction) -> None:
+            result.extend(instr.strings_referenced)
+
+        self.iter_instructions(f)
+        return result
+
+    @property
+    def cfg(self) -> Cfg:
         if self._cfg is None:
             xcfg = self.xnode.find("cfg")
             if xcfg is None:
                 raise UF.CHBError("cfg element is missing from arm function")
-            self._cfg = CFG.ARMCfg(self, xcfg)
+            self._cfg = ARMCfg(self, xcfg)
         return self._cfg
 
     def to_string(
             self,
+            bytes: bool = False,
             bytestring: bool = False,
-            sp: bool = False,
-            opcodetxt: bool = True,
             hash: bool = False,
-            opcodewidth: int = 40) -> str:
+            opcodetxt: bool = True,
+            opcodewidth: int = 25,
+            sp: bool = True) -> str:
         lines: List[str] = []
         for b in sorted(self.blocks):
             lines.append(
                 self.blocks[b].to_string(
-                    sp=sp, opcodetxt=opcodetxt, opcodewidth=opcodewidth))
+                    bytes=bytes,
+                    opcodetxt=opcodetxt,
+                    opcodewidth=opcodewidth,
+                    sp=sp))
             lines.append("-" * 80)
         return "\n".join(lines)

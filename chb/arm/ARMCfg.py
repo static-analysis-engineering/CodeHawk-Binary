@@ -28,27 +28,34 @@
 
 import xml.etree.ElementTree as ET
 
-import chb.app.Cfg as C
-import chb.arm.ARMCfgBlock as B
-import chb.arm.ARMCfgPath as P
-import chb.util.fileutil as UF
-
 from typing import Dict, List, Optional, TYPE_CHECKING
 
+from chb.app.Cfg import Cfg
+from chb.arm.ARMCfgBlock import ARMCfgBlock
+import chb.arm.ARMCfgPath as P
+
+import chb.util.fileutil as UF
+
+
 if TYPE_CHECKING:
-    import chb.arm.ARMFunction
+    from chb.arm.ARMFunction import ARMFunction
 
 
-class ARMCfg(C.Cfg):
+class ARMCfg(Cfg):
 
     def __init__(self,
-                 armf: "chb.arm.ARMFunction.ARMFunction",
+                 armf: "ARMFunction",
                  xnode: ET.Element) -> None:
-        C.Cfg.__init__(self, armf, xnode)
-        self._blocks: Dict[str, B.ARMCfgBlock] = {}
+        Cfg.__init__(self, xnode)
+        self._armf = armf
+        self._blocks: Dict[str, ARMCfgBlock] = {}
 
     @property
-    def blocks(self) -> Dict[str, B.ARMCfgBlock]:
+    def armfunction(self) -> "ARMFunction":
+        return self._armf
+
+    @property
+    def blocks(self) -> Dict[str, ARMCfgBlock]:
         if len(self._blocks) == 0:
             cfgblocks = self.xnode.find("blocks")
             if cfgblocks is None:
@@ -57,5 +64,5 @@ class ARMCfg(C.Cfg):
                 baddr = b.get("ba")
                 if baddr is None:
                     raise UF.CHBError("Block address is missing from arm cfg")
-                self._blocks[baddr] = B.ARMCfgBlock(self, b)
+                self._blocks[baddr] = ARMCfgBlock(self, b)
         return self._blocks

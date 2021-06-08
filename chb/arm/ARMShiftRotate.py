@@ -24,60 +24,99 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Different types of memory offset in an ARM assembly instruction operand."""
+"""Different ways arm operands can be rotated.
+
+Corresponds to arm_register_shift_rotate_t in bchlibarm32/bCHARMTypes:
+
+                                                   tags[0]   tags   args
+type register_shift_rotate_t =
+  | ARMImmSRT of shift_rotate_type_t * int           "i"       2      1
+      (* immediate shift amount *)
+  | ARMRegSRT of shift_rotate_type_t * arm_reg_t     "r"       3      0
+      (* shift amount in reg *)
+
+and
+                                 tag
+type shift_rotate_type_t =
+  | SRType_LSL                  "LSL"
+  | SRType_LSR                  "LSR"
+  | SRType_ASR                  "ASR"
+  | SRType_ROR                  "ROR"
+  | SRType_RRX                  "RRX"
+
+"""
 
 from typing import List, TYPE_CHECKING
 
-import chb.arm.ARMDictionaryRecord as D
+from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord, armregistry
+
 import chb.util.fileutil as UF
+
+from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-class ARMShiftRotate(D.ARMDictionaryRecord):
+class ARMShiftRotate(ARMDictionaryRecord):
 
     def __init__(
             self,
             d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.ARMDictionaryRecord.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        ARMDictionaryRecord.__init__(self, d, ixval)
 
-    def get_srt(self) -> str:
+    def __str__(self) -> str:
+        return "shift-rotate: " + self.tags[0]
+
+
+@armregistry.register_tag("i", ARMShiftRotate)
+class ARMImmSRT(ARMShiftRotate):
+    """Immediate shift amount.
+
+    tags[1]: shift-rotate type
+    args[0]: amount to be shifted (integer)
+    """
+
+    def __init__(
+            self,
+            d: "chb.arm.ARMDictionary.ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMShiftRotate.__init__(self, d, ixval)
+
+    @property
+    def shift_rotate_type(self) -> str:
         return self.tags[1]
 
-
-class ARMImmSRT(ARMShiftRotate):
-
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMShiftRotate.__init__(self, d, index, tags, args)
-
-    def get_immediate(self) -> int:
+    @property
+    def shift_amount(self) -> int:
         return self.args[0]
 
     def __str__(self) -> str:
-        return self.get_srt() + " #" + hex(self.get_immediate())
+        return self.shift_rotate_type + " #" + hex(self.shift_amount)
 
 
+@armregistry.register_tag("r", ARMShiftRotate)
 class ARMRegSRT(ARMShiftRotate):
+    """Amount to be shifted in register.
+
+    tags[1]: shift-rotate type
+    tags[2]: register that holds shift amount
+    """
 
     def __init__(
             self,
             d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMShiftRotate.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        ARMShiftRotate.__init__(self, d, ixval)
 
-    def get_register(self) -> str:
+    @property
+    def shift_rotate_type(self) -> str:
+        return self.tags[1]
+
+    @property
+    def register(self) -> str:
         return self.tags[2]
 
     def __str__(self) -> str:
-        return self.get_srt() + " " + self.get_register()
+        return self.shift_rotate_type + " " + self.register

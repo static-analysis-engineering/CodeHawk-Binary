@@ -24,78 +24,94 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Different types of memory offset in an ARM assembly instruction operand."""
+"""Different types of memory offset in an ARM assembly instruction operand.
+
+Based on type arm_memory_offset_t in bchlibarm32/bCHARMTypes:
+
+                                         tags[0]    tags    args
+type arm_memory_offset_t =
+  | ARMImmOffset of int                    "i"        1       1
+  | ARMIndexOffset of arm_reg_t            "x"        2       0
+  | ARMShiftedIndexOffset of               "s"        2       1
+      arm_reg_t
+      * register_shift_rotate_t
+"""
 
 from typing import List, TYPE_CHECKING
 
-import chb.arm.ARMDictionaryRecord as D
+from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord, armregistry
+
 import chb.util.fileutil as UF
 
+from chb.util.IndexedTable import IndexedTableValue
+
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
-    import chb.arm.ARMShiftRotate
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMShiftRotate import ARMShiftRotate
 
 
-class ARMMemoryOffset(D.ARMDictionaryRecord):
+class ARMMemoryOffset(ARMDictionaryRecord):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.ARMDictionaryRecord.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMDictionaryRecord.__init__(self, d, ixval)
+
+    def __str(self) -> str:
+        return "memory-offset: " + self.tags[0]
 
 
+@armregistry.register_tag("i", ARMMemoryOffset)
 class ARMImmOffset(ARMMemoryOffset):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMMemoryOffset.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMMemoryOffset.__init__(self, d, ixval)
 
-    def get_immediate(self) -> int:
+    @property
+    def immediate(self) -> int:
         return self.args[0]
 
     def __str__(self) -> str:
-        return "#" + hex(self.get_immediate())
+        return "#" + hex(self.immediate)
 
 
+@armregistry.register_tag("x", ARMMemoryOffset)
 class ARMIndexOffset(ARMMemoryOffset):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMMemoryOffset.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMMemoryOffset.__init__(self, d, ixval)
 
-    def get_register(self) -> str:
+    @property
+    def register(self) -> str:
         return self.tags[1]
 
     def __str(self) -> str:
-        return self.get_register()
+        return self.register
 
 
+@armregistry.register_tag("s", ARMMemoryOffset)
 class ARMShiftedIndexOffset(ARMMemoryOffset):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        ARMMemoryOffset.__init__(self, d, index, tags, args)
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMMemoryOffset.__init__(self, d, ixval)
 
-    def get_register(self) -> str:
+    @property
+    def register(self) -> str:
         return self.tags[1]
 
-    def get_srt(self) -> "chb.arm.ARMShiftRotate.ARMShiftRotate":
-        return self.d.get_arm_register_shift(self.args[0])
+    @property
+    def shift_rotate(self) -> "ARMShiftRotate":
+        return self.armd.arm_register_shift(self.args[0])
 
     def __str__(self) -> str:
-        return self.get_register() + "," + str(self.get_srt())
+        return self.register + "," + str(self.shift_rotate)

@@ -26,24 +26,71 @@
 # ------------------------------------------------------------------------------
 """Operand of an ARM assembly instruction."""
 
-from typing import List, TYPE_CHECKING
+from typing import Callable, cast, Dict, List, Tuple, Type, TypeVar, TYPE_CHECKING
 
-import chb.app.DictionaryRecord as D
+import chb.util.fileutil as UF
+
+from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    import chb.app.AppAccess
+    import chb.app.BDictionary
     import chb.arm.ARMDictionary
 
 
-class ARMDictionaryRecord(D.DictionaryRecord):
+class ARMDictionaryRecord(IndexedTableValue):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.DictionaryRecord.__init__(self, index, tags, args)
-        self.d = d
+            armd: "chb.arm.ARMDictionary.ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
+        self._armd = armd
 
-    def __str__(self):
-        return "arm-record: " + str(self.get_key())
+    @property
+    def armd(self) -> "chb.arm.ARMDictionary.ARMDictionary":
+        return self._armd
+
+    @property
+    def app(self) -> "chb.app.AppAccess.AppAccess":
+        return self.armd.app
+
+    @property
+    def bd(self) -> "chb.app.BDictionary.BDictionary":
+        return self.armd.bd
+
+    def __str__(self) -> str:
+        return "arm-record: " + str(self.key)
+
+
+AdR = TypeVar("AdR", bound=ARMDictionaryRecord, covariant=True)
+
+
+class ARMDictionaryRegistry:
+
+    def __init__(self) -> None:
+        self.register: Dict[Tuple[type, str], Type[ARMDictionaryRecord]] = {}
+
+    def register_tag(
+            self,
+            tag: str,
+            anchor: type) -> Callable[[type], type]:
+        def handler(t: type) -> type:
+            self.register[(anchor, tag)] = t
+            return t
+        return handler
+
+    def mk_instance(
+            self,
+            ad: "chb.arm.ARMDictionary.ARMDictionary",
+            ixval: IndexedTableValue,
+            anchor: Type[AdR]) -> AdR:
+        tag = ixval.tags[0]
+        if (anchor, tag) not in self.register:
+            raise UF.CHBError(
+                "Unknown armdictionary type: " + tag + " with type " + str(anchor))
+        instance = self.register[(anchor, tag)](ad, ixval)
+        return cast(AdR, instance)
+
+
+armregistry: ARMDictionaryRegistry = ARMDictionaryRegistry()

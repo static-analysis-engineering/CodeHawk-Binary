@@ -27,32 +27,72 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, Dict, List, Sequence, TYPE_CHECKING
+from typing import Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
 
-import chb.app.Instruction as I
-import chb.app.Operand as O
-import chb.app.StackPointerOffset as S
+from chb.app.FunctionDictionary import FunctionDictionary
+from chb.app.Instruction import Instruction
+from chb.app.InstrXData import InstrXData
+from chb.app.Operand import Operand
+from chb.app.StackPointerOffset import StackPointerOffset
+
+from chb.arm.ARMDictionary import ARMDictionary
+# from chb.arm.ARMFunctionDictionary import ARMFunctionDictionary
+from chb.arm.ARMOpcode import ARMOpcode
+from chb.arm.ARMOperand import ARMOperand
+
+from chb.invariants.XXpr import XXpr
+
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
 
 if TYPE_CHECKING:
-    import chb.arm.ARMBlock
-    import chb.arm.ARMOperand
+    from chb.arm.ARMBlock import ARMBlock
+    from chb.arm.ARMFunction import ARMFunction
 
 
-class ARMInstruction(I.Instruction):
+class ARMInstruction(Instruction):
 
     def __init__(
             self,
-            armb: "chb.arm.ARMBlock.ARMBlock",
+            armblock: "ARMBlock",
             xnode: ET.Element) -> None:
-        I.Instruction.__init__(self, armb, xnode)
-        self.armdictionary = self.function.app.armdictionary
+        Instruction.__init__(self, xnode)
+        self._armblock = armblock
+        self._opcode: Optional[ARMOpcode] = None
+        self._opcodetext: Optional[str] = None
+        self._xdata: Optional[InstrXData] = None
+
+    @property
+    def armblock(self) -> "ARMBlock":
+        return self._armblock
+
+    @property
+    def armfunction(self) -> "ARMFunction":
+        return self.armblock.armfunction
+
+    @property
+    def armdictionary(self) -> ARMDictionary:
+        return self.armblock.armdictionary
+
+    @property
+    def armfunctiondictionary(self) -> "FunctionDictionary":
+        return self.armfunction.armfunctiondictionary
+
+    @property
+    def opcode(self) -> ARMOpcode:
+        if self._opcode is None:
+            self._opcode = self.armdictionary.read_xml_arm_opcode(self.xnode)
+        return self._opcode
+
+    @property
+    def xdata(self) -> InstrXData:
+        if self._xdata is None:
+            self._xdata = self.armfunctiondictionary.read_xml_instrx(self.xnode)
+        return self._xdata
 
     @property
     def mnemonic(self) -> str:
-        opcode = self.armdictionary.read_xml_arm_opcode(self.xnode)
-        return opcode.get_mnemonic()
+        return self.opcode.mnemonic + self.opcode.mnemonic_extension
 
     @property
     def opcodetext(self) -> str:
@@ -65,36 +105,63 @@ class ARMInstruction(I.Instruction):
                 "Error for ARM opcode "
                 + str(opcode)
                 + " in function: "
-                + self.function.faddr
+                + self.armfunction.faddr
                 + " at address "
                 + self.iaddr
                 + ": "
                 + str(e))
 
     @property
-    def operands(self) -> Sequence["chb.arm.ARMOperand.ARMOperand"]:
-        opcode = self.armdictionary.read_xml_arm_opcode(self.xnode)
-        return opcode.get_operands()
+    def operands(self) -> Sequence[ARMOperand]:
+        return self.opcode.operands
 
-    @property   # -- STUB --
+    @property
+    def bytestring(self) -> str:
+        return self.armdictionary.read_xml_arm_bytestring(self.xnode)
+
+    @property
+    def is_call_instruction(self) -> bool:
+        raise UF.CHBError("is-call-instruction: not implemented")
+
+    @property
+    def is_return_instruction(self) -> bool:
+        raise UF.CHBError("is-return-instruction: not implemented")
+
+    @property
+    def is_branch_instruction(self) -> bool:
+        raise UF.CHBError("is-branch-instruction: not implemented")
+
+    def return_expr(self) -> XXpr:
+        raise UF.CHBError("get-return-expr: not implemented")
+
+    @property
+    def ft_conditions(self) -> Sequence[XXpr]:
+        return []
+
+    @property
     def annotation(self) -> str:
-        return ""
+        return self.opcode.get_annotation(self.xdata).ljust(40)
 
-    @property   # -- STUB --
-    def stackpointer_offset(self) -> S.StackPointerOffset:
-        return self.function.fndictionary.read_xml_sp_offset(self.xnode)
+    @property
+    def stackpointer_offset(self) -> StackPointerOffset:
+        return self.armfunctiondictionary.read_xml_sp_offset(self.xnode)
+
+    @property
+    def strings_referenced(self) -> Sequence[str]:
+        return []
+
+    @property
+    def call_arguments(self) -> Sequence[XXpr]:
+        return []
 
     def to_string(
             self,
-            sp: bool = False,
+            bytes: bool = False,
             opcodetxt: bool = True,
-            align: bool = True,
-            opcodewidth: int = 40) -> str:
+            opcodewidth: int = 25,
+            sp: bool = False) -> str:
+        pbytes = self.bytestring.ljust(10) + "  " if bytes else ""
         pesp = str(self.stackpointer_offset) + "  " if sp else ""
-        if align:
-            popcode = (
-                self.opcodetext.ljust(opcodewidth) if opcodetxt else "")
-            return pesp + popcode + self.annotation
-        else:
-            popcode = self.opcodetext
-            return popcode + "  [[" + self.annotation + "]]"
+        popcode = (
+            self.opcodetext.ljust(opcodewidth) if opcodetxt else "")
+        return pesp + pbytes + popcode + self.annotation
