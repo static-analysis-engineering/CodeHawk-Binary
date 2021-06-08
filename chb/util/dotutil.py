@@ -34,35 +34,35 @@ import subprocess
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import chb.util.DotGraph
+    from chb.util.DotGraph import DotGraph
 
 
 def print_dot(
         path: str,
         filename: str,
-        g: "chb.util.DotGraph.DotGraph") -> str:
+        g: "DotGraph") -> str:
     if not os.path.isabs(filename):
         filename = os.path.join(path, filename)
     dotfilename = filename + ".dot"
     pdffilename = filename + ".pdf"
 
     # write graph to dot format
-    with open(dotfilename,"w") as fp:
+    with open(dotfilename, "w") as fp:
         fp.write(str(g))
 
     # convert dot file to pdf
     cmd = ["dot", "-Tpdf", "-o", pdffilename, dotfilename]
     try:
-        subprocess.call(cmd,stderr=subprocess.STDOUT)
+        subprocess.call(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         print("Error in processing dot file: " + dotfilename)
         print(e.output)
         print(e.args)
         exit(1)
-    return pdffilename        
+    return pdffilename
 
 
-def save_dot(path: str, filename: str, g) -> None:
+def save_dot(path: str, filename: str, g: "DotGraph") -> None:
     if not os.path.isabs(filename):
         filename = os.path.join(path, filename)
     dotfilename = filename + ".dot"
@@ -70,7 +70,7 @@ def save_dot(path: str, filename: str, g) -> None:
         fp.write(str(g))
 
 
-def save_svg(path: str, filename: str, g) -> None:
+def save_svg(path: str, filename: str, g: "DotGraph") -> None:
     if not os.path.isabs(filename):
         filename = os.path.join(path, filename)
     dotfilename = filename + ".dot"
@@ -79,7 +79,7 @@ def save_svg(path: str, filename: str, g) -> None:
         fp.write(str(g))
     cmd = ["dot", "-Tsvg", "-o", svgfilename, dotfilename]
     try:
-        subprocess.call(cmd,stderr=subprocess.STDOUT)
+        subprocess.call(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         print("Error in processing dot file: " + dotfilename)
         print(e.output)

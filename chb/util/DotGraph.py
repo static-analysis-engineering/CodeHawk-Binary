@@ -31,9 +31,10 @@ from typing import Dict, List, Optional, Tuple
 
 max_label_length = 1000
 
+
 def sanitize(s: str) -> str:
-    if not s is None:
-        return s.replace('>','\>').replace('"','\\"').replace('%','\%')
+    if s is not None:
+        return s.replace('>', "\>").replace('"', '\\"').replace('%', "\%")
 
 
 class DotNode:
@@ -65,12 +66,12 @@ class DotNode:
             labeltxt = ''
         elif len(self.labeltxt) > max_label_length:
             # suppress labels that are too long
-            labeltxt =  'label="' + self.name + '\\n...."'
+            labeltxt = 'label="' + self.name + '\\n...."'
         else:
             labeltxt = 'label="' + self.labeltxt + '"'
         if self.shaded:
             shadetxt = 'style=filled,color=".7 .3 1.0"'
-        elif not self.color is None:
+        elif self.color is not None:
             shadetxt = 'style=filled,color="' + self.color + '"'
         else:
             shadetxt = 'style=filled,color=".7 .3 1.0"'
@@ -98,10 +99,10 @@ class DotEdge:
         self.labeltxt = labeltxt
         self.addquotes = True
 
-    def set_label(self, s: str):
+    def set_label(self, s: str) -> None:
         self.label = s
 
-    def __str__(self):
+    def __str__(self) -> str:
         quote = '"' if self.addquotes else ''
         if self.labeltxt is None:
             attrs = ''
@@ -109,7 +110,7 @@ class DotEdge:
             attrs = ' [ label="' + self.labeltxt + '" ];'
         return (
             quote + self.src + quote + ' -> ' + quote + self.tgt + quote + attrs)
-        
+
 
 class DotGraph:
 
@@ -125,12 +126,12 @@ class DotGraph:
             labeltxt: Optional[str] = None,
             shaded: bool = False,
             color: Optional[str] = None) -> None:
-        if not name in self.nodes:
+        if name not in self.nodes:
             if labeltxt is None:
                 labeltxt = name
             labeltxt = sanitize(labeltxt)
             self.nodes[name] = DotNode(
-                name,labeltxt=labeltxt,shaded=shaded,color=color)
+                name, labeltxt=labeltxt, shaded=shaded, color=color)
 
     def add_edge(
             self,
@@ -166,4 +167,3 @@ class DotGraph:
             lines.append(str(self.edges[e]))
         lines.append(' }')
         return '\n'.join(lines)
-    

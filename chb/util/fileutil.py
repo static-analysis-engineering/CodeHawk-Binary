@@ -84,8 +84,10 @@ import subprocess
 import shutil
 import xml.etree.ElementTree as ET
 
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+
 from chb.util.Config import Config
-from typing import Any, Dict, List, Optional, Tuple
+
 
 config = Config()
 
@@ -163,7 +165,11 @@ class CHBExecutableContentNotFoundErro(CHBFileNotFoundError):
 
 class CHBXmlParseError(CHBError):
 
-    def __init__(self, filename: str, errorcode: int, position: Tuple[int, int]) -> None:
+    def __init__(
+            self,
+            filename: str,
+            errorcode: int,
+            position: Tuple[int, int]) -> None:
         CHBError.__init__(self, "Xml parse  error")
         self.filename = filename
         self.errorcode = errorcode
@@ -258,6 +264,11 @@ def get_path_filename(name: str) -> Tuple[str, str]:
     return (os.path.dirname(name), os.path.basename(name))
 
 
+def get_command_processor() -> str:
+    cmdlinedir = os.path.join(config.chbdir, "cmdline")
+    return os.path.join(cmdlinedir, "chkx")
+
+
 def check_executable(path: str, xfile: str) -> bool:
     """Returns true if executable content is available in xml (packed or unpacked).
 
@@ -314,6 +325,7 @@ def get_locale_file() -> Dict[str, Any]:
     except ValueError as e:
         raise CHBJSONParseError(filename, e)
 
+
 def get_locale_tables(
         categories: List[str] = [],
         tables: List[Tuple[str, str]] = []) -> Dict[str, Any]:
@@ -324,7 +336,7 @@ def get_locale_tables(
         if c in localefile:
             for t in localefile[c]:
                 result[t] = localefile[c][t]
-    for (c,t) in tables:
+    for (c, t) in tables:
         if c in localefile and t in localefile[c]:
             result[t] = localefile[c][t]
     return result
@@ -332,6 +344,10 @@ def get_locale_tables(
 
 def get_summaries_dir() -> str:
     return config.summariesdir
+
+
+def get_tests_dir() -> str:
+    return config.testsdir
 
 
 def get_ch_dir(path: str, xfile: str) -> str:
@@ -394,7 +410,8 @@ def get_chb_function_filename(
     return os.path.join(ffdir, xxfile + "_" + fname + "_" + suffix)
 
 
-def get_chb_function_top_filename(fdir: str, xfile: str, fname: str, suffix: str):
+def get_chb_function_top_filename(
+        fdir: str, xfile: str, fname: str, suffix: str) -> str:
     xxfile = xfile.replace(".", "_")
     ffdir = os.path.join(fdir, "functions")
     return os.path.join(ffdir, xxfile + "_" + fname + suffix)
@@ -440,7 +457,7 @@ def get_global_state_filename(path: str, xfile: str) -> str:
     return get_chb_filename(fdir, xfile, "global_state.xml")
 
 
-def get_global_state_xnode(path: str, xfile: str):
+def get_global_state_xnode(path: str, xfile: str) -> ET.Element:
     filename = get_global_state_filename(path, xfile)
     return get_chb_xnode(filename, "global-state")
 
@@ -817,6 +834,7 @@ def unpack_tar_file(path: str, xfile: str) -> bool:
         print('Successfully extracted ' + targzfile)
     return os.path.isdir(xdir)
 
+
 def file_has_registered_options(md5: str) -> bool:
     for f in config.commandline_options:
         filename = config.commandline_options[f]
@@ -837,6 +855,8 @@ def file_has_registered_options(md5: str) -> bool:
             print("Registered option file " + filename + " not found")
             print("*" * 80)
             exit(1)
+    return False
+
 
 def get_file_registered_options(md5: str) -> Dict[str, Any]:
     if file_has_registered_options(md5):
@@ -858,3 +878,116 @@ def get_file_registered_options(md5: str) -> Dict[str, Any]:
         print("No registered options found for " + md5)
         print("*" * 80)
         exit(1)
+
+
+def get_tests() -> Mapping[str, Mapping[str, Mapping[str, Sequence[str]]]]:
+    testsdir = get_tests_dir()
+    x86dir = os.path.join(testsdir, "x86")
+    arm32dir = os.path.join(testsdir, "arm32")
+    mips32dir = os.path.join(testsdir, "mips32")
+    x86pedir = os.path.join(x86dir, "pe")
+    x86elfdir = os.path.join(x86dir, "elf")
+    arm32elfdir = os.path.join(arm32dir, "elf")
+    mips32elfdir = os.path.join(mips32dir, "elf")
+
+    result: Dict[str, Dict[str, Dict[str, List[str]]]] = {}
+    """Returns a dictionary of architecture, fileformat, suite, test."""
+
+    result["x86"] = {}
+    result["arm32"] = {}
+    result["mips32"] = {}
+    result["x86"]["pe"] = {}
+    result["x86"]["elf"] = {}
+    result["arm32"]["pe"] = {}
+    result["arm32"]["elf"] = {}
+    result["mips32"]["pe"] = {}
+    result["mips32"]["elf"] = {}
+
+    for suite in os.listdir(x86pedir):
+        result["x86"]["pe"][suite] = []
+        for test in os.listdir(os.path.join(x86pedir, suite)):
+            if test.endswith("chx.tar.gz"):
+                result["x86"]["pe"][suite].append(test[:-11])
+    for suite in os.listdir(x86elfdir):
+        result["x86"]["elf"][suite] = []
+        for test in os.listdir(os.path.join(x86elfdir, suite)):
+            if test.endswith("chx.tar.gz"):
+                result["x86"]["elf"][suite].append(test[:-11])
+    for suite in os.listdir(arm32elfdir):
+        result["arm32"]["elf"][suite] = []
+        for test in os.listdir(os.path.join(arm32elfdir, suite)):
+            if test.endswith("chx.tar.gz"):
+                result["arm32"]["elf"][suite].append(test[:-11])
+
+    return result
+
+
+def get_test_filename(
+        arch: str,
+        fileformat: str,
+        suite: str,
+        test: str,
+        fullnames: bool = False) -> str:
+    """Return absolute filename, given suite and test numbers only."""
+
+    testsdir = get_tests_dir()
+
+    archdir = os.path.join(testsdir, arch)
+    ffdir = os.path.join(archdir, fileformat)
+
+    if fullnames:
+        suitedir = os.path.join(ffdir, suite)
+    else:
+        suitedir = os.path.join(ffdir, "suite_" + suite)
+
+    if fullnames:
+        testname = test
+    else:
+        if fileformat == "pe":
+            testname = "test_" + test + ".exe"
+        else:
+            testname = "test_" + test
+
+    testfilename = os.path.join(suitedir, testname)
+    if os.path.isfile(testfilename):
+        return testfilename
+    else:
+        raise CHBError("Requested testfile: " + testfilename + " not found")
+
+
+def save_test_files(
+        arch: str,
+        fileformat: str,
+        suite: str,
+        test: str,
+        files: Mapping[str, str],
+        xinfo: Mapping[str, str]) -> str:
+
+    testsdir = get_tests_dir()
+
+    archdir = os.path.join(testsdir, arch)
+    ffdir = os.path.join(archdir, fileformat)
+    suitedir = os.path.join(ffdir, "suite_" + suite)
+
+    if fileformat == "pe":
+        testname = "test_" + test + ".exe"
+    else:
+        testname = "test_" + test
+
+    testdir = os.path.join(suitedir, testname + ".ch")
+    if os.path.isdir(testdir):
+        raise CHBError("Test directory already exists. Quit")
+
+    xdir = os.path.join(testdir, "x")
+    os.makedirs(xdir)
+
+    for (name, content) in files.items():
+        filename = os.path.join(xdir, name)
+        with open(filename, "w") as fp:
+            fp.write(content)
+
+    xinfoname = os.path.join(xdir, testname + "_xinfo.json")
+    with open(xinfoname, "w") as fp:
+        json.dump(xinfo, fp, indent=2)
+
+    return "Saved " + ", ".join(files.keys()) + " and " + xinfoname

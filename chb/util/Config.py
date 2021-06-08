@@ -30,7 +30,7 @@
 
 import os
 
-from typing import List
+from typing import Any, Dict, List
 
 localconfig = False
 
@@ -70,7 +70,7 @@ class Config():
             self.chx86_analyze = os.path.join(self.macOSdir, "chx86_analyze")
 
         # registered command-line options
-        self.commandline_options = {}
+        self.commandline_options: Dict[str, str] = {}
 
         # personalization
         if localconfig:

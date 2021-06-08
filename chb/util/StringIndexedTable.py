@@ -34,6 +34,7 @@ import chb.util.IndexedTable as IT
 
 from typing import Dict, List, Optional, Tuple
 
+
 def has_control_characters(s: str) -> bool:
     for c in s:
         if ord(c) < 32 or ord(c) > 126:
@@ -47,7 +48,7 @@ def byte_to_string(b: int) -> str:
 
 
 def value_from_hex(s: str) -> int:
-    return int(s,16)
+    return int(s, 16)
 
 
 def hexstring(s: str) -> str:
@@ -65,7 +66,7 @@ def dehexstring(h: str) -> str:
             result += chr(int(h[:2], 16))
             h = h[2:]
         return result
-    except:
+    except Exception:
         print('Error in dehexing string: ' + h)
         exit(1)
 
@@ -140,10 +141,10 @@ class StringIndexedTable:
             raise IT.IndexedTableError('Xml node not present in string table')
         for snode in node.findall('n'):
             ix = snode.get("ix")
-            if ix is None :
+            if ix is None:
                 raise UF.CHBError("StringIndexTable: index is missing")
             index = int(ix)
-            ishex = snode.get('hex','no') == 'yes'
+            ishex = snode.get('hex', 'no') == 'yes'
             v = snode.get("v")
             if v is None:
                 raise UF.CHBError(
@@ -171,8 +172,6 @@ class StringIndexedTable:
         return '\n'.join(lines)
 
 
-
-
 if __name__ == '__main__':
 
     print(str(has_control_characters('\n')))
@@ -185,7 +184,6 @@ if __name__ == '__main__':
     print(decode(*encode('\n\n')))
 
     print(dehexstring('4d4158504154484c454e3d25640a'))
-    print(dehexstring('496e7075742070617468203d2025732c207374726c656e287061746829203d2025640a'))
+    print(dehexstring(
+        '496e7075742070617468203d2025732c207374726c656e287061746829203d2025640a'))
     print(dehexstring('4d4158504154484c454e203d2025640a'))
-
-
