@@ -5,6 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2020-2021 Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -15,7 +16,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -27,95 +28,156 @@
 # ------------------------------------------------------------------------------
 """MIPS assembly code."""
 
-import chb.simulate.SimUtil as SU
+import xml.etree.ElementTree as ET
 
-class MIPSAssemblyInstruction(object):
+from typing import Dict, List, Optional, TYPE_CHECKING
 
-    def __init__(self,app,xnode):
-        self.app = app
-        self.addr_hx = xnode.get('ia')
-        self.addr_i = int(self.addr_hx,16)
-        self.opcode = self.app.mipsdictionary.get_mips_opcode(int(xnode.get('iopc')))
-        self.stat = xnode.get('stat','')
+from chb.mips.MIPSOpcode import MIPSOpcode
+from chb.mips.MIPSOperand import MIPSOperand
 
-    def get_mnemonic(self): return self.opcode.get_mnemonic()
+import chb.simulation.SimUtil as SU
 
-    def is_delay_slot(self): return 'D' in self.stat
+import chb.util.fileutil as UF
 
-    def is_block_entry(self): return 'B' in self.stat
+if TYPE_CHECKING:
+    from chb.mips.MIPSAccess import MIPSAccess
+    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
-    def is_function_entry(self): return 'F' in self.stat
 
-    def is_return_instruction(self):
-        return self.opcode.is_return_instruction()
+class MIPSAssemblyInstruction:
 
-    def get_operand_count(self): return len(self.opcode.get_operands())
+    def __init__(
+            self,
+            iaddr: str,
+            opcode: MIPSOpcode,
+            stat: str = ""):
+        self._iaddr = iaddr
+        self._opcode = opcode
+        self._stat = stat
 
-    def get_operand(self,i):     # 1-based
-        operands = self.opcode.get_operands()
-        if len(operands) >= i:   
+    @property
+    def iaddr(self) -> str:
+        return self._iaddr
+
+    @property
+    def addr_i(self) -> int:
+        return int(self._iaddr, 16)
+
+    @property
+    def opcode(self) -> MIPSOpcode:
+        return self._opcode
+
+    @property
+    def mnemonic(self) -> str:
+        return self.opcode.mnemonic
+
+    @property
+    def is_delay_slot(self) -> bool:
+        return 'D' in self._stat
+
+    @property
+    def is_block_entry(self) -> bool:
+        return 'B' in self._stat
+
+    @property
+    def is_function_entry(self) -> bool:
+        return 'F' in self._stat
+
+    @property
+    def is_return_instruction(self) -> bool:
+        return self.opcode.is_return_instruction
+
+    @property
+    def operand_count(self) -> int:
+        return len(self.opcode.operands)
+
+    def operand(self, i: int) -> MIPSOperand:     # 1-based
+        operands = self.opcode.operands
+        if len(operands) >= i:
             return operands[i-1]
+        else:
+            raise UF.CHBError(
+                "Instruction "
+                + str(self)
+                + " does not have "
+                + str(i)
+                + " operands")
 
-    def get_lw_stack_offset(self):
-        if self.get_mnemonic() == 'lw':
-            lwop = self.get_operand(2)
+    def lw_stack_offset(self) -> Optional[int]:
+        if self.mnemonic == 'lw':
+            lwop = self.operand(2)
             if lwop.is_mips_indirect_register_with_reg('sp'):
-                return lwop.get_mips_indirect_register_offset()
+                return lwop.indirect_register_offset
         return None
 
-    def loads_program_address(self):
-        return (self.get_mnemonic() == 'lw'
-                and self.get_operand(2).is_mips_indirect_register_with_reg('gp'))
+    def loads_program_address(self) -> bool:
+        return (self.mnemonic == 'lw'
+                and self.operand(2).is_mips_indirect_register_with_reg('gp'))
 
-    def loads_stack_value(self):
-        return (self.get_mnemonic() == 'lw'
-                and self.get_operand(2).is_mips_indirect_register_with_reg('sp'))
+    def loads_stack_value(self) -> bool:
+        return (self.mnemonic == 'lw'
+                and self.operand(2).is_mips_indirect_register_with_reg('sp'))
 
-    def assigns_stack_address(self):
-        return (((len(self.opcode.get_operands()) == 3)
-                 and not (str(self.get_operand(1)) == 'sp')                
-                 and (str(self.get_operand(2)) == 'sp')
-                 and (self.get_operand(3).is_mips_immediate()))
-                or (self.get_mnemonic() == 'move'
-                    and str(self.get_operand(2)) == 'sp'))
+    def assigns_stack_address(self) -> bool:
+        return (((len(self.opcode.operands) == 3)
+                 and not (str(self.operand(1)) == 'sp')
+                 and (str(self.operand(2)) == 'sp')
+                 and (self.operand(3).is_mips_immediate))
+                or (self.mnemonic == 'move'
+                    and str(self.operand(2)) == 'sp'))
 
-    def simulate(self,simstate):
+    def simulate(self, simstate: "MIPSimulationState") -> str:
         try:
-            return self.opcode.simulate(self.addr_hx,simstate)
+            return self.opcode.simulate(self.iaddr, simstate)
         except SU.CHBSimError as e:
             e.instrtxt = str(self)
             raise e
 
-    def __str__(self):
-        return (self.stat.rjust(2) + '  ' + self.addr_hx.rjust(8)
-                    + '  ' + self.get_mnemonic().ljust(8)
-                    + ','.join([ str(op) for op in self.opcode.get_operands()]))
+    def __str__(self) -> str:
+        return (
+            self._stat.rjust(2)
+            + '  '
+            + self.iaddr.rjust(8)
+            + '  '
+            + self.mnemonic.ljust(8)
+            + ','.join([str(op) for op in self.opcode.operands]))
 
 
 class MIPSAssembly(object):
 
-    def __init__(self,app,xnode):
-        self.app =  app
+    def __init__(
+            self,
+            app: "MIPSAccess",
+            xnode: ET.Element) -> None:
+        self.app = app
         self.xnode = xnode
-        self.sorted_instructions = []       # list of integer addresses
-        self.revsorted_instructions = []    # list of integer addresses (reverse)
-        self.instructions = {}
+        self.sorted_instructions: List[int] = []  # list of integer addresses
+        # list of integer addresses (reverse)
+        self.revsorted_instructions: List[int] = []
+        self.instructions: Dict[str, MIPSAssemblyInstruction] = {}
         self.instructions_initialized = False
         self._initialize()
 
-    def __str__(self):
+    def __str__(self) -> str:
         self._initialize()
-        lines = []
+        lines: List[str] = []
         lines.append('MIPS assembly code')
-        for (ia,i) in sorted(self.instructions.items()):
+        for (ia, i) in sorted(self.instructions.items()):
             lines.append(str(i))
         return '\n'.join(lines)
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         if self.instructions_initialized:
             return
         for b in self.xnode.findall('b'):
             for n in b.findall('i'):
-                    self.instructions[n.get('ia')] = MIPSAssemblyInstruction(self.app,n)
-        self.sorted_instructions = sorted(int(k,16) for k in self.instructions.keys())
-        self.revsorted_instructions = sorted(self.sorted_instructions,reverse=True)
+                iaddr = n.get("ia")
+                if iaddr is None:
+                    raise UF.CHBError("Instruction without address")
+                opcode = self.app.mipsdictionary.read_xml_mips_opcode(n)
+                stat = n.get("stat", "")
+                self.instructions[iaddr] = MIPSAssemblyInstruction(
+                    iaddr, opcode, stat)
+        self.sorted_instructions = (
+            sorted(int(k, 16) for k in self.instructions.keys()))
+        self.revsorted_instructions = sorted(self.sorted_instructions, reverse=True)

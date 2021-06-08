@@ -27,89 +27,111 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+import xml.etree.ElementTree as ET
+
+from typing import Callable, List, Tuple, TYPE_CHECKING
+
+from chb.mips.MIPSDictionaryRecord import mipsregistry
+from chb.mips.MIPSOpcode import MIPSOpcode
+from chb.mips.MIPSOperand import MIPSOperand
+from chb.mips.MIPSOperandKind import MIPSOperandKind
+
 import chb.util.IndexedTable as IT
 import chb.util.StringIndexedTable as SI
+import chb.util.fileutil as UF
 
-import chb.mips.MIPSOperand as MOP
-import chb.mips.MIPSOperandKind as MOPK
-import chb.mips.MIPSOpcode as MOPC
+if TYPE_CHECKING:
+    from chb.api.InterfaceDictionary import InterfaceDictionary
+    from chb.app.BDictionary import BDictionary
+    from chb.mips.MIPSAccess import MIPSAccess
 
-mips_opkind_constructors = {
-    'a': lambda x:MOPK.MIPSAbsoluteOp(*x),
-    'i': lambda x:MOPK.MIPSIndirectRegisterOp(*x),
-    'f': lambda x:MOPK.MIPSFloatingPointRegisterOp(*x),
-    'm': lambda x:MOPK.MIPSImmediateOp(*x),
-    'r': lambda x:MOPK.MIPSRegisterOp(*x),
-    's': lambda x:MOPK.MIPSSpecialRegisterOp(*x)
-    }
 
-class MIPSDictionary(object):
+class MIPSDictionary:
 
-    def __init__(self,app,xnode):
-        self.app = app
+    def __init__(
+            self,
+            app: "MIPSAccess",
+            xnode: ET.Element) -> None:
+        self._app = app
         self.opkind_table = IT.IndexedTable('mips-opkind-table')
         self.operand_table = IT.IndexedTable('mips-operand-table')
         self.opcode_table = IT.IndexedTable('mips-opcode-table')
         self.bytestring_table = SI.StringIndexedTable('mips-bytestring-table')
-        self.tables = [
-            (self.opkind_table,self._read_xml_mips_opkind_table),
-            (self.operand_table,self._read_xml_mips_operand_table),
-            (self.opcode_table,self._read_xml_mips_opcode_table)
-            ]
-        self.string_tables = [
-            (self.bytestring_table,self._read_xml_mips_bytestring_table),
-            ]
+        self.tables: List[IT.IndexedTable] = [
+            self.opkind_table,
+            self.operand_table,
+            self.opcode_table
+        ]
         self.initialize(xnode)
-    
+
+    @property
+    def app(self) -> "MIPSAccess":
+        return self._app
+
+    @property
+    def bd(self) -> "BDictionary":
+        return self.app.bdictionary
+
+    @property
+    def ixd(self) -> "InterfaceDictionary":
+        return self.app.interfacedictionary
+
     # ------------------- retrieve items from dictionary tables ----------------
 
-    def get_mips_opkind(self,ix): return self.opkind_table.retrieve(ix)
+    def mips_opkind(self, ix: int) -> MIPSOperandKind:
+        if ix > 0:
+            return mipsregistry.mk_instance(
+                self, self.opkind_table.retrieve(ix), MIPSOperandKind)
+        else:
+            raise UF.CHBError("Illegal index value for operand kind")
 
-    def get_mips_operand(self,ix): return self.operand_table.retrieve(ix)
+    def mips_operand(self, ix: int) -> MIPSOperand:
+        if ix > 0:
+            return MIPSOperand(self, self.operand_table.retrieve(ix))
+        else:
+            raise UF.CHBError("Illegal index value for operand")
 
-    def get_mips_opcode(self,ix): return self.opcode_table.retrieve(ix)
+    def mips_opcode(self, ix: int) -> MIPSOpcode:
+        if ix > 0:
+            return mipsregistry.mk_instance(
+                self, self.opcode_table.retrieve(ix), MIPSOpcode)
+        else:
+            raise UF.CHBError("Illegal index value for mips opcode")
 
-    def get_mips_bytestring(self,ix): return self.bytestring_table.retrieve(ix)
+    def mips_bytestring(self, ix: int) -> str:
+        return self.bytestring_table.retrieve(ix)
 
     # ----------------------- xml accessors ------------------------------------
 
-    def read_xml_mips_opcode(self,n):
-        return self.get_mips_opcode(int(n.get('iopc')))
+    def read_xml_mips_opcode(self, n: ET.Element) -> MIPSOpcode:
+        index = n.get("iopc")
+        if index is not None:
+            return self.mips_opcode(int(index))
+        else:
+            raise UF.CHBError("Index value iopc not found")
 
-    def read_xml_mips_bytestring(self,n):
-        return self.get_mips_bytestring(int(n.get('ibt')))
+    def read_xml_mips_bytestring(self, n: ET.Element) -> str:
+        index = n.get("ibt")
+        if index is not None:
+            return self.mips_bytestring(int(index))
+        else:
+            raise UF.CHBError("Index value ibt not found")
 
     # ----------------------- initialize dictionary from file ------------------
 
-    def initialize(self,xnode):
-        if xnode is None: return
-        for (t,f) in self.tables + self.string_tables:
+    def initialize(self, xnode: ET.Element) -> None:
+        for t in self.tables:
             t.reset()
-            f(xnode.find(t.name))
-
-    def _read_xml_mips_opkind_table(self,txnode):
-        def get_value(node):
-            rep = IT.get_rep(node)
-            tag = rep[1][0]
-            args = (self,) + rep
-            return mips_opkind_constructors[tag](args)
-        self.opkind_table.read_xml(txnode,'n',get_value)
-
-    def _read_xml_mips_operand_table(self,txnode):
-        def get_value(node):
-            rep = IT.get_rep(node)
-            args = (self,) + rep
-            return MOP.MIPSOperand(*args)
-        self.operand_table.read_xml(txnode,'n',get_value)
-
-    def _read_xml_mips_opcode_table(self,txnode):
-        def get_value(node):
-            rep = IT.get_rep(node)
-            tag = rep[1][0]
-            args = (self,) + rep
-            return MOPC.get_mips_opcode(tag,args)
-        self.opcode_table.read_xml(txnode,'n',get_value)
-
-    def _read_xml_mips_bytestring_table(self,txnode):
-        self.bytestring_table.read_xml(txnode)
-
+            xtable = xnode.find(t.name)
+            if xtable is not None:
+                t.read_xml(xtable, "n")
+            else:
+                raise UF.CHBError("MIPS dictionary table "
+                                  + t.name
+                                  + " not found")
+        self.bytestring_table.reset()
+        xstable = xnode.find(self.bytestring_table.name)
+        if xstable is not None:
+            self.bytestring_table.read_xml(xstable)
+        else:
+            raise UF.CHBError("MIPS bytestring not found")

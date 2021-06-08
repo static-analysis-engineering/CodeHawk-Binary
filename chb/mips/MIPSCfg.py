@@ -30,29 +30,41 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Mapping, Optional, TYPE_CHECKING
 
-import chb.app.Cfg as C
+from chb.app.Cfg import Cfg
+
+from chb.invariants.XXpr import XXpr
+
+from chb.mips.MIPSCfgBlock import MIPSCfgBlock
+from chb.mips.MIPSInstruction import MIPSInstruction
+from chb.mips.MIPSCfgPath import MIPSCfgPath
+
 import chb.util.fileutil as UF
 import chb.util.graphutil as UG
 
-from chb.mips.MIPSCfgBlock import MIPSCfgBlock
-from chb.mips.MIPSCfgPath import MIPSCfgPath
 
 if TYPE_CHECKING:
-    import chb.mips.MIPSFunction
+    from chb.mips.MIPSFunction import MIPSFunction
 
-class MIPSCfg(C.Cfg):
+
+class MIPSCfg(Cfg):
 
     def __init__(
             self,
-            f: "chb.mips.MIPSFunction.MIPSFunction",
+            f: "MIPSFunction",
             xnode: ET.Element) -> None:
-        C.Cfg.__init__(self, f, xnode)
+        Cfg.__init__(self, xnode)
+        self._f = f
         self._blocks: Dict[str, MIPSCfgBlock] = {}
+        self._edges: Dict[str, List[str]] = {}
 
     @property
-    def blocks(self) -> Dict[str, MIPSCfgBlock]:
+    def function(self) -> "MIPSFunction":
+        return self._f
+
+    @property
+    def blocks(self) -> Mapping[str, MIPSCfgBlock]:
         if len(self._blocks) == 0:
             xblocks = self.xnode.find('blocks')
             if xblocks is None:
@@ -64,75 +76,61 @@ class MIPSCfg(C.Cfg):
                 self._blocks[baddr] = MIPSCfgBlock(self, b)
         return self._blocks
 
-    def get_paths(self,baddr,maxtime=None):
+    def paths(self, baddr: str, maxtime: Optional[int] = None) -> List[MIPSCfgPath]:
         """Returns a path from function entry to blockaddr baddr."""
-        g = UG.DirectedGraph(self.blocks.keys(),self.edges)
-        g.find_paths(self.function.faddr,baddr,maxtime=maxtime)
-        return [ MIPSCfgPath(self,p) for p in g.paths ]
+        g = UG.DirectedGraph(list(self.blocks.keys()), self.edges)
+        g.find_paths(self.function.faddr, baddr, maxtime=maxtime)
+        return [MIPSCfgPath(self, p) for p in g.paths]
 
-    def get_branch_instruction(self,n):
+    def branch_instruction(self, n: str) -> MIPSInstruction:
         block = self.blocks[n]
-        iaddr = int(block.lastaddr,16) - 4  #  account for delay slot
-        return self.function.get_instruction(hex(iaddr))
+        iaddr = int(block.lastaddr, 16) - 4  # account for delay slot
+        return cast(
+            MIPSInstruction, self.function.instruction(hex(iaddr)))
 
-    def condition_to_annotated_value(self,src,b):
-        result = {}
-        ftconditions = b.get_ft_conditions()
+    def condition_to_annotated_value(
+            self, src: str, b: MIPSInstruction) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        ftconditions = b.ft_conditions()
         if len(ftconditions) == 2:
             result['c'] = ftconditions[1].to_annotated_value()
             result['fb'] = self.edges[src][0]
             result['tb'] = self.edges[src][1]
         return result
 
-    def get_conditions(self):
-        result = {}
+    def conditions(self) -> Dict[str, Dict[str, str]]:
+        result: Dict[str, Dict[str, str]] = {}
         for src in self.edges:
             if len(self.edges[src]) > 1:
-                brinstr = self.get_branch_instruction(src)
-                result[brinstr.iaddr] = self.condition_to_annotated_value(src,brinstr)
+                brinstr = self.branch_instruction(src)
+                result[brinstr.iaddr] = self.condition_to_annotated_value(
+                    src, brinstr)
         return result
 
-    def get_condition(self,src,tgt):
+    def condition(self, src: str, tgt: str) -> Optional[XXpr]:
         """Returns the condition, if any, that leads from src to tgt."""
+
         if len(self.edges[src]) > 1:
-            brinstr = self.get_branch_instruction(src)
-            ftconditions = brinstr.get_ft_conditions()
+            brinstr = self.branch_instruction(src)
+            ftconditions = brinstr.ft_conditions()
             if len(ftconditions) == 2:
-                for i,t in enumerate(self.edges[src]):
+                for i, t in enumerate(self.edges[src]):
                     if tgt == t:
                         return ftconditions[i]
-                else:
-                    print('Error in get_condition')
+            else:
+                raise UF.CHBError("Error in Cfg.condition")
 
-    def get_path_conditions(self,path):
-        result = {}
+        return None
+
+    def path_conditions(self, path: List[str]) -> Dict[str, XXpr]:
+        result: Dict[str, XXpr] = {}
         for i in range(len(path) - 1):
-            c = self.get_condition(path[i],path[i+1])
+            c = self.condition(path[i], path[i+1])
             if c is None:
                 continue
             result[path[i]] = c
         return result
 
-    def __str__(self):
-        lines = []
+    def __str__(self) -> str:
+        lines: List[str] = []
         return (str(self.blocks) + '\n' + str(self.edges))
-
-    def _initialize(self):
-        self._get_blocks()
-        self._get_edges()
-
-    def _get_blocks(self):
-        if len(self.blocks) == 0:
-            blocks = self.xnode.find('blocks')
-            if blocks is None: return
-            for b in blocks.findall('bl'):
-                self.blocks[b.get('ba')] = MIPSCfgBlock(self,b)
-
-    def _get_edges(self):
-        if len(self.edges) == 0:
-            edges = self.xnode.find('edges')
-            if edges is None: return
-            for e in edges.findall('e'):
-                src = e.get('src')
-                if not src in self.edges: self.edges[src] = []
-                self.edges[src].append(e.get('tgt'))

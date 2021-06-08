@@ -30,305 +30,273 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import List, Sequence, TYPE_CHECKING
+from typing import (
+    Any, cast, Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING)
 
-import chb.app.DictionaryRecord as D
-import chb.app.Instruction as I
-import chb.app.StackPointerOffset as S
+from chb.api.CallTarget import CallTarget
+
+from chb.app.FunctionDictionary import FunctionDictionary
+from chb.app.Instruction import Instruction
+from chb.app.InstrXData import InstrXData
+from chb.app.StackPointerOffset import StackPointerOffset
+
+from chb.invariants.XVariable import XVariable
+from chb.invariants.XXpr import XXpr
+
+from chb.mips.MIPSOpcode import MIPSOpcode
+from chb.mips.MIPSOperand import MIPSOperand
+
+from chb.mips.opcodes.MIPSBranchOpcode import MIPSBranchOpcode
+from chb.mips.opcodes.MIPSJumpLinkRegister import MIPSJumpLinkRegister
+
 import chb.util.IndexedTable as IT
-import chb.simulate.SimUtil as SU
+import chb.simulation.SimUtil as SU
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.mips.MIPSBlock
-    import chb.mips.MIPSDictionary
-    import chb.mips.MIPSOperand
-
-'''
-class SpOffset(D.DictionaryRecord):
-
-    def __init__(self,d,index,tags,args):
-        D.DictionaryRecord.__init__(self,d,index,tags,args)
-        self.mipsfunction = d.mipsfunction
-        self.vd = self.mipsfunction.vardictionary
-        self.xd = self.vd.xd
-
-    def get_level(self): return int(self.args[0])
-
-    def get_offset(self): return self.xd.get_interval(int(self.args[1]))
-
-    def is_closed(self): return self.get_offset().is_closed()
-
-    def __str__(self):
-        level = self.get_level() + 1
-        return ('[' * level) + ' ' + str(self.get_offset()).rjust(4) + ' ' + (']' * level)
+    from chb.mips.MIPSBlock import MIPSBlock
+    from chb.mips.MIPSDictionary import MIPSDictionary
+    from chb.mips.MIPSFunction import MIPSFunction
+    from chb.mips.opcodes.MIPSLoadWord import MIPSLoadWord
+    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
 
-class MIPSInstrXData(D.DictionaryRecord):
-
-    def __init__(self,d,index,tags,args):
-        D.DictionaryRecord.__init__(self,d,index,tags,args)
-        self.mipsfunction = d.mipsfunction
-        self.vd = self.mipsfunction.vardictionary
-        self.xd = self.vd.xd
-        self.app = self.mipsfunction.app
-        self.bd = self.app.bdictionary
-
-    def is_function_argument(self):
-        return len(self.tags) > 1 and self.tags[1] == 'arg'
-
-    def get_function_argument_callsite(self):
-        return self.bd.get_address(self.args[2])
-
-    def get_xprdata(self):
-        if len(self.tags) == 0:
-            return([],self.args,[])
-        key = self.tags[0]
-        if key.startswith('a:'):
-            xprs = []
-            key = key[2:]
-            for (i,c) in enumerate(key):
-                arg = int(self.args[i])
-                xd = self.xd
-                if c == 'v': xprs.append(xd.get_variable(arg))
-                elif c == 'x': xprs.append(xd.get_xpr(arg))
-                elif c == 'a': xprs.append(xd.get_xpr(arg))
-                elif c == 's': xprs.append(self.bd.get_string(arg))
-                elif c == 'i': xprs.append(self.xd.get_interval(arg))
-                elif c == 'l': xprs.append(arg)
-            return (self.tags[1:],self.args,xprs)
-        return (self.tags,self.args,[])
-
-'''
-
-class MIPSInstruction(I.Instruction):
+class MIPSInstruction(Instruction):
 
     def __init__(
             self,
-            b: "chb.mips.MIPSBlock.MIPSBlock",
+            mipsblock: "MIPSBlock",
             xnode: ET.Element) -> None:
-        I.Instruction.__init__(self, b, xnode)
+        Instruction.__init__(self, xnode)
+        self._mipsblock = mipsblock
+        self._opcode: Optional[MIPSOpcode] = None
+        self._opcodetext: Optional[str] = None
+        self._xdata: Optional[InstrXData] = None
+
+    @property
+    def mipsblock(self) -> "MIPSBlock":
+        return self._mipsblock
+
+    @property
+    def mipsdictionary(self) -> "MIPSDictionary":
+        return self.mipsblock.mipsdictionary
+
+    @property
+    def mipsfunctiondictionary(self) -> FunctionDictionary:
+        return self.mipsblock.mipsfunctiondictionary
+
+    @property
+    def mipsfunction(self) -> "MIPSFunction":
+        return self.mipsblock.mipsfunction
+
+    @property
+    def opcode(self) -> MIPSOpcode:
+        if self._opcode is None:
+            self._opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+        return self._opcode
+
+    @property
+    def xdata(self) -> InstrXData:
+        if self._xdata is None:
+            self._xdata = self.mipsfunctiondictionary.read_xml_instrx(self.xnode)
+        return self._xdata
 
     @property
     def mnemonic(self) -> str:
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).mnemonic
-
-    @property
-    def mipsdictionary(self) -> "chb.mips.MIPSDictionary.MIPSDictionary":
-        return self.app.mipsdictionary
+        return self.opcode.mnemonic
 
     @property
     def opcodetext(self) -> str:
         try:
             mnemonic = self.mnemonic
             operands = self.operands
-            return mnemonic.ljust(8) + ','.join([ str(op) for op in operands ])
+            return mnemonic.ljust(8) + ','.join([str(op) for op in operands])
         except IT.IndexedTableError as e:
             opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
             raise UF.CHBError('Error for MIPS opcode ' + str(opcode) + ': '
                               + str(e))
 
     @property
-    def operands(self) -> Sequence["chb.mips.MIPSOperand.MIPSOperand"]:
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_operands()
+    def operands(self) -> Sequence[MIPSOperand]:
+        return self.opcode.operands
 
     @property
     def bytestring(self) -> str:
         return self.mipsdictionary.read_xml_mips_bytestring(self.xnode)
 
     @property
-    def stackpointer_offset(self) -> S.StackPointerOffset:
-        return self.function.fndictionary.read_xml_sp_offset(self.xnode)
+    def stackpointer_offset(self) -> StackPointerOffset:
+        return self.mipsfunctiondictionary.read_xml_sp_offset(self.xnode)
+
+    def annotation(self) -> str:
+        return self.opcode.annotation(self.xdata)
+
+    def operand_values(self) -> Sequence[XXpr]:
+        return self.opcode.operand_values(self.xdata)
+
+    def strings_referenced(self) -> Sequence[str]:
+        return self.opcode.strings(self.xdata)
+
+    def load_address(self) -> XXpr:
+        if self.is_load_word_instruction:
+            opc = cast("MIPSLoadWord", self.opcode)
+            return opc.load_address(self.xdata)
+        else:
+            raise UF.CHBError("Load address not implemented for " + str(self))
+
+    def global_refs(self) -> Tuple[Sequence[XVariable], Sequence[XXpr]]:
+        """Return a pair of lhs, rhs global references."""
+
+        lhs = self.opcode.lhs(self.xdata)
+        rhs = self.opcode.rhs(self.xdata)
+        return ([x for x in lhs if x.is_structured_var or x.is_global_value],
+                [x for x in rhs if x.is_structured_expr])
+
+    def global_variables(self) -> Mapping[str, int]:
+        """Return a mapping of global variables referenced to count."""
+        return self.opcode.global_variables(self.xdata)
+
+    def registers(self) -> Mapping[str, str]:
+        return self.opcode.registers()
+
+    def refers_to_register(self, registers: List[str]) -> bool:
+        return any([reg for reg in registers if reg in self.registers()])
 
     @property
-    def annotation(self) -> str:
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        return opcode.get_global_variables(xdata)
+    def is_return_instruction(self) -> bool:
+        return self.opcode.is_return_instruction
 
-    def get_operand_values(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        return self.mipsdictionary.read_xml_mips_opcode(self.xnode).get_operand_values(xdata)
+    @property
+    def is_call_instruction(self) -> bool:
+        return self.opcode.is_call_instruction(self.xdata)
 
-    def get_load_address(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        return self.mipsdictionary.read_xml_mips_opcode(self.xnode).get_load_address()
+    @property
+    def is_load_word_instruction(self) -> bool:
+        return self.opcode.is_load_word
 
-    # returns a pair of (lhs,rhs) global references
-    def get_global_refs(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        lhs = opcode.get_lhs(xdata)
-        rhs = opcode.get_rhs(xdata)
-        return ([ x for x in lhs if x.is_structured_var() or x.is_global_value() ],
-                    [ x for x in rhs if x.is_structured_expr() ])
+    @property
+    def is_store_word_instruction(self) -> bool:
+        return self.opcode.is_store_word
 
-    # returns a list of strings
-    def get_strings(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        return opcode.get_strings(xdata)
-
-    # returns a dictionary gvar -> count
-    def get_global_variables(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        return opcode.get_global_variables(xdata)
-
-    def get_registers(self):
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        return opcode.get_registers()
-
-    def refers_to_register(self,registers):
-        return any( [ reg for reg in registers if reg in self.get_registers() ])
-
-    def get_annotation(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode).get_annotation(xdata)
-        return str(opcode).ljust(40)
-
-    def is_return_instruction(self):
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_return()
-
-    def is_restore_register_instruction(self):
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_restore_register()
-
-    def is_call_instruction(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_call_instruction(xdata)
-
-    def is_load_word_instruction(self):
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_load_word()
-
-    def is_store_word_instruction(self):
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).is_store_word()
-
-    def is_call_to_app_function(self,tgtaddr):
-        if self.is_call_instruction():
-            xdata = self.fndictionary.read_xml_instrx(self.xnode)
-            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-            ctgtaddr = opcode.get_target(xdata)
-            return  (not ctgtaddr is None) and str(ctgtaddr) == tgtaddr
+    def is_call_to_app_function(self, tgtaddr: str) -> bool:
+        if self.is_call_instruction:
+            opc = cast(MIPSJumpLinkRegister, self.opcode)
+            ctgtaddr = opc.call_target(self.xdata)
+            return ctgtaddr == tgtaddr
         return False
 
-    def get_call_facts(self):
-        if not self.is_call_instruction():
+    def call_facts(self) -> Mapping[str, Any]:
+        if not self.is_call_instruction:
             raise UF.CHBError("Not a call instruction: " + str(self))
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        result = {}
-        callargs = self.get_annotated_call_arguments()
+        result: Dict[str, Any] = {}
+        callargs = self.annotated_call_arguments()
         if callargs:
             result['args'] = callargs
-        tgt = self.get_call_target()
+        tgt = self.call_target()
         if tgt == 'call-target:u':
             result['t'] = '?'
         else:
             result['t'] = str(tgt)
         return result
 
-    def get_annotated_call_arguments(self):
-        if self.is_call_instruction():
-            xdata = self.fndictionary.read_xml_instrx(self.xnode)
-            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-            return opcode.get_annotated_call_arguments(xdata)
+    def annotated_call_arguments(self) -> List[Dict[str, Any]]:
+        if self.is_call_instruction:
+            opc = cast(MIPSJumpLinkRegister, self.opcode)
+            return opc.annotated_call_arguments(self.xdata)
         else:
             raise UF.CHBError("Not a call instruction: " + str(self))
 
-    def get_call_target(self):
-        if self.is_call_instruction():
-            xdata = self.fndictionary.read_xml_instrx(self.xnode)
-            opcode =  self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-            return opcode.get_call_target(xdata)
+    def call_target(self) -> CallTarget:
+        if self.is_call_instruction:
+            opc = cast(MIPSJumpLinkRegister, self.opcode)
+            return opc.call_target(self.xdata)
         else:
             raise UF.CHBError("Not a call instruction: " + str(self))
 
-    def get_call_arguments(self):
-        if self.is_call_instruction():
-            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-            xdata = self.fndictionary.read_xml_instrx(self.xnode)
-            return opcode.get_arguments(xdata)
+    def call_arguments(self) -> Sequence[XXpr]:
+        if self.is_call_instruction:
+            opc = cast(MIPSJumpLinkRegister, self.opcode)
+            return opc.arguments(self.xdata)
         else:
             raise UF.CHBError("Not a call instruction: " + str(self))
 
-    def has_string_arguments(self):
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        return opcode.is_call_instruction(xdata) and opcode.has_string_arguments(xdata)
+    def has_string_arguments(self) -> bool:
+        if self.is_call_instruction:
+            opc = cast(MIPSJumpLinkRegister, self.opcode)
+            return opc.has_string_arguments(self.xdata)
+        else:
+            return False
 
-    def has_stack_arguments(self):
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        return opcode.is_call_instruction(xdata) and opcode.has_stack_arguments(xdata)
+    def has_stack_arguments(self) -> bool:
+        if self.is_call_instruction:
+            opc = cast(MIPSJumpLinkRegister, self.opcode)
+            return opc.has_stack_arguments(self.xdata)
+        else:
+            return False
 
-    def is_branch_instruction(self):
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        return opcode.is_branch_instruction()
+    @property
+    def is_branch_instruction(self) -> bool:
+        return self.opcode.is_branch_instruction
 
-    def has_branch_condition(self):
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        return opcode.has_branch_condition()
-
-    def get_branch_condition(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-        return opcode.get_branch_condition(xdata)
-
-    def is_memory_assign(self):
-        if self.get_mnemonic() == 'sw':
-            xdata = self.fndictionary.read_xml_instrx(self.xnode)
-            (xtags,xargs,xprs) = xdata.get_xprdata()
-            if len(xprs) >= 3:
-                lhs = xprs[0]
-                return (lhs.has_denotation ()
-                            and lhs.get_denotation().is_memory_variable())
+    def has_branch_condition(self) -> bool:
         return False
 
-    def get_memory_assign(self):
-        if self.is_memory_assign():
-            xdata = self.fndictionary.read_xml_instrx(self.xnode)
-            (xtags,xargs,xprs) = xdata.get_xprdata()
-            lhs = xprs[0].get_denotation()
-            rhs = xprs[2]
-            return (lhs,rhs)
+    def branch_condition(self) -> XXpr:
+        if self.has_branch_condition():
+            opc = cast(MIPSBranchOpcode, self.opcode)
+            return cast(XXpr, opc.branch_condition(self.xdata))
         else:
-            raise CHBError('Instruction is not a memory assign')
+            raise UF.CHBError("Instruction does not have a branch condition")
 
-    def get_return_expr(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_return_expr(xdata)
+    @property
+    def is_memory_assign(self) -> bool:
+        if self.mnemonic == 'sw':
+            xdata = self.xdata
+            if len(xdata.xprs) >= 3:
+                lhs = xdata.vars[0]
+                return (lhs.has_denotation
+                        and lhs.denotation.is_memory_variable)
+        return False
 
-    def get_rhs_expr(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_rhs(xdata)
+    def memory_assign(self) -> Tuple[XVariable, XXpr]:
+        if self.is_memory_assign:
+            lhs = self.xdata.vars[0]
+            rhs = self.xdata.xprs[1]
+            return (lhs, rhs)
+        else:
+            raise UF.CHBError('Instruction is not a memory assign')
 
-    def get_lhs(self):
-        xdata = self.fndictionary.read_xml_instrx(self.xnode)
-        return (self.mipsdictionary.read_xml_mips_opcode(self.xnode)).get_lhs(xdata)
+    def rhs_expr(self) -> Sequence[XXpr]:
+        return self.opcode.rhs(self.xdata)
 
-    # false, true condition
-    def get_ft_conditions(self):
-        if self.is_branch_instruction():
-            xdata = self.fndictionary.read_xml_instrx(self.xnode)
-            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-            return opcode.get_ft_conditions(xdata)
+    def lhs(self) -> Sequence[XVariable]:
+        return self.opcode.lhs(self.xdata)
+
+    def ft_conditions(self) -> Sequence[XXpr]:
+        """Return false, true condition."""
+
+        if self.is_branch_instruction:
+            opc = cast(MIPSBranchOpcode, self.opcode)
+            return opc.ft_conditions(self.xdata)
         return []
 
-    def simulate(self,simstate):
+    def simulate(self, simstate: "MIPSimulationState") -> None:
         try:
-            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
-            opcode.simulate(self.iaddr,simstate)
+            self.opcode.simulate(self.iaddr, simstate)
         except SU.CHBSimError as e:
-            e.instrtxt = self.to_string(align=False)
+            e.instrtxt = self.to_string()
             raise e
 
-    def to_string(self,sp=False,opcodetxt=True,align=True,opcodewidth=40):
+    def to_string(
+            self,
+            bytes: bool = False,
+            opcodetxt: bool = True,
+            opcodewidth: int = 25,
+            sp: bool = True) -> str:
+        pbytes = self.bytestring + "  " if bytes else ""
         pesp = str(self.stackpointer_offset) + '  ' if sp else ''
-        if align:
-            popcode = self.opcodetext.ljust(opcodewidth) if opcodetxt else ''
-            return pesp + popcode + self.get_annotation()
-        else:
-            popcode = self.get_opcode_text()
-            return popcode + '  [[' + self.get_annotation() + ']]'
+        popcode = self.opcodetext.ljust(opcodewidth) if opcodetxt else ''
+        return pesp + pbytes + popcode + self.annotation()
 
-    def __str__(self): return self.to_string()
+    def __str__(self) -> str:
+        return self.to_string()

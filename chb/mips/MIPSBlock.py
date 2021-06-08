@@ -30,25 +30,41 @@
 
 import xml.etree.ElementTree as ET
 
-import chb.app.BasicBlock as B
-import chb.util.fileutil as UF
+from typing import Callable, cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
+
+from chb.app.BasicBlock import BasicBlock
 
 from chb.mips.MIPSInstruction import MIPSInstruction
 
-from typing import Dict, List, Mapping, Sequence, TYPE_CHECKING
+import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.mips.MIPSFunction
+    from chb.app.FunctionDictionary import FunctionDictionary
+    from chb.mips.MIPSDictionary import MIPSDictionary
+    from chb.mips.MIPSFunction import MIPSFunction
 
 
-class MIPSBlock(B.BasicBlock):
+class MIPSBlock(BasicBlock):
 
     def __init__(
             self,
-            mipsf: "chb.mips.MIPSFunction.MIPSFunction",
+            mipsfn: "MIPSFunction",
             xnode: ET.Element) -> None:
-        B.BasicBlock.__init__(self, mipsf, xnode)
+        BasicBlock.__init__(self, xnode)
+        self._mipsfn = mipsfn
         self._instructions: Dict[str, MIPSInstruction] = {}
+
+    @property
+    def mipsfunction(self) -> "MIPSFunction":
+        return self._mipsfn
+
+    @property
+    def mipsdictionary(self) -> "MIPSDictionary":
+        return self.mipsfunction.mipsdictionary
+
+    @property
+    def mipsfunctiondictionary(self) -> "FunctionDictionary":
+        return self.mipsfunction.mipsfunctiondictionary
 
     @property
     def instructions(self) -> Dict[str, MIPSInstruction]:
@@ -60,8 +76,13 @@ class MIPSBlock(B.BasicBlock):
                 self._instructions[iaddr] = MIPSInstruction(self, n)
         return self._instructions
 
-    def get_sliced_instructions(self,registers):
-        result = []
+    def iter(self, f: Callable[[str, MIPSInstruction], None]) -> None:
+        for (ia, instr) in self.instructions:
+            mipsinstr = cast(MIPSInstruction, instr)
+            f(ia, mipsinstr)
+
+    def get_sliced_instructions(self, registers: List[str]) -> List[MIPSInstruction]:
+        result: List[MIPSInstruction] = []
         for ia in sorted(self.instructions):
             instr = self.instructions[ia]
             if instr.refers_to_register(registers):
@@ -72,29 +93,46 @@ class MIPSBlock(B.BasicBlock):
     def call_instructions(self) -> Sequence[MIPSInstruction]:
         result: List[MIPSInstruction] = []
 
-        def f(_,i):
-            if i.is_call_instruction():
+        def f(iaddr: str, i: MIPSInstruction) -> None:
+            if i.is_call_instruction:
                 result.append(i)
 
         self.iter(f)
         return result
 
-    def to_sliced_string(self,registers,loopdepth):
-        lines = []
+    def to_sliced_string(self, registers: List[str], loopdepth: int) -> str:
+        lines: List[str] = []
         for ia in sorted(self.instructions):
             instr = self.instructions[ia]
             looplevel = ('L' * loopdepth).ljust(4)
             if instr.refers_to_register(registers):
-                lines.append(str(ia).rjust(10) + ' ' + looplevel
-                                 + '  ' + instr.to_string(sp=True,opcodetxt=True))
+                lines.append(
+                    str(ia).rjust(10)
+                    + ' '
+                    + looplevel
+                    + '  '
+                    + instr.to_string(sp=True, opcodetxt=True))
         return '\n'.join(lines)
 
-    def get_last_instruction(self):
+    @property
+    def last_instruction(self) -> MIPSInstruction:
+        """Override to account for delay slot."""
+
         lastaddr = sorted(self.instructions.keys())[-2]
         return self.instructions[lastaddr]
 
-    def has_return(self):
-        return self.get_last_instruction().is_return_instruction()
-
-    def get_return_expr(self):
-        return self.get_last_instruction().get_return_expr()
+    def to_string(
+            self,
+            bytes: bool = False,
+            opcodetxt: bool = True,
+            opcodewidth: int = 25,
+            sp: bool = True) -> str:
+        lines: List[str] = []
+        for (ia, instr) in sorted(self.instructions.items()):
+            pinstr = instr.to_string(
+                bytes=bytes,
+                opcodetxt=opcodetxt,
+                opcodewidth=opcodewidth,
+                sp=sp)
+            lines.append(str(ia).rjust(10) + "  " + pinstr)
+        return "\n".join(lines)

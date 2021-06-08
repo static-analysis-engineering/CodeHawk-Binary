@@ -35,12 +35,14 @@ from typing import TYPE_CHECKING
 import chb.app.CfgBlock as B
 
 if TYPE_CHECKING:
-    import chb.mips.MIPSCfg
+    from chb.mips.MIPSCfg import MIPSCfg
+
 
 class MIPSCfgBlock(B.CfgBlock):
 
     def __init__(
             self,
-            cfg: "chb.mips.MIPSCfg.MIPSCfg",
+            cfg: "MIPSCfg",
             xnode: ET.Element) -> None:
-        B.CfgBlock.__init__(self, cfg, xnode)
+        B.CfgBlock.__init__(self, xnode)
+        self._mipscfg = cfg

@@ -29,21 +29,24 @@
 
 from typing import List, Optional, TYPE_CHECKING
 
-import chb.app.DictionaryRecord as D
+from chb.app.BDictionaryRecord import bdregistry
+from chb.app.Register import Register
+
+import chb.util.fileutil as UF
+
+from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.app.BDictionary
 
-class MIPSRegisterBase(D.DictionaryRecord):
+
+class MIPSRegisterBase(Register):
 
     def __init__(
             self,
             bd: "chb.app.BDictionary.BDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.DictionaryRecord.__init__(self, index, tags, args)
-        self.bd = bd
+            ixval: IndexedTableValue) -> None:
+        Register.__init__(self, bd, ixval)
 
     def is_mips_register(self) -> bool:
         return False
@@ -61,14 +64,13 @@ class MIPSRegisterBase(D.DictionaryRecord):
         return False
 
 
+@bdregistry.register_tag("p", Register)
 class MIPSRegister(MIPSRegisterBase):
 
     def __init__(self,
                  bd: "chb.app.BDictionary.BDictionary",
-                 index: int,
-                 tags: List[str],
-                 args: List[int]):
-        MIPSRegisterBase.__init__(self, bd, index, tags, args)
+                 ixval: IndexedTableValue) -> None:
+        MIPSRegisterBase.__init__(self, bd, ixval)
 
     def is_mips_register(self) -> bool:
         return True
@@ -79,23 +81,23 @@ class MIPSRegister(MIPSRegisterBase):
     def is_mips_stack_pointer(self) -> bool:
         return self.tags[1] in ['sp']
 
-    def get_argument_index(self) -> Optional[int]:
+    def get_argument_index(self) -> int:
         if self.is_mips_argument_register():
             return int(self.tags[1][1:]) + 1
-        return None
+        else:
+            raise UF.CHBError("MIPS register is not an argument register")
 
     def __str__(self) -> str:
         return self.tags[1]
 
 
+@bdregistry.register_tag("ps", Register)
 class MIPSSpecialRegister(MIPSRegisterBase):
 
     def __init__(self,
                  bd: "chb.app.BDictionary.BDictionary",
-                 index: int,
-                 tags: List[str],
-                 args: List[int]) -> None:
-        MIPSRegisterBase.__init__(self, bd, index, tags, args)
+                 ixval: IndexedTableValue) -> None:
+        MIPSRegisterBase.__init__(self, bd, ixval)
 
     def is_mips_special_register(self) -> bool:
         return True
@@ -104,14 +106,13 @@ class MIPSSpecialRegister(MIPSRegisterBase):
         return self.tags[1]
 
 
+@bdregistry.register_tag("pf", Register)
 class MIPSFloatingPointRegister(MIPSRegisterBase):
 
     def __init__(self,
                  bd: "chb.app.BDictionary.BDictionary",
-                 index: int,
-                 tags: List[str],
-                 args: List[int]) -> None:
-        MIPSRegisterBase.__init__(self, bd, index, tags, args)
+                 ixval: IndexedTableValue) -> None:
+        MIPSRegisterBase.__init__(self, bd, ixval)
 
     def is_mips_floating_point_register(self) -> bool:
         return True
