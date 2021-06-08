@@ -28,15 +28,17 @@
 
 import xml.etree.ElementTree as ET
 
-import chb.app.InstrXData as I
-import chb.app.StackPointerOffset as S
+from typing import Callable, List, Tuple, TYPE_CHECKING
+
+from chb.app.InstrXData import InstrXData
+from chb.app.StackPointerOffset import StackPointerOffset
+
 import chb.util.IndexedTable as IT
 import chb.util.fileutil as UF
 
-from typing import TYPE_CHECKING
-
 if TYPE_CHECKING:
     import chb.app.Function
+    import chb.app.Instruction
 
 
 class FunctionDictionary:
@@ -47,12 +49,11 @@ class FunctionDictionary:
             xnode: ET.Element) -> None:
         self._fn = fn
         self.xnode = xnode
-        self.sp_offset_table = IT.IndexedTable("sp-offset-table")
-        self.instrx_table = IT.IndexedTable("instrx-table")
-        self.tables = [
-            (self.sp_offset_table, self._read_xml_sp_offset_table),
-            (self.instrx_table, self._read_xml_instrx_table)
-            ]
+        self.sp_offset_table: IT.IndexedTable = IT.IndexedTable("sp-offset-table")
+        self.instrx_table: IT.IndexedTable = IT.IndexedTable("instrx-table")
+        self.tables: List[IT.IndexedTable] = [
+            self.sp_offset_table,
+            self.instrx_table]
         self.initialize(xnode)
 
     @property
@@ -61,21 +62,22 @@ class FunctionDictionary:
 
     # ------------------  retrieve items from dictionary tables ----------------
 
-    def get_sp_offset(self, ix: int) -> S.StackPointerOffset:
-        return self.sp_offset_table.retrieve(ix)
+    def get_sp_offset(self, ix: int) -> StackPointerOffset:
+        return StackPointerOffset(
+            self, self.sp_offset_table.retrieve(ix))
 
-    def get_instrx(self, ix: int) -> I.InstrXData:
-        return self.instrx_table.retrieve(ix)
+    def get_instrx(self, ix: int) -> InstrXData:
+        return InstrXData(self, self.instrx_table.retrieve(ix))
 
     # ------------------------ xml accessors -----------------------------------
 
-    def read_xml_sp_offset(self, n: ET.Element) -> S.StackPointerOffset:
+    def read_xml_sp_offset(self, n: ET.Element) -> StackPointerOffset:
         index = n.get("isp")
         if index is None:
             raise UF.CHBError("Index attribute missing from function dictionary")
         return self.get_sp_offset(int(index))
 
-    def read_xml_instrx(self, n: ET.Element) -> I.InstrXData:
+    def read_xml_instrx(self, n: ET.Element) -> InstrXData:
         index = n.get("iopx")
         if index is None:
             raise UF.CHBError("Index attribute missing from function dictionary")
@@ -84,25 +86,9 @@ class FunctionDictionary:
     # -------------------- initialize dictionary from file ---------------------
 
     def initialize(self, xnode: ET.Element) -> None:
-        if xnode is None:
-            return
-        for (t, f) in self.tables:
+        for t in self.tables:
             t.reset()
-            table = xnode.find(t.name)
-            if table is None:
+            xtable = xnode.find(t.name)
+            if xtable is None:
                 raise UF.CHBError("Indexed table " + t.name + " not found")
-            f(table)
-
-    def _read_xml_sp_offset_table(self, txnode: ET.Element) -> None:
-        def get_value(node: ET.Element) -> S.StackPointerOffset:
-            rep = IT.get_rep(node)
-            args = (self,) + rep
-            return S.StackPointerOffset(*args)
-        self.sp_offset_table.read_xml(txnode, 'n', get_value)
-
-    def _read_xml_instrx_table(self, txnode: ET.Element) -> None:
-        def get_value(node: ET.Element) -> I.InstrXData:
-            rep = IT.get_rep(node)
-            args = (self,) + rep
-            return I.InstrXData(*args)
-        self.instrx_table.read_xml(txnode, 'n', get_value)
+            t.read_xml(xtable, "n")

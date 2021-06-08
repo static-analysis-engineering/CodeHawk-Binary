@@ -28,205 +28,254 @@
 # ------------------------------------------------------------------------------
 """Access point for most analysis results."""
 
-from typing import Any, Dict, List, Optional
+from abc import ABC, abstractmethod
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
-import chb.util.fileutil as UF
-
-from chb.app.BDictionary import BDictionary
 from chb.api.InterfaceDictionary import InterfaceDictionary
-from chb.arm.ARMDictionary import ARMDictionary
-from chb.asm.X86Dictionary import X86Dictionary
-from chb.mips.MIPSDictionary import MIPSDictionary
+
+from chb.app.AppResultData import AppResultData
+from chb.app.AppResultMetrics import AppResultMetrics
+from chb.app.BDictionary import BDictionary
+from chb.app.Callgraph import Callgraph
+from chb.app.Function import Function
+from chb.app.FunctionInfo import FunctionInfo
+from chb.app.FunctionsData import FunctionsData
+from chb.app.JumpTables import JumpTables
+from chb.app.SystemInfo import SystemInfo
+from chb.app.StringXRefs import StringsXRefs
+
+from chb.elfformat.ELFHeader import ELFHeader
 
 from chb.models.ModelsAccess import ModelsAccess
 
-from chb.app.FunctionsData import FunctionsData
-from chb.app.AppResultData import AppResultData
-from chb.app.AppResultMetrics import AppResultMetrics
-from chb.app.StringXRefs import StringsXRefs
-from chb.app.JumpTable import JumpTable
+from chb.peformat.PEHeader import PEHeader
 
 from chb.userdata.UserData import UserData
 
-from chb.peformat.PEHeader import PEHeader
-from chb.elfformat.ELFHeader import ELFHeader
+import chb.util.fileutil as UF
 
-from chb.arm.ARMFunction import ARMFunction
-from chb.asm.AsmFunction import AsmFunction
-from chb.mips.MIPSFunction import MIPSFunction
-from chb.app.FunctionInfo import FunctionInfo
 
-class  AppAccess:
+class AppAccess(ABC):
 
     def __init__(
             self,
             path: str,
             filename: str,
-            initialize: bool = True,
             deps: List[str] = [],
-            mips: bool = False,
-            arm: bool = False) -> None:
+            fileformat: str = "elf",
+            arch: str = "x86") -> None:
         """Initializes access to analysis results."""
-        self.path = path
-        self.filename = filename
-        self.deps = deps           # list of summary jars registered as dependencies
-        self.mips = mips
-        self.arm = arm
+        self._path = path
+        self._filename = filename
+        self._deps = deps  # list of summary jars registered as dependencies
+        self._fileformat = fileformat  # currently supported: elf, pe
+        self._arch = arch  # currently supported: arm, mips, x86
 
-        # application-wide dictionaroes
-        self._bd: Optional[BDictionary] = None
-        self._id: Optional[InterfaceDictionary] = None
-        self._x86d: Optional[X86Dictionary] = None
-        self._mipsd: Optional[MIPSDictionary] = None
-        self._armd: Optional[ARMDictionary] = None
+        self._userdata: Optional[UserData] = None
 
-        self.userdata = None             # UserData
+        # file-format specific
+        self._peheader: Optional[PEHeader] = None
+        self._elfheader: Optional[ELFHeader] = None
 
-        self.peheader = None
-        self.elfheader = None
+        # functions
+        self._appresultdata: Optional[AppResultData] = None
+        self._functioninfos: Dict[str, FunctionInfo] = {}
 
-        self.resultdata = None     # AppResultData
-        self.functions: Dict[str, Any] = {}        # faddr -> AsmFunction / MIPSFunction
-        self.functioninfos: Dict[str, FunctionInfo] = {}    # faddr -> FunctionInfo
-        self.functionnames = None    # name -> function address
+        # callgraph
+        self._callgraph: Optional[Callgraph] = None
 
-        self.models = ModelsAccess(self,dlljars=self.deps)
-        
-        if initialize and UF.has_bdictionary_file(self.path,self.filename):
-            self._get_bdictionary()
-            self._get_interface_dictionary()
-            if self.mips:
-                self._get_mips_dictionary()
-            elif self.arm:
-                self._get_arm_dictionary()
-            else:
-                self._get_x86_dictionary()
-            self._get_system_info()
-            self._get_user_data()
+        # summaries
+        self.models = ModelsAccess(self.dependencies)
 
-    # Properties ---------------------------------------------------------------
+        # application-wide dictionaries
+        self._bdictionary: Optional[BDictionary] = None
+        self._interfacedictionary: Optional[InterfaceDictionary] = None
+
+        self._systeminfo: Optional[SystemInfo] = None
+
+    @property
+    def filename(self) -> str:
+        return self._filename
+
+    @property
+    def path(self) -> str:
+        return self._path
+
+    @property
+    def dependencies(self) -> Sequence[str]:
+        return self._deps
+
+    # Architecture and file format ---------------------------------------------
+
+    @property
+    def architecture(self) -> str:
+        return self._arch
+
+    @property
+    def fileformat(self) -> str:
+        return self._fileformat
+
+    @property
+    def arm(self) -> bool:
+        return self.architecture == "arm"
+
+    @property
+    def mips(self) -> bool:
+        return self.architecture == "mips"
+
+    @property
+    def x86(self) -> bool:
+        return self.architecture == "x86"
+
+    @property
+    def elf(self) -> bool:
+        return self.fileformat == "elf"
+
+    @property
+    def pe(self) -> bool:
+        return self.fileformat in ["pe", "pe32"]
+
+    # Dictionaries  ------------------------------------------------------------
 
     @property
     def bdictionary(self) -> BDictionary:
-        if self._bd is None:
-            raise UF.CHBError("BDictionary has not been initialized")
-        return self._bd
-
-    @bdictionary.setter
-    def bdictionary(self, d: BDictionary) -> None:
-        self._bd = d
+        if self._bdictionary is None:
+            x = UF.get_bdictionary_xnode(self.path, self.filename)
+            self._bdictionary = BDictionary(self, x)
+        return self._bdictionary
 
     @property
     def interfacedictionary(self) -> InterfaceDictionary:
-        if self._id is None:
-            raise UF.CHBError("InterfaceDictionary has not been initialized")
-        return self._id
+        if self._interfacedictionary is None:
+            x = UF.get_interface_dictionary_xnode(self.path, self.filename)
+            self._interfacedictionary = InterfaceDictionary(self, x)
+        return self._interfacedictionary
 
-    @interfacedictionary.setter
-    def interfacedictionary(self, d: InterfaceDictionary) -> None:
-        self._id = d
-
-    @property
-    def x86dictionary(self) -> X86Dictionary:
-        if self._x86d is None:
-            raise UF.CHBError("X86Dictionary has not been initialized")
-        return self._x86d
-
-    @x86dictionary.setter
-    def x86dictionary(self, d: X86Dictionary) -> None:
-        self._x86d = d
+    # File format --------------------------------------------------------------
 
     @property
-    def mipsdictionary(self) -> MIPSDictionary:
-        if self._mipsd is None:
-            raise UF.CHBError("MIPSDictionary has not been initialized")
-        return self._mipsd
-
-    @mipsdictionary.setter
-    def mipsdictionary(self, d: MIPSDictionary) -> None:
-        self._mipsd = d
+    def peheader(self) -> PEHeader:
+        if self.pe:
+            if self._peheader is None:
+                x = UF.get_pe_header_xnode(self.path, self.filename)
+                self._peheader = PEHeader(
+                    self.path, self.filename, x, self.dependencies)
+            return self._peheader
+        else:
+            raise UF.CHBError("File with file format "
+                              + self.fileformat
+                              + " does not have a PE header")
 
     @property
-    def armdictionary(self) -> ARMDictionary:
-        if self._armd is None:
-            raise UF.CHBError("ARMDictionary has not been initialized")
-        return self._armd
+    def elfheader(self) -> ELFHeader:
+        if self.elf:
+            if self._elfheader is None:
+                x = UF.get_elf_header_xnode(self.path, self.filename)
+                self._elfheader = ELFHeader(self.path, self.filename, x)
+            return self._elfheader
+        else:
+            raise UF.CHBError("File with file format "
+                              + self.fileformat
+                              + " does not have an ELF header")
 
-    @armdictionary.setter
-    def armdictionary(self, d: ARMDictionary) -> None:
-        self._armd = d
+    # Systeminfo ---------------------------------------------------------------
+
+    @property
+    def systeminfo(self) -> SystemInfo:
+        if self._systeminfo is None:
+            xinfo = UF.get_systeminfo_xnode(self.path, self.filename)
+            self._systeminfo = SystemInfo(self.bdictionary, xinfo)
+        return self._systeminfo
+
+    @property
+    def stringsxrefs(self) -> StringsXRefs:
+        return self.systeminfo.stringsxrefs
+
+    @property
+    def jumptables(self) -> JumpTables:
+        return self.systeminfo.jumptables
 
     # Functions ----------------------------------------------------------------
 
-    def get_function_addresses(self):
-        self._get_results()
-        return self.resultdata.get_function_addresses()
+    @property
+    def appresultdata(self) -> AppResultData:
+        if self._appresultdata is None:
+            x = UF.get_resultdata_xnode(self.path, self.filename)
+            self._appresultdata = AppResultData(x)
+        return self._appresultdata
 
-    def has_function(self,faddr):
-        return faddr in self.get_function_addresses()
+    @property
+    def appfunction_addrs(self) -> Sequence[str]:
+        """Return a list of all application function addresses."""
+        return self.appresultdata.function_addresses()
 
-    def get_function(self,faddr):
-        if not faddr in self.functions:
-            xnode = UF.get_function_results_xnode(self.path,self.filename,faddr)
-            if self.mips:
-                self.functions[faddr] = MIPSFunction(self,xnode)
-            elif self.arm:
-                self.functions[faddr] = ARMFunction(self,xnode)
-            else:
-                self.functions[faddr] = AsmFunction(self,xnode)
-        return self.functions[faddr]
+    def has_function(self, faddr: str) -> bool:
+        return faddr in self.appfunction_addrs
 
-    def get_address_reference(self):
-        """Return map of addr -> [ baddr, [ faddr ])."""
-        result = {}
-        def add(faddr,fn):
-            fnref = fn.get_address_reference()   #  addr -> baddr
-            for a in fnref:
-                if a in result:
-                    result[a][1].append(faddr)
-                else:
-                    result[a] = (fnref[a],[ faddr ])
-        self.iter_functions(add)
-        return result
+    @property
+    def functionsdata(self) -> FunctionsData:
+        return self.systeminfo.functionsdata
 
-    def has_function_name(self,faddr):
-        return self.has_function(faddr) and self.get_function(faddr).has_name
+    def has_function_name(self, faddr: str) -> bool:
+        return self.systeminfo.has_function_name(faddr)
 
-    def get_function_name(self,faddr):
-        if self.has_function_name(faddr):
-            return self.get_function(faddr).get_names()[0]
+    def function_name(self, faddr: str) -> str:
+        """Return one of the function names, if it has at least one."""
 
-    def is_app_function_name(self,name):
-        if self.functionnames is None: self._initialize_functionnames()
-        return name in self.functionnames
+        return self.systeminfo.function_name(faddr)
 
-    def is_unique_app_function_name(self,name):
-        return (self.is_app_function_name(name)
-                    and len(self.functionnames[name]) == 1)
+    def function_names(self, faddr: str) -> Sequence[str]:
+        """Return all function names."""
 
-    def get_app_function_address(self,name):
-        if self.is_unique_app_function_name(name):
-            return self.functionnames[name][0]
+        return self.systeminfo.function_names(faddr)
 
-    def get_function_info(self,faddr):
-        if not faddr in self.functioninfos:
-            xnode = UF.get_function_info_xnode(self.path,self.filename,faddr)
-            self.functioninfos[faddr] = FunctionInfo(self,faddr,xnode)
-        return self.functioninfos[faddr]
+    @property
+    @abstractmethod
+    def functions(self) -> Mapping[str, Function]:
+        """Return a mapping of function address to function object."""
+        ...
 
-    def iter_functions(self,f):
-        for faddr in self.get_function_addresses():
-            f(faddr,self.get_function(faddr))
+    def function(self, faddr: str) -> Function:
+        """Return the function object object for the given address."""
 
-    def find_function(self,iaddr):
-        for faddr in self.get_function_addresses():
-            f = self.get_function(faddr)
-            if f.has_instruction(iaddr):
-                return f
-        return None
+        if faddr in self.functions:
+            return self.functions[faddr]
+        else:
+            raise UF.CHBError("Function not found for " + faddr)
+
+    def is_app_function_name(self, name: str) -> bool:
+        return self.systeminfo.is_app_function_name(name)
+
+    def is_unique_app_function_name(self, name: str) -> bool:
+        return self.systeminfo.is_unique_app_function_name(name)
+
+    def function_address_from_name(self, name: str) -> str:
+        return self.systeminfo.function_address_from_name(name)
+
+    def function_info(self, faddr: str) -> FunctionInfo:
+        if faddr not in self._functioninfos:
+            xnode = UF.get_function_info_xnode(self.path, self.filename, faddr)
+            self._functioninfos[faddr] = FunctionInfo(
+                self.interfacedictionary, faddr, xnode)
+        return self._functioninfos[faddr]
+
+    # Callgraph ---------------------------------------------------------------
+
+    @property
+    @abstractmethod
+    def call_edges(self) -> Mapping[str, Mapping[str, int]]:
+        ...
+
+    @property
+    def callgraph(self) -> Callgraph:
+        if self._callgraph is None:
+            calls = self.call_edges
+            self._callgraph = Callgraph(calls)
+        return self._callgraph
 
     # Misc ---------------------------------------------------------------------
-    
+
+    '''
     # returns a dictionary of faddr -> string list
     def get_strings(self):
         result = {}
@@ -253,7 +302,7 @@ class  AppAccess:
         profile = {}
         profile['path'] = self.path
         profile['filename'] = self.filename
-        profile['imagebase'] = self.get_pe_header().get_image_base()
+        profile['imagebase'] = self.peheader.image_base
         profile['md5s'] = result
         return profile
 
@@ -327,7 +376,7 @@ class  AppAccess:
                     if not params is None:
                         if len(args) == len(params):
                             for (param,arg) in zip(params,args):
-                                iocroles = [ r for r in param.get_roles() if r.is_ioc() ]
+                                iocroles = [r for r in param.roles() if r.is_ioc()]
                                 for r in iocroles:
                                     ioc = r.get_ioc_name()
                                     result.setdefault(ioc,{})
@@ -408,7 +457,7 @@ class  AppAccess:
         return result
 
     # Global variables ---------------------------------------------------------
-    
+
     # returns a dictionary of faddr -> gvar -> count
     def get_global_variables(self):
         result = {}
@@ -417,89 +466,20 @@ class  AppAccess:
         self.iter_functions(f)
         return result
 
-
+    '''
     # Result Metrics -----------------------------------------------------------
 
-    def get_result_metrics(self):
-        x = UF.get_resultmetrics_xnode(self.path,self.filename)
-        h = UF.get_resultmetrics_xheader(self.path,self.filename)
-        return AppResultMetrics(self,x,h)
+    @property
+    def result_metrics(self) -> AppResultMetrics:
+        x = UF.get_resultmetrics_xnode(self.path, self.filename)
+        h = UF.get_resultmetrics_xheader(self.path, self.filename)
+        return AppResultMetrics(self.filename, x, h)
 
-    def get_result_metrics_summary(self):
-        return self.get_result_metrics().summary()
+    # User data -----------------------------------------------------------
 
-    # PE data ------------------------------------------------------------------
-
-    def get_pe_header(self):
-        self._get_pe_header()
-        return self.peheader
-
-    # ELF data  ----------------------------------------------------------------
-
-    def get_elf_header(self):
-        self._get_elf_header()
-        return self.elfheader
-
-    # Initialization -----------------------------------------------------------
-
-    def _get_pe_header(self):
-        if self.peheader is None:
-            x = UF.get_pe_header_xnode(self.path,self.filename)
-            self.peheader = PEHeader(self,x)
-
-    def _get_elf_header(self):
-        if self.elfheader is None:
-            x = UF.get_elf_header_xnode(self.path,self.filename)
-            self.elfheader = ELFHeader(self,x)
-
-    def _get_user_data(self):
-        if self.userdata is None:
-            x = UF.get_user_system_data_xnode(self.path,self.filename)
-            self.userdata = UserData(self,x)
-
-    def _get_bdictionary(self) -> None:
-        x = UF.get_bdictionary_xnode(self.path,self.filename)
-        self.bdictionary = BDictionary(self,x)
-
-    def _get_interface_dictionary(self) -> None:
-        x = UF.get_interface_dictionary_xnode(self.path,self.filename)
-        self.interfacedictionary = InterfaceDictionary(self,x)
-
-    def _get_x86_dictionary(self) -> None:
-        x = UF.get_x86_dictionary_xnode(self.path,self.filename)
-        self.x86dictionary = X86Dictionary(self,x)
-
-    def _get_mips_dictionary(self) -> None:
-        x = UF.get_mips_dictionary_xnode(self.path,self.filename)
-        self.mipsdictionary = MIPSDictionary(self, x)
-
-    def _get_arm_dictionary(self) -> None:
-        x = UF.get_arm_dictionary_xnode(self.path, self.filename)
-        self.armdictionary = ARMDictionary(self, x)
-
-    def _get_system_info(self):
-        s = UF.get_systeminfo_xnode(self.path,self.filename)
-        self.functionsdata = FunctionsData(self,s.find('functions-data'))
-        self.stringxrefs = StringsXRefs(self,s.find('string-xreferences'))
-        jtnode = s.find('jumptables')
-        if not jtnode is None:
-            self._get_jump_tables(jtnode)
-
-    def _get_jump_tables(self,jtnode):
-        for x in jtnode.findall('jt'):
-            self.jumptables[ x.get('start') ] = JumpTable(self,x)
-
-    def _get_results(self):
-        if self.resultdata is None:
-            x = UF.get_resultdata_xnode(self.path,self.filename)
-            self.resultdata = AppResultData(self,x)
-
-    def _initialize_functionnames(self):
-        self.functionnames = {}
-        def f(faddr,fn):
-            if fn.has_name():
-                fnames = fn.get_names()
-                for fname in fnames:
-                    self.functionnames.setdefault(fname,[])
-                    self.functionnames[fname].append(faddr)
-        self.iter_functions(f)
+    @property
+    def userdata(self) -> UserData:
+        if self._userdata is None:
+            x = UF.get_user_system_data_xnode(self.path, self.filename)
+            self._userdata = UserData(x)
+        return self._userdata

@@ -33,35 +33,27 @@ Subclasses:
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Mapping, TYPE_CHECKING
+from typing import Dict, List, Mapping, Sequence
 
-import chb.app.CfgBlock as B
+from chb.app.CfgBlock import CfgBlock
+
 import chb.util.fileutil as UF
-
-if TYPE_CHECKING:
-    import chb.app.Function
 
 
 class Cfg:
 
     def __init__(
             self,
-            f: "chb.app.Function.Function",
             xnode: ET.Element) -> None:
-        self._function = f
         self.xnode = xnode
         self._edges: Dict[str, List[str]] = {}
 
     @property
-    def function(self):
-        return self._function
-
-    @property
-    def blocks(self) -> Mapping[str, B.CfgBlock]:
+    def blocks(self) -> Mapping[str, CfgBlock]:
         raise UF.CHBError("Property blocks not implemented for Cfg")
 
     @property
-    def edges(self) -> Dict[str, List[str]]:
+    def edges(self) -> Mapping[str, Sequence[str]]:
         if len(self._edges) == 0:
             xedges = self.xnode.find("edges")
             if xedges is None:
@@ -77,21 +69,25 @@ class Cfg:
                 self._edges[src].append(tgt)
         return self._edges
 
-    @property
     def max_loop_level(self) -> int:
         return max([len(self.blocks[b].looplevels) for b in self.blocks])
 
-    @property
-    def has_loops(self) -> bool:
-        return self.max_loop_level > 0
+    def has_loop_level(self, baddr: str) -> bool:
+        if baddr in self.blocks:
+            return len(self.blocks[baddr].looplevels) > 0
+        else:
+            return False
 
-    def get_loop_levels(self, baddr: str) -> List[str]:
+    def has_loops(self) -> bool:
+        return self.max_loop_level() > 0
+
+    def loop_levels(self, baddr: str) -> Sequence[str]:
         if baddr in self.blocks:
             return self.blocks[baddr].looplevels
         else:
             raise UF.CHBError("Blockaddress " + baddr + " not found in cfg")
 
-    def get_successors(self, src: str) -> List[str]:
+    def successors(self, src: str) -> Sequence[str]:
         if src in self._edges:
             return self._edges[src]
         else:

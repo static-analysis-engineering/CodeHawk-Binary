@@ -27,7 +27,7 @@
 """Abstract superclass of an operand of an assembly instruction.
 
 Subclasses:
- - asm/Operand
+ - asm/X86Operand
  - arm/ARMOperand
  - mips/MIPSOperand
 """

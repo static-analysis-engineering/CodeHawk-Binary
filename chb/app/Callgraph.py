@@ -1,11 +1,12 @@
 # ------------------------------------------------------------------------------
-# Access to the CodeHawk Binary Analyzer Analysis Results
+# CodeHawk Binary Analyzer
 # Author: Henny Sipma
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -16,7 +17,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -26,57 +27,69 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+from typing import Dict, List, Mapping, Set
+
 import chb.util.graphutil as UG
 
-class Callgraph(object):
 
-    def __init__(self,app):
-        self.app = app
-        self.nodes = set([])
-        self.edges = {}            # faddr -> faddr/name -> int
-        self.revedges = {}         # faddr/name -> faddr -> int
-        self._initialize()
+class Callgraph:
 
-    def get_name(self,n):
-        if self.app.has_function_name(n):
-            return self.app.get_function_name(n)
-        else:
-            return n
+    def __init__(
+            self,
+            calls: Mapping[str, Mapping[str, int]]) -> None:
+        self._nodes: Set[str] = set([])
+        # faddr -> faddr/name -> int
+        self._edges: Mapping[str, Mapping[str, int]] = calls
+        self._edgelist: Dict[str, List[str]] = {}
+        # faddr/name -> faddr -> int
+        self._revedges: Dict[str, Dict[str, int]] = {}
+        self._revedgelist: Dict[str, List[str]] = {}
 
-    def reverse_edges(self):
-        if len(self.revedges) == 0:
-            for src in self.edges:
-                for dst in self.edges[src]:
-                    self.revedges.setdefault(dst,{})
-                    self.revedges[dst].setdefault(src,0)
-                    self.revedges[dst][src] += 1
+    def edges(self) -> Mapping[str, Mapping[str, int]]:
+        return self._edges
 
-    def _initialize(self):
-        calls = self.app.get_call_instructions()  # faddr -> instr
-        for faddr in calls:
-            self.nodes.add(faddr)
-            self.edges[faddr] = {}
-            for instr in calls[faddr]:
-                tgt = instr.get_call_target()
-                if not tgt is None:
-                    tgt = str(tgt)
-                    self.nodes.add(tgt)
-                    self.edges[faddr].setdefault(tgt,0)
-                    self.edges[faddr][tgt] += 1
+    def edgelist(self) -> Dict[str, List[str]]:
+        if len(self._edgelist) == 0:
+            for src in self.edges():
+                for dst in self.edges()[src]:
+                    self._edgelist.setdefault(src, [])
+                    self._edgelist[src].append(dst)
+        return self._edgelist
 
+    def nodes(self) -> Set[str]:
+        if len(self._nodes) == 0:
+            for src in self.edges():
+                for dst in self.edges()[src]:
+                    self._nodes.add(src)
+                    self._nodes.add(dst)
+        return self._nodes
 
-    def get_paths(self,src,dst):
-        g = UG.DirectedGraph(self.nodes,self.edges)
-        g.find_paths(src,dst)
-        return g.paths
+    def revedges(self) -> Mapping[str, Mapping[str, int]]:
+        if len(self._revedges) == 0:
+            for src in self.edges():
+                for dst in self.edges()[src]:
+                    self._revedges.setdefault(dst, {})
+                    self._revedges[dst].setdefault(src, 0)
+                    self._revedges[dst][src] += self.edges()[src][dst]
+        return self._revedges
 
-    def get_reverse_paths(self,src):
-        self.reverse_edges()
-        g = UG.DirectedGraph(self.nodes,self.revedges)
+    def revedgelist(self) -> Dict[str, List[str]]:
+        if len(self._revedgelist) == 0:
+            for src in self.revedges():
+                for dst in self.revedges()[src]:
+                    self._revedgelist.setdefault(src, [])
+                    self._revedgelist[src].append(dst)
+        return self._revedgelist
+
+    def get_paths(self, src: str, dst: str) -> List[List[str]]:
+        g = UG.DirectedGraph(list(self.nodes()), self.edgelist())
+        g.find_paths(src, dst)
+        return g.get_paths()
+
+    def get_reverse_paths(self, src: str) -> List[List[str]]:
+        g = UG.DirectedGraph(list(self.nodes()), self.revedgelist())
         g.find_paths(src)
-        return g.paths
+        return g.get_paths()
 
-    def get_reverse_callgraph(self):
-        self.reverse_edges()
-        return self.revedges
-
+    def get_reverse_callgraph(self) -> Mapping[str, Mapping[str, int]]:
+        return self.revedges()

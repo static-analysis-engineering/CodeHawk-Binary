@@ -35,19 +35,14 @@ import xml.etree.ElementTree as ET
 
 import chb.util.fileutil as UF
 
-from typing import Dict, List, Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import chb.app.Cfg
+from typing import Dict, List, Optional
 
 
 class CfgBlock:
 
     def __init__(
             self,
-            cfg: "chb.app.Cfg.Cfg",
             xnode: ET.Element) -> None:
-        self.cfg = cfg
         self.xnode = xnode
 
     @property

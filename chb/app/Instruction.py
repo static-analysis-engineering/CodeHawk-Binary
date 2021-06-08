@@ -34,25 +34,27 @@ Subclasses:
 
 import xml.etree.ElementTree as ET
 
+from abc import ABC, abstractmethod
+
+from typing import Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
+
+from chb.app.FunctionDictionary import FunctionDictionary
+
+from chb.invariants.XXpr import XXpr
+
 import chb.util.fileutil as UF
 
-from typing import Callable, Dict, List, Sequence, TYPE_CHECKING
-
 if TYPE_CHECKING:
-    import chb.app.AppAccess
-    import chb.app.BasicBlock
-    import chb.app.Function
-    import chb.app.Operand
-    import chb.app.StackPointerOffset
+    from chb.app.Operand import Operand
+    from chb.app.StackPointerOffset import StackPointerOffset
+    from chb.invariants.XXpr import XXpr
 
 
-class Instruction:
+class Instruction(ABC):
 
     def __init__(
             self,
-            block: "chb.app.BasicBlock.BasicBlock",
             xnode: ET.Element) -> None:
-        self.block = block
         self.xnode = xnode
 
     @property
@@ -63,57 +65,73 @@ class Instruction:
         return _iaddr
 
     @property
-    def basicblock(self) -> "chb.app.BasicBlock.BasicBlock":
-        return self.block
-
-    @property
-    def function(self) -> "chb.app.Function.Function":
-        return self.block.function
-
-    @property
-    def app(self) -> "chb.app.AppAccess.AppAccess":
-        return self.function.app
-
-    @property
-    def fndictionary(self) -> "chb.app.FunctionDictionary.FunctionDictionary":
-        return self.function.fndictionary
-
-    @property
+    @abstractmethod
     def mnemonic(self) -> str:
-        raise UF.CHBError("Property mnemonic not implemented for Instruction")
+        ...
 
     @property
+    @abstractmethod
     def opcodetext(self) -> str:
-        raise UF.CHBError("Property opcodetext not implemented for Instruction")
+        ...
 
     @property
-    def operands(self) -> Sequence["chb.app.Operand.Operand"]:
-        raise UF.CHBError("Property operands not implemented for Instruction")
+    @abstractmethod
+    def operands(self) -> Sequence["Operand"]:
+        ...
 
     @property
+    @abstractmethod
     def annotation(self) -> str:
-        raise UF.CHBError("Property annotation not implemented for Instruction")
+        ...
 
     @property
-    def stackpointer_offset(self) -> "chb.app.StackPointerOffset.StackPointerOffset":
-        raise UF.CHBError(
-            "Property stackpointer-offset not implemented for Instruction")
+    @abstractmethod
+    def stackpointer_offset(self) -> "StackPointerOffset":
+        ...
 
     @property
+    @abstractmethod
     def bytestring(self) -> str:
-        raise UF.CHBError("Property bytestring not implemented for Instruction")
+        ...
 
     @property
-    def strings(self) -> List[str]:
-        raise UF.CHBError("Property strings not implemented for Instruction")
+    @abstractmethod
+    def strings_referenced(self) -> Sequence[str]:
+        ...
 
+    @property
+    @abstractmethod
+    def is_call_instruction(self) -> bool:
+        ...
+
+    @property
+    @abstractmethod
+    def is_return_instruction(self) -> bool:
+        ...
+
+    @property
+    @abstractmethod
+    def call_arguments(self) -> Sequence["XXpr"]:
+        ...
+
+    @property
+    @abstractmethod
+    def is_branch_instruction(self) -> bool:
+        ...
+
+    @property
+    @abstractmethod
+    def ft_conditions(self) -> Sequence[XXpr]:
+        ...
+
+    @abstractmethod
     def to_string(
             self,
-            sp: bool = False,
+            bytes: bool = False,
             opcodetxt: bool = True,
-            align: bool = True,
-            opcodewidth: int = 40) -> str:
-        raise UF.CHBError("To-string not implemented for Instruction")
+            opcodewidth: int = 25,
+            sp: bool = True) -> str:
+        ...
 
     def __str__(self) -> str:
         return self.to_string()
