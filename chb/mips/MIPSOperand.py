@@ -28,11 +28,15 @@
 # ------------------------------------------------------------------------------
 """Operand of MIPS assembly instruction."""
 
-import chb.app.Operand as OP
-import chb.mips.MIPSDictionaryRecord as D
-import chb.mips.MIPSOperandKind as K
-import chb.mips.MIPSRegister as R
+from chb.app.Operand import Operand
+
+from chb.mips.MIPSDictionaryRecord import MIPSDictionaryRecord
+from chb.mips.MIPSOperandKind import MIPSOperandKind
+from chb.mips.MIPSRegister import MIPSRegister
+
 import chb.util.fileutil as UF
+
+from chb.util.IndexedTable import IndexedTableValue
 
 from typing import List, TYPE_CHECKING
 
@@ -40,78 +44,92 @@ if TYPE_CHECKING:
     import chb.mips.MIPSDictionary
 
 
-class MIPSOperand(OP.Operand, D.MIPSDictionaryRecord):
+class MIPSOperand(Operand, MIPSDictionaryRecord):
+    """MIPS assembly instruction operand.
+
+    args[0]: index of operand kind in mips dictionary
+    """
 
     def __init__(
             self,
             d: "chb.mips.MIPSDictionary.MIPSDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.MIPSDictionaryRecord.__init__(self, d, index, tags, args)
-        OP.Operand.__init__(self)
-        # args[0]: operand kind
+            ixval: IndexedTableValue) -> None:
+        MIPSDictionaryRecord.__init__(self, d, ixval)
+        Operand.__init__(self)
 
-    def get_mips_opkind(self) -> K.MIPSOperandKindBase:
-        return self.d.get_mips_opkind(self.args[0])
+    @property
+    def opkind(self) -> MIPSOperandKind:
+        return self.mipsd.mips_opkind(self.args[0])
 
-    def get_size(self) -> int:
-        return self.get_mips_opkind().get_size()
+    @property
+    def size(self) -> int:
+        return self.opkind.size
 
-    def get_value(self) -> int:
+    @property
+    def value(self) -> int:
         return self.to_signed_int()
 
+    @property
     def is_mips_register(self) -> bool:
-        return self.get_mips_opkind().is_mips_register()
+        return self.opkind.is_mips_register
 
+    @property
     def is_zero_register(self) -> bool:
-        return self.is_mips_register() and self.get_mips_register() == 'zero'
+        return self.is_mips_register and self.register == 'zero'
 
+    @property
     def is_mips_indirect_register(self) -> bool:
-        return self.get_mips_opkind().is_mips_indirect_register()
+        return self.opkind.is_mips_indirect_register
 
+    @property
     def is_mips_immediate(self) -> bool:
-        return self.get_mips_opkind().is_mips_immediate()
+        return self.opkind.is_mips_immediate
 
+    @property
     def is_mips_absolute(self) -> bool:
-        return self.get_mips_opkind().is_mips_absolute()
+        return self.opkind.is_mips_absolute
 
     def is_mips_indirect_register_with_reg(self, reg: str) -> bool:
-        return (self.is_mips_indirect_register()
-                and str(self.get_mips_indirect_register()) == reg)
+        return (self.is_mips_indirect_register
+                and str(self.register) == reg)
 
-    def get_mips_register(self) -> str :
-        if self.is_mips_register():
-            return self.get_mips_opkind().get_mips_register()
+    @property
+    def register(self) -> str:
+        if self.is_mips_register:
+            return self.opkind.register
         raise UF.CHBError('Operand is not a register: ' + str(self))
 
-    def get_mips_indirect_register(self) -> str:
-        if self.is_mips_indirect_register():
-            return self.get_mips_opkind().get_mips_register()
-        raise UF.CHBError('Operand is not an indirect register: '  + str(self))
+    @property
+    def indirect_register(self) -> str:
+        if self.is_mips_indirect_register:
+            return self.opkind.register
+        raise UF.CHBError(
+            'Operand is not an indirect register: ' + str(self))
 
-    def get_mips_indirect_register_offset(self) -> int:
-        if self.is_mips_indirect_register():
-            return self.get_mips_opkind().get_offset()
+    @property
+    def indirect_register_offset(self) -> int:
+        if self.is_mips_indirect_register:
+            return self.opkind.offset
         raise UF.CHBError('Operand is not an indirect register: ' + str(self))
 
-    def get_mips_absolute_address_value(self) -> int:
-        if self.is_mips_absolute():
-            return self.get_mips_opkind().get_address().get_int()
+    @property
+    def absolute_address_value(self) -> int:
+        if self.is_mips_absolute:
+            return self.opkind.address.get_int()
         raise UF.CHBError('Operand is not an absolute address: ' + str(self))
 
     def to_signed_int(self) -> int:
-        if self.is_mips_immediate():
-            return self.get_mips_opkind().to_signed_int()
+        if self.is_mips_immediate:
+            return self.opkind.to_signed_int()
         raise UF.CHBError('Operand is not an immediate: ' + str(self))
 
     def to_unsigned_int(self) -> int:
-        if self.is_mips_immediate():
-            return self.get_mips_opkind().to_unsigned_int()
+        if self.is_mips_immediate:
+            return self.opkind.to_unsigned_int()
         raise UF.CHBError('Operand is not an immediate: ' + str(self))
 
     def to_expr_string(self) -> str:
-        return self.get_mips_opkind().to_expr_string()
+        return self.opkind.to_expr_string()
 
     def __str__(self) -> str:
-        return str(self.get_mips_opkind())
+        return str(self.opkind)

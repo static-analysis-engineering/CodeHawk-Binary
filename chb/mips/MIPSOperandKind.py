@@ -26,59 +26,84 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Represents the different kinds of assembly instruction operands.
 
+Corresponds to mips_operand_kind_t in bchlibmips32/BCHMIPSTypes
+
+                                               tags[0]   tags    args
+type mips_operand_kind_t =
+  | MIPSReg of mips_reg_t                        "r"       2       0
+  | MIPSSpecialReg of mips_special_reg_t         "s"       2       0
+  | MIPSFPReg of int                             "f"       1       1
+  | MIPSIndReg of mips_reg_t * numerical_t       "i"       3       0
+  | MIPSAbsolute of doubleword_int               "a"       1       1
+  | MIPSImmediate of immediate_int               "m"       2       0
+
+"""
 from typing import List, TYPE_CHECKING
 
-import chb.app.BDictionary as B
-import chb.mips.MIPSDictionaryRecord as D
+from chb.app.BDictionary import BDictionary, AsmAddress
+
+from chb.mips.MIPSDictionaryRecord import MIPSDictionaryRecord, mipsregistry
+
 import chb.util.fileutil as UF
+
+from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.mips.MIPSDictionary
 
-class MIPSOperandKindBase(D.MIPSDictionaryRecord):
+
+class MIPSOperandKind(MIPSDictionaryRecord):
 
     def __init__(
             self,
             d: "chb.mips.MIPSDictionary.MIPSDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.MIPSDictionaryRecord.__init__(self, d, index, tags, args)
-        self.bd = self.d.app.bdictionary
+            ixval: IndexedTableValue) -> None:
+        MIPSDictionaryRecord.__init__(self, d, ixval)
 
+    @property
     def is_mips_absolute(self) -> bool:
         return False
 
+    @property
     def is_mips_immediate(self) -> bool:
         return False
 
+    @property
     def is_mips_indirect_register(self) -> bool:
         return False
 
+    @property
     def is_mips_register(self) -> bool:
         return False
 
+    @property
     def is_mips_special_register(self) -> bool:
         return False
 
-    def get_size(self) -> int:
+    @property
+    def size(self) -> int:
         raise UF.CHBError(
             "Size undefined for operand kind: " + self.__str__())
 
-    def get_mips_register(self) -> str:
+    @property
+    def register(self) -> str:
         raise UF.CHBError(
             "Register undefined for operand kind: " + self.__str__())
 
-    def get_offset(self) -> int:
+    @property
+    def offset(self) -> int:
         raise UF.CHBError(
             "Operand kind does not have an offset: " + self.__str__())
 
-    def get_address(self) -> B.AsmAddress:
+    @property
+    def address(self) -> AsmAddress:
         raise UF.CHBError(
             "Operand kind does not have an address: " + self.__str__())
 
-    def get_value(self) -> int:
+    @property
+    def value(self) -> int:
         raise UF.CHBError(
             "Operand kind does not have a value: " + self.__str__())
 
@@ -97,148 +122,158 @@ class MIPSOperandKindBase(D.MIPSDictionaryRecord):
         return 'operandkind:' + self.tags[0]
 
 
-class MIPSRegisterOp(MIPSOperandKindBase):
+@mipsregistry.register_tag("r", MIPSOperandKind)
+class MIPSRegisterOp(MIPSOperandKind):
 
     def __init__(
             self,
             d: "chb.mips.MIPSDictionary.MIPSDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        MIPSOperandKindBase.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        MIPSOperandKind.__init__(self, d, ixval)
 
+    @property
     def is_mips_register(self) -> bool:
         return True
 
-    def get_size(self) -> int:
+    @property
+    def size(self) -> int:
         return 4
 
-    def get_mips_register(self) -> str:
+    @property
+    def register(self) -> str:
         return self.tags[1]
 
     def __str__(self) -> str:
-        return str(self.get_mips_register())
+        return str(self.register)
 
 
-class MIPSSpecialRegisterOp(MIPSOperandKindBase):
+@mipsregistry.register_tag("s", MIPSOperandKind)
+class MIPSSpecialRegisterOp(MIPSOperandKind):
 
     def __init__(
             self,
             d: "chb.mips.MIPSDictionary.MIPSDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        MIPSOperandKindBase.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        MIPSOperandKind.__init__(self, d, ixval)
 
+    @property
     def is_mips_special_register(self) -> bool:
         return True
 
-    def get_mips_register(self) -> str:
+    @property
+    def register(self) -> str:
         return self.tags[1]
 
-    def get_size(self) -> int:
+    @property
+    def size(self) -> int:
         return 4
 
     def __str__(self) -> str:
-        return str(self.get_mips_register())
+        return str(self.register)
 
 
-class MIPSIndirectRegisterOp(MIPSOperandKindBase):
+@mipsregistry.register_tag("i", MIPSOperandKind)
+class MIPSIndirectRegisterOp(MIPSOperandKind):
 
     def __init__(
             self,
             d: "chb.mips.MIPSDictionary.MIPSDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        MIPSOperandKindBase.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        MIPSOperandKind.__init__(self, d, ixval)
 
+    @property
     def is_mips_indirect_register(self) -> bool:
         return True
 
-    def get_mips_register(self) -> str:
+    @property
+    def register(self) -> str:
         return self.tags[1]
 
-    def get_offset(self) -> int:
+    @property
+    def offset(self) -> int:
         return int(self.tags[2])
 
-    def get_size(self) -> int:
+    @property
+    def size(self) -> int:
         return 4
 
     def to_expr_string(self) -> str:
-        if self.get_offset() == 0:
-            return '*(' + str(self.get_mips_register() + ')' )
+        if self.offset == 0:
+            return '*(' + str(self.register + ')')
         else:
             return (
                 '*('
-                + str(self.get_mips_register())
+                + str(self.register)
                 + ' + '
-                + str(self.get_offset()) + ')')
+                + str(self.offset) + ')')
 
     def __str__(self) -> str:
-        return str(self.get_offset()) + '(' + str(self.get_mips_register()) + ')'
+        return str(self.offset) + '(' + str(self.register) + ')'
 
 
-class MIPSImmediateOp(MIPSOperandKindBase):
+@mipsregistry.register_tag("m", MIPSOperandKind)
+class MIPSImmediateOp(MIPSOperandKind):
 
     def __init__(self,
                  d: "chb.mips.MIPSDictionary.MIPSDictionary",
-                 index: int,
-                 tags: List[str],
-                 args: List[int]) -> None:
-        MIPSOperandKindBase.__init__(self, d, index, tags, args)
+                 ixval: IndexedTableValue) -> None:
+        MIPSOperandKind.__init__(self, d, ixval)
 
+    @property
     def is_mips_immediate(self) -> bool:
         return True
 
-    def get_value(self) -> int:
+    @property
+    def value(self) -> int:
         return int(self.tags[1])
 
     def to_unsigned_int(self) -> int:
-        return self.get_value()
+        return self.value
 
     def to_signed_int(self) -> int:
-        return self.get_value()
+        return self.value
 
     def __str__(self) -> str:
-        return str(hex(self.get_value()))
+        return str(hex(self.value))
 
 
-class MIPSAbsoluteOp(MIPSOperandKindBase):
+@mipsregistry.register_tag("a", MIPSOperandKind)
+class MIPSAbsoluteOp(MIPSOperandKind):
 
     def __init__(
             self,
             d: "chb.mips.MIPSDictionary.MIPSDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        MIPSOperandKindBase.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        MIPSOperandKind.__init__(self, d, ixval)
 
-    def get_address(self) -> B.AsmAddress:
-        return self.bd.get_address(self.args[0])
+    @property
+    def address(self) -> AsmAddress:
+        return self.bd.address(self.args[0])
 
+    @property
     def is_mips_absolute(self) -> bool:
         return True
 
     def __str__(self) -> str:
-        return str(self.get_address())
+        return str(self.address)
 
 
-class MIPSFloatingPointRegisterOp(MIPSOperandKindBase):
+@mipsregistry.register_tag("f", MIPSOperandKind)
+class MIPSFloatingPointRegisterOp(MIPSOperandKind):
 
     def __init__(
             self,
             d: "chb.mips.MIPSDictionary.MIPSDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        MIPSOperandKindBase.__init__(self, d, index, tags, args)
+            ixval: IndexedTableValue) -> None:
+        MIPSOperandKind.__init__(self, d, ixval)
 
-    def get_register_index(self) -> int:
+    @property
+    def register_index(self) -> int:
         return int(self.args[0])
 
+    @property
     def is_mips_floating_point_register(self) -> bool:
         return True
 
     def __str__(self) -> str:
-        return 'FP(' + str(self.get_register_index()) + ')'
+        return 'FP(' + str(self.register_index) + ')'

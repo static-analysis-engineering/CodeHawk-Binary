@@ -26,21 +26,68 @@
 # ------------------------------------------------------------------------------
 """Basis for dictionary records in the MIPS dictionary."""
 
-import chb.app.DictionaryRecord as D
+from typing import Callable, cast, Dict, List, Tuple, Type, TypeVar, TYPE_CHECKING
 
-from typing import List, TYPE_CHECKING
+from chb.app.BDictionary import BDictionary
+
+import chb.util.fileutil as UF
+
+from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.mips.MIPSDictionary
+    from chb.api.InterfaceDictionary import InterfaceDictionary
+    from chb.mips.MIPSDictionary import MIPSDictionary
 
 
-class MIPSDictionaryRecord(D.DictionaryRecord):
+class MIPSDictionaryRecord(IndexedTableValue):
 
     def __init__(
             self,
-            d: "chb.mips.MIPSDictionary.MIPSDictionary",
-            index: int,
-            tags: List[str],
-            args: List[int]) -> None:
-        D.DictionaryRecord.__init__(self, index, tags, args)
-        self.d = d
+            mipsd: "MIPSDictionary",
+            ixval: IndexedTableValue) -> None:
+        IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
+        self._mipsd = mipsd
+
+    @property
+    def mipsd(self) -> "MIPSDictionary":
+        return self._mipsd
+
+    @property
+    def bd(self) -> BDictionary:
+        return self.mipsd.bd
+
+    @property
+    def ixd(self) -> "InterfaceDictionary":
+        return self.mipsd.ixd
+
+
+MdR = TypeVar("MdR", bound=MIPSDictionaryRecord, covariant=True)
+
+
+class MIPSDictionaryRegistry:
+
+    def __init__(self) -> None:
+        self.register: Dict[Tuple[type, str], Type[MIPSDictionaryRecord]] = {}
+
+    def register_tag(
+            self,
+            tag: str,
+            anchor: type) -> Callable[[type], type]:
+        def handler(t: type) -> type:
+            self.register[(anchor, tag)] = t
+            return t
+        return handler
+
+    def mk_instance(
+            self,
+            md: "MIPSDictionary",
+            ixval: IndexedTableValue,
+            anchor: Type[MdR]) -> MdR:
+        tag = ixval.tags[0]
+        if (anchor, tag) not in self.register:
+            raise UF.CHBError("Unknown mipsdictionary type: " + tag)
+        instance = self.register[(anchor, tag)](md, ixval)
+        return cast(MdR, instance)
+
+
+mipsregistry: MIPSDictionaryRegistry = MIPSDictionaryRegistry()
