@@ -59,7 +59,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "LoadRegisterSignedHalfword")
+        self.check_key(2, 5, "LoadRegisterSignedHalfword")
 
     @property
     def operands(self) -> List[ARMOperand]:

@@ -38,42 +38,33 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("STRH", ARMOpcode)
-class ARMStoreRegisterHalfword(ARMOpcode):
-    """Stores the least significant halfword from a register into memory.
+@armregistry.register_tag("ITE NE", ARMOpcode)
+class ARMIfThen(ARMOpcode):
+    """Makes up to four following instructions conditional.
 
-    STRH<c> <Rt>, [<base>, <offset>]
+    The conditions for the instructions in the IT block are the same as, or the
+    inverse of, the condition of the TI instruction specifies for the first
+    instruction in the block..
+
+    IT{<x>{<y>{<z>}}} <firstcond>
 
     tags[1]: <c>
-    args[0]: index of source operand in armdictionary
-    args[1]: index of base register in armdictionary
-    args[2]: index of rm in armddictionary
-    args[3]: index of memory location in armdictionary
-    args[4]: is-wide (thumb)
+    tags[2]: xyz
     """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "StoreRegisterHalfword")
+        self.check_key(3, 0, "IfThen")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+        return []
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs
-        xprs[1]: rhs (simplified)
-        """
-
-        lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[1])
-        return lhs + " := " + rhs
+        return self.tags[0] + self.tags[2] + " " + self.tags[1]
