@@ -98,9 +98,9 @@ class MIPSBranchLink(MIPSOpcode):
     def annotation(self, xdata: InstrXData) -> str:
         args = ", ".join(str(x) for x in self.arguments(xdata))
         if xdata.has_call_target():
-            return "call " + str(xdata.call_target) + "(" + args + ")"
+            return "call " + str(xdata.call_target(self.ixd)) + "(" + args + ")"
         else:
-            return "call " + str(self.target) + "(" + args + ")"
+            return "call- " + str(self.target) + "(" + args + ")"
 
     # --------------------------------------------------------------------------
     # Operation:

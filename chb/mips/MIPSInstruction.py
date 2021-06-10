@@ -128,6 +128,7 @@ class MIPSInstruction(Instruction):
     def stackpointer_offset(self) -> StackPointerOffset:
         return self.mipsfunctiondictionary.read_xml_sp_offset(self.xnode)
 
+    @property
     def annotation(self) -> str:
         return self.opcode.annotation(self.xdata)
 
@@ -272,6 +273,7 @@ class MIPSInstruction(Instruction):
     def lhs(self) -> Sequence[XVariable]:
         return self.opcode.lhs(self.xdata)
 
+    @property
     def ft_conditions(self) -> Sequence[XXpr]:
         """Return false, true condition."""
 
@@ -296,7 +298,7 @@ class MIPSInstruction(Instruction):
         pbytes = self.bytestring + "  " if bytes else ""
         pesp = str(self.stackpointer_offset) + '  ' if sp else ''
         popcode = self.opcodetext.ljust(opcodewidth) if opcodetxt else ''
-        return pesp + pbytes + popcode + self.annotation()
+        return pesp + pbytes + popcode + self.annotation
 
     def __str__(self) -> str:
         return self.to_string()

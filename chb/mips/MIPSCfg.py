@@ -76,7 +76,10 @@ class MIPSCfg(Cfg):
                 self._blocks[baddr] = MIPSCfgBlock(self, b)
         return self._blocks
 
-    def paths(self, baddr: str, maxtime: Optional[int] = None) -> List[MIPSCfgPath]:
+    def paths(
+            self,
+            baddr: str,
+            maxtime: Optional[int] = None) -> List[MIPSCfgPath]:
         """Returns a path from function entry to blockaddr baddr."""
         g = UG.DirectedGraph(list(self.blocks.keys()), self.edges)
         g.find_paths(self.function.faddr, baddr, maxtime=maxtime)
@@ -91,7 +94,7 @@ class MIPSCfg(Cfg):
     def condition_to_annotated_value(
             self, src: str, b: MIPSInstruction) -> Dict[str, Any]:
         result: Dict[str, Any] = {}
-        ftconditions = b.ft_conditions()
+        ftconditions = b.ft_conditions
         if len(ftconditions) == 2:
             result['c'] = ftconditions[1].to_annotated_value()
             result['fb'] = self.edges[src][0]
@@ -112,7 +115,7 @@ class MIPSCfg(Cfg):
 
         if len(self.edges[src]) > 1:
             brinstr = self.branch_instruction(src)
-            ftconditions = brinstr.ft_conditions()
+            ftconditions = brinstr.ft_conditions
             if len(ftconditions) == 2:
                 for i, t in enumerate(self.edges[src]):
                     if tgt == t:

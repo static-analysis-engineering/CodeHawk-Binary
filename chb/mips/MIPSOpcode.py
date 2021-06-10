@@ -170,7 +170,7 @@ class MIPSOpcode(MIPSDictionaryRecord):
         return self.tags[0] in branch_opcodes
 
     def is_call_instruction(self, xdata: InstrXData) -> bool:
-        if self.tags[0] in branch_opcodes:
+        if self.tags[0] in call_opcodes:
             return True
         elif len(xdata.tags) == 2 and xdata.tags[-1] == "call":
             return True
