@@ -90,7 +90,7 @@ class MIPSCfgPath(object):
         callinstrs = self.call_instructions()
         for i in range(len(self.path)):
             for c in callinstrs[i]:
-                result.append((self.path[i], c.iaddr, c.annotation()))
+                result.append((self.path[i], c.iaddr, c.annotation))
         return result
 
     def constraints(self) -> List[Optional[InputConstraint]]:

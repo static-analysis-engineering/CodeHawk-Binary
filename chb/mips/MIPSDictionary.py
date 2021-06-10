@@ -26,6 +26,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Dictionary of MIPS-specific operand and opcode types."""
+
+import importlib
+import os
 
 import xml.etree.ElementTree as ET
 
@@ -44,6 +48,13 @@ if TYPE_CHECKING:
     from chb.api.InterfaceDictionary import InterfaceDictionary
     from chb.app.BDictionary import BDictionary
     from chb.mips.MIPSAccess import MIPSAccess
+
+
+mipsdir = os.path.dirname(os.path.abspath(__file__))
+opcodes = os.path.join(mipsdir, "opcodes")
+for f in os.listdir(opcodes):
+    if f.startswith("MIPS") and f.endswith(".py"):
+        importlib.import_module("chb.mips.opcodes." + f[:-3])
 
 
 class MIPSDictionary:

@@ -48,7 +48,7 @@ class MIPSAccess(AppAccess):
             arch: str = "mips") -> None:
         AppAccess.__init__(self, path, filename, deps, fileformat, arch)
         self._mipsd: Optional[MIPSDictionary] = None
-        self._functions: Dict[str, MIPSFunction]
+        self._functions: Dict[str, MIPSFunction] = {}
 
     @property
     def mipsdictionary(self) -> MIPSDictionary:
