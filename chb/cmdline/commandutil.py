@@ -33,16 +33,51 @@ import os
 import shutil
 import subprocess
 
-from typing import Any, Dict, List, Optional, NoReturn, Tuple
+from typing import (
+    Any,
+    cast,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    NoReturn,
+    Set,
+    Tuple,
+    Sequence,
+    TYPE_CHECKING)
 
-import chb.app.AppAccess as AP
-import chb.cmdline.AnalysisManager as AM
+from chb.app.AppAccess import AppAccess
+
+from chb.arm.ARMAccess import ARMAccess
+
+from chb.cmdline.AnalysisManager import AnalysisManager
+
+from chb.invariants.InputConstraint import InputConstraint
+
+from chb.mips.MIPSAccess import MIPSAccess
+from chb.mips.MIPSCfgPath import MIPSCfgPath
+from chb.mips.MIPSFunction import MIPSFunction
+from chb.mips.MIPSInstruction import MIPSInstruction
+
 import chb.cmdline.UserHints as UH
 import chb.cmdline.XInfo as XI
 import chb.graphics.DotCfg as DC
+import chb.models.FunctionSummary as F
+import chb.models.ModelsAccess as M
+import chb.util.DotGraph as DG
 import chb.util.dotutil as UD
 import chb.util.fileutil as UF
 import chb.util.xmlutil as UX
+
+from chb.app.Instruction import Instruction
+
+from chb.x86.X86Access import X86Access
+
+if TYPE_CHECKING:
+    import chb.app.Instruction
+    import chb.arm.ARMInstruction
+    import chb.mips.MIPSInstruction
+    import chb.x86.X86Instruction
 
 
 def print_error(m: str) -> None:
@@ -74,9 +109,22 @@ def create_xinfo(path: str, xfile: str) -> XI.XInfo:
     return xinfo
 
 
+def get_app(path: str, xfile: str, xinfo: XI.XInfo) -> AppAccess:
+    arch = xinfo.architecture
+    format = xinfo.format
+    if arch == "x86":
+        return X86Access(path, xfile, fileformat=format, arch=arch)
+    elif arch == "mips":
+        return MIPSAccess(path, xfile, fileformat=format, arch=arch)
+    elif arch == "arm":
+        return ARMAccess(path, xfile, fileformat=format, arch=arch)
+    else:
+        raise UF.CHBError("Archicture " + arch + " not yet supported")
+
+
 def setup_directories(path: str, xfile: str) -> None:
     """Create the x.ch directories."""
-    def makedirc(name):
+    def makedirc(name: str) -> None:
         if os.path.isdir(name):
             return
         os.makedirs(name)
@@ -134,8 +182,8 @@ def prepare_executable(
         xfile: str,
         doreset: bool,
         doresetx: bool,
-        hints: List[str],
-        thumb: List[str]) -> None:
+        hints: List[str] = [],
+        thumb: List[str] = []) -> None:
     """Extracts executable and sets up necessary directory structure. """
     xtargz = UF.get_executable_targz_filename(path, xfile)
     xfilename = os.path.join(path, xfile)
@@ -160,7 +208,7 @@ def prepare_executable(
             # everything is in place
             return
 
-        if os.path.isdir(chdir) and doreset:
+        if os.path.isdir(chdir) and (doreset or doresetx):
             # remove existing x.ch directory
             print("Removing " + chdir)
             shutil.rmtree(chdir)
@@ -181,13 +229,13 @@ def prepare_executable(
         xinfo = create_xinfo(path, xfile)
 
         # check architecture and file format
-        if not (xinfo.is_x86()
-                or xinfo.is_mips()
-                or xinfo.is_arm()):
+        if not (xinfo.is_x86
+                or xinfo.is_mips
+                or xinfo.is_arm):
             raise UF.CHBError("Architecture "
                               + xinfo.architecture
                               + " not supported")
-        if not (xinfo.is_pe32() or xinfo.is_elf()):
+        if not (xinfo.is_pe32 or xinfo.is_elf):
             raise UF.CHBError("File format "
                               + xinfo.format
                               + " not supported")
@@ -198,12 +246,12 @@ def prepare_executable(
         xinfo.save(path, xfile)
 
         # extract executable content
-        am = AM.AnalysisManager(
+        am = AnalysisManager(
             path,
             xfile,
-            mips=xinfo.is_mips(),
-            arm=xinfo.is_arm(),
-            elf=xinfo.is_elf())
+            mips=xinfo.is_mips,
+            arm=xinfo.is_arm,
+            elf=xinfo.is_elf)
 
         print("Extracting executable content into xml ...")
         result = am.extract_executable("-extract")
@@ -245,13 +293,13 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
-    am = AM.AnalysisManager(
+    am = AnalysisManager(
         path,
         xfile,
-        mips=xinfo.is_mips(),
-        arm=xinfo.is_arm(),
-        elf=xinfo.is_elf(),
-        thumb = (len(thumb) > 0))
+        mips=xinfo.is_mips,
+        arm=xinfo.is_arm,
+        elf=xinfo.is_elf,
+        thumb=(len(thumb) > 0))
 
     if dodisassemble:
         try:
@@ -284,7 +332,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         exit(0)
 
 
-def showstats(args: argparse.Namespace) -> NoReturn:
+def results_stats(args: argparse.Namespace) -> NoReturn:
     """Prints out a summary of the analysis results per function."""
 
     # arguments
@@ -301,25 +349,28 @@ def showstats(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
-    app = AP.AppAccess(path, xfile, mips=xinfo.is_mips(), arm=xinfo.is_arm())
-    stats = app.get_result_metrics()
+    app = get_app(path, xfile, xinfo)
+    # app = AP.AppAccess(
+    #    path, xfile, fileformat=xinfo.format, arch=xinfo.architecture)
+    stats = app.result_metrics
     print(stats.header_to_string())
     for f in sorted(stats.get_function_results(),
-                    key=lambda f: (f.get_espp(), f.faddr)):
+                    key=lambda f: (f.espp, f.faddr)):
         print(f.metrics_to_string(shownocallees=nocallees))
     print(stats.disassembly_to_string())
     print(stats.analysis_to_string())
     exit(0)
 
 
-def showfunctions(args: argparse.Namespace) -> NoReturn:
-    """Prints out annotated assembly listing of one or more functions."""
+def results_functions(args: argparse.Namespace) -> NoReturn:
+    """Prints out annotated assembly listing of all functions."""
 
     # arguments
     xname: str = str(args.xname)
     functions: List[str] = args.functions
     hash: bool = args.hash
     bytestring: bool = args.bytestring
+    bytes: bool = args.bytes
     opcodewidth: int = args.opcodewidth
 
     try:
@@ -332,49 +383,87 @@ def showfunctions(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
-    app = AP.AppAccess(path, xfile, mips=xinfo.is_mips(), arm=xinfo.is_arm())
-    if "all" in functions:
-        fns: List[str] = sorted(app.get_function_addresses())
+    app = get_app(path, xfile, xinfo)
+    if len(functions) == 0:
+        fns: Sequence[str] = sorted(app.appfunction_addrs)
     else:
         fns = functions
 
     for faddr in fns:
         if app.has_function(faddr):
-            f = app.get_function(faddr)
-            if f is None:
-                print_error("Unable to find function " + faddr)
-                continue
-
+            f = app.function(faddr)
             try:
                 if app.has_function_name(faddr):
                     print("\nFunction "
                           + faddr
                           + " ("
-                          + app.get_function_name(faddr)
+                          + app.function_name(faddr)
                           + ")")
                 else:
                     print("\nFunction " + faddr)
                 print("-" * 80)
-
-                if xinfo.is_mips() or xinfo.is_arm():
-                    print(f.to_string(
-                        bytestring=bytestring,
-                        hash=hash,
-                        sp=True,
-                        opcodetxt=True,
-                        opcodewidth=opcodewidth))
-                else:
-                    print(f.to_string(
-                        bytestring=bytestring,
-                        hash=hash,
-                        esp=True,
-                        opcodetxt=True,
-                        opcodewidth=opcodewidth))
+                print(f.to_string(
+                    bytestring=bytestring,
+                    bytes=bytes,
+                    hash=hash,
+                    sp=True,
+                    opcodetxt=True,
+                    opcodewidth=opcodewidth))
             except UF.CHBError as e:
                 print(str(e.wrap()))
         else:
             print_error("Function " + faddr + " not found")
             continue
+    exit(0)
+
+
+def results_function(args: argparse.Namespace) -> NoReturn:
+    """Prints out annotated assembly listing of a function."""
+
+    # arguments
+    xname: str = str(args.xname)
+    function: str = args.function
+    hash: bool = args.hash
+    bytestring: bool = args.bytestring
+    bytes: bool = args.bytes
+    opcodewidth: int = args.opcodewidth
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    if app.has_function(function):
+        f = app.function(function)
+        try:
+            if app.has_function_name(function):
+                print("\nFunction "
+                      + function
+                      + " ("
+                      + app.function_name(function)
+                      + ")")
+            else:
+                print("\nFunction " + function)
+            print("-" * 80)
+            print(f.to_string(
+                bytestring=bytestring,
+                bytes=bytes,
+                hash=hash,
+                sp=True,
+                opcodetxt=True,
+                opcodewidth=opcodewidth))
+        except UF.CHBError as e:
+            print(str(e.wrap()))
+    else:
+        print_error("Function " + function + " not found")
+
     exit(0)
 
 
@@ -387,6 +476,8 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
     xview: bool = args.view
     xpredicates: bool = args.predicates
     xcalls: bool = args.calls
+    xinstr_opcodes: bool = args.instr_opcodes
+    xinstr_text: bool = args.instr_text
     xsink: Optional[str] = args.sink
     xsegments: List[str] = args.segments
 
@@ -400,30 +491,32 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
-    app = AP.AppAccess(path, xfile, mips=xinfo.is_mips(), arm=xinfo.is_arm())
+    app = get_app(path, xfile, xinfo)
     if app.has_function(faddr):
-        f = app.get_function(faddr)
+        f = app.function(faddr)
         if f is None:
             print_error("Unable to find function " + faddr)
             exit(1)
         graphname = "cfg_" + faddr
-        if not xsink is None:
+        if xsink is not None:
             graphname += "_" + xsink
         if len(xsegments) > 0:
             graphname += "_" + "_".join(xsegments)
         dotcfg = DC.DotCfg(
             graphname,
             f,
-            looplevelcolors=["#FFAAAAFF","#FF5555FF","#FF0000FF"],
+            looplevelcolors=["#FFAAAAFF", "#FF5555FF", "#FF0000FF"],
             showpredicates=xpredicates,
             showcalls=xcalls,
-            mips=xinfo.is_mips(),
+            showinstr_opcodes=xinstr_opcodes,
+            showinstr_text=xinstr_text,
+            mips=xinfo.is_mips,
             sink=xsink,
             segments=xsegments)
 
         fname = faddr
         if app.has_function_name(faddr):
-            fname = fname + " (" + app.get_function_name(faddr) + ")"
+            fname = fname + " (" + app.function_name(faddr) + ")"
 
         pdffilename = UD.print_dot(app.path, out, dotcfg.build())
 
@@ -441,15 +534,22 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
-def showelfdata(args: argparse.Namespace) -> NoReturn:
+def showcfgpaths(args: argparse.Namespace) -> NoReturn:
 
     # arguments
     xname: str = args.xname
-    savesectionheaders: str = args.save_section_headers
+    faddr: str = args.faddr
+    xcalltarget: Optional[str] = args.calltarget
+    xblock: Optional[str] = args.block
+    xgraph: Optional[str] = args.graph
+    xconditions: bool = args.conditions
+    xcalls: bool = args.calls
+    xstringconstraints: bool = args.stringconstraints
+    xmaxtime: int = args.maxtime
 
     try:
         (path, xfile) = get_path_filename(xname)
-        prepare_executable(path, xfile, doreset=False, doresetx=False, hints=[])
+        UF.check_analysis_results(path, xfile)
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
@@ -457,47 +557,192 @@ def showelfdata(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
-    if not xinfo.is_elf():
-        print("File is not an ELF file: " + xinfo.format)
+    if not xinfo.is_mips:
+        print_error("Currently only available for mips")
         exit(1)
 
-    app = AP.AppAccess(path, xfile, initialize=False, mips=xinfo.is_mips())
-    elfheader = app.get_elf_header()
+    app = get_app(path, xfile, xinfo)
+    f = cast(MIPSFunction, app.function(faddr))
+    if app.has_function(faddr):
+        if f is None:
+            print_error("Unable to find function " + faddr)
+            exit(1)
 
-    try:
-        print(str(elfheader))
-    except UF.CHBError as e:
-        print(str(e.wrap()))
-        exit(1)
+    if xcalltarget:
+        if app.is_unique_app_function_name(xcalltarget):
+            calltarget = app.function_address_from_name(xcalltarget)
+        else:
+            calltarget = xcalltarget
+            instrs = f.calls_to_app_function(calltarget)
+        if len(instrs) == 0:
+            print_error("No calls found to call target: " + calltarget)
+            exit(1)
+        else:
+            blocksinks = {i.mipsblock.baddr: i for i in instrs}
+    elif xblock:
+        blocksinks = {xblock: cast(MIPSInstruction, f.instruction(xblock))}
 
-    if savesectionheaders:
-        result: Dict[str, Any] = {}
-        result["file"] = xinfo.file
-        result["md5"] = xinfo.md5
-        result["section-headers"] = []
-        for s in elfheader.sectionheaders:
-            result["section-headers"].append(s.get_values())
-        filename = xname + "_section_headers.json"
-        with open(filename, "w") as fp:
-            json.dump(result, fp, indent=3)
-        print_info("Saved section headers in " + filename)
+    cfgpaths: Dict[str, List[MIPSCfgPath]] = {}  # blocksink -> list of paths
+    # cfgconstraints = {} # blocksink -> [ baddr -> condition ]
+
+    for sink in blocksinks:
+        cfgpaths[sink] = f.cfg.paths(sink, maxtime=args.maxtime)  # [ MIPSCfgPath ]
+
+    feasiblepaths: Dict[str, List[MIPSCfgPath]] = {}
+    infeasiblepaths = 0
+    for sink in cfgpaths:
+        feasiblepaths[sink] = []
+        for p in cfgpaths[sink]:
+            if p.is_feasible:
+                feasiblepaths[sink].append(p)
+            else:
+                infeasiblepaths += 1
+
+    feasiblepathcount = sum([len(feasiblepaths[b]) for b in feasiblepaths])
+    pathcount = feasiblepathcount + infeasiblepaths
+
+    print('Feasible paths:   ' + str(feasiblepathcount).rjust(4))
+    print('Infeasible paths: ' + str(infeasiblepaths).rjust(4))
+    print('                  ' + ('-' * 4))
+    print('Total:            ' + str(pathcount).rjust(4))
+    print('\n\n')
+
+    if xstringconstraints:
+
+        def get_string_constraints(
+                paths: Dict[str, List[MIPSCfgPath]]) -> Tuple[
+                    Dict[str, Set[str]], Dict[str, Set[str]]]:
+            sharedkonstraints = {}
+            allkonstraints: Dict[str, Set[str]] = {}
+            for sink in paths:
+                if not paths[sink]:
+                    continue
+                pathconstraints0 = [str(c) for c in paths[sink][0].constraints() if c]
+                sharedkonstraints[sink] = set(pathconstraints0[:])
+                allkonstraints[sink] = set([])
+                for path in paths[sink]:
+                    pathconstraints = set([str(c) for c in path.constraints() if c])
+                    sharedkonstraints[sink] &= pathconstraints
+                    allkonstraints[sink] |= pathconstraints
+            return (sharedkonstraints, allkonstraints)
+
+        (sharedk, allk) = get_string_constraints(feasiblepaths)
+        print("\nShared constraints")
+        for sink in sharedk:
+            print("Sink: " + str(sink))
+            for k in sharedk[sink]:
+                print("  " + k)
+        if len(allk) > len(sharedk):
+            print("\nAll constraints")
+            for sink in sorted(allk[sink]):
+                print("Sink: " + str(sink))
+                for k in sorted(allk[sink]):
+                    print("  " + k)
+
+    if xcalls:
+
+        def get_calls(
+                paths: Dict[str, List[MIPSCfgPath]]) -> Tuple[
+                    Dict[str, Set[Tuple[str, str, str]]],
+                    Dict[str, Set[Tuple[str, str, str]]]]:
+            sharedcalls: Dict[str, Set[Tuple[str, str, str]]] = {}
+            allcalls = {}
+            for sink in paths:
+                if not paths[sink]:
+                    continue
+                calls0 = paths[sink][0].block_call_instruction_strings()
+                sharedcalls[sink] = set(calls0[:])
+                allcalls[sink] = set(calls0[:])
+                for path in paths[sink]:
+                    calls = set(path.block_call_instruction_strings())
+                    sharedcalls[sink] &= calls
+                    allcalls[sink] |= calls
+            return (sharedcalls, allcalls)
+
+        (sharedc, allc) = get_calls(feasiblepaths)
+        print("\nShared calls")
+        for sink in sharedc:
+            print("Sink: " + str(sink))
+            for c in sorted(sharedc[sink]):
+                print("  " + c[0] + ":" + c[1] + "  " + c[2])
+        if len(allc) > len(sharedc):
+            print("\nAll calls")
+            for sink in allc:
+                print("Sink: " + str(sink))
+                for c in sorted(allc[sink]):
+                    print("  " + c[0] + ": " + c[1] + "  " + c[2])
+
+    if xgraph:
+
+        def getcolor(n: str) -> Optional[str]:
+            loopdepth = len(f.cfg.loop_levels(n))
+            if loopdepth == 1:
+                return '#FFAAAAFF'
+            elif loopdepth == 2:
+                return '#FF5555FF'
+            elif loopdepth > 2:
+                return '#FF0000FF'
+            else:
+                return None
+
+        def get_edge_label(src: str, dst: str) -> Optional[str]:
+            if xconditions:
+                c = f.cfg.condition(src, dst)
+                if c is not None:
+                    return str(c)
+                else:
+                    return None
+            else:
+                return None
+
+        def get_node_label(n: str) -> Optional[str]:
+            blocktxt = str(n)
+            if xcalls:
+                basicblock = f.block(str(n))
+                callinstrs = basicblock.call_instructions
+                pcallinstrs = [i.annotation for i in callinstrs]
+                if len(callinstrs) > 0:
+                    blocktxt = (
+                        blocktxt
+                        + "\\n"
+                        + "\\n".join(pcallinstrs))
+            return blocktxt
+
+        dotgraph = DG.DotGraph(xgraph)
+        paths: List[MIPSCfgPath] = sum(cfgpaths.values(), [])
+        for p in paths:
+            for i in range(len(p.path) - 1):
+                dotgraph.add_node(
+                    p.path[i],
+                    labeltxt=get_node_label(p.path[i]),
+                    color=getcolor(p.path[i]))
+                dotgraph.add_node(
+                    p.path[i+1],
+                    labeltxt=get_node_label(p.path[i+1]),
+                    color=getcolor(p.path[i+1]))
+                dotgraph.add_edge(
+                    p.path[i],
+                    p.path[i+1],
+                    labeltxt=get_edge_label(p.path[i], p.path[i+1]))
+
+        pdffilename = UD.print_dot(path, xfile, dotgraph)
+        print('~' * 80)
+        print('Restricted cfg for ' + xfile + ' has been saved in '
+              + pdffilename)
+        print('~' * 80)
 
     exit(0)
 
 
-def showpedata(args: argparse.Namespace) -> NoReturn:
+def show_expr_table(args: argparse.Namespace) -> NoReturn:
 
     # arguments
     xname: str = args.xname
-    headeronly: bool = args.headeronly
-    imports: bool = args.imports
-    headers: bool = args.headers
-    sections: bool = args.sections
-    section: Optional[str] = args.section
+    faddr: str = args.faddr
 
     try:
         (path, xfile) = get_path_filename(xname)
-        prepare_executable(path, xfile, doreset=False, doresetx=False, hints=[])
+        UF.check_analysis_results(path, xfile)
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
@@ -505,38 +750,103 @@ def showpedata(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
-    if not xinfo.is_pe32():
-        print_error("File is not a PE32 file: " + xinfo.format)
+    app = get_app(path, xfile, xinfo)
+    if app.has_function(faddr):
+        f = app.function(faddr)
+        if f is None:
+            print_error("Unable to find function " + faddr)
+            exit(1)
+
+        print("Expressions found in function " + faddr)
+        print("=" * 80)
+        print(f.xprdictionary.xpr_table_to_string())
+        print("=" * 80)
+    else:
+        print("*" * 80)
+        print("Function " + faddr + " not found")
+        print("Please specify function as a valid hex address.")
+        print("To see a list of functions and their addresses analyzed use:")
+        print("  > chkx show stats " + xname)
+        print("*" * 80)
+
+    exit(0)
+
+
+def show_invariant_table(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    faddr: str = args.faddr
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
         exit(1)
 
-    app = AP.AppAccess(path, xfile, initialize=False, mips=False)
-    peheader = app.get_pe_header()
-    if headeronly:
-        print(peheader)
-        exit(0)
-    if imports:
-        for i in peheader.get_import_tables():
-            print(str(i))
-        exit(0)
-    if headers:
-        for h in peheader.get_section_headers():
-            print(str(h))
-        exit(0)
-    if sections:
-        for s in peheader.get_sections():
-            print(str(s))
-        exit(0)
-    if section is not None:
-        s = peheader.get_section(section)
-        if s is None:
-            print_error("Unable to find section at virtual address: "
-                        + section)
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+    if app.has_function(faddr):
+        f = app.function(faddr)
+        if f is None:
+            print_error("Unable to find function " + faddr)
             exit(1)
-        print(str(s))
-        exit(0)
-    print(peheader)
-    for i in peheader.get_import_tables():
-        print(str(i))
-    for h in peheader.get_section_headers():
-        print(str(h))
+
+        print(f.invdictionary.invariant_fact_table_to_string())
+
+        print("Location invariants")
+        print("-------------------")
+        invariants = f.invariants
+        for loc in sorted(invariants):
+            print(loc)
+            for fact in invariants[loc]:
+                print("  " + str(fact))
+
+    else:
+        print("*" * 80)
+        print("Function " + faddr + " not found")
+        print("Please specify function as a valid hex address.")
+        print("To see a list of functions and their addresses analyzed use:")
+        print("  > chkx show stats " + xname)
+        print("*" * 80)
+
+    exit(0)
+
+
+def show_vars_table(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    faddr: str = args.faddr
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+    if app.has_function(faddr):
+        f = app.function(faddr)
+        if f is None:
+            print_error("Unable to find function " + faddr)
+            exit(1)
+
+        print(f.xprdictionary.var_table_to_string())
+
+    else:
+        print("*" * 80)
+        print("Function " + faddr + " not found")
+        print("Please specify function as a valid hex address.")
+        print("To see a list of functions and their addresses analyzed use:")
+        print("  > chkx show stats " + xname)
+        print("*" * 80)
+
     exit(0)

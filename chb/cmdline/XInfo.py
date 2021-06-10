@@ -56,7 +56,7 @@ def get_file_format(ftype: str) -> str:
     if "ELF" in ftype:
         return "elf"
     if "PE32" in ftype:
-        return "pe32"
+        return "pe"
     return "?"
 
 
@@ -106,17 +106,22 @@ class XInfo:
     def format(self) -> str:
         return self.fileinfo["format"]
 
+    @property
     def is_mips(self) -> bool:
         return self.architecture == "mips"
 
+    @property
     def is_arm(self) -> bool:
         return self.architecture == "arm"
 
+    @property
     def is_x86(self) -> bool:
         return self.architecture == "x86"
 
+    @property
     def is_elf(self) -> bool:
         return self.format == "elf"
 
+    @property
     def is_pe32(self) -> bool:
         return self.format == "pe32"

@@ -61,7 +61,7 @@ class AnalysisManager(object):
             mips: bool = False,
             arm: bool = False,
             thumb: bool = False,
-            hints: Dict[str, Any] = {}):
+            hints: Dict[str, Any] = {}) -> None:
         """Initializes the analyzer location and target file location
 
         Arguments:
@@ -294,12 +294,13 @@ class AnalysisManager(object):
         print("-" * 80)
 
     def _call_analysis(self, cmd: List[str], timeout: Optional[int] = None) -> int:
-        if sys.version_info < (3, 0) and timeout:
+        if sys.version_info < (3, 0) and timeout is not None:
             try:
-                result = subprocess.call(cmd,
-                                         cwd=self.path,
-                                         stderr=subprocess.STDOUT,
-                                         timeout=timeout)
+                result = subprocess.call(
+                    cmd,
+                    cwd=self.path,
+                    stderr=subprocess.STDOUT,
+                    timeout=timeout)
                 return result
             except subprocess.TimeoutExpired:
                 print(str(cmd) + " timed out (" + str(timeout) + ")!")

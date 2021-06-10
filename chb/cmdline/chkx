@@ -16,7 +16,7 @@
 #
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -36,27 +36,72 @@ get information:
 
 disassemble/analyze an executable:
   These commands extract the content of the executable into xml and store
-  results in the directory <name>.ch
-    analyze <xname>      extract executable content, disassemble and analyze
+  the various levels of results in the directory <name>.ch.
+  Extraction and disassembly are fairly fast (seconds to minutes), whereas
+  full analysis, is strongly dependent on the size and structure of the
+  executable, and for large or very complex executables may take several hours.
+
+  The commands are:
+    analyze <xname>      extract executable content, disassemble, and analyze
     analyze -d <xname>   extract executable content and disassemble
-    analyze -x <xname>   extract executable content into xml
+    analyze -x <xname>   only extract executable content into xml
 
-The following subcommands apply only after the executable has been analyzed:
+When a file is disassembled the following commands can be used to output
+ELF or PE header information:
 
-view analysis results
-    show metrics <xname>     show a summary of statistics for all functions
-    show elfdata <xname>     show ELF program and section headers (ELF only)
-    show pedata <xname>      show PE headers and import tables (PE32 only)
-    show functions <xname> ...  show annotated assembly code for selected functions
-    show cfg <xname> <faddr> show control flow graph for function at address faddr (hex)
-    show cfgpaths <xname> <faddr> ... show paths through a control flow graph
+    pedata <xname>       output PE header, import tables, etc.
+    elfdata <xname>      output ELF header and program and section headers
 
-create reports
-    report appcalls <xname>  output application calls
-    report dllcalls <xname>  output dll calls (PE32 only)
-    report iocs <xname>      output indicators of compromise (PE32 only)
+When a file is fully analyzed the following commands are available to query
+the analysis results:
 
+    results stats <xname>         output a summary of results with one line per function
+    results functions <xname> ... output a listing of annotated assembly functions
+    results function <xname> <fn> output a listing of a single annotated assembly function
+    results cfg <xname> <fn> ...  produce a control flow graph for a function (in pdf)
+    results cfgpaths <xname> <fn> ... find paths throug a cfg with a given target
+
+    results appcalls <xname>      output a listing of application calls
+    results dllcalls <xname>      output a listing of dll calls (PE32 only)
+    results stringargs <xname>    output a listing of calls with string arguments
+    results iocs <xname>          output a listing of indicators of compromise encountered
+
+The analyzer comes with a large collection of summaries for library functions.
+These summaries can be queried independently of any executable with the following
+commands:
+
+    summaries stats  output some statistics on summaries/constants/data structures provided
+
+    summaries dlls   output a listing of dlls provided
+    summaries enums  output a listing of enum type definitions provided
+
+    summaries dll-functions output a listing of functions in a dll
+    summaries so-functions  output a listing of shared-object functions
+
+    summaries dll-function  output signature and summary semantics for a dll-function
+    summaries so-function   output signature and summary semantics for a shared-object function
+
+    summaries enum          output the values included in an enum definition
+
+    summaries ioc-types     output a listing of indicator-of-compromise categories
+    summaries ioc-roles     output a listing of indicator-of-compromise role names per category
+
+The repository includes regression tests. They are organized by file format (pe, elf) and
+architecture (x86, mips32, arm32) and further divided into test suites that combine tests
+with similar structure. These tests can be run with the following commands:
+
+    test runall --arch <arch> --fileformat <file-format>
+    test runsuite <arch> --fileformat <file-format> <suite number>
+    test run <arch> <file-format> --suite <suite number> --test <test number>
+    test run all
+    test run --suite <suite number> all
+
+The test programs themselves can also be listed and viewed:
+
+    test list --arch <arch> --fileformat <file-format> --suite <suite number>
+    test view <arch> --fileformat <file-format> <suite number> <test number>
 """
+
 import argparse
 import json
 import os
@@ -64,38 +109,44 @@ import shutil
 import subprocess
 import sys
 
+from typing import NoReturn
+
 import chb.cmdline.AnalysisManager as AM
-import chb.cmdline.cmdlineutil as UC
 import chb.cmdline.commandutil as UCC
+import chb.cmdline.fileformatcmds as FF
+import chb.cmdline.summariescmds as SC
+import chb.cmdline.testcmds as TC
 import chb.util.dotutil as UD
 import chb.util.fileutil as UF
+from chb.util.Config import Config
 import chb.app.AppAccess as AP
 import chb.graphics.DotCfg as DC
 
 from chb.util.DotGraph import DotGraph
 
-def showversion(args):
+
+def showversion(args: argparse.Namespace) -> NoReturn:
     print('Version 0.3.0')
     exit(0)
 
-def showinfo(args):
-    print('Analyzer: ?')
-    print('Projects: none')
+
+def showinfo(args: argparse.Namespace) -> NoReturn:
+    print(str(Config()))
     exit(0)
 
-def showcommand(args):
-    print('The show command can be followed by the following subcommands:')
+
+def resultscommand(args: argparse.Namespace) -> NoReturn:
+    print('The results command can be followed by the following subcommands:')
     print('All commands take the name of the executable as first argument')
     print('')
-    print('  elfdata <xname>              show elf headers')
-    print('  pedata <xname>               show pe headers and import tables')
     print('  stats <xname>                show statistics for the executable')
     print('  functions <xname> ....       output annotated assembly functions for the specified functions')
     print('  cfg <xname> <faddr>          create control flow graph for the given function')
     print('  cfgpaths <xname> <faddr> ... extract paths through the control flow graph for the given function')
     exit(0)
 
-def reportcommand(args):
+
+def reportcommand(args: argparse.Namespace) -> NoReturn:
     print('The report command can be followed by the following subcommands:')
     print('All commands take the name of the executable as first argument')
     print('')
@@ -104,62 +155,49 @@ def reportcommand(args):
     print('  iocs <xname>                 output indicators of compromise (PE32 only)')
     print('  unresolvedcalls <xname>      output unresolved calls (PE32 only)')
     exit(0)
-                
-        
-def showcfgpaths(args):
-    (path,filename) = UC.get_path(args.xname,checkresults=True)
-    xinfo = UC.get_xinfo(path,filename)['file']
-    ismips = xinfo.get('arch','?') == 'mips'
-    if not ismips:
-        UC.print_not_supported('Not yet implemented for x86; coming soon')
-    app = AP.AppAccess(path,filename,mips=ismips)
-    if app.is_unique_app_function_name(args.faddr):
-        faddr = app.get_app_function_address(args.faddr)
-    else:
-        faddr = args.faddr
-    if not app.has_function(faddr):
-        UC.exit_with_msg('Function ' + faddr + ' not found')
-    f = app.get_function(faddr)
-    if f is None:
-        UC.exit_with_msg('Function ' + faddr + ' not found')
 
-    if args.calltarget:
-        if app.is_unique_app_function_name(args.calltarget):
-            calltarget = app.get_app_function_address(args.calltarget)
-        else:
-            calltarget = args.calltarget
-        instrs = f.get_call_instructions_to_target(calltarget)
-        if len(instrs) == 0:
-            exit_with_msg('No calls found to call target: ' + args.calltarget)
-        blocksinks = { i.mipsblock.baddr:i for i in instrs }
-    elif args.block:
-        blocksinks = { args.block:f.get_instruction(args.block) }
 
-    cfgpaths = {}  # blocksink -> list of paths
-    cfgconstraints = {} # blocksink -> [ baddr -> condition ]
+def tablecommand(args: argparse.Namespace) -> NoReturn:
+    print('The table command can be followed by the following subcommands:')
+    print('  expr')
+    exit(0)
 
-    for sink in blocksinks:
-        cfgpaths[sink] = f.cfg.get_paths(sink,maxtime=args.maxtime)  # [ MIPSCfgPath ]
 
-    feasiblepaths = {}
-    infeasiblepaths = 0
-    for sink in cfgpaths:
-        feasiblepaths[sink] = []
-        for p in cfgpaths[sink]:
-            if p.is_feasible():
-                feasiblepaths[sink].append(p)
-            else:
-                infeasiblepaths += 1
+def testcommand(args: argparse.Namespace) -> NoReturn:
+    print("The test command can be followed by the following subcommands:")
+    print("  runall")
+    exit(0)
 
-    feasiblepathcount = sum([ len(feasiblepaths[b]) for b in feasiblepaths ])
-    pathcount = feasiblepathcount + infeasiblepaths
 
-    print('Feasible paths:   ' + str(feasiblepathcount).rjust(4))
-    print('Infeasible paths: ' + str(infeasiblepaths).rjust(4))
-    print('                  ' + ('-' * 4))
-    print('Total:            ' + str(pathcount).rjust(4))
-    print('\n\n')
-    
+def summariescommand(args: argparse.Namespace) -> NoReturn:
+    print("The summaries command provides access to function summaries.")
+    print("It can be followed by the following subcommands:")
+    print("  list dlls                     output a list of dlls provided")
+    print("  list dll_functions --dlls <dll-1> .. <dll-n>  output a list of summaries in the given dlls")
+    print("  list so_functions             output a list of shared object functions (ELF)")
+    exit(0)
+
+
+def summarieslistcommand(args: argparse.Namespace) -> NoReturn:
+    print("The summaries list command provides access to function summaries.")
+    print("It can be followed by the following subcommands:")
+    print("  dlls          output a list of dlls provided (per jarfile)")
+    print("  dll-functions <dll-1> ... <dll-n> output a list of functions for each dll listed")
+    print("  so-functions  output a list of shared-object functions (ELF)")
+    exit(0)
+
+
+def summariesviewcommand(args: argparse.Namespace) -> NoReturn:
+    print("The summaries view command outputs one or more summaries.")
+    print("It can be followed byt the following subcommands:")
+    print("  dll-function   output signature and summary semantics for a dll function")
+    print("  so-function    output signature and summary semantics for an so function")
+    print("  dll-functions  output signature and summary semantics for multiple dll functions")
+    print("  so-functions   output signature and summary semantics for multiple so functions")
+    exit(0)
+
+
+'''
 def reportappcalls(args):
     (path,filename) = UC.get_path(args.xname,checkresults=True)
     xinfo = UC.get_xinfo(path,filename)
@@ -212,7 +250,10 @@ def reportiocs(args):
         exit(1)
     print(UC.ioc_results_tostring(args,iocresults,problems))
 
-def parse():
+'''
+
+
+def parse() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=__doc__,
@@ -223,19 +264,19 @@ def parse():
     subparsers = parser.add_subparsers(title='subcommands')
     parser_info = subparsers.add_parser('info')
     parser_info.set_defaults(func=showinfo)
-    
+
     parser_version = subparsers.add_parser('version')
     parser_version.set_defaults(func=showversion)
 
     # ------------------------------------------------------------ analyze --
     analyzecmd = subparsers.add_parser('analyze')
-    analyzecmd.add_argument('xname',help='name of executable')
+    analyzecmd.add_argument('xname', help='name of executable')
     analyzecmd.add_argument(
         '-d', '--disassemble',
         action='store_true',
         help='extract and disassemble only')
     analyzecmd.add_argument(
-        '-x','--extract',
+        '-x', '--extract',
         action='store_true',
         help='extract executable content only')
     analyzecmd.add_argument(
@@ -247,7 +288,7 @@ def parse():
         action='store_true',
         help='remove extracted binary (chx.tar.gz) and analysis results')
     analyzecmd.add_argument(
-        '-v','--verbose',
+        '-v', '--verbose',
         action='store_true',
         help='output intermediate information')
     analyzecmd.add_argument(
@@ -279,58 +320,57 @@ def parse():
         '--hints',
         nargs="*",
         default=[],
-        help='names of json files with disassembly/analysis hints')    
+        help='names of json files with disassembly/analysis hints')
     analyzecmd.set_defaults(func=UCC.analyzecmd)
 
-    # ----------------------------------------------------------------- show --
-    showcmd = subparsers.add_parser('show')
-    showcmd.set_defaults(func=showcommand)
-    showparsers = showcmd.add_subparsers(title='show options')
-
-    # -- show stats --
-    showstats = showparsers.add_parser('stats')
-    showstats.add_argument('xname',help='name of executable')
-    showstats.add_argument(
-        '--nocallees',
-        action='store_true',
-        help='indicate if a function has no callees')
-    showstats.set_defaults(func=UCC.showstats)
-
-    # -- show elfdata --
-    showelfdata = showparsers.add_parser('elfdata')
-    showelfdata.add_argument('xname',help='name of executable')
-    showelfdata.add_argument(
-        '--save_section_headers',
-        action='store_true',
-        help='save the section headers in json format')
-    showelfdata.set_defaults(func=UCC.showelfdata)
-
-    # -- show pe data --
-    showpedata = showparsers.add_parser('pedata')
-    showpedata.add_argument('xname',help='name of executable')
-    showpedata.add_argument(
+    # --------------------------------------------------------- PE/ELF data ---
+    pedatacmd = subparsers.add_parser("pedata")
+    pedatacmd.add_argument("xname", help="name of executable")
+    pedatacmd.add_argument(
         '--headeronly',
         action='store_true',
         help='show only the PE header')
-    showpedata.add_argument(
+    pedatacmd.add_argument(
         '--imports',
         action='store_true',
         help='show only import tables')
-    showpedata.add_argument(
+    pedatacmd.add_argument(
         '--headers',
         action='store_true',
         help='show only section headers')
-    showpedata.add_argument(
+    pedatacmd.add_argument(
         '--sections',
         action='store_true',
         help='show only sections')
-    showpedata.add_argument(
+    pedatacmd.add_argument(
         '--section',
         help='show only section at given address')
-    showpedata.set_defaults(func=UCC.showpedata)
+    pedatacmd.set_defaults(func=FF.pedatacmd)
 
-    # -- show control flow graph --
-    showcfg = showparsers.add_parser("cfg")
+    elfdatacmd = subparsers.add_parser("elfdata")
+    elfdatacmd.add_argument("xname", help="name of executable")
+    elfdatacmd.add_argument(
+        "--save_section_headers",
+        action="store_true",
+        help="save the section headers in json format")
+    elfdatacmd.set_defaults(func=FF.elfdatacmd)
+
+    # ----------------------------------------------------------------- results --
+    resultscmd = subparsers.add_parser('results')
+    resultscmd.set_defaults(func=resultscommand)
+    resultsparsers = resultscmd.add_subparsers(title='show options')
+
+    # -- results stats --
+    resultsstats = resultsparsers.add_parser('stats')
+    resultsstats.add_argument('xname', help='name of executable')
+    resultsstats.add_argument(
+        '--nocallees',
+        action='store_true',
+        help='indicate if a function has no callees')
+    resultsstats.set_defaults(func=UCC.results_stats)
+
+    # -- results cfg (control flow graph) --
+    showcfg = resultsparsers.add_parser("cfg")
     showcfg.add_argument("xname", help="name of executable")
     showcfg.add_argument("faddr", help="address of function (in hex)")
     showcfg.add_argument(
@@ -349,6 +389,14 @@ def parse():
         action="store_true",
         help="add calls to nodes")
     showcfg.add_argument(
+        "--instr_opcodes",
+        action="store_true",
+        help="add all assembly instruction opcode text to nodes")
+    showcfg.add_argument(
+        "--instr_text",
+        action="store_true",
+        help="add all assembly instruction annotations to nodes")
+    showcfg.add_argument(
         '--sink',
         help='restrict graph to paths to this basic block')
     showcfg.add_argument(
@@ -358,46 +406,90 @@ def parse():
         help='restrict graph to paths that include these basic blocks')
     showcfg.set_defaults(func=UCC.showcfg)
 
-    # -- show functions --
-    showfunctions = showparsers.add_parser('functions')
-    showfunctions.add_argument('xname',help='name of executable')
-    showfunctions.add_argument(
+    # --- results functions ---
+    resultsfunctions = resultsparsers.add_parser('functions')
+    resultsfunctions.add_argument('xname', help='name of executable')
+    resultsfunctions.add_argument(
         '--functions',
         nargs='*',
         default=[],
         help="list of function addresses (in hex) (all will print all) ")
-    showfunctions.add_argument(
+    resultsfunctions.add_argument(
+        "--bytes",
+        action="store_true",
+        help="include instruction bytes")
+    resultsfunctions.add_argument(
         '--hash',
         action='store_true',
         help='show md5 hash')
-    showfunctions.add_argument(
+    resultsfunctions.add_argument(
         '--bytestring',
         action='store_true',
         help='show bytes as a string')
-    showfunctions.add_argument(
+    resultsfunctions.add_argument(
         '--opcodewidth',
         type=int,
-        default=25,
+        default=40,
         help='number of characters for opcode text')
-    showfunctions.set_defaults(func=UCC.showfunctions)
-    '''
-    # -- show control flow graph paths --
-    show_cfgpaths = showparsers.add_parser('cfgpaths')
-    show_cfgpaths.add_argument('xname',help='name of executable')
-    show_cfgpaths.add_argument('faddr',help='address of function (in hex)')
-    targetgroup = show_cfgpaths.add_mutually_exclusive_group(required=True)
-    targetgroup.add_argument('--calltarget',help='address or name of call target (e.g., strcpy)')
-    targetgroup.add_argument('--block',help='address of target block to reach')
-    show_cfgpaths.add_argument('--graph',help='produce a graphical representation using dot',
-                               action='store_true')
-    show_cfgpaths.add_argument('--conditions',help='show conditions along the path',
-                               action='store_true')
-    show_cfgpaths.add_argument('--calls',help='show calls made per basic block',
-                               action='store_true')
-    show_cfgpaths.add_argument('--stringconstraints',help='output string constraints',
-                               action='store_true')
-    show_cfgpaths.add_argument('--maxtime',type=int,help='maximum search time (in secs)')
-    show_cfgpaths.set_defaults(func=showcfgpaths)
+    resultsfunctions.set_defaults(func=UCC.results_functions)
+
+    # --- results function ---
+    resultsfunction = resultsparsers.add_parser("function")
+    resultsfunction.add_argument("xname", help="name of executable")
+    resultsfunction.add_argument("function", help="hex address of function")
+    resultsfunction.add_argument(
+        "--bytes",
+        action="store_true",
+        help="include instruction bytes")
+    resultsfunction.add_argument(
+        "--hash",
+        action="store_true",
+        help="show function md5 hash")
+    resultsfunction.add_argument(
+        "--bytestring",
+        action="store_true",
+        help="show function as a string of bytes")
+    resultsfunction.add_argument(
+        "--opcodewidth",
+        type=int,
+        default=25,
+        help="number of characters for opcode text")
+    resultsfunction.set_defaults(func=UCC.results_function)
+
+    # -- results cfgpaths (paths through the control flow graph) --
+    resultscfgpaths = resultsparsers.add_parser("cfgpaths")
+    resultscfgpaths.add_argument("xname", help="name of executable")
+    resultscfgpaths.add_argument("faddr", help="hex address of function")
+
+    targetgroup = resultscfgpaths.add_mutually_exclusive_group(required=True)
+    targetgroup.add_argument(
+        "--calltarget",
+        help="address or name of call target (e.g., strcpy)")
+    targetgroup.add_argument(
+        "--block",
+        help='address of target block to reach')
+
+    resultscfgpaths.add_argument(
+        "--graph",
+        help="name of dot/pdf file (without extension)")
+    resultscfgpaths.add_argument(
+        "--conditions",
+        help="show conditions along the path",
+        action='store_true')
+    resultscfgpaths.add_argument(
+        "--calls",
+        help='show calls made per basic block',
+        action='store_true')
+    resultscfgpaths.add_argument(
+        "--stringconstraints",
+        help='output string constraints',
+        action='store_true')
+    resultscfgpaths.add_argument(
+        "--maxtime",
+        type=int,
+        help='maximum search time (in secs)')
+    resultscfgpaths.set_defaults(func=UCC.showcfgpaths)
+
     '''
     # -------------------------------------------------------------- report subcommand
     parser_report = subparsers.add_parser('report')
@@ -424,6 +516,157 @@ def parse():
     report_iocs.add_argument('--constants','-c',action='store_true',
                              help='only show values that are constant literals')
     report_iocs.set_defaults(func=reportiocs)
+    '''
+    # -------------------------------------------------------------- summaries subcommand
+
+    parser_summaries = subparsers.add_parser("summaries")
+    parser_summaries.set_defaults(func=SC.summariescommand)
+    summariesparsers = parser_summaries.add_subparsers(title="show options")
+
+    # --- stats ---
+    summaries_stats = summariesparsers.add_parser("stats")
+    summaries_stats.set_defaults(func=SC.summaries_stats_cmd)
+
+    # --- dlls ---
+    summaries_dlls = summariesparsers.add_parser("dlls")
+    summaries_dlls.set_defaults(func=SC.summaries_dlls_cmd)
+
+    # --- enums ---
+    summaries_enums = summariesparsers.add_parser("enums")
+    summaries_enums.set_defaults(func=SC.summaries_enums_cmd)
+
+    # --- dll-functions ---
+    summaries_dll_functions = summariesparsers.add_parser("dll-functions")
+    summaries_dll_functions.add_argument(
+        "dll", help="name of dll")
+    summaries_dll_functions.set_defaults(func=SC.summaries_dll_functions_cmd)
+
+    # --- so-functions ---
+    summaries_so_functions = summariesparsers.add_parser("so-functions")
+    summaries_so_functions.set_defaults(func=SC.summaries_so_functions_cmd)
+
+    # --- dll-function
+    summaries_dll_function = summariesparsers.add_parser("dll-function")
+    summaries_dll_function.add_argument("dll", help="name of dll")
+    summaries_dll_function.add_argument("function", help="name of function")
+    summaries_dll_function.set_defaults(func=SC.summaries_dll_function_cmd)
+
+    # --- so-function
+    summaries_so_function = summariesparsers.add_parser("so-function")
+    summaries_so_function.add_argument(
+        "function", help="name of function")
+    summaries_so_function.set_defaults(func=SC.summaries_so_function_cmd)
+
+    # --- enum ---
+    summaries_enum = summariesparsers.add_parser("enum")
+    summaries_enum.add_argument(
+        "name", help="name of enum definition")
+    summaries_enum.set_defaults(func=SC.summaries_enum_cmd)
+
+    # --- ioc-types ---
+    summaries_ioc_types = summariesparsers.add_parser("ioc-types")
+    summaries_ioc_types.set_defaults(func=SC.summaries_ioc_types_cmd)
+
+    # --- ioc-roles ---
+    summaries_ioc_roles = summariesparsers.add_parser("ioc-roles")
+    summaries_ioc_roles.set_defaults(func=SC.summaries_ioc_roles_cmd)
+
+    # -------------------------------------------------------- tables subcommand
+    parser_table = subparsers.add_parser('table')
+    parser_table.set_defaults(func=tablecommand)
+    tableparsers = parser_table.add_subparsers(title='show options')
+
+    # --- expr ---
+    table_expr = tableparsers.add_parser('expr')
+    table_expr.add_argument('xname', help='name of executable')
+    table_expr.add_argument('faddr', help='hex address of executbale')
+    table_expr.set_defaults(func=UCC.show_expr_table)
+
+    # --- variables ---
+    table_vars = tableparsers.add_parser('variables')
+    table_vars.add_argument('xname', help='name of executable')
+    table_vars.add_argument('faddr', help='hex address of executbale')
+    table_vars.set_defaults(func=UCC.show_vars_table)
+
+    # --- invariants ---
+    table_invs = tableparsers.add_parser('invariants')
+    table_invs.add_argument('xname', help='name of executable')
+    table_invs.add_argument('faddr', help='hex address of executbale')
+    table_invs.set_defaults(func=UCC.show_invariant_table)
+
+    # ---------------------------------------------------------- test subcommand
+    parser_test = subparsers.add_parser("test")
+    parser_test.set_defaults(func=testcommand)
+    testparsers = parser_test.add_subparsers(title="show options")
+
+    # --- run ---
+    test_run = testparsers.add_parser("run")
+    test_run.add_argument(
+        "arch",
+        help="architecture (x86, arm32, or mips32)",
+        choices=["x86", "arm32", "mips32"])
+    test_run.add_argument(
+        "fileformat",
+        help="file format (pe, or elf)",
+        choices=["pe", "elf"])
+    test_run.add_argument(
+        "suite",
+        help="number of test suite (e.g., 001)")
+    test_run.add_argument(
+        "test",
+        help="number of test (e.g., 001)")
+    test_run.set_defaults(func=TC.test_run)
+
+    # --- runall ---
+    test_runall = testparsers.add_parser("runall")
+    test_runall.add_argument(
+        "--arch",
+        help="restrict to architecture",
+        choices=["x86", "arm32", "mips32"])
+    test_runall.add_argument(
+        "--fileformat",
+        help="restrict to file format",
+        choices=["pe", "elf"])
+    test_runall.set_defaults(func=TC.test_runall)
+
+    # --- list ---
+    test_list = testparsers.add_parser("list")
+    test_list.add_argument(
+        "--arch",
+        help="restrict to architecture",
+        choices=["x86", "arm32", "mips32"])
+    test_list.add_argument(
+        "--fileformat",
+        help="restrict to file format",
+        choices=["pe", "elf"])
+    test_list.set_defaults(func=TC.test_list)
+
+    # --- create ---
+    test_create = testparsers.add_parser("create")
+    test_create.add_argument(
+        "arch",
+        help="architecture (x86, arm32, or mips32)",
+        choices=["x86", "arm32", "mips32"])
+    test_create.add_argument(
+        "fileformat",
+        help="file format (elf or pe)",
+        choices=["elf", "pe"])
+    test_create.add_argument(
+        "test",
+        help="test number (format xxx, e.g., 003)")
+    test_create.add_argument(
+        "--bytestring",
+        help="code bytes in hex (format xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx )",
+        default="c3909090 90909090 90909090 90909090 ")
+    test_create.add_argument(
+        "--suite",
+        help="suite number (format xxx, e.g., 001)",
+        default="001")
+    test_create.add_argument(
+        "--size",
+        help="size of bytestring (in hex)",
+        default="0x10")
+    test_create.set_defaults(func=TC.test_create)
 
     # -- parse --
     args = parser.parse_args()
