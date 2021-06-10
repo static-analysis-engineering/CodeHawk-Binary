@@ -48,6 +48,8 @@ class DotCfg:
             looplevelcolors: List[str] = [],     # [ color numbers ]
             showpredicates: bool = False,   # show branch predicates on edges
             showcalls: bool = False,        # show call instrs on nodes
+            showinstr_opcodes: bool = False,  # show all instrs on nodes
+            showinstr_text: bool = False,  # show all instr annotations on nodes
             mips: bool = False,     # for mips subtract 4 from block end addr
             sink: str = None,      # restrict paths to basic block destination
             segments: List[str] = [],  # restrict paths to include these basic blocks
@@ -58,6 +60,8 @@ class DotCfg:
         self.looplevelcolors = looplevelcolors
         self.showpredicates = showpredicates
         self.showcalls = showcalls
+        self.showinstr_opcodes = showinstr_opcodes
+        self.showinstr_text = showinstr_text
         self.mips = mips
         self.sink = sink
         self.segments = segments
@@ -172,15 +176,29 @@ class DotCfg:
         basicblock = self.fn.block(str(n))
         blocktxt = str(n)
         color = 'lightblue'
-        if self.showcalls:
+        if self.showinstr_opcodes:
+            instrs = basicblock.instructions.values()
+            pinstrs = [i.opcodetext for i in instrs]
+            blocktxt = (
+                blocktxt
+                + "\\n"
+                + "\\n".join(pinstrs))
+        elif self.showinstr_text:
+            instrs = basicblock.instructions.values()
+            pinstrs = [i.annotation for i in instrs]
+            blocktxt = (
+                blocktxt
+                + "\\n"
+                + "\\n".join(pinstrs))
+        elif self.showcalls:
             callinstrs = basicblock.call_instructions
-            pcallinstrs = [str(i.annotation) for i in callinstrs]
+            pcallinstrs = [i.annotation for i in callinstrs]
             print(' \n'.join([str(a) for a in pcallinstrs]))
             if len(callinstrs) > 0:
                 blocktxt = (
                     blocktxt
                     + '\\n'
-                    + '\\n'.join([str(a) for a in callinstrs]))
+                    + '\\n'.join(pcallinstrs))
         if len(self.looplevelcolors) > 0:
             looplevels = self.fn.cfg.loop_levels(n)
             if len(looplevels) > 0:
@@ -189,8 +207,8 @@ class DotCfg:
                     color = self.looplevelcolors[-1]
                 else:
                     color = self.looplevelcolors[level-1]
-        if n == self.fn.faddr:
-            color = 'purple'
+        # if n == self.fn.faddr:
+        #    color = 'purple'
         blocktxt = self.replace_text(blocktxt)
         self.dotgraph.add_node(str(n), labeltxt=str(blocktxt), color=color)
 

@@ -29,12 +29,18 @@
 
 from typing import Dict, List, Optional, Tuple
 
-max_label_length = 1000
+max_label_length = 2000
 
 
 def sanitize(s: str) -> str:
     if s is not None:
-        return s.replace('>', "\>").replace('"', '\\"').replace('%', "\%")
+        return s.replace(
+            '>', "\>").replace(
+                '"', '\\"').replace(
+                    '%', "\%").replace(
+                        "<", "\<").replace(
+                            "{", "\{").replace(
+                                "}", "\}")
 
 
 class DotNode:

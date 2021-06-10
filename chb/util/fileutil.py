@@ -842,7 +842,8 @@ def file_has_registered_options(md5: str) -> bool:
             try:
                 with open(filename, "r") as fp:
                     options = json.load(fp)
-                return md5 in options
+                if md5 in options:
+                    return True
             except Exception as e:
                 print("*" * 80)
                 print("Error reading options file " + filename + ": " + str(e))
