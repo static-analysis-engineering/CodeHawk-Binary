@@ -50,6 +50,10 @@ def simplify_result(id1: int, id2: int, x1: XXpr, x2: XXpr) -> str:
     else:
         return str(x1) + ' (= ' + str(x2) + ')'
 
+branch_opcodes = [
+    "B", "BX"
+]
+
 
 extensions = {
     "eq": "EQ",
@@ -78,7 +82,7 @@ class ARMOpcode(ARMDictionaryRecord):
     def mnemonic(self) -> str:
         return self.tags[0]
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         return self.__str__()
 
     @property
@@ -93,6 +97,10 @@ class ARMOpcode(ARMDictionaryRecord):
     @property
     def operands(self) -> List[ARMOperand]:
         return []
+
+    @property
+    def is_branch_instruction(self) -> bool:
+        return self.tags[0] in branch_opcodes
 
     def __str__(self) -> str:
         return self.tags[0] + ":pending"

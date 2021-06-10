@@ -55,6 +55,7 @@ class ARMAccess(AppAccess):
             self._armd = ARMDictionary(self, x)
         return self._armd
 
+    @property
     def functions(self) -> Mapping[str, ARMFunction]:
         if len(self._functions) == 0:
             for faddr in self.appfunction_addrs:

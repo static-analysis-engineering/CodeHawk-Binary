@@ -36,7 +36,6 @@ from chb.app.Operand import Operand
 from chb.app.StackPointerOffset import StackPointerOffset
 
 from chb.arm.ARMDictionary import ARMDictionary
-# from chb.arm.ARMFunctionDictionary import ARMFunctionDictionary
 from chb.arm.ARMOpcode import ARMOpcode
 from chb.arm.ARMOperand import ARMOperand
 
@@ -129,7 +128,7 @@ class ARMInstruction(Instruction):
 
     @property
     def is_branch_instruction(self) -> bool:
-        raise UF.CHBError("is-branch-instruction: not implemented")
+        return self.opcode.is_branch_instruction
 
     def return_expr(self) -> XXpr:
         raise UF.CHBError("get-return-expr: not implemented")
@@ -140,7 +139,7 @@ class ARMInstruction(Instruction):
 
     @property
     def annotation(self) -> str:
-        return self.opcode.get_annotation(self.xdata).ljust(40)
+        return self.opcode.annotation(self.xdata).ljust(40)
 
     @property
     def stackpointer_offset(self) -> StackPointerOffset:
