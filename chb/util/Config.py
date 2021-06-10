@@ -86,6 +86,12 @@ class Config():
         lines.append("-----------------------")
         lines.append("  analyzer : " + self.chx86_analyze + analyzerfound)
         lines.append("  summaries: " + self.summaries + summariesfound)
+        lines.append("")
+        if len(self.commandline_options) > 0:
+            lines.append("Projects with specified command-line options:")
+            lines.append("---------------------------------------------")
+            for (name, loc) in sorted(self.commandline_options.items()):
+                lines.append(name + ": " + loc)
         return '\n'.join(lines)
 
 

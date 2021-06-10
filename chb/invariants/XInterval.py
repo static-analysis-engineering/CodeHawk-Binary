@@ -61,8 +61,9 @@ class XInterval(FnXprDictionaryRecord):
 
     @property
     def is_singleton(self) -> bool:
-        return (self.is_closed
-                and self.lower_bound.bound == self.upper_bound.bound)
+        return (
+            self.is_closed
+            and str(self.lower_bound.bound) == str(self.upper_bound.bound))
 
     def __str__(self) -> str:
         if self.is_singleton:
