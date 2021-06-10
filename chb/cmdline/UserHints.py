@@ -54,7 +54,9 @@ class UserHints:
         if "non-returning-functions" in hints:
             self.add_non_returning_functions(hints["non-returning-functions"])
         if "arm-thumb" in hints:
-            self.add_arm_thumb(hints["arm-thumb"])
+            self.add_thumb_switch_points(hints["arm-thumb"])
+        if "section-headers" in hints:
+            self.add_section_headers(hints["section-headers"])
 
     def add_non_returning_functions(self, hints: List[str]) -> None:
         """ List of hex addresses."""
@@ -108,21 +110,6 @@ class UserHints:
                     addrs.append(hex(a))
                 self.userhints["successors"][r["ia"]] = addrs
 
-    def add_arm_thumb(self, hints: List[Dict[str, Any]]) -> None:
-        self.userhints.setdefault("arm-thumb", {})
-        for ia in hints:
-            try:
-                i = int(ia, 16)
-            except Exception as e:
-                raise UF.CHBError(
-                    "Encountered illegal hex address value: " + ia)
-            tgt: str = hints[ia]
-            if tgt in ["A", "T"]:
-                self.userhints["arm-thumb"][ia] = tgt
-            else:
-                raise UF.CHBError(
-                    "Target architecture spec should be 'A' or 'T', not " + tgt)
-
     def add_thumb_switch_points(self, swpoints: List[str]) -> None:
         if len(swpoints) > 0:
             self.userhints.setdefault("arm-thumb", {})
@@ -132,6 +119,24 @@ class UserHints:
                 else:
                     raise UF.CHBError(
                         "Error in thumb switch point. Expected format <addr>:A or <addr>:T")
+
+    def add_section_headers(self, shinfo) -> None:
+        self.userhints["section-headers"] = shinfo
+
+    def add_xml_section_headers(self, snode: ET.Element) -> None:
+        if "section-headers" in self.userhints:
+            xsectionheaders = ET.Element("section-headers")
+            snode.append(xsectionheaders)
+            d = self.userhints["section-headers"]
+            for section in d:
+                sh = ET.Element("sh")
+                xsectionheaders.append(sh)
+                sh.set("name", section)
+                for attr in d[section]:
+                    fld = ET.Element("fld")
+                    sh.append(fld)
+                    fld.set("name", attr)
+                    fld.set("value", d[section][attr])
 
     def add_xml_data_blocks(self, snode: ET.Element) -> None:
         if "data-blocks" in self.userhints:
@@ -200,6 +205,7 @@ class UserHints:
         self.add_xml_function_entry_points(snode)
         self.add_xml_successors(snode)
         self.add_xml_arm_thumb_switch_points(snode)
+        self.add_xml_section_headers(snode)
         return tree
 
     def _initialize(self) -> None:
