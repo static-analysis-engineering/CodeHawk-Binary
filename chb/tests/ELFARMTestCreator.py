@@ -30,11 +30,13 @@ import xml.etree.ElementTree as ET
 
 from typing import Dict, Mapping
 
+from chb.tests.ELFTestCreator import ELFTestCreator
+
 import chb.util.fileutil as UF
 import chb.util.xmlutil as UX
 
 
-class ELFARMTestCreator:
+class ELFARMTestCreator(ELFTestCreator):
     """Creates the three files that make up an arm elf test case.
 
     test_xxx_elf_header.xml
@@ -42,93 +44,13 @@ class ELFARMTestCreator:
     test_xxx_xinfo.json
     """
 
-    def __init__(self, name: str, codesize: str, suite: str = "001") -> None:
-        self._name = "test_" + name
-        self._suite = "suite_" + suite
-        self._codesize = codesize
+    def __init__(self, test: str, bytestr: str, suite: str = "001") -> None:
+        ELFTestCreator.__init__(self, test, bytestr, suite)
 
     @property
-    def name(self) -> str:
-        return self._name
+    def architecture(self) -> str:
+        return "arm"
 
     @property
-    def suite(self) -> str:
-        return self._suite
-
-    @property
-    def size(self) -> str:
-        return self._codesize
-
-    def get_section_header(self) -> ET.Element:
-        xsh = ET.Element("section-header")
-        xsh.set("name", ".text")
-        xsh.set("sh_addr", "0x1000")
-        xsh.set("sh_addralign", "0x10")
-        xsh.set("sh_flags", "0x6")
-        xsh.set("sh_name", "0x0")
-        xsh.set("sh_offset", "0x1000")
-        xsh.set("sh_size", self.size)
-        xsh.set("sh_type", "0x1")
-        return xsh
-
-    def create_elf_header(self) -> str:
-        root = UX.get_codehawk_xml_header(self.name, "elf-header")
-        xelfheader = ET.Element("elf-header")
-        xfh = ET.Element("elf-file-header")
-        xfh.set("e_ehsize", "52")
-        xfh.set("e_entry", "0x1000")
-        xfh.set("e_machine", "40")
-        xfh.set("e_phentsize", "32")
-        xfh.set("e_phnum", "0")
-        xfh.set("e_phoff", "0x34")
-        xfh.set("e_shentsize", "40")
-        xfh.set("e_shnum", "1")
-        xfh.set("e_shoff", "0x0")
-        xfh.set("e_shstrndx", "0")
-        xfh.set("e_type", "2")
-        xfh.set("e_version", "0x1")
-        xph = ET.Element("elf-program-headers")
-        xsh = ET.Element("elf-section-headers")
-        xsh16 = ET.Element("section-header")
-        xsh16 = self.get_section_header()
-        xsh16.set("index", "16")
-        xsh.append(xsh16)
-        xelfheader.append(xfh)
-        xelfheader.append(xph)
-        xelfheader.append(xsh)
-        root.append(xelfheader)
-        tree = ET.ElementTree(root)
-        return UX.doc_to_pretty(tree)
-
-    def create_elf_section(self, bytestring: str) -> str:
-        root = UX.get_codehawk_xml_header(self.name, "raw-section")
-        xsec = ET.Element("raw-section")
-        xsec.set("index", "16")
-        xsec.set("size", str(int(self.size, 16)))
-        xsec.set("vaddr", "0x1000")
-        xhex = ET.Element("hex-data")
-        xhex.set("blocks", "1")
-        xblock = ET.Element("ablock")
-        xblock.set("block", "0")
-        xline = ET.Element("aline")
-        xline.set("bytes", bytestring)
-        xline.set("print", "..")
-        xline.set("va", "0x1000")
-        xblock.append(xline)
-        xhex.append(xblock)
-        xsec.append(xhex)
-        xsh = self.get_section_header()
-        xsec.append(xsh)
-        root.append(xsec)
-        tree = ET.ElementTree(root)
-        return UX.doc_to_pretty(tree)
-
-    def create_xinfo(self) -> Mapping[str, str]:
-        xinfo: Dict[str, str] = {}
-        xinfo["md5"] = "77c2a94231d2b15d857e08f24e8a74a9"
-        xinfo["path"] = "CodeHawk-Binary/tests/x86/elf/" + self.suite
-        xinfo["file"] = self.name
-        xinfo["size"] = str(int(self.size, 16))
-        xinfo["arch"] = "arm"
-        xinfo["format"] = "elf"
-        return xinfo
+    def path(self) -> str:
+        return "CodeHawk-Binary/tests/arm32/elf/"
