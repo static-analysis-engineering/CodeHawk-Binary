@@ -185,6 +185,11 @@ class Function(ABC):
         ...
 
     @property
+    @abstractmethod
+    def branchconditions(self) -> Mapping[str, Instruction]:
+        ...
+
+    @property
     def instruction_count(self) -> int:
         return len(self.instructions)
 
