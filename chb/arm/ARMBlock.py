@@ -78,7 +78,7 @@ class ARMBlock(BasicBlock):
             self,
             bytes: bool = False,
             opcodetxt: bool = True,
-            opcodewidth: int = 25,
+            opcodewidth: int = 40,
             sp: bool = True) -> str:
         lines: List[str] = []
         for (ia, instr) in sorted(self.instructions.items()):

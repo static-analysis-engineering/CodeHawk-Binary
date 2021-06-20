@@ -27,7 +27,7 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
+from typing import Callable, cast, Dict, List, Optional, Sequence, TYPE_CHECKING
 
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.Instruction import Instruction
@@ -38,6 +38,7 @@ from chb.app.StackPointerOffset import StackPointerOffset
 from chb.arm.ARMDictionary import ARMDictionary
 from chb.arm.ARMOpcode import ARMOpcode
 from chb.arm.ARMOperand import ARMOperand
+from chb.arm.opcodes.ARMBranch import ARMBranch
 
 from chb.invariants.XXpr import XXpr
 
@@ -135,7 +136,11 @@ class ARMInstruction(Instruction):
 
     @property
     def ft_conditions(self) -> Sequence[XXpr]:
-        return []
+        if self.is_branch_instruction:
+            opc = cast(ARMBranch, self.opcode)
+            return opc.ft_conditions(self.xdata)
+        else:
+            return []
 
     @property
     def annotation(self) -> str:
@@ -157,7 +162,7 @@ class ARMInstruction(Instruction):
             self,
             bytes: bool = False,
             opcodetxt: bool = True,
-            opcodewidth: int = 25,
+            opcodewidth: int = 40,
             sp: bool = False) -> str:
         pbytes = self.bytestring.ljust(10) + "  " if bytes else ""
         pesp = str(self.stackpointer_offset) + "  " if sp else ""

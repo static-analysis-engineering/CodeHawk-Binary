@@ -119,6 +119,17 @@ class ARMFunction(Function):
             arminstr = cast(ARMInstruction, instr)
             f(ia, arminstr)
 
+    @property
+    def branchconditions(self) -> Mapping[str, ARMInstruction]:
+        result: Dict[str, ARMInstruction] = {}
+        for b in self.blocks.values():
+            lastinstr = b.last_instruction
+            if lastinstr.is_branch_instruction:
+                ftconditions = lastinstr.ft_conditions
+                if len(ftconditions) > 0:
+                    result[b.baddr] = cast(ARMInstruction, lastinstr)
+        return result
+
     def set_fnvar_dictionary(self, xnode: ET.Element) -> FnVarDictionary:
         return FnVarDictionary(self, xnode)
 
@@ -140,13 +151,28 @@ class ARMFunction(Function):
             self._cfg = ARMCfg(self, xcfg)
         return self._cfg
 
+    def byte_string(self, chunksize: int = None) -> str:
+        s: List[str] = []
+
+        def f(ia: str, i: ARMInstruction) -> None:
+            s.extend(i.bytestring)
+
+        self.iter_instructions(f)
+        if chunksize is None:
+            return "".join(s)
+        else:
+            result = "".join(s)
+            size = len(s)
+            chunks = [result[i:i+chunksize] for i in range(0, size, chunksize)]
+            return "\n".join(chunks)
+
     def to_string(
             self,
             bytes: bool = False,
             bytestring: bool = False,
             hash: bool = False,
             opcodetxt: bool = True,
-            opcodewidth: int = 25,
+            opcodewidth: int = 40,
             sp: bool = True) -> str:
         lines: List[str] = []
         for b in sorted(self.blocks):
@@ -157,4 +183,6 @@ class ARMFunction(Function):
                     opcodewidth=opcodewidth,
                     sp=sp))
             lines.append("-" * 80)
+        if bytestring:
+            lines.append(self.byte_string(chunksize=32))
         return "\n".join(lines)
