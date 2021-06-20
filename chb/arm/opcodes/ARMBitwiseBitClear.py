@@ -38,28 +38,46 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("NOP", ARMOpcode)
-class ARMNoOperation(ARMOpcode):
-    """No operation; does nothing.
+@armregistry.register_tag("BIC", ARMOpcode)
+class ARMBitwiseBitClear(ARMOpcode):
+    """Bitwise and of a register value and the complement of an immediate value.
 
-    NOP<c>
+    BIC{S} <Rd>, <Rn>, #<const>
 
     tags[1]: <c>
+    args[0]: {S}
+    args[1]: index of op1 in armdictionary
+    args[2]: index of op2 in armdictionary
+    args[3]: index of op3 in armdictionary
+    args[4]: is-wide (thumb)
     """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 0, "NoOperation")
+        self.check_key(2, 5, "BitwiseBitClear")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return []
+        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "--"
+        """xdata format: a:vxxxx .
+
+        vars[0]: lhs
+        xprs[0]: rhs1
+        xprs[1]: rhs2
+        xprs[2]: rhs1 & rhs2 (syntactic)
+        xprs[3]: rhs1 & rhs2 (simplified)
+        """
+
+        lhs = str(xdata.vars[0])
+        result = xdata.xprs[2]
+        rresult = xdata.xprs[3]
+        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
+        return lhs + " := " + xresult

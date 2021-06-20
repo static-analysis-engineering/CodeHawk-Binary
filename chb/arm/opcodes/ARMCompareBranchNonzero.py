@@ -38,28 +38,37 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("NOP", ARMOpcode)
-class ARMNoOperation(ARMOpcode):
-    """No operation; does nothing.
+@armregistry.register_tag("CBNZ", ARMOpcode)
+class ARMCompareBranchZero(ARMOpcode):
+    """Compares the value in a register with zero and conditionally branches forward.
 
-    NOP<c>
+    CBNZ <Rn>, <label>
 
-    tags[1]: <c>
+    args[0]: index of Rn in arm dictionary
+    args[1]: index of label in arm dictionary
     """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 0, "NoOperation")
+        self.check_key(1, 2, "CompareBranchNonzero")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return []
+        return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "--"
+        """xdata format: a:xx .
+
+        xprs[0]: index of Rn in arm dictionary
+        xprs[1]: index of target jump address in arm dictionary
+        """
+
+        xpr = str(xdata.xprs[0])
+        tgt = str(xdata.xprs[1])
+        return "if " + xpr + " != 0 goto " + tgt

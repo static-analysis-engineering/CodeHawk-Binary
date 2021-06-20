@@ -41,13 +41,16 @@ if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("NOP", ARMOpcode)
-class ARMNoOperation(ARMOpcode):
-    """No operation; does nothing.
+@armregistry.register_tag("ADR", ARMOpcode)
+class ARMAdr(ARMOpcode):
+    """ADR<c> <Rd>, <label>
 
-    NOP<c>
+    Adds an immediate value to the PC value to a form a PC-relative address,
+    and writes the result to the destination register.
 
     tags[1]: <c>
+    args[0]: index of Rd in arm dictionary
+    args[1]: index of label in arm dictionary
     """
 
     def __init__(
@@ -55,11 +58,19 @@ class ARMNoOperation(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 0, "NoOperation")
+        self.check_key(2, 2, "Adr")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return []
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "--"
+        """xdata format: a:vx .
+
+        vars[0]: lhs (Rd)
+        xprs[0]: rhs1 (label)
+        """
+
+        lhs = str(xdata.vars[0])
+        result = str(xdata.xprs[0])
+        return lhs + " := " + result

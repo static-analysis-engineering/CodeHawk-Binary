@@ -25,13 +25,15 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
 
@@ -64,11 +66,27 @@ class ARMBranch(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[0])]
 
+    def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
+        if xdata.has_branch_conditions():
+            return [xdata.xprs[1], xdata.xprs[0]]
+        else:
+            return []
+
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:x .
+
+        xprs[0]: true condition
+        xprs[1]: false condition
+        xprs[2]: target address (absolute)
+
+        or, if no conditions
 
         xprs[0]: target address (absolute)
         """
 
-        tgt = str(xdata.xprs[0])
-        return "goto " + tgt
+        if xdata.has_branch_conditions():
+            return "if " + str(xdata.xprs[0]) + " then goto " + str(xdata.xprs[2])
+        elif self.tags[1] in ["a", "unc"]:
+            return "goto " + str(xdata.xprs[0])
+        else:
+            return "if ? goto " + str(xdata.xprs[0])

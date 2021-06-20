@@ -38,28 +38,33 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("NOP", ARMOpcode)
-class ARMNoOperation(ARMOpcode):
-    """No operation; does nothing.
-
-    NOP<c>
+@armregistry.register_tag("BLX", ARMOpcode)
+class ARMBranchLinkExchange(ARMOpcode):
+    """Calls a subroutine at a PC-relative address.
 
     tags[1]: <c>
+    args[0]: index of target operand in armdictionary
     """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 0, "NoOperation")
+        self.check_key(2, 1, "BranchLinkExchange")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return []
+        return [self.armd.arm_operand(self.args[0])]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "--"
+        """xdata format: a:x .
+
+        xprs[0]: target operand
+        """
+
+        tgt = str(xdata.xprs[0])
+        return "call " + tgt

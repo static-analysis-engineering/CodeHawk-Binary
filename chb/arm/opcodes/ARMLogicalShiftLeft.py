@@ -38,7 +38,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
 @armregistry.register_tag("LSL", ARMOpcode)
@@ -57,7 +57,7 @@ class ARMLogicalShiftLeft(ARMOpcode):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
 
@@ -76,7 +76,7 @@ class ARMLogicalShiftLeft(ARMOpcode):
         """
 
         lhs = str(xdata.vars[0])
-        result = xdata.xprs[1]
-        rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
-        return xresult
+        result = xdata.xprs[2]
+        rresult = xdata.xprs[3]
+        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
+        return lhs + " := " + xresult

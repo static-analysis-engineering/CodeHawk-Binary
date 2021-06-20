@@ -41,7 +41,10 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
+@armregistry.register_tag("ITE EQ", ARMOpcode)
+@armregistry.register_tag("ITE LT", ARMOpcode)
 @armregistry.register_tag("ITE NE", ARMOpcode)
+@armregistry.register_tag("IT PL", ARMOpcode)
 class ARMIfThen(ARMOpcode):
     """Makes up to four following instructions conditional.
 
@@ -60,11 +63,10 @@ class ARMIfThen(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(3, 0, "IfThen")
 
     @property
     def operands(self) -> List[ARMOperand]:
         return []
 
     def annotation(self, xdata: InstrXData) -> str:
-        return self.tags[0] + self.tags[2] + " " + self.tags[1]
+        return self.tags[0]
