@@ -87,15 +87,15 @@ class X86Call(X86Opcode):
 
     def is_dll_call(self, xdata: InstrXData) -> bool:
         return (self.has_call_target(xdata)
-                and self.call_target(xdata).is_dll_target())
+                and self.call_target(xdata).is_dll_target)
 
     def is_so_call(self, xdata: InstrXData) -> bool:
         return (self.has_call_target(xdata)
-                and self.call_target(xdata).is_so_target())
+                and self.call_target(xdata).is_so_target)
 
     def is_app_call(self, xdata: InstrXData) -> bool:
         return (self.has_call_target(xdata)
-                and self.call_target(xdata).is_app_target())
+                and self.call_target(xdata).is_app_target)
 
     def is_unresolved_call(self, xdata: InstrXData) -> bool:
         return xdata.has_indirect_call_target_exprs()
