@@ -90,15 +90,19 @@ class CallTarget(InterfaceDictionaryRecord):
             ixval: IndexedTableValue) -> None:
         InterfaceDictionaryRecord.__init__(self, d, ixval)
 
+    @property
     def is_dll_target(self) -> bool:
         return False
 
+    @property
     def is_so_target(self) -> bool:
         return False
 
+    @property
     def is_app_target(self) -> bool:
         return False
 
+    @property
     def is_unknown(self) -> bool:
         return False
 
