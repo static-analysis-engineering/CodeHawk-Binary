@@ -635,6 +635,16 @@ def get_arm_dictionary_xnode(path: str, xfile: str) -> ET.Element:
     return get_chb_xnode(filename, "arm-dictionary")
 
 
+def get_arm_asm_filename(path: str, xfile: str) -> str:
+    fdir = get_results_dir(path, xfile)
+    return get_chb_filename(fdir, xfile, "arm_asm.xml")
+
+
+def get_arm_asm_xnode(path: str, xfile: str) -> ET.Element:
+    filename = get_arm_asm_filename(path, xfile)
+    return get_chb_xnode(filename, "arm-assembly-instructions")
+
+
 def get_resultmetrics_filename(path: str, xfile: str) -> str:
     fdir = get_results_dir(path, xfile)
     return get_chb_filename(fdir, xfile, "metrics.xml")
@@ -859,6 +869,36 @@ def file_has_registered_options(md5: str) -> bool:
     return False
 
 
+def file_has_registered_userdata(md5: str) -> bool:
+    for f in config.registered_userdata:
+        filename = config.registered_userdata[f]
+        if os.path.isfile(filename):
+            try:
+                with open(filename, "r") as fp:
+                    userdatafile = json.load(fp)
+                if "executables" in userdatafile:
+                    xuserdata = userdatafile["executables"]
+                    if md5 in xuserdata:
+                        return True
+            except Exception as e:
+                print("*" * 80)
+                print(
+                    "Error reading userdata file "
+                    + filename
+                    + ": "
+                    + str(e))
+                print("*" * 80)
+                exit(1)
+            else:
+                pass
+        else:
+            print("*" * 80)
+            print("Registered userdata file " + filename + " not found")
+            print("*" * 80)
+            exit(1)
+    return False
+
+
 def get_file_registered_options(md5: str) -> Dict[str, Any]:
     if file_has_registered_options(md5):
         for f in config.commandline_options:
@@ -879,6 +919,34 @@ def get_file_registered_options(md5: str) -> Dict[str, Any]:
         print("No registered options found for " + md5)
         print("*" * 80)
         exit(1)
+
+
+def get_file_registered_userdata(md5: str) -> Dict[str, Any]:
+    if file_has_registered_userdata(md5):
+        for f in config.registered_userdata:
+            filename = config.registered_userdata[f]
+            with open(filename, "r") as fp:
+                userdatafile = json.load(fp)
+            if md5 in userdatafile["executables"]:
+                xuserdata = userdatafile["executables"][md5]
+                if "userdata" in xuserdata:
+                    return xuserdata["userdata"]
+                else:
+                    return {}
+            else:
+                pass
+        else:
+            print("*" * 80)
+            print("Error in getting registered userdata for " + md5)
+            print("*" * 80)
+            exit(1)
+    else:
+        print("*" * 80)
+        print("No registered userdata found for " + md5)
+        print("*" * 80)
+        exit(1)
+
+    return {}
 
 
 def get_tests() -> Mapping[str, Mapping[str, Mapping[str, Sequence[str]]]]:

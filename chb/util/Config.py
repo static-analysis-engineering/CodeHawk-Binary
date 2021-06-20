@@ -72,6 +72,9 @@ class Config():
         # registered command-line options
         self.commandline_options: Dict[str, str] = {}
 
+        # registered user data
+        self.registered_userdata: Dict[str, str] = {}
+
         # personalization
         if localconfig:
             ConfigLocal.getLocals(self)
