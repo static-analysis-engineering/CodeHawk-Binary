@@ -53,6 +53,7 @@ and constant_value_variable_t =
   | BridgeVariable of ctxt_iaddress_t * int        "bv"       2      1
   | FieldValue of string * int * string            "fv"       1      3
   | SymbolicValue of xpr_t                         "sv"       1      1
+  | SignedSymbolicValue of int * int * xpr_t      "ssv"       1      3
   | Special of string                              "sp"       1      1
   | RuntimeConstant of string                      "rt"       1      1
   | ChifTemp                                 "chiftemp"       1      0
@@ -109,6 +110,14 @@ class VConstantValueVariable(FnVarDictionaryRecord):
 
     @property
     def is_function_return_value(self) -> bool:
+        return False
+
+    @property
+    def is_symbolic_value(self) -> bool:
+        return False
+
+    @property
+    def is_signed_symbolic_value(self) -> bool:
         return False
 
     @property
@@ -601,6 +610,40 @@ class SymbolicValue(VConstantValueVariable):
 
     def __str__(self) -> str:
         return str(self.expr)
+
+
+@varregistry.register_tag("ssv", VConstantValueVariable)
+class SignedSymbolicValue(VConstantValueVariable):
+    """Symbolic representation of a sign-extended expression.
+
+    args[0]: index of expression in xprdictionary
+    args[1]: original size of expression (in bits)
+    args[2]: sign-extended size of expression (in bits)
+    """
+
+    @property
+    def expr(self) -> "XXpr":
+        return self.xd.xpr(self.args[0])
+
+    @property
+    def originalsize(self) -> int:
+        return self.args[1]
+
+    @property
+    def extendedsize(self) -> int:
+        return self.args[2]
+
+    @property
+    def is_signed_symbolic_value(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return (
+            str(self.expr)
+            + "["
+            + str(self.originalsize)
+            + ">"
+            + str(self.extendedsize))
 
 
 @varregistry.register_tag("rt", VConstantValueVariable)
