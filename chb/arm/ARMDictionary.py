@@ -104,8 +104,15 @@ class ARMDictionary:
         return ARMOperand(self, self.operand_table.retrieve(ix))
 
     def arm_opcode(self, ix: int) -> ARMOpcode:
-        return armregistry.mk_instance(
-            self, self.opcode_table.retrieve(ix), ARMOpcode)
+        try:
+            return armregistry.mk_instance(
+                self, self.opcode_table.retrieve(ix), ARMOpcode)
+        except UF.CHBError as e:
+            print("*" * 80)
+            print("Trying to create opcode class for " + str(ix))
+            print(str(e))
+            print("*" * 80)
+            exit(1)
 
     def arm_bytestring(self, ix: int) -> str:
         return self.bytestring_table.retrieve(ix)

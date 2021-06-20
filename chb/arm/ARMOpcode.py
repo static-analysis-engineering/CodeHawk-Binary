@@ -35,13 +35,18 @@ from chb.arm.ARMOperand import ARMOperand
 
 from chb.invariants.XXpr import XXpr
 
+import chb.simulation.SimUtil as SU
+import chb.simulation.SimSymbolicValue as SSV
+import chb.simulation.SimValue as SV
+
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
 
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.simulation.ARMSimulationState import ARMSimulationState
 
 
 def simplify_result(id1: int, id2: int, x1: XXpr, x2: XXpr) -> str:
@@ -49,6 +54,7 @@ def simplify_result(id1: int, id2: int, x1: XXpr, x2: XXpr) -> str:
         return str(x1)
     else:
         return str(x1) + ' (= ' + str(x2) + ')'
+
 
 branch_opcodes = [
     "B", "BX"
@@ -74,7 +80,7 @@ class ARMOpcode(ARMDictionaryRecord):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMDictionaryRecord.__init__(self, d, ixval)
 
@@ -101,6 +107,15 @@ class ARMOpcode(ARMDictionaryRecord):
     @property
     def is_branch_instruction(self) -> bool:
         return self.tags[0] in branch_opcodes
+
+    def simulate(self, iaddr: str, simstate: "ARMSimulationState") -> str:
+        raise SU.CHBSimError(
+            simstate,
+            iaddr,
+            ("Simulation not yet supported for "
+             + str(self)
+             + " at address "
+             + str(iaddr)))
 
     def __str__(self) -> str:
         return self.tags[0] + ":pending"
