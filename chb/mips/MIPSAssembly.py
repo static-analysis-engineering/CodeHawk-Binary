@@ -30,8 +30,9 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import cast, Dict, List, Mapping, Optional, TYPE_CHECKING
 
+from chb.app.Assembly import Assembly, AssemblyInstruction
 from chb.mips.MIPSOpcode import MIPSOpcode
 from chb.mips.MIPSOperand import MIPSOperand
 
@@ -44,24 +45,15 @@ if TYPE_CHECKING:
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
 
-class MIPSAssemblyInstruction:
+class MIPSAssemblyInstruction(AssemblyInstruction):
 
     def __init__(
             self,
             iaddr: str,
             opcode: MIPSOpcode,
             stat: str = ""):
-        self._iaddr = iaddr
+        AssemblyInstruction.__init__(self, iaddr, stat)
         self._opcode = opcode
-        self._stat = stat
-
-    @property
-    def iaddr(self) -> str:
-        return self._iaddr
-
-    @property
-    def addr_i(self) -> int:
-        return int(self._iaddr, 16)
 
     @property
     def opcode(self) -> MIPSOpcode:
@@ -74,14 +66,6 @@ class MIPSAssemblyInstruction:
     @property
     def is_delay_slot(self) -> bool:
         return 'D' in self._stat
-
-    @property
-    def is_block_entry(self) -> bool:
-        return 'B' in self._stat
-
-    @property
-    def is_function_entry(self) -> bool:
-        return 'F' in self._stat
 
     @property
     def is_return_instruction(self) -> bool:
@@ -143,41 +127,36 @@ class MIPSAssemblyInstruction:
             + ','.join([str(op) for op in self.opcode.operands]))
 
 
-class MIPSAssembly(object):
+class MIPSAssembly(Assembly):
 
     def __init__(
             self,
             app: "MIPSAccess",
             xnode: ET.Element) -> None:
-        self.app = app
-        self.xnode = xnode
+        Assembly.__init__(self, app, xnode)
         self.sorted_instructions: List[int] = []  # list of integer addresses
         # list of integer addresses (reverse)
         self.revsorted_instructions: List[int] = []
-        self.instructions: Dict[str, MIPSAssemblyInstruction] = {}
-        self.instructions_initialized = False
-        self._initialize()
+        self._instructions: Dict[str, MIPSAssemblyInstruction] = {}
 
-    def __str__(self) -> str:
-        self._initialize()
-        lines: List[str] = []
-        lines.append('MIPS assembly code')
-        for (ia, i) in sorted(self.instructions.items()):
-            lines.append(str(i))
-        return '\n'.join(lines)
+    @property
+    def app(self) -> "MIPSAccess":
+        return cast("MIPSAccess", self._app)
 
-    def _initialize(self) -> None:
-        if self.instructions_initialized:
-            return
-        for b in self.xnode.findall('b'):
-            for n in b.findall('i'):
-                iaddr = n.get("ia")
-                if iaddr is None:
-                    raise UF.CHBError("Instruction without address")
-                opcode = self.app.mipsdictionary.read_xml_mips_opcode(n)
-                stat = n.get("stat", "")
-                self.instructions[iaddr] = MIPSAssemblyInstruction(
-                    iaddr, opcode, stat)
-        self.sorted_instructions = (
-            sorted(int(k, 16) for k in self.instructions.keys()))
-        self.revsorted_instructions = sorted(self.sorted_instructions, reverse=True)
+    @property
+    def instructions(self) -> Mapping[str, MIPSAssemblyInstruction]:
+        if len(self._instructions) == 0:
+            for b in self.xnode.findall("b"):
+                for n in b.findall("i"):
+                    iaddr = n.get("ia")
+                    if iaddr is None:
+                        raise UF.CHBError("Instruction without address")
+                    opcode = self.app.mipsdictionary.read_xml_mips_opcode(n)
+                    stat = n.get("stat", "")
+                    self._instructions[iaddr] = MIPSAssemblyInstruction(
+                        iaddr, opcode, stat)
+            self.sorted_instructions = (
+                sorted(int(k, 16) for k in self._instructions.keys()))
+            self.revsorted_instructions = sorted(
+                self.sorted_instructions, reverse=True)
+        return self._instructions

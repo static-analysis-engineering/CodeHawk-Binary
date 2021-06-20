@@ -133,6 +133,10 @@ class MIPSFunction(Function):
             mipsinstr = cast(MIPSInstruction, instr)
             f(ia, mipsinstr)
 
+    @property
+    def branchconditions(self) -> Mapping[str, MIPSInstruction]:
+        return {}
+
     def set_fnvar_dictionary(self, xnode: ET.Element) -> FnVarDictionary:
         return FnVarDictionary(self, xnode)
 
