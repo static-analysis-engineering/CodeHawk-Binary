@@ -46,7 +46,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    from chb.api.CallTarget import CallTarget, AppTarget
+    from chb.api.CallTarget import CallTarget, AppTarget, StubTarget
     from chb.mips.MIPSDictionary import MIPSDictionary
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
@@ -103,7 +103,12 @@ class MIPSJumpLink(MIPSOpcode):
             tgt = self.call_target(xdata)
             if tgt.is_app_target:
                 tgt = cast("AppTarget", tgt)
-            return "call " + str(tgt.address) + "(" + cargs + ")"
+                return "call " + str(tgt.address) + "(" + cargs + ")"
+            elif tgt.is_so_target:
+                tgt = cast("StubTarget", tgt)
+                return "call " + str(tgt) + "(" + cargs + ")"
+            else:
+                return "call " + str(self.target) + "(" + cargs + ")"
         else:
             return "call " + str(self.target) + "(" + cargs + ")"
 

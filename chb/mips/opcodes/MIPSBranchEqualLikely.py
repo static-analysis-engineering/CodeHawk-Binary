@@ -86,7 +86,7 @@ class MIPSBranchEqualLikely(MIPSOpcode):
         result = xdata.xprs[2]
         rresult = xdata.xprs[3]
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
-        return 'if ' + xresult + ' then goto ' + str(self.target)
+        return 'if ' + xresult + ' then goto ' + str(self.target())
 
     def ft_conditions(self, xdata: InstrXData) -> List[XXpr]:
         return [xdata.xprs[4], xdata.xprs[3]]

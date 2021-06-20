@@ -69,6 +69,7 @@ class MIPSDivideUnsignedWord(MIPSOpcode):
             ixval: IndexedTableValue) -> None:
         MIPSOpcode.__init__(self, mipsd, ixval)
 
+    @property
     def operands(self) -> Sequence[MIPSOperand]:
         return [self.mipsd.mips_operand(i) for i in self.args]
 
