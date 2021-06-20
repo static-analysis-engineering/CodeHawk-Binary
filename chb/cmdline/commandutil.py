@@ -47,23 +47,28 @@ from typing import (
     TYPE_CHECKING)
 
 from chb.app.AppAccess import AppAccess
+from chb.app.Assembly import Assembly
 
 from chb.arm.ARMAccess import ARMAccess
+from chb.arm.ARMAssembly import ARMAssembly
 
 from chb.cmdline.AnalysisManager import AnalysisManager
 
 from chb.invariants.InputConstraint import InputConstraint
 
 from chb.mips.MIPSAccess import MIPSAccess
+from chb.mips.MIPSAssembly import MIPSAssembly
 from chb.mips.MIPSCfgPath import MIPSCfgPath
 from chb.mips.MIPSFunction import MIPSFunction
 from chb.mips.MIPSInstruction import MIPSInstruction
 
-import chb.cmdline.UserHints as UH
 import chb.cmdline.XInfo as XI
 import chb.graphics.DotCfg as DC
 import chb.models.FunctionSummary as F
 import chb.models.ModelsAccess as M
+
+from chb.userdata.UserHints import UserHints
+
 import chb.util.DotGraph as DG
 import chb.util.dotutil as UD
 import chb.util.fileutil as UF
@@ -122,6 +127,18 @@ def get_app(path: str, xfile: str, xinfo: XI.XInfo) -> AppAccess:
         raise UF.CHBError("Archicture " + arch + " not yet supported")
 
 
+def get_asm(app: AppAccess) -> Assembly:
+    if app.mips:
+        app = cast(MIPSAccess, app)
+        return MIPSAssembly(app, UF.get_mips_asm_xnode(app.path, app.filename))
+    elif app.arm:
+        app = cast(ARMAccess, app)
+        return ARMAssembly(app, UF.get_arm_asm_xnode(app.path, app.filename))
+    else:
+        print_error("Simulation not yet supported for " + app.architecture)
+        exit(1)
+
+
 def setup_directories(path: str, xfile: str) -> None:
     """Create the x.ch directories."""
     def makedirc(name: str) -> None:
@@ -158,6 +175,14 @@ def setup_user_data(
         md5: str) -> None:
     """Convert hints and command-line options to xml user data."""
 
+    userhints = UserHints()
+
+    # check for registered userdata
+    if UF.file_has_registered_userdata(md5):
+        print("Use registered userdata.")
+        userdata = UF.get_file_registered_userdata(md5)
+        userhints.add_hints(userdata)
+
     # check for registered options
     if UF.file_has_registered_options(md5):
         cmdline_options = UF.get_file_registered_options(md5)
@@ -165,13 +190,29 @@ def setup_user_data(
             thumb = cmdline_options["options"]["thumb"]
             print("Use command-line options for " + cmdline_options["name"] + ": ")
             print(" --thumb " + " ".join(thumb))
+            armuserdata: Dict[str, List[str]] = {}
+            armuserdata["arm-thumb"] = thumb
+            userhints.add_hints(armuserdata)
 
     # read hints files
     filenames = [os.path.abspath(s) for s in hints]
     if len(filenames) > 0:
         print("use hints files: " + ", ".join(filenames))
-    userhints = UH.UserHints(filenames)
-    userhints.add_thumb_switch_points(thumb)
+        for f in filenames:
+            try:
+                with open(f, "r") as fp:
+                    fuserdata = json.load(fp)
+                if "userdata" in fuserdata:
+                    userhints.add_hints(fuserdata["userdata"])
+                else:
+                    print_error(
+                        "Expected to find userdata in " + f)
+                    exit(1)
+            except Exception as e:
+                print_error(
+                    "Error in reading " + f + ": " + str(e))
+                exit(1)
+
     ufilename = UF.get_user_system_data_filename(path, xfile)
     with open(ufilename, "w") as fp:
         fp.write(UX.doc_to_pretty(userhints.to_xml(xfile)))
@@ -467,6 +508,88 @@ def results_function(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def results_invariants(args: argparse.Namespace) -> NoReturn:
+    """Prints out a list of invariants for a function per location."""
+
+    # arguments
+    xname: str = str(args.xname)
+    function: str = args.function
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    if app.has_function(function):
+        f = app.function(function)
+        if f is None:
+            print_error("Unable to find function " + function)
+            exit(1)
+
+        invariants = f.invariants
+        for loc in sorted(invariants):
+            if any(f.is_unreachable for f in invariants[loc]):
+                print(loc + ": unreachable")
+            else:
+                print(loc)
+                for fact in invariants[loc]:
+                    if (
+                            fact.is_initial_var_disequality
+                            or fact.is_initial_var_equality):
+                        continue
+                    print("  " + str(fact))
+    exit(0)
+
+
+def results_branchconditions(args: argparse.Namespace) -> NoReturn:
+    """Prints out the conditions of conditional branches."""
+
+    # arguments
+    xname: str = str(args.xname)
+    function: str = args.function
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    if app.has_function(function):
+        f = app.function(function)
+        if f is None:
+            print_error("Unable to find function " + function)
+            exit(1)
+
+        branchconditions = f.branchconditions
+        print(
+            "block".ljust(8)
+            + "instr".ljust(8)
+            + "opcode".ljust(16)
+            + "branch condition")
+        print("-" * 80)
+        for (bc, bci) in sorted(branchconditions.items()):
+            print(
+                bc.ljust(8)
+                + bci.iaddr.ljust(8)
+                + bci.opcodetext.ljust(16)
+                + bci.annotation)
+
+    exit(0)
+
+
 def showcfg(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -617,7 +740,8 @@ def showcfgpaths(args: argparse.Namespace) -> NoReturn:
             for sink in paths:
                 if not paths[sink]:
                     continue
-                pathconstraints0 = [str(c) for c in paths[sink][0].constraints() if c]
+                pathconstraints0 = [
+                    str(c) for c in paths[sink][0].constraints() if c]
                 sharedkonstraints[sink] = set(pathconstraints0[:])
                 allkonstraints[sink] = set([])
                 for path in paths[sink]:

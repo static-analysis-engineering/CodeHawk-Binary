@@ -360,8 +360,8 @@ class AnalysisManager(object):
 
         count = 2
         while True:
-            if isstable == "yes" and not ignore_stable:
-                return True
+            # if isstable == "yes" and not ignore_stable:
+            #    return True
 
             subprocess.call(jarcmd, stderr=subprocess.STDOUT)
             if count > iterations:
