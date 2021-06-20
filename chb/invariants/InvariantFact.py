@@ -79,6 +79,30 @@ class InvariantFact(FnInvDictionaryRecord):
     def __str__(self) -> str:
         return "fact:" + self.tags[0]
 
+    @property
+    def is_unreachable(self) -> bool:
+        return False
+
+    @property
+    def is_nonrelational(self) -> bool:
+        return False
+
+    @property
+    def is_relational(self) -> bool:
+        return False
+
+    @property
+    def is_initial_var_equality(self) -> bool:
+        return False
+
+    @property
+    def is_initial_var_disequality(self) -> bool:
+        return False
+
+    @property
+    def is_testvar_equality(self) -> bool:
+        return False
+
 
 @invregistry.register_tag("u", InvariantFact)
 class UnreachableFact(InvariantFact):
@@ -94,8 +118,15 @@ class UnreachableFact(InvariantFact):
         InvariantFact.__init__(self, invd, ixval)
 
     @property
+    def is_unreachable(self) -> bool:
+        return True
+
+    @property
     def domain(self) -> str:
         return self.tags[1]
+
+    def __str__(self) -> str:
+        return "unreachable[" + self.domain + "]"
 
 
 @invregistry.register_tag("n", InvariantFact)
@@ -111,6 +142,10 @@ class NRVFact(InvariantFact):
             invd: "FnInvDictionary",
             ixval: IndexedTableValue) -> None:
         InvariantFact.__init__(self, invd, ixval)
+
+    @property
+    def is_nonrelational(self) -> bool:
+        return True
 
     @property
     def variable(self) -> XVariable:
@@ -139,6 +174,10 @@ class InitialVarEqualityFact(InvariantFact):
         InvariantFact.__init__(self, invd, ixval)
 
     @property
+    def is_initial_var_equality(self) -> bool:
+        return True
+
+    @property
     def variable(self) -> XVariable:
         return self.xd.variable(self.args[0])
 
@@ -163,6 +202,10 @@ class InitialVarDisEqualityFact(InvariantFact):
             invd: "FnInvDictionary",
             ixval: IndexedTableValue) -> None:
         InvariantFact.__init__(self, invd, ixval)
+
+    @property
+    def is_initial_var_disequality(self) -> bool:
+        return True
 
     @property
     def variable(self) -> XVariable:
@@ -191,6 +234,10 @@ class TestVarEqualityFact(InvariantFact):
             invd: "FnInvDictionary",
             ixval: IndexedTableValue) -> None:
         InvariantFact.__init__(self, invd, ixval)
+
+    @property
+    def is_testvar_equality(self) -> bool:
+        return True
 
     @property
     def testvariable(self) -> XVariable:
@@ -226,6 +273,10 @@ class RelationalFact(InvariantFact):
             invd: "FnInvDictionary",
             ixval: IndexedTableValue) -> None:
         InvariantFact.__init__(self, invd, ixval)
+
+    @property
+    def is_relational(self) -> bool:
+        return True
 
     @property
     def equality(self) -> LinearEquality:
