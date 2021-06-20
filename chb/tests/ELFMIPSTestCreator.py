@@ -36,7 +36,7 @@ import chb.util.fileutil as UF
 import chb.util.xmlutil as UX
 
 
-class ELFX86TestCreator(ELFTestCreator):
+class ELFMIPSTestCreator(ELFTestCreator):
     """Creates the three files that make up an x86 elf test case.
 
     test_xxx_elf_header.xml
@@ -49,8 +49,8 @@ class ELFX86TestCreator(ELFTestCreator):
 
     @property
     def architecture(self) -> str:
-        return "x86"
+        return "mips"
 
     @property
     def path(self) -> str:
-        return "CodeHawk-Binary/tests/x86/elf/"
+        return "CodeHawk-Binary/tests/mips32/elf/"
