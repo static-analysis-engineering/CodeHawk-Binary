@@ -24,12 +24,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Abstract superclass of instruction invariants.
-
-Subclasses:
- - MIPSInstrXData
- - ARMInstrXData
-"""
+"""Provides access to invariants for instruction operands."""
 
 from typing import List, Tuple, Sequence, TYPE_CHECKING, Union
 
@@ -185,6 +180,16 @@ class InstrXData(IndexedTableValue):
             raise UF.CHBError(
                 "XData does not have indirect call target expressions\n"
                 + str(self))
+
+    def has_branch_conditions(self) -> bool:
+        return len(self.tags) == 2 and self.tags[1] == "TF"
+
+    def get_branch_conditions(self) -> Sequence[XXpr]:
+        if self.has_branch_conditions():
+            return self.xprs
+        else:
+            raise UF.CHBError(
+                "XData does not have branch conditions: " + str(self))
 
     def __str__(self) -> str:
         lines: List[str] = []
