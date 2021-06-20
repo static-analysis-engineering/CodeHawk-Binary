@@ -24,7 +24,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Support functions for the pedata/elfdata subcommand in the command-line interpreter."""
+"""Support functions for the tests command-line interpreter."""
 
 import argparse
 import json
@@ -219,14 +219,13 @@ def test_create(args: argparse.Namespace) -> NoReturn:
     testnr: str = args.test
     suitenr: str = args.suite
     bytestring: str = args.bytestring
-    codesize: str = args.size
 
     files: Dict[str, str] = {}
 
     if arch == "x86" and fileformat == "elf":
-        tcx = ELFX86TestCreator(testnr, codesize, suite=suitenr)
+        tcx = ELFX86TestCreator(testnr, bytestring, suite=suitenr)
         elfheader = tcx.create_elf_header()
-        elfsection = tcx.create_elf_section(bytestring)
+        elfsection = tcx.create_elf_section()
         xinfo = tcx.create_xinfo()
 
         files["test_" + testnr + "_elf_header.xml"] = elfheader
@@ -235,9 +234,9 @@ def test_create(args: argparse.Namespace) -> NoReturn:
         UF.save_test_files(arch, fileformat, suitenr, testnr, files, xinfo)
 
     elif arch == "arm32" and fileformat == "elf":
-        tca = ELFARMTestCreator(testnr, codesize, suite=suitenr)
+        tca = ELFARMTestCreator(testnr, bytestring, suite=suitenr)
         elfheader = tca.create_elf_header()
-        elfsection = tca.create_elf_section(bytestring)
+        elfsection = tca.create_elf_section()
         xinfo = tca.create_xinfo()
 
         files["test_" + testnr + "_elf_header.xml"] = elfheader

@@ -86,6 +86,12 @@ commands:
     summaries ioc-types     output a listing of indicator-of-compromise categories
     summaries ioc-roles     output a listing of indicator-of-compromise role names per category
 
+The python interface has a limited capability to perform (symbolic) simulation,
+based on the results of the analysis. Simulation can be performed with the
+following commands:
+
+    simulate <xname> <fn>   run a (symbolic) simulation of the given function
+
 The repository includes regression tests. They are organized by file format (pe, elf) and
 architecture (x86, mips32, arm32) and further divided into test suites that combine tests
 with similar structure. These tests can be run with the following commands:
@@ -114,6 +120,7 @@ from typing import NoReturn
 import chb.cmdline.AnalysisManager as AM
 import chb.cmdline.commandutil as UCC
 import chb.cmdline.fileformatcmds as FF
+import chb.cmdline.simulatecmds as S
 import chb.cmdline.summariescmds as SC
 import chb.cmdline.testcmds as TC
 import chb.util.dotutil as UD
@@ -194,6 +201,11 @@ def summariesviewcommand(args: argparse.Namespace) -> NoReturn:
     print("  so-function    output signature and summary semantics for an so function")
     print("  dll-functions  output signature and summary semantics for multiple dll functions")
     print("  so-functions   output signature and summary semantics for multiple so functions")
+    exit(0)
+
+
+def simulatecommand(args: argparse.Namespace) -> NoReturn:
+    print("The simulate command allows simulation of a single function.")
     exit(0)
 
 
@@ -452,9 +464,21 @@ def parse() -> argparse.Namespace:
     resultsfunction.add_argument(
         "--opcodewidth",
         type=int,
-        default=25,
+        default=32,
         help="number of characters for opcode text")
     resultsfunction.set_defaults(func=UCC.results_function)
+
+    # --- results invariants ---
+    resultsinvariants = resultsparsers.add_parser("invariants")
+    resultsinvariants.add_argument("xname", help="name of executable")
+    resultsinvariants.add_argument("function", help="hex address of function")
+    resultsinvariants.set_defaults(func=UCC.results_invariants)
+
+    # --- results branchconditions ---
+    resultsbranchconditions = resultsparsers.add_parser("branchconditions")
+    resultsbranchconditions.add_argument("xname", help="name of executable")
+    resultsbranchconditions.add_argument("function", help="hex address of function")
+    resultsbranchconditions.set_defaults(func=UCC.results_branchconditions)
 
     # -- results cfgpaths (paths through the control flow graph) --
     resultscfgpaths = resultsparsers.add_parser("cfgpaths")
@@ -571,6 +595,12 @@ def parse() -> argparse.Namespace:
     summaries_ioc_roles = summariesparsers.add_parser("ioc-roles")
     summaries_ioc_roles.set_defaults(func=SC.summaries_ioc_roles_cmd)
 
+    # ------------------------------------------------------ simulate subcommand
+    parser_simulate = subparsers.add_parser("simulate")
+    parser_simulate.add_argument("xname", help="name of executable")
+    parser_simulate.add_argument("faddr", help="hex address of functions")
+    parser_simulate.set_defaults(func=S.simulate_function_cmd)
+
     # -------------------------------------------------------- tables subcommand
     parser_table = subparsers.add_parser('table')
     parser_table.set_defaults(func=tablecommand)
@@ -655,9 +685,8 @@ def parse() -> argparse.Namespace:
         "test",
         help="test number (format xxx, e.g., 003)")
     test_create.add_argument(
-        "--bytestring",
-        help="code bytes in hex (format xxxxxxxx xxxxxxxx xxxxxxxx xxxxxxxx )",
-        default="c3909090 90909090 90909090 90909090 ")
+        "bytestring",
+        help="code bytes in hex (example (x86): c39090)")
     test_create.add_argument(
         "--suite",
         help="suite number (format xxx, e.g., 001)",

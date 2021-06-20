@@ -30,7 +30,7 @@
 import os
 import subprocess
 
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 
 import chb.util.fileutil as UF
 
@@ -125,3 +125,13 @@ class XInfo:
     @property
     def is_pe32(self) -> bool:
         return self.format == "pe32"
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("md5   : " + self.md5)
+        lines.append("path  : " + self.path)
+        lines.append("file  : " + self.file)
+        lines.append("size  : " + str(self.size))
+        lines.append("arch  : " + self.architecture)
+        lines.append("format: " + self.format)
+        return "\n".join(lines)
