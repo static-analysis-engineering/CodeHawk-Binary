@@ -38,28 +38,44 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("NOP", ARMOpcode)
-class ARMNoOperation(ARMOpcode):
-    """No operation; does nothing.
+@armregistry.register_tag("MOVT", ARMOpcode)
+class ARMMoveTop(ARMOpcode):
+    """Writes an immediate value to the top halfword of the destination register.
 
-    NOP<c>
+    MOVT<c> <Rd>, #<imm16>
 
     tags[1]: <c>
+    args[0]: index of Rd in arm dictionary
+    args[1]: index of imm16 in arm dictionary
     """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 0, "NoOperation")
+        self.check_key(2, 2, "MoveTop")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return []
+        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "--"
+        """xdata format: a:vx .
+
+        vars[0]: lhs (Rd)
+        xprs[0]: imm16
+        xprs[1]: rhs (Rd)
+        xprs[2]: rhs % 2^16
+        xprs[3]: (rhs % 2^16) + (2^16 * imm16) (syntactic)
+        xprs[4]: (rhs % 2^16) + (2^16 * imm16) (simplified)
+        """
+
+        lhs = str(xdata.vars[0])
+        result = xdata.xprs[3]
+        rresult = xdata.xprs[4]
+        xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
+        return lhs + " := " + xresult

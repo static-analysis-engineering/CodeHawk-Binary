@@ -41,13 +41,14 @@ if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("NOP", ARMOpcode)
-class ARMNoOperation(ARMOpcode):
-    """No operation; does nothing.
+@armregistry.register_tag("unknown", ARMOpcode)
+class ARMNotRecognized(ARMOpcode):
+    """Opcode not yet recognized
 
-    NOP<c>
+    ?
 
-    tags[1]: <c>
+    tags[1]: name
+    tags[2]: hex-string
     """
 
     def __init__(
@@ -55,11 +56,11 @@ class ARMNoOperation(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 0, "NoOperation")
+        self.check_key(3, 0, "NotRecognized")
 
     @property
     def operands(self) -> List[ARMOperand]:
         return []
 
-    def annotation(self, xdata: InstrXData) -> str:
-        return "--"
+    def get_annotation(self, xdata: InstrXData) -> str:
+        return "not recognized: " + self.tags[1] + "  " + self.tags[2]

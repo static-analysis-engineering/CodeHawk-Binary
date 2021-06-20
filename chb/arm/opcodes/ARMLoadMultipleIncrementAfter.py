@@ -38,28 +38,37 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("NOP", ARMOpcode)
-class ARMNoOperation(ARMOpcode):
-    """No operation; does nothing.
+@armregistry.register_tag("LDM", ARMOpcode)
+class ARMLoadMultipleIncrementAfter(ARMOpcode):
+    """Loads multiple registers from consecutive memory locations.
 
-    NOP<c>
+    LDM<c> <Rn>, <registers>
 
     tags[1]: <c>
+    args[0]: writeback
+    args[1]: index of Rn in arm dictionary
+    args[2]: index of registers in arm dictionary
+    args[3]: index of base memory address
     """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 0, "NoOperation")
+        self.check_key(2, 4, "LoadMultipleIncrementAfter")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return []
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "--"
+        """xdata format: a:vxx .
+
+        vars[0..n]: lhs variables
+        """
+
+        return '; '.join(str(v) + " := ?" for v in xdata.vars)

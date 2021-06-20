@@ -38,28 +38,41 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("NOP", ARMOpcode)
-class ARMNoOperation(ARMOpcode):
-    """No operation; does nothing.
+@armregistry.register_tag("UBFX", ARMOpcode)
+class ARMUnsignedExtractBitField(ARMOpcode):
+    """Extracts any number of adjacent bits from a register, zero-extends them.
 
-    NOP<c>
+    UBFX<c> <Rd>, <Rn>, #<lsb>, #<width>
 
     tags[1]: <c>
+    args[0]: index of Rd in armdictionary
+    args[1]: index of Rn in armdictionary
     """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 0, "NoOperation")
+        self.check_key(2, 2, "UnsignedBitFieldExtract")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return []
+        return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "--"
+        """xdata format: a:vxx .
+
+        vars[0]: lhs
+        xprs[0]: rhs1
+        xprs[1]: value to be stored (syntactic)
+        """
+
+        lhs = str(xdata.vars[0])
+        result = xdata.xprs[0]
+        rresult = xdata.xprs[1]
+        xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
+        return lhs + " := " + xresult

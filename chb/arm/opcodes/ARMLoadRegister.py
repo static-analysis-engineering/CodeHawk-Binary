@@ -38,7 +38,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
 @armregistry.register_tag("LDR", ARMOpcode)
@@ -47,7 +47,7 @@ class ARMLoadRegister(ARMOpcode):
 
     LDR<c> <Rt>, [<base>, <offset>]
 
-    tags[0]: <c>
+    tags[1]: <c>
     args[0]: index of destination operand in armdictionary
     args[1]: index of base register in armdictionary
     args[2]: index of memory location in armdictionary
@@ -56,7 +56,7 @@ class ARMLoadRegister(ARMOpcode):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 4, "LoadRegister")
