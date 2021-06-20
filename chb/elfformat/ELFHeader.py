@@ -176,8 +176,8 @@ class ELFHeader:
     def image_base(self) -> str:
         result = 0xffffffff
         for ph in self.programheaders:
-            hexvaddr = ph.virtual_address
-            if hexvaddr:
+            if ph.has_virtual_address():
+                hexvaddr = ph.virtual_address
                 vaddr = int(hexvaddr, 16)
                 if vaddr < result:
                     result = vaddr

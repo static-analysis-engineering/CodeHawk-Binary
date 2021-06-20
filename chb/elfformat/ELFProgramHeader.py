@@ -105,6 +105,10 @@ class ELFProgramHeader:
         else:
             raise UF.CHBError("Index not found in program header")
 
+    def has_virtual_address(self) -> bool:
+        xva = self.xnode.get("p_vaddr")
+        return xva is not None
+
     @property
     def virtual_address(self) -> str:
         xva = self.xnode.get("p_vaddr")
