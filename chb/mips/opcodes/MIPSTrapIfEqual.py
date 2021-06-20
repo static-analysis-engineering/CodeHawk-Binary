@@ -82,9 +82,9 @@ class MIPSTrapIfEqual(MIPSOpcode):
 
         rhs1 = str(xdata.xprs[0])
         rhs2 = str(xdata.xprs[1])
-        result = xdata.xprs[3]
-        rresult = xdata.xprs[4]
-        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
+        result = xdata.xprs[2]
+        rresult = xdata.xprs[3]
+        xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
         return 'trap if ' + rhs1 + ' == ' + rhs2 + ' (' + xresult + ')'
 
     @property

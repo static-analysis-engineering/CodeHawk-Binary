@@ -100,7 +100,7 @@ class MIPSJumpRegister(MIPSOpcode):
         """
 
         if self.is_call(xdata) and xdata.has_call_target():
-            tgt = xdata.call_target
+            tgt = xdata.call_target(self.ixd)
             args = ", ".join(str(x) for x in self.arguments(xdata))
             return "call " + str(tgt) + "(" + args + ")"
 
