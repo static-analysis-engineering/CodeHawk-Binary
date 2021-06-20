@@ -143,6 +143,10 @@ class X86Function(Function):
         self.iter_blocks(f)
         return result
 
+    @property
+    def branchconditions(self) -> Mapping[str, X86Instruction]:
+        return {}
+
     def strings_referenced(self) -> List[str]:
         result: List[str] = []
 
