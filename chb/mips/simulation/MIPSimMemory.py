@@ -30,8 +30,6 @@ from typing import cast, Dict, List, Mapping, Optional, TYPE_CHECKING
 
 from chb.elfformat.ELFHeader import ELFHeader
 
-from chb.mips.simulation.MIPSimulationState import MIPSimulationState
-
 from chb.simulation.SimMemory import SimMemory
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimValue as SV
