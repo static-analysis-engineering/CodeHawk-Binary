@@ -552,6 +552,52 @@ class SuccessorsHints(HintsEntry):
                              + "]")
         return "\n".join(lines)
 
+class SymbolicAddressesHints(HintsEntry):
+    """Map of global variable addresses to name/type info on the variables.
+
+    Format: { <gv-addr>: {"name": <name>, "type": <type-name>} }
+    """
+
+    def __init__(self, symbolicaddrs: Dict[str, Dict[str, str]]) -> None:
+        HintsEntry.__init__(self, "symbolic-addresses")
+        self._symbolicaddrs = symbolicaddrs
+
+    @property
+    def symbolicaddrs(self) -> Dict[str, Dict[str, str]]:
+        return self._symbolicaddrs
+
+    def update(self, d: Dict[str, Dict[str, str]]) -> None:
+        for gv in d:
+            self._symbolicaddrs[gv] = d[gv]
+
+    def to_xml(self, node: ET.Element) -> None:
+        xaddrs = ET.Element(self.name)
+        node.append(xaddrs)
+        for (gv, gvinfo) in self.symbolicaddrs.items():
+            if "name" in gvinfo and "type" in gvinfo:
+                xgv = ET.Element("syma")
+                xaddrs.append(xgv)
+                xgv.set("a", gv)
+                gvname = cast(str, gvinfo["name"])
+                gvtype = cast(str, gvinfo["type"])
+                xgv.set("name", gvname)
+                xgv.set("type", gvtype)
+            else:
+                raise UF.CHBError(
+                    "Name of type missing from symbolic address: "
+                    + gv)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Symbolic addresses")
+        lines.append("------------------")
+        for (gv, gvinfo) in self.symbolicaddrs.items():
+            if "name" in gvinfo and "type" in gvinfo:
+                gvname = cast(str, gvinfo["name"])
+                gvtype = cast(str, gvinfo["type"])
+                lines.append(gv + ": " + gvname + " (" + gvtype + ")")
+        return "\n".join(lines)
+
 
 class UserHints:
 
@@ -649,6 +695,14 @@ class UserHints:
                 self.userdata[tag].update(successors)
             else:
                 self.userdata[tag] = SuccessorsHints(successors)
+
+        if "symbolic-addresses" in hints:
+            tag = "symbolic-addresses"
+            symbolicaddrs: Dict[str, Dict[str, str]] = hints[tag]
+            if tag in self.userdata:
+                self.userdata[tag].update(symbolicaddrs)
+            else:
+                self.userdata[tag] = SymbolicAddressesHints(symbolicaddrs)
 
     def to_xml(self, filename: str) -> ET.ElementTree:
         root = UX.get_codehawk_xml_header(filename, "system-userdata")
