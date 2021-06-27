@@ -41,18 +41,17 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("RSB", ARMOpcode)
-class ARMReverseSubtract(ARMOpcode):
-    """Subtracts an immediate or register value from a register and saves the result in a register.
+@armregistry.register_tag("MVN", ARMOpcode)
+class ARMBitwiseBitwiseNot(ARMOpcode):
+    """Bitwise inverse of a register or immediate value.
 
-    SUB{S}<c> <Rd>, <Rn>, <Rm>{, <shift>}
+    MVN{S}<c> <Rd>, <Rm> {, <shift>}
+    MVN{S}<c> <Rd>, #<const>
 
     tags[1]: <c>
     args[0]: {S}
     args[1]: index of op1 in armdictionary
     args[2]: index of op2 in armdictionary
-    args[3]: index of op3 in armdictionary
-    args[4]: is-wide (thumb)
     """
 
     def __init__(
@@ -60,24 +59,23 @@ class ARMReverseSubtract(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "ReverseSubtract")
+        self.check_key(2, 3, "BitwiseNot")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx .
+        """xdata format: a:vxxx .
 
         vars[0]: lhs
         xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: rhs2 - rhs1 (syntactic)
-        xprs[3]: rhs2 - rhs1 (simplified)
+        xprs[1]: not (rhs1) (syntactic)
+        xprs[2]: not (rhs1) (simplified)
         """
 
         lhs = str(xdata.vars[0])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
+        result = xdata.xprs[1]
+        rresult = xdata.xprs[2]
+        xresult = simplify_result(xdata.args[2], xdata.args[1], result, rresult)
         return lhs + " := " + xresult

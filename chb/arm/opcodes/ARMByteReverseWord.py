@@ -41,18 +41,15 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("RSB", ARMOpcode)
-class ARMReverseSubtract(ARMOpcode):
-    """Subtracts an immediate or register value from a register and saves the result in a register.
+@armregistry.register_tag("REV", ARMOpcode)
+class ARMByteReverseWord(ARMOpcode):
+    """Reverses the byte order in a 32-bit register.
 
-    SUB{S}<c> <Rd>, <Rn>, <Rm>{, <shift>}
+    REV<c> <Rd>, <Rm>
 
     tags[1]: <c>
-    args[0]: {S}
-    args[1]: index of op1 in armdictionary
-    args[2]: index of op2 in armdictionary
-    args[3]: index of op3 in armdictionary
-    args[4]: is-wide (thumb)
+    args[0]: index of Rd in armdictionary
+    args[1]: index of Rm in armdictionary
     """
 
     def __init__(
@@ -60,24 +57,20 @@ class ARMReverseSubtract(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "ReverseSubtract")
+        self.check_key(2, 2, "ByteReverseWord")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+        return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx .
+        """xdata format: a:vxx .
 
         vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: rhs2 - rhs1 (syntactic)
-        xprs[3]: rhs2 - rhs1 (simplified)
+        xprs[0]: rhs (original rhs)
+        xprs[1]: rhs (original rhs, simplified)
         """
 
         lhs = str(xdata.vars[0])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
-        return lhs + " := " + xresult
+        rhs = str(xdata.xprs[1])
+        return lhs + " := byte-reverse(" + str(rhs) + ")"
