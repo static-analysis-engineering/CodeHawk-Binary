@@ -64,8 +64,20 @@ branch_opcodes = [
 extensions = {
     "eq": "EQ",
     "ne": "NE",
+    "cs": "CS",
+    "cc": "CC",
+    "neg": "MI",
+    "nneg": "PL",
+    "ov": "VS",
+    "nov": "VC",
+    "uh": "HI",
+    "nuh": "LS",
+    "ge": "GE",
+    "lt": "LT",
+    "gt": "GT",
     "le": "LE",
-    "a": ""
+    "a": "",
+    "unc": ""
     }
 
 

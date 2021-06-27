@@ -45,8 +45,9 @@ import chb.util.IndexedTable as IT
 import chb.util.StringIndexedTable as SI
 
 if TYPE_CHECKING:
-    import chb.app.AppAccess
-    import chb.app.BDictionary
+    from chb.api.InterfaceDictionary import InterfaceDictionary
+    from chb.app.AppAccess import AppAccess
+    from chb.app.BDictionary import BDictionary
 
 armdir = os.path.dirname(os.path.abspath(__file__))
 opcodes = os.path.join(armdir, "opcodes")
@@ -59,7 +60,7 @@ class ARMDictionary:
 
     def __init__(
             self,
-            app: "chb.app.AppAccess.AppAccess",
+            app: "AppAccess",
             xnode: ET.Element) -> None:
         self._app = app
         self.register_shift_table = IT.IndexedTable("register-shift-table")
@@ -79,12 +80,16 @@ class ARMDictionary:
         self.initialize(xnode)
 
     @property
-    def app(self) -> "chb.app.AppAccess.AppAccess":
+    def app(self) -> "AppAccess":
         return self._app
 
     @property
-    def bd(self) -> "chb.app.BDictionary.BDictionary":
+    def bd(self) -> "BDictionary":
         return self.app.bdictionary
+
+    @property
+    def ixd(self) -> "InterfaceDictionary":
+        return self.app.interfacedictionary
 
     # ------------------ retrieve items from dictionary tables -----------------
 

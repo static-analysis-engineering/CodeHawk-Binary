@@ -33,31 +33,36 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.app.AppAccess
-    import chb.app.BDictionary
-    import chb.arm.ARMDictionary
+    from chb.api.InterfaceDictionary import InterfaceDictionary
+    from chb.app.AppAccess import AppAccess
+    from chb.app.BDictionary import BDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
 class ARMDictionaryRecord(IndexedTableValue):
 
     def __init__(
             self,
-            armd: "chb.arm.ARMDictionary.ARMDictionary",
+            armd: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
         self._armd = armd
 
     @property
-    def armd(self) -> "chb.arm.ARMDictionary.ARMDictionary":
+    def armd(self) -> "ARMDictionary":
         return self._armd
 
     @property
-    def app(self) -> "chb.app.AppAccess.AppAccess":
+    def app(self) -> "AppAccess":
         return self.armd.app
 
     @property
-    def bd(self) -> "chb.app.BDictionary.BDictionary":
+    def bd(self) -> "BDictionary":
         return self.armd.bd
+
+    @property
+    def ixd(self) -> "InterfaceDictionary":
+        return self.armd.ixd
 
     def __str__(self) -> str:
         return "arm-record: " + str(self.key)
@@ -82,7 +87,7 @@ class ARMDictionaryRegistry:
 
     def mk_instance(
             self,
-            ad: "chb.arm.ARMDictionary.ARMDictionary",
+            ad: "ARMDictionary",
             ixval: IndexedTableValue,
             anchor: Type[AdR]) -> AdR:
         tag = ixval.tags[0]
