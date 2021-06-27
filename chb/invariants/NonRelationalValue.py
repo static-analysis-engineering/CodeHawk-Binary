@@ -172,14 +172,14 @@ class NRVBaseOffsetValue(NonRelationalValue):
 
     @property
     def lowerbound(self) -> Optional[int]:
-        if self.args[0] == -1:
+        if self.args[1] == -1:
             return None
         else:
             return self.xd.numerical(self.args[1]).value
 
     @property
     def upperbound(self) -> Optional[int]:
-        if self.args[1] == -1:
+        if self.args[2] == -1:
             return None
         else:
             return self.xd.numerical(self.args[2]).value

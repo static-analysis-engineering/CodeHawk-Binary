@@ -144,7 +144,7 @@ class StringIndexedTable:
             if ix is None:
                 raise UF.CHBError("StringIndexTable: index is missing")
             index = int(ix)
-            ishex = snode.get('hex', 'no') == 'yes'
+            ishex = snode.get('hex', 'no') == 'y'
             v = snode.get("v")
             if v is None:
                 raise UF.CHBError(
