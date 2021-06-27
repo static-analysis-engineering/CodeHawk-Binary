@@ -75,6 +75,7 @@ class AppResultMetrics:
         self._disassembly: Optional[ET.Element] = None
         self._functions: Dict[str, AppResultFunctionMetrics] = {}
         self._imports: Optional[ET.Element] = None
+        self._ccmetrics: Optional[ET.Element] = None
 
     @property
     def filename(self) -> str:
@@ -129,6 +130,15 @@ class AppResultMetrics:
                 raise UF.CHBError(
                     "Aggregate precision is missing from resultmetrics")
         return self._precision
+
+    @property
+    def cc_metrics(self) -> ET.Element:
+        if self._ccmetrics is None:
+            self._ccmetrics = self.functiontotals.find("cc")
+            if self._ccmetrics is None:
+                raise UF.CHBError(
+                    "CC metrics is missing from resultmetrics")
+        return self._ccmetrics
 
     @property
     def disassembly(self) -> ET.Element:
@@ -210,6 +220,30 @@ class AppResultMetrics:
             return float(r)
         else:
             raise UF.CHBError("Writes precision is missing from resultmetrics")
+
+    @property
+    def cc_instructions(self) -> int:
+        r = self.cc_metrics.get("instrs")
+        if r is not None:
+            return int(r)
+        else:
+            raise UF.CHBError("CC-metric instructions missing from resultmetrics")
+
+    @property
+    def cc_associated(self) -> int:
+        r = self.cc_metrics.get("assoc")
+        if r is not None:
+            return int(r)
+        else:
+            raise UF.CHBError("CC-metric associated missing from resultmetrics")
+
+    @property
+    def cc_predicate(self) -> int:
+        r = self.cc_metrics.get("test")
+        if r is not None:
+            return int(r)
+        else:
+            raise UF.CHBError("CC-metric test missing from resultmetrics")
 
     @property
     def calls_count(self) -> int:
@@ -393,6 +427,16 @@ class AppResultMetrics:
             'Writes precision: ' + str(self.writes_precision).rjust(8) + '%')
         lines.append(
             'Unresolved jumps: ' + str(self.unresolved_jumps).rjust(8))
+        lines.append(
+            "Cc connected    : "
+            + (str(self.cc_associated)
+            + " / "
+            + str(self.cc_instructions)).rjust(8))
+        lines.append(
+            "Cc predicate    : "
+            + (str(self.cc_predicate)
+            + " / "
+            + str(self.cc_instructions)).rjust(8))
         lines.append('Calls           : ' + str(self.calls_count).rjust(8))
         lines.append('Unresolved calls: ' + str(self.unresolved_calls).rjust(8))
         lines.append('No summaries    : ' + str(self.no_summary).rjust(8))
