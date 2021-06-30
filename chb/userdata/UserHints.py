@@ -552,6 +552,7 @@ class SuccessorsHints(HintsEntry):
                              + "]")
         return "\n".join(lines)
 
+
 class SymbolicAddressesHints(HintsEntry):
     """Map of global variable addresses to name/type info on the variables.
 
