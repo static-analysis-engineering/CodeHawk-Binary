@@ -53,6 +53,7 @@ class ARMLoadRegisterDual(ARMOpcode):
     args[2]: index of base register in armdictionary
     args[3]: index of index register / immediate in armdictionary
     args[4]: index of memory location in armdictionary
+    args[5]: index of second memory location in armdictionary
     """
 
     def __init__(
@@ -60,22 +61,25 @@ class ARMLoadRegisterDual(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "LoadRegisterDual")
+        self.check_key(2, 6, "LoadRegisterDual")
 
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vvxx .
+        """xdata format: a:vvxxxx .
 
         vars[0]: lhs1
         vars[1]: lhs2
         xprs[0]: value in memory location
         xprs[1]: value in memory location (simplified)
+        xprs[2]: value in second memory location
+        xprs[3]: value in second memory location (simplified)
         """
 
         lhs1 = str(xdata.vars[0])
         lhs2 = str(xdata.vars[1])
         rhs = str(xdata.xprs[1])
-        return lhs1 + " := " + rhs + "; " + lhs2 + " := ?"
+        rhs2 = str(xdata.xprs[3])
+        return lhs1 + " := " + rhs + "; " + lhs2 + " := " +  rhs2

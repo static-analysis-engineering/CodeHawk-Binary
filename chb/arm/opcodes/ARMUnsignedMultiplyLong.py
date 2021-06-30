@@ -41,19 +41,18 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("SMMLA", ARMOpcode)
-@armregistry.register_tag("SMMLAR", ARMOpcode)
-class ARMSignedMostSignificantWordMultiplyAccumulate(ARMOpcode):
-    """Multiplies two signed 32-bit values and extracts the most significant 32 bits.
+@armregistry.register_tag("UMULL", ARMOpcode)
+class ARMUnsignedMultiplyLong(ARMOpcode):
+    """Multiplies two unsigned 32-bit signed values to produce a 64-bit result
 
-    SMMLA{R}<c> <Rd>, <Rn>, <Rm>, <Ra>
+    UMULL{S}<c> <RdLo>, <RdHi>, <Rn>, <Rm>
 
     tags[1]: <c>
-    args[0]: index of Rd in armdictionary
-    args[1]: index of Rn in armdictionary
-    args[2]: index of Rm in armdictionary
-    args[3]: index of Ra in armdictionary
-    args[4]: 0/1: result is rounded
+    args[0]: flags are set
+    args[1]: index of RdLo in armdictionary
+    args[2]: index of RdHi in armdictionary
+    args[3]: index of Rn in armdictionary
+    args[4]: index of Rm in armdictionary
     """
 
     def __init__(
@@ -61,25 +60,26 @@ class ARMSignedMostSignificantWordMultiplyAccumulate(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "SignedMostSignificantWordMultiplyAccumulate")
+        self.check_key(2, 5, "UnsignedMultiplyLong")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vvxxxxx
+        """xdata format: a:vxxxx
 
-        vars[0]: lhs
+        vars[0]: lhslo
+        vars[1]: lhshi
         xprs[0]: rhs1
         xprs[1]: rhs2
-        xprs[2]: rhsra
-        xprs[3]: (rhs1 * rhs2) / e^32 (syntactic)
-        xprs[4]: (rhs1 * rhs2) / e^32 (simplified)
+        xprs[2]: (rhs1 * rhs2)
+        xprs[3]: (rhs1 * rhs2)
         """
 
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[3]
-        rresult = xdata.xprs[4]
-        xresult = simplify_result(xdata.args[5], xdata.args[6], result, rresult)
-        return lhs + " := " + xresult + "; ra = ?"
+        lhslo = str(xdata.vars[0])
+        lhshi = str(xdata.vars[1])
+        result = xdata.xprs[2]
+        rresult = xdata.xprs[3]
+        xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
+        return "(" + lhslo + "," + lhshi + ")" + " := " + xresult

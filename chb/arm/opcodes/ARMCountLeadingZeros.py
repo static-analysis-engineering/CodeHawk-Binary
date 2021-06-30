@@ -41,19 +41,15 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("SMMLA", ARMOpcode)
-@armregistry.register_tag("SMMLAR", ARMOpcode)
-class ARMSignedMostSignificantWordMultiplyAccumulate(ARMOpcode):
-    """Multiplies two signed 32-bit values and extracts the most significant 32 bits.
+@armregistry.register_tag("CLZ", ARMOpcode)
+class ARMCountLeadingZeros(ARMOpcode):
+    """Counts the number of zero bits before the first binary one bit in a value.
 
-    SMMLA{R}<c> <Rd>, <Rn>, <Rm>, <Ra>
+    CLZ<c> <Rd>, <Rm>
 
     tags[1]: <c>
     args[0]: index of Rd in armdictionary
-    args[1]: index of Rn in armdictionary
-    args[2]: index of Rm in armdictionary
-    args[3]: index of Ra in armdictionary
-    args[4]: 0/1: result is rounded
+    args[1]: index of Rm in armdictionary
     """
 
     def __init__(
@@ -61,25 +57,20 @@ class ARMSignedMostSignificantWordMultiplyAccumulate(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "SignedMostSignificantWordMultiplyAccumulate")
+        self.check_key(2, 2, "CountLeadingZeros")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vvxxxxx
+        """xdata format: a:vxxx .
 
         vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: rhsra
-        xprs[3]: (rhs1 * rhs2) / e^32 (syntactic)
-        xprs[4]: (rhs1 * rhs2) / e^32 (simplified)
+        xprs[0]: rhs
+        xprs[1]: rhs (simplified)
         """
 
         lhs = str(xdata.vars[0])
-        result = xdata.xprs[3]
-        rresult = xdata.xprs[4]
-        xresult = simplify_result(xdata.args[5], xdata.args[6], result, rresult)
-        return lhs + " := " + xresult + "; ra = ?"
+        rhs = str(xdata.xprs[1])
+        return lhs + " := count-leading-zeros(" + rhs + ")"

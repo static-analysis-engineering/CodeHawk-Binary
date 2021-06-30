@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 class ARMStoreMultipleIncrementAfter(ARMOpcode):
     """Stores multiple registers to consecutive memory locations.
 
-    LDM<c> <Rn>, <registers>
+    STM<c> <Rn>, <registers>
 
     tags[1]: <c>
     args[0]: writeback
@@ -64,7 +64,7 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .
