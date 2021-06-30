@@ -113,11 +113,11 @@ class ARMDictionary:
             return armregistry.mk_instance(
                 self, self.opcode_table.retrieve(ix), ARMOpcode)
         except UF.CHBError as e:
-            print("*" * 80)
-            print("Trying to create opcode class for " + str(ix))
-            print(str(e))
-            print("*" * 80)
-            exit(1)
+            raise UF.CHBError(
+                "Trying to create opcode class for "
+                + str(ix)
+                + ":\n"
+                + str(e))
 
     def arm_bytestring(self, ix: int) -> str:
         return self.bytestring_table.retrieve(ix)

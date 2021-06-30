@@ -31,10 +31,11 @@ Based on type arm_memory_offset_t in bchlibarm32/bCHARMTypes:
                                          tags[0]    tags    args
 type arm_memory_offset_t =
   | ARMImmOffset of int                    "i"        1       1
-  | ARMIndexOffset of arm_reg_t            "x"        2       0
-  | ARMShiftedIndexOffset of               "s"        2       1
+  | ARMIndexOffset of arm_reg_t * int      "x"        2       1
+  | ARMShiftedIndexOffset of               "s"        2       2
       arm_reg_t
       * register_shift_rotate_t
+      * int
 """
 
 from typing import List, TYPE_CHECKING
@@ -92,6 +93,10 @@ class ARMIndexOffset(ARMMemoryOffset):
     def register(self) -> str:
         return self.tags[1]
 
+    @property
+    def offset(self) -> int:
+        return self.args[0]
+
     def __str(self) -> str:
         return self.register
 
@@ -112,6 +117,10 @@ class ARMShiftedIndexOffset(ARMMemoryOffset):
     @property
     def shift_rotate(self) -> "ARMShiftRotate":
         return self.armd.arm_register_shift(self.args[0])
+
+    @property
+    def offset(self) -> int:
+        return self.args[1]
 
     def __str__(self) -> str:
         return self.register + "," + str(self.shift_rotate)

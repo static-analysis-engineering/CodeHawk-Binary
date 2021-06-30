@@ -103,7 +103,6 @@ class ARMOpcode(ARMDictionaryRecord):
     def annotation(self, xdata: InstrXData) -> str:
         return self.__str__()
 
-    @property
     def mnemonic_extension(self) -> str:
         if self.mnemonic == "ITE NE":
             return ""
@@ -119,6 +118,9 @@ class ARMOpcode(ARMDictionaryRecord):
     @property
     def is_branch_instruction(self) -> bool:
         return self.tags[0] in branch_opcodes
+
+    def is_call_instruction(self, xdata: InstrXData) -> bool:
+        return self.tags[0] in ["BL", "BLX"]
 
     def simulate(self, iaddr: str, simstate: "ARMSimulationState") -> str:
         raise SU.CHBSimError(
