@@ -46,7 +46,6 @@ if TYPE_CHECKING:
 class ARMSignedMostSignificantWordMultiply(ARMOpcode):
     """Multiplies two signed 32-bit values and extracts the most significant 32 bits.
 
-    
     SMMUL{R}<c> <Rd>, <Rn>, <Rm>
 
     tags[1]: <c>

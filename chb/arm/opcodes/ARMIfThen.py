@@ -44,7 +44,11 @@ if TYPE_CHECKING:
 @armregistry.register_tag("ITE EQ", ARMOpcode)
 @armregistry.register_tag("ITE LT", ARMOpcode)
 @armregistry.register_tag("ITE NE", ARMOpcode)
+@armregistry.register_tag("IT EQ", ARMOpcode)
+@armregistry.register_tag("IT NE", ARMOpcode)
 @armregistry.register_tag("IT PL", ARMOpcode)
+@armregistry.register_tag("ITTET EQ", ARMOpcode)
+@armregistry.register_tag("ITTT CC", ARMOpcode)
 class ARMIfThen(ARMOpcode):
     """Makes up to four following instructions conditional.
 
