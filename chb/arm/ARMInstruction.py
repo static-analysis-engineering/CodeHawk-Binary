@@ -92,7 +92,7 @@ class ARMInstruction(Instruction):
 
     @property
     def mnemonic(self) -> str:
-        return self.opcode.mnemonic + self.opcode.mnemonic_extension
+        return self.opcode.mnemonic + self.opcode.mnemonic_extension()
 
     @property
     def opcodetext(self) -> str:
@@ -121,7 +121,7 @@ class ARMInstruction(Instruction):
 
     @property
     def is_call_instruction(self) -> bool:
-        raise UF.CHBError("is-call-instruction: not implemented")
+        return self.opcode.is_call_instruction(self.xdata)
 
     @property
     def is_return_instruction(self) -> bool:
