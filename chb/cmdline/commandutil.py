@@ -432,8 +432,8 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
 
     for faddr in fns:
         if app.has_function(faddr):
-            f = app.function(faddr)
             try:
+                f = app.function(faddr)
                 if app.has_function_name(faddr):
                     print("\nFunction "
                           + faddr
@@ -452,6 +452,8 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
                     opcodewidth=opcodewidth))
             except UF.CHBError as e:
                 print(str(e.wrap()))
+            except Exception as e:
+                print(str(e))
         else:
             print_error("Function " + faddr + " not found")
             continue
