@@ -601,6 +601,7 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
     xview: bool = args.view
     xpredicates: bool = args.predicates
     xcalls: bool = args.calls
+    xstores: bool = args.stores
     xinstr_opcodes: bool = args.instr_opcodes
     xinstr_text: bool = args.instr_text
     xsink: Optional[str] = args.sink
@@ -635,6 +636,7 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
             showcalls=xcalls,
             showinstr_opcodes=xinstr_opcodes,
             showinstr_text=xinstr_text,
+            showstores=xstores,
             mips=xinfo.is_mips,
             sink=xsink,
             segments=xsegments)
@@ -703,7 +705,7 @@ def showcfgpaths(args: argparse.Namespace) -> NoReturn:
             print_error("No calls found to call target: " + calltarget)
             exit(1)
         else:
-            blocksinks = {i.mipsblock.baddr: i for i in instrs}
+            blocksinks = {i.block.baddr: i for i in instrs}
     elif xblock:
         blocksinks = {xblock: cast(MIPSInstruction, f.instruction(xblock))}
 
