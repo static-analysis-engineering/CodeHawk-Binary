@@ -409,6 +409,10 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="add all assembly instruction annotations to nodes")
     showcfg.add_argument(
+        "--stores",
+        action="store_true",
+        help="add assembly instruction annotations that store a value in memory")
+    showcfg.add_argument(
         '--sink',
         help='restrict graph to paths to this basic block')
     showcfg.add_argument(
