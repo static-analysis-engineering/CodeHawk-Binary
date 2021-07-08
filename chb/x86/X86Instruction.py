@@ -221,6 +221,7 @@ class X86Instruction(Instruction):
         else:
             raise UF.CHBError("Instruction is not a call instruction")
 
+    @property
     def call_arguments(self) -> List[XXpr]:
         if self.opcode.is_call:
             opc = cast(X86Call, self.opcode)
@@ -234,7 +235,7 @@ class X86Instruction(Instruction):
         if self.is_dll_call():
             models = self.x86function.models
             tgt = cast(DllFunction, cast(StubTarget, self.call_target()).stub)
-            args = self.call_arguments()
+            args = self.call_arguments
             dll = tgt.dll
             fname = tgt.name
             if models.has_dll_function_summary(dll, fname):

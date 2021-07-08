@@ -86,9 +86,17 @@ class X86Block(BasicBlock):
                 result.append(instr)
         return result
 
+    @property
+    def store_instructions(self) -> Sequence[Instruction]:
+        return []
+
     def iter_instructions(self, f: Callable[[str, X86Instruction], None]) -> None:
         for (ia, instr) in sorted(self.instructions.items()):
             f(ia, instr)
+
+    @property
+    def store_instruction(self) -> Sequence[Instruction]:
+        return []
 
     @property
     def strings_referenced(self) -> Sequence[str]:
