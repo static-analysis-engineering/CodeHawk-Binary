@@ -243,6 +243,11 @@ class XprVariable(XXpr):
                 and self.variable.denotation.is_function_return_value)
 
     @property
+    def is_argument_value(self) -> bool:
+        return (self.variable.has_denotation()
+                and self.variable.is_argument_value)
+
+    @property
     def is_argument_deref_value(self) -> bool:
         return (self.variable.has_denotation()
                 and self.variable.is_argument_deref_value)
@@ -289,6 +294,9 @@ class XprVariable(XXpr):
             raise UF.CHBError("Expression is not a return value: " + str(self))
 
     def to_input_constraint_value(self) -> Optional[ICV.InputConstraintValue]:
+        if self.is_argument_value:
+            argindex = self.variable.denotation.auxvar.argument_index()
+            return ICV.FunctionArgumentValue(argindex)
         if self.is_function_return_value:
             tgt = self.returnval_target()
             if tgt is None:
@@ -368,6 +376,10 @@ class XprConstant(XXpr):
     def is_int_constant(self) -> bool:
         return self.constant.is_int_constant
 
+    @property
+    def is_string_reference(self) -> bool:
+        return self.constant.is_string_reference
+
     def is_int_const_value(self, n: int) -> bool:
         return (self.is_int_constant and self.intvalue == n)
 
@@ -393,7 +405,6 @@ class XprConstant(XXpr):
         else:
             raise UF.CHBError("Not a boolean constant: " + str(self))
 
-    @property
     def negated_value(self) -> int:
         if self.is_int_constant:
             return -(self.constant.value)
@@ -555,7 +566,8 @@ class XprCompound(XXpr):
 
     def to_input_constraint(self) -> Optional[IC.InputConstraint]:
         if self.is_returnval_comparison:
-            tgt = self.returnval_comparison_target()
+            tgt = str(self.returnval_comparison_target())
+            print("Target: " + tgt)
             if tgt == 'getenv':
                 if self.operator == 'ne' and self.operands[1].is_zero:
                     envarg = self.returnval_comparison_arguments()[0]
@@ -563,7 +575,7 @@ class XprCompound(XXpr):
                 elif self.operator == 'eq' and self.operands[1].is_zero:
                     envarg = self.returnval_comparison_arguments()[0]
                     return IC.EnvironmentAbsentConstraint(str(envarg))
-            if tgt in ['strncmp', 'strncasecmp']:
+            elif tgt in ['strncmp', 'strncasecmp']:
                 callargs = self.returnval_comparison_arguments()
                 cstr = callargs[1]
                 argk = callargs[0].to_input_constraint_value()
@@ -572,8 +584,9 @@ class XprCompound(XXpr):
                         return IC.StringStartsWithConstraint(argk, cstr)
                     elif self.operator == 'ne' and self.operands[1].is_zero:
                         return IC.StringNotStartsWithConstraint(argk, cstr)
-            if tgt in ['strcmp', 'strcasecmp']:
+            elif tgt in ['strcmp', 'strcasecmp']:
                 callargs = self.returnval_comparison_arguments()
+                print("Arguments: " + ", ".join([str(a) for a in callargs]))
                 cstr = callargs[1]
                 argk = callargs[0].to_input_constraint_value()
                 if argk is not None:
@@ -583,7 +596,7 @@ class XprCompound(XXpr):
                     elif self.operator == 'ne' and self.operands[1].is_zero:
                         return IC.StringNotEqualsConstraint(
                             argk, cstr, case_insensitive=(tgt == 'strcasecmp'))
-            if tgt in ['memcmp']:
+            elif tgt in ['memcmp']:
                 callargs = self.returnval_comparison_arguments()
                 cbytes = callargs[1]
                 argk = callargs[0].to_input_constraint_value()
@@ -593,7 +606,7 @@ class XprCompound(XXpr):
                         return IC.StringStartsWithConstraint(argk, cbytes)
                     elif self.operator == 'ne' and self.operands[1].is_zero:
                         return IC.StringNotStartsWithConstraint(argk, cbytes)
-            if tgt in ['strstr', 'stristr']:
+            elif tgt in ['strstr', 'stristr']:
                 callargs = self.returnval_comparison_arguments()
                 cvar = callargs[0]
                 cstr = callargs[1]
@@ -603,7 +616,7 @@ class XprCompound(XXpr):
                         return IC.StringContainsConstraint(argk, str(cstr))
                     elif self.operator == 'eq' and self.operands[1].is_zero:
                         return IC.StringNotContainsConstraint(argk, str(cstr))
-            if tgt in ['strchr', 'strrchr']:
+            elif tgt in ['strchr', 'strrchr']:
                 callargs = self.returnval_comparison_arguments()
                 argk = callargs[0].to_input_constraint_value()
                 cchar = callargs[1]

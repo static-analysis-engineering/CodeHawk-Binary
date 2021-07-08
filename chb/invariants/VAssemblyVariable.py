@@ -141,14 +141,15 @@ class VAssemblyVariable(FnVarDictionaryRecord):
     def offset(self) -> VMemoryOffset:
         raise UF.CHBError("Offset property not supported for " + str(self))
 
+    @property
     def basevar(self) -> "XVariable":
-        raise UF.CHBError("Get_basevar not supported for " + str(self))
+        raise UF.CHBError("Basevar not supported for " + str(self))
 
     def global_base(self) -> "VAssemblyVariable":
-        raise UF.CHBError("Get_global_base not supported for " + str(self))
+        raise UF.CHBError("Global_base not supported for " + str(self))
 
     def argument_index(self) -> int:
-        raise UF.CHBError("Get_argument_index not supported for " + str(self))
+        raise UF.CHBError("Argument_index not supported for " + str(self))
 
     def argument_deref_arg_offset(
             self, inbytes: bool = False) -> Tuple[int, int]:
@@ -214,7 +215,7 @@ class VMemoryVariable(VAssemblyVariable):
 
     @property
     def basevar(self) -> "XVariable":
-        return self.base.basevar()
+        return self.base.basevar
 
     @property
     def is_stack_argument(self) -> bool:
@@ -354,6 +355,12 @@ class VAuxiliaryVariable(VAssemblyVariable):
     @property
     def is_argument_value(self) -> bool:
         return self.auxvar.is_argument_value
+
+    def argument_index(self) -> int:
+        if self.is_argument_value:
+            return self.auxvar.argument_index()
+        else:
+            raise UF.CHBError("Variable is not an argument index: " + str(self))
 
     @property
     def is_argument_deref_value(self) -> bool:

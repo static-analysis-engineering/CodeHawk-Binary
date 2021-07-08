@@ -40,16 +40,24 @@ class InputConstraintValue:
     def __init__(self) -> None:
         pass
 
+    @property
     def is_env_value(self) -> bool:
         return False
 
+    @property
     def is_string_suffix_value(self) -> bool:
         return False
 
+    @property
     def is_command_line_argument(self) -> bool:
         return False
 
+    @property
     def is_constraint_value_expr(self) -> bool:
+        return False
+
+    @property
+    def is_function_argument_value(self) -> bool:
         return False
 
 
@@ -63,6 +71,7 @@ class EnvironmentInputValue(InputConstraintValue):
     def name(self) -> str:
         return self._name
 
+    @property
     def is_env_value(self) -> bool:
         return True
 
@@ -90,14 +99,16 @@ class StringSuffixValue(InputConstraintValue):
     def charcode(self) -> str:
         return self._charcode
 
+    @property
     def is_last_position(self) -> bool:
         return self._lastpos
 
+    @property
     def is_string_suffix_value(self) -> bool:
         return True
 
     def __str__(self) -> str:
-        pos = 'lastpos' if self.is_last_position() else 'pos'
+        pos = 'lastpos' if self.is_last_position else 'pos'
         return ("suffix("
                 + str(self.stringexpr)
                 + ','
@@ -105,6 +116,24 @@ class StringSuffixValue(InputConstraintValue):
                 + '('
                 + self.charcode
                 + '))')
+
+
+class FunctionArgumentValue(InputConstraintValue):
+
+    def __init__(self, argindex: int) -> None:
+        InputConstraintValue.__init__(self)
+        self._argindex = argindex
+
+    @property
+    def argindex(self) -> int:
+        return self._argindex
+
+    @property
+    def is_function_argument_value(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return "function-arg(" + str(self.argindex) + ")"
 
 
 class CommandLineArgument(InputConstraintValue):
@@ -117,6 +146,7 @@ class CommandLineArgument(InputConstraintValue):
     def argindex(self) -> int:
         return self._argindex
 
+    @property
     def is_command_line_argument(self) -> bool:
         return True
 
@@ -139,12 +169,15 @@ class InputConstraintValueExpr(InputConstraintValue):
     def operator(self) -> str:
         return self._op
 
+    @property
     def arg1(self) -> InputConstraintValue:
         return self._x
 
+    @property
     def arg2(self) -> str:
         return self._y
 
+    @property
     def is_constraint_value_expr(self) -> bool:
         return True
 
