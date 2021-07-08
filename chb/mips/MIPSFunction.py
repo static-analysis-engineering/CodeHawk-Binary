@@ -87,11 +87,11 @@ class MIPSFunction(Function):
         return self._models
 
     @property
-    def mipsdictionary(self) -> MIPSDictionary:
+    def dictionary(self) -> MIPSDictionary:
         return self._mipsd
 
     @property
-    def mipsfunctiondictionary(self) -> FunctionDictionary:
+    def functiondictionary(self) -> FunctionDictionary:
         if self._mipsfnd is None:
             xfnd = self.xnode.find("instr-dictionary")
             if xfnd is None:
@@ -226,6 +226,16 @@ class MIPSFunction(Function):
 
         def f(iaddr: str, instr: MIPSInstruction) -> None:
             if instr.is_store_word_instruction:
+                result.append(instr)
+
+        self.iter_instructions(f)
+        return result
+
+    def restore_register_instructions(self) -> List[MIPSInstruction]:
+        result: List[MIPSInstruction] = []
+
+        def f(iaddr: str, instr: MIPSInstruction) -> None:
+            if instr.is_restore_register_instruction:
                 result.append(instr)
 
         self.iter_instructions(f)

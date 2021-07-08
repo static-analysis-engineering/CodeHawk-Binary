@@ -134,9 +134,9 @@ class MIPSAssembly(Assembly):
             app: "MIPSAccess",
             xnode: ET.Element) -> None:
         Assembly.__init__(self, app, xnode)
-        self.sorted_instructions: List[int] = []  # list of integer addresses
+        self._sorted_instructions: List[int] = []  # list of integer addresses
         # list of integer addresses (reverse)
-        self.revsorted_instructions: List[int] = []
+        self._revsorted_instructions: List[int] = []
         self._instructions: Dict[str, MIPSAssemblyInstruction] = {}
 
     @property
@@ -155,8 +155,18 @@ class MIPSAssembly(Assembly):
                     stat = n.get("stat", "")
                     self._instructions[iaddr] = MIPSAssemblyInstruction(
                         iaddr, opcode, stat)
-            self.sorted_instructions = (
-                sorted(int(k, 16) for k in self._instructions.keys()))
-            self.revsorted_instructions = sorted(
-                self.sorted_instructions, reverse=True)
         return self._instructions
+
+    @property
+    def sorted_instructions(self) -> List[int]:
+        if len(self._sorted_instructions) == 0:
+            self._sorted_instructions = sorted(
+                [int(k, 16) for k in self.instructions])
+        return self._sorted_instructions
+
+    @property
+    def revsorted_instructions(self) -> List[int]:
+        if len(self._revsorted_instructions) == 0:
+            self._revsorted_instructions = sorted(
+                [int(k, 16) for k in self.instructions], reverse=True)
+        return self._revsorted_instructions

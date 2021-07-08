@@ -72,17 +72,20 @@ class MIPSRegister(MIPSRegisterBase):
                  ixval: IndexedTableValue) -> None:
         MIPSRegisterBase.__init__(self, bd, ixval)
 
+    @property
     def is_mips_register(self) -> bool:
         return True
 
+    @property
     def is_mips_argument_register(self) -> bool:
         return self.tags[1] in ['a0', 'a1', 'a2', 'a3']
 
+    @property
     def is_mips_stack_pointer(self) -> bool:
         return self.tags[1] in ['sp']
 
-    def get_argument_index(self) -> int:
-        if self.is_mips_argument_register():
+    def argument_index(self) -> int:
+        if self.is_mips_argument_register:
             return int(self.tags[1][1:]) + 1
         else:
             raise UF.CHBError("MIPS register is not an argument register")

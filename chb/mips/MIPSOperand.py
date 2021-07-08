@@ -91,7 +91,7 @@ class MIPSOperand(Operand, MIPSDictionaryRecord):
 
     def is_mips_indirect_register_with_reg(self, reg: str) -> bool:
         return (self.is_mips_indirect_register
-                and str(self.register) == reg)
+                and str(self.indirect_register) == reg)
 
     @property
     def register(self) -> str:

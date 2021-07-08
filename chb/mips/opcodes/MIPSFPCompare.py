@@ -49,7 +49,8 @@ if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
-@mipsregistry.register_tag("c.f.d", MIPSOpcode)    
+
+@mipsregistry.register_tag("c.f.d", MIPSOpcode)
 @mipsregistry.register_tag("c.f.w", MIPSOpcode)
 @mipsregistry.register_tag("c.olt.d", MIPSOpcode)
 @mipsregistry.register_tag("c.olt.s", MIPSOpcode)

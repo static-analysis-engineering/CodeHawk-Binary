@@ -131,7 +131,7 @@ class MIPSimGlobalMemory(SimMemory):
 
                 # store in global memory data structure
                 for i in range(offset, offset + size):
-                    byteval = self.elfheader.get_memory_value(i, sectionindex)
+                    byteval = self.elfheader.get_memory_value(sectionindex, i)
                     if byteval is not None:
                         self.set_byte(iaddr, i, SV.SimByteValue(byteval))
                     else:

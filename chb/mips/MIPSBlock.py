@@ -55,16 +55,16 @@ class MIPSBlock(BasicBlock):
         self._instructions: Dict[str, MIPSInstruction] = {}
 
     @property
-    def mipsfunction(self) -> "MIPSFunction":
+    def function(self) -> "MIPSFunction":
         return self._mipsfn
 
     @property
-    def mipsdictionary(self) -> "MIPSDictionary":
-        return self.mipsfunction.mipsdictionary
+    def dictionary(self) -> "MIPSDictionary":
+        return self.function.dictionary
 
     @property
-    def mipsfunctiondictionary(self) -> "FunctionDictionary":
-        return self.mipsfunction.mipsfunctiondictionary
+    def functiondictionary(self) -> "FunctionDictionary":
+        return self.function.functiondictionary
 
     @property
     def instructions(self) -> Dict[str, MIPSInstruction]:
@@ -99,6 +99,10 @@ class MIPSBlock(BasicBlock):
 
         self.iter(f)
         return result
+
+    @property
+    def store_instructions(self) -> Sequence[MIPSInstruction]:
+        return []
 
     def to_sliced_string(self, registers: List[str], loopdepth: int) -> str:
         lines: List[str] = []

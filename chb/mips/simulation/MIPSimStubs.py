@@ -329,6 +329,9 @@ class MIPSimStub(object):
                     simstate,
                     iaddr,
                     "String argument is not a valid address: " + str(saddr))
+        else:
+            gaddr = cast(SSV.SimGlobalAddress, saddr)
+
         while True:
             srcaddr = gaddr.add_offset(offset)
             srcval = simstate.get_memval(iaddr, srcaddr, 1)
@@ -4195,7 +4198,7 @@ class MIPStub_system(MIPSimStub):
             else:
                 pargs = self.get_arg_string(iaddr, simstate, 'a0')
         else:
-            pargs = "?"
+            pargs = self.get_arg_string(iaddr, simstate, "a0")
         return self.add_logmsg(iaddr, simstate, pargs)
 
 

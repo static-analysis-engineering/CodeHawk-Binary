@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from chb.mips.MIPSCfg import MIPSCfg
 
 
-class MIPSCfgPath(object):
+class MIPSCfgPath:
 
     def __init__(
             self,
@@ -113,3 +113,10 @@ class MIPSCfgPath(object):
                 continue
             result.append((self.path[i], str(c)))
         return result
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Blocks: " + ", ".join(b for b in self.path))
+        lines.append("Conditions: " + ", ".join(str(c) for c in self.conditions()))
+        lines.append("Constraints: " + ", ".join(str(c) for c in self.constraints()))
+        return "\n".join(lines)
