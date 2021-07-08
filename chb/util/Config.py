@@ -75,6 +75,9 @@ class Config():
         # registered user data
         self.registered_userdata: Dict[str, str] = {}
 
+        # simulation support data
+        self.simulation_support: Dict[str, str] = {}
+
         # personalization
         if localconfig:
             ConfigLocal.getLocals(self)
