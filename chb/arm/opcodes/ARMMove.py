@@ -66,12 +66,21 @@ class ARMMove(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args[1: -1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vx .
+        """xdata format: a:vx . with optional condition, identified by
+        tags[1]: "TC"
 
         vars[0]: lhs
         xprs[0]: rhs
+        xprs[1]: condition (if flagged by tags[1])
         """
 
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[0])
-        return lhs + " := " + rhs
+        assignment = lhs + " := " + rhs
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + assignment
+        else:
+            return assignment

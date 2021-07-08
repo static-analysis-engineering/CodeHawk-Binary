@@ -63,16 +63,39 @@ class ARMLoadRegister(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 2]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
+        """lhs, rhs, with optional instr condition and base update
 
         vars[0]: lhs
         xprs[0]: value in memory location
         xprs[1]: value in memory location (simplified)
+
+        optional:
+        vars[1]: lhs base register (if base update)
+
+        xprs[.]: instruction condition (if has condition)
+        xprs[.]: new address for base register
         """
 
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
-        return lhs + " := " + rhs
+
+        xctr = 2
+        if xdata.has_instruction_condition():
+            pcond = "if " + str(xdata.xprs[xctr]) + " then "
+            xctr += 1
+        elif xdata.has_unknown_instruction_condition():
+            pcond = "if ? then "
+        else:
+            pcond = ""
+
+        if xdata.has_base_update():
+            blhs = str(xdata.vars[1])
+            brhs = str(xdata.xprs[xctr])
+            pbupd = "; " + blhs + " := " + brhs
+        else:
+            pbupd = ""
+
+        return pcond + lhs + " := " + rhs + pbupd

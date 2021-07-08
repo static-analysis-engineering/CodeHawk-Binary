@@ -67,11 +67,24 @@ class ARMPop(ARMOpcode):
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:v...x... .
 
-        vars[0..n]: lhs variables
-        xprs[0..n]: rhs memory values
+        vars[0..n-1]: lhs variables
+        xprs[0..n-1]: rhs memory values
+        xprs[n]: conditional expression if TC is set
         """
 
         vars = xdata.vars
         xprs = xdata.xprs
-        assigns = '; '.join(str(v) + " := " + str(x) for (v, x) in zip(vars, xprs))
-        return assigns
+
+        xctr = len(vars)
+        pairs = zip(vars, xprs[:xctr])
+        assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
+
+        if xdata.has_instruction_condition():
+            pcond = "if " + str(xprs[xctr]) + " then "
+            xctr += 1
+        elif xdata.has_unknown_instruction_condition():
+            pcond = "if ? then "
+        else:
+            pcond = ""
+
+        return pcond + assigns
