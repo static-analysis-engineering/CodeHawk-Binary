@@ -236,9 +236,9 @@ class ARMOffsetAddressOp(ARMOperandKind):
             memoffset = "-" + memoffset
         if self.is_write_back:
             if self.is_index:
-                return "[" + self.register + "], " + memoffset
-            else:
                 return "[" + self.register + ", " + memoffset + "]!"
+            else:
+                return "[" + self.register + "], " + memoffset
         else:
             return "[" + self.register + ", " + memoffset + "]"
 
