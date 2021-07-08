@@ -79,8 +79,11 @@ class BasicBlock(ABC):
     @abstractmethod
     def call_instructions(self) -> Sequence[Instruction]:
         ...
-        raise UF.CHBError(
-            "Property call instruction not implemented for BasicBlock")
+
+    @property
+    @abstractmethod
+    def store_instructions(self) -> Sequence[Instruction]:
+        ...
 
     def has_instruction(self, iaddr: str) -> bool:
         return iaddr in self.instructions

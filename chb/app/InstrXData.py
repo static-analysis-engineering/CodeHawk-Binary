@@ -191,6 +191,15 @@ class InstrXData(IndexedTableValue):
             raise UF.CHBError(
                 "XData does not have branch conditions: " + str(self))
 
+    def has_instruction_condition(self) -> bool:
+        return "ic" in self.tags
+
+    def has_unknown_instruction_condition(self) -> bool:
+        return "uc" in self.tags
+
+    def has_base_update(self) -> bool:
+        return "bu" in self.tags
+
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append("index: " + str(self.index))
