@@ -113,7 +113,7 @@ class ELFSection:
         self.elfheader = elfheader
         self.sectionheader = sectionheader
         self.xnode = xnode
-        self._values: Dict[int, int]     # address -> value
+        self._values: Dict[int, int] = {}     # address -> value
 
     @property
     def name(self) -> str:
