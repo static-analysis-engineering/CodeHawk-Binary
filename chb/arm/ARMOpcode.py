@@ -122,6 +122,9 @@ class ARMOpcode(ARMDictionaryRecord):
     def is_call_instruction(self, xdata: InstrXData) -> bool:
         return self.tags[0] in ["BL", "BLX"]
 
+    def is_store_instruction(self, xdata: InstrXData) -> bool:
+        return self.tags[0] in ["STR", "STRB", "STRH"]
+
     def simulate(self, iaddr: str, simstate: "ARMSimulationState") -> str:
         raise SU.CHBSimError(
             simstate,

@@ -124,6 +124,10 @@ class ARMInstruction(Instruction):
         return self.opcode.is_call_instruction(self.xdata)
 
     @property
+    def is_store_instruction(self) -> bool:
+        return self.opcode.is_store_instruction(self.xdata)
+
+    @property
     def is_return_instruction(self) -> bool:
         raise UF.CHBError("is-return-instruction: not implemented")
 
@@ -164,8 +168,12 @@ class ARMInstruction(Instruction):
             opcodetxt: bool = True,
             opcodewidth: int = 40,
             sp: bool = False) -> str:
-        pbytes = self.bytestring.ljust(10) + "  " if bytes else ""
-        pesp = str(self.stackpointer_offset) + "  " if sp else ""
-        popcode = (
-            self.opcodetext.ljust(opcodewidth) if opcodetxt else "")
-        return pesp + pbytes + popcode + self.annotation
+        try:
+            pbytes = self.bytestring.ljust(10) + "  " if bytes else ""
+            pesp = str(self.stackpointer_offset) + "  " if sp else ""
+            popcode = (
+                self.opcodetext.ljust(opcodewidth) if opcodetxt else "")
+            return pesp + pbytes + popcode + self.annotation
+        except Exception as e:
+            print("Error in instruction: " + self.iaddr + ": " + self.opcodetext + ": " + str(e))
+            return "??"
