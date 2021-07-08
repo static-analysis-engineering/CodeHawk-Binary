@@ -949,6 +949,29 @@ def get_file_registered_userdata(md5: str) -> Dict[str, Any]:
     return {}
 
 
+def get_simsupport(kind: str, tag: str) -> Dict[str, Any]:
+    if kind in config.simulation_support:
+        filename = config.simulation_support[kind]
+        if os.path.isfile(filename):
+            try:
+                with open(filename, "r") as fp:
+                    simsupport = json.load(fp)
+            except Exception as e:
+                raise CHBError("Error loading " + filename + ": " + str(e))
+
+            if tag in simsupport["simsupport"]:
+                return simsupport["simsupport"][tag]
+            else:
+                raise CHBError(
+                    "File " + filename + " does not provide data for " + tag)
+        else:
+            raise CHBError(
+                "File " + filename + " not found")
+    else:
+        raise CHBError(
+            "No simulation support file found for " + kind)
+
+
 def get_tests() -> Mapping[str, Mapping[str, Mapping[str, Sequence[str]]]]:
     testsdir = get_tests_dir()
     x86dir = os.path.join(testsdir, "x86")
