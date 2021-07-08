@@ -121,6 +121,11 @@ class MIPSAddUnsigned(MIPSOpcode):
             src2val = cast(SSV.SimAddress, src2val)
             result = src2val.add_offset(src1val.value)
 
+        elif src1val.is_address and src2val.is_literal and src2val.is_defined:
+            src1addr = cast(SSV.SimAddress, src1val)
+            src2lit = cast(SV.SimLiteralValue, src2val)
+            result = src1addr.add_offset(src2lit.value)
+
         elif src1val.is_literal and src1val.is_defined:
             src1val = cast(SV.SimLiteralValue, src1val)
             result = src1val.add(src2val)

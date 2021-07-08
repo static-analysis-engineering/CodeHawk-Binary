@@ -146,6 +146,10 @@ class MIPSJumpRegister(MIPSOpcode):
         if srcval.is_symbolic:
             addr = cast(SSV.SimSymbolicValue, srcval)
             simstate.set_delayed_program_counter(addr)
+            if str(addr).endswith("ra_in"):
+                return "return"
+            else:
+                return "goto " + str(addr)
 
         elif srcval.is_literal and srcval.is_defined:
             srcval = cast(SV.SimLiteralValue, srcval)
@@ -158,7 +162,7 @@ class MIPSJumpRegister(MIPSOpcode):
                 simstate.set_delayed_program_counter(gaddr)
         else:
             raise SU.CHBSimJumpTargetUnknownError(simstate, iaddr, srcval, '')
-        if str(addr).endswith('ra_in'):
+        if str(gaddr).endswith('ra_in'):
             return 'return'
         else:
-            return 'goto ' + str(addr)
+            return 'goto ' + str(gaddr)

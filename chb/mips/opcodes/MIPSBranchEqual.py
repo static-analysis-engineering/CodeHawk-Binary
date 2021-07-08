@@ -134,8 +134,28 @@ class MIPSBranchEqual(MIPSOpcode):
             src2val = cast(SV.SimDoubleWordValue, src2val)
             result = src1val.is_equal(src2val)
 
-        truetgt = SSV.mk_global_address(self.tgt_offset.absolute_address_value)
-        falsetgt = simstate.programcounter.add_offset(8)
+        elif src1val.is_file_pointer and src2val.is_literal:
+            src2val = cast(SV.SimDoubleWordValue, src2val)
+            if src2val.value == 0:
+                result = SV.simfalse
+            else:
+                raise SU.CHBSimBranchUnknownError(
+                    simstate,
+                    iaddr,
+                    truetgt,
+                    falsetgt,
+                    "branch-equal condition: " + str(src1val) + " == " + str(src2val))
+
+        else:
+            raise SU.CHBSimBranchUnknownError(
+                simstate,
+                iaddr,
+                truetgt,
+                falsetgt,
+                "branch-equal condition: " + str(src1val) + " == " + str(src2val))
+
+        truetgt: SSV.SimGlobalAddress = SSV.mk_global_address(self.tgt_offset.absolute_address_value)
+        falsetgt: SSV.SimGlobalAddress = simstate.programcounter.add_offset(8)
         if result.is_defined:
             simstate.increment_program_counter()
             if result.is_true:
