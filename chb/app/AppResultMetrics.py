@@ -430,13 +430,13 @@ class AppResultMetrics:
         lines.append(
             "Cc connected    : "
             + (str(self.cc_associated)
-            + " / "
-            + str(self.cc_instructions)).rjust(8))
+               + " / "
+               + str(self.cc_instructions)).rjust(8))
         lines.append(
             "Cc predicate    : "
             + (str(self.cc_predicate)
-            + " / "
-            + str(self.cc_instructions)).rjust(8))
+               + " / "
+               + str(self.cc_instructions)).rjust(8))
         lines.append('Calls           : ' + str(self.calls_count).rjust(8))
         lines.append('Unresolved calls: ' + str(self.unresolved_calls).rjust(8))
         lines.append('No summaries    : ' + str(self.no_summary).rjust(8))

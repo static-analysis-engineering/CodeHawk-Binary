@@ -252,6 +252,13 @@ class AppAccess(ABC):
     def function_address_from_name(self, name: str) -> str:
         return self.systeminfo.function_address_from_name(name)
 
+    def find_enclosing_function(self, iaddr: str) -> Optional[Function]:
+        for f in self.functions.values():
+            if f.has_instruction(iaddr):
+                return f
+        else:
+            return None
+
     def function_info(self, faddr: str) -> FunctionInfo:
         if faddr not in self._functioninfos:
             xnode = UF.get_function_info_xnode(self.path, self.filename, faddr)
