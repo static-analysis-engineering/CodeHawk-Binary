@@ -169,6 +169,10 @@ class MIPSOpcode(MIPSDictionaryRecord):
     def is_branch_instruction(self) -> bool:
         return self.tags[0] in branch_opcodes
 
+    @property
+    def is_restore_register(self) -> bool:
+        return False
+
     def is_call_instruction(self, xdata: InstrXData) -> bool:
         if self.tags[0] in call_opcodes:
             return True

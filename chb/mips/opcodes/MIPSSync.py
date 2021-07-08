@@ -69,4 +69,3 @@ class MIPSSync(MIPSOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         return "SYNC " + str(self.args[0])
-    

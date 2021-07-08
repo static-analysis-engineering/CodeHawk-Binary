@@ -33,6 +33,7 @@ from chb.app.AppAccess import AppAccess
 
 from chb.mips.MIPSDictionary import MIPSDictionary
 from chb.mips.MIPSFunction import MIPSFunction
+from chb.mips.MIPSInstruction import MIPSInstruction
 
 import chb.util.fileutil as UF
 
@@ -101,4 +102,16 @@ class MIPSAccess(AppAccess):
                     result[a] = (fnref[a], [faddr])
 
         self.iter_functions(add)
+        return result
+
+    def app_calls(self) -> Dict[str, List[MIPSInstruction]]:
+        """Returns a dictionary faddr -> MIPSInstruction."""
+        result: Dict[str, List[MIPSInstruction]] = {}
+
+        def f(faddr: str, fn: MIPSFunction) -> None:
+            appcalls = fn.app_calls()
+            if len(appcalls) > 0:
+                result[faddr] = appcalls
+
+        self.iter_functions(f)
         return result

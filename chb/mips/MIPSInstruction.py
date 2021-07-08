@@ -74,31 +74,31 @@ class MIPSInstruction(Instruction):
         self._xdata: Optional[InstrXData] = None
 
     @property
-    def mipsblock(self) -> "MIPSBlock":
+    def block(self) -> "MIPSBlock":
         return self._mipsblock
 
     @property
-    def mipsdictionary(self) -> "MIPSDictionary":
-        return self.mipsblock.mipsdictionary
+    def dictionary(self) -> "MIPSDictionary":
+        return self.block.dictionary
 
     @property
-    def mipsfunctiondictionary(self) -> FunctionDictionary:
-        return self.mipsblock.mipsfunctiondictionary
+    def functiondictionary(self) -> FunctionDictionary:
+        return self.block.functiondictionary
 
     @property
-    def mipsfunction(self) -> "MIPSFunction":
-        return self.mipsblock.mipsfunction
+    def function(self) -> "MIPSFunction":
+        return self.block.function
 
     @property
     def opcode(self) -> MIPSOpcode:
         if self._opcode is None:
-            self._opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+            self._opcode = self.dictionary.read_xml_mips_opcode(self.xnode)
         return self._opcode
 
     @property
     def xdata(self) -> InstrXData:
         if self._xdata is None:
-            self._xdata = self.mipsfunctiondictionary.read_xml_instrx(self.xnode)
+            self._xdata = self.functiondictionary.read_xml_instrx(self.xnode)
         return self._xdata
 
     @property
@@ -112,7 +112,7 @@ class MIPSInstruction(Instruction):
             operands = self.operands
             return mnemonic.ljust(8) + ','.join([str(op) for op in operands])
         except IT.IndexedTableError as e:
-            opcode = self.mipsdictionary.read_xml_mips_opcode(self.xnode)
+            opcode = self.dictionary.read_xml_mips_opcode(self.xnode)
             raise UF.CHBError('Error for MIPS opcode ' + str(opcode) + ': '
                               + str(e))
 
@@ -122,11 +122,11 @@ class MIPSInstruction(Instruction):
 
     @property
     def bytestring(self) -> str:
-        return self.mipsdictionary.read_xml_mips_bytestring(self.xnode)
+        return self.dictionary.read_xml_mips_bytestring(self.xnode)
 
     @property
     def stackpointer_offset(self) -> StackPointerOffset:
-        return self.mipsfunctiondictionary.read_xml_sp_offset(self.xnode)
+        return self.functiondictionary.read_xml_sp_offset(self.xnode)
 
     @property
     def annotation(self) -> str:
@@ -179,6 +179,10 @@ class MIPSInstruction(Instruction):
     def is_store_word_instruction(self) -> bool:
         return self.opcode.is_store_word
 
+    @property
+    def is_restore_register_instruction(self) -> bool:
+        return self.opcode.is_restore_register
+
     def is_call_to_app_function(self, tgtaddr: str) -> bool:
         if self.is_call_instruction:
             opc = cast(MIPSJumpLinkRegister, self.opcode)
@@ -214,6 +218,7 @@ class MIPSInstruction(Instruction):
         else:
             raise UF.CHBError("Not a call instruction: " + str(self))
 
+    @property
     def call_arguments(self) -> Sequence[XXpr]:
         if self.is_call_instruction:
             opc = cast(MIPSJumpLinkRegister, self.opcode)

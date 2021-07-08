@@ -154,7 +154,10 @@ class FunctionContext:
             return returnfrom
 
     def peek(self) -> str:
-        return self.functions()[-1]
+        if self.is_empty():
+            return "none"
+        else:
+            return self.functions()[-1]
 
     def restore(self, faddr: str) -> None:
         while self.peek() != faddr:
@@ -757,9 +760,9 @@ class MIPSimulationState(SimulationState):
         self.fnlog[iaddr].append(msg)
 
     def get_string_from_memaddr(self, iaddr: str, saddr: SSV.SimAddress) -> str:
+        result = ""
+        offset = 0
         while True:
-            result = ""
-            offset = 0
             srcaddr = saddr.add_offset(offset)
             srcval = self.get_memval(iaddr, srcaddr, 1)
             if srcval.is_defined and srcval.is_literal:
