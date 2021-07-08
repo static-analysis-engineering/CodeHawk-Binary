@@ -49,23 +49,16 @@ if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
-@mipsregistry.register_tag("c.f.d", MIPSOpcode)    
-@mipsregistry.register_tag("c.f.w", MIPSOpcode)
-@mipsregistry.register_tag("c.olt.d", MIPSOpcode)
-@mipsregistry.register_tag("c.olt.s", MIPSOpcode)
-@mipsregistry.register_tag("c.un.s", MIPSOpcode)
-@mipsregistry.register_tag("c.un.w", MIPSOpcode)
-class MIPSFPCompare(MIPSOpcode):
-    """Floating Point Compare: C.cond.fmt
 
-    Compare FP values and record the Boolean result in a condition code.
+@mipsregistry.register_tag("mtc1", MIPSOpcode)
+class MIPSMoveWordToFP(MIPSOpcode):
+    """MTC1 rt, fs
 
-    args[0]: format
-    args[1]: condition code
-    args[2]: comparison condition
-    args[3]: exception
-    args[4]: rhs1
-    args[5]: rhs2
+    Move Word to Floating Point
+    Copy a word from a GPR to an FPU (CP1) general register
+
+    args[0]: index of rt in mips dictionary
+    args[1]: index of fs in mips dictionary
     """
 
     def __init__(
@@ -75,8 +68,14 @@ class MIPSFPCompare(MIPSOpcode):
         MIPSOpcode.__init__(self, mipsd, ixval)
 
     @property
-    def operands(self) -> List[MIPSOperand]:
-        return [self.mipsd.mips_operand(self.args[i]) for i in [3, 4]]
+    def operands(self) -> Sequence[MIPSOperand]:
+        return [self.mipsd.mips_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return self.tags[0] + ':pending'
+        """data format a:x
+
+        xprs[0]: rhs
+        """
+
+        rhs = str(xdata.vars[0])
+        return "Coprocessor1[reg] := " + rhs

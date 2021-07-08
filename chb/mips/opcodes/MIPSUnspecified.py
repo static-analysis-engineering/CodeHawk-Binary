@@ -49,23 +49,21 @@ if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
-@mipsregistry.register_tag("c.f.d", MIPSOpcode)    
-@mipsregistry.register_tag("c.f.w", MIPSOpcode)
-@mipsregistry.register_tag("c.olt.d", MIPSOpcode)
-@mipsregistry.register_tag("c.olt.s", MIPSOpcode)
-@mipsregistry.register_tag("c.un.s", MIPSOpcode)
-@mipsregistry.register_tag("c.un.w", MIPSOpcode)
-class MIPSFPCompare(MIPSOpcode):
-    """Floating Point Compare: C.cond.fmt
 
-    Compare FP values and record the Boolean result in a condition code.
+@mipsregistry.register_tag("add.d", MIPSOpcode)
+@mipsregistry.register_tag("add.s", MIPSOpcode)
+@mipsregistry.register_tag("cfc1", MIPSOpcode)
+@mipsregistry.register_tag("ctc1", MIPSOpcode)
+@mipsregistry.register_tag("div.d", MIPSOpcode)
+@mipsregistry.register_tag("div.s", MIPSOpcode)
+@mipsregistry.register_tag("mov.d", MIPSOpcode)
+@mipsregistry.register_tag("mov.s", MIPSOpcode)
+@mipsregistry.register_tag("mul.d", MIPSOpcode)
+@mipsregistry.register_tag("mul.s", MIPSOpcode)
+@mipsregistry.register_tag("mfc1", MIPSOpcode)
+class MIPSUnspecified(MIPSOpcode):
+    """Placeholder for opcodes that have not yet been implemented.
 
-    args[0]: format
-    args[1]: condition code
-    args[2]: comparison condition
-    args[3]: exception
-    args[4]: rhs1
-    args[5]: rhs2
     """
 
     def __init__(
@@ -75,8 +73,8 @@ class MIPSFPCompare(MIPSOpcode):
         MIPSOpcode.__init__(self, mipsd, ixval)
 
     @property
-    def operands(self) -> List[MIPSOperand]:
-        return [self.mipsd.mips_operand(self.args[i]) for i in [3, 4]]
+    def operands(self) -> Sequence[MIPSOperand]:
+        return []
 
     def annotation(self, xdata: InstrXData) -> str:
-        return self.tags[0] + ':pending'
+        return self.tags[0] + ": pending"

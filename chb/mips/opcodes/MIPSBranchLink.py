@@ -46,6 +46,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    from chb.api.CallTarget import CallTarget
     from chb.mips.MIPSDictionary import MIPSDictionary
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
@@ -73,6 +74,13 @@ class MIPSBranchLink(MIPSOpcode):
     @property
     def target(self) -> MIPSOperand:
         return self.mipsd.mips_operand(self.args[0])
+
+    def call_target(self, xdata: InstrXData) -> "CallTarget":
+        if xdata.has_call_target():
+            return xdata.call_target(self.ixd)
+        else:
+            raise UF.CHBError(
+                "Instruction does not have a call target: " + str(self))
 
     def has_string_arguments(self, xdata: InstrXData) -> bool:
         args = self.arguments(xdata)
