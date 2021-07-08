@@ -1,0 +1,23 @@
+{
+    "functions": {
+	"0x401000": {
+	    "cfg": {},
+	    "instrs": {
+		"0x401000": {
+		    "mn": "push",
+		    "invs": [ "esp == esp_in" ]
+		},
+		"0x401001": {
+		    "mn": "pop",
+		    "invs": [ "esp == (esp_in - 0x4",
+			      "var.0004 == ebp_in" ]
+		},
+		"0x401002": {
+		    "mn": "ret",
+		    "invs": [ "esp == esp_in",
+			      "ebp == ebp_in" ]
+		}
+	    }
+	}
+    }
+}
