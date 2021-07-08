@@ -63,7 +63,7 @@ class ARMStoreRegister(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 2]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .
@@ -71,8 +71,20 @@ class ARMStoreRegister(ARMOpcode):
         vars[0]: lhs
         xprs[0]: rhs
         xprs[1]: rhs (simplified)
+        xprs[2]: condition (if TC is set)
         """
 
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
-        return lhs + " := " + rhs
+        assign = lhs + " := " + rhs
+
+        xctr = 2
+        if xdata.has_instruction_condition():
+            pcond = "if " + str(xdata.xprs[xctr]) + " then "
+            xctr += 1
+        elif xdata.has_unknown_instruction_condition():
+            pcond = "if ? then "
+        else:
+            pcond = ""
+
+        return pcond + assign

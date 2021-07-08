@@ -82,4 +82,4 @@ class ARMLoadRegisterDual(ARMOpcode):
         lhs2 = str(xdata.vars[1])
         rhs = str(xdata.xprs[1])
         rhs2 = str(xdata.xprs[3])
-        return lhs1 + " := " + rhs + "; " + lhs2 + " := " +  rhs2
+        return lhs1 + " := " + rhs + "; " + lhs2 + " := " + rhs2
