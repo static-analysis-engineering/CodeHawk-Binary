@@ -1,0 +1,28 @@
+{
+    "functions": {
+	"0x1000": {
+	    "prec": {
+		"sp": "100.00",
+		"reads": "100.00",
+		"writes": "100.00"
+	    },
+	    "cfg": {},
+	    "instrs": {
+		"0x1000": {
+		    "mn": "push",
+		    "invs": [ "esp == esp_in" ]
+		},
+		"0x1001": {
+		    "mn": "pop",
+		    "invs": [ "esp == (esp_in - 0x4)",
+			      "var.0004 == ebp_in" ]
+		},
+		"0x1002": {
+		    "mn": "ret",
+		    "invs": [ "esp == esp_in",
+			      "ebp == ebp_in" ]
+		}
+	    }
+	}
+    }
+}
