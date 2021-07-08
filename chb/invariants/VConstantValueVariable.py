@@ -282,7 +282,7 @@ class VInitialMemoryValue(VConstantValueVariable):
     def is_argument_deref_value(self) -> bool:
         avar = self.variable.denotation
         if avar.is_memory_variable and avar.is_basevar_variable:
-            xbasevar = avar.basevar()
+            xbasevar = avar.basevar
             offset = avar.offset
             return xbasevar.is_argument_value and offset.is_constant_offset
         else:
@@ -291,7 +291,7 @@ class VInitialMemoryValue(VConstantValueVariable):
     def argument_deref_arg_offset(self, inbytes: bool = False) -> Tuple[int, int]:
         if self.is_argument_deref_value:
             avar = self.variable.denotation
-            argindex = avar.basevar().argument_index()
+            argindex = avar.basevar.argument_index()
             offset = avar.offset
             if inbytes:
                 return (argindex, offset.offsetvalue())

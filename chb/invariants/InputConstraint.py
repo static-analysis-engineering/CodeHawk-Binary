@@ -27,6 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+from abc import ABC, abstractmethod
 from typing import Optional, TYPE_CHECKING
 
 import chb.invariants.InputConstraintValue as ICV
@@ -37,7 +38,7 @@ if TYPE_CHECKING:
     import chb.invariants.XXpr
 
 
-class InputConstraint:
+class InputConstraint(ABC):
 
     def __init__(self) -> None:
         pass
@@ -66,6 +67,11 @@ class InputConstraint:
     def is_string_not_contains(self) -> bool:
         return False
 
+    @property
+    @abstractmethod
+    def stringexpr(self) -> ICV.InputConstraintValue:
+        ...
+
 
 class EnvironmentTestConstraint(InputConstraint):
 
@@ -76,6 +82,10 @@ class EnvironmentTestConstraint(InputConstraint):
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def stringexpr(self) -> ICV.InputConstraintValue:
+        raise UF.CHBError("Environment constraint has not stringexpr")
 
     def is_env_test(self) -> bool:
         return True
@@ -93,6 +103,10 @@ class EnvironmentAbsentConstraint(InputConstraint):
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def stringexpr(self) -> ICV.InputConstraintValue:
+        raise UF.CHBError("Environment constraint has not stringexpr")
 
     def is_env_absent(self) -> bool:
         return True

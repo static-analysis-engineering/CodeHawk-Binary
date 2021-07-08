@@ -85,6 +85,7 @@ class VMemoryBase(FnVarDictionaryRecord):
     def is_unknown(self) -> bool:
         return False
 
+    @property
     def basevar(self) -> "XVariable":
         raise UF.CHBError("Basevar not supported for " + str(self))
 
