@@ -50,6 +50,7 @@ class DotCfg:
             showcalls: bool = False,        # show call instrs on nodes
             showinstr_opcodes: bool = False,  # show all instrs on nodes
             showinstr_text: bool = False,  # show all instr annotations on nodes
+            showstores: bool = False,  # show all STR and STRB and STRH instr annotations
             mips: bool = False,     # for mips subtract 4 from block end addr
             sink: str = None,      # restrict paths to basic block destination
             segments: List[str] = [],  # restrict paths to include these basic blocks
@@ -62,6 +63,7 @@ class DotCfg:
         self.showcalls = showcalls
         self.showinstr_opcodes = showinstr_opcodes
         self.showinstr_text = showinstr_text
+        self.showstores = showstores
         self.mips = mips
         self.sink = sink
         self.segments = segments
@@ -190,15 +192,25 @@ class DotCfg:
                 blocktxt
                 + "\\n"
                 + "\\n".join(pinstrs))
-        elif self.showcalls:
-            callinstrs = basicblock.call_instructions
-            pcallinstrs = [i.annotation for i in callinstrs]
-            print(' \n'.join([str(a) for a in pcallinstrs]))
-            if len(callinstrs) > 0:
-                blocktxt = (
-                    blocktxt
-                    + '\\n'
-                    + '\\n'.join(pcallinstrs))
+        elif self.showcalls or self.showstores:
+            if self.showcalls:
+                callinstrs = basicblock.call_instructions
+                pcallinstrs = [i.annotation for i in callinstrs]
+                print(' \n'.join([str(a) for a in pcallinstrs]))
+                if len(callinstrs) > 0:
+                    blocktxt = (
+                        blocktxt
+                        + '\\n'
+                        + '\\n'.join(pcallinstrs))
+            if self.showstores:
+                storeinstrs = basicblock.store_instructions
+                pstoreinstrs = [i.annotation for i in storeinstrs]
+                print(' \n'.join([str(a) for a in pstoreinstrs]))
+                if len(storeinstrs) > 0:
+                    blocktxt = (
+                        blocktxt
+                        + "\\n"
+                        + "\\n".join(pstoreinstrs))
         if len(self.looplevelcolors) > 0:
             looplevels = self.fn.cfg.loop_levels(n)
             if len(looplevels) > 0:
