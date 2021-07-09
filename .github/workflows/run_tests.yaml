@@ -11,5 +11,5 @@ jobs:
     - uses: actions/checkout@v1
     - name: Run tests
       run: |
-	PYTHONPATH=$PWD chb/cmdline/chkx test runall
+        PYTHONPATH=$PWD chb/cmdline/chkx test runall
 
