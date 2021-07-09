@@ -10,7 +10,6 @@ ConfigLocal.py
 *.json~
 *.md~
 *.exe~
-*.exe
 chkx~
 
 # Byte-compiled / optimized / DLL files
