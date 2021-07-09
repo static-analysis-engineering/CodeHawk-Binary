@@ -20,9 +20,14 @@ development and thus somewhat experimental.
 
 ### Requirements
 
-The command-line interface requires python3.5 or higher. A linux
-and macOS executable of the CodeHawk Binary Analyzer may be available for
-direct use in the directory chb/bin/binaries. It is also possible to
+The command-line interface requires python3.5 or higher. The analyzer
+requires a Java runtime environment.
+
+A linux
+and macOS executable of the CodeHawk Binary Analyzer is available for
+direct use in the directory chb/bin/binaries; it may not always be
+the most recent version, however, or it may not be compatible with locally available
+libraries. It is therefore also possible to
 build your own from the source code available in
 the [codehawk repository](https://github.com/static-analysis-engineering/codehawk).
 Build instructions are available
@@ -67,10 +72,19 @@ All 11 tests passed.
 > 
 ```
 
-To analyze an x86, arm32, or mips32 executable and see a list of functions and
-statistics:
+To disassmble an x86, arm32, or mips32 executable:
 ```
-> chkx analyze mybinary
+> chkx analyze -d mybinary
+...
+```
+
+This will show some statistics on the disassembly, but will not perform any
+analysis. It usually is a good first step, especially if the the binary is
+large, to check if disassembly succeeded. If this looks okay, analysis can be
+performed with (use --reset to remove any previous intermediate results):
+
+```
+> chkx analyze mybinary --reset
 ....
 > chkx results stats mybinary
 ```
@@ -87,15 +101,6 @@ The following commands are available to see more detailed results:
     results dllcalls <xname>      output a listing of dll calls (PE32 only)
     results stringargs <xname>    output a listing of calls with string arguments
     results iocs <xname>          output a listing of indicators of compromise encountered
-```
-
-It is also possible to just disassemble the binary without doing analysis (which may
-be a good first step, especially if the binary is large, in which case analysis may
-take a long time):
-
-```
-> chkx analyze -d binary
-...
 ```
 
 Finally, it is usually a good idea to reset the analysis results when re-analyzing
