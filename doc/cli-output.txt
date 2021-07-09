@@ -1,0 +1,89 @@
+> chkx
+usage: chkx [-h]
+
+Command-line interface to the CodeHawk Binary Analyzer.
+
+These are common commands to analyze an executable and view the
+analysis results (<xname> is name of executable):
+
+get information:
+   info                show configuration information
+   version             show version of analyzer and python api
+
+disassemble/analyze an executable:
+  These commands extract the content of the executable into xml and store
+  the various levels of results in the directory <name>.ch.
+  Extraction and disassembly are fairly fast (seconds to minutes), whereas
+  full analysis, is strongly dependent on the size and structure of the
+  executable, and for large or very complex executables may take several hours.
+
+  The commands are:
+    analyze <xname>      extract executable content, disassemble, and analyze
+    analyze -d <xname>   extract executable content and disassemble
+    analyze -x <xname>   only extract executable content into xml
+
+When a file is disassembled the following commands can be used to output
+ELF or PE header information:
+
+    pedata <xname>       output PE header, import tables, etc.
+    elfdata <xname>      output ELF header and program and section headers
+
+When a file is fully analyzed the following commands are available to query
+the analysis results:
+
+    results stats <xname>         output a summary of results with one line per function
+    results functions <xname> ... output a listing of annotated assembly functions
+    results function <xname> <fn> output a listing of a single annotated assembly function
+    results cfg <xname> <fn> ...  produce a control flow graph for a function (in pdf)
+    results cfgpaths <xname> <fn> ... find paths throug a cfg with a given target
+
+    results appcalls <xname>      output a listing of application calls
+    results dllcalls <xname>      output a listing of dll calls (PE32 only)
+    results stringargs <xname>    output a listing of calls with string arguments
+    results iocs <xname>          output a listing of indicators of compromise encountered
+
+The analyzer comes with a large collection of summaries for library functions.
+These summaries can be queried independently of any executable with the following
+commands:
+
+    summaries stats  output some statistics on summaries/constants/data structures provided
+
+    summaries dlls   output a listing of dlls provided
+    summaries enums  output a listing of enum type definitions provided
+
+    summaries dll-functions output a listing of functions in a dll
+    summaries so-functions  output a listing of shared-object functions
+
+    summaries dll-function  output signature and summary semantics for a dll-function
+    summaries so-function   output signature and summary semantics for a shared-object function
+
+    summaries enum          output the values included in an enum definition
+
+    summaries ioc-types     output a listing of indicator-of-compromise categories
+    summaries ioc-roles     output a listing of indicator-of-compromise role names per category
+
+The python interface has a limited capability to perform (symbolic) simulation,
+based on the results of the analysis. Simulation can be performed with the
+following commands:
+
+    simulate <xname> <fn>   run a (symbolic) simulation of the given function
+
+The repository includes regression tests. They are organized by file format (pe, elf) and
+architecture (x86, mips32, arm32) and further divided into test suites that combine tests
+with similar structure. These tests can be run with the following commands:
+
+    test runall --arch <arch> --fileformat <file-format>
+    test runsuite <arch> --fileformat <file-format> <suite number>
+    test run <arch> <file-format> --suite <suite number> --test <test number>
+    test run all
+    test run --suite <suite number> all
+
+The test programs themselves can also be listed and viewed:
+
+    test list --arch <arch> --fileformat <file-format> --suite <suite number>
+    test view <arch> --fileformat <file-format> <suite number> <test number>
+
+optional arguments:
+  -h, --help  show this help message and exit
+
+See for more information ...
