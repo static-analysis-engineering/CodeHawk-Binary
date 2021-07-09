@@ -1,0 +1,15 @@
+name: CI_tests
+
+on: [pull_request, push]
+
+jobs:
+  run_tests:
+
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Run tests
+      run: |
+	PYTHONPATH=$PWD chb/cmdline/chkx test runall
+

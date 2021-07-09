@@ -1,0 +1,18 @@
+name: CI_mypy
+
+on: [pull_request, push]
+
+jobs:
+  run_mypy:
+
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install mypy
+      run: sudo apt-get install -y mypy python3-mypy
+    - name: Create default local config
+      run: cp chb/util/ConfigLocal.template chb/util/ConfigLocal.py
+    - name: Run mypy
+      run: |
+        PYTHONPATH=$PWD mypy chb
