@@ -79,7 +79,7 @@ def summaries_dlls_cmd(args: argparse.Namespace) -> NoReturn:
     for jar in modeldlls:
         print(jar)
         print("-" * 80)
-        for dll in modeldlls[jar]:
+        for dll in sorted(modeldlls[jar]):
             print("  " + dll)
         print("-" * 80)
     exit(0)

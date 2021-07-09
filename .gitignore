@@ -1,11 +1,16 @@
 # CodeHawk-specific files
 ConfigLocal.py
+*.ch
 
 # MacOS
 .DS_Store
 
 # Emacs
 *.py~
+*.json~
+*.md~
+*.exe~
+*.exe
 chkx~
 
 # Byte-compiled / optimized / DLL files

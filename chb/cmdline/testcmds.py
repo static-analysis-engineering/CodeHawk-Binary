@@ -28,9 +28,10 @@
 
 import argparse
 import json
+import os
 import subprocess
 
-from typing import Any, Dict, List, NoReturn, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, NoReturn, Optional, Tuple, TYPE_CHECKING
 
 import chb.app.AppAccess as AP
 import chb.cmdline.commandutil as UC
@@ -49,7 +50,7 @@ if TYPE_CHECKING:
 def analyze_test_case(filename: str) -> int:
     cmdprocessor = UF.get_command_processor()
     cmd: List[str] = ["python3", cmdprocessor, "analyze", filename, "--reset"]
-    result = subprocess.call(cmd, stderr=subprocess.STDOUT)
+    result = subprocess.call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
     return result
 
 
@@ -93,7 +94,7 @@ def check_test_function(
                 return (-2)
             for inv in refinstr["invs"]:
                 if inv not in invariants[iaddr]:
-                    print("Invariant " + inv + " missing")
+                    print("Invariant " + inv + " missing in function " + f.faddr)
                     return (-3)
     return 0
 
@@ -126,12 +127,16 @@ def check_test_case(filename: str) -> int:
             fstats = app.result_metrics.get_function_metrics(faddr)
             result = check_test_function(f, fstats, testdata["functions"][faddr])
             if result != 0:
-                return result
+                break
         else:
             print("Function " + faddr + " not found in results")
-            return (-1)
+            result = (-1)
+            break
 
-    return 0
+    else:
+        result = 0
+
+    return result
 
 
 def test_run(args: argparse.Namespace) -> NoReturn:
@@ -145,10 +150,17 @@ def test_run(args: argparse.Namespace) -> NoReturn:
     testfilename = UF.get_test_filename(arch, fileformat, suite, test)
     result = analyze_test_case(testfilename)
     if result != 0:
+        print("Error in analysis of " + testfilename)
         exit(result)
 
     result = check_test_case(testfilename)
-    print(testfilename + ": " + str(result))
+    if result != 0:
+        print("Discrepancy in analysis results for " + testfilename)
+        print("Result: " + str(result))
+        exit(result)
+
+    else:
+        print("Test successful for " + testfilename)
     exit(result)
 
 
@@ -158,9 +170,17 @@ def test_runall(args: argparse.Namespace) -> NoReturn:
     arch: Optional[str] = args.arch
     fileformat: Optional[str] = args.fileformat
 
-    errors: Dict[str, int] = {}
+    errors: Dict[Tuple[str, str, str, str], int] = {}
+
+    def pr(a: str, ff: str, suite: str, n: str, result: int) -> None:
+        ptest = a.ljust(6) + ff.ljust(6) + suite.ljust(12) + n
+        if result == 0:
+            print(" --ok--  " + ptest)
+        else:
+            print(" --xx--  " + ptest)
 
     tests = UF.get_tests()
+    counter = 0
     for a in sorted(tests):
         if (arch is None) or (arch == a):
             for ff in sorted(tests[a]):
@@ -169,20 +189,31 @@ def test_runall(args: argparse.Namespace) -> NoReturn:
                         for test in sorted(tests[a][ff][suite]):
                             testfilename = UF.get_test_filename(
                                 a, ff, suite, test, fullnames=True)
+                            basename = os.path.basename(testfilename)
                             result = analyze_test_case(testfilename)
+                            counter += 1
                             if result != 0:
-                                errors[testfilename] = result
+                                errors[(a, ff, suite, basename)] = result
+                                pr(a, ff, suite, basename, result)
+                                continue
                             result = check_test_case(testfilename)
                             if result != 0:
-                                errors[testfilename] = result
-
+                                errors[(a, ff, suite, basename)] = result
+                            pr(a, ff, suite, basename, result)
     if len(errors) > 0:
         print("Errors encountered in:")
-        for n in sorted(errors):
-            print(n + ": " + str(errors[n]))
+        for ((a, ff, suite, n), result) in sorted(errors.items()):
+            print(
+                a.ljust(6)
+                + ff.ljust(6)
+                + n.ljust(12)
+                + suite.ljust(12)
+                + ": "
+                + str(result))
         exit(1)
 
     else:
+        print("All " + str(counter) + " tests passed.")
         exit(0)
 
 
