@@ -183,7 +183,7 @@ class SummaryCollection:
         return "so_functions" in self.solibraries
 
     def has_dll(self, dll: str) -> bool:
-        return dll in self._dlllibraries
+        return dll in self.dlllibraries
 
     def has_dll_function_summary(self, dll: str, fname: str) -> bool:
         if dll in self.dlllibraries or self.has_dll(dll):
