@@ -29,7 +29,7 @@
 """Access point for most analysis results."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Generic, Type, TypeVar
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Generic, Type, TypeVar, Union, overload
 
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
@@ -55,21 +55,20 @@ from chb.userdata.UserData import UserData
 import chb.util.fileutil as UF
 
 
-HeaderTy = TypeVar('HeaderTy', PEHeader, ELFHeader)
+HeaderTy = TypeVar('HeaderTy', PEHeader, ELFHeader, Union[PEHeader, ELFHeader])
 class AppAccess(ABC, Generic[HeaderTy]):
-
     def __init__(
             self,
             path: str,
             filename: str,
+            fileformat: Type[HeaderTy],
             deps: List[str] = [],
-            fileformat: Type[HeaderTy] = ELFHeader,
             arch: str = "x86") -> None:
         """Initializes access to analysis results."""
         self._path = path
         self._filename = filename
         self._deps = deps  # list of summary jars registered as dependencies
-        self._header_ty = fileformat  # currently supported: elf, pe
+        self._header_ty: Type[HeaderTy] = fileformat  # currently supported: elf, pe
         self._arch = arch  # currently supported: arm, mips, x86
 
         self._userdata: Optional[UserData] = None
@@ -154,7 +153,7 @@ class AppAccess(ABC, Generic[HeaderTy]):
     @property
     def header(self) -> HeaderTy:
         if self._header is None:
-            x = self._fileformat.get_xnode(self.path, self.filename)
+            x = self._header_ty.get_xnode(self.path, self.filename)
             self._header = self._header_ty(self.path, self.filename, x, self.dependencies)
         return self._header
 

@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 
 from chb.elfformat.ELFHeader import ELFHeader
-from typing import Callable, cast, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Callable, Type, cast, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from chb.app.AppAccess import AppAccess, HeaderTy
 
@@ -45,10 +45,10 @@ class MIPSAccess(AppAccess[HeaderTy]):
             self,
             path: str,
             filename: str,
+            fileformat: Type[HeaderTy],
             deps: List[str] = [],
-            fileformat: HeaderTy = ELFHeader,
             arch: str = "mips") -> None:
-        AppAccess.__init__(self, path, filename, deps, fileformat, arch)
+        AppAccess.__init__(self, path, filename, fileformat, deps, arch)
         self._mipsd: Optional[MIPSDictionary] = None
         self._functions: Dict[str, MIPSFunction] = {}
 

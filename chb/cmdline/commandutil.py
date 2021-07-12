@@ -28,6 +28,8 @@
 """Support functions for the command-line interpreter."""
 
 import argparse
+from chb.elfformat.ELFHeader import ELFHeader
+from chb.peformat.PEHeader import PEHeader
 import json
 import os
 import shutil
@@ -35,6 +37,8 @@ import subprocess
 
 from typing import (
     Any,
+    Type,
+    Union,
     cast,
     Dict,
     Iterable,
@@ -113,10 +117,16 @@ def create_xinfo(path: str, xfile: str) -> XI.XInfo:
     xinfo.discover(path, xfile)
     return xinfo
 
+def get_format(name: str) -> Union[Type[PEHeader], Type[ELFHeader]]:
+    if name == "elf":
+        return ELFHeader
+    if name in ("pe", "pe32"):
+        return PEHeader
+    raise ValueError("Unknown format name: %s" % name)
 
 def get_app(path: str, xfile: str, xinfo: XI.XInfo) -> AppAccess:
     arch = xinfo.architecture
-    format = xinfo.format
+    format = get_format(xinfo.format)
     if arch == "x86":
         return X86Access(path, xfile, fileformat=format, arch=arch)
     elif arch == "mips":
