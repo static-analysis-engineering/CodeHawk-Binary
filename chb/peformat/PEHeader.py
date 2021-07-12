@@ -242,6 +242,14 @@ class PEOptionalHeader:
 class PEHeader:
     """Main entry point to access the raw data in the executable."""
 
+    @staticmethod
+    def fmt_name() -> str:
+        return "pe32"
+
+    @staticmethod
+    def get_xnode(path: str, filename: str) -> ET.Element:
+        return UF.get_pe_header_xnode(path, filename)
+
     def __init__(
             self,
             pathname: str,

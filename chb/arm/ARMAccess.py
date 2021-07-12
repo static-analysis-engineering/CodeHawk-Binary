@@ -25,9 +25,10 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+from chb.elfformat.ELFHeader import ELFHeader
 from typing import Dict, List, Mapping, Optional
 
-from chb.app.AppAccess import AppAccess
+from chb.app.AppAccess import AppAccess, HeaderTy
 
 from chb.arm.ARMDictionary import ARMDictionary
 from chb.arm.ARMFunction import ARMFunction
@@ -35,14 +36,14 @@ from chb.arm.ARMFunction import ARMFunction
 import chb.util.fileutil as UF
 
 
-class ARMAccess(AppAccess):
+class ARMAccess(AppAccess[HeaderTy]):
 
     def __init__(
             self,
             path: str,
             filename: str,
             deps: List[str] = [],
-            fileformat: str = "elf",
+            fileformat: HeaderTy = ELFHeader,
             arch: str = "arm") -> None:
         AppAccess.__init__(self, path, filename, deps, fileformat, arch)
         self._armd: Optional[ARMDictionary] = None
