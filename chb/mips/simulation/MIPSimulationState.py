@@ -198,17 +198,17 @@ class MIPSimulationState(SimulationState):
         self.registers: Dict[str, SV.SimValue] = {}      # register name -> SimValue
         self.registers['zero'] = SV.SimDoubleWordValue(0)
         self.stackmem = MIPSimStackMemory(self)
-        self.globalmem = MIPSimGlobalMemory(self, self.app.elfheader)
+        self.globalmem = MIPSimGlobalMemory(self, self.app.header)
         self.basemem: Dict[str, MIPSimBaseMemory] = {}
 
         # static library (optional)
         self.libapp = libapp
         if self.libapp is not None:
             self.libstubs: Dict[int, Tuple[str, Optional[MIPSimStub]]] = {}
-            self.libglobalmem = MIPSimGlobalMemory(self, self.libapp.elfheader)
+            self.libglobalmem = MIPSimGlobalMemory(self, self.libapp.header)
             # function-name -> function address in static lib
             self.static_lib: Dict[str, str] = {}
-            libimgbase = self.libapp.elfheader.image_base
+            libimgbase = self.libapp.header.image_base
             self.libimagebase = SSV.SimGlobalAddress(SV.SimDoubleWordValue(
                 int(libimgbase, 16)))
 
@@ -217,7 +217,7 @@ class MIPSimulationState(SimulationState):
         # target executable for dynamic loading (optional)
         self.xapp = xapp
         if self.xapp is not None:
-            self.xglobalmem = MIPSimGlobalMemory(self, self.xapp.elfheader)
+            self.xglobalmem = MIPSimGlobalMemory(self, self.xapp.header)
 
         # log
         self.fnlog: Dict[str, List[str]] = {}  # iaddr -> msg list2

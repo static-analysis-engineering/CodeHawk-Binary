@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 import xml.etree.ElementTree as ET
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from chb.elfformat.ELFProgramHeader import ELFProgramHeader
 from chb.elfformat.ELFSectionHeader import ELFSectionHeader
@@ -105,11 +105,21 @@ valuedescriptor: Dict[str, Callable[[str], str]] = {
 
 class ELFHeader:
 
+    @staticmethod
+    def fmt_name() -> str:
+        return "elf"
+
+    @staticmethod
+    def get_xnode(path: str, filename: str) -> ET.Element:
+        return UF.get_elf_header_xnode(path, filename)
+
     def __init__(
             self,
             pathname: str,
             filename: str,
-            xnode: ET.Element) -> None:
+            xnode: ET.Element,
+            # ignored, used for compatibility with PEHeader
+            deps: Sequence[str] = []) -> None:
         self._pathname = pathname
         self._filename = filename
         self.xnode = xnode

@@ -62,7 +62,7 @@ def pedatacmd(args: argparse.Namespace) -> NoReturn:
         exit(1)
 
     app = UC.get_app(path, xfile, xinfo)
-    peheader = app.peheader
+    peheader = app.header
     if headeronly:
         print(peheader)
         exit(0)
@@ -118,7 +118,7 @@ def elfdatacmd(args: argparse.Namespace) -> NoReturn:
     app = UC.get_app(path, xfile, xinfo)
     # app = AP.AppAccess(
     #    path, xfile, fileformat=xinfo.format, arch=xinfo.architecture)
-    elfheader = app.elfheader
+    elfheader = app.header
 
     try:
         print(str(elfheader))
