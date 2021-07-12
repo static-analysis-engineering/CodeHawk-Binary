@@ -59,7 +59,7 @@ def simulate_mips_function(
     simstate = MIPSimulationState(
         app,
         "app",
-        app.elfheader.image_base,
+        app.header.image_base,
         faddr)
     currentinstr = asm.instructions[faddr]
     for i in range(0, 100):
@@ -104,7 +104,7 @@ def simulate_arm_function(
     simstate = ARMSimulationState(
         app,
         "app",
-        app.elfheader.image_base,
+        app.header.image_base,
         faddr)
     currentinstr = asm.instructions[faddr]
     print(str(currentinstr))

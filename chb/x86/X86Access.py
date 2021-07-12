@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 
 from chb.elfformat.ELFHeader import ELFHeader
-from typing import Dict, List, Mapping, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence, Type
 
 from chb.app.AppAccess import AppAccess, HeaderTy
 
@@ -45,10 +45,10 @@ class X86Access(AppAccess[HeaderTy]):
             self,
             path: str,
             filename: str,
+            fileformat: Type[HeaderTy],
             deps: List[str] = [],
-            fileformat: HeaderTy = ELFHeader,
             arch: str = "x86") -> None:
-        AppAccess.__init__(self, path, filename, deps, fileformat, arch)
+        AppAccess.__init__(self, path, filename, fileformat, deps, arch)
         self._x86d: Optional[X86Dictionary] = None
         self._functions: Dict[str, X86Function] = {}
 
