@@ -46,9 +46,8 @@ class MIPSAccess(AppAccess[HeaderTy]):
             path: str,
             filename: str,
             fileformat: Type[HeaderTy],
-            deps: List[str] = [],
-            arch: str = "mips") -> None:
-        AppAccess.__init__(self, path, filename, fileformat, deps, arch)
+            deps: List[str] = []) -> None:
+        AppAccess.__init__(self, path, filename, fileformat, deps)
         self._mipsd: Optional[MIPSDictionary] = None
         self._functions: Dict[str, MIPSFunction] = {}
 

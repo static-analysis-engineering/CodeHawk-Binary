@@ -62,14 +62,12 @@ class AppAccess(ABC, Generic[HeaderTy]):
             path: str,
             filename: str,
             fileformat: Type[HeaderTy],
-            deps: List[str] = [],
-            arch: str = "x86") -> None:
+            deps: List[str] = []) -> None:
         """Initializes access to analysis results."""
         self._path = path
         self._filename = filename
         self._deps = deps  # list of summary jars registered as dependencies
         self._header_ty: Type[HeaderTy] = fileformat  # currently supported: elf, pe
-        self._arch = arch  # currently supported: arm, mips, x86
 
         self._userdata: Optional[UserData] = None
 
@@ -106,24 +104,8 @@ class AppAccess(ABC, Generic[HeaderTy]):
     # Architecture and file format ---------------------------------------------
 
     @property
-    def architecture(self) -> str:
-        return self._arch
-
-    @property
     def fileformat(self) -> str:
         return self._header_ty.fmt_name()
-
-    @property
-    def arm(self) -> bool:
-        return self.architecture == "arm"
-
-    @property
-    def mips(self) -> bool:
-        return self.architecture == "mips"
-
-    @property
-    def x86(self) -> bool:
-        return self.architecture == "x86"
 
     @property
     def elf(self) -> bool:

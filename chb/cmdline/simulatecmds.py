@@ -146,5 +146,5 @@ def simulate_function_cmd(args: argparse.Namespace) -> NoReturn:
     else:
         UC.print_error(
             "Simulation not yet implemented for "
-            + app.architecture)
+            + app.__class__.__name__)
         exit(1)

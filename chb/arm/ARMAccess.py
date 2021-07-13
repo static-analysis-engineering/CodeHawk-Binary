@@ -43,9 +43,8 @@ class ARMAccess(AppAccess[HeaderTy]):
             path: str,
             filename: str,
             fileformat: Type[HeaderTy],
-            deps: List[str] = [],
-            arch: str = "arm") -> None:
-        AppAccess.__init__(self, path, filename, fileformat, deps, arch)
+            deps: List[str] = []) -> None:
+        AppAccess.__init__(self, path, filename, fileformat, deps)
         self._armd: Optional[ARMDictionary] = None
         self._functions: Dict[str, ARMFunction] = {}
 
