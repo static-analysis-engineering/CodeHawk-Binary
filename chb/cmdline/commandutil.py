@@ -128,24 +128,23 @@ def get_app(path: str, xfile: str, xinfo: XI.XInfo) -> AppAccess:
     arch = xinfo.architecture
     format = get_format(xinfo.format)
     if arch == "x86":
-        return X86Access(path, xfile, fileformat=format, arch=arch)
+        return X86Access(path, xfile, fileformat=format)
     elif arch == "mips":
-        return MIPSAccess(path, xfile, fileformat=format, arch=arch)
+        return MIPSAccess(path, xfile, fileformat=format)
     elif arch == "arm":
-        return ARMAccess(path, xfile, fileformat=format, arch=arch)
+        return ARMAccess(path, xfile, fileformat=format)
     else:
         raise UF.CHBError("Archicture " + arch + " not yet supported")
 
 
 def get_asm(app: AppAccess) -> Assembly:
-    if app.mips:
+    if isinstance(app, MIPSAccess):
         app = cast(MIPSAccess, app)
         return MIPSAssembly(app, UF.get_mips_asm_xnode(app.path, app.filename))
-    elif app.arm:
-        app = cast(ARMAccess, app)
+    elif isinstance(app, ARMAccess):
         return ARMAssembly(app, UF.get_arm_asm_xnode(app.path, app.filename))
     else:
-        print_error("Simulation not yet supported for " + app.architecture)
+        print_error("Simulation not yet supported for " + app.__class__.__name__)
         exit(1)
 
 
