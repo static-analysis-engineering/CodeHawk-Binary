@@ -476,6 +476,16 @@ def parse() -> argparse.Namespace:
     resultsinvariants = resultsparsers.add_parser("invariants")
     resultsinvariants.add_argument("xname", help="name of executable")
     resultsinvariants.add_argument("function", help="hex address of function")
+    resultsinvariants.add_argument(
+        "--include",
+        nargs="*",
+        default=[],
+        help="only include invariants that contain this string")
+    resultsinvariants.add_argument(
+        "--exclude",
+        nargs="*",
+        default=[],
+        help="exclude invariants that contain this string")
     resultsinvariants.set_defaults(func=UCC.results_invariants)
 
     # --- results branchconditions ---

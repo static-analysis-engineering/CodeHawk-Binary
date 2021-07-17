@@ -525,6 +525,20 @@ def results_invariants(args: argparse.Namespace) -> NoReturn:
     # arguments
     xname: str = str(args.xname)
     function: str = args.function
+    xinclude: List[str] = args.include
+    xexclude: List[str] = args.exclude
+
+    def in_include(f: str) -> bool:
+        for s in xinclude:
+            if s in f:
+                return True
+        return False
+
+    def in_exclude(f: str) -> bool:
+        for s in xexclude:
+            if s in f:
+                return True
+        return False
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -555,7 +569,15 @@ def results_invariants(args: argparse.Namespace) -> NoReturn:
                             fact.is_initial_var_disequality
                             or fact.is_initial_var_equality):
                         continue
-                    print("  " + str(fact))
+                    pfact = str(fact)
+                    if len(xinclude) == 0:
+                        if in_exclude(pfact):
+                            continue
+                        else:
+                            print("  " + pfact)
+                    else:
+                        if (in_include(pfact) and not in_exclude(pfact)):
+                            print("  " + pfact)
     exit(0)
 
 
