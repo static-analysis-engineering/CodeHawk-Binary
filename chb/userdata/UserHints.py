@@ -35,6 +35,45 @@ summaries or data structure definition files.
 
 This module contains the classes for simple user hints that usually involve only
 a few data items.
+
+Currently provided:
+- ArgumentConstraints:
+      function arguments and global variables
+
+- ARMThumbSwitchPoints
+      addresses where ARM switches to Thumb-2 and v.v.
+
+- DataBlocks
+      pairs of addresses (start inclusive, end exclusive) that indicate data
+
+- FunctionEntryPoints
+      addresses of function entry points
+
+- FunctionNames
+      mapping of function entry points to function names
+
+- IndirectJumps
+      mapping of function/instr address to list of possible targets
+
+- NonReturningCalls
+      list of function/instr addresses with calls that do not return
+      (intended for functions that may return in other calls)
+
+- NonReturningFunctions
+      list of addresses of functions that do not return
+      (intended for functions that never return like exit and abort)
+
+- SectionHeaders
+      section header info
+      (intended to supplement construction of section headers when these
+      are not included in a binary)
+
+- Successors
+      map of instruction addresses to a range of successors
+
+- SymbolicAddresses
+      map of global-variable addresses to name/type info on the variable
+
 """
 
 import json
