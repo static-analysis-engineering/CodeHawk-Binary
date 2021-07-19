@@ -56,6 +56,7 @@ class AnalysisManager(object):
             path: str,
             filename: str,
             deps: List[str] = [],
+            so_libraries: List[str] = [],
             specializations: List[str] = [],
             elf: bool = False,
             mips: bool = False,
@@ -74,6 +75,7 @@ class AnalysisManager(object):
         self.path = path
         self.filename = filename
         self.deps = deps
+        self.so_libraries = so_libraries
         self.specializations = specializations
         self.elf = elf
         self.mips = mips
@@ -112,6 +114,8 @@ class AnalysisManager(object):
             cmd.append("-elf")
         for d in self.deps:
             cmd.extend(["-summaries", d])
+        for s in self.so_libraries:
+            cmd.extend(["-so_library", s])
         cmd.append(self.filename)
         p = subprocess.call(cmd, stderr=subprocess.STDOUT)
         if not (p == 0):
@@ -169,6 +173,10 @@ class AnalysisManager(object):
             cmd.append("-verbose")
         if self.thumb:
             cmd.append("-thumb")
+        for d in self.deps:
+            cmd.extend(["-summaries", d])
+        for s in self.so_libraries:
+            cmd.extend(["-so_library", s])
         if save_xml:
             cmd.append("-save_disassembly_status_in_xml")
         cmd.extend(["-disassemble", self.filename])
@@ -336,6 +344,8 @@ class AnalysisManager(object):
             cmd.append("-thumb")
         for d in self.deps:
             cmd.extend(["-summaries", d])
+        for s in self.so_libraries:
+            cmd.extend(["-so_library", s])
         for s in self.specializations:
             cmd.extend(["-specialization", s])
         if ignore_stable:
@@ -351,6 +361,7 @@ class AnalysisManager(object):
               + " (max "
               + str(iterations)
               + " iterations)")
+        print(" ".join(cmd))
         self._print_analysis_header()
         result = self._call_analysis(cmd, timeout=timeout)
         if result != 0:

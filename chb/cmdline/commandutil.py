@@ -327,6 +327,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     thumb: List[str] = args.thumb
     preamble_cutoff: int = args.preamble_cutoff
     iterations: int = args.iterations
+    deps: List[str] = args.thirdpartysummaries
+    so_libraries: List[str] = args.so_libraries
     hints: List[str] = args.hints  # names of json files
 
     try:
@@ -349,6 +351,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         mips=xinfo.is_mips,
         arm=xinfo.is_arm,
         elf=xinfo.is_elf,
+        deps=deps,
+        so_libraries=so_libraries,
         thumb=(len(thumb) > 0))
 
     if dodisassemble:
