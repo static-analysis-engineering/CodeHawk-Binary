@@ -329,6 +329,11 @@ def parse() -> argparse.Namespace:
         default=[],
         help='summary jars for third party libraries')
     analyzecmd.add_argument(
+        "--so_libraries",
+        nargs="*",
+        default=[],
+        help="names of shared-object summary libraries to search")
+    analyzecmd.add_argument(
         '--hints',
         nargs="*",
         default=[],
