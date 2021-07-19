@@ -32,12 +32,20 @@ import subprocess
 
 from typing import Any, Dict, List, Union
 
+import chb.util.Config as C
 import chb.util.fileutil as UF
 
 
 def get_md5(fname: str) -> str:
-    md5 = subprocess.run(['md5sum', fname], stdout=subprocess.PIPE)
-    return md5.stdout.decode('utf-8')[:32]
+    config = C.Config()
+    if config.platform == "linux":
+        md5 = subprocess.run(['md5sum', fname], stdout=subprocess.PIPE)
+        return md5.stdout.decode('utf-8')[:32]
+    elif config.platform == "macOS":
+        md5 = subprocess.run(["md5", fname], stdout=subprocess.PIPE)
+        return md5.stdout.decode("utf-8")[-32:]
+    else:
+        raise UF.CHBError("Environment not recognized: " + config.platform)
 
 
 def get_architecture(ftype: str) -> str:
