@@ -738,17 +738,12 @@ class MIPSimulationState(SimulationState):
                 if base not in self.basemem:
                     self.basemem[base] = MIPSimBaseMemory(
                         self, base, buffersize=address.buffersize)
-                    self.basemem[base].set(iaddr, address, srcval)
-                else:
-                    raise SU.CHBSimError(
-                        self,
-                        iaddr,
-                        "set-memval: " + str(address) + " not recognized")
+                self.basemem[base].set(iaddr, address, srcval)
             else:
-                self.add_logmsg(
+                raise SU.CHBSimError(
+                    self,
                     iaddr,
-                    ("attempt to address memory with absolute value: "
-                     + str(address)))
+                    "set-memval: " + str(address) + " not recognized")
         except SU.CHBSimError as e:
             self.add_logmsg(iaddr, "error in set-memval: " + str(e))
             raise SU.CHBSimError(

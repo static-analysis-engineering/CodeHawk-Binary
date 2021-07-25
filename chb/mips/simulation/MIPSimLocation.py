@@ -50,7 +50,7 @@ class MIPSimMemoryLocation(SimMemoryLocation):
         if self.is_stack:
             return "stack[" + str(self.simaddress.offsetvalue) + "]"
         elif self.is_global:
-            return "global[" + str(self.simaddress.offsetvalue) + "]"
+            return "global[" + hex(self.simaddress.offsetvalue) + "]"
         elif self.is_base_location:
             return (
                 self.simaddress.base

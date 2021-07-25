@@ -198,6 +198,7 @@ class MIPSimBaseMemory(SimMemory):
         try:
             memval = SimMemory.get(self, iaddr, address, size)
         except SU.CHBSimError as e:
+            print("Error in basemem: " + str(e))
             name = (self.name
                     + '['
                     + str(address.offsetvalue)
