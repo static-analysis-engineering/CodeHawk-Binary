@@ -120,6 +120,7 @@ class MIPSBranchGTZero(MIPSBranchOpcode):
 
         if srcval.is_literal and srcval.is_defined:
             srcval = cast(SV.SimDoubleWordValue, srcval)
+            simstate.increment_program_counter()
             if srcval.is_positive:
                 simstate.increment_program_counter()
                 result = SV.simtrue

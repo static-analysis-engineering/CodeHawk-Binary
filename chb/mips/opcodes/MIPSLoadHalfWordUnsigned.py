@@ -145,6 +145,6 @@ class MIPSLoadHalfWordUnsigned(MIPSOpcode):
                 srcval = SV.simUndefinedWord
         else:
             srcval = SV.simUndefinedDW
-            lhs = simstate.set(iaddr, dstop, srcval)
+        lhs = simstate.set(iaddr, dstop, srcval)
         simstate.increment_program_counter()
         return SU.simassign(iaddr, simstate, lhs, srcval)

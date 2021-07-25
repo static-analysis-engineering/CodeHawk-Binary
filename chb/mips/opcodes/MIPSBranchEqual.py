@@ -156,8 +156,8 @@ class MIPSBranchEqual(MIPSOpcode):
 
         truetgt: SSV.SimGlobalAddress = SSV.mk_global_address(self.tgt_offset.absolute_address_value)
         falsetgt: SSV.SimGlobalAddress = simstate.programcounter.add_offset(8)
+        simstate.increment_program_counter()
         if result.is_defined:
-            simstate.increment_program_counter()
             if result.is_true:
                 simstate.set_delayed_program_counter(truetgt)
             else:

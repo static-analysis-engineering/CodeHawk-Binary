@@ -122,6 +122,11 @@ class MIPSSubtractUnsigned(MIPSOpcode):
         elif src1val.is_literal and src1val.is_defined:
             src1val = cast(SV.SimDoubleWordValue, src1val)
             result = src1val.subu(src2val)
+        elif src1val.is_stack_address and src2val.is_stack_address:
+            src1val = cast(SSV.SimStackAddress, src1val)
+            src2val = cast(SSV.SimStackAddress, src2val)
+            diff = src1val.offsetvalue - src2val.offsetvalue
+            result = SV.mk_simvalue(diff)
         else:
             result = SV.simUndefinedDW
         lhs = simstate.set(iaddr, dstop, result)
