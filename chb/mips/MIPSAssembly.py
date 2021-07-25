@@ -42,6 +42,7 @@ import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.mips.MIPSAccess import MIPSAccess
+    from chb.mips.opcodes.MIPSJumpLinkRegister import MIPSJumpLinkRegister
     from chb.mips.simulation.MIPSimulationState import MIPSimulationState
 
 
@@ -68,8 +69,28 @@ class MIPSAssemblyInstruction(AssemblyInstruction):
         return 'D' in self._stat
 
     @property
+    def is_block_entry(self) -> bool:
+        return "B" in self._stat
+
+    @property
+    def is_function_entry(self) -> bool:
+        return "F" in self._stat
+
+    @property
     def is_return_instruction(self) -> bool:
         return self.opcode.is_return_instruction
+
+    @property
+    def is_call_instruction(self) -> bool:
+        return self.opcode.mnemonic == "jalr"
+
+    @property
+    def call_operand(self) -> MIPSOperand:
+        if self.opcode.mnemonic == "jalr":
+            opc = cast("MIPSJumpLinkRegister", self.opcode)
+            return opc.tgt_operand
+        else:
+            raise UF.CHBError("Instruction is not jalr")
 
     @property
     def operand_count(self) -> int:
