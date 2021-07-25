@@ -43,7 +43,7 @@ def get_md5(fname: str) -> str:
         return md5.stdout.decode('utf-8')[:32]
     elif config.platform == "macOS":
         md5 = subprocess.run(["md5", fname], stdout=subprocess.PIPE)
-        return md5.stdout.decode("utf-8")[-32:]
+        return md5.stdout.decode("utf-8")[-33:-1]
     else:
         raise UF.CHBError("Environment not recognized: " + config.platform)
 
