@@ -117,9 +117,9 @@ class MIPSBranchLEZero(MIPSBranchOpcode):
         srcval = simstate.get_rhs(iaddr, srcop)
         truetgt = SSV.mk_global_address(tgt)
         falsetgt = simstate.programcounter.add_offset(8)
+        simstate.increment_program_counter()
         if srcval.is_literal and srcval.is_defined:
             srcval = cast(SV.SimDoubleWordValue, srcval)
-            simstate.increment_program_counter()
             if srcval.is_non_positive:
                 result = SV.simtrue
                 simstate.set_delayed_program_counter(truetgt)
@@ -132,7 +132,6 @@ class MIPSBranchLEZero(MIPSBranchOpcode):
         elif srcval.is_symbol:
             srcval = cast(SSV.SimSymbol, srcval)
             result = srcval.is_non_positive
-            simstate.increment_program_counter()
             if result.is_defined:
                 if result.is_true:
                     simstate.set_delayed_program_counter(truetgt)
