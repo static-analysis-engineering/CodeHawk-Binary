@@ -29,7 +29,7 @@
 import argparse
 import json
 
-from typing import Any, cast, Dict, NoReturn, Optional, TYPE_CHECKING
+from typing import Any, cast, Dict, List, NoReturn, Optional, Tuple, TYPE_CHECKING
 
 import chb.app.AppAccess as AP
 
@@ -52,6 +52,7 @@ if TYPE_CHECKING:
     from chb.mips.MIPSAssembly import MIPSAssembly
 
 
+
 def simulate_mips_function(
         app: "MIPSAccess",
         asm: "MIPSAssembly",
@@ -62,15 +63,11 @@ def simulate_mips_function(
         app.header.image_base,
         faddr)
     currentinstr = asm.instructions[faddr]
-    for i in range(0, 100):
+    blocktrace: List[Tuple[str, str]] = []
+    for i in range(0, 30000):
         try:
             action = currentinstr.simulate(simstate)
             print(str(i).rjust(5) + "  " + str(currentinstr).ljust(48) + str(action))
-            pc = simstate.programcounter
-            if pc.is_global_address:
-                addr = pc.to_hex()
-                if addr in asm.instructions:
-                    currentinstr = asm.instructions[addr]
         except SU.CHBSimCallTargetUnknownError as e:
             print(
                 str(i).rjust(5)
@@ -87,13 +84,61 @@ def simulate_mips_function(
                 str(i).rjust(5)
                 + "**"
                 + str(currentinstr).ljust(48)
-                + str(e.truetgt))
-            pc = cast(SSV.SimGlobalAddress, e.falsetgt)
-            if pc.is_global_address:
-                addr = pc.to_hex()
-                if addr in asm.instructions:
-                    currentinstr = asm.instructions[addr]
+                + str(e.truetgt)
+                + " ("
+                + e.msg
+                + ")")
+            if simstate.simsupport.get_branch_decision(e.iaddr, simstate):
+                simstate.set_delayed_program_counter(e.truetgt)
+            else:
+                simstate.set_delayed_program_counter(e.falsetgt)
 
+        except SU.CHBSymbolicExpression as e:
+            print(
+                "Symbolic expression: "
+                + str(e)
+                + "; "
+                + str(currentinstr).ljust(48))
+            print(str(simstate))
+            break
+
+        pc = simstate.programcounter
+        if pc.is_global_address:
+            addr = pc.to_hex()
+            if addr in asm.instructions:
+                currentinstr = asm.instructions[addr]
+                if currentinstr.is_function_entry:
+                    blocktrace.append(("F", addr))
+                elif currentinstr.is_block_entry:
+                    blocktrace.append(("B", addr))
+                elif currentinstr.is_return_instruction:
+                    blocktrace.append(("R", addr))
+                elif currentinstr.is_call_instruction:
+                    tgtop = str(simstate.get_rhs(addr, currentinstr.call_operand))
+                    if tgtop.startswith("0x"):
+                        tgtopi = int(tgtop, 16)
+                        if tgtopi in simstate.stubs:
+                            name = simstate.stubs[tgtopi][0]
+                        else:
+                            name = tgtop
+                    else:
+                        name = tgtop
+                    blocktrace.append(("C", addr + ":" + name))
+
+    for (t, a) in blocktrace:
+        if t == "F":
+            if app.has_function_name(a):
+                name = app.function_name(a)
+            else:
+                name = ""
+            print("")
+        else:
+            name = ""
+        print(t.ljust(5) + a + "  " + name)
+        if t == "R":
+            print("")
+
+    print(str(simstate))
     exit(0)
 
 
