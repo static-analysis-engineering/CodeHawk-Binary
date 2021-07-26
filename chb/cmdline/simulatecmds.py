@@ -52,7 +52,6 @@ if TYPE_CHECKING:
     from chb.mips.MIPSAssembly import MIPSAssembly
 
 
-
 def simulate_mips_function(
         app: "MIPSAccess",
         asm: "MIPSAssembly",
@@ -88,7 +87,7 @@ def simulate_mips_function(
                 + " ("
                 + e.msg
                 + ")")
-            if simstate.simsupport.get_branch_decision(e.iaddr, simstate):
+            if simstate.simsupport.branch_decision(e.iaddr, simstate):
                 simstate.set_delayed_program_counter(e.truetgt)
             else:
                 simstate.set_delayed_program_counter(e.falsetgt)

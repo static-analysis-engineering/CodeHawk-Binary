@@ -1486,7 +1486,7 @@ class MIPStub_getcwd(MIPSimStub):
         MIPSimStub.__init__(self, app, 'getcwd')
 
     def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
-        cwd = simstate.simsupport.get_cwd()
+        cwd = simstate.simsupport.cwd()
         a0 = self.get_arg_val(iaddr, simstate, 'a0')
         a1 = self.get_arg_val(iaddr, simstate, 'a1')
         if a0.is_address:
@@ -2910,7 +2910,7 @@ class MIPStub_read(MIPSimStub):
                 and a2.is_defined):
             a2 = cast(SV.SimLiteralValue, a2)
             a0 = cast(SV.SimLiteralValue, a0)
-            inputbytes = simstate.simsupport.get_read_input(
+            inputbytes = simstate.simsupport.read_input(
                 iaddr, a0.value, a1, a2.value)
             pargs = ','.join(str(a) for a in [a0, a1, a2])
             if len(inputbytes) > 0:
@@ -2994,7 +2994,7 @@ class MIPStub_recv(MIPSimStub):
             self, iaddr: str, simstate: "MIPSimulationState", size: int) -> str:
         if self.buffer is None:
             if simstate.simsupport.has_network_input(iaddr):
-                self.buffer = simstate.simsupport.get_network_input(
+                self.buffer = simstate.simsupport.network_input(
                     iaddr, simstate, size)
         if self.buffer and len(self.buffer) > 0 and len(self.buffer) <= size:
             recv = self.buffer[:]
@@ -3070,7 +3070,7 @@ class MIPStub_recvfrom(MIPSimStub):
             self, iaddr: str, simstate: "MIPSimulationState", size: int) -> str:
         if self.buffer is None:
             if simstate.simsupport.has_network_input(iaddr):
-                self.buffer = simstate.simsupport.get_network_input(
+                self.buffer = simstate.simsupport.network_input(
                     iaddr, simstate, size)
 
         self.buffer = cast(str, self.buffer)
@@ -3390,6 +3390,7 @@ class MIPSimStub_sprintf_like(MIPSimStub):
 
     def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
         return "to be overridden"
+
 
 class MIPStub_snprintf(MIPSimStub_sprintf_like):
 
