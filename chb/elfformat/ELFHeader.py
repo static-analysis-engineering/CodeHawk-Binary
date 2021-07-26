@@ -412,13 +412,25 @@ class ELFHeader:
                          + s.flags_string)
         return "\n".join(lines)
 
-    def __str__(self) -> str:
+    def fileheaderstr(self):
         d = self.as_dictionary()
         lines: List[str] = []
         for k in d["fileheader"]:
             lines.append(str(d["fileheader"][k]["heading"]).ljust(35)
                          + ": "
                          + str(d["fileheader"][k]["value"]))
+
+        if self.has_dynamic_table():
+            lines.append("\nLinked Libraries")
+            dynamictable = self.get_dynamic_table()
+            for s in dynamictable.dynamic_libraries:
+                lines.append("   " + s)
+        return "\n".join(lines)
+
+    def __str__(self) -> str:
+        d = self.as_dictionary()
+        lines: List[str] = []
+        lines.append(self.fileheaderstr())
         lines.append("\nProgram Headers")
         lines.append("-" * 80)
         for p in self.programheaders:

@@ -370,6 +370,14 @@ def parse() -> argparse.Namespace:
         "--save_section_headers",
         action="store_true",
         help="save the section headers in json format")
+    elfdatacmd.add_argument(
+        "--libs",
+        action="store_true",
+        help="only show dynamically linked libraries")
+    elfdatacmd.add_argument(
+        "--header",
+        action="store_true",
+        help="only show elf header and dynamically linked libraries")
     elfdatacmd.set_defaults(func=FF.elfdatacmd)
 
     # ----------------------------------------------------------------- results --

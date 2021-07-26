@@ -100,6 +100,8 @@ def elfdatacmd(args: argparse.Namespace) -> NoReturn:
     # arguments
     xname: str = args.xname
     savesectionheaders: str = args.save_section_headers
+    showlibs: bool = args.libs
+    showheader: bool = args.header
 
     try:
         (path, xfile) = UC.get_path_filename(xname)
@@ -116,12 +118,21 @@ def elfdatacmd(args: argparse.Namespace) -> NoReturn:
         exit(1)
 
     app = UC.get_app(path, xfile, xinfo)
-    # app = AP.AppAccess(
-    #    path, xfile, fileformat=xinfo.format, arch=xinfo.architecture)
     elfheader = app.header
 
     try:
-        print(str(elfheader))
+        if showheader:
+            print(elfheader.fileheaderstr())
+        elif showlibs:
+            if elfheader.has_dynamic_table():
+                for s in elfheader.get_dynamic_table().dynamic_libraries:
+                    print("  " + s)
+            else:
+                print("=")
+                print("Binary does not have a dynamic table")
+                print("=")
+        else:
+            print(str(elfheader))
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
