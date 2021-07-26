@@ -31,7 +31,7 @@ from typing import (
 
 from chb.mips.MIPSOperand import MIPSOperand
 
-from chb.mips.simulation.BaseMIPSimSupport import BaseMIPSimSupport
+from chb.mips.simulation.MIPSimSupport import MIPSimSupport
 from chb.mips.simulation.MIPSimLocation import (
     MIPSimMemoryLocation, MIPSimRegister)
 
@@ -176,7 +176,7 @@ class MIPSimulationState(SimulationState):
                  startaddr: str,     # address to start simulation (hex)
                  bigendian: bool = False,
                  # support class with custom initialization and stubs
-                 simsupport: BaseMIPSimSupport = BaseMIPSimSupport('0x0'),
+                 simsupport: MIPSimSupport = MIPSimSupport('0x0'),
                  baseaddress: int = 0,  # load address, to be added to imagebase
                  # library to statically include functions from
                  libapp: Optional["MIPSAccess"] = None,
@@ -887,7 +887,7 @@ class MIPSimulationState(SimulationState):
         # obtain dynamically linked library functions
         customstubs = self.simsupport.get_lib_stubs()
         librarystubs = self.app.functionsdata.library_stubs()  # hexaddr -> name
-        librarystubs.update(self.simsupport.get_supplemental_library_stubs())
+        librarystubs.update(self.simsupport.supplemental_library_stubs())
         for addr in librarystubs:
             name = librarystubs[addr]
             if name in customstubs:
@@ -909,7 +909,7 @@ class MIPSimulationState(SimulationState):
             self.appstubs[int(addr, 16)] = (name, stub)
 
         # set environment variables
-        env = self.simsupport.get_environment()
+        env = self.simsupport.environment_variables
         for key in env:
             self.environment[key] = env[key]
 

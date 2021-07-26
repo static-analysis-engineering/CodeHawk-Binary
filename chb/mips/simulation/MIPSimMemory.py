@@ -72,7 +72,7 @@ class MIPSimGlobalMemory(SimMemory):
     @property
     def patched_globals(self) -> Mapping[str, str]:
         if len(self._patched_globals) == 0:
-            self._patched_globals = self.simstate.simsupport.get_patched_globals()
+            self._patched_globals = self.simstate.simsupport.patched_globals
         return self._patched_globals
 
     @property
