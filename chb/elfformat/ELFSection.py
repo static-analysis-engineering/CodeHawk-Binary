@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 import xml.etree.ElementTree as ET
 
-from typing import Any, Dict, List, TYPE_CHECKING, Union
+from typing import Any, cast, Dict, List, TYPE_CHECKING, Union
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -507,6 +507,18 @@ class ELFDynamicTable(ELFSection):
                 for r in xtable.findall("n"):
                     self._entries.append(ELFDynamicEntry(self, r))
         return self._entries
+
+    @property
+    def dynamic_libraries(self) -> List[str]:
+        """List of dynamically linked libraries."""
+
+        result: List[str] = []
+        stringtable = cast(ELFStringTable, self.get_linked_stringtable())
+        for e in self.entries:
+            if e.tag_name == "DT_NEEDED":
+                strpos = int(e.value)
+                result.append(stringtable.get_string(strpos))
+        return result
 
     def as_dictionary(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {}
