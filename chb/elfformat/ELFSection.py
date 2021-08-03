@@ -265,6 +265,10 @@ class ELFSymbol:
         self.args = rep[2]
 
     @property
+    def value(self) -> str:
+        return self.tags[1]
+
+    @property
     def st_name(self) -> str:
         return self.dictionary.get_string(int(self.args[0]))
 
@@ -289,6 +293,13 @@ class ELFSymbol:
     @property
     def st_size(self) -> int:
         return int(self.tags[2], 16)
+
+    @property
+    def is_exported(self) -> bool:
+        return (
+            self.section_index > 0
+            and self.st_type == "FUNC"
+            and self.st_bind == "GLOBAL")
 
     def as_dictionary(self) -> Dict[str, Union[str, int]]:
         result: Dict[str, Union[str, int]] = {}
@@ -357,7 +368,7 @@ class ELFRelocationEntry:
           1: r_info  (hex-string)
           2: symbol-value (hex-string)
     args: 0: type (r_info & 255)
-          1: name (string-index)
+          1: name (string-index)   (optional, sometimes missing)
     """
 
     def __init__(
@@ -379,9 +390,16 @@ class ELFRelocationEntry:
     def dictionary(self) -> "chb.elfformat.ELFDictionary.ELFDictionary":
         return self.relocationtable.elfheader.dictionary
 
+    def has_symbol_name(self) -> bool:
+        return len(self.args) > 1
+
     @property
     def symbol_name(self) -> str:
-        return self.dictionary.get_string(self.args[1])
+        if len(self.args) > 1:
+            return self.dictionary.get_string(self.args[1])
+        else:
+            raise UF.CHBError(
+                "Relocation entry does not have an associated symbol name")
 
     @property
     def symbol_type(self) -> int:
@@ -397,12 +415,15 @@ class ELFRelocationEntry:
 
     def as_dictionary(self) -> Dict[str, str]:
         result: Dict[str, str] = {}
-        result['symbolname'] = self.symbol_name
+        result['symbolname'] = self.symbol_name if self.has_symbol_name() else "?"
         result['offset'] = self.r_offset
         return result
 
     def __str__(self) -> str:
-        return (self.r_offset + ': ' + self.symbol_name)
+        if self.has_symbol_name():
+            return (self.r_offset + ": " + self.symbol_name)
+        else:
+            return self.r_offset + ": _"
 
 
 class ELFRelocationTable(ELFSection):
