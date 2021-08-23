@@ -38,14 +38,14 @@ import chb.simulation.SimUtil as SU
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 class MIPSimStackMemory(SimMemory):
 
     def __init__(
             self,
-            simstate: "MIPSimulationState",
+            simstate: "SimulationState",
             initialized: bool = False) -> None:
         SimMemory.__init__(self, simstate, initialized, "stack")
 
@@ -57,7 +57,7 @@ class MIPSimGlobalMemory(SimMemory):
 
     def __init__(
             self,
-            simstate: "MIPSimulationState",
+            simstate: "SimulationState",
             elfheader: ELFHeader,
             initialized: bool = False):
         SimMemory.__init__(self, simstate, initialized, "global")
@@ -76,8 +76,8 @@ class MIPSimGlobalMemory(SimMemory):
         return self._patched_globals
 
     @property
-    def simstate(self) -> "MIPSimulationState":
-        return cast("MIPSimulationState", self._simstate)
+    def simstate(self) -> "SimulationState":
+        return self._simstate
 
     def accesses(self) -> Mapping[str, List[str]]:
         return self._accesses
@@ -155,6 +155,7 @@ class MIPSimGlobalMemory(SimMemory):
             raise UF.CHBError("Address is not defined: " + str(address))
 
 
+'''
 class MIPSimBaseMemory(SimMemory):
 
     def __init__(
@@ -209,3 +210,4 @@ class MIPSimBaseMemory(SimMemory):
             return SSV.SimSymbol(name)
         else:
             return memval
+'''
