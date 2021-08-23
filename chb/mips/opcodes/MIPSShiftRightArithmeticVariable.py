@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("srav", MIPSOpcode)
@@ -106,23 +106,33 @@ class MIPSShiftRightArithmeticVariable(MIPSOpcode):
     #   temp <- (GPR[rt][31])^s || GPR[rt][31..6]
     #   GPR[rd] <- temp
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if (
-                src1val.is_literal
-                and src1val.is_defined
-                and src2val.is_literal
-                and src2val.is_defined):
-            src1val = cast(SV.SimDoubleWordValue, src1val)
-            src2val = cast(SV.SimLiteralValue, src2val)
-            result = src1val.bitwise_sra(src2val.value % 32)
-            lhs = simstate.set(iaddr, dstop, result)
-            simstate.increment_program_counter()
-            return SU.simassign(
-                iaddr, simstate, lhs, result, str(src1val) + ' >> ' + str(src2val))
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+        expr = str(src1val) + " >> " + str(src2val)
+
+        result: SV.SimValue = SV.simUndefinedDW
+
+        if src1val.is_undefined or src2val.is_undefined:
+            simstate.add_logmsg(
+                "warning",
+                "srav: some operand is undefined: " + expr)
+
+        elif src1val.is_symbol or src2val.is_symbol:
+            raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
+
+        elif src1val.is_literal and src2val.is_literal:
+            v1 = cast(SV.SimDoubleWordValue, SV.mk_simvalue(src1val.literal_value))
+            result = v1.bitwise_sra(src2val.literal_value % 32)
+
         else:
-            raise SU.CHBSimValueUndefinedError('Value undefined: ' + str(src2val))
+            simstate.add_logmsg(
+                "warning",
+                "srav: some operand not recognized: " + expr)
+
+        lhs = simstate.set(iaddr, dstop, result)
+        simstate.increment_programcounter()
+        return SU.simassign(iaddr, simstate, lhs, result, expr)

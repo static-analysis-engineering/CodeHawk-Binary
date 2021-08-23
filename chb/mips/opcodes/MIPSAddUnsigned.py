@@ -46,7 +46,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("addu", MIPSOpcode)
@@ -101,48 +101,66 @@ class MIPSAddUnsigned(MIPSOpcode):
     #   temp <- GPR[rs] + GPR[rt]
     #   GPR[rd] <- temp
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if src2val.is_symbol:
-            src2val = cast(SSV.SimSymbol, src2val)
-            result: SV.SimValue = SSV.mk_symbol(
-                src2val.name + ':add ' + str(src1val))
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+
+        def do_assign(result: SV.SimValue) -> str:
+            lhs = simstate.set(iaddr, dstop, result)
+            simstate.increment_programcounter()
+            return SU.simassign(
+                iaddr,
+                simstate,
+                lhs,
+                result,
+                ('val('
+                 + str(src1op)
+                 + ') = '
+                 + str(src1val)
+                 + ', val('
+                 + str(src2op)
+                 + ') = '
+                 + str(src2val)))
+
+        if src1val.is_undefined or src2val.is_undefined:
+            return do_assign(SV.simUndefinedDW)
 
         elif src1val.is_symbol or src2val.is_symbol:
             expr = str(src1val) + ' + ' + str(src2val)
             raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
 
-        elif src2val.is_address and src1val.is_literal and src1val.is_defined:
-            src1val = cast(SV.SimLiteralValue, src1val)
-            src2val = cast(SSV.SimAddress, src2val)
-            result = src2val.add_offset(src1val.value)
+        # two global addresses, one of which is spurious
+        elif (src1val.is_address
+              and src2val.is_address
+              and src1val.is_literal
+              and src2val.is_literal):
+            if src1val.literal_value > src2val.literal_value:
+                src1addr = cast(SSV.SimAddress, src1val)
+                result = cast(
+                    SV.SimValue, src1addr.add_offset(src2val.literal_value))
+            else:
+                src2addr = cast(SSV.SimAddress, src2val)
+                result = src2addr.add_offset(src1val.literal_value)
+            return do_assign(result)
 
-        elif src1val.is_address and src2val.is_literal and src2val.is_defined:
+        elif src2val.is_address and src1val.is_literal:
+            src2addr = cast(SSV.SimAddress, src2val)
+            result = src2addr.add_offset(src1val.literal_value)
+            return do_assign(result)
+
+        elif src1val.is_address and src2val.is_literal:
             src1addr = cast(SSV.SimAddress, src1val)
-            src2lit = cast(SV.SimLiteralValue, src2val)
-            result = src1addr.add_offset(src2lit.value)
+            result = src1addr.add_offset(src2val.literal_value)
+            return do_assign(result)
 
-        elif src1val.is_literal and src1val.is_defined:
-            src1val = cast(SV.SimLiteralValue, src1val)
-            result = src1val.add(src2val)
+        elif src1val.is_literal and src2val.is_literal:
+            v1 = src1val.literal_value
+            v2 = src2val.literal_value
+            result = cast(SV.SimValue, SV.mk_simvalue(v1 + v2))
+            return do_assign(result)
+
         else:
-            result = SV.simUndefinedDW
-        lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
-        return SU.simassign(
-            iaddr,
-            simstate,
-            lhs,
-            result,
-            ('val('
-             + str(src1op)
-             + ') = '
-             + str(src1val)
-             + ', val('
-             + str(src2op)
-             + ') = '
-             + str(src2val)))
+            return do_assign(SV.simUndefinedDW)

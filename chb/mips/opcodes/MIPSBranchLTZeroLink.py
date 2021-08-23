@@ -48,7 +48,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("bltzal", MIPSOpcode)
@@ -112,28 +112,44 @@ class MIPSBranchLTZeroLink(MIPSBranchOpcode):
     #           PC <- PC + target_offset
     #        endif
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         srcop = self.src_operand
         tgtop = self.target
-        srcval = simstate.get_rhs(iaddr, srcop)
-        truetgt = SSV.mk_global_address(tgtop.absolute_address_value)
+        srcval = simstate.rhs(iaddr, srcop)
+        truetgt = simstate.resolve_literal_address(iaddr, tgtop.absolute_address_value)
         falsetgt = simstate.programcounter.add_offset(8)
-        simstate.registers['ra'] = SSV.mk_global_address(int(iaddr, 16) + 8)
-        if srcval.is_literal and srcval.is_defined:
-            srcval = cast(SV.SimDoubleWordValue, srcval)
-            simstate.increment_program_counter()
-            if srcval.is_negative:
+        simstate.increment_programcounter()
+        expr = str(srcval) + " < 0"
+
+        simstate.registers["ra"] = falsetgt
+
+        if truetgt.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "bltzal: target address for function call cannot be resolved: "
+                + str(self.target))
+
+        if srcval.is_undefined:
+            result = SV.simUndefinedBool
+
+        elif srcval.is_literal:
+            v = SV.mk_simvalue(srcval.literal_value)
+            if v.to_signed_int() < 0:
                 result = SV.simtrue
-                simstate.set_delayed_program_counter(truetgt)
             else:
                 result = SV.simfalse
-                simstate.set_delayed_program_counter(falsetgt)
-            expr = str(srcval) + ' < 0'
-            return SU.simbranch(iaddr, simstate, truetgt, falsetgt, expr, result)
 
-        raise SU.CHBSimBranchUnknownError(
-            simstate,
-            iaddr,
-            truetgt,
-            falsetgt,
-            'branch less than zero condition: ' + str(srcval) + ' < 0')
+        else:
+            result = SV.simUndefinedBool
+
+        if result.is_defined:
+            if result.is_true:
+                simstate.simprogramcounter.set_delayed_programcounter(truetgt)
+            else:
+                simstate.simprogramcounter.set_delayed_programcounter(falsetgt)
+            return SU.simbranchcall(iaddr, simstate, truetgt, falsetgt, expr, result)
+
+        else:
+            raise SU.CHBSimBranchUnknownError(
+                simstate, iaddr, truetgt, falsetgt, "bltzal: " + expr)

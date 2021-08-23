@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("sltu", MIPSOpcode)
@@ -108,35 +108,52 @@ class MIPSSetLTUnsigned(MIPSOpcode):
     #     GPR[rd] <- 0[GPRLEN]
     #   endif
     # ---------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if src1val.is_symbol or src2val.is_symbol:
-            raise SU.CHBSymbolicExpression(
-                simstate, iaddr, dstop, str(src1val) + ' < ' + str(src2val))
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+        expr = str(src1val) + " < " + str(src2val)
+
+        if src1val.is_undefined or src2val.is_undefined:
+            result = cast(SV.SimValue, SV.simUndefinedDW)
+            simstate.add_logmsg(
+                "warning",
+                "sltu: operand is not defined: " + expr)
+
+        elif src1val.is_literal and src2val.is_literal:
+            if src1val.literal_value < src2val.literal_value:
+                result = SV.simOne
+            else:
+                result = SV.simZero
+
         elif src1val.is_address and src2val.is_address:
-            src1val = cast(SSV.SimAddress, src1val)
-            src2val = cast(SSV.SimAddress, src2val)
-            if src1val.offsetvalue < src2val.offsetvalue:
-                result = SV.simOne
+            src1addr = cast(SSV.SimAddress, src1val)
+            src2addr = cast(SSV.SimAddress, src2val)
+            if src1addr.base == src2addr.base:
+                if src1addr.offsetvalue < src2addr.offsetvalue:
+                    result = SV.simOne
+                else:
+                    result = SV.simZero
             else:
-                result = SV.simZero
-        elif (src1val.is_defined
-              and src1val.is_literal
-              and src2val.is_defined
-              and src2val.is_literal):
-            src1val = cast(SV.SimLiteralValue, src1val)
-            src2val = cast(SV.SimLiteralValue, src2val)
-            if src1val.value < src2val.value:
-                result = SV.simOne
-            else:
-                result = SV.simZero
+                raise SU.CHBSimError(
+                    simstate,
+                    iaddr,
+                    "Illegal address comparison with different bases: "
+                    + src1addr.base
+                    + " and "
+                    + src2addr.base)
+
+        elif src1val.is_symbol or src2val.is_symbol:
+            raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
+
         else:
             result = SV.simUndefinedDW
+            simstate.add_logmsg(
+                "warning",
+                "sltu: some operand not recognized: " + expr)
+
         lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
-        return SU.simassign(
-            iaddr, simstate, lhs, result, str(src1val) + ' < ' + str(src2val))
+        simstate.increment_programcounter()
+        return SU.simassign(iaddr, simstate, lhs, result, expr)

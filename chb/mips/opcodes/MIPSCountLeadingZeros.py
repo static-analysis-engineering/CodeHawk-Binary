@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("clz", MIPSOpcode)
@@ -101,15 +101,14 @@ class MIPSCountLeadingZeros(MIPSOpcode):
     #   endfor
     #   GPR[rd] <- temp
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         srcop = self.src_operand
         dstop = self.dst_operand
-        srcval = simstate.get_rhs(iaddr, srcop)
+        srcval = simstate.rhs(iaddr, srcop)
         if srcval.is_literal:
-            srcval = cast(SV.SimLiteralValue, srcval)
-            result = srcval.leading_zeroes
+            result = SV.mk_simvalue(srcval.literal_value).leading_zeroes
         else:
             result = SV.simUndefinedDW
         lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
+        simstate.increment_programcounter()
         return SU.simassign(iaddr, simstate, lhs, result)

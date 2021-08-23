@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("slti", MIPSOpcode)
@@ -108,24 +108,33 @@ class MIPSSetLTImmediate(MIPSOpcode):
     #       GPR[rd] <- 0
     #    endif
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         srcop = self.src_operand
         immop = self.imm_operand
         dstop = self.dst_operand
-        srcval = simstate.get_rhs(iaddr, srcop)
+        srcval = simstate.rhs(iaddr, srcop)
         immval = immop.opkind.value
-        if srcval.is_symbol:
-            conditional = str(srcval) + ' < ' + str(immval)
-            raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, conditional)
-        if srcval.is_defined and srcval.is_literal:
-            srcval = cast(SV.SimLiteralValue, srcval)
-            if srcval.to_signed_int() < immval:
+        expr = str(srcval) + " < " + str(immval)
+
+        if srcval.is_undefined:
+            result = SV.simUndefinedDW
+            simstate.add_logmsg(
+                "warning",
+                "slti: operand not defined: " + str(srcop))
+
+        elif srcval.is_literal:
+            v = SV.mk_simvalue(srcval.literal_value)
+            if v.to_signed_int() < immval:
                 result = SV.simOne
             else:
                 result = SV.simZero
+
+        elif srcval.is_symbol:
+            raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
+
         else:
             result = SV.simUndefinedDW
+
         lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
-        return SU.simassign(
-            iaddr, simstate, lhs, result, str(srcval) + ' < ' + str(immval))
+        simstate.increment_programcounter()
+        return SU.simassign(iaddr, simstate, lhs, result, expr)

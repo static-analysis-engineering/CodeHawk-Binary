@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("mult", MIPSOpcode)
@@ -113,34 +113,47 @@ class MIPSMultiplyWord(MIPSOpcode):
     #    lo <- prod[31..0]
     #    hi <- prod[63..32]
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
-        dsthi = self.dsthi_operand
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstlo = self.dstlo_operand
+        dsthi = self.dsthi_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if (
-                src1val.is_defined
-                and src1val.is_literal
-                and src2val.is_defined
-                and src2val.is_literal):
-            src1val = cast(SV.SimLiteralValue, src1val)
-            src2val = cast(SV.SimLiteralValue, src2val)
-            p = src1val.value * src2val.value
-            loval = p % (SU.max32 + 1)
-            hival = p >> 32
-            lhslo = simstate.set(iaddr, dstlo, SV.mk_simvalue(loval))
-            lhshi = simstate.set(iaddr, dsthi, SV.mk_simvalue(hival))
-            simstate.increment_program_counter()
-            return SU.simassign(
-                iaddr,
-                simstate,
-                lhslo,
-                SV.mk_simvalue(loval),
-                intermediates=str(lhshi) + ' := ' + str(hival))
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+        expr = str(src1val) + " * " + str(src2val)
+
+        if src1val.is_undefined or src2val.is_undefined:
+            loval = cast(SV.SimValue, SV.simUndefinedDW)
+            hival = cast(SV.SimValue, SV.simUndefinedDW)
+            simstate.add_logmsg(
+                "warning",
+                "mult: some operand is undefined: " + expr)
+
+        elif src1val.is_symbol or src2val.is_symbol:
+            raise SU.CHBSymbolicExpression(simstate, iaddr, dstlo, expr)
+
+        elif src1val.is_literal and src2val.is_literal:
+            v1 = SV.mk_simvalue(src1val.literal_value).to_signed_int()
+            v2 = SV.mk_simvalue(src2val.literal_value).to_signed_int()
+            p = v1 * v2
+            if p < 0:
+                p = p + SU.max64 + 1
+            loval = SV.mk_simvalue(p % (SU.max32 + 1))
+            hival = SV.mk_simvalue(p >> 32)
+
         else:
-            lhslo = simstate.set(iaddr, dstlo, SV.simUndefinedDW)
-            lhshi = simstate.set(iaddr, dsthi, SV.simUndefinedDW)
-            simstate.increment_program_counter()
-            return SU.simassign(iaddr, simstate, lhslo, SV.simUndefinedDW)
+            loval = SV.simUndefinedDW
+            hival = SV.simUndefinedDW
+            simstate.add_logmsg(
+                "warning",
+                "mult: some operand is not a literal: " + expr)
+
+        lhslo = simstate.set(iaddr, dstlo, loval)
+        lhshi = simstate.set(iaddr, dsthi, hival)
+        simstate.increment_programcounter()
+        return SU.simassign(
+            iaddr,
+            simstate,
+            lhslo,
+            loval,
+            intermediates=str(lhshi) + ' := ' + str(hival))

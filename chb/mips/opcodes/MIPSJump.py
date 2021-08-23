@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("j", MIPSOpcode)
@@ -82,9 +82,9 @@ class MIPSJump(MIPSOpcode):
     #   I:
     #   I+1: PC <- PC[GPRLEN-1..28] || instr_index || 00
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         tgtoffset = self.target.opkind.address.get_int()
-        tgt = SSV.SimGlobalAddress(SV.SimDoubleWordValue(tgtoffset))
-        simstate.increment_program_counter()
-        simstate.set_delayed_program_counter(tgt)
+        tgt = simstate.resolve_literal_address(iaddr, tgtoffset)
+        simstate.increment_programcounter()
+        simstate.simprogramcounter.set_delayed_programcounter(tgt)
         return "jump " + str(tgt)

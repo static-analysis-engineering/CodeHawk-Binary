@@ -49,7 +49,7 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("jr", MIPSOpcode)
@@ -140,29 +140,53 @@ class MIPSJumpRegister(MIPSOpcode):
     #            PC <- temp[GPRLEN-1..1] || 0
     #         endif
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
-        srcval = simstate.get_rhs(iaddr, self.src_operand)
-        simstate.increment_program_counter()
-        if srcval.is_symbolic:
-            addr = cast(SSV.SimSymbolicValue, srcval)
-            simstate.set_delayed_program_counter(addr)
-            if str(addr).endswith("ra_in"):
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        srcval = simstate.rhs(iaddr, self.src_operand)
+        simstate.increment_programcounter()
+
+        if srcval.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "jr: jump target is undefined: " + str(srcval))
+
+        elif srcval.is_symbolic_return_address:
+            if str(srcval).endswith("ra_in"):
+                simstate.trace.add_delayed("\n")
+                print("------------ return; set function to " + simstate.function_address)
                 return "return"
             else:
-                return "goto " + str(addr)
+                raise SU.CHBSimError(
+                    simstate,
+                    iaddr,
+                    "jr: internal error: symbolic return address: " + str(srcval))
 
-        elif srcval.is_literal and srcval.is_defined:
-            srcval = cast(SV.SimLiteralValue, srcval)
-            if srcval.value > simstate.imagebase.offsetvalue:
-                gaddr = SSV.mk_global_address(srcval.value)
-                simstate.set_delayed_program_counter(gaddr)
+        elif srcval.is_function_return_address:
+            addr = cast(SSV.SimReturnAddress, srcval)
+            simstate.simprogramcounter.set_delayed_programcounter(addr)
+            simstate.trace.add_delayed("\n")
+            simstate.set_function_address(addr.functionaddr)
+            return "return to " + addr.functionaddr
+
+        elif srcval.is_global_address:
+            gaddr = cast(SSV.SimGlobalAddress, srcval)
+            simstate.simprogramcounter.set_delayed_programcounter(gaddr)
+            simstate.trace.add_delayed("\n")
+            simstate.set_function_address(hex(gaddr.offsetvalue))
+            return "goto " + str(gaddr)
+
+        elif srcval.is_literal:
+            gaddr = simstate.resolve_literal_address(iaddr, srcval.literal_value)
+            if gaddr.is_defined:
+                simstate.simprogramcounter.set_delayed_programcounter(gaddr)
+                return "goto " + str(gaddr)
             else:
-                gaddr = SSV.mk_global_address(srcval.value)
-                simstate.add_logmsg(iaddr, 'Low instruction address: ' + str(gaddr))
-                simstate.set_delayed_program_counter(gaddr)
+                raise SU.CHBSimError(
+                    simstate,
+                    iaddr,
+                    "jr: target address cannot be resolved: " + str(srcval))
         else:
-            raise SU.CHBSimJumpTargetUnknownError(simstate, iaddr, srcval, '')
-        if str(gaddr).endswith('ra_in'):
-            return 'return'
-        else:
-            return 'goto ' + str(gaddr)
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "jr: illegal target address: " + str(srcval))

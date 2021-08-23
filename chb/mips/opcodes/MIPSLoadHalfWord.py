@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("lh", MIPSOpcode)
@@ -105,41 +105,47 @@ class MIPSLoadHalfWord(MIPSOpcode):
     #   byte <- vAddr[1..0] xor (BigEndianCPU || 0)
     #   GPR[rt] <- sign_extend(memword[15+8*byte..8*byte])
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
-        srcval = simstate.get_rhs(iaddr, srcop, opsize=2)
-        if srcval.is_literal:
-            srcval = cast(SV.SimLiteralValue, srcval)
-            if srcval.is_defined:
-                srcval = srcval.sign_extend(4)
-            else:
-                srcval = SV.simUndefinedWord
+        srcval = simstate.rhs(iaddr, srcop, opsize=2)
+
+        if srcval.is_undefined:
+            result = cast(SV.SimValue, SV.simUndefinedWord)
+            simstate.add_logmsg(
+                "warning",
+                "lh: undefined value at " + iaddr + " from address " + str(srcop))
+
+        elif srcval.is_literal:
+            result = cast(SV.SimLiteralValue, srcval).sign_extend(4)
+
         elif srcval.is_symbolic:
             srcval = cast(SSV.SimSymbolicValue, srcval)
             if srcval.is_libc_table_value_deref:
                 srcval = cast(SSV.SimLibcTableValueDeref, srcval)
                 if srcval.name == 'ctype_toupper':
-                    srcvalresult = srcval.toupper_result()
+                    result = srcval.toupper_result()
                     simstate.add_logmsg(
                         'ctype_toupper: ',
-                        str(srcval) + ' (' + str(chr(srcvalresult.value)) + ')')
+                        str(srcval) + ' (' + str(chr(result.value)) + ')')
                 elif srcval.name == "ctype_b":
-                    srcvalresult = srcval.b_result()
+                    result = srcval.b_result()
                     simstate.add_logmsg(
                         'ctype_b: ',
-                        str(srcval) + ' (' + str(chr(srcvalresult.value)) + ')')
+                        str(srcval) + ' (' + str(chr(result.value)) + ')')
                 else:
-                    srcval = SV.simUndefinedWord
+                    result = SV.simUndefinedWord
             else:
-                srcval = SV.simUndefinedWord
+                result = SV.simUndefinedWord
         else:
-            srcval = SV.simUndefinedWord
+            result = SV.simUndefinedWord
+
         try:
             intermediates = (
-                'val(' + str(simstate.get_lhs(iaddr, srcop)) + ') = ' + str(srcval))
+                'val(' + str(simstate.lhs(iaddr, srcop)) + ') = ' + str(result))
         except Exception:
             intermediates = ''
-        lhs = simstate.set(iaddr, dstop, srcval)
-        simstate.increment_program_counter()
-        return SU.simassign(iaddr, simstate, lhs, srcval, intermediates)
+
+        lhs = simstate.set(iaddr, dstop, result)
+        simstate.increment_programcounter()
+        return SU.simassign(iaddr, simstate, lhs, result, intermediates)

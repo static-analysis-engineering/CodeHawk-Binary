@@ -36,6 +36,7 @@ from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
 from chb.mips.MIPSOperand import MIPSOperand
 
+import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
 import chb.simulation.SimValue as SV
 
@@ -45,7 +46,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("and", MIPSOpcode)
@@ -102,21 +103,43 @@ class MIPSAnd(MIPSOpcode):
     # Operation:
     #   GPR[rd] <- GPR[rs] and GPR[rt]
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if src1val.is_symbolic or src2val.is_symbolic:
-            expr = str(src1val) + ' +&' + str(src2val)
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+
+        if src1val.is_undefined or src2val.is_undefined:
+            result = cast(SV.SimValue, SV.simUndefinedDW)
+
+        # address alignment
+        elif (src1val.is_address
+              and src2val.is_literal
+              and hex(src2val.literal_value).startswith("0xffffff")):
+            src1val = cast(SSV.SimAddress, src1val)
+            result = src1val.align(src2val.literal_value)
+
+        elif (src2val.is_address
+              and src1val.is_literal
+              and hex(src1val.literal_value).startswith("0xffffff")):
+            src2val = cast(SSV.SimAddress, src2val)
+            result = src2val.align(src1val.literal_value)
+
+        elif src1val.is_literal and src2val.is_literal:
+            v1 = SV.mk_simvalue(src1val.literal_value)
+            v2 = SV.mk_simvalue(src2val.literal_value)
+            result = v1.bitwise_and(v2)
+
+        elif src1val.is_symbol or src2val.is_symbol:
+            expr = str(src1val) + " =&" + str(src2val)
             raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
+
         else:
-            src1val = cast(SV.SimDoubleWordValue, src1val)
-            src2val = cast(SV.SimDoubleWordValue, src2val)
-            result = src1val.bitwise_and(src2val)
+            result = SV.simUndefinedDW
+
         lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
+        simstate.increment_programcounter()
         return SU.simassign(
             iaddr,
             simstate,

@@ -48,7 +48,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("addiu", MIPSOpcode)
@@ -120,20 +120,36 @@ class MIPSAddImmediateUnsigned(MIPSOpcode):
     #   temp <- GPR[rs] + sign_extend(immediate)
     #   GPR[rt] <- temp
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
-        srcval = simstate.get_rhs(iaddr, srcop)
+        srcval = simstate.rhs(iaddr, srcop)
         immval = self.imm_operand.to_signed_int()
         imm = SV.mk_simvalue(immval)
+
+        def do_assign(result: SV.SimValue) -> str:
+            lhs = simstate.set(iaddr, dstop, result)
+            simstate.increment_programcounter()
+            return SU.simassign(
+                iaddr,
+                simstate,
+                lhs,
+                result,
+                "val(" + str(srcop) + ") = " + str(srcval))
+
+        if srcval.is_undefined:
+            return do_assign(SV.simUndefinedDW)
+
         if srcval.is_symbol:
-            srcval = cast(SSV.SimSymbol, srcval)
             expr = str(srcval) + ' + ' + str(immval)
-            result: SV.SimValue = SSV.mk_symbol(srcval.name + ': add ' + str(immval))
+            raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
 
         elif srcval.is_address:
             srcval = cast(SSV.SimAddress, srcval)
-            result = srcval.add_offset(immval)
+            return do_assign(srcval.add_offset(immval))
+
+        elif srcval.is_literal:
+            return do_assign(SV.mk_simvalue(srcval.literal_value + immval))
 
         elif srcval.is_string_address:
             srcval = cast(SSV.SimStringAddress, srcval)
@@ -141,16 +157,7 @@ class MIPSAddImmediateUnsigned(MIPSOpcode):
                 result = SSV.mk_string_address('')
             else:
                 result = SSV.mk_string_address(srcval.stringval[immval:])
-        elif srcval.is_literal:
-            srcval = cast(SV.SimLiteralValue, srcval)
-            result = srcval.add(imm)
+            return do_assign(result)
+
         else:
-            result = SV.simUndefinedDW
-        lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
-        return SU.simassign(
-            iaddr,
-            simstate,
-            lhs,
-            result,
-            'val(' + str(srcop) + ') = ' + str(srcval))
+            return do_assign(SV.simUndefinedDW)

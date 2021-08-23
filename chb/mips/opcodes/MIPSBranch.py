@@ -46,7 +46,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("b", MIPSOpcode)
@@ -71,8 +71,9 @@ class MIPSBranch(MIPSOpcode):
     #   I:   target_offset <- sign_extend(offset || 0[2])
     #   I+1: PC <- PC + target_offset
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
-        tgt = SSV.mk_global_address(self.target.absolute_address_value)
-        simstate.increment_program_counter()
-        simstate.set_delayed_program_counter(tgt)
-        return 'goto ' + str(tgt)
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        tgt = SSV.mk_global_address(
+            self.target.absolute_address_value, modulename=simstate.modulename)
+        simstate.increment_programcounter()
+        simstate.simprogramcounter.set_delayed_programcounter(tgt)
+        return "goto " + str(tgt)

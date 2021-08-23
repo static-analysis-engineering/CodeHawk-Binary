@@ -49,7 +49,7 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("jalr", MIPSOpcode)
@@ -119,42 +119,47 @@ class MIPSJumpLinkRegister(MIPSOpcode):
     #            ISAMode <- temp[0]
     #        endif
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         tgtop = self.tgt_operand
-        tgtval = simstate.get_rhs(iaddr, tgtop)
-        simstate.increment_program_counter()
-        returnaddr = int(iaddr, 16) + 8 + simstate.baseaddress
-        simra = SSV.mk_global_address(returnaddr)
+        tgtval = simstate.rhs(iaddr, tgtop)
+        simra = SSV.pc_to_return_address(
+            simstate.programcounter.add_offset(8), simstate.function_address)
+        simstate.increment_programcounter()
         simstate.registers['ra'] = simra
-        if tgtval.is_literal and tgtval.is_defined:
-            tgtval = cast(SV.SimLiteralValue, tgtval)
-            tgtaddr = SSV.mk_global_address(tgtval.value)
-            simstate.set_delayed_program_counter(tgtaddr)
-            return SU.simcall(iaddr, simstate, tgtaddr, simra)
 
-        elif tgtval.is_address:
+        if tgtval.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "jalr: target address is undefined: " + str(tgtop))
+
+        if tgtval.is_address:
             tgtval = cast(SSV.SimAddress, tgtval)
             if tgtval.is_global_address:
-                tgtval = cast(SSV.SimGlobalAddress, tgtval)
-                simstate.set_delayed_program_counter(tgtval)
-                return SU.simcall(iaddr, simstate, tgtval, simra)
+                tgtaddr = cast(SSV.SimGlobalAddress, tgtval)
             else:
                 raise SU.CHBSimError(
                     simstate,
                     iaddr,
                     "target address is not global: " + str(tgtval))
 
-        elif tgtval.is_symbolic:
-            tgtval = cast(SSV.SimSymbolicValue, tgtval)
-            if tgtval.is_dynamic_link_symbol:
-                simstate.set_delayed_program_counter(tgtval)
-                return SU.simcall(iaddr, simstate, tgtval, simra)
-            else:
+        # check if literal could be an address
+        elif tgtval.is_literal:
+            tgtaddr = simstate.resolve_literal_address(iaddr, tgtval.literal_value)
+            if tgtaddr.is_undefined:
                 raise SU.CHBSimError(
                     simstate,
                     iaddr,
-                    ("symbolic target address not recognized: "
-                     + str(tgtval)))
+                    "jalr: target address cannot be resolved: " + str(tgtval))
+
+        elif tgtval.is_symbolic:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                ("symbolic target address not recognized: " + str(tgtval)))
         else:
             raise SU.CHBSimCallTargetUnknownError(
                 simstate, iaddr, tgtval, 'target = ' + str(tgtval))
+
+        simstate.simprogramcounter.set_delayed_programcounter(tgtaddr)
+        return SU.simcall(iaddr, simstate, tgtaddr, simra)
