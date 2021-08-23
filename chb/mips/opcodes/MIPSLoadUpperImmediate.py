@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("lui", MIPSOpcode)
@@ -65,6 +65,10 @@ class MIPSLoadUpperImmediate(MIPSOpcode):
             mipsd: "MIPSDictionary",
             ixval: IndexedTableValue) -> None:
         MIPSOpcode.__init__(self, mipsd, ixval)
+
+    @property
+    def operands(self) -> Sequence[MIPSOperand]:
+        return [self.mipsd.mips_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
         """data format a:vx
@@ -89,11 +93,19 @@ class MIPSLoadUpperImmediate(MIPSOpcode):
     # Operation:
     #   GPR[rt] <- immediate || 0[16]
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
         srcval = srcop.to_unsigned_int()
-        result = SV.mk_simvalue(256 * 256 * srcval)
+        v = 256 * 256 * srcval
+        try:
+            result = cast(SV.SimValue, simstate.resolve_literal_address(iaddr, v))
+        except SU.CHBSimError:
+            result = SV.mk_simvalue(v)
+
+        if result.is_undefined:
+            result = SV.mk_simvalue(v)
+
         lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
-        return SU.simassign(iaddr, simstate, lhs, result, '')
+        simstate.increment_programcounter()
+        return SU.simassign(iaddr, simstate, lhs, result, "")

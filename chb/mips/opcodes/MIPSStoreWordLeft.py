@@ -50,7 +50,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("swl", MIPSOpcode)
@@ -117,11 +117,11 @@ class MIPSStoreWordLeft(MIPSOpcode):
     #  merged with the contents, rather than combined with 0. Perhaps the
     #  merging is accomplished by the StoreMemory operation.
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
-        srcval = simstate.get_rhs(iaddr, srcop)
-        dstlocation = simstate.get_lhs(iaddr, dstop)
+        srcval = simstate.rhs(iaddr, srcop)
+        dstlocation = simstate.lhs(iaddr, dstop)
         if dstlocation.is_memory_location:
             dstlocation = cast(MIPSimMemoryLocation, dstlocation)
             if dstlocation.is_global:
@@ -179,5 +179,5 @@ class MIPSStoreWordLeft(MIPSOpcode):
                 simstate.set(iaddr, self.dst_operand, srcval)
             else:
                 pass
-        simstate.increment_program_counter()
+        simstate.increment_programcounter()
         return "assign " + str(dstlocation)

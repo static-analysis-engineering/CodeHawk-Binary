@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("sltiu", MIPSOpcode)
@@ -108,21 +108,31 @@ class MIPSSetLTImmediateUnsigned(MIPSOpcode):
     #       GPR[rd] <- 0[GPRLEN]
     #    endif
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
         immop = self.imm_operand
-        srcval = simstate.get_rhs(iaddr, srcop)
+        srcval = simstate.rhs(iaddr, srcop)
         immval = immop.opkind.value
-        if srcval.is_defined and srcval.is_literal:
-            srcval = cast(SV.SimLiteralValue, srcval)
-            if srcval.value < immval:
+
+        if srcval.is_undefined:
+            result = cast(SV.SimValue, SV.simUndefinedDW)
+            simstate.add_logmsg(
+                "warning",
+                "sltiu: operand is undefined: " + str(srcop))
+
+        elif srcval.is_literal:
+            if srcval.literal_value < immval:
                 result = SV.simOne
             else:
                 result = SV.simZero
         else:
             result = SV.simUndefinedDW
+            simstate.add_logmsg(
+                "warning",
+                "sltiu: operand not recognized: " + str(srcval))
+
         lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
+        simstate.increment_programcounter()
         return SU.simassign(
-            iaddr, simstate, lhs, result, str(srcval) + ' < ' + str(immval))
+            iaddr, simstate, lhs, result, str(srcval) + " < " + str(immval))

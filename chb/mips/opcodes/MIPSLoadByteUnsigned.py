@@ -48,7 +48,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("lbu", MIPSOpcode)
@@ -105,15 +105,26 @@ class MIPSLoadByteUnsigned(MIPSOpcode):
     #   byte <- vAddr[1..0] xor BigEndianCPU[2]
     #   GPR[rt] <- zero_extend(memword[7+8*byte..8*byte)
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
-        srcval = simstate.get_rhs(iaddr, srcop, opsize=1)
-        if srcval.is_literal and srcval.is_defined:
-            srcval = cast(SV.SimLiteralValue, srcval)
-            srcval = srcval.zero_extend(4)
+        srcval = simstate.rhs(iaddr, srcop, opsize=1)
+
+        if srcval.is_undefined:
+            result = cast(SV.SimLiteralValue, SV.simUndefinedDW)
+            simstate.add_logmsg(
+                "warning",
+                "lbu: undefined value at " + iaddr + " from address " + str(srcop))
+
+        if srcval.is_literal:
+            result = cast(SV.SimLiteralValue, srcval).zero_extend(4)
+
         else:
-            srcval = SV.simUndefinedDW
-        lhs = simstate.set(iaddr, dstop, srcval)
-        simstate.increment_program_counter()
-        return SU.simassign(iaddr, simstate, lhs, srcval)
+            result = SV.simUndefinedDW
+            simstate.add_logmsg(
+                "warning",
+                "lbu: memory value not recognized " + iaddr + " from address " + str(srcval))
+
+        lhs = simstate.set(iaddr, dstop, result)
+        simstate.increment_programcounter()
+        return SU.simassign(iaddr, simstate, lhs, result)

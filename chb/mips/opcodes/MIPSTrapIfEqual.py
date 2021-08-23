@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("teq", MIPSOpcode)
@@ -101,26 +101,32 @@ class MIPSTrapIfEqual(MIPSOpcode):
     #     SignalException(Trap)
     #   endif
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if src1val.is_symbol or src2val.is_symbol:
-            expr = str(src1val) + ' == ' + str(src2val)
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+        expr = str(src1val) + ' == ' + str(src2val)
+
+        if src1val.is_undefined or src2val.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "teq: some operands are undefined: " + expr)
+
+        elif src1val.is_symbol or src2val.is_symbol:
             raise SU.CHBSymbolicExpression(simstate, iaddr, src1op, expr)
-        elif (src1val.is_literal
-              and src1val.is_defined
-              and src2val.is_literal
-              and src2val.is_defined):
-            src1val = cast(SV.SimLiteralValue, src1val)
-            src2val = cast(SV.SimLiteralValue, src2val)
-            if src1val.value == src2val.value:
+
+        elif src1val.is_literal and src2val.is_literal:
+            if src1val.literal_value == src2val.literal_value:
                 raise SU.CHBSimTrapSignalException(
                     simstate, iaddr, src1val, src2val)
             else:
-                simstate.increment_program_counter()
-                return 'trap if equal: ' + str(src1val) + ', ' + str(src2val)
+                simstate.increment_programcounter()
+                return 'trap if equal: ' + expr
+
         else:
-            simstate.increment_program_counter()
-            return 'trap if equal: ?'
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "teq: some operands not recognized: " + expr)

@@ -50,7 +50,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("lwr", MIPSOpcode)
@@ -111,9 +111,9 @@ class MIPSLoadWordRight(MIPSOpcode):
     #    temp <- memword[31..32-8*byte] || GPR[rt][31-8*byte..0]
     #    GPR[rt] <- temp
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         srcop = self.src_operand
-        srclocation = simstate.get_lhs(iaddr, srcop)
+        srclocation = simstate.lhs(iaddr, srcop)
         if srclocation.is_memory_location:
             srclocation = cast(MIPSimMemoryLocation, srclocation)
             if srclocation.is_global or srclocation.is_stack:
@@ -132,7 +132,7 @@ class MIPSLoadWordRight(MIPSOpcode):
                 ('Load-word-right source is not a memory location: '
                  + str(srclocation)))
         dstop = self.dst_operand
-        dstvalue = simstate.get_rhs(iaddr, dstop)
+        dstvalue = simstate.rhs(iaddr, dstop)
 
         if dstvalue.is_literal and dstvalue.is_defined and dstvalue.is_doubleword:
             dstvalue = cast(SV.SimDoubleWordValue, dstvalue)
@@ -142,57 +142,57 @@ class MIPSLoadWordRight(MIPSOpcode):
         # bytes are set in the destination value with b1 = lsf byte, etc.
         if simstate.bigendian:
             if alignment == 0:
-                b1 = simstate.get_memval(iaddr, srcaddress, 1)
+                b1 = simstate.memval(iaddr, srcaddress, 1)
                 b1 = cast(SV.SimByteValue, b1)
                 dstval = dstvalue.set_byte1(b1)
                 lhs = simstate.set(iaddr, dstop, dstval)
             elif alignment == 1:
-                b1 = simstate.get_memval(iaddr, srcaddress, 1)
-                b2 = simstate.get_memval(iaddr, srcaddress.add_offset(-1), 1)
+                b1 = simstate.memval(iaddr, srcaddress, 1)
+                b2 = simstate.memval(iaddr, srcaddress.add_offset(-1), 1)
                 b1 = cast(SV.SimByteValue, b1)
                 b2 = cast(SV.SimByteValue, b2)
                 dstval = dstvalue.set_byte1(b1).set_byte2(b2)
                 lhs = simstate.set(iaddr, dstop, dstval)
             elif alignment == 2:
-                b1 = simstate.get_memval(iaddr, srcaddress, 1)
-                b2 = simstate.get_memval(iaddr, srcaddress.add_offset(-1), 1)
-                b3 = simstate.get_memval(iaddr, srcaddress.add_offset(-2), 1)
+                b1 = simstate.memval(iaddr, srcaddress, 1)
+                b2 = simstate.memval(iaddr, srcaddress.add_offset(-1), 1)
+                b3 = simstate.memval(iaddr, srcaddress.add_offset(-2), 1)
                 b1 = cast(SV.SimByteValue, b1)
                 b2 = cast(SV.SimByteValue, b2)
                 b3 = cast(SV.SimByteValue, b3)
                 dstval = dstvalue.set_byte1(b1).set_byte2(b2).set_byte3(b3)
                 lhs = simstate.set(iaddr, dstop, dstval)
             elif alignment == 3:
-                dstval = cast(SV.SimDoubleWordValue, simstate.get_rhs(iaddr, srcop))
+                dstval = cast(SV.SimDoubleWordValue, simstate.rhs(iaddr, srcop))
                 lhs = simstate.set(iaddr, dstop, dstval)
             else:
                 pass
         else:
             if alignment == 0:
-                dstval = cast(SV.SimDoubleWordValue, simstate.get_rhs(iaddr, srcop))
+                dstval = cast(SV.SimDoubleWordValue, simstate.rhs(iaddr, srcop))
                 lhs = simstate.set(iaddr, dstop, dstval)
             elif alignment == 1:
-                b3 = simstate.get_memval(iaddr, srcaddress.add_offset(-2), 1)
-                b2 = simstate.get_memval(iaddr, srcaddress.add_offset(-1), 1)
-                b1 = simstate.get_memval(iaddr, srcaddress, 1)
+                b3 = simstate.memval(iaddr, srcaddress.add_offset(-2), 1)
+                b2 = simstate.memval(iaddr, srcaddress.add_offset(-1), 1)
+                b1 = simstate.memval(iaddr, srcaddress, 1)
                 b3 = cast(SV.SimByteValue, b3)
                 b2 = cast(SV.SimByteValue, b2)
                 b1 = cast(SV.SimByteValue, b1)
                 dstval = dstvalue.set_byte1(b1).set_byte2(b2).set_byte3(b3)
                 lhs = simstate.set(iaddr, dstop, dstval)
             elif alignment == 2:
-                b2 = simstate.get_memval(iaddr, srcaddress.add_offset(-1), 1)
-                b1 = simstate.get_memval(iaddr, srcaddress, 1)
+                b2 = simstate.memval(iaddr, srcaddress.add_offset(-1), 1)
+                b1 = simstate.memval(iaddr, srcaddress, 1)
                 b2 = cast(SV.SimByteValue, b2)
                 b1 = cast(SV.SimByteValue, b1)
                 dstval = dstvalue.set_byte2(b2).set_byte1(b1)
                 lhs = simstate.set(iaddr, dstop, dstval)
             elif alignment == 3:
-                b4 = simstate.get_memval(iaddr, srcaddress, 1)
+                b4 = simstate.memval(iaddr, srcaddress, 1)
                 b4 = cast(SV.SimByteValue, b4)
                 dstval = dstvalue.set_byte4(b4)
                 lhs = simstate.set(iaddr, dstop, dstval)
             else:
                 pass
-        simstate.increment_program_counter()
+        simstate.increment_programcounter()
         return SU.simassign(iaddr, simstate, lhs, dstval)

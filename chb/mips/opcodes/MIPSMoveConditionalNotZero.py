@@ -48,7 +48,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("movn", MIPSOpcode)
@@ -108,20 +108,30 @@ class MIPSMoveConditionalNotZero(MIPSOpcode):
     #       GPR[rd] <- GPR[rs]
     #   endif
     # ---------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         conop = self.test_operand
-        conval = simstate.get_rhs(iaddr, conop)
-        if conval.is_defined and conval.is_literal:
-            conval = cast(SV.SimLiteralValue, conval)
-            if conval.value != 0:
+        conval = simstate.rhs(iaddr, conop)
+
+        if conval.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "movn: condition value undefined")
+
+        elif conval.is_literal:
+            if conval.literal_value != 0:
                 dstop = self.dst_operand
                 srcop = self.src_operand
-                srcval = simstate.get_rhs(iaddr, srcop)
+                srcval = simstate.rhs(iaddr, srcop)
                 lhs = simstate.set(iaddr, dstop, srcval)
                 result = SU.simassign(iaddr, simstate, lhs, srcval)
             else:
-                result = 'nop'
+                result = str(conval) + " == 0: nop"
         else:
-            result = '?'
-        simstate.increment_program_counter()
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "movn: condition value not recognized: " + str(conval))
+
+        simstate.increment_programcounter()
         return result

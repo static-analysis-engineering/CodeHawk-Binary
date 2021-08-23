@@ -48,7 +48,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("lhu", MIPSOpcode)
@@ -106,45 +106,51 @@ class MIPSLoadHalfWordUnsigned(MIPSOpcode):
     #   byte <- vAddr[1..0] xor (BigEndianCPU)
     #   GPR[rt] <- zero_extend(memword[15+8*byte..8*byte])
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
-        srcval = simstate.get_rhs(iaddr, srcop, opsize=2)
-        src1val = srcval
-        if srcval.is_literal and srcval.is_defined:
-            srcval = cast(SV.SimLiteralValue, srcval)
-            srcval = srcval.zero_extend(4)
+        srcval = simstate.rhs(iaddr, srcop, opsize=2)
+
+        if srcval.is_undefined:
+            result = cast(SV.SimValue, SV.simUndefinedDW)
+            simstate.add_logmsg(
+                "warning",
+                "lhu: undefined value at " + iaddr + " from address " + str(srcop))
+
+        if srcval.is_literal:
+            result = cast(SV.SimLiteralValue, srcval).zero_extend(4)
 
         elif srcval.is_symbolic:
             srcval = cast(SSV.SimSymbolicValue, srcval)
             if srcval.is_libc_table_value:
                 srcval = cast(SSV.SimLibcTableValue, srcval)
                 if srcval.name == 'ctype_b':
-                    srcval = srcval.b_result()
+                    result = srcval.b_result()
                     simstate.add_logmsg(
                         'ctype_b: ',
-                        str(srcval) + ' (' + str(src1val) + ')')
+                        str(srcval) + ' (' + str(result) + ')')
                 else:
-                    srcval = SV.simUndefinedWord
+                    result = SV.simUndefinedWord
 
             elif srcval.is_libc_table_value_deref:
                 srcval = cast(SSV.SimLibcTableValueDeref, srcval)
                 if srcval.name == 'ctype_toupper':    # __ctype_toupper table
-                    srcvalresult = srcval.toupper_result()
+                    result = srcval.toupper_result()
                     simstate.add_logmsg(
                         'ctype_toupper: ',
-                        str(srcval) + ' (' + str(chr(srcvalresult.value)) + ')')
+                        str(srcval) + ' (' + str(chr(result.value)) + ')')
                 elif srcval.name == 'ctype_b':
-                    srcvalresult = srcval.b_result()
+                    result = srcval.b_result()
                     simstate.add_logmsg(
                         'ctype_b: ',
-                        str(srcval) + ' (' + str(chr(srcvalresult.value)) + ')')
+                        str(srcval) + ' (' + str(chr(result.value)) + ')')
                 else:
-                    srcval = SV.simUndefinedWord
+                    result = SV.simUndefinedWord
             else:
-                srcval = SV.simUndefinedWord
+                result = SV.simUndefinedWord
         else:
-            srcval = SV.simUndefinedDW
-        lhs = simstate.set(iaddr, dstop, srcval)
-        simstate.increment_program_counter()
-        return SU.simassign(iaddr, simstate, lhs, srcval)
+            result = SV.simUndefinedDW
+
+        lhs = simstate.set(iaddr, dstop, result)
+        simstate.increment_programcounter()
+        return SU.simassign(iaddr, simstate, lhs, result)

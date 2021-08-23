@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("slt", MIPSOpcode)
@@ -108,29 +108,37 @@ class MIPSSetLT(MIPSOpcode):
     #      GPR[rd] <- 0[GPRLEN]
     #   endif
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+        expr = str(src1val) + ' < ' + str(src2val)
+
         if src1val.is_symbol or src2val.is_symbol:
-            conditional = str(src1val) + ' < ' + str(src2val)
-            raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, conditional)
-        if (
-                src1val.is_defined
-                and src1val.is_literal
-                and src2val.is_defined
-                and src2val.is_literal):
-            src1val = cast(SV.SimLiteralValue, src1val)
-            src2val = cast(SV.SimLiteralValue, src2val)
-            if src1val.to_signed_int() < src2val.to_signed_int():
+            raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
+
+        elif src1val.is_undefined or src2val.is_undefined:
+            result = cast(SV.SimValue, SV.simUndefinedDW)
+            simstate.add_logmsg(
+                "warning",
+                "slt: some operand is undefined: " + expr)
+
+        elif src1val.is_literal and src2val.is_literal:
+            v1 = SV.mk_simvalue(src1val.literal_value)
+            v2 = SV.mk_simvalue(src2val.literal_value)
+            if v1.to_signed_int() < v2.to_signed_int():
                 result = SV.simOne
             else:
                 result = SV.simZero
+
         else:
             result = SV.simUndefinedDW
+            simstate.add_logmsg(
+                "warning",
+                "slt: some operand is not recognized: " + expr)
+
         lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
-        return SU.simassign(
-            iaddr, simstate, lhs, result, str(src1val) + ' < ' + str(src2val))
+        simstate.increment_programcounter()
+        return SU.simassign(iaddr, simstate, lhs, result, expr)

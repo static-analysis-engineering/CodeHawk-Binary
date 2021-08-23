@@ -48,7 +48,7 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget, StubTarget
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("jal", MIPSOpcode)
@@ -117,11 +117,12 @@ class MIPSJumpLink(MIPSOpcode):
     #   I: GPR[31] <- PC + 8
     #   I+1: PC <- PC[GPRLEN..28] || instr_index || 0[2]
     # ----------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         tgtaddr = self.target.absolute_address_value
-        tgt = SSV.mk_global_address(tgtaddr)
-        returnaddr = SSV.mk_global_address(int(iaddr, 16) + 8)
-        simstate.registers['ra'] = returnaddr
-        simstate.increment_program_counter()
-        simstate.set_delayed_program_counter(tgt)
-        return SU.simcall(iaddr, simstate, tgt, returnaddr)
+        tgt = simstate.resolve_literal_address(iaddr, tgtaddr)
+        simstate.increment_programcounter()
+        simra = SSV.pc_to_return_address(
+            simstate.programcounter.add_offset(4), simstate.function_address)
+        simstate.registers["ra"] = simra
+        simstate.simprogramcounter.set_delayed_programcounter(tgt)
+        return SU.simcall(iaddr, simstate, tgt, simra)

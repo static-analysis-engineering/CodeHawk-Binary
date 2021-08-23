@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("sll", MIPSOpcode)
@@ -105,34 +105,41 @@ class MIPSShiftLeftLogical(MIPSOpcode):
     #   temp <- GPR[rt][31-s..0] || 0[s]
     #   GPR[rd] <- temp
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
         immop = self.imm_operand
-        srcval = simstate.get_rhs(iaddr, srcop)
+        srcval = simstate.rhs(iaddr, srcop)
         immval = immop.opkind.to_unsigned_int()
-        if srcval.is_literal and srcval.is_defined:
-            srcval = cast(SV.SimLiteralValue, srcval)
-            result: SV.SimValue = srcval.bitwise_sll(immval)
-            lhs = simstate.set(iaddr, dstop, result)
-            simstate.increment_program_counter()
-            return SU.simassign(
-                iaddr,
-                simstate,
-                lhs,
-                result,
-                '(val(' + str(srcop) + ') = ' + str(srcval))
+
+        if srcval.is_undefined:
+            result = cast(SV.SimValue, SV.simUndefinedDW)
+            simstate.add_logmsg(
+                "warning",
+                "sll: operand is not defined: " + str(srcop))
+
+        elif srcval.is_literal:
+            v = SV.mk_simvalue(srcval.literal_value)
+            result = v.bitwise_sll(immval)
+
         elif srcval.is_symbol:
-            srcval = cast(SSV.SimSymbol, srcval)
-            result = SSV.mk_symbol(srcval.name + ':shifted left by 2')
-            lhs = simstate.set(iaddr, dstop, result)
-            simstate.increment_program_counter()
-            return SU.simassign(
-                iaddr,
+            raise SU.CHBSymbolicExpression(
                 simstate,
-                lhs,
-                result,
-                '(val(' + str(srcop) + ') = ' + str(srcval))
+                iaddr,
+                dstop,
+                str(srcval) + " << " + str(immval) + " (val(" + str(srcop) + "))")
+
         else:
-            expr = str(srcval) + ' << ' + str(immval) + ' (val(' + str(srcop) + '))'
-            raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
+            result = SV.simUndefinedDW
+            simstate.add_logmsg(
+                "warning",
+                "sll: operand not recognized: " + str(srcval))
+
+        lhs = simstate.set(iaddr, dstop, result)
+        simstate.increment_programcounter()
+        return SU.simassign(
+            iaddr,
+            simstate,
+            lhs,
+            result,
+            "(val(" + str(srcop) + ") = " + str(srcval) + ")")

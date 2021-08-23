@@ -48,7 +48,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("multu", MIPSOpcode)
@@ -114,31 +114,42 @@ class MIPSMultiplyUnsignedWord(MIPSOpcode):
     #    LO <- prod[31..0]
     #    HI <- prod[63..32]
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstlo = self.dstlo_operand
         dsthi = self.dsthi_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if src1val.is_symbol or src2val.is_symbol:
-            expr = str(src1val) + ' * ' + str(src2val)
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+        expr = str(src1val) + " * " + str(src2val)
+
+        if src1val.is_undefined or src2val.is_undefined:
+            loval = cast(SV.SimValue, SV.simUndefinedDW)
+            hival = cast(SV.SimValue, SV.simUndefinedDW)
+            simstate.add_logmsg(
+                "warning",
+                "multu: some operand is undefined: " + expr)
+
+        elif src1val.is_symbol or src2val.is_symbol:
             raise SU.CHBSymbolicExpression(simstate, iaddr, dstlo, expr)
-        elif (src1val.is_literal
-              and src1val.is_defined
-              and src2val.is_literal
-              and src2val.is_defined):
-            src1val = cast(SV.SimLiteralValue, src1val)
-            src2val = cast(SV.SimLiteralValue, src2val)
-            p = src1val.value * src2val.value
+
+        elif src1val.is_literal and src2val.is_literal:
+            v1 = src1val.literal_value
+            v2 = src2val.literal_value
+            p = v1 * v2
             loval = SV.mk_simvalue(p % (SU.max32 + 1))
             hival = SV.mk_simvalue(p >> 32)
+
         else:
             loval = SV.simUndefinedDW
             hival = SV.simUndefinedDW
+            simstate.add_logmsg(
+                "warning",
+                "multu: some operand is not a literal: " + expr)
+
         lhslo = simstate.set(iaddr, dstlo, loval)
         lhshi = simstate.set(iaddr, dsthi, hival)
-        simstate.increment_program_counter()
+        simstate.increment_programcounter()
         return SU.simassign(
             iaddr,
             simstate,

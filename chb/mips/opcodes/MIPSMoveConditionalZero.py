@@ -48,7 +48,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("movz", MIPSOpcode)
@@ -108,21 +108,30 @@ class MIPSMoveConditionalZero(MIPSOpcode):
     #       GPR[rd] <- GPR[rs]
     #    endif
     # ---------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
-        dstop = self.dst_operand
-        srcop = self.src_operand
-        testop = self.test_operand
-        srcval = simstate.get_rhs(iaddr, srcop)
-        testval = simstate.get_rhs(iaddr, testop)
-        if testval.is_literal and testval.is_defined:
-            testval = cast(SV.SimLiteralValue, testval)
-            if testval.value == 0:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        conop = self.test_operand
+        conval = simstate.rhs(iaddr, conop)
+
+        if conval.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "movz: condition value undefined")
+
+        elif conval.is_literal:
+            if conval.literal_value == 0:
+                dstop = self.dst_operand
+                srcop = self.src_operand
+                srcval = simstate.rhs(iaddr, srcop)
                 lhs = simstate.set(iaddr, dstop, srcval)
-                simstate.increment_program_counter()
-                return SU.simassign(iaddr, simstate, lhs, srcval)
+                result = SU.simassign(iaddr, simstate, lhs, srcval)
             else:
-                simstate.increment_program_counter()
-                return 'nop'
+                result = str(conval) + " != 0: nop"
         else:
-            simstate.increment_program_counter()
-            return '?'
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "movz: condition value not recognized: " + str(conval))
+
+        simstate.increment_programcounter()
+        return result

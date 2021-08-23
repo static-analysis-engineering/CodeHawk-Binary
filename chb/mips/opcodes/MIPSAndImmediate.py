@@ -46,7 +46,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("andi", MIPSOpcode)
@@ -102,27 +102,31 @@ class MIPSAndImmediate(MIPSOpcode):
     # Operation:
     #   GPR[rt] <- GPR[rs] and zero_extend(immediate)  (bitwise logical and)
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
-        srcval = simstate.get_rhs(iaddr, srcop)
+        srcval = simstate.rhs(iaddr, srcop)
         immval = SV.mk_simvalue(self.imm_operand.to_unsigned_int())
-        if srcval.is_symbol:
-            expr = str(srcval) + ' & ' + str(immval)
+
+        if srcval.is_undefined:
+            result = cast(SV.SimValue, SV.simUndefinedDW)
+
+        elif srcval.is_symbol:
+            expr = str(srcval) + " & " + str(immval)
             raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
-        elif srcval.is_address:
-            expr = str(srcval) + ' & ' + str(immval)
-            raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
-        elif srcval.is_literal and srcval.is_defined:
-            srcval = cast(SV.SimDoubleWordValue, srcval)
-            result: SV.SimValue = srcval.bitwise_and(immval)
+
+        elif srcval.is_literal:
+            v = SV.mk_simvalue(srcval.literal_value)
+            result = v.bitwise_and(immval)
+
         else:
             result = SV.simUndefinedDW
+
         lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
+        simstate.increment_programcounter()
         return SU.simassign(
             iaddr,
             simstate,
             lhs,
             result,
-            'val(' + str(srcop) + ') = ' + str(srcval))
+            'val(' + str(srcop) + ") = " + str(srcval))

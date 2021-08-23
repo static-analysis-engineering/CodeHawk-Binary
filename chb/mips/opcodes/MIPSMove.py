@@ -48,7 +48,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("move", MIPSOpcode)
@@ -88,10 +88,10 @@ class MIPSMove(MIPSOpcode):
     def dst_operand(self) -> MIPSOperand:
         return self.mipsd.mips_operand(self.args[0])
 
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
-        srcval = simstate.get_rhs(iaddr, srcop)
+        srcval = simstate.rhs(iaddr, srcop)
         lhs = simstate.set(iaddr, dstop, srcval)
-        simstate.increment_program_counter()
+        simstate.increment_programcounter()
         return SU.simassign(iaddr, simstate, lhs, srcval)

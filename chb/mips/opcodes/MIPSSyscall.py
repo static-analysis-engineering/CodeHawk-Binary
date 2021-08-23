@@ -48,8 +48,9 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    from chb.api.CallTarget import CallTarget
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("syscall 0", MIPSOpcode)
@@ -74,6 +75,14 @@ class MIPSSyscall(MIPSOpcode):
             return xdata.xprs[:-1]
         else:
             return []
+
+    def call_target(self, xdata: InstrXData) -> "CallTarget":
+        if xdata.has_call_target():
+            return xdata.call_target(self.ixd)
+        else:
+            raise UF.CHBError(
+                "Syscall instruction does not have a call target: "
+                + str(self))
 
     def annotation(self, xdata: InstrXData) -> str:
         """data format: a:<v0><args><call-target-ix> , or a:<v0>
@@ -100,7 +109,7 @@ class MIPSSyscall(MIPSOpcode):
     # Operation:
     #    SignalException(SystemCall)
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         syscallindex = simstate.registers['v0']
         if syscallindex.is_literal and syscallindex.is_defined:
             syscallindex = cast(SV.SimLiteralValue, syscallindex)

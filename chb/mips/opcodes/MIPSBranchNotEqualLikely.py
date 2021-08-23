@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("bnel", MIPSOpcode)
@@ -117,51 +117,76 @@ class MIPSBranchNotEqualLikely(MIPSOpcode):
     #          PC <- PC + target_offset
     #        endif
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if src1val.is_string_address:
-            src1val = cast(SSV.SimStringAddress, src1val)
-            if src2val.is_literal:
-                src2val = cast(SV.SimLiteralValue, src2val)
-                if src2val.value == 0:
-                    result = SV.simtrue   # constant string is not NULL
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+        tgt = self.target
+        truetgt = simstate.resolve_literal_address(iaddr, tgt.absolute_address_value)
+        falsetgt = simstate.programcounter.add_offset(8)
+        simstate.increment_programcounter()
+
+        if truetgt.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "bnel: branch target address cannot be resolved: " + str(tgt))
+
+        if src1val.is_undefined or src2val.is_undefined:
+            result = SV.simUndefinedBool
+
+        elif src1val.is_literal and src2val.is_literal:
+            if src1val.literal_value == src2val.literal_value:
+                result = SV.simfalse
+            else:
+                result = SV.simtrue
+
+        elif src1val.is_address and src2val.is_address:
+            src1val = cast(SSV.SimAddress, src1val)
+            src2val = cast(SSV.SimAddress, src2val)
+            if src1val.base == src2val.base:
+                if src1val.offsetvalue == src2val.offsetvalue:
+                    result = SV.simfalse
                 else:
-                    # no information on string address value
-                    result = SV.simUndefinedBool
+                    result = SV.simtrue
+            else:
+                result = SV.simtrue
+
+        elif src1val.is_address and src2val.is_literal:
+            if src2val.literal_value == 0:
+                result = SV.simtrue
             else:
                 result = SV.simUndefinedBool
 
-        elif src1val.is_address:
-            src1val = cast(SSV.SimAddress, src1val)
-            if src2val.is_literal:
-                src2val = cast(SV.SimLiteralValue, src2val)
-                if src2val.value == 0:
-                    result = SV.simtrue
-                else:
-                    result = SV.simUndefinedBool
-            elif src2val.is_address:
-                src2val = cast(SSV.SimAddress, src2val)
-                result = src1val.is_not_equal(src2val)
+        elif src1val.is_file_pointer and src2val.is_literal:
+            if src2val.literal_value == 0:
+                result = SV.simtrue
             else:
                 result = SV.simUndefinedBool
-        elif src1val.is_literal and src1val.is_doubleword:
-            src1val = cast(SV.SimDoubleWordValue, src1val)
-            result = src1val.is_not_equal(src2val)
+
+        elif src1val.is_string_address and src2val.is_literal:
+            if src2val.literal_value == 0:
+                result = SV.simtrue
+            else:
+                result = SV.simUndefinedBool
+
+        elif src1val.is_string_address and src2val.is_string_address:
+            v1 = cast(SSV.SimStringAddress, src1val)
+            v2 = cast(SSV.SimStringAddress, src2val)
+            if v1.stringval == v2.stringval:
+                result = SV.simfalse
+            else:
+                result = SV.simtrue
+
         else:
             result = SV.simUndefinedBool
 
-        tgt = self.target
-        truetgt = SSV.mk_global_address(tgt.absolute_address_value)
-        falsetgt = simstate.programcounter.add_offset(8)
         if result.is_defined:
-            simstate.increment_program_counter()
             if result.is_true:
-                simstate.set_delayed_program_counter(truetgt)
+                simstate.simprogramcounter.set_delayed_programcounter(truetgt)
             else:
-                simstate.set_delayed_program_counter(falsetgt)
+                simstate.simprogramcounter.set_delayed_programcounter(falsetgt)
             expr = str(src1val) + ' != ' + str(src2val)
             return SU.simbranch(iaddr, simstate, truetgt, falsetgt, expr, result)
         else:
@@ -170,7 +195,4 @@ class MIPSBranchNotEqualLikely(MIPSOpcode):
                 iaddr,
                 truetgt,
                 falsetgt,
-                ('branch-not-equal-likely condition: ' +
-                 str(src1val)
-                 + ' != '
-                 + str(src2val)))
+                'bnel: ' + str(src1val) + ' != ' + str(src2val))

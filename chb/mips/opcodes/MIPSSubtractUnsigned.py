@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("subu", MIPSOpcode)
@@ -105,32 +105,55 @@ class MIPSSubtractUnsigned(MIPSOpcode):
     #   temp <- GPR[rs] - GPR[rt]
     #   GPR[rd] <- temp
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if src1val.is_symbol or src2val.is_symbol:
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+
+        if src1val.is_undefined or src2val.is_undefined:
+            result = cast(SV.SimValue, SV.simUndefinedDW)
+
+        elif src1val.is_symbol or src2val.is_symbol:
             expr = str(src1val) + ' - ' + str(src2val)
             raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
-        if src1val.is_string_address and src2val.is_string_address:
+
+        elif src1val.is_string_address and src2val.is_string_address:
             src1val = cast(SSV.SimStringAddress, src1val)
             src2val = cast(SSV.SimStringAddress, src2val)
             diff = src2val.stringval.find(src1val.stringval)
             result = SV.mk_simvalue(diff)
-        elif src1val.is_literal and src1val.is_defined:
-            src1val = cast(SV.SimDoubleWordValue, src1val)
-            result = src1val.subu(src2val)
+
         elif src1val.is_stack_address and src2val.is_stack_address:
             src1val = cast(SSV.SimStackAddress, src1val)
             src2val = cast(SSV.SimStackAddress, src2val)
-            diff = src1val.offsetvalue - src2val.offsetvalue
+            diff = (src1val.offsetvalue - src2val.offsetvalue) % (SU.max32 + 1)
             result = SV.mk_simvalue(diff)
+
+        elif src1val.is_stack_address and src2val.is_literal:
+            src1val = cast(SSV.SimStackAddress, src1val)
+            result = cast(SV.SimValue, src1val.add_offset(-src2val.literal_value))
+
+        elif src1val.is_global_address and src2val.is_global_address:
+            src1val = cast(SSV.SimGlobalAddress, src1val)
+            src2val = cast(SSV.SimGlobalAddress, src2val)
+            diff = (src1val.offsetvalue - src2val.offsetvalue) % (SU.max32 + 1)
+            result = SV.mk_simvalue(diff)
+
+        elif src1val.is_global_address and src2val.is_literal:
+            src1val = cast(SSV.SimGlobalAddress, src1val)
+            diff = (src1val.offsetvalue - src2val.literal_value) % (SU.max32 + 1)
+            result = SV.mk_simvalue(diff)
+
+        elif src1val.is_literal and src2val.is_literal:
+            diff = (src1val.literal_value - src2val.literal_value) % (SU.max32 + 1)
+            result = SV.mk_simvalue(diff)
+
         else:
             result = SV.simUndefinedDW
         lhs = simstate.set(iaddr, dstop, result)
-        simstate.increment_program_counter()
+        simstate.increment_programcounter()
         return SU.simassign(
             iaddr,
             simstate,

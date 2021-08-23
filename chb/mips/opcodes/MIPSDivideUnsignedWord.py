@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("divu", MIPSOpcode)
@@ -123,34 +123,42 @@ class MIPSDivideUnsignedWord(MIPSOpcode):
     #   LO <- sign_extend(q[31..0])
     #   HI <- sign_extend(r[31..0])
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dsthi = self.dsthi_operand
         dstlo = self.dstlo_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if (
-                src1val.is_defined
-                and src2val.is_defined
-                and src1val.is_doubleword
-                and src1val.is_literal
-                and src2val.is_literal):
-            src1val = cast(SV.SimDoubleWordValue, src1val)
-            src2val = cast(SV.SimDoubleWordValue, src2val)
-            q = src1val.divu(src2val)
-            r = src1val.modu(src2val)
-            lhslo = simstate.set(iaddr, dstlo, q)
-            lhshi = simstate.set(iaddr, dsthi, r)
-            simstate.increment_program_counter()
-            return SU.simassign(
-                iaddr,
-                simstate,
-                lhslo,
-                q,
-                intermediates=str(lhshi) + ' := ' + str(r))
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+
+        if src1val.is_undefined or src2val.is_undefined:
+            resultlo = SV.simUndefinedDW
+            resulthi = SV.simUndefinedDW
+            simstate.add_logmsg(
+                "warning",
+                "some operand of unsigned division undefined: "
+                + str(src1val) + " divu " + str(src2val))
+
+        elif src1val.is_literal and src2val.is_literal:
+            v1 = cast(SV.SimDoubleWordValue, SV.mk_simvalue(src1val.literal_value))
+            v2 = cast(SV.SimDoubleWordValue, SV.mk_simvalue(src2val.literal_value))
+            resultlo = v1.divu(v2)
+            resulthi = v1.modu(v2)
+
         else:
-            lhslo = simstate.set(iaddr, dstlo, SV.simUndefinedDW)
-            lhshi = simstate.set(iaddr, dsthi, SV.simUndefinedDW)
-            simstate.increment_program_counter()
-            return SU.simassign(iaddr, simstate, lhslo, SV.simUndefinedDW)
+            resultlo = SV.simUndefinedDW
+            resulthi = SV.simUndefinedDW
+            simstate.add_logmsg(
+                "warning",
+                "some operand of unsigned division not recognized: "
+                + str(src1val) + " divu " + str(src2val))
+
+        lhslo = simstate.set(iaddr, dstlo, resultlo)
+        lhshi = simstate.set(iaddr, dsthi, resulthi)
+        simstate.increment_programcounter()
+        return SU.simassign(
+            iaddr,
+            simstate,
+            lhslo,
+            resultlo,
+            intermediates=str(lhshi) + ' := ' + str(resulthi))

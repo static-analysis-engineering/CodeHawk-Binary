@@ -50,7 +50,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("swr", MIPSOpcode)
@@ -112,11 +112,11 @@ class MIPSStoreWordRight(MIPSOpcode):
     #    dataword <- GPR[rt][31-8*byte] || 0[8*byte]
     #    StoreMemory (CCA, WORD-byte, dataword, pAddr, vAddr, DATA)
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         srcop = self.src_operand
-        srcval = simstate.get_rhs(iaddr, srcop)
-        dstlocation = simstate.get_lhs(iaddr, dstop)
+        srcval = simstate.rhs(iaddr, srcop)
+        dstlocation = simstate.lhs(iaddr, dstop)
         if dstlocation.is_memory_location:
             dstlocation = cast(MIPSimMemoryLocation, dstlocation)
             if dstlocation.is_global:
@@ -173,5 +173,5 @@ class MIPSStoreWordRight(MIPSOpcode):
                 simstate.set_memval(iaddr, dstaddr, srcval.simbyte4)
             else:
                 pass
-        simstate.increment_program_counter()
+        simstate.increment_programcounter()
         return 'assign ' + str(dstlocation)

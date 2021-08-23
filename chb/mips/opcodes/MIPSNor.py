@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("nor", MIPSOpcode)
@@ -103,57 +103,34 @@ class MIPSNor(MIPSOpcode):
     # Operation:
     #   GRP[rd] <- GPR[rs] nor GPR[rt]  (bitwise logical not or)
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         dstop = self.dst_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
-        src1val = simstate.get_rhs(iaddr, src1op)
-        src2val = simstate.get_rhs(iaddr, src2op)
-        if (
-                src1val.is_literal
-                and src1val.is_defined
-                and src2val.is_literal
-                and src2val.is_defined):
-            src1val = cast(SV.SimLiteralValue, src1val)
-            src2val = cast(SV.SimLiteralValue, src2val)
-            result: SV.SimValue = src1val.bitwise_nor(src2val)
-            lhs = simstate.set(iaddr, dstop, result)
-            simstate.increment_program_counter()
-            return SU.simassign(
-                iaddr,
-                simstate,
-                lhs,
-                result,
-                str(src1val) + ' nor ' + str(src2val))
-        elif (src1val.is_symbol and src2val.is_literal and src2val.is_defined):
-            src1val = cast(SSV.SimSymbol, src1val)
-            result = SSV.mk_symbol(src1val.name + ' nor ' + str(src2val))
-            lhs = simstate.set(iaddr, dstop, result)
-            simstate.increment_program_counter()
-            return SU.simassign(
-                iaddr,
-                simstate,
-                lhs,
-                result,
-                str(src1val) + ' nor ' + str(src2val))
-        elif (src1val.is_literal and src1val.is_defined and src2val.is_symbol):
-            src2val = cast(SSV.SimSymbol, src2val)
-            result = SSV.mk_symbol(str(src2val) + ' nor ' + src2val.name)
-            lhs = simstate.set(iaddr, dstop, result)
-            simstate.increment_program_counter()
-            return SU.simassign(
-                iaddr,
-                simstate,
-                lhs,
-                result,
-                str(src1val) + ' nor ' + str(src2val))
+        src1val = simstate.rhs(iaddr, src1op)
+        src2val = simstate.rhs(iaddr, src2op)
+        expr = str(src1val) + " nor " + str(src2val)
+
+        if src1val.is_undefined or src2val.is_undefined:
+            result = cast(SV.SimValue, SV.simUndefinedDW)
+            simstate.add_logmsg(
+                "warning",
+                "nor: some operand undefined: " + expr)
+
+        elif src1val.is_symbol or src2val.is_symbol:
+            raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
+
+        elif src1val.is_literal and src2val.is_literal:
+            src1v = SV.mk_simvalue(src1val.literal_value)
+            src2v = SV.mk_simvalue(src2val.literal_value)
+            result = src1v.bitwise_nor(src2v)
+
         else:
             result = SV.simUndefinedDW
-            lhs = simstate.set(iaddr, dstop, result)
-            simstate.increment_program_counter()
-            return SU.simassign(
-                iaddr,
-                simstate,
-                lhs,
-                result,
-                str(src1val) + ' nor ' + str(src2val))
+            simstate.add_logmsg(
+                "warning",
+                "nor: some operand not recognized: " + expr)
+
+        lhs = simstate.set(iaddr, dstop, result)
+        simstate.increment_programcounter()
+        return SU.simassign(iaddr, simstate, lhs, result, expr)

@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Sequence, TYPE_CHECKING
+from typing import cast, List, NoReturn, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -48,7 +48,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 @mipsregistry.register_tag("bgez", MIPSOpcode)
@@ -82,7 +82,7 @@ class MIPSBranchGEZero(MIPSBranchOpcode):
         return xdata.xprs[2]
 
     def ft_conditions(self, xdata: InstrXData) -> List[XXpr]:
-        return [xdata.xprs[2], xdata.xprs[1]]
+        return [xdata.xprs[3], xdata.xprs[2]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """data format a:xxxx
@@ -114,41 +114,48 @@ class MIPSBranchGEZero(MIPSBranchOpcode):
     #            PC <- PC + target_offset
     #         endif
     # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         srcop = self.src_operand
         tgtop = self.tgt_offset
-        srcval = simstate.get_rhs(iaddr, srcop)
-        truetgt = SSV.mk_global_address(tgtop.absolute_address_value)
+        srcval = simstate.rhs(iaddr, srcop)
+        truetgt = simstate.resolve_literal_address(iaddr, tgtop.absolute_address_value)
         falsetgt = simstate.programcounter.add_offset(8)
-        if srcval.is_literal and srcval.is_defined:
-            srcval = cast(SV.SimDoubleWordValue, srcval)
-            if srcval.is_non_negative:
-                simstate.increment_program_counter()
-                result = SV.simtrue
-                simstate.set_delayed_program_counter(truetgt)
-            else:
-                result = SV.simfalse
-                simstate.set_delayed_program_counter(falsetgt)
-            expr = str(srcval) + ' >= 0'
+        simstate.increment_programcounter()
+        expr = str(srcval) + " >= 0"
+
+        def unknowntgt() -> NoReturn:
+            simstate.add_logmsg("warning", iaddr + ": bgez branch unknown: " + expr)
+            raise SU.CHBSimBranchUnknownError(
+                simstate, iaddr, truetgt, falsetgt, ("bgez: " + expr))
+
+        def knowntgt(result: SV.SimBoolValue) -> str:
+            tgt = truetgt if result.is_true else falsetgt
+            simstate.simprogramcounter.set_delayed_programcounter(tgt)
             return SU.simbranch(iaddr, simstate, truetgt, falsetgt, expr, result)
+
+        if truetgt.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "begz target address cannot be resolved: " + str(self.tgt_offset))
+
+        if srcval.is_undefined:
+            unknowntgt()
+
+        if srcval.is_literal:
+            v = SV.mk_simvalue(srcval.literal_value)
+            if v.to_signed_int() >= 0:
+                return knowntgt(SV.simtrue)
+            else:
+                return knowntgt(SV.simfalse)
 
         elif srcval.is_symbol:
             srcval = cast(SSV.SimSymbol, srcval)
-            simstate.increment_program_counter()
             result = srcval.is_non_negative
-            if result.is_defined:
-                if result.is_true:
-                    simstate.set_delayed_program_counter(truetgt)
-                else:
-                    simstate.set_delayed_program_counter(falsetgt)
-                expr = str(srcval) + ' >= 0'
-                return SU.simbranch(iaddr, simstate, truetgt, falsetgt, expr, result)
+            if result.is_undefined:
+                unknowntgt()
+            else:
+                return knowntgt(result)
 
-        raise SU.CHBSimBranchUnknownError(
-            simstate,
-            iaddr,
-            truetgt,
-            falsetgt,
-            ('branch greater or equal to zero condition: '
-             + str(srcval)
-             + ' >= 0'))
+        else:
+            unknowntgt()
