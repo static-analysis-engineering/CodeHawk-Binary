@@ -74,12 +74,41 @@ class ARMOperandKind(ARMDictionaryRecord):
         ARMDictionaryRecord.__init__(self, d, ixval)
 
     @property
-    def is_arm_absolute(self) -> bool:
+    def size(self) -> int:
+        return 4
+
+    @property
+    def is_absolute(self) -> bool:
         return False
 
     @property
-    def is_arm_immediate(self) -> bool:
+    def is_immediate(self) -> bool:
         return False
+
+    @property
+    def is_register(self) -> bool:
+        return False
+
+    @property
+    def register(self) -> str:
+        raise UF.CHBError("Register not available for operand kind " + str(self))
+
+    @property
+    def is_indirect_register(self) -> bool:
+        return False
+
+    @property
+    def indirect_register(self) -> str:
+        raise UF.CHBError(
+            "Indirect register not available for operand kind " + str(self))
+
+    @property
+    def offset(self) -> int:
+        raise UF.CHBError("Offset not avaialable for operand kind " + str(self))
+
+    @property
+    def value(self) -> int:
+        raise UF.CHBError("Value not available for operand kind " + str(self))
 
     def __str__(self) -> str:
         return "operandkind: " + self.tags[0]
@@ -101,6 +130,10 @@ class ARMRegisterOp(ARMOperandKind):
     @property
     def register(self) -> str:
         return self.tags[1]
+
+    @property
+    def is_register(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return self.register
@@ -219,6 +252,10 @@ class ARMOffsetAddressOp(ARMOperandKind):
         return self.armd.arm_memory_offset(self.args[0])
 
     @property
+    def is_indirect_register(self) -> bool:
+        return True
+
+    @property
     def is_add(self) -> bool:
         return self.args[1] == 1
 
@@ -263,7 +300,7 @@ class ARMImmediateOp(ARMOperandKind):
         return self.value
 
     @property
-    def is_arm_immediate(self) -> bool:
+    def is_immediate(self) -> bool:
         return True
 
     def __str__(self) -> str:

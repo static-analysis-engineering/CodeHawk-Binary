@@ -28,6 +28,7 @@
 from chb.elfformat.ELFHeader import ELFHeader
 from typing import Dict, List, Mapping, Optional, Type
 
+from chb.app.Callgraph import Callgraph
 from chb.app.AppAccess import AppAccess, HeaderTy
 
 from chb.arm.ARMDictionary import ARMDictionary
@@ -75,3 +76,10 @@ class ARMAccess(AppAccess[HeaderTy]):
 
     def call_edges(self) -> Mapping[str, Mapping[str, int]]:
         return {}
+
+    def callgraph(self) -> Callgraph:
+        raise UF.CHBNotImplementedError("ARMAccess", "callgraph", "")
+
+    @property
+    def max_address(self) -> str:
+        raise UF.CHBNotImplementedError("ARMAccess", "max_address", "")
