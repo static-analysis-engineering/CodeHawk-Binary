@@ -394,6 +394,41 @@ def parse() -> argparse.Namespace:
         help='indicate if a function has no callees')
     resultsstats.set_defaults(func=UCC.results_stats)
 
+    # -- results callgraph --
+    resultscg = resultsparsers.add_parser("callgraph")
+    resultscg.add_argument("xname", help="name of executable")
+    resultscg.add_argument(
+        "out",
+        help="basename of file to save output (without extension)")
+    resultscg.add_argument(
+        "--hide_lib_functions",
+        action="store_true",
+        help="hide nodes representing library targets")
+    resultscg.add_argument(
+        "--hide_unknown_targets",
+        action="store_true",
+        help="hide nodes of unknown targets")
+    resultscg.add_argument(
+        "--reverse",
+        action="store_true",
+        help="reverse call graph (reverse edges)")
+    resultscg.add_argument(
+        "--align",
+        choices=["no", "left", "right", "both"],
+        default="both",
+        help="align nodes on the left and/or right side (left takes precedence)")
+    resultscg.add_argument(
+        "--sources",
+        nargs="*",
+        default=[],
+        help="list of names of starting nodes to constrain callgraph")
+    resultscg.add_argument(
+        "--sinks",
+        nargs="*",
+        default=[],
+        help="list of names of terminal nodes to constrain callgraph")
+    resultscg.set_defaults(func=UCC.results_callgraph)
+
     # -- results cfg (control flow graph) --
     showcfg = resultsparsers.add_parser("cfg")
     showcfg.add_argument("xname", help="name of executable")
@@ -626,6 +661,31 @@ def parse() -> argparse.Namespace:
     parser_simulate = subparsers.add_parser("simulate")
     parser_simulate.add_argument("xname", help="name of executable")
     parser_simulate.add_argument("faddr", help="hex address of functions")
+    parser_simulate.add_argument(
+        "--steps", help="number of simulation steps", type=int, default=100)
+    parser_simulate.add_argument(
+        "--libs",
+        nargs="*",
+        default=[],
+        help="shared objects to be included in the simulation (format name:file)")
+    parser_simulate.add_argument(
+        "--support",
+        help="custom import initializations and file/network interactions")
+    parser_simulate.add_argument(
+        "--stub_imports",
+        nargs="*",
+        default=[],
+        help="custom import of user-defined stubs")
+    parser_simulate.add_argument(
+        "--mainargs", nargs="*", help="arguments passed to main", default=[])
+    parser_simulate.add_argument(
+        "--patched_globals",
+        nargs="*",
+        help="globals with modified values (format: hexaddr:hexvalue)",
+        default=[])
+    parser_simulate.add_argument(
+        "--envptr_addr",
+        help="hex address of location that holds pointer to the environment variables")
     parser_simulate.set_defaults(func=S.simulate_function_cmd)
 
     # -------------------------------------------------------- tables subcommand

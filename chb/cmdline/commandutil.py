@@ -37,6 +37,7 @@ import subprocess
 
 from typing import (
     Any,
+    Callable,
     Type,
     Union,
     cast,
@@ -52,6 +53,7 @@ from typing import (
 
 from chb.app.AppAccess import AppAccess
 from chb.app.Assembly import Assembly
+from chb.app.Callgraph import CallgraphNode
 
 from chb.arm.ARMAccess import ARMAccess
 from chb.arm.ARMAssembly import ARMAssembly
@@ -68,6 +70,7 @@ from chb.mips.MIPSInstruction import MIPSInstruction
 
 import chb.cmdline.XInfo as XI
 import chb.graphics.DotCfg as DC
+from chb.graphics.DotCallgraph import DotCallgraph
 import chb.models.FunctionSummary as F
 import chb.models.ModelsAccess as M
 
@@ -404,8 +407,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     xinfo.load(path, xfile)
 
     app = get_app(path, xfile, xinfo)
-    # app = AP.AppAccess(
-    #    path, xfile, fileformat=xinfo.format, arch=xinfo.architecture)
+
     stats = app.result_metrics
     print(stats.header_to_string())
     for f in sorted(stats.get_function_results(),
@@ -413,6 +415,86 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
         print(f.metrics_to_string(shownocallees=nocallees))
     print(stats.disassembly_to_string())
     print(stats.analysis_to_string())
+    exit(0)
+
+
+def results_callgraph(args: argparse.Namespace) -> NoReturn:
+    """Generates a callgraph in dot."""
+
+    # arguments
+    xname: str = args.xname
+    out: str = args.out
+    hidelibs: bool = args.hide_lib_functions
+    hideunknowns: bool = args.hide_unknown_targets
+    reverse: bool = args.reverse
+    align: str = args.align
+    sources: List[str] = args.sources
+    sinks: List[str] = args.sinks
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    def getcolor(node: CallgraphNode) -> str:
+        if node.is_lib_node:
+            return "green"
+        elif node.is_unknown_tgt:
+            return "yellow"
+        else:
+            return "lightblue"
+
+    def nodefilter(node: CallgraphNode) -> bool:
+        if hidelibs and node.is_lib_node:
+            return False
+        elif hideunknowns and node.is_unknown_tgt:
+            return False
+        else:
+            return True
+
+    callgraph = app.callgraph()
+    if len(sources) > 0:
+        callgraph = callgraph.constrain_sources(sources)
+    if len(sinks) > 0:
+        callgraph = callgraph.constrain_sinks(sinks)
+
+    def sameleftrank(node: CallgraphNode) -> bool:
+        return callgraph.is_root_node(node.name)
+
+    def samerightrank(node: CallgraphNode) -> bool:
+        return callgraph.is_sink_node(node.name)
+
+    samerank: List[Callable[[CallgraphNode], bool]] = []
+    if align == "left":
+        samerank = [sameleftrank]
+    elif align == "right":
+        samerank = [samerightrank]
+    elif align == "both":
+        samerank = [sameleftrank, samerightrank]
+
+    dotgraph = DotCallgraph(
+        "callgraph",
+        callgraph,
+        reverse=reverse,
+        getcolor=getcolor,
+        nodefilter=nodefilter,
+        samerank=samerank).to_dotgraph()
+    pdffilename = UD.print_dot(app.path, out, dotgraph)
+
+    if os.path.isfile(pdffilename):
+        print_info("Call graph for " + xname + " has been saved in " + pdffilename)
+
+    else:
+        print_error("Error in converting dot file to pdf")
+        exit(1)
+
     exit(0)
 
 
@@ -465,8 +547,8 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
                     opcodewidth=opcodewidth))
             except UF.CHBError as e:
                 print(str(e.wrap()))
-            except Exception as e:
-                print(str(e))
+            # except Exception as e:
+            #    print(str(e))
         else:
             print_error("Function " + faddr + " not found")
             continue
