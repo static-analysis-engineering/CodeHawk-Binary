@@ -41,14 +41,41 @@ import chb.util.fileutil as UF
 
 # convenience functions
 
-def mk_global_address(address: int) -> "SimGlobalAddress":
+
+def mk_global_address(address: int, modulename: str) -> "SimGlobalAddress":
     offset = cast(SV.SimDoubleWordValue, SV.mk_simvalue(address, size=4))
-    return SimGlobalAddress(offset)
+    return SimGlobalAddress(modulename, offset)
+
+
+def mk_return_address(
+        address: int, modulename: str, function: str) -> "SimReturnAddress":
+    offset = cast(SV.SimDoubleWordValue, SV.mk_simvalue(address, size=4))
+    return SimReturnAddress(modulename, function, offset)
+
+
+def pc_to_return_address(pc: "SimGlobalAddress", function: str) -> "SimReturnAddress":
+    return SimReturnAddress(pc.modulename, function, pc.offset)
+
+
+def mk_undefined_global_address(modulename: str) -> "SimGlobalAddress":
+    return SimGlobalAddress(modulename, SV.simUndefinedDW)
 
 
 def mk_stack_address(stackoffset: int) -> "SimStackAddress":
     offset = cast(SV.SimDoubleWordValue, SV.mk_simvalue(stackoffset, size=4))
     return SimStackAddress(offset)
+
+
+def mk_mapped_address(
+        base: str,
+        offset: int,
+        buffersize: int) -> "SimMappedAddress":
+    """Makes an address within a memory-mapped region."""
+
+    return SimMappedAddress(
+        base,
+        cast(SV.SimDoubleWordValue, SV.mk_simvalue(offset, size=4)),
+        buffersize)
 
 
 def mk_base_address(
@@ -92,13 +119,14 @@ def mk_libc_table_value_deref(
 
 def mk_filepointer(
         filename: str,
-        filepointer: IO[Any]) -> "SimSymbolicFilePointer":
-    return SimSymbolicFilePointer(filename, filepointer)
+        filepointer: Any,
+        defined: bool = True) -> "SimSymbolicFilePointer":
+    return SimSymbolicFilePointer(filename, filepointer, defined=defined)
 
 
 def mk_filedescriptor(
         filename: str,
-        filedescriptor: IO[Any]) -> "SimSymbolicFileDescriptor":
+        filedescriptor: Any) -> "SimSymbolicFileDescriptor":
     return SimSymbolicFileDescriptor(filename, filedescriptor)
 
 
@@ -124,8 +152,8 @@ class SimSymbolicValue(SV.SimValue):
     support manipulation of SimSymbolicValues to create symbolic expressions.
     """
 
-    def __init__(self, size: int = 4):
-        SV.SimValue.__init__(self)
+    def __init__(self, size: int = 4, defined: bool = True):
+        SV.SimValue.__init__(self, defined=defined)
         self._size = size
         self.expressions: List[Tuple[str, SV.SimValue]] = []
 
@@ -150,6 +178,10 @@ class SimSymbolicValue(SV.SimValue):
         return False
 
     @property
+    def is_mapped_address(self) -> bool:
+        return False
+
+    @property
     def is_stack_address(self) -> bool:
         return False
 
@@ -162,7 +194,7 @@ class SimSymbolicValue(SV.SimValue):
         return False
 
     @property
-    def is_return_address(self) -> bool:
+    def is_symbolic_return_address(self) -> bool:
         return False
 
     @property
@@ -211,8 +243,9 @@ class SimSymbolicValue(SV.SimValue):
 
 class SimAddress(SimSymbolicValue, ABC):
 
-    def __init__(self, base: str, offset: SV.SimDoubleWordValue):
-        SimSymbolicValue.__init__(self, size=4)
+    def __init__(
+            self, base: str, offset: SV.SimDoubleWordValue, defined: bool = True):
+        SimSymbolicValue.__init__(self, size=4, defined=defined)
         self._base = base      # 'global', 'stack', baseaddress
         self._offset = offset
 
@@ -241,6 +274,10 @@ class SimAddress(SimSymbolicValue, ABC):
         ...
 
     @abstractmethod
+    def align(self, v: int) -> "SimAddress":
+        ...
+
+    @abstractmethod
     def is_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
         ...
 
@@ -258,6 +295,10 @@ class SimAddress(SimSymbolicValue, ABC):
     def is_address(self) -> bool:
         return True
 
+    @property
+    def is_null_pointer(self) -> bool:
+        return False
+
     def is_aligned(self, size: int = 4) -> bool:
         return (self.offset.value % size) == 0
 
@@ -267,6 +308,10 @@ class SimAddress(SimSymbolicValue, ABC):
 
     @property
     def is_global_address(self) -> bool:
+        return False
+
+    @property
+    def is_return_address(self) -> bool:
         return False
 
     @property
@@ -284,10 +329,82 @@ class SimAddress(SimSymbolicValue, ABC):
         return self.base + ':' + str(self.to_hex())
 
 
+class SimMappedAddress(SimAddress):
+    """Address in a memory-mapped region, offset is absolute, like a global address."""
+
+    def __init__(self, base: str, offset: SV.SimDoubleWordValue, buffersize: int) -> None:
+        SimAddress.__init__(self, "mapped:" + base + ":", offset)
+        self._buffersize = buffersize
+
+    @property
+    def is_mapped_address(self) -> bool:
+        return True
+
+    @property
+    def buffersize(self) -> int:
+        return self._buffersize
+
+    def add_offset(self, v: int) -> "SimMappedAddress":
+        newoffset = self.offset.add_int(v)
+        return SimMappedAddress(self.base, newoffset, self.buffersize)
+
+    def align(self, v: int) -> "SimMappedAddress":
+        newoffset = self.offset.bitwise_and(SV.mk_simvalue(v))
+        return SimMappedAddress(self.base, newoffset, self.buffersize)
+
+    def is_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
+        if self.is_defined and other.is_defined:
+            if other.is_literal:
+                other = cast(SV.SimLiteralValue, other)
+                if other.value == 0:
+                    return SV.simfalse
+                elif other.value == self.offsetvalue:
+                    return SV.simtrue
+                else:
+                    return SV.simfalse
+            elif other.is_symbolic:
+                other = cast(SimSymbolicValue, other)
+                if other.is_global_address:
+                    other = cast("SimGlobalAddress", other)
+                    if other.offsetvalue == self.offsetvalue:
+                        return SV.simtrue
+                    else:
+                        return SV.simfalse
+                else:
+                    return SV.simfalse
+            else:
+                return SV.simUndefinedBool
+        else:
+            return SV.simUndefinedBool
+        return SV.simUndefinedBool
+
+    def __str__(self) -> str:
+        return self.base + self.to_hex()
+
+
 class SimGlobalAddress(SimAddress):
 
-    def __init__(self, offset: SV.SimDoubleWordValue) -> None:
-        SimAddress.__init__(self, "global", offset)
+    def __init__(self, modulename: str, offset: SV.SimDoubleWordValue) -> None:
+        SimAddress.__init__(self, "global:" + modulename, offset)
+        self._modulename = modulename
+
+    @property
+    def is_literal(self) -> bool:
+        """Special case where we can't distinguish between global address and literal."""
+
+        return True
+
+    @property
+    def literal_value(self) -> int:
+        """Returns the offset value of the global address as a literal value."""
+
+        return self.offsetvalue
+
+    @property
+    def modulename(self) -> str:
+        """Return name of loaded module where address resides."""
+
+        return self._modulename
 
     @property
     def is_global_address(self) -> bool:
@@ -295,7 +412,11 @@ class SimGlobalAddress(SimAddress):
 
     def add_offset(self, v: int) -> "SimGlobalAddress":
         newoffset = self.offset.add_int(v)
-        return SimGlobalAddress(newoffset)
+        return SimGlobalAddress(self.modulename, newoffset)
+
+    def align(self, v: int) -> "SimGlobalAddress":
+        newoffset = self.offset.bitwise_and(SV.mk_simvalue(v))
+        return SimGlobalAddress(self.modulename, newoffset)
 
     def is_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
         """Return simtrue if the other address is the same address.
@@ -342,7 +463,71 @@ class SimGlobalAddress(SimAddress):
         return self.add_offset(-simval.to_signed_int())
 
     def __str__(self) -> str:
-        return str(self.to_hex())
+        if self.is_defined:
+            return str(self.modulename + ":" + self.to_hex())
+        else:
+            return self.modulename + ":undefined"
+
+
+class SimNullPointer(SimGlobalAddress):
+
+    def __init__(self) -> None:
+        SimGlobalAddress.__init__(self, "null", SV.simZero)
+
+    @property
+    def is_null_pointer(self) -> bool:
+        return True
+
+    def add_offset(self, v: int) -> "SimGlobalAddress":
+        raise UF.CHBError("Attempt to add offset to nullpointer: " + str(v))
+
+    def align(self, v: int) -> "SimGlobalAddress":
+        return self
+
+    def is_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
+        if other.is_defined:
+            if other.is_literal:
+                if other.literal_value == 0:
+                    return SV.simtrue
+                else:
+                    return SV.simfalse
+            else:
+                return SV.simfalse
+        else:
+            return SV.simUndefinedBool
+
+    def __str__(self) -> str:
+        return "NULL"
+
+
+nullpointer = SimNullPointer()
+
+
+class SimReturnAddress(SimGlobalAddress):
+
+    def __init__(
+            self,
+            modulename: str,
+            functionaddr: str,
+            offset: SV.SimDoubleWordValue) -> None:
+        SimGlobalAddress.__init__(self, modulename, offset)
+        self._functionaddr = functionaddr
+
+    @property
+    def functionaddr(self) -> str:
+        return self._functionaddr
+
+    @property
+    def is_function_return_address(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return (
+            "RA:"
+            + str(self.modulename)
+            + ":"
+            + self.functionaddr
+            + ":" + self.to_hex())
 
 
 class SimStackAddress(SimAddress):
@@ -356,6 +541,10 @@ class SimStackAddress(SimAddress):
 
     def add_offset(self, v: int) -> "SimStackAddress":
         newoffset = self.offset.add_int(v)
+        return SimStackAddress(newoffset)
+
+    def align(self, v: int) -> "SimStackAddress":
+        newoffset = self.offset.bitwise_and(SV.mk_simvalue(v))
         return SimStackAddress(newoffset)
 
     def is_equal(self, other: SV.SimValue) -> SV.SimBoolValue:
@@ -483,6 +672,11 @@ class SimBaseAddress(SimAddress):
         return SimBaseAddress(
             self.base, newoffset, buffersize=self.buffersize, tgttype=self.tgttype)
 
+    def align(self, v: int) -> "SimBaseAddress":
+        newoffset = self.offset.bitwise_and(SV.mk_simvalue(v))
+        return SimBaseAddress(
+            self.base, newoffset, buffersize=self.buffersize, tgttype=self.tgttype)
+
     def add(self, simval: SV.SimLiteralValue) -> "SimBaseAddress":
         return self.add_offset(simval.to_signed_int())
 
@@ -513,14 +707,14 @@ class SimBaseAddress(SimAddress):
         return self.base + ':' + str(self.offset.to_signed_int())
 
 
-class SimReturnAddress(SimSymbolicValue):
+class SimSymbolicReturnAddress(SimSymbolicValue):
     """Address recorded for return after a function call."""
 
     def __init__(self) -> None:
         SimSymbolicValue.__init__(self)
 
     @property
-    def is_return_address(self) -> bool:
+    def is_symbolic_return_address(self) -> bool:
         return True
 
 
@@ -562,7 +756,14 @@ class SimStringAddress(SimSymbolicValue):
             raise UF.CHBError('String address: value to be added is undefined')
 
     def __str__(self) -> str:
-        return 'string:' + self.stringval
+        if len(self.stringval) < 100:
+            return "string:" + self.stringval
+        else:
+            return (
+                "string[length:"
+                + str(len(self.stringval))
+                + "]:"
+                + self.stringval[:100])
 
 
 class SimLibcTableAddress(SimSymbolicValue):
@@ -718,8 +919,9 @@ class SimSymbol(SimSymbolicValue):
             name: str,
             type: Optional[str] = None,
             minval: Optional[int] = None,
-            maxval: Optional[int] = None) -> None:
-        SimSymbolicValue.__init__(self)
+            maxval: Optional[int] = None,
+            defined: bool = True) -> None:
+        SimSymbolicValue.__init__(self, defined=defined)
         self._name = name
         self._type = type
         self._minval = minval
@@ -841,8 +1043,9 @@ class SimSymbolicFilePointer(SimSymbol):
     provided.
     """
 
-    def __init__(self, filename: str, fp: IO[Any]):
-        SimSymbol.__init__(self, filename + '_filepointer', type='ptr2FILE')
+    def __init__(self, filename: str, fp: Any, defined: bool = True):
+        SimSymbol.__init__(
+            self, filename + '_filepointer', type='ptr2FILE', defined=defined)
         self._filename = filename
         self._fp = fp    # pointer returned by open
 

@@ -69,7 +69,7 @@ def mklink(sym: SSV.SimSymbolicValue, pos: int) -> SimMemoryByteLink:
     return SimMemoryByteLink(sym, pos)
 
 
-class SimMemory(object):
+class SimMemory:
     """A logical chunk of memory, byte-addressed."""
 
     def __init__(
@@ -286,9 +286,16 @@ class SimMemory(object):
                 "Address " + str(address) + " not found in memory")
         elif self._mem[offset].is_link:
             if self.bigendian:
-                return self.symbolic_big_endian(iaddr, offset, size)
+                try:
+                    return self.symbolic_big_endian(iaddr, offset, size)
+                except UF.CHBError as e:
+                    raise UF.CHBError(str(e) + ": " + str(self._mem[offset]))
             else:
-                return self.symbolic_little_endian(iaddr, offset, size)
+                try:
+                    return self.symbolic_little_endian(iaddr, offset, size)
+                except UF.CHBError as e:
+                    raise UF.CHBError(
+                        str(e) + ": " + str(address) + ": " + str(self._mem[offset]))
         elif size == 1:
             return self.byte(iaddr, offset)
         if self.bigendian:
@@ -463,8 +470,13 @@ class SimMemory(object):
 
     def mk_address(self, offset: int) -> SSV.SimAddress:
         addr = cast(SV.SimDoubleWordValue, SV.mk_simvalue(offset, size=4))
-        if self.name == "global":
-            return SSV.SimGlobalAddress(addr)
+        if self.name.startswith("global"):
+            names = self.name.split(":")
+            if len(names) == 2:
+                image = names[1]
+            else:
+                image = "mainx"
+            return SSV.SimGlobalAddress(image, addr)
         elif self.name == "stack":
             return SSV.SimStackAddress(addr)
         else:
@@ -472,7 +484,7 @@ class SimMemory(object):
 
     def __str__(self) -> str:
         lines: List[str] = []
-        if self.size > 0:
+        if self.size >= 4:
             if self.lowaddr < 0:
                 lowaddr = ((self.lowaddr // 4) - 1) * 4
             else:
@@ -494,6 +506,8 @@ class SimMemory(object):
                     lines.append(str(hex(a)).rjust(12) + "  ?")
                 except SU.CHBSimError:
                     lines.append(str(hex(a)).rjust(12) + "  ?")
+        else:
+            lines.append("Size " + str(self.size))
 
         return "\n".join(lines)
 
