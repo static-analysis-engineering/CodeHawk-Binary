@@ -27,69 +27,252 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Dict, List, Mapping, Set
+from typing import cast, Dict, List, Mapping, Optional, Sequence, Set
 
+from chb.api.CallTarget import CallTarget, StubTarget, AppTarget
+
+import chb.util.fileutil as UF
 import chb.util.graphutil as UG
 
 
+class CallgraphNode:
+    """Super class for different types of nodes in a call graph.
+
+    The name is assumed to be a unique index for the node, such that it can be
+    used in the representation of edges. The __str__ method produces the
+    textual content of the node (e.g., in dot).
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def is_app_node(self) -> bool:
+        return False
+
+    @property
+    def is_lib_node(self) -> bool:
+        return False
+
+    @property
+    def is_unknown_tgt(self) -> bool:
+        return False
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class AppCallgraphNode(CallgraphNode):
+
+    def __init__(self, address: str, fname: Optional[str]) -> None:
+        CallgraphNode.__init__(self, address)
+        self._fname = fname
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, AppCallgraphNode):
+            return self.name == other.name
+        return False
+
+    def fname(self) -> str:
+        if self._fname:
+            return self._fname
+        else:
+            raise UF.CHBError(
+                "Callgraph node for "
+                + self.name
+                + " does not have a function name")
+
+    def has_fname(self) -> bool:
+        return self._fname is not None
+
+    @property
+    def is_app_node(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        if self.has_fname():
+            return self.fname()
+        else:
+            return self.name
+
+
+class LibCallgraphNode(CallgraphNode):
+
+    def __init__(self, name: str) -> None:
+        CallgraphNode.__init__(self, name)
+
+    @property
+    def is_lib_node(self) -> bool:
+        return True
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, LibCallgraphNode):
+            return self.name == other.name
+        return False
+
+
+class UnknownCallgraphNode(CallgraphNode):
+
+    def __init__(self, id: int, callsite: str) -> None:
+        CallgraphNode.__init__(self, "unknown-" + str(id))
+        self._id = id
+        self._callsite = callsite
+
+    @property
+    def id(self) -> int:
+        return self._id
+
+    @property
+    def callsite(self) -> str:
+        """Return hex address of call instruction."""
+
+        return self._callsite
+
+    @property
+    def is_unknown_tgt(self) -> bool:
+        return True
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, UnknownCallgraphNode):
+            return self.id == other.id
+        return False
+
+    def __str__(self) -> str:
+        return "unknown"
+
+
+class CallgraphEdge:
+
+    def __init__(self, src: str, dst: str) -> None:
+        self._src = src
+        self._dst = dst
+
+    @property
+    def src(self) -> str:
+        return self._src
+
+    @property
+    def dst(self) -> str:
+        return self._dst
+
+
 class Callgraph:
+    """Application call graph.
 
-    def __init__(
-            self,
-            calls: Mapping[str, Mapping[str, int]]) -> None:
-        self._nodes: Set[str] = set([])
-        # faddr -> faddr/name -> int
-        self._edges: Mapping[str, Mapping[str, int]] = calls
-        self._edgelist: Dict[str, List[str]] = {}
-        # faddr/name -> faddr -> int
-        self._revedges: Dict[str, Dict[str, int]] = {}
-        self._revedgelist: Dict[str, List[str]] = {}
+    The callgraph is incrementally constructed by adding nodes and edges.
+    """
 
-    def edges(self) -> Mapping[str, Mapping[str, int]]:
-        return self._edges
+    unknowntgtcounter = 0
 
-    def edgelist(self) -> Dict[str, List[str]]:
-        if len(self._edgelist) == 0:
-            for src in self.edges():
-                for dst in self.edges()[src]:
-                    self._edgelist.setdefault(src, [])
-                    self._edgelist[src].append(dst)
-        return self._edgelist
+    def __init__(self) -> None:
+        self._nodes: Dict[str, CallgraphNode] = {}
+        self._edges: Dict[str, Dict[str, CallgraphEdge]] = {}
 
-    def nodes(self) -> Set[str]:
-        if len(self._nodes) == 0:
-            for src in self.edges():
-                for dst in self.edges()[src]:
-                    self._nodes.add(src)
-                    self._nodes.add(dst)
+    def clone(self, reverse=False) -> "Callgraph":
+        result = Callgraph()
+        for n in self.nodes.values():
+            result.add_node(n)
+        for (src, dsts) in self.edges.items():
+            srcnode = self.nodes[src]
+            for dst in dsts:
+                dstnode = self.nodes[dst]
+                if reverse:
+                    result.add_edge(dstnode, srcnode)
+                else:
+                    result.add_edge(srcnode, dstnode)
+        return result
+
+    @property
+    def nodes(self) -> Mapping[str, CallgraphNode]:
         return self._nodes
 
-    def revedges(self) -> Mapping[str, Mapping[str, int]]:
-        if len(self._revedges) == 0:
-            for src in self.edges():
-                for dst in self.edges()[src]:
-                    self._revedges.setdefault(dst, {})
-                    self._revedges[dst].setdefault(src, 0)
-                    self._revedges[dst][src] += self.edges()[src][dst]
-        return self._revedges
+    @property
+    def edges(self) -> Mapping[str, Mapping[str, CallgraphEdge]]:
+        return self._edges
 
-    def revedgelist(self) -> Dict[str, List[str]]:
-        if len(self._revedgelist) == 0:
-            for src in self.revedges():
-                for dst in self.revedges()[src]:
-                    self._revedgelist.setdefault(src, [])
-                    self._revedgelist[src].append(dst)
-        return self._revedgelist
+    @property
+    def edgecount(self) -> int:
+        return len(self.edges)
 
-    def get_paths(self, src: str, dst: str) -> List[List[str]]:
-        g = UG.DirectedGraph(list(self.nodes()), self.edgelist())
-        g.find_paths(src, dst)
-        return g.get_paths()
+    def add_node(self, node: CallgraphNode) -> None:
+        if node.name not in self._nodes:
+            self._nodes[node.name] = node
 
-    def get_reverse_paths(self, src: str) -> List[List[str]]:
-        g = UG.DirectedGraph(list(self.nodes()), self.revedgelist())
-        g.find_paths(src)
-        return g.get_paths()
+    def has_node(self, node: CallgraphNode) -> bool:
+        return node.name in self.nodes
 
-    def get_reverse_callgraph(self) -> Mapping[str, Mapping[str, int]]:
-        return self.revedges()
+    def add_edge(self, src: CallgraphNode, dst: CallgraphNode) -> None:
+        self.add_node(src)
+        self.add_node(dst)
+        self._edges.setdefault(src.name, {})
+        if dst.name not in self._edges[src.name]:
+            self._edges[src.name][dst.name] = CallgraphEdge(src.name, dst.name)
+
+    def has_edge(self, src: str, dst: str) -> bool:
+        return src in self.edges and dst in self.edges[src]
+
+    def is_root_node(self, name: str) -> bool:
+        for (src, dsts) in self.edges.items():
+            if name in dsts:
+                return False
+        else:
+            return True
+
+    def is_sink_node(self, name: str) -> bool:
+        return name not in self.edges
+
+    def constrain_sources(self, sources: List[str]) -> "Callgraph":
+        result = Callgraph()
+
+        def is_source(node: CallgraphNode) -> bool:
+            return node.name in sources or str(node) in sources
+
+        for n in self.nodes.values():
+            if is_source(n):
+                result.add_node(n)
+
+        edgesadded: bool = False
+        for (src, dsts) in self.edges.items():
+            for dst in dsts:
+                if result.has_node(self.nodes[src]) and not result.has_edge(src, dst):
+                    result.add_edge(self.nodes[src], self.nodes[dst])
+                    edgesadded = True
+
+        while edgesadded:
+            edgesadded = False
+            for (src, dsts) in self.edges.items():
+                for dst in dsts:
+                    if result.has_node(self.nodes[src]) and not result.has_edge(src, dst):
+                        result.add_edge(self.nodes[src], self.nodes[dst])
+                        edgesadded = True
+        return result
+
+    def constrain_sinks(self, sinks: List[str]) -> "Callgraph":
+        return self.clone(reverse=True).constrain_sources(sinks).clone(reverse=True)
+
+
+# Convenience functions
+
+def mk_tgt_callgraph_node(iaddr: str, tgt: CallTarget) -> CallgraphNode:
+    if tgt.is_app_target:
+        tgt = cast(AppTarget, tgt)
+        fname: Optional[str] = None
+        if tgt.has_tgt_name():
+            fname = tgt.tgt_name()
+        return AppCallgraphNode(str(tgt.address), fname)
+    elif tgt.is_dll_target or tgt.is_so_target or tgt.is_syscall_target:
+        tgt = cast(StubTarget, tgt)
+        return LibCallgraphNode(tgt.name)
+    elif tgt.is_unknown:
+        Callgraph.unknowntgtcounter += 1
+        return UnknownCallgraphNode(Callgraph.unknowntgtcounter, iaddr)
+    else:
+        raise UF.CHBNotImplementedError("Callgraph", "mk_callgraph_node", str(tgt))
+
+
+def mk_app_callgraph_node(addr: str, fname: Optional[str]) -> CallgraphNode:
+    return AppCallgraphNode(addr, fname)
