@@ -74,6 +74,10 @@ class MIPSOperand(Operand, MIPSDictionaryRecord):
         return self.opkind.is_mips_register
 
     @property
+    def is_register(self) -> bool:
+        return self.opkind.is_mips_register
+
+    @property
     def is_zero_register(self) -> bool:
         return self.is_mips_register and self.register == 'zero'
 
@@ -82,7 +86,19 @@ class MIPSOperand(Operand, MIPSDictionaryRecord):
         return self.opkind.is_mips_indirect_register
 
     @property
+    def is_indirect_register(self) -> bool:
+        return self.opkind.is_mips_indirect_register
+
+    @property
+    def offset(self) -> int:
+        return self.opkind.offset
+
+    @property
     def is_mips_immediate(self) -> bool:
+        return self.opkind.is_mips_immediate
+
+    @property
+    def is_immediate(self) -> bool:
         return self.opkind.is_mips_immediate
 
     @property

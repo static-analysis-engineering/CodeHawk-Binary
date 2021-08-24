@@ -157,6 +157,10 @@ class MIPSSpecialRegisterOp(MIPSOperandKind):
         MIPSOperandKind.__init__(self, d, ixval)
 
     @property
+    def is_mips_register(self) -> bool:
+        return True
+
+    @property
     def is_mips_special_register(self) -> bool:
         return True
 

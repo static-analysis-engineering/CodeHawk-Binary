@@ -58,7 +58,7 @@ if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
     from chb.mips.MIPSFunction import MIPSFunction
     from chb.mips.opcodes.MIPSLoadWord import MIPSLoadWord
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 class MIPSInstruction(Instruction):
@@ -287,7 +287,7 @@ class MIPSInstruction(Instruction):
             return opc.ft_conditions(self.xdata)
         return []
 
-    def simulate(self, simstate: "MIPSimulationState") -> None:
+    def simulate(self, simstate: "SimulationState") -> None:
         try:
             self.opcode.simulate(self.iaddr, simstate)
         except SU.CHBSimError as e:

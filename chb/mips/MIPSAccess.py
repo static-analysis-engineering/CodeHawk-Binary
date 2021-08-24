@@ -30,6 +30,9 @@
 from chb.elfformat.ELFHeader import ELFHeader
 from typing import Callable, Type, cast, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from chb.api.CallTarget import CallTarget
+
+from chb.app.Callgraph import Callgraph, mk_tgt_callgraph_node, mk_app_callgraph_node
 from chb.app.AppAccess import AppAccess, HeaderTy
 
 from chb.mips.MIPSDictionary import MIPSDictionary
@@ -50,6 +53,8 @@ class MIPSAccess(AppAccess[HeaderTy]):
         AppAccess.__init__(self, path, filename, fileformat, deps)
         self._mipsd: Optional[MIPSDictionary] = None
         self._functions: Dict[str, MIPSFunction] = {}
+        self._callgraph: Optional[Callgraph] = None
+        self._maxaddr: Optional[str] = "0x600000"    # for testing purposes
 
     @property
     def mipsdictionary(self) -> MIPSDictionary:
@@ -80,13 +85,23 @@ class MIPSAccess(AppAccess[HeaderTy]):
                     xnode)
         return self._functions
 
-    @property
-    def call_edges(self) -> Mapping[str, Mapping[str, int]]:
-        return {}
+    def callgraph(self) -> Callgraph:
+        if self._callgraph is None:
+            cg = Callgraph()
+            for (faddr, instrs) in self.function_calls().items():
+                fname: Optional[str] = None
+                if self.has_function_name(faddr):
+                    fname = self.function_name(faddr)
+                srcnode = mk_app_callgraph_node(faddr, fname)
+                for instr in instrs:
+                    calltgt = instr.call_target()
+                    dstnode = mk_tgt_callgraph_node(instr.iaddr, calltgt)
+                    cg.add_edge(srcnode, dstnode)
+        return cg
 
     def iter_functions(self, f: Callable[[str, MIPSFunction], None]) -> None:
-        for (faddr, instr) in sorted(self.functions.items()):
-            f(faddr, instr)
+        for (faddr, fn) in sorted(self.functions.items()):
+            f(faddr, fn)
 
     def address_reference(self) -> Mapping[str, Tuple[str, List[str]]]:
         """Return map of addr -> [ baddr, [ faddr ])."""
@@ -104,14 +119,32 @@ class MIPSAccess(AppAccess[HeaderTy]):
         self.iter_functions(add)
         return result
 
-    def app_calls(self) -> Dict[str, List[MIPSInstruction]]:
+    def function_calls(self) -> Dict[str, List[MIPSInstruction]]:
         """Returns a dictionary faddr -> MIPSInstruction."""
         result: Dict[str, List[MIPSInstruction]] = {}
 
         def f(faddr: str, fn: MIPSFunction) -> None:
-            appcalls = fn.app_calls()
-            if len(appcalls) > 0:
-                result[faddr] = appcalls
+            calls = fn.call_instructions()
+            if len(calls) > 0:
+                result[faddr] = calls
 
         self.iter_functions(f)
         return result
+
+    @property
+    def max_address(self) -> str:
+        """Return the maximum address in the address space (in hex)."""
+
+        if not self._maxaddr:
+            result = 0
+
+            for (faddr, f) in self.functions.items():
+                for loc in f.invariants:
+                    for fact in f.invariants[loc]:
+                        if fact.is_nonrelational and str(fact.variable) == "$gp":
+                            if fact.value.is_singleton:
+                                if fact.value.singleton_value > result:
+                                    result = fact.value.singleton_value
+            self._maxaddr = hex(result)
+
+        return self._maxaddr
