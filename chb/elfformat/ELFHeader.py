@@ -307,6 +307,26 @@ class ELFHeader:
                     return int(h.index)
         return None
 
+    @property
+    def max_address_space(self) -> str:
+        result = 0
+        for ph in self.programheaders:
+            if ph.has_virtual_address() and ph.has_memsize():
+                vaddr = int(ph.virtual_address, 16)
+                memsize = int(ph.memsize, 16)
+                if vaddr + memsize > result:
+                    result = vaddr + memsize
+        return hex(result)
+
+    def is_in_address_space(self, addr: int) -> bool:
+        base = int(self.image_base, 16)
+        maxaddr = int(self.max_address_space, 16)
+        return addr >= base and addr < maxaddr
+
+    def is_in_elf_section(self, addr: int) -> bool:
+        index = self.get_elf_section_index(addr)
+        return index is not None and self.sectionheaders[index].is_address_in_section(addr)
+
     def get_symbol_table(self) -> ELFSection:
         index = self.get_symbol_table_index()
         if index in self.sections:
