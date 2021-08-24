@@ -117,6 +117,18 @@ class ELFProgramHeader:
         else:
             raise UF.CHBError("Virtual address not found in program header")
 
+    def has_memsize(self) -> bool:
+        xmemsz = self.xnode.get("p_memsz")
+        return xmemsz is not None
+
+    @property
+    def memsize(self) -> str:
+        memsz = self.xnode.get("p_memsz")
+        if memsz:
+            return memsz
+        else:
+            raise UF.CHBError("Memsize not found in program header")
+
     def get_default_property_value(self, tag: str, default: str) -> str:
         xprop = self.xnode.get(tag)
         if xprop:
