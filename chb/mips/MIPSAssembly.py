@@ -43,7 +43,7 @@ import chb.util.fileutil as UF
 if TYPE_CHECKING:
     from chb.mips.MIPSAccess import MIPSAccess
     from chb.mips.opcodes.MIPSJumpLinkRegister import MIPSJumpLinkRegister
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 class MIPSAssemblyInstruction(AssemblyInstruction):
@@ -131,7 +131,7 @@ class MIPSAssemblyInstruction(AssemblyInstruction):
                 or (self.mnemonic == 'move'
                     and str(self.operand(2)) == 'sp'))
 
-    def simulate(self, simstate: "MIPSimulationState") -> str:
+    def simulate(self, simstate: "SimulationState") -> str:
         try:
             return self.opcode.simulate(self.iaddr, simstate)
         except SU.CHBSimError as e:

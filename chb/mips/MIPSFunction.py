@@ -189,18 +189,6 @@ class MIPSFunction(Function):
         self.iter_instructions(f)
         return result
 
-    def app_calls(self) -> List[MIPSInstruction]:
-        """Returns a list of instructions that are calls to application functions."""
-
-        result: List[MIPSInstruction] = []
-
-        def f(iaddr: str, instr: MIPSInstruction) -> None:
-            if instr.is_call_instruction:
-                result.append(instr)
-
-        self.iter_instructions(f)
-        return result
-
     def call_instructions(self) -> List[MIPSInstruction]:
         result: List[MIPSInstruction] = []
 

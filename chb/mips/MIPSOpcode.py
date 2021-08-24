@@ -50,7 +50,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
-    from chb.mips.simulation.MIPSimulationState import MIPSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 def simplify_result(id1: int, id2: int, x1: XXpr, x2: XXpr) -> str:
@@ -181,7 +181,7 @@ class MIPSOpcode(MIPSDictionaryRecord):
         else:
             return False
 
-    def simulate(self, iaddr: str, simstate: "MIPSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         raise SU.CHBSimError(
             simstate,
             iaddr,
