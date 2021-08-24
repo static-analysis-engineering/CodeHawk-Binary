@@ -31,7 +31,7 @@ from typing import Callable, Dict, List, Set
 
 import chb.util.graphutil as UG
 
-from chb.app.Callgraph import Callgraph
+from chb.app.Callgraph import Callgraph, CallgraphNode
 from chb.util.DotGraph import DotGraph
 
 
@@ -41,91 +41,64 @@ class DotCallgraph:
             self,
             graphname: str,
             callgraph: Callgraph,
-            sinks: List[str] = [],
-            startaddr: str = None,
-            getcolor: Callable[[str], str] = lambda x: "purple",
-            getname: Callable[[str], str] = lambda x: x) -> None:
-        self.graphname = graphname
-        self.callgraph = callgraph
-        self.dotgraph = DotGraph(graphname)
-        self.dotgraph.rankdir = 'LR'
-        self.sinks = sinks
-        self.startaddr = startaddr
-        self.getcolor = getcolor
-        self.getname = getname
-        self._pathnodes: Set[str] = set([])
-
+            reverse: bool = False,
+            getcolor: Callable[[CallgraphNode], str] = lambda x: "lightblue",
+            nodefilter: Callable[[CallgraphNode], bool] = lambda x: True,
+            samerank: List[Callable[[CallgraphNode], bool]] = []) -> None:
+        self._graphname = graphname
+        self._callgraph = callgraph
+        self._reverse = reverse
+        self._dotgraph = DotGraph(graphname)
+        self._dotgraph.rankdir = "LR"
+        self._getcolor = getcolor
+        self._nodefilter = nodefilter
+        self._samerank = samerank
+        """
         if self.startaddr and not self.sinks:
             self.restrict_nodes_from(self.startaddr)
         else:
             self.restrict_nodes()
+        """
 
-    def build(self) -> DotGraph:
-        if len(self.sinks) > 0:
-            self.restrict_nodes()
-        for n in self.callgraph.nodes():
-            if self.getcolor(n) is None:
-                continue
-            self.add_cg_node(n, self.getcolor(n))
-            for d in self.callgraph.edgelist()[n]:
-                self.add_cg_edge(
-                    n, d, self.callgraph.edges()[n][d], self.getcolor(n))
+    @property
+    def callgraph(self) -> Callgraph:
+        return self._callgraph
+
+    @property
+    def dotgraph(self) -> DotGraph:
+        return self._dotgraph
+
+    @property
+    def reverse(self) -> bool:
+        return self._reverse
+
+    def nodecolor(self, node: CallgraphNode) -> str:
+        return self._getcolor(node)
+
+    def nodefilter(self, node: CallgraphNode) -> bool:
+        return self._nodefilter(node)
+
+    @property
+    def samerank(self) -> List[Callable[[CallgraphNode], bool]]:
+        return self._samerank
+
+    def to_dotgraph(self) -> DotGraph:
+        nodes = self.callgraph.nodes
+        for (name, node) in nodes.items():
+            if self.nodefilter(node):
+                self.dotgraph.add_node(
+                    name, labeltxt=str(node), color=self.nodecolor(node))
+        for (src, edges) in self.callgraph.edges.items():
+            for (dst, dstedge) in edges.items():
+                if self.nodefilter(nodes[src]) and self.nodefilter(nodes[dst]):
+                    if self.reverse:
+                        self.dotgraph.add_edge(dst, src)
+                    else:
+                        self.dotgraph.add_edge(src, dst)
+        for r in self.samerank:
+            sameranknodes: List[str] = []
+            for (name, node) in nodes.items():
+                if self.nodefilter(node) and r(node):
+                    sameranknodes.append(name)
+            self.dotgraph.set_same_rank(sameranknodes)
         return self.dotgraph
-
-    def restrict_nodes(self) -> None:
-        nodes = set([])
-        edges: Dict[str, List[str]] = {}
-        for n in self.callgraph.nodes():
-            nodes.add(n)
-            for d in self.callgraph.edgelist()[n]:
-                nodes.add(d)
-                edges.setdefault(n, [])
-                edges[n].append(d)
-        if self.startaddr is None:
-            self.pathnodes = nodes
-            return
-        g = UG.DirectedGraph(list(nodes), edges)
-        if len(self.sinks) > 0:
-            g.find_paths(self.startaddr, self.sinks[0])
-            for p in g.paths:
-                print('Path: ' + str(p))
-                self.pathnodes = self.pathnodes.union(p)
-            if len(self.pathnodes) == 0:
-                self.pathnodes = nodes
-        else:
-            self.pathnodes = nodes
-
-    def restrict_nodes_from(self, startaddr: str) -> None:
-        nodes = set([])
-        edges: Dict[str, List[str]] = {}
-        nodes.add(startaddr)
-        for d in self.callgraph.edgelist()[startaddr]:
-            nodes.add(d)
-            edges.setdefault(startaddr, [])
-            edges[startaddr].append(d)
-        nodecount = len(nodes)
-        while True:
-            for n in self.callgraph.nodes():
-                if n in nodes:
-                    for d in self.callgraph.edgelist()[n]:
-                        nodes.add(d)
-                        edges.setdefault(n, [])
-                        edges[n].append(d)
-            if len(nodes) == nodecount:
-                break
-            nodecount = len(nodes)
-        self.pathnodes = nodes
-
-    def add_cg_node(self, n: str, color: str) -> None:
-        blocktxt = self.getname(str(n))
-        if str(n) in self.pathnodes:
-            self.dotgraph.add_node(str(n), labeltxt=blocktxt, color=color)
-
-    def add_cg_edge(self, n: str, d: str, count: int, color: str) -> None:
-        labeltxt = str(count)
-        if self.getcolor(d) is None:
-            return
-        if str(n) in self.pathnodes and str(d) in self.pathnodes:
-            blocktxt = self.getname(str(d))
-            self.dotgraph.add_node(str(d), labeltxt=blocktxt, color=self.getcolor(d))
-            self.dotgraph.add_edge(str(n), str(d))
