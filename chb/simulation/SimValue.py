@@ -97,11 +97,27 @@ class SimValue(ABC):
         return self.defined
 
     @property
+    def is_undefined(self) -> bool:
+        return not self.defined
+
+    @property
     def is_literal(self) -> bool:
         return False
 
     @property
+    def literal_value(self) -> int:
+        raise UF.CHBError("Literal-value not supported by " + str(self))
+
+    @property
     def is_symbolic(self) -> bool:
+        return False
+
+    @property
+    def is_symbolic_return_address(self) -> bool:
+        return False
+
+    @property
+    def is_function_return_address(self) -> bool:
         return False
 
     @property
@@ -110,6 +126,10 @@ class SimValue(ABC):
 
     @property
     def is_file_pointer(self) -> bool:
+        return False
+
+    @property
+    def is_file_descriptor(self) -> bool:
         return False
 
     @property
@@ -122,6 +142,10 @@ class SimValue(ABC):
 
     @property
     def is_libc_table_value(self) -> bool:
+        return False
+
+    @property
+    def is_global_address(self) -> bool:
         return False
 
     @property
@@ -155,6 +179,15 @@ class SimLiteralValue(SimValue):
         """Returns non-negative integer value."""
 
         return self._value
+
+    @property
+    def literal_value(self) -> int:
+        """Returns non-negative integer value.
+
+        Intended to serve cases where we can't distinguish between literal and
+        global address."""
+
+        return self.value
 
     @property
     def is_literal(self) -> bool:
@@ -305,6 +338,10 @@ class SimLiteralValue(SimValue):
     def bitwise_sll(self, shiftamount: int) -> "SimLiteralValue":
         ...
 
+    @abstractmethod
+    def bitwise_srl(self, shiftamount: int) -> "SimLiteralValue":
+        ...
+
     def __str__(self) -> str:
         if self.is_defined:
             return str(self.value)
@@ -407,6 +444,9 @@ class SimBoolValue(SimLiteralValue):
         raise UF.CHBError("Bitwise shift not applicable to SimBoolValue")
 
     def bitwise_sll(self, shiftamount: int) -> SimLiteralValue:
+        raise UF.CHBError("Bitwise shift not applicable to SimBoolValue")
+
+    def bitwise_srl(self, shiftamount: int) -> SimLiteralValue:
         raise UF.CHBError("Bitwise shift not applicable to SimBoolValue")
 
     def bitwise_xor(self, other: SimValue) -> SimLiteralValue:
@@ -694,6 +734,9 @@ class SimByteValue(SimLiteralValue):
     def bitwise_sll(self, shiftamount: int) -> "SimByteValue":
         raise UF.CHBError("Bitwise shift left not yet implemented for SimByteValue")
 
+    def bitwise_srl(self, shiftamount: int) -> "SimByteValue":
+        raise UF.CHBError("Bitwsise shift right not yet implemented for SimByteValue")
+
     def bitwise_xor(self, other: SimValue) -> "SimByteValue":
         """Return exclusive or with other value."""
 
@@ -930,6 +973,9 @@ class SimWordValue(SimLiteralValue):
 
     def bitwise_sll(self, shiftamount: int) -> "SimWordValue":
         raise UF.CHBError("Bitwise shift left not yet implemented for SimWordValue")
+
+    def bitwise_srl(self, shiftamount: int) -> "SimWordValue":
+        raise UF.CHBError("Bitwise shift right not yet implemented for SimWordValue")
 
     def bitwise_rcl(
             self, other: SimValue, cflag: int) -> Tuple[int, "SimWordValue"]:
@@ -1723,6 +1769,9 @@ class SimQuadWordValue(SimLiteralValue):
 
     def bitwise_sll(self, shiftamount: int) -> "SimQuadWordValue":
         raise UF.CHBError("Bitwise shift left not yet implemented for QuadWordValue")
+
+    def bitwise_srl(self, shiftamount: int) -> "SimQuadWordValue":
+        raise UF.CHBError("Bitwise shift right not yet implemented for QuadWordValue")
 
     def bitwise_rcl(
             self, other: SimValue, cflag: int) -> Tuple[int, "SimQuadWordValue"]:

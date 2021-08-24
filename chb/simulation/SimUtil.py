@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from chb.app.Instruction import Instruction
     from chb.simulation.SimLocation import SimLocation
     from chb.simulation.SimulationState import SimulationState
-    from chb.simulation.SimSymbolicValue import SimSymbolicValue
+    from chb.simulation.SimSymbolicValue import SimSymbolicValue, SimGlobalAddress
     from chb.simulation.SimValue import SimValue
 
 
@@ -143,6 +143,20 @@ def simcall(
     return "call " + str(tgtval) + ", ra := " + str(returnaddr)
 
 
+def simbranchcall(
+        iaddr: str,
+        simstate: "SimulationState",
+        truetgt: "SimSymbolicValue",
+        falsetgt: "SimSymbolicValue",
+        expr: str,
+        result: "SimValue") -> str:
+    if result.is_defined:
+        taken = "T" if str(result) == "1" else "F"
+    else:
+        taken = "?"
+    return "if " + expr + " then call " + str(truetgt) + "; ra := " + str(falsetgt)
+
+
 def simbranch(
         iaddr: str,
         simstate: "SimulationState",
@@ -229,8 +243,8 @@ class CHBSimBranchUnknownError(CHBSimError):
             self,
             simstate: "SimulationState",
             iaddr: str,
-            truetgt: "SimSymbolicValue",
-            falsetgt: "SimSymbolicValue",
+            truetgt: "SimGlobalAddress",
+            falsetgt: "SimGlobalAddress",
             msg: str) -> None:
         CHBSimError.__init__(self, simstate, iaddr, msg)
         self.truetgt = truetgt
