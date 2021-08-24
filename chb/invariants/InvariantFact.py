@@ -103,6 +103,14 @@ class InvariantFact(FnInvDictionaryRecord):
     def is_testvar_equality(self) -> bool:
         return False
 
+    @property
+    def variable(self) -> XVariable:
+        raise UF.CHBError("variable not applicable to " + str(self))
+
+    @property
+    def value(self) -> NonRelationalValue:
+        raise UF.CHBError("value not applicable to " + str(self))
+
 
 @invregistry.register_tag("u", InvariantFact)
 class UnreachableFact(InvariantFact):

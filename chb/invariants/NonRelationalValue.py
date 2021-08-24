@@ -65,6 +65,14 @@ class NonRelationalValue(FnInvDictionaryRecord):
             ixval: IndexedTableValue) -> None:
         FnInvDictionaryRecord.__init__(self, invd, ixval)
 
+    @property
+    def is_singleton(self) -> bool:
+        return False
+
+    @property
+    def singleton_value(self) -> int:
+        raise UF.CHBError("Non-relational-value is not a singleton")
+
     def __str__(self) -> str:
         return 'nrv:' + self.tags[0]
 
@@ -133,6 +141,17 @@ class NRVIntervalValue(NonRelationalValue):
     @property
     def is_singleton(self) -> bool:
         return self.is_bounded and self.lowerbound == self.upperbound
+
+    @property
+    def singleton_value(self) -> int:
+        if self.is_singleton:
+            lowerbound = self.lowerbound
+            if lowerbound is not None:
+                return lowerbound
+            else:
+                raise UF.CHBError("NRVIntervalValue: internal error")
+        else:
+            raise UF.CHBError("Non-relational-value is not a singleton")
 
     def __str__(self) -> str:
         if self.is_singleton:
