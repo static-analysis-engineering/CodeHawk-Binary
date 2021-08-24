@@ -46,7 +46,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
-    from chb.arm.simulation.ARMSimulationState import ARMSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 def simplify_result(id1: int, id2: int, x1: XXpr, x2: XXpr) -> str:
@@ -125,7 +125,7 @@ class ARMOpcode(ARMDictionaryRecord):
     def is_store_instruction(self, xdata: InstrXData) -> bool:
         return self.tags[0] in ["STR", "STRB", "STRH"]
 
-    def simulate(self, iaddr: str, simstate: "ARMSimulationState") -> str:
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         raise SU.CHBSimError(
             simstate,
             iaddr,

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,64 +24,48 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Operand of an ARM assembly instruction."""
 
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from chb.app.Operand import Operand
-from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
-from chb.arm.ARMOperandKind import ARMOperandKind
+from chb.simulation.SimProgramCounter import SimProgramCounter
+import chb.simulation.SimSymbolicValue as SSV
 
-from chb.util.IndexedTable import IndexedTableValue
+import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.simulation.SimulationState import SimulationState
 
 
-class ARMOperand(ARMDictionaryRecord, Operand):
+class ARMSimProgramCounter(SimProgramCounter):
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
-        ARMDictionaryRecord.__init__(self, d, ixval)
-        Operand.__init__(self)
+    def __init__(self, pc: SSV.SimGlobalAddress) -> None:
+        self._programcounter = pc
+        self._functionaddr = hex(pc.offsetvalue)
 
     @property
-    def opkind(self) -> ARMOperandKind:
-        return self.armd.arm_opkind(self.args[0])
+    def programcounter(self) -> SSV.SimGlobalAddress:
+        return self._programcounter
 
     @property
-    def size(self) -> int:
-        return self.opkind.size
+    def modulename(self) -> str:
+        return self.programcounter.modulename
 
     @property
-    def is_immediate(self) -> bool:
-        return self.opkind.is_immediate
+    def function_address(self) -> str:
+        return self._functionaddr
 
-    @property
-    def value(self) -> int:
-        return self.opkind.value
+    def returnaddress(
+            self, iaddr: str, simstate: "SimulationState") -> SSV.SimGlobalAddress:
+        raise UF.CHBError("Not implemented yet")
 
-    @property
-    def is_register(self) -> bool:
-        return self.opkind.is_register
+    def set_function_address(self, faddr: str) -> None:
+        self._functionaddr = faddr
 
-    @property
-    def register(self) -> str:
-        return self.opkind.register
+    def set_programcounter(self, pc: SSV.SimGlobalAddress) -> None:
+        self._programcounter = pc
 
-    @property
-    def is_indirect_register(self) -> bool:
-        return self.opkind.is_indirect_register
+    def set_delayed_programcounter(self, pc: SSV.SimGlobalAddress) -> None:
+        raise UF.CHBError("Not applicable to ARM")
 
-    @property
-    def indirect_register(self) -> str:
-        return self.opkind.indirect_register
-
-    @property
-    def offset(self) -> int:
-        return self.opkind.offset
-
-    def __str__(self) -> str:
-        return str(self.opkind)
+    def increment_programcounter(self, simstate: "SimulationState") -> None:
+        self.set_programcounter(self.programcounter.add_offset(4))

@@ -42,7 +42,7 @@ import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.arm.ARMAccess import ARMAccess
-    from chb.arm.simulation.ARMSimulationState import ARMSimulationState
+    from chb.simulation.SimulationState import SimulationState
 
 
 class ARMAssemblyInstruction(AssemblyInstruction):
@@ -104,7 +104,7 @@ class ARMAssemblyInstruction(AssemblyInstruction):
                     and str(self.operand(2)) == 'sp'))
 
     '''
-    def simulate(self, simstate: "ARMSimulationState") -> str:
+    def simulate(self, simstate: "SimulationState") -> str:
         try:
             return self.opcode.simulate(self.iaddr, simstate)
         except SU.CHBSimError as e:
