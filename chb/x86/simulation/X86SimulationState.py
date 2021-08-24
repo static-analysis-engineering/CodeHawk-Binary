@@ -27,16 +27,20 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import cast, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
-from chb.simulation.SimulationState import SimulationState
+from chb.app.Operand import Operand
+
+from chb.simulation.SimulationState import SimulationState, SimModule
 
 from chb.simulation.SimLocation import (
     SimLocation,
     SimRegister,
     SimDoubleRegister,
     SimMemoryLocation)
-from chb.simulation.SimMemory import SimGlobalMemory, SimStackMemory
+from chb.simulation.SimMemory import SimMemory, SimGlobalMemory, SimStackMemory
+from chb.simulation.SimProgramCounter import SimProgramCounter
+from chb.simulation.SimSupport import SimSupport
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimValue as SV
 import chb.simulation.SimUtil as SU
@@ -55,17 +59,35 @@ from chb.x86.X86OperandKind import (
 
 if TYPE_CHECKING:
     from chb.x86.X86Function import X86Function
+    from chb.x86.X86Access import X86Access
+
+
+class X86SimModule(SimModule):
+
+    def __init__(self, name: str, app: "X86Access", base: str, max_addr: str) -> None:
+        SimModule.__init__(self, name, app, base, max_addr)
 
 
 class X86SimulationState(SimulationState):
 
     def __init__(
             self,
+            startaddr: str,
+            mainx: X86SimModule,
+            simprogramcounter: SimProgramCounter,
             x86fn: "X86Function",
-            imagebase: str) -> None:
-        SimulationState.__init__(self)
+            simsupport: SimSupport = SimSupport(),
+            dynlibs: Sequence[X86SimModule] = [],
+            bigendian: bool = False) -> None:
+        SimulationState.__init__(
+            self,
+            startaddr,
+            mainx,
+            simprogramcounter,
+            simsupport=simsupport,
+            dynlibs=dynlibs,
+            bigendian=bigendian)
         self._x86fn = x86fn
-        self._imagebase = SSV.mk_global_address(int(imagebase, 16))
         self.uninitializedregion: Optional[
             Tuple[SSV.SimGlobalAddress, SSV.SimGlobalAddress]] = None
         self.flags: Dict[str, SV.SimBoolValue] = {}   # flagname -> SimBoolValue
@@ -77,7 +99,7 @@ class X86SimulationState(SimulationState):
         self.registers['ebp'] = SSV.mk_symbol('ebp-in')
         self.registers['eax'] = SSV.mk_symbol('eax-in')
         self.registers['ecx'] = SSV.mk_symbol('ecx-in')
-        self.stackmem.set("0", SSV.mk_stack_address(0), SSV.SimReturnAddress())
+        self.stackmem.set("0", SSV.mk_stack_address(0), SSV.SimSymbolicReturnAddress())
         self.flags['DF'] = SV.simflagclr         # direction forward
         self.flags['CF'] = SV.simflagclr         # no carry
         self.flags['PF'] = SV.simflagclr         # even parity
@@ -90,12 +112,12 @@ class X86SimulationState(SimulationState):
         return self._x86fn
 
     @property
-    def imagebase(self) -> SSV.SimGlobalAddress:
-        return self._imagebase
+    def globalmem(self) -> SimMemory:
+        return self.modulestate.globalmem
 
     @property
-    def globalmem(self) -> SimGlobalMemory:
-        return self._globalmem
+    def imagebase(self) -> str:
+        return self.module.base
 
     def set_initial_register(self, reg: str, regval: SV.SimValue) -> None:
         if SU.is_full_reg(reg):
@@ -105,8 +127,8 @@ class X86SimulationState(SimulationState):
 
     def set_uninitialized_region(self, low: str, high: str) -> None:
         self.uninitializedregion = (
-            SSV.mk_global_address(int(low, 16)),
-            SSV.mk_global_address(int(high, 16)))
+            SSV.mk_global_address(int(low, 16), self.modulename),
+            SSV.mk_global_address(int(high, 16), self.modulename))
 
     def is_uninitialized_global_mem(self, address: str) -> bool:
         if self.uninitializedregion is not None:
@@ -183,7 +205,8 @@ class X86SimulationState(SimulationState):
         else:
             self.registers[reg] = srcval
 
-    def set(self, iaddr: str, dstop: X86Operand, srcval: SV.SimValue) -> None:
+    def set(self, iaddr: str, dstop: Operand, srcval: SV.SimValue) -> SimLocation:
+        dstop = cast(X86Operand, dstop)
         if not srcval.is_defined:
             self.add_logmsg(iaddr, 'Source value is undefined: ' + str(dstop))
         lhs = self.get_lhs(iaddr, dstop)
@@ -211,6 +234,7 @@ class X86SimulationState(SimulationState):
                     iaddr, 'Destination location not found: ' + str(dstop))
         else:
             self.add_logmsg(iaddr, 'Destination location not found: ' + str(dstop))
+        return lhs
 
     def push_value(self, iaddr: str, simval: SV.SimValue) -> None:
         esp = self.get_regval(iaddr, "esp")
@@ -321,18 +345,8 @@ class X86SimulationState(SimulationState):
                 return self.get_memval(iaddr, addr, op.size)
             elif regval.is_literal and regval.is_defined:
                 regval = cast(SV.SimLiteralValue, regval)
-                if regval.value > self.imagebase.offsetvalue:
-                    gaddr = SSV.mk_global_address(regval.value + offset)
-                    return self.get_memval(iaddr, gaddr, op.size)
-                else:
-                    raise SU.CHBSimError(
-                        self,
-                        iaddr,
-                        'register used in indirect register operand has no base: '
-                        + str(regval)
-                        + ' ('
-                        + str(self.imagebase)
-                        + ')')
+                gaddr = self.resolve_literal_address(iaddr, regval.value)
+                return self.get_memval(iaddr, gaddr, op.size)
             else:
                 raise SU.CHBSimError(
                     self,
@@ -396,18 +410,8 @@ class X86SimulationState(SimulationState):
                 return SimMemoryLocation(regval.add_offset(offset))
             elif regval.is_literal and regval.is_defined:
                 regval = cast(SV.SimLiteralValue, regval)
-                if regval.value > self.imagebase.offsetvalue:
-                    addr = SSV.mk_global_address(regval.value + offset)
-                    return SimMemoryLocation(addr)
-                else:
-                    raise SU.CHBSimError(
-                        self,
-                        iaddr,
-                        ('get-lhs: operand not recognized: '
-                         + str(op)
-                         + ' (regval: '
-                         + str(regval)
-                         + ')'))
+                addr = self.resolve_literal_address(iaddr, regval.value)
+                return SimMemoryLocation(addr)
             else:
                 raise SU.CHBSimError(
                     self,
@@ -474,13 +478,8 @@ class X86SimulationState(SimulationState):
                 return regval.add_offset(offset)
             elif regval.is_literal and regval.is_defined:
                 regval = cast(SV.SimLiteralValue, regval)
-                if regval.value > self.imagebase.offsetvalue:
-                    return SSV.mk_global_address(regval.value + offset)
-                else:
-                    raise SU.CHBSimError(
-                        self,
-                        iaddr,
-                        "get-address-val: indirect register: " + str(op))
+                addr = self.resolve_literal_address(iaddr, regval.value)
+                return addr.add_offset(offset)
             else:
                 return SV.simUndefinedDW
 
@@ -497,14 +496,8 @@ class X86SimulationState(SimulationState):
                     return regval.add_offset(offset)
                 elif regval.is_literal and regval.is_defined:
                     regval = cast(SV.SimLiteralValue, regval)
-                    if regval.value > self.imagebase.offsetvalue:
-                        return SSV.mk_global_address(regval.value + offset)
-                    else:
-                        raise SU.CHBSimError(
-                            self,
-                            iaddr,
-                            ('get-address-val: indirect-scaled-register: '
-                             + str(basereg)))
+                    addr = self.resolve_literal_address(iaddr, regval.value)
+                    return addr.add_offset(offset)
                 else:
                     raise SU.CHBSimError(
                         self,

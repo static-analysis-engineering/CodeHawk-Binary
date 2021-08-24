@@ -30,6 +30,7 @@
 from chb.elfformat.ELFHeader import ELFHeader
 from typing import Dict, List, Mapping, Optional, Sequence, Type
 
+from chb.app.Callgraph import Callgraph
 from chb.app.AppAccess import AppAccess, HeaderTy
 
 import chb.util.fileutil as UF
@@ -80,3 +81,10 @@ class X86Access(AppAccess[HeaderTy]):
     @property
     def call_edges(self) -> Mapping[str, Mapping[str, int]]:
         return {}
+
+    def callgraph(self) -> Callgraph:
+        raise UF.CHBNotImplementedError("X86Access", "callgraph", "")
+
+    @property
+    def max_address(self) -> str:
+        raise UF.CHBNotImplementedError("X86Access", "max_address", "")

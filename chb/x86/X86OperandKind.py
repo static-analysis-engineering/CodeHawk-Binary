@@ -35,6 +35,8 @@ from chb.x86.X86DictionaryRecord import X86DictionaryRecord, x86registry
 
 from chb.util.IndexedTable import IndexedTableValue
 
+import chb.util.fileutil as UF
+
 if TYPE_CHECKING:
     from chb.x86.X86Dictionary import X86Dictionary
 
@@ -106,6 +108,10 @@ class X86OperandKind(X86DictionaryRecord):
     @property
     def is_double_register(self) -> bool:
         return False
+
+    @property
+    def offset(self) -> int:
+        raise UF.CHBError("Offset undefined for operand kind: " + str(self))
 
     def to_operand_string(self) -> str:
         return self.__str__()

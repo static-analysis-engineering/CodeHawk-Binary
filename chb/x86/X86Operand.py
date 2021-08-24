@@ -33,7 +33,8 @@ from typing import cast, List, TYPE_CHECKING
 from chb.app.Operand import Operand
 
 from chb.x86.X86DictionaryRecord import X86DictionaryRecord
-from chb.x86.X86OperandKind import X86OperandKind, X86RegisterOp
+from chb.x86.X86OperandKind import (
+    X86OperandKind, X86RegisterOp, X86ImmediateOp, X86IndirectRegisterOp)
 
 import chb.util.fileutil as UF
 
@@ -63,12 +64,31 @@ class X86Operand(Operand, X86DictionaryRecord):
         return self.args[0]
 
     @property
+    def value(self) -> int:
+        return self.to_signed_int()
+
+    @property
     def opkind(self) -> X86OperandKind:
         return self.x86d.opkind(self.args[1])
 
     @property
     def is_register(self) -> bool:
         return self.opkind.is_register
+
+    @property
+    def is_indirect_register(self) -> bool:
+        return self.opkind.is_indirect_register
+
+    @property
+    def indirect_register(self) -> str:
+        if self.is_indirect_register:
+            return cast(X86IndirectRegisterOp, self.opkind).register
+        else:
+            raise UF.CHBError("Operand is not an indirect register: " + str(self))
+
+    @property
+    def offset(self) -> int:
+        return self.opkind.offset
 
     @property
     def is_immediate(self) -> bool:
@@ -84,6 +104,13 @@ class X86Operand(Operand, X86DictionaryRecord):
             return cast(X86RegisterOp, self.opkind).register
         else:
             raise UF.CHBError('Operand is not a register: ' + str(self))
+
+    def to_signed_int(self) -> int:
+        if self.is_immediate:
+            opkind = cast(X86ImmediateOp, self.opkind)
+            return opkind.value
+        else:
+            raise UF.CHBError("Operand is not an immediate: " + str(self))
 
     def to_operand_string(self) -> str:
         return self.opkind.to_operand_string()
