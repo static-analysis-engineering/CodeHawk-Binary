@@ -258,6 +258,22 @@ class CHBSummaryUnicodeDecodeError(CHBError):
                 + str(self.error))
 
 
+class CHBNotImplementedError(CHBError):
+
+    def __init__(self, module: str, methodname: str, msg: str) -> None:
+        self.module = module
+        self.methodname = methodname
+        self.msg = msg
+
+    def __str__(self) -> str:
+        return (
+            self.module
+            + ": "
+            + self.methodname
+            + " not yet implemented; "
+            + self.msg)
+
+
 def get_path_filename(name: str) -> Tuple[str, str]:
     """Returns the path and filename of the target executable indicated by name."""
     name = os.path.abspath(name)

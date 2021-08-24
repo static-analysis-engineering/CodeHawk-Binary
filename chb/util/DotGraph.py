@@ -125,6 +125,7 @@ class DotGraph:
         self.nodes: Dict[str, DotNode] = {}
         self.edges: Dict[Tuple[str, str], DotEdge] = {}
         self.rankdir = 'TB'
+        self.samerank: List[List[str]] = []
 
     def add_node(
             self,
@@ -158,6 +159,17 @@ class DotGraph:
     def set_left_to_right(self) -> None:
         self.rankdir = 'LR'
 
+    def set_same_rank(self, nodes: List[str]) -> None:
+        result: List[str] = []
+        for n in nodes:
+            if n.startswith("0x") or "-" in n:
+                result.append('"' + n + '"')
+            elif "(" in n or ")" in n:
+                result.append('"' + n + '"')
+            else:
+                result.append(n)
+        self.samerank.append(result)
+
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append('digraph ' + '"' + self.name + '" {')
@@ -171,5 +183,7 @@ class DotGraph:
             lines.append(str(self.nodes[n]))
         for e in self.edges:
             lines.append(str(self.edges[e]))
+        for r in self.samerank:
+            lines.append("{rank=same; " + "; ".join(r) + "}")
         lines.append(' }')
         return '\n'.join(lines)
