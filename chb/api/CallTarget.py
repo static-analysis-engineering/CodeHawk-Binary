@@ -99,6 +99,10 @@ class CallTarget(InterfaceDictionaryRecord):
         return False
 
     @property
+    def is_syscall_target(self) -> bool:
+        return False
+
+    @property
     def is_app_target(self) -> bool:
         return False
 
@@ -146,6 +150,10 @@ class StubTarget(CallTarget):
     @property
     def is_so_target(self) -> bool:
         return self.stub.is_so_stub
+
+    @property
+    def is_syscall_target(self) -> bool:
+        return self.stub.is_syscall_stub
 
     def __str__(self) -> str:
         return str(self.stub)
@@ -197,6 +205,16 @@ class AppTarget(CallTarget):
     @property
     def address(self) -> AsmAddress:
         return self.bd.address(self.args[0])
+
+    def has_tgt_name(self) -> bool:
+        return self.app.has_function_name(str(self.address))
+
+    def tgt_name(self) -> str:
+        if self.has_tgt_name():
+            return self.app.function_name(str(self.address))
+        else:
+            raise UF.CHBError(
+                "Application target " + str(self.address) + " does not have a name")
 
     def is_app_target(self) -> bool:
         return True

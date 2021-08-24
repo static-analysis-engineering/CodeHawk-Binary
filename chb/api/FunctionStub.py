@@ -49,6 +49,9 @@ from abc import ABC, abstractmethod
 from typing import List, TYPE_CHECKING
 
 from chb.api.InterfaceDictionaryRecord import InterfaceDictionaryRecord, apiregistry
+
+from chb.api.MIPSLinuxSyscalls import syscalls
+
 from chb.models.FunctionSummary import FunctionSummary
 
 import chb.util.fileutil as UF
@@ -138,7 +141,10 @@ class SyscallFunction(FunctionStub):
 
     @property
     def name(self) -> str:
-        return "syscall-" + str(int)
+        if str(self.index) in syscalls:
+            return "syscall(" + syscalls[str(self.index)] + ")"
+        else:
+            return "syscall(" + str(self.index) + ")"
 
     @property
     def index(self) -> int:
@@ -149,7 +155,7 @@ class SyscallFunction(FunctionStub):
         return True
 
     def __str__(self) -> str:
-        return 'syscall-' + str(self.index)
+        return self.name
 
 
 @apiregistry.register_tag("dll", FunctionStub)
