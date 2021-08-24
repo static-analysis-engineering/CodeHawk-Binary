@@ -31,11 +31,52 @@ Subclasses:
  - arm/ARMOperand
  - mips/MIPSOperand
 """
+from abc import ABC, abstractmethod
 
 from typing import TYPE_CHECKING
 
 
-class Operand:
+class Operand(ABC):
 
     def __init__(self) -> None:
         pass
+
+    @property
+    @abstractmethod
+    def size(self) -> int:
+        ...
+
+    @property
+    @abstractmethod
+    def is_register(self) -> bool:
+        ...
+
+    @property
+    @abstractmethod
+    def register(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
+    def is_indirect_register(self) -> bool:
+        ...
+
+    @property
+    @abstractmethod
+    def indirect_register(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
+    def offset(self) -> int:
+        ...
+
+    @property
+    @abstractmethod
+    def is_immediate(self) -> bool:
+        ...
+
+    @property
+    @abstractmethod
+    def value(self) -> int:
+        ...

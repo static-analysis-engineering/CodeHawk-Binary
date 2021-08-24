@@ -29,8 +29,21 @@
 """Access point for most analysis results."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Generic, Type, TypeVar, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Generic,
+    Type,
+    TypeVar,
+    Union,
+    overload)
 
+from chb.api.CallTarget import CallTarget
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
 from chb.app.AppResultData import AppResultData
@@ -56,6 +69,8 @@ import chb.util.fileutil as UF
 
 
 HeaderTy = TypeVar('HeaderTy', PEHeader, ELFHeader, Union[PEHeader, ELFHeader])
+
+
 class AppAccess(ABC, Generic[HeaderTy]):
     def __init__(
             self,
@@ -76,9 +91,6 @@ class AppAccess(ABC, Generic[HeaderTy]):
         # functions
         self._appresultdata: Optional[AppResultData] = None
         self._functioninfos: Dict[str, FunctionInfo] = {}
-
-        # callgraph
-        self._callgraph: Optional[Callgraph] = None
 
         # summaries
         self.models = ModelsAccess(self.dependencies)
@@ -227,19 +239,19 @@ class AppAccess(ABC, Generic[HeaderTy]):
                 self.interfacedictionary, faddr, xnode)
         return self._functioninfos[faddr]
 
-    # Callgraph ---------------------------------------------------------------
+    # Address space ----------------------------------------------------------
 
     @property
     @abstractmethod
-    def call_edges(self) -> Mapping[str, Mapping[str, int]]:
+    def max_address(self) -> str:
+        """Return the maximum address referenced in the image (in hex)."""
         ...
 
-    @property
+    # Callgraph ---------------------------------------------------------------
+
+    @abstractmethod
     def callgraph(self) -> Callgraph:
-        if self._callgraph is None:
-            calls = self.call_edges
-            self._callgraph = Callgraph(calls)
-        return self._callgraph
+        ...
 
     # Misc ---------------------------------------------------------------------
 
