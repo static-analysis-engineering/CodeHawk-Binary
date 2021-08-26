@@ -34,7 +34,7 @@ The method increment_programcounter handles this by maintaining a delayed progra
 counter, that is executed one cycle after it has been emitted by the instruction.
 """
 
-from typing import cast, List, Optional, TYPE_CHECKING
+from typing import cast, List, Optional, TYPE_CHECKING, Union
 
 from chb.simulation.SimProgramCounter import SimProgramCounter
 
@@ -51,7 +51,7 @@ class MIPSimProgramCounter(SimProgramCounter):
 
     def __init__(self, pc: SSV.SimGlobalAddress) -> None:
         self._programcounter = pc
-        self._delayed_programcounter: Optional[SSV.SimGlobalAddress] = None
+        self._delayed_programcounter: Optional[Union[SSV.SimGlobalAddress, SSV.SimDynamicLinkSymbol]] = None
         self._functionaddr = hex(pc.offsetvalue)
 
     @property
@@ -65,13 +65,15 @@ class MIPSimProgramCounter(SimProgramCounter):
         return self._delayed_programcounter is not None
 
     @property
-    def delayed_programcounter(self) -> SSV.SimGlobalAddress:
+    def delayed_programcounter(self) -> Union[SSV.SimGlobalAddress, SSV.SimDynamicLinkSymbol]:
         if self._delayed_programcounter is not None:
             return self._delayed_programcounter
         else:
             raise UF.CHBError("Delayed programcounter is not set")
 
-    def set_delayed_programcounter(self, address: SSV.SimGlobalAddress) -> None:
+    def set_delayed_programcounter(
+            self,
+            address: Union[SSV.SimGlobalAddress, SSV.SimDynamicLinkSymbol]) -> None:
         self._delayed_programcounter = address
 
     def reset_delayed_programcounter(self) -> None:
@@ -125,39 +127,46 @@ class MIPSimProgramCounter(SimProgramCounter):
 
     def handle_delayed_programcounter(self, simstate: "SimulationState") -> None:
         iaddr = hex(self.programcounter.offsetvalue - 4)
-        addrval = self.delayed_programcounter.offsetvalue
-        if simstate.module.is_imported(addrval):
-            importsym = simstate.module.import_symbol(addrval)
-            exportaddr = simstate.resolve_import_symbol(importsym)
-            if exportaddr.is_defined:
-                self.transfer_to_exported_function(
-                    simstate, iaddr, importsym, exportaddr)
-            elif importsym in simstate.stubs:
-                simstate.stub_functioncall(iaddr, importsym)
-            else:
-                raise SU.CHBSimError(
-                    simstate,
-                    iaddr,
-                    ("Unable to determine location of imported value: "
-                     + hex(addrval)
-                     + "("
-                     + importsym
-                     + ") in module "
-                     + self.modulename))
-
-        elif simstate.module.has_function_name(addrval):
-            fname = simstate.module.function_name(addrval)
-            if fname in simstate.stubs:
-                simstate.stub_functioncall(iaddr, fname)
-            else:
-                self.transfer_to_app_function(simstate, iaddr, fname)
-
-        elif simstate.module.has_function(addrval):
-            self.transfer_to_app_function(simstate, iaddr, hex(addrval))
+        if self.delayed_programcounter.is_dynamic_link_symbol:
+            linksymbol = cast(SSV.SimDynamicLinkSymbol, self.delayed_programcounter)
+            tgtaddr = linksymbol.address
+            self.transfer_to_linked_function(simstate, iaddr, tgtaddr, linksymbol.name)
 
         else:
-            # delay slot created by branch
-            self.set_programcounter(self.delayed_programcounter)
+            delayed_programcounter = cast(SSV.SimGlobalAddress, self.delayed_programcounter)
+            addrval = delayed_programcounter.offsetvalue
+            if simstate.module.is_imported(addrval):
+                importsym = simstate.module.import_symbol(addrval)
+                exportaddr = simstate.resolve_import_symbol(importsym)
+                if exportaddr.is_defined:
+                    self.transfer_to_exported_function(
+                        simstate, iaddr, importsym, exportaddr)
+                elif importsym in simstate.stubs:
+                    simstate.stub_functioncall(iaddr, importsym)
+                else:
+                    raise SU.CHBSimError(
+                        simstate,
+                        iaddr,
+                        ("Unable to determine location of imported value: "
+                         + hex(addrval)
+                         + "("
+                         + importsym
+                         + ") in module "
+                         + self.modulename))
+
+            elif simstate.module.has_function_name(addrval):
+                fname = simstate.module.function_name(addrval)
+                if fname in simstate.stubs:
+                    simstate.stub_functioncall(iaddr, fname)
+                else:
+                    self.transfer_to_app_function(simstate, iaddr, fname)
+
+            elif simstate.module.has_function(addrval):
+                self.transfer_to_app_function(simstate, iaddr, hex(addrval))
+
+            else:
+                # delay slot created by branch
+                self.set_programcounter(delayed_programcounter)
 
         self.reset_delayed_programcounter()
 
@@ -183,14 +192,28 @@ class MIPSimProgramCounter(SimProgramCounter):
 
     def transfer_to_app_function(
             self, simstate: "SimulationState", iaddr: str, name: str) -> None:
+        delayed_programcounter = cast(SSV.SimGlobalAddress, self.delayed_programcounter)
         simstate.trace.add_delayed("\nEntering function " + name)
         if simstate.simsupport.has_call_intercept(name):
             intercept = simstate.simsupport.call_intercept(name)
             intercept.do_before(iaddr, simstate)
-        self.set_programcounter(self.delayed_programcounter)
+        simstate.set_register(iaddr, "t9", delayed_programcounter)
+        self.set_programcounter(delayed_programcounter)
         simstate.trace.traverse_edge(
-            self.function_address, iaddr, hex(self.delayed_programcounter.offsetvalue))
-        simstate.set_function_address(hex(self.delayed_programcounter.offsetvalue))
+            self.function_address, iaddr, hex(delayed_programcounter.offsetvalue))
+        simstate.set_function_address(hex(delayed_programcounter.offsetvalue))
+
+    def transfer_to_linked_function(
+            self,
+            simstate: "SimulationState",
+            iaddr: str,
+            tgtaddr: SSV.SimGlobalAddress,
+            name: str) -> None:
+        simstate.trace.add_delayed("\nEntering runtime-linked function " + name)
+        simstate.set_register(iaddr, "t9", tgtaddr)
+        self.set_programcounter(tgtaddr)
+        simstate.trace.traverse_edge(self.function_address, iaddr, name)
+        simstate.set_function_address(hex(tgtaddr.offsetvalue))
 
     def __str__(self) -> str:
         lines: List[str] = []
