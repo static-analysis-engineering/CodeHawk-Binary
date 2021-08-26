@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import Any, cast, Dict, List, Sequence, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Sequence, TYPE_CHECKING, Union
 
 from chb.app.InstrXData import InstrXData
 
@@ -133,6 +133,7 @@ class MIPSJumpLinkRegister(MIPSOpcode):
                 iaddr,
                 "jalr: target address is undefined: " + str(tgtop))
 
+        tgtaddr: Union[SSV.SimGlobalAddress, SSV.SimDynamicLinkSymbol]
         if tgtval.is_address:
             tgtval = cast(SSV.SimAddress, tgtval)
             if tgtval.is_global_address:
@@ -151,6 +152,9 @@ class MIPSJumpLinkRegister(MIPSOpcode):
                     simstate,
                     iaddr,
                     "jalr: target address cannot be resolved: " + str(tgtval))
+
+        elif tgtval.is_dynamic_link_symbol:
+            tgtaddr = cast(SSV.SimDynamicLinkSymbol, tgtval)
 
         elif tgtval.is_symbolic:
             raise SU.CHBSimError(

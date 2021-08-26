@@ -171,6 +171,18 @@ class MIPSBranchNotEqual(MIPSOpcode):
             else:
                 result = SV.simUndefinedBool
 
+        elif src1val.is_symbol_table_handle and src2val.is_literal:
+            if src2val.literal_value == 0:
+                result = SV.simtrue
+            else:
+                result = SV.simUndefinedBool
+
+        elif src1val.is_dynamic_link_symbol and src2val.is_literal:
+            if src2val.literal_value == 0:
+                result = SV.simtrue
+            else:
+                result = SV.simUndefinedBool
+
         elif src1val.is_string_address and src2val.is_string_address:
             v1 = cast(SSV.SimStringAddress, src1val)
             v2 = cast(SSV.SimStringAddress, src2val)
