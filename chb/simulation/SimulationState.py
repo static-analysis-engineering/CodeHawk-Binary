@@ -815,4 +815,24 @@ class SimulationState:
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append(str(self.simprogramcounter))
+
+        # stack
+        lines.append("-" * 80)
+        lines.append("Stack memory:")
+        lines.append("-" * 80)
+        lines.append(str(self.stackmem))
+        lines.append("=" * 80)
+        lines.append("")
+
+        # log messages
+        if self.fnlog:
+            lines.append('-' * 80)
+            lines.append('Log messages:')
+            lines.append('-' * 80)
+            for a in sorted(self.fnlog):
+                lines.append('  ' + str(a) + ' (' + str(len(self.fnlog[a])) + ')')
+                for x in self.fnlog[a]:
+                    lines.append('    ' + str(x))
+            lines.append('=' * 80)
+
         return "\n".join(lines)

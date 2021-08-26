@@ -27,7 +27,7 @@
 """Abstract superclass for managing the program counter in a simulation."""
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 import chb.simulation.SimSymbolicValue as SSV
 
@@ -64,7 +64,8 @@ class SimProgramCounter(ABC):
         ...
 
     @abstractmethod
-    def set_delayed_programcounter(self, pc: SSV.SimGlobalAddress) -> None:
+    def set_delayed_programcounter(
+            self, pc: Union[SSV.SimGlobalAddress, SSV.SimDynamicLinkSymbol]) -> None:
         ...
 
     @abstractmethod

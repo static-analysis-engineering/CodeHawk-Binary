@@ -137,6 +137,10 @@ class SimValue(ABC):
         return False
 
     @property
+    def is_dynamic_link_symbol(self) -> bool:
+        return False
+
+    @property
     def is_libc_table_address(self) -> bool:
         return False
 
