@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from chb.simulation.SimProgramCounter import SimProgramCounter
 import chb.simulation.SimSymbolicValue as SSV
@@ -64,7 +64,8 @@ class ARMSimProgramCounter(SimProgramCounter):
     def set_programcounter(self, pc: SSV.SimGlobalAddress) -> None:
         self._programcounter = pc
 
-    def set_delayed_programcounter(self, pc: SSV.SimGlobalAddress) -> None:
+    def set_delayed_programcounter(
+            self, pc: Union[SSV.SimGlobalAddress, SSV.SimDynamicLinkSymbol]) -> None:
         raise UF.CHBError("Not applicable to ARM")
 
     def increment_programcounter(self, simstate: "SimulationState") -> None:
