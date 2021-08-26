@@ -571,9 +571,10 @@ class MIPStub_atoi(MIPSimStub):
         try:
             a0str = self.get_arg_string(iaddr, simstate, "a0")
         except Exception as e:
-            print("atoi: " + str(a0) + " is not a string")
-            print(str(e))
-            exit(1)
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "atoi: " + str(a0) + " is not a string. (" + str(e) + ")")
         pargs = str(a0) + ":" + a0str
         try:
             result = int(a0str)
@@ -600,9 +601,10 @@ class MIPStub_atol(MIPSimStub):
         try:
             a0str = self.get_arg_string(iaddr, simstate, 'a0')
         except Exception as e:
-            print("atol: " + str(a0) + ' is not a string')
-            print(str(e))
-            exit(1)
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "atol: " + str(a0) + " is not a string. (" + str(e) + ")")
         pargs = str(a0) + ':' + a0str
         try:
             result = int(a0str)
@@ -838,20 +840,32 @@ class MIPStub_dlsym(MIPSimStub):
         MIPSimStub.__init__(self, 'dlsym')
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        a1str = self.get_arg_string(iaddr, simstate, 'a1')
+        a0 = self.get_arg_val(iaddr, simstate, "a0")  # void *restrict handle
+        a1 = self.get_arg_val(iaddr, simstate, "a1")  # const char *restrict name
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
         pargs = str(a0) + ',' + str(a1) + ':' + a1str
-        if a0.is_literal and a0.is_defined:
-            a0 = cast(SV.SimLiteralValue, a0)
-            result = SSV.mk_dynamic_link_symbol(a0.value, a1str)
-            if a0.is_symbol_table_handle:
-                a0 = cast(SSV.SimSymbolTableHandle, a0)
+
+        if a0.is_undefined or a1.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "dlsym: some argument is undefined: " + pargs)
+
+        result: SV.SimValue
+
+        if a0.is_symbol_table_handle:
+            a0 = cast(SSV.SimSymbolTableHandle, a0)
+            importsym = simstate.resolve_import_symbol(a1str)
+            if importsym.is_defined:
+                result = SSV.mk_dynamic_link_symbol(a0, a1str, importsym)
                 a0.set_value(a1str, result)
-                # simstate.set_dlsym_stub(iaddr, a1str)
-            simstate.set_register(iaddr, 'v0', result)
+            else:
+                result = SV.simNegOne
+
         else:
-            simstate.set_register(iaddr, "v0", SV.simNegOne)
+            result = SV.simNegOne
+
+        simstate.set_register(iaddr, "v0", result)
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
 
 
@@ -1830,12 +1844,17 @@ class MIPStub_getline(MIPSimStub):
 
 
 class MIPStub_getopt(MIPSimStub):
+    """int getopt(int argc, char * const argv[], const char *optstring);
+
+    This stub depends on the address where optarg is stored. This address should
+    be set in the simsupport module.
+    """
 
     def __init__(self) -> None:
         MIPSimStub.__init__(self, 'getopt')
         self.optarg = SV.simZero
-        self.optind = 1
-        self.optopt: SV.SimValue = SV.simZero
+        self.optind = 1  # keeps track of the current option
+        self.optopt: SV.SimValue = SV.simZero  # points to current cmdline argument
 
     def is_io_operation(self) -> bool:
         return True
@@ -1844,62 +1863,97 @@ class MIPStub_getopt(MIPSimStub):
         cindex = cmdstr.find(c)
         if cindex < 0:
             return False
-        return cmdstr[cindex+1] == ':'
+        else:
+            return cmdstr[cindex+1] == ':'
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        optoptaddr = simstate.simsupport.optoptaddr
-        optargaddr = simstate.simsupport.optargaddr
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        a2 = self.get_arg_val(iaddr, simstate, 'a2')
-        a2str = self.get_arg_string(iaddr, simstate, 'a2')
+        a0 = self.get_arg_val(iaddr, simstate, "a0")   # int argc
+        a1 = self.get_arg_val(iaddr, simstate, "a1")   # char *const argv[]
+        a2 = self.get_arg_val(iaddr, simstate, "a2")   # const char *optstring
+        a2str = self.get_arg_string(iaddr, simstate, "a2")
         pargs = ','.join(str(a) for a in [a0, a1]) + ',' + str(a2) + ':' + a2str
-        if not (optoptaddr.is_address and optargaddr.is_address):
-            simstate.set_register(iaddr, "v0", SV.simNegOne)
-            return self.add_logmsg(iaddr, simstate, pargs, returnval="-1")
 
-        optoptaddr = cast(SSV.SimAddress, optoptaddr)
-        optargaddr = cast(SSV.SimAddress, optargaddr)
+        result: int = -1
+        optargaddr = simstate.simsupport.optargaddr
 
-        if a0.is_literal and a0.is_defined and a1.is_address:
-            a0 = cast(SV.SimLiteralValue, a0)
-            a1 = cast(SSV.SimAddress, a1)
-            if self.optind < a0.value:
-                argaddr = a1.add_offset(self.optind * 4)
-                self.optopt = simstate.memval(iaddr, argaddr, 4)
-                if self.optopt.is_string_address:
-                    self.optopt = cast(SSV.SimStringAddress, self.optopt)
-                    if self.optopt.stringval.startswith('-'):
-                        cmdarg = self.optopt.stringval[1]
-                        simstate.set_memval(
-                            iaddr, optoptaddr, SV.mk_simvalue(ord(cmdarg) - 65))
-                        if self.has_argument(a2str, cmdarg):
-                            argvaladdr = a1.add_offset((self.optind + 1) * 4)
-                            nextarg = simstate.memval(iaddr, argvaladdr, 4)
-                            if nextarg.is_string_address:
-                                nextarg = cast(SSV.SimStringAddress, nextarg)
-                                if nextarg.stringval.startswith('-'):
-                                    emptyarg = SSV.mk_string_address(':')
-                                    simstate.set_memval(iaddr, optargaddr, emptyarg)
-                                    self.optind += 1
-                                else:
-                                    simstate.set_memval(iaddr, optargaddr, nextarg)
-                                    self.optind += 2
-                            else:
-                                result = -1
-                        else:
-                            self.optind += 1
-                        result = ord(cmdarg)
-                    else:
-                        result = -1
-                else:
-                    result = -1
-            else:
-                result = -1
+        if not optargaddr.is_address:
+            simstate.add_logmsg("warning", "getopt: optargaddress has not been set")
+            simstate.set_register(iaddr, "v0", SV.mk_simvalue(result))
+            return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
         else:
-            result = -1
-        simstate.set_register(iaddr, 'v0', SV.mk_simvalue(result))
+            optargaddr = cast(SSV.SimAddress, optargaddr)
 
+        if a0.is_undefined or a1.is_undefined or a2.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "some arguments to getopt are undefined: " + pargs)
+
+        if not a0.is_literal:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "getopt: expected a0 to be a literal: " + str(a0))
+        else:
+            argc = a0.literal_value
+
+        if not a1.is_address:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "getopt: expected a1 to be an address: " + str(a1))
+        else:
+            argv = cast(SSV.SimAddress, a1)
+
+        if not a2.is_address:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "getopt: expected a2 to be an address: " + str(a2))
+        else:
+            optstring = a2str
+
+        if self.optind < argc:
+            argaddr = argv.add_offset(self.optind * 4)
+            self.optopt = simstate.memval(iaddr, argaddr, 4)
+            if self.optopt.is_address:
+                option = self.get_string_at_address(iaddr, simstate, self.optopt)
+                if option.startswith("-") and len(option) == 2:
+                    option = option[1]
+
+                    if self.has_argument(a2str, option):
+                        self.optind += 1
+                        argvaladdr = argv.add_offset(self.optind * 4)
+                        nextargaddr = simstate.memval(iaddr, argvaladdr, 4)
+                        if nextargaddr.is_address:
+                            nextarg = self.get_string_at_address(iaddr, simstate, nextargaddr)
+
+                            if nextarg.startswith("-"):
+                                emptyarg = SSV.mk_string_address(":")
+                                simstate.set_memval(iaddr, optargaddr, emptyarg)
+                            else:
+                                simstate.set_memval(iaddr, optargaddr, argvaladdr)
+                                self.optind += 1
+                        else:
+                            simstate.add_logmsg(
+                                "warning",
+                                "getopt: nextarg is not an address")
+                    else:  # there is no argument
+                        self.optind += 1
+                    result = ord(option)
+
+                else:  # option does not start with "-"
+                    pass
+            else:
+                raise SU.CHBSimError(
+                    simstate,
+                    iaddr,
+                    "getopt: optopt is not an address: " + str(self.optopt))
+
+        else:  # no more arguments to process
+            pass
+
+        simstate.set_register(iaddr, 'v0', SV.mk_simvalue(result))
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
 
 

@@ -37,7 +37,9 @@ if TYPE_CHECKING:
 
 class MIPSimInitializer(SimulationInitializer):
 
-    def __init__(self, cmdlineargs: List[str] = []) -> None:
+    def __init__(
+            self,
+            cmdlineargs: List[str] = []) -> None:
         self._cmdlineargs = cmdlineargs
 
     @property
@@ -58,10 +60,11 @@ class MIPSimInitializer(SimulationInitializer):
 
     def initialize_cmdline_arguments(self, simstate: "SimulationState") -> None:
         simstate.registers["a0"] = SV.mk_simvalue(len(self.cmdlineargs))
-        simstate.registers["a1"] = SSV.mk_stack_address(0)
+        simstate.registers["a1"] = SSV.mk_stack_address(16)
+
         aoffset = 100  # offset of information block on the initial process stack
         for (i, arg) in enumerate(self.cmdlineargs):
-            argptr = SSV.mk_stack_address(i * 4)
+            argptr = SSV.mk_stack_address((i * 4) + 16)
             argvalptr = SSV.mk_stack_address(aoffset)
             simstate.set_memval(simstate.startaddr, argptr, argvalptr)
             for c in arg:
@@ -72,5 +75,7 @@ class MIPSimInitializer(SimulationInitializer):
             addr = SSV.mk_stack_address(aoffset)
             simstate.set_memval(simstate.startaddr, addr, SV.simZerobyte)
             aoffset += 1
+
+        # null-terminate the list of arguments
         argptr = SSV.mk_stack_address(len(self.cmdlineargs) * 4)
         simstate.set_memval(simstate.startaddr, argptr, SV.simZero)
