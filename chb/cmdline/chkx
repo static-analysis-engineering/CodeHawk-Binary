@@ -603,6 +603,7 @@ def parse() -> argparse.Namespace:
                              help='only show values that are constant literals')
     report_iocs.set_defaults(func=reportiocs)
     '''
+
     # -------------------------------------------------------------- summaries subcommand
 
     parser_summaries = subparsers.add_parser("summaries")
@@ -678,6 +679,8 @@ def parse() -> argparse.Namespace:
         help="custom import of user-defined stubs")
     parser_simulate.add_argument(
         "--mainargs", nargs="*", help="arguments passed to main", default=[])
+    parser_simulate.add_argument(
+        "--optargaddr", help="address where optarg is stored")
     parser_simulate.add_argument(
         "--patched_globals",
         nargs="*",
