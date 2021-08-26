@@ -61,6 +61,7 @@ if TYPE_CHECKING:
 
 
 def simulate_mips_function(
+        xname: str,
         app: "MIPSAccess",
         asm: "MIPSAssembly",
         faddr: str,
@@ -69,6 +70,7 @@ def simulate_mips_function(
         support: Optional[str]=None,
         stub_imports: List[str]=[],
         mainargs: List[str]=[],
+        optargaddrstr: Optional[str]=None,
         patched_globals: Dict[str, str]={},
         envptr_addr: Optional[str]=None) -> NoReturn:
 
@@ -84,8 +86,14 @@ def simulate_mips_function(
                 userstubs: Dict[str, "MIPSimStub"] = getattr(importedstubs, d)()
                 stubs.update(userstubs)
 
-    print("Main module: " + app.header.image_base + " - " + app.max_address)
-    mainmodule = SimModule("mainmodule", app, app.header.image_base, app.max_address)
+    print(
+        "Main module "
+        + xname
+        + ": "
+        + app.header.image_base
+        + " - "
+        + app.max_address)
+    mainmodule = SimModule(xname, app, app.header.image_base, app.max_address)
 
     dynlibs: List[SimModule] = []
     dynasms: Dict[str, "MIPSAssembly"] = {}
@@ -107,9 +115,14 @@ def simulate_mips_function(
     else:
         environmentptr_address = None
 
+    optargaddr: SV.SimValue = SV.simZero
+    if optargaddrstr:
+        optargaddr = SSV.mk_global_address(int(optargaddrstr, 16), xname)
+
     def default_simsupport() -> SimSupport:
         return SimSupport(
             stepcount=stepcount,
+            optargaddr=optargaddr,
             patched_globals=patched_globals,
             environmentptr_address=environmentptr_address)
 
@@ -122,7 +135,7 @@ def simulate_mips_function(
                 print("found module: " + d)
                 simsupport = getattr(importedmodule, d)(
                     stepcount=stepcount,
-                    cmdlineargs=mainargs,
+                    optargaddr=optargaddr,
                     patched_globals=patched_globals,
                     environmentptr_address=environmentptr_address)
                 break
@@ -132,7 +145,7 @@ def simulate_mips_function(
         simsupport = default_simsupport()
 
     programcounter = MIPSimProgramCounter(
-        SSV.mk_global_address(int(faddr, 16), "mainmodule"))
+        SSV.mk_global_address(int(faddr, 16), xname))
 
     initializer = MIPSimInitializer(mainargs)
 
@@ -243,11 +256,11 @@ def simulate_mips_function(
 
         pc = simstate.programcounter
         addr = pc.to_hex()
-        if pc.modulename == "mainmodule":
+        if pc.modulename == xname:
             if addr in asm.instructions:
                 currentinstr = asm.instructions[addr]
             else:
-                print("No instruction found at " + addr + " in main module")
+                print("No instruction found at " + addr + " in " + xname)
                 exit(1)
         else:
             libasm = dynasms[pc.modulename]
@@ -267,6 +280,7 @@ def simulate_mips_function(
 
 
 def simulate_arm_function(
+        xname: str,
         app: "ARMAccess",
         asm: "ARMAssembly",
         faddr: str) -> NoReturn:
@@ -275,7 +289,7 @@ def simulate_arm_function(
     simstate = SimulationState(
         faddr,
         mainparticipant,
-        ARMSimProgramCounter(SSV.mk_global_address(int(faddr, 16), "mainmodule")))
+        ARMSimProgramCounter(SSV.mk_global_address(int(faddr, 16), xname)))
     currentinstr = asm.instructions[faddr]
     print(str(currentinstr))
 
@@ -318,6 +332,7 @@ def simulate_function_cmd(args: argparse.Namespace) -> NoReturn:
     support: Optional[str] = args.support
     stub_imports: List[str] = args.stub_imports
     mainargs: List[str] = args.mainargs
+    optargaddrstr: Optional[str] = args.optargaddr
     patched_globals: List[str] = args.patched_globals
     envptr_addr: Optional[str] = args.envptr_addr
 
@@ -347,6 +362,7 @@ def simulate_function_cmd(args: argparse.Namespace) -> NoReturn:
         app = cast("MIPSAccess", app)
         asm = cast("MIPSAssembly", asm)
         simulate_mips_function(
+            xname,
             app,
             asm,
             faddr,
@@ -355,13 +371,14 @@ def simulate_function_cmd(args: argparse.Namespace) -> NoReturn:
             support=support,
             stub_imports=stub_imports,
             mainargs=[x.lstrip() for x in mainargs],
+            optargaddrstr=optargaddrstr,
             patched_globals=unpack_named_strings(patched_globals),
             envptr_addr=envptr_addr)
 
     elif xinfo.is_arm:
         app = cast("ARMAccess", app)
         asm = cast("ARMAssembly", asm)
-        simulate_arm_function(app, asm, faddr)
+        simulate_arm_function(xname, app, asm, faddr)
 
     else:
         UC.print_error(
