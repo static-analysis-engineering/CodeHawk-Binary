@@ -134,8 +134,11 @@ def mk_symboltablehandle(name: str) -> "SimSymbolTableHandle":
     return SimSymbolTableHandle(name)
 
 
-def mk_dynamic_link_symbol(handle: int, name: str) -> "SimDynamicLinkSymbol":
-    return SimDynamicLinkSymbol(handle, name)
+def mk_dynamic_link_symbol(
+        handle: "SimSymbolTableHandle",
+        name: str,
+        addr: "SimGlobalAddress") -> "SimDynamicLinkSymbol":
+    return SimDynamicLinkSymbol(handle, name, addr)
 
 
 class SimSymbolicValue(SV.SimValue):
@@ -1172,18 +1175,23 @@ class SimSymbolTableHandle(SimSymbol):
 
 class SimDynamicLinkSymbol(SimSymbol):
 
-    def __init__(self, handle: int, name: str):
+    def __init__(self, handle: SimSymbolTableHandle, name: str, addr: SimGlobalAddress):
         SimSymbol.__init__(self, "dlsym:" + name)
         self._handle = handle
         self._name = name
+        self._addr = addr
 
     @property
     def name(self) -> str:
         return self._name
 
     @property
-    def handle(self) -> int:
+    def handle(self) -> SimSymbolTableHandle:
         return self._handle
+
+    @property
+    def address(self) -> SimGlobalAddress:
+        return self._addr
 
     @property
     def is_dynamic_link_symbol(self) -> bool:

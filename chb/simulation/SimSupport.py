@@ -109,7 +109,6 @@ class SimSupport:
     def __init__(
             self,
             stepcount: int = 100,
-            optoptaddr: SV.SimValue = SV.simZero,
             optargaddr: SV.SimValue = SV.simZero,
             patched_globals: Dict[str, str] = {},
             environment_variables: Dict[str, str] = {},
@@ -118,7 +117,6 @@ class SimSupport:
             forkchoices: Dict[str, int] = {},
             file_operations_enabled: bool = True) -> None:
         self._stepcount = stepcount
-        self._optoptaddr = optoptaddr  # address of cli
         self._optargaddr = optargaddr  # address where argument is saved by cli
         self._patched_globals = patched_globals
         self._environment_variables = environment_variables
@@ -134,9 +132,34 @@ class SimSupport:
 
         return self._stepcount
 
-    @property
-    def optoptaddr(self) -> SV.SimValue:
-        return self._optoptaddr
+    # Support for getopt
+    # (documentation from https://pubs.opengroup.org/onlinepubs/9699919799/)
+    # ------------------
+    # int getopt(int argc, char * const argv[], const char *optstring);
+    # extern char *optarg;
+    # extern int opterr, optind, optopt;
+    #
+    # The variable optind is the index of the next element of the argv[] vector
+    # to be processed. It shall be initialized to 1 by the system, and getopt()
+    # shall update it when it finishes with each element of argv[]. If the
+    # application sets optind to zero before calling getopt(), the behavior
+    # is unspecified. When an element of argv[] contains multiple option
+    # characters, it is unspecified how getopt() determines which options
+    # have already been processed.
+    #
+    # The getopt() function shall return the next option character (if one is
+    # found) from argv that matches a character in optstring, if there is one
+    # that matches. If the option takes an argument, getopt() shall set the
+    # variable optarg to point to the option-argument as follows:
+    #
+    # 1. If the option was the last character in the string pointed to by an
+    #    element of argv, then optarg shall contain the next element of argv,
+    #    and optind shall be incremented by 2. If the resulting value of optind
+    #    is greater than argc, this indicates a missing option-argument, and
+    #    getopt() shall return an error indication.
+    #
+    # 2. Otherwise, optarg shall point to the string following the option character
+    #    in that element of argv, and optind shall be incremented by 1.
 
     @property
     def optargaddr(self) -> SV.SimValue:
