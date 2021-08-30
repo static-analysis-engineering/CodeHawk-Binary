@@ -1635,6 +1635,14 @@ class SimDoubleWordValue(SimLiteralValue):
             newval = self.value >> shift
             return SimDoubleWordValue(newval, defined=self.is_defined)
 
+    def swap_bytes_within_halfwords(self) -> "SimDoubleWordValue":
+        newval = (
+            (self.byte1 << 8)
+            + self.byte2
+            + (self.byte3 << 24)
+            + (self.byte4 << 16))
+        return SimDoubleWordValue(newval, defined=self.is_defined)
+
     def zero_extend(self, size: int) -> SimLiteralValue:
         if size == 4:
             return self

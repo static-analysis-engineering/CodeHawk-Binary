@@ -302,6 +302,15 @@ class SimulationInitializer:
         pass
 
 
+class SimulationDataDisplay:
+
+    def __init__(self) -> None:
+        pass
+
+    def display_registers(self, simstate: "SimulationState") -> str:
+        return "none"
+
+
 class SimulationTrace:
 
     def __init__(self) -> None:
@@ -370,6 +379,7 @@ class SimulationState:
             simprogramcounter: SimProgramCounter,
             siminitializer: SimulationInitializer = SimulationInitializer(),
             simsupport: SimSupport = SimSupport(),
+            simdatadisplay: SimulationDataDisplay = SimulationDataDisplay(),
             dynlibs: Sequence[SimModule] = [],
             stubs: Mapping[str, SimStub] = {},
             bigendian: bool = False) -> None:
@@ -379,16 +389,12 @@ class SimulationState:
         self._siminitializer = siminitializer
         self._dynlibs = dynlibs
         self._simsupport = simsupport
+        self._simdatadisplay = simdatadisplay
         self._stubs = stubs
         self._bigendian = bigendian
 
         # module states
         self._modulestates: Dict[str, ModuleSimulationState] = {}
-
-        # program counter
-        # self._programcounter: SSV.SimGlobalAddress = SSV.mk_global_address(
-        #    int(startaddr, 16), modulename=self.mainx.name)
-        # self._functionaddr = startaddr
 
         # registers and memory (registers are assumed to be 32 bits wide)
         self.registers: Dict[str, SV.SimValue] = {}
@@ -422,6 +428,10 @@ class SimulationState:
     @property
     def simsupport(self) -> SimSupport:
         return self._simsupport
+
+    @property
+    def simdatadisplay(self) -> SimulationDataDisplay:
+        return self._simdatadisplay
 
     @property
     def dynlibs(self) -> Sequence[SimModule]:
@@ -504,6 +514,9 @@ class SimulationState:
 
     def stub_functioncall(self, iaddr: str, name: str) -> None:
         if name in self.stubs:
+            if self.simsupport.has_call_intercept(name):
+                intercept = self.simsupport.call_intercept(name)
+                intercept.do_before(iaddr, self)
             returnaddr = self.simprogramcounter.returnaddress(iaddr, self)
             stub = self.stubs[name]
             msg = stub.simulate(iaddr, self)
@@ -814,7 +827,13 @@ class SimulationState:
 
     def __str__(self) -> str:
         lines: List[str] = []
+        lines.append("")
         lines.append(str(self.simprogramcounter))
+        lines.append("")
+
+        # registers
+        lines.append(self.simdatadisplay.display_registers(self))
+        lines.append("")
 
         # stack
         lines.append("-" * 80)
