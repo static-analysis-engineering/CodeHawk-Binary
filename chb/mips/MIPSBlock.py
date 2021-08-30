@@ -122,8 +122,18 @@ class MIPSBlock(BasicBlock):
     def last_instruction(self) -> MIPSInstruction:
         """Override to account for delay slot."""
 
-        lastaddr = sorted(self.instructions.keys())[-2]
-        return self.instructions[lastaddr]
+        lastaddr = sorted(self.instructions.keys())[-1]
+        lastinstr = self.instructions[lastaddr]
+
+        if len(self.instructions) > 1:
+            instr2addr = sorted(self.instructions.keys())[-2]
+            instr2 = self.instructions[instr2addr]
+            if instr2.is_branch_instruction or instr2.is_call_instruction:
+                return instr2
+            else:
+                return lastinstr
+        else:
+            return lastinstr
 
     def to_string(
             self,

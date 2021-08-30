@@ -135,7 +135,14 @@ class MIPSFunction(Function):
 
     @property
     def branchconditions(self) -> Mapping[str, MIPSInstruction]:
-        return {}
+        result: Dict[str, MIPSInstruction] = {}
+        for b in self.blocks.values():
+            lastinstr = b.last_instruction
+            if lastinstr.is_branch_instruction:
+                ftconditions = lastinstr.ft_conditions
+                if len(ftconditions) > 0:
+                    result[b.baddr] = cast(MIPSInstruction, lastinstr)
+        return result
 
     def set_fnvar_dictionary(self, xnode: ET.Element) -> FnVarDictionary:
         return FnVarDictionary(self, xnode)
