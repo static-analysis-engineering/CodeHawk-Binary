@@ -57,9 +57,11 @@ the analysis results:
 
     results stats <xname>         output a summary of results with one line per function
     results functions <xname> ... output a listing of annotated assembly functions
+    results callgraph <xname> ... output a callgraph in dot/pdf format
     results function <xname> <fn> output a listing of a single annotated assembly function
     results cfg <xname> <fn> ...  produce a control flow graph for a function (in pdf)
     results cfgpaths <xname> <fn> ... find paths throug a cfg with a given target
+    results branchconditions <xname> <fn>  output branch conditions for the given function
 
     results appcalls <xname>      output a listing of application calls
     results dllcalls <xname>      output a listing of dll calls (PE32 only)
@@ -143,13 +145,16 @@ def showinfo(args: argparse.Namespace) -> NoReturn:
 
 
 def resultscommand(args: argparse.Namespace) -> NoReturn:
-    print('The results command can be followed by the following subcommands:')
-    print('All commands take the name of the executable as first argument')
-    print('')
-    print('  stats <xname>                show statistics for the executable')
-    print('  functions <xname> ....       output annotated assembly functions for the specified functions')
-    print('  cfg <xname> <faddr>          create control flow graph for the given function')
-    print('  cfgpaths <xname> <faddr> ... extract paths through the control flow graph for the given function')
+    print("The results command can be followed by the following subcommands:")
+    print("All commands take the name of the executable as first argument")
+    print("")
+    print("  stats <xname>                show statistics for the executable")
+    print("  functions <xname> ....       output annotated assembly functions for the specified functions")
+    print("  callgraph <xname> ....       output callgraph in dot/pdf format")
+    print("  cfg <xname> <faddr>          create control flow graph for the given function")
+    print("  cfgpaths <xname> <faddr> ... extract paths through the control flow graph for the given function")
+    print("  branchconditions <xname> <faddr>  show branch conditions for the given function")
+    print("  fileio <xname>               show files opened by the application")
     exit(0)
 
 
@@ -541,6 +546,11 @@ def parse() -> argparse.Namespace:
     resultsbranchconditions.add_argument("xname", help="name of executable")
     resultsbranchconditions.add_argument("function", help="hex address of function")
     resultsbranchconditions.set_defaults(func=UCC.results_branchconditions)
+
+    # --- results fileio ---
+    resultsfileio = resultsparsers.add_parser("fileio")
+    resultsfileio.add_argument("xname", help="name of executable")
+    resultsfileio.set_defaults(func=UCC.results_fileio)
 
     # -- results cfgpaths (paths through the control flow graph) --
     resultscfgpaths = resultsparsers.add_parser("cfgpaths")

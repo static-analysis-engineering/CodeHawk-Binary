@@ -120,12 +120,14 @@ def create_xinfo(path: str, xfile: str) -> XI.XInfo:
     xinfo.discover(path, xfile)
     return xinfo
 
+
 def get_format(name: str) -> Union[Type[PEHeader], Type[ELFHeader]]:
     if name == "elf":
         return ELFHeader
     if name in ("pe", "pe32"):
         return PEHeader
     raise ValueError("Unknown format name: %s" % name)
+
 
 def get_app(path: str, xfile: str, xinfo: XI.XInfo) -> AppAccess:
     arch = xinfo.architecture
@@ -684,6 +686,10 @@ def results_branchconditions(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
+    if xinfo.is_x86:
+        print_info("Branch conditions have not been implemented yet for x86")
+        exit(0)
+
     app = get_app(path, xfile, xinfo)
 
     if app.has_function(function):
@@ -694,17 +700,61 @@ def results_branchconditions(args: argparse.Namespace) -> NoReturn:
 
         branchconditions = f.branchconditions
         print(
-            "block".ljust(8)
-            + "instr".ljust(8)
-            + "opcode".ljust(16)
+            "block".ljust(12)
+            + "instr".ljust(12)
+            + "opcode".ljust(32)
             + "branch condition")
         print("-" * 80)
         for (bc, bci) in sorted(branchconditions.items()):
             print(
-                bc.ljust(8)
-                + bci.iaddr.ljust(8)
-                + bci.opcodetext.ljust(16)
+                bc.ljust(12)
+                + bci.iaddr.ljust(12)
+                + bci.opcodetext.ljust(32)
                 + bci.annotation)
+
+    exit(0)
+
+
+def results_fileio(args: argparse.Namespace) -> NoReturn:
+    """Prints out a list of files that are opened and closed."""
+
+    # arguments
+    xname: str = str(args.xname)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    if not xinfo.is_mips:
+        print("This feature has only been implemented for mips so far")
+        exit(0)
+
+    app = cast(MIPSAccess, get_app(path, xfile, xinfo))
+
+    results: Dict[str, Dict[str, int]] = {}
+    callinstrs = app.function_calls()
+    for (faddr, instrs) in callinstrs.items():
+        fn = cast(MIPSFunction, app.function(faddr))
+        for instr in instrs:
+            ctgt = str(instr.call_target())
+            if ctgt in ["fopen", "fopen64"]:
+                results.setdefault(ctgt, {})
+                callargs = instr.call_arguments
+                if len(args) > 1:
+                    results[ctgt].setdefault(str(callargs[0]), 0)
+                    results[ctgt][str(callargs[0])] += 1
+
+    print("\nFiles opened by " + xname + ":")
+    print("-" * 80)
+    for tgt in results:
+        for c in sorted(results[tgt]):
+            print(str(results[tgt][c]).rjust(5) + "  " + c)
 
     exit(0)
 
