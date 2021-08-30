@@ -65,14 +65,14 @@ def simulate_mips_function(
         app: "MIPSAccess",
         asm: "MIPSAssembly",
         faddr: str,
-        stepcount: int=100,
-        libs: Dict[str, Tuple["MIPSAccess", "MIPSAssembly"]]={},
-        support: Optional[str]=None,
-        stub_imports: List[str]=[],
-        mainargs: List[str]=[],
-        optargaddrstr: Optional[str]=None,
-        patched_globals: Dict[str, str]={},
-        envptr_addr: Optional[str]=None) -> NoReturn:
+        stepcount: int = 100,
+        libs: Dict[str, Tuple["MIPSAccess", "MIPSAssembly"]] = {},
+        support: Optional[str] = None,
+        stub_imports: List[str] = [],
+        mainargs: List[str] = [],
+        optargaddrstr: Optional[str] = None,
+        patched_globals: Dict[str, str] = {},
+        envptr_addr: Optional[str] = None) -> NoReturn:
 
     bigendian = app.header.is_big_endian
     print("big endian " if bigendian else "little endian")
@@ -166,6 +166,17 @@ def simulate_mips_function(
             simstate.trace.add(
                 str(i).rjust(5) + "  " + str(currentinstr).ljust(48) + str(action))
             simstate.trace.include_delayed()
+            if action == "return":
+                print("=" * 80)
+                print("Simulation ended normally: returning from starting function")
+                print("=" * 80)
+                print("\nSimulation trace:")
+                print("-" * 80)
+                print(str(simstate.trace))
+                print("\nSimulation state:")
+                print("-" * 80)
+                print(str(simstate))
+                exit(0)
 
         except SU.CHBSimCallTargetUnknownError as e:
             simstate.trace.add(
@@ -217,6 +228,8 @@ def simulate_mips_function(
                 + str(e)
                 + "; "
                 + str(currentinstr).ljust(48))
+            print("=" * 80)
+            print("")
             print(str(simstate.trace))
             print(str(simstate))
             exit(1)
@@ -248,27 +261,40 @@ def simulate_mips_function(
             exit(1)
 
         except Exception as e:
+            print("*" * 80)
             print("Exception: " + str(e))
             print("Current instruction: " + str(currentinstr))
+            print("*" * 80)
+            print("")
             print(str(simstate.trace))
             print(str(simstate))
             exit(1)
 
         pc = simstate.programcounter
         addr = pc.to_hex()
-        if pc.modulename == xname:
-            if addr in asm.instructions:
-                currentinstr = asm.instructions[addr]
+
+        try:
+            if pc.modulename == xname:
+                if addr in asm.instructions:
+                    currentinstr = asm.instructions[addr]
+                else:
+                    raise UF.CHBError(
+                        "No instruction found at " + addr + " in " + xname)
             else:
-                print("No instruction found at " + addr + " in " + xname)
-                exit(1)
-        else:
-            libasm = dynasms[pc.modulename]
-            if addr in libasm.instructions:
-                currentinstr = libasm.instructions[addr]
-            else:
-                print("No instruction found at " + addr + " in " + pc.modulename)
-                exit(1)
+                libasm = dynasms[pc.modulename]
+                if addr in libasm.instructions:
+                    currentinstr = libasm.instructions[addr]
+                else:
+                    raise UF.CHBError(
+                        "No instruction found at " + addr + " in " + pc.modulename)
+        except UF.CHBError as e:
+            print("*" * 80)
+            print("Exception in fetching next instruction: " + str(e))
+            print("*" * 80)
+            print("")
+            print(str(simstate.trace))
+            print(str(simstate))
+            exit(1)
 
     print("\n\nSimulation trace")
     print(str(simstate.trace))
