@@ -217,5 +217,6 @@ class MIPSimProgramCounter(SimProgramCounter):
 
     def __str__(self) -> str:
         lines: List[str] = []
-        lines.append("pc: " + str(self.programcounter))
+        lines.append("\nProgram counter: " + str(self.programcounter))
+        lines.append("-" * 80)
         return "\n".join(lines)
