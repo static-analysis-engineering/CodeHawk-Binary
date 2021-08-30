@@ -150,10 +150,9 @@ class MIPSJumpRegister(MIPSOpcode):
                 iaddr,
                 "jr: jump target is undefined: " + str(srcval))
 
-        elif srcval.is_symbolic_return_address:
+        elif srcval.is_symbol:
             if str(srcval).endswith("ra_in"):
                 simstate.trace.add_delayed("\n")
-                print("------------ return; set function to " + simstate.function_address)
                 return "return"
             else:
                 raise SU.CHBSimError(

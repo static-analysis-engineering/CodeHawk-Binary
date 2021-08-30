@@ -50,12 +50,12 @@ if TYPE_CHECKING:
     from chb.simulation.SimulationState import SimulationState
 
 
-@mipsregistry.register_tag("subu", MIPSOpcode)
+@mipsregistry.register_tag("sub", MIPSOpcode)
 class MIPSSubtractUnsigned(MIPSOpcode):
-    """SUBU rd, rs, rt
+    """SUB rd, rs, rt
 
-    Subtract Unsigned Word.
-    Subtract 32-bit integers.
+    Subtract Word.
+    Subtract 32-bit integers. If overflow occurs, then trap
 
     args[0]: index of rd in mips dictionary
     args[1]: index of rs in mips dictionary
@@ -102,10 +102,15 @@ class MIPSSubtractUnsigned(MIPSOpcode):
 
     # --------------------------------------------------------------------------
     # Operation:
-    #   temp <- GPR[rs] - GPR[rt]
-    #   GPR[rd] <- temp
+    #   temp <- (GPR[rs][31] || GPR[rs][31..0]) - (GPR[rt][31] || GPR[rt][31..0])
+    #   if temp[32] != temp[31] then
+    #      SignalException(IntegerOverflow)
+    #   else
+    #      GPR[rd] <- temp[31..0]
     # --------------------------------------------------------------------------
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        """Subtraction with trap on overflow (trap not currently implemented)."""
+
         dstop = self.dst_operand
         src1op = self.src1_operand
         src2op = self.src2_operand
