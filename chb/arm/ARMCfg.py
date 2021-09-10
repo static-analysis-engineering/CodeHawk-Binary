@@ -28,7 +28,7 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
 
 from chb.app.Cfg import Cfg
 from chb.arm.ARMCfgBlock import ARMCfgBlock
@@ -39,6 +39,7 @@ import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.arm.ARMFunction import ARMFunction
+    from chb.arm.ARMInstruction import ARMInstruction
 
 
 class ARMCfg(Cfg):
@@ -54,6 +55,20 @@ class ARMCfg(Cfg):
     def armfunction(self) -> "ARMFunction":
         return self._armf
 
+    def branch_instruction(self, baddr: str) -> "ARMInstruction":
+        block = self.blocks[baddr]
+        return cast("ARMInstruction", self.armfunction.instruction(block.lastaddr))
+
+    def condition_to_annotated_value(
+            self, src: str, b: "ARMInstruction") -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        ftconditions = b.ft_conditions
+        if len(ftconditions) == 2:
+            result["c"] = ftconditions[1].to_annotated_value()
+            result["fb"] = self.edges[src][0]
+            result["tb"] = self.edges[src][1]
+        return result
+
     @property
     def blocks(self) -> Dict[str, ARMCfgBlock]:
         if len(self._blocks) == 0:
@@ -66,3 +81,12 @@ class ARMCfg(Cfg):
                     raise UF.CHBError("Block address is missing from arm cfg")
                 self._blocks[baddr] = ARMCfgBlock(self, b)
         return self._blocks
+
+    def conditions(self) -> Dict[str, Dict[str, str]]:
+        result: Dict[str, Dict[str, str]] = {}
+        for src in self.edges:
+            if len(self.edges[src]) > 1:
+                brinstr = self.branch_instruction(src)
+                result[src] = self.condition_to_annotated_value(
+                    src, brinstr)
+        return result
