@@ -402,6 +402,11 @@ def get_userdata_dir(path: str, xfile: str) -> str:
     return os.path.join(cdir, "u")
 
 
+def get_userdata_structs_dir(path: str, xfile: str) -> str:
+    udir = get_userdata_dir(path, xfile)
+    return os.path.join(udir, "structs")
+
+
 def has_extract(path: str, xfile: str) -> bool:
     return os.path.isfile(get_executable_targz_filename(path, xfile))
 
@@ -430,7 +435,18 @@ def get_chb_function_top_filename(
         fdir: str, xfile: str, fname: str, suffix: str) -> str:
     xxfile = xfile.replace(".", "_")
     ffdir = os.path.join(fdir, "functions")
+    if not os.path.isdir(ffdir):
+        os.makedirs(ffdir)
     return os.path.join(ffdir, xxfile + "_" + fname + suffix)
+
+
+def get_chb_struct_top_filename(
+        fdir: str, xfile: str, sname: str, suffix: str) -> str:
+    xxfile = xfile.replace(".", "_")
+    ffdir = os.path.join(fdir, "structs")
+    if not os.path.isdir(ffdir):
+        os.makedirs(ffdir)
+    return os.path.join(ffdir, xxfile + "_" + sname + suffix)
 
 
 def get_chb_xnode(filename: str, tagname: str) -> ET.Element:
@@ -772,6 +788,11 @@ def get_user_function_summary_xnode(
         fname: str) -> ET.Element:
     filename = get_user_function_summary_filename(path, xfile, fname)
     return get_chb_xnode(filename, "function-summary")
+
+
+def get_user_struct_filename(path: str, xfile: str, sname: str) -> str:
+    fdir = get_userdata_dir(path, xfile)
+    return get_chb_struct_top_filename(fdir, xfile, sname, "_struct_u.xml")
 
 
 def get_ida_unresolved_calls_filename(path: str, xfile: str) -> str:
