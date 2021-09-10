@@ -34,14 +34,14 @@ from chb.app.Register import Register
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.app.BDictionary
+    from chb.app.BDictionary import BDictionary
 
 
 class ARMRegisterBase(Register):
 
     def __init__(
             self,
-            bd: "chb.app.BDictionary.BDictionary",
+            bd: "BDictionary",
             ixval: IndexedTableValue) -> None:
         Register.__init__(self, bd, ixval)
 
@@ -50,9 +50,37 @@ class ARMRegisterBase(Register):
 class ARMRegister(ARMRegisterBase):
 
     def __init__(self,
-                 bd: "chb.app.BDictionary.BDictionary",
+                 bd: "BDictionary",
                  ixval: IndexedTableValue) -> None:
         ARMRegisterBase.__init__(self, bd, ixval)
 
     def __str__(self) -> str:
         return self.tags[1]
+
+
+@bdregistry.register_tag("afp", Register)
+class ARMFloatingPointRegister(ARMRegisterBase):
+
+    def __init__(self,
+                 bd: "BDictionary",
+                 ixval: IndexedTableValue) -> None:
+        ARMRegisterBase.__init__(self, bd, ixval)
+
+    @property
+    def size(self) -> int:
+        return self.args[0]
+
+    @property
+    def register_index(self) -> int:
+        return self.args[1]
+
+    def __str__(self) -> str:
+        reg = str(self.register_index)
+        if self.size == 32:
+            return "S" + reg
+        elif self.size == 64:
+            return "D" + reg
+        elif self.size == 128:
+            return "Q" + reg
+        else:
+            return "arm-floating-point-register:" + reg
