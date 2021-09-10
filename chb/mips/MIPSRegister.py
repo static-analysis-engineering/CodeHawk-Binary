@@ -109,7 +109,7 @@ class MIPSSpecialRegister(MIPSRegisterBase):
         return self.tags[1]
 
 
-@bdregistry.register_tag("pf", Register)
+@bdregistry.register_tag("pfp", Register)
 class MIPSFloatingPointRegister(MIPSRegisterBase):
 
     def __init__(self,
