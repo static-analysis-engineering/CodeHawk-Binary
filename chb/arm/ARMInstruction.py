@@ -29,6 +29,8 @@ import xml.etree.ElementTree as ET
 
 from typing import Callable, cast, Dict, List, Optional, Sequence, TYPE_CHECKING
 
+from chb.api.CallTarget import CallTarget
+
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.Instruction import Instruction
 from chb.app.InstrXData import InstrXData
@@ -98,7 +100,7 @@ class ARMInstruction(Instruction):
     def opcodetext(self) -> str:
         try:
             operands = self.operands
-            return self.mnemonic.ljust(8) + ",".join([str(op) for op in operands])
+            return self.mnemonic.ljust(12) + ",".join([str(op) for op in operands])
         except IT.IndexedTableError as e:
             opcode = self.armdictionary.read_xml_arm_opcode(self.xnode)
             raise UF.CHBError(
@@ -157,6 +159,12 @@ class ARMInstruction(Instruction):
     @property
     def strings_referenced(self) -> Sequence[str]:
         return []
+
+    def call_target(self) -> CallTarget:
+        if self.is_call_instruction:
+            return self.opcode.call_target(self.xdata)
+        else:
+            raise UF.CHBError("Not a call instruction: " + str(self))
 
     @property
     def call_arguments(self) -> Sequence[XXpr]:

@@ -28,6 +28,8 @@
 
 from typing import List, Tuple, TYPE_CHECKING
 
+from chb.api.CallTarget import CallTarget
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
@@ -120,7 +122,10 @@ class ARMOpcode(ARMDictionaryRecord):
         return self.tags[0] in branch_opcodes
 
     def is_call_instruction(self, xdata: InstrXData) -> bool:
-        return self.tags[0] in ["BL", "BLX"]
+        return xdata.has_call_target()
+
+    def call_target(self, xdata: InstrXData) -> CallTarget:
+        raise UF.CHBError("Instruction is not a call: " + str(self))
 
     def is_store_instruction(self, xdata: InstrXData) -> bool:
         return self.tags[0] in ["STR", "STRB", "STRH"]
