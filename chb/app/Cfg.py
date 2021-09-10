@@ -33,7 +33,7 @@ Subclasses:
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Mapping, Sequence
+from typing import Dict, List, Mapping, Sequence, Set, Tuple
 
 from chb.app.CfgBlock import CfgBlock
 
@@ -68,6 +68,14 @@ class Cfg:
                 self._edges.setdefault(src, [])
                 self._edges[src].append(tgt)
         return self._edges
+
+    @property
+    def edges_as_set(self) -> Set[Tuple[str, str]]:
+        result: Set[Tuple[str, str]] = set([])
+        for src in self.edges:
+            for dst in self.edges:
+                result.add((src, dst))
+        return result
 
     def max_loop_level(self) -> int:
         return max([len(self.blocks[b].looplevels) for b in self.blocks])

@@ -32,6 +32,7 @@ Subclasses:
  - MIPSInstruction
 """
 
+import hashlib
 import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
@@ -93,6 +94,11 @@ class Instruction(ABC):
     @abstractmethod
     def bytestring(self) -> str:
         ...
+
+    def md5(self) -> str:
+        m = hashlib.md5()
+        m.update(self.bytestring.encode("utf-8"))
+        return m.hexdigest()
 
     @property
     @abstractmethod

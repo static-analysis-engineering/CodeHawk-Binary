@@ -32,6 +32,7 @@ Subclasses:
  - MIPSBlock
 """
 
+import hashlib
 import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
@@ -92,6 +93,12 @@ class BasicBlock(ABC):
         if iaddr in self.instructions:
             return self.instructions[iaddr]
         raise UF.CHBError("Instruction " + iaddr + " not found")
+
+    def md5(self) -> str:
+        m = hashlib.md5()
+        for instr in self.instructions.values():
+            m.update(instr.bytestring.encode("utf-8"))
+        return m.hexdigest()
 
     @abstractmethod
     def to_string(
