@@ -32,6 +32,8 @@ Corresponds to arm_operand_kind_t in bchlibarm32/BCHARMTypes
 type arm_operand_kind_t =
   | ARMDMBOption of dmb_option_t                      "d"       2            0
   | ARMReg of arm_reg_t                               "r"       2            0
+  | ARMSpecialReg of arm_special_reg_t               "sr"       2            0
+  | ARMFloatingPointRegister of int * int            "afp"      3            2
   | ARMRegList of arm_reg_t list                      "l"     1+len(regs)    0
   | ARMShiftedReg of                                  "s"       2            1
      arm_reg_t
@@ -90,6 +92,10 @@ class ARMOperandKind(ARMDictionaryRecord):
         return False
 
     @property
+    def is_special_register(self) -> bool:
+        return False
+
+    @property
     def register(self) -> str:
         raise UF.CHBError("Register not available for operand kind " + str(self))
 
@@ -137,6 +143,62 @@ class ARMRegisterOp(ARMOperandKind):
 
     def __str__(self) -> str:
         return self.register
+
+
+@armregistry.register_tag("sr", ARMOperandKind)
+class ARMSpecialRegisterOp(ARMOperandKind):
+    """Special register (e.g., processor status word).
+
+    tags[1]: name of register
+    """
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def register(self) -> str:
+        return self.tags[1]
+
+    @property
+    def is_special_register(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return self.register
+
+
+@armregistry.register_tag("f", ARMOperandKind)
+class ARMFloatingPointRegisterOp(ARMOperandKind):
+    """Single-precision or double-precision floating point register.
+
+    args[0]: size (32, 64, or 128 bits)
+    args[1]: index register index (0..31)
+    """
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def size(self) -> int:
+        return self.args[0]
+
+    @property
+    def index(self) -> int:
+        return self.args[1]
+
+    def __str__(self) -> str:
+        name = "S"
+        if self.size == 64:
+            name = "D"
+        elif self.size == 128:
+            name = "Q"
+        return name + str(self.index)
 
 
 @armregistry.register_tag("l", ARMOperandKind)
@@ -248,8 +310,12 @@ class ARMOffsetAddressOp(ARMOperandKind):
         return self.tags[1]
 
     @property
+    def align(self) -> int:
+        return self.args[0]
+
+    @property
     def memory_offset(self) -> "ARMMemoryOffset":
-        return self.armd.arm_memory_offset(self.args[0])
+        return self.armd.arm_memory_offset(self.args[1])
 
     @property
     def is_indirect_register(self) -> bool:
@@ -257,15 +323,15 @@ class ARMOffsetAddressOp(ARMOperandKind):
 
     @property
     def is_add(self) -> bool:
-        return self.args[1] == 1
-
-    @property
-    def is_write_back(self) -> bool:
         return self.args[2] == 1
 
     @property
-    def is_index(self) -> bool:
+    def is_write_back(self) -> bool:
         return self.args[3] == 1
+
+    @property
+    def is_index(self) -> bool:
+        return self.args[4] == 1
 
     def __str__(self) -> str:
         memoffset = str(self.memory_offset)
