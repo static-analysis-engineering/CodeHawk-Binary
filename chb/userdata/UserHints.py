@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # ------------------------------------------------------------------------------
 # CodeHawk Binary Analyzer
 # Author: Henny Sipma
@@ -52,6 +51,9 @@ Currently provided:
 - FunctionNames
       mapping of function entry points to function names
 
+- FunctionSummaries
+      signatures and other info for application functions
+
 - IndirectJumps
       mapping of function/instr address to list of possible targets
 
@@ -68,6 +70,9 @@ Currently provided:
       (intended to supplement construction of section headers when these
       are not included in a binary)
 
+- Structs
+      struct definition
+
 - Successors
       map of instruction addresses to a range of successors
 
@@ -82,6 +87,8 @@ import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
 from typing import Any, cast, Dict, List, Optional, Sequence, Tuple, Union
+
+import chb.userdata.btypeutil as UT
 
 import chb.util.fileutil as UF
 import chb.util.xmlutil as UX
@@ -104,6 +111,9 @@ class HintsEntry(ABC):
     def to_xml(self, node: ET.Element) -> None:
         ...
 
+    def save_struct_files(self, path: str, xfile: str) -> None:
+        raise UF.CHBError("Save_struct_files not implemented for " + str(self))
+
     def __str__(self) -> str:
         return self.name
 
@@ -111,7 +121,9 @@ class HintsEntry(ABC):
 class ARMArgumentConstraints(HintsEntry):
     """Mapping of registers to lower/upper bounds per function."""
 
-    def __init__(self, argconstraints: Dict[str, Dict[str, Dict[str, int]]]) -> None:
+    def __init__(
+            self,
+            argconstraints: Dict[str, Dict[str, Dict[str, int]]]) -> None:
         """Format: {fn -> {reg -> {offset: o, lb: x, ub: y}, .... } }
 
         use -deref ending to indicate offset field, rather than argument itself.
@@ -228,7 +240,9 @@ class ARMThumbSwitchPoints(HintsEntry):
 class DataBlocksHints(HintsEntry):
     """List of records with range and (optional) name of block."""
 
-    def __init__(self, datablocks: List[Dict[str, Union[List[str], str]]]) -> None:
+    def __init__(
+            self,
+            datablocks: List[Dict[str, Union[List[str], str]]]) -> None:
         """Format: {r:[start-addr, end-addr (exclusive)]}."""
 
         HintsEntry.__init__(self, "data-blocks")
@@ -318,10 +332,28 @@ class FunctionNamesHints(HintsEntry):
     def __init__(self, fnames: Dict[str, str]) -> None:
         HintsEntry.__init__(self, "function-names")
         self._fnames = fnames
+        self._revnames: Dict[str, List[str]] = {}
 
     @property
     def fnames(self) -> Dict[str, str]:
         return self._fnames
+
+    @property
+    def revnames(self) -> Dict[str, List[str]]:
+        if len(self._revnames) == 0:
+            for (addr, name) in self.fnames.items():
+                self._revnames.setdefault(name, [])
+                self._revnames[name].append(addr)
+        return self._revnames
+
+    def has_unique_address(self, name: str) -> bool:
+        return name in self.revnames and len(self.revnames[name]) == 1
+
+    def get_unique_address(self, name: str) -> str:
+        if self.has_unique_address(name):
+            return self.revnames[name][0]
+        else:
+            raise UF.CHBError("No unique address found for name " + name)
 
     def update(self, d: Dict[str, str]) -> None:
         for faddr in d:
@@ -344,6 +376,47 @@ class FunctionNamesHints(HintsEntry):
         for (faddr, fname) in sorted(self.fnames.items()):
             lines.append("  " + faddr.ljust(10) + ": " + fname)
         return "\n".join(lines)
+
+
+class FunctionSummariesHints(HintsEntry):
+    """Mapping of function addresses to function summaries.
+
+    Format:
+       <name/address>: { "args": <list of name, type>,
+                         "returntype": type }
+    """
+
+    def __init__(self, fsummaries: Dict[str, Any]) -> None:
+        HintsEntry.__init__(self, "function-summaries")
+        self._fsummaries = fsummaries
+
+    @property
+    def fsummaries(self) -> Dict[str, Any]:
+        return self._fsummaries
+
+    def update(self, d: Dict[str, Any]) -> None:
+        for faddr in d:
+            if faddr not in self._fsummaries:
+                self._fsummaries[faddr] = d[faddr]
+
+    def to_xml(self, node: ET.Element) -> None:
+        pass
+
+    def fsummary_to_xml(self, node: ET.Element, name: str) -> None:
+        UT.function_summary_to_xml(node, name, self.fsummaries[name])
+
+    def save_summaries(self, path: str, xfile: str) -> None:
+        for name in self.fsummaries:
+            filename = UF.get_user_function_summary_filename(path, xfile, name)
+            fsummary = self.fsummaries[name]
+            root = UX.get_codehawk_xml_header(xfile, "function-summary")
+            tree = ET.ElementTree(root)
+            fnode = ET.Element("function-summary")
+            root.append(fnode)
+            fnode.set("name", name)
+            self.fsummary_to_xml(fnode, name)
+            with open(filename, "w") as fp:
+                fp.write(UX.doc_to_pretty(tree))
 
 
 class IndirectJumpsHints(HintsEntry):
@@ -528,10 +601,69 @@ class SectionHeadersHints(HintsEntry):
         return "\n".join(lines)
 
 
+class StructsHints(HintsEntry):
+    """Map of struct names to struct definitions."""
+
+    def __init__(self, structs: Dict[str, Any]) -> None:
+        HintsEntry.__init__(self, "structs")
+        self._structs = structs
+
+    @property
+    def structs(self) -> Dict[str, Any]:
+        return self._structs
+
+    def fields(self, name: str) -> List[Dict[str, Any]]:
+        return self.structs[name]["fields"]
+
+    def update(self, d: Dict[str, Any]) -> None:
+        for name in d:
+            self._structs = d[name]
+
+    """Add the name to the main xml, save the struct in a separate file."""
+    def to_xml(self, node: ET.Element) -> None:
+        xstructs = ET.Element(self.name)
+        node.append(xstructs)
+        for name in self.structs:
+            xs = ET.Element("struct")
+            xstructs.append(xs)
+            xs.set("name", name)
+
+    def struct_to_xml(self, node: ET.Element, name: str) -> None:
+        snode = ET.Element("fields")
+        node.append(snode)
+        UT.struct_fields_to_xml(snode, self.fields(name))
+
+    def save_struct_files(self, path: str, xfile: str) -> None:
+        for name in self.structs:
+            filename = UF.get_user_struct_filename(path, xfile, name)
+            structdef = self.structs[name]
+            root = UX.get_codehawk_xml_header(xfile, "struct")
+            tree = ET.ElementTree(root)
+            snode = ET.Element("struct")
+            root.append(snode)
+            snode.set("name", name)
+            self.struct_to_xml(snode, name)
+            with open(filename, "w") as fp:
+                fp.write(UX.doc_to_pretty(tree))
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Structs")
+        lines.append("=" * 80)
+        for name in sorted(self.structs):
+            lines.append("struct " + name + "{")
+            for field in self.fields(name):
+                lines.append(field["type"] + " " + field["name"] + ";")
+            lines.append("}")
+        return "\n".join(lines)
+
+
 class SuccessorsHints(HintsEntry):
     """Map of instruction addresses to a range of successors."""
 
-    def __init__(self, successors: List[Dict[str, Union[List[str], str]]]) -> None:
+    def __init__(
+            self,
+            successors: List[Dict[str, Union[List[str], str]]]) -> None:
         HintsEntry.__init__(self, "successors")
         self._successors = successors
         self._iaddrs: List[str] = [cast(str, x["ia"]) for x in successors]
@@ -574,7 +706,8 @@ class SuccessorsHints(HintsEntry):
                         + iaddr)
             else:
                 raise UF.CHBError(
-                    "Instruction address (ia) missing from successor specification")
+                    "Instruction address (ia) missing "
+                    + "from successor specification")
 
     def __str__(self) -> str:
         lines: List[str] = []
@@ -653,6 +786,7 @@ class UserHints:
         - function-entry-points
         - non-returning-functions
         - section-headers
+        - struct definitions
         - successors
         """
 
@@ -696,6 +830,34 @@ class UserHints:
             else:
                 self.userdata[tag] = FunctionNamesHints(fnames)
 
+        if "function-summaries" in hints:
+            tag = "function-summaries"
+            fsummaries: Dict[str, Any] = hints[tag]
+
+            if "function-names" in self.userdata:
+                definednames = cast(
+                    FunctionNamesHints, self.userdata["function-names"])
+            else:
+                definednames = FunctionNamesHints({})
+            fxsummaries: Dict[str, Any] = {}
+            for name in fsummaries:
+                if name.startswith("0x"):
+                    fxsummaries[name] = fsummaries[name]
+                else:
+                    if definednames.has_unique_address(name):
+                        addr = definednames.get_unique_address(name)
+                        fxsummaries[addr] = fsummaries[name]
+                    else:
+                        raise UF.CHBError(
+                            "No address found for function name "
+                            + name
+                            + " in userdata")
+
+            if tag in self.userdata:
+                self.userdata[tag].update(fxsummaries)
+            else:
+                self.userdata[tag] = FunctionSummariesHints(fxsummaries)
+
         if "indirect-jumps" in hints:
             tag = "indirect-jumps"
             jumps: List[Dict[str, Any]] = hints["indirect-jumps"]
@@ -728,6 +890,14 @@ class UserHints:
             else:
                 self.userdata[tag] = SectionHeadersHints(sectionheaders)
 
+        if "structs" in hints:
+            tag = "structs"
+            structs: Dict[str, Any] = hints[tag]
+            if tag in self.userdata:
+                self.userdata[tag].update(structs)
+            else:
+                self.userdata[tag] = StructsHints(structs)
+
         if "successors" in hints:
             tag = "successors"
             successors: List[Dict[str, Union[List[str], str]]] = hints[tag]
@@ -743,6 +913,21 @@ class UserHints:
                 self.userdata[tag].update(symbolicaddrs)
             else:
                 self.userdata[tag] = SymbolicAddressesHints(symbolicaddrs)
+
+    def save_userdata(self, path: str, xfile: str) -> None:
+        ufilename = UF.get_user_system_data_filename(path, xfile)
+        with open(ufilename, "w") as fp:
+            fp.write(UX.doc_to_pretty(self.to_xml(xfile)))
+
+        # structs are saved individually in a structs directory
+        if "structs" in self.userdata:
+            self.userdata["structs"].save_struct_files(path, xfile)
+
+        # function summaries are saved individually in a functions directory
+        if "function-summaries" in self.userdata:
+            cast(
+                FunctionSummariesHints,
+                self.userdata["function-summaries"]).save_summaries(path, xfile)
 
     def to_xml(self, filename: str) -> ET.ElementTree:
         root = UX.get_codehawk_xml_header(filename, "system-userdata")
