@@ -95,8 +95,8 @@ class X86IMul(X86Opcode):
         """
 
         lhs = str(xdata.vars[0])
-        rhs = xdata.xprs[3]
-        rrhs = xdata.xprs[4]
+        rhs = xdata.xprs[2]
+        rrhs = xdata.xprs[3]
         xrhs = simplify_result(xdata.args[3], xdata.args[4], rhs, rrhs)
         return lhs + ' = ' + xrhs
 
