@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Sequence, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -33,23 +33,25 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.invariants.XXpr import XXpr
-
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    from chb.api.CallTarget import CallTarget
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("BL", ARMOpcode)
-class ARMBranchLink(ARMOpcode):
-    """Calls a subroutine at a PC-relative address.
+@armregistry.register_tag("VLDR", ARMOpcode)
+class ARMVLoadRegister(ARMOpcode):
+    """Loads a single extension register from memory
+
+    VLDR<c> <Dd>, [<Rn>{, #+/-<imm>}]
+    VLDR<c> <Sd>, [<Rn>{, #+/-<imm>}]
 
     tags[1]: <c>
-    args[0]: index of target operand in armdictionary
+    args[0]: index of Dd/Sd in armdictionary
+    args[1]: index of Rn in armdictionary
+    args[2]: index of memory location in armdictionary
     """
 
     def __init__(
@@ -57,53 +59,19 @@ class ARMBranchLink(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 1, "BranchLink")
+        self.check_key(2, 3, "VStore")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[0])]
-
-    def has_string_arguments(self, xdata: InstrXData) -> bool:
-        return any([x.is_string_reference for x in self.arguments(xdata)])
-
-    def has_stack_arguments(self, xdata: InstrXData) -> bool:
-        return any([x.is_stack_address for x in self.arguments(xdata)])
-
-    def annotated_call_arguments(
-            self, xdata: InstrXData) -> Sequence[Dict[str, Any]]:
-        return [x.to_annotated_value() for x in xdata.xprs]
-
-    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return xdata.xprs
-
-    def is_call(self, xdata: InstrXData) -> bool:
-        return len(xdata.tags) == 2 and xdata.tags[1] == "call"
-
-    def is_call_instruction(self, xdata: InstrXData) -> bool:
-        return xdata.has_call_target()
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 2]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """data formats: call, jumptable, indirect jump
+        """xdata format: a:vxx
 
-        call: [a:..., 'call'], <args> + <index of call-target in ixd>
-
-        or
-
-        xdata format: a:x .
-
-        xprs[0]: target operand
+        vars[0]: lhs
+        xprs[0]: rhs
         """
 
-        if self.is_call(xdata) and xdata.has_call_target():
-            tgt = xdata.call_target(self.ixd)
-            args = ", ".join(str(x) for x in self.arguments(xdata))
-            return "call " + str(tgt) + "(" + args + ")"
-
-        ctgt = str(xdata.xprs[0])
-        return "call " + ctgt
-
-    def call_target(self, xdata: InstrXData) -> "CallTarget":
-        if self.is_call(xdata):
-            return xdata.call_target(self.ixd)
-        else:
-            raise UF.CHBError("Instruction is not a call: " + str(self))
+        lhs = str(xdata.vars[0])
+        rhs = str(xdata.xprs[0])
+        return lhs + " := " + rhs

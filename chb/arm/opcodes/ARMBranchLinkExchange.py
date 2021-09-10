@@ -78,7 +78,10 @@ class ARMBranchLinkExchange(ARMOpcode):
         return xdata.xprs
 
     def is_call(self, xdata: InstrXData) -> bool:
-        return len(xdata.tags) == 2 and xdata.tags[1] == "call"
+        return xdata.has_call_target()
+
+    def is_call_instruction(self, xdata: InstrXData) -> bool:
+        return xdata.has_call_target()
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:x .
@@ -95,7 +98,7 @@ class ARMBranchLinkExchange(ARMOpcode):
         return "call " + ctgt
 
     def call_target(self, xdata: InstrXData) -> "CallTarget":
-        if self.is_call(xdata):
+        if xdata.has_call_target():
             return xdata.call_target(self.ixd)
         else:
             raise UF.CHBError("Instruction is not a call: " + str(self))

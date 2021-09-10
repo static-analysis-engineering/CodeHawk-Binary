@@ -79,4 +79,4 @@ class ARMLogicalShiftRight(ARMOpcode):
         result = xdata.xprs[1]
         rresult = xdata.xprs[2]
         xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
-        return xresult
+        return lhs + " := " + xresult
