@@ -25,14 +25,17 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from chb.elfformat.ELFHeader import ELFHeader
-from typing import Dict, List, Mapping, Optional, Type
 
-from chb.app.Callgraph import Callgraph
+from typing import Callable, Dict, List, Mapping, Optional, Type
+
+from chb.app.Callgraph import Callgraph, mk_tgt_callgraph_node, mk_app_callgraph_node
 from chb.app.AppAccess import AppAccess, HeaderTy
 
 from chb.arm.ARMDictionary import ARMDictionary
 from chb.arm.ARMFunction import ARMFunction
+from chb.arm.ARMInstruction import ARMInstruction
+
+from chb.elfformat.ELFHeader import ELFHeader
 
 import chb.util.fileutil as UF
 
@@ -48,6 +51,7 @@ class ARMAccess(AppAccess[HeaderTy]):
         AppAccess.__init__(self, path, filename, fileformat, deps)
         self._armd: Optional[ARMDictionary] = None
         self._functions: Dict[str, ARMFunction] = {}
+        self._callgraph: Optional[Callgraph] = None
 
     @property
     def armdictionary(self) -> ARMDictionary:
@@ -74,12 +78,38 @@ class ARMAccess(AppAccess[HeaderTy]):
                     xnode)
         return self._functions
 
+    def iter_functions(self, f: Callable[[str, ARMFunction], None]) -> None:
+        for (faddr, fn) in sorted(self.functions.items()):
+            f(faddr, fn)
+
     def call_edges(self) -> Mapping[str, Mapping[str, int]]:
         return {}
 
     def callgraph(self) -> Callgraph:
-        raise UF.CHBNotImplementedError("ARMAccess", "callgraph", "")
+        if self._callgraph is None:
+            cg = Callgraph()
+            for (faddr, instrs) in self.function_calls().items():
+                fname: Optional[str] = None
+                if self.has_function_name(faddr):
+                    fname = self.function_name(faddr)
+                srcnode = mk_app_callgraph_node(faddr, fname)
+                for instr in instrs:
+                    calltgt = instr.call_target()
+                    dstnode = mk_tgt_callgraph_node(instr.iaddr, calltgt)
+                    cg.add_edge(srcnode, dstnode)
+        return cg
 
     @property
     def max_address(self) -> str:
         raise UF.CHBNotImplementedError("ARMAccess", "max_address", "")
+
+    def function_calls(self) -> Dict[str, List[ARMInstruction]]:
+        result: Dict[str, List[ARMInstruction]] = {}
+
+        def f(faddr: str, fn: ARMFunction) -> None:
+            calls = fn.call_instructions()
+            if len(calls) > 0:
+                result[faddr] = calls
+
+        self.iter_functions(f)
+        return result
