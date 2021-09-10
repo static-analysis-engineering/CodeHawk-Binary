@@ -94,6 +94,13 @@ following commands:
 
     simulate <xname> <fn>   run a (symbolic) simulation of the given function
 
+The python interface has a capability to perform a relational analysis of two executables.
+The two executables can be related from different perspectives (syntactic or semantic) and
+different levels of precision (e.g., control flow graph vs expressions). The commands to
+perform this relational analysis are
+
+    relational <xname1> <xname2> ....
+
 The repository includes regression tests. They are organized by file format (pe, elf) and
 architecture (x86, mips32, arm32) and further divided into test suites that combine tests
 with similar structure. These tests can be run with the following commands:
@@ -122,6 +129,7 @@ from typing import NoReturn
 import chb.cmdline.AnalysisManager as AM
 import chb.cmdline.commandutil as UCC
 import chb.cmdline.fileformatcmds as FF
+import chb.cmdline.relationalcmds as R
 import chb.cmdline.simulatecmds as S
 import chb.cmdline.summariescmds as SC
 import chb.cmdline.testcmds as TC
@@ -211,6 +219,11 @@ def summariesviewcommand(args: argparse.Namespace) -> NoReturn:
 
 def simulatecommand(args: argparse.Namespace) -> NoReturn:
     print("The simulate command allows simulation of a single function.")
+    exit(0)
+
+
+def relationalcommand(args: argparse.Namespace) -> NoReturn:
+    print("The relational commands relates two executables at different levels of precision")
     exit(0)
 
 
@@ -544,7 +557,8 @@ def parse() -> argparse.Namespace:
     # --- results branchconditions ---
     resultsbranchconditions = resultsparsers.add_parser("branchconditions")
     resultsbranchconditions.add_argument("xname", help="name of executable")
-    resultsbranchconditions.add_argument("function", help="hex address of function")
+    resultsbranchconditions.add_argument(
+        "function", help="hex address of function")
     resultsbranchconditions.set_defaults(func=UCC.results_branchconditions)
 
     # --- results fileio ---
@@ -587,7 +601,7 @@ def parse() -> argparse.Namespace:
     resultscfgpaths.set_defaults(func=UCC.showcfgpaths)
 
     '''
-    # -------------------------------------------------------------- report subcommand
+    # ------------------------------------------------------ report subcommand
     parser_report = subparsers.add_parser('report')
     parser_report.set_defaults(func=reportcommand)
     reportparsers = parser_report.add_subparsers(title='show options')
@@ -667,6 +681,22 @@ def parse() -> argparse.Namespace:
     # --- ioc-roles ---
     summaries_ioc_roles = summariesparsers.add_parser("ioc-roles")
     summaries_ioc_roles.set_defaults(func=SC.summaries_ioc_roles_cmd)
+
+    # ---------------------------------------------------- relational subcommand
+    parser_relational = subparsers.add_parser("relational")
+    parser_relational.add_argument(
+        "xname1", help="name of first executable")
+    parser_relational.add_argument(
+        "xname2", help="name of second executable")
+    parser_relational.add_argument(
+        "--functions",
+        action="store_true",
+        help="show differences at the function level (basic blocks)")
+    parser_relational.add_argument(
+        "--instructions",
+        action="store_true",
+        help="show differences at the instruction level")
+    parser_relational.set_defaults(func=R.relational_analysis_cmd)
 
     # ------------------------------------------------------ simulate subcommand
     parser_simulate = subparsers.add_parser("simulate")

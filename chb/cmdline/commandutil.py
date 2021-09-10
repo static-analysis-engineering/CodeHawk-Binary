@@ -227,9 +227,7 @@ def setup_user_data(
                     "Error in reading " + f + ": " + str(e))
                 exit(1)
 
-    ufilename = UF.get_user_system_data_filename(path, xfile)
-    with open(ufilename, "w") as fp:
-        fp.write(UX.doc_to_pretty(userhints.to_xml(xfile)))
+    userhints.save_userdata(path, xfile)
 
 
 def prepare_executable(
