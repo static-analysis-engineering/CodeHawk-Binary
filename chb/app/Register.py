@@ -59,8 +59,9 @@ class Register(BDictionaryRecord):
     | XmmRegister of int    (* 128 bit register *)   "x"         1      1
     | MIPSRegister of mips_reg_t                     "p"         2      0
     | MIPSSpecialRegister of mips_special_reg_t      "ps         2      0
-    | MIPSFloatingPointRegister of int               "pf"        1      1
+    | MIPSFloatingPointRegister of int               "pfp        1      1
     | ARMRegister of arm_reg_t                       "a"         2      0
+    | ARMFloatingPointRegister of int * int          "afp"
 
     """
 
