@@ -37,7 +37,7 @@ import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
 
-from typing import Callable, Dict, List, Optional, Sequence, TYPE_CHECKING
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.FunctionDictionary import FunctionDictionary
 
@@ -95,9 +95,24 @@ class Instruction(ABC):
     def bytestring(self) -> str:
         ...
 
+    @property
+    def rev_bytestring(self) -> str:
+        """Reverse byte string to account for different endianness."""
+
+        b = self.bytestring
+        revb = "".join(i+j for i, j in zip(b[:-1][::-2], b[::-2]))
+        return revb
+
     def md5(self) -> str:
         m = hashlib.md5()
         m.update(self.bytestring.encode("utf-8"))
+        return m.hexdigest()
+
+    def rev_md5(self) -> str:
+        """Use reverse byte string to account for difference in endianness."""
+
+        m = hashlib.md5()
+        m.update(self.rev_bytestring.encode("utf-8"))
         return m.hexdigest()
 
     @property
@@ -128,6 +143,11 @@ class Instruction(ABC):
     @property
     @abstractmethod
     def ft_conditions(self) -> Sequence[XXpr]:
+        ...
+
+    @abstractmethod
+    def string_pointer_loaded(self) -> Optional[Tuple[str, str]]:
+        """Return string loaded and destination operand for pointer, or None."""
         ...
 
     @abstractmethod
