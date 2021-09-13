@@ -264,7 +264,7 @@ class MIPSFunction(Function):
         result: List[str] = []
 
         def f(iaddr: str, instr: MIPSInstruction) -> None:
-            result.extend(instr.strings_referenced())
+            result.extend(instr.strings_referenced)
 
         self.iter_instructions(f)
         return result

@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import cast, List, Sequence, TYPE_CHECKING
+from typing import cast, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -86,6 +86,12 @@ class MIPSAddImmediateUnsigned(MIPSOpcode):
                 s = cc.string_reference()
                 return [s]
         return []
+
+    def string_pointer_loaded(self, xdata: InstrXData) -> Optional[Tuple[str, str]]:
+        if len(self.strings(xdata)) == 1:
+            return (self.strings(xdata)[0], str(self.dst_operand))
+        else:
+            return None
 
     def annotation(self, xdata: InstrXData) -> str:
         """data format a:vxxxx
