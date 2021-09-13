@@ -229,6 +229,9 @@ class X86Instruction(Instruction):
         else:
             raise UF.CHBError("Instruction is not a call instruction")
 
+    def string_pointer_loaded(self) -> Optional[Tuple[str, str]]:
+        return None
+
     # returns a list of (rolename,parameter name, argument value)
     def ioc_arguments(self) -> List[Tuple[str, str, str]]:
         results: List[Tuple[str, str, str]] = []

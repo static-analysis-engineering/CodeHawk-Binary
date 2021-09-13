@@ -128,6 +128,9 @@ class MIPSOpcode(MIPSDictionaryRecord):
         """Return strings referenced by the instruction."""
         return []
 
+    def string_pointer_loaded(self, data: InstrXData) -> Optional[Tuple[str, str]]:
+        return None
+
     def global_variables(self, xdata: InstrXData) -> Mapping[str, int]:
         """Return a dictionary with a count for each global variable."""
         return {}

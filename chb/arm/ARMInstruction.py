@@ -27,7 +27,8 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, cast, Dict, List, Optional, Sequence, TYPE_CHECKING
+from typing import (
+    Callable, cast, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING)
 
 from chb.api.CallTarget import CallTarget
 
@@ -159,6 +160,9 @@ class ARMInstruction(Instruction):
     @property
     def strings_referenced(self) -> Sequence[str]:
         return []
+
+    def string_pointer_loaded(self) -> Optional[Tuple[str, str]]:
+        return None
 
     def call_target(self) -> CallTarget:
         if self.is_call_instruction:

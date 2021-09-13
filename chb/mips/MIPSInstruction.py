@@ -135,8 +135,12 @@ class MIPSInstruction(Instruction):
     def operand_values(self) -> Sequence[XXpr]:
         return self.opcode.operand_values(self.xdata)
 
+    @property
     def strings_referenced(self) -> Sequence[str]:
         return self.opcode.strings(self.xdata)
+
+    def string_pointer_loaded(self) -> Optional[Tuple[str, str]]:
+        return self.opcode.string_pointer_loaded(self.xdata)
 
     def load_address(self) -> XXpr:
         if self.is_load_word_instruction:
