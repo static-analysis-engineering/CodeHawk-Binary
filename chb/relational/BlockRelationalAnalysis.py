@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Compares two basic blocks in two related functions in different binaries."""
 
-from typing import Dict, List, Mapping, TYPE_CHECKING
+from typing import Dict, List, Mapping, Optional, TYPE_CHECKING
 
 from chb.relational.InstructionRelationalAnalysis import (
     InstructionRelationalAnalysis)
@@ -36,6 +36,7 @@ import chb.util.fileutil as UF
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
     from chb.app.BasicBlock import BasicBlock
+    from chb.app.Instruction import Instruction
 
 
 class BlockRelationalAnalysis:
@@ -74,8 +75,15 @@ class BlockRelationalAnalysis:
         return int(self.b2.baddr, 16) - int(self.b1.baddr, 16)
 
     @property
+    def same_endianness(self) -> bool:
+        return self.app1.header.is_big_endian == self.app2.header.is_big_endian
+
+    @property
     def is_md5_equal(self) -> bool:
-        return self.b1.md5() == self.b2.md5()
+        if self.same_endianness:
+            return self.b1.md5() == self.b2.md5()
+        else:
+            return self.b1.md5() == self.b2.rev_md5()
 
     @property
     def instr_mapping(self) -> Mapping[str, str]:
@@ -88,11 +96,15 @@ class BlockRelationalAnalysis:
     def instr_analyses(self) -> Mapping[str, InstructionRelationalAnalysis]:
         if len(self._instranalyses) == 0:
             for (iaddr1, iaddr2) in self.instr_mapping.items():
+                if iaddr2 in self.b2.instructions:
+                    instr2: Optional["Instruction"] = self.b2.instructions[iaddr2]
+                else:
+                    instr2 = None
                 self._instranalyses[iaddr1] = InstructionRelationalAnalysis(
                     self.app1,
                     self.b1.instructions[iaddr1],
                     self.app2,
-                    self.b2.instructions[iaddr2])
+                    instr2)
         return self._instranalyses
 
     def instrs_changed(self) -> List[str]:
@@ -106,20 +118,36 @@ class BlockRelationalAnalysis:
         lines: List[str] = []
         for iaddr in self.instr_analyses:
             ira = self.instr_analyses[iaddr]
-            if not ira.is_md5_equal:
-                lines.append(
-                    "  V:"
-                    + ira.instr1.iaddr
-                    + "  "
-                    + ira.instr1.bytestring
-                    + "  "
-                    + str(ira.instr1))
-                lines.append(
-                    "  P:"
-                    + ira.instr2.iaddr
-                    + "  "
-                    + ira.instr2.bytestring
-                    + "  "
-                    + str(ira.instr2))
-                lines.append("")
+            if not ira.is_md5_equal and not ira.is_semantically_equal:
+                if ira.is_mapped:
+                    b1 = ira.instr1.bytestring
+                    if self.same_endianness:
+                        b2 = ira.instr2.bytestring
+                    else:
+                        b2 = ira.instr2.rev_bytestring
+                    lines.append(
+                        "  V:"
+                        + ira.instr1.iaddr
+                        + "  "
+                        + b1
+                        + "  "
+                        + str(ira.instr1))
+                    lines.append(
+                        "  P:"
+                        + ira.instr2.iaddr
+                        + "  "
+                        + b2
+                        + "  "
+                        + str(ira.instr2))
+                    lines.append("")
+                else:
+                    lines.append(
+                        "  V:"
+                        + ira.instr1.iaddr
+                        + "  "
+                        + b1
+                        + "  "
+                        + str(ira.instr1))
+                    lines.append("  P: not mapped")
+                    lines.append("")
         return "\n".join(lines)

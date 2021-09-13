@@ -29,6 +29,7 @@
 from typing import Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING
 
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
+from chb.relational.CfgMatcher import CfgMatcher
 
 import chb.util.fileutil as UF
 
@@ -83,6 +84,10 @@ class FunctionRelationalAnalysis:
         """Return the difference between the two function addresses."""
 
         return int(self.faddr2, 16) - int(self.faddr1, 16)
+
+    @property
+    def same_endianness(self) -> bool:
+        return self.app1.header.is_big_endian == self.app2.header.is_big_endian
 
     def address2_align(self, addr2: str) -> str:
         """Return the corresponding address in fn2 by adding the offset."""
@@ -154,7 +159,10 @@ class FunctionRelationalAnalysis:
 
     @property
     def is_md5_equal(self) -> bool:
-        return self.fn1.md5 == self.fn2.md5
+        if self.same_endianness:
+            return self.fn1.md5 == self.fn2.md5
+        else:
+            return self.fn1.md5 == self.fn2.rev_md5
 
     @property
     def is_structurally_equivalent(self) -> bool:
@@ -238,4 +246,46 @@ class FunctionRelationalAnalysis:
                             "\nInstructions changed in block " + baddr + ":")
                         lines.append(blra.report())
                         lines.append("")
+        else:
+            cfgmatcher = CfgMatcher(
+                self.app1, self.fn1, self.cfg1,
+                self.app2, self.fn2, self.cfg2, {}, {})
+            lines.append("\nCfg matching")
+            for baddr1 in sorted(self.basic_blocks1):
+                if baddr1 in cfgmatcher.blockmapping:
+                    baddr2 = cfgmatcher.blockmapping[baddr1]
+                    self._blockanalyses[baddr1] = BlockRelationalAnalysis(
+                        self.app1,
+                        self.basic_blocks1[baddr1],
+                        self.app2,
+                        self.basic_blocks2[baddr2])
+                    blra = self.block_analyses[baddr1]
+                    if baddr1 == baddr2:
+                        moved = "no"
+                    else:
+                        moved = baddr2
+                        md5eq = "yes" if blra.is_md5_equal else "no"
+                        if md5eq == "no":
+                            instrs_changed = len(blra.instrs_changed())
+                            instrcount = len(blra.b1.instructions)
+                            insch = str(instrs_changed) + "/" + str(instrcount)
+                        else:
+                            insch = "-"
+                        lines.append(
+                            baddr1.ljust(12)
+                            + moved.ljust(16)
+                            + md5eq.ljust(20)
+                            + insch.ljust(20))
+                else:
+                    lines.append(baddr1)
+            blocksmatched = len(cfgmatcher.blockmapping)
+            blocks1 = len(self.basic_blocks1)
+            edgesmatched = len(cfgmatcher.edgemapping)
+            edges1 = len(cfgmatcher.edges1)
+            lines.append(
+                "\nNodes matched: " + str(blocksmatched) + "/" + str(blocks1))
+            lines.append(
+                "Edges matched: " + str(edgesmatched) + "/" + str(edges1))
+            lines.append("")
+ 
         return "\n".join(lines)
