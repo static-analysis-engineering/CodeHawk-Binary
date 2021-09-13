@@ -73,7 +73,7 @@ class Cfg:
     def edges_as_set(self) -> Set[Tuple[str, str]]:
         result: Set[Tuple[str, str]] = set([])
         for src in self.edges:
-            for dst in self.edges:
+            for dst in self.edges[src]:
                 result.add((src, dst))
         return result
 

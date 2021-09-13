@@ -208,6 +208,15 @@ class Function(ABC):
             m.update(instr.bytestring.encode("utf-8"))
         return m.hexdigest()
 
+    @property
+    def rev_md5(self) -> str:
+        """Use reverse bytestring to account for difference in endianness."""
+
+        m = hashlib.md5()
+        for instr in self.instructions.values():
+            m.update(instr.rev_bytestring.encode("utf-8"))
+        return m.hexdigest()
+
     def block(self, baddr: str) -> BasicBlock:
         if baddr in self.blocks:
             return self.blocks[baddr]

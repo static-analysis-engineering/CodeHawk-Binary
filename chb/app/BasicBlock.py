@@ -100,6 +100,14 @@ class BasicBlock(ABC):
             m.update(instr.bytestring.encode("utf-8"))
         return m.hexdigest()
 
+    def rev_md5(self) -> str:
+        """Use reverse bytestring to account for difference in endianness."""
+
+        m = hashlib.md5()
+        for instr in self.instructions.values():
+            m.update(instr.rev_bytestring.encode("utf-8"))
+        return m.hexdigest()
+
     @abstractmethod
     def to_string(
             self,
