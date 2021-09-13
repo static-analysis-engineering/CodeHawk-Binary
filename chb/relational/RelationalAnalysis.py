@@ -171,8 +171,7 @@ class RelationalAnalysis:
             lines.append("=" * 80)
             for faddr in self.functions_changed():
                 fra = self.function_analyses[faddr]
-                if fra.is_structurally_equivalent:
-                    lines.append("\nFunction " + faddr)
-                    lines.append(fra.report(showinstructions))
+                lines.append("\nFunction " + faddr)
+                lines.append(fra.report(showinstructions))
 
         return "\n".join(lines)

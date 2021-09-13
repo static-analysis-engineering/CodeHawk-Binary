@@ -26,7 +26,9 @@
 # ------------------------------------------------------------------------------
 """Compares two instructions in two related functions in different binaries."""
 
-from typing import TYPE_CHECKING
+from typing import cast, Optional, TYPE_CHECKING
+
+import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
@@ -40,7 +42,7 @@ class InstructionRelationalAnalysis:
             app1: "AppAccess",
             i1: "Instruction",
             app2: "AppAccess",
-            i2: "Instruction") -> None:
+            i2: Optional["Instruction"]) -> None:
         self._app1 = app1
         self._app2 = app2
         self._instr1 = i1
@@ -60,8 +62,50 @@ class InstructionRelationalAnalysis:
 
     @property
     def instr2(self) -> "Instruction":
-        return self._instr2
+        if self.is_mapped:
+            return cast("Instruction", self._instr2)
+        else:
+            raise UF.CHBError(
+                "No corresponding instruction found for " + self.instr1.iaddr)
+
+    @property
+    def is_mapped(self) -> bool:
+        return self._instr2 is not None
+
+    @property
+    def same_endianness(self) -> bool:
+        return self.app1.header.is_big_endian == self.app2.header.is_big_endian
 
     @property
     def is_md5_equal(self) -> bool:
-        return self.instr1.md5() == self.instr2.md5()
+        if self.is_mapped:
+            if self.same_endianness:
+                return self.instr1.md5() == self.instr2.md5()
+            else:
+                return self.instr1.md5() == self.instr2.rev_md5()
+        else:
+            return False
+
+    @property
+    def loads_same_string(self) -> bool:
+        s1 = self.instr1.string_pointer_loaded()
+        if s1:
+            s2 = self.instr2.string_pointer_loaded()
+            if s2:
+                return (s1[0] == s2[0] and s1[1] == s2[1])
+            else:
+                return False
+        else:
+            return False
+
+    @property
+    def calls_same_function_with_same_args(self) -> bool:
+        return False
+
+    @property
+    def is_semantically_equal(self) -> bool:
+        """Return true if the action taken is equivalent."""
+
+        return (
+            self.loads_same_string
+            or self.calls_same_function_with_same_args)
