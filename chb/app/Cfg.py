@@ -33,9 +33,10 @@ Subclasses:
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Mapping, Sequence, Set, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 from chb.app.CfgBlock import CfgBlock
+from chb.app.DerivedGraphSequence import DerivedGraphSequence
 
 import chb.util.fileutil as UF
 
@@ -44,9 +45,16 @@ class Cfg:
 
     def __init__(
             self,
+            faddr: str,
             xnode: ET.Element) -> None:
+        self._faddr = faddr
         self.xnode = xnode
         self._edges: Dict[str, List[str]] = {}
+        self._graphseq: Optional[DerivedGraphSequence] = None
+
+    @property
+    def faddr(self) -> str:
+        return self._faddr
 
     @property
     def blocks(self) -> Mapping[str, CfgBlock]:
@@ -76,6 +84,26 @@ class Cfg:
             for dst in self.edges[src]:
                 result.add((src, dst))
         return result
+
+    @property
+    def derived_graph_sequence(self) -> DerivedGraphSequence:
+        if self._graphseq is None:
+            nodes = list(self.blocks.keys())
+            self._graphseq = DerivedGraphSequence(self.faddr, nodes, self.edges)
+        return self._graphseq
+
+    @property
+    def is_reducible(self) -> bool:
+        return self.derived_graph_sequence.is_reducible
+
+    @property
+    def rpo_sorted_nodes(self) -> List[str]:
+        """Return a list of block addresses in reverse postorder."""
+
+        if self.is_reducible:
+            return self.derived_graph_sequence.rpo_sorted_nodes
+        else:
+            return []
 
     def max_loop_level(self) -> int:
         return max([len(self.blocks[b].looplevels) for b in self.blocks])
