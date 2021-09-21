@@ -115,6 +115,10 @@ def function_summary_to_xml(
         pnode.append(ptnode)
         mk_user_btype(a["type"]).to_xml(ptnode)
         count += 1
+    if "returntype" in fsummary:
+        rnode = ET.Element("returntype")
+        fintfnode.append(rnode)
+        mk_user_btype(fsummary["returntype"]).to_xml(rnode)
 
 
 def mk_user_btype(d: Union[str, Dict[str, Any]]) -> T.UserBType:
