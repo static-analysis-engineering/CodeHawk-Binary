@@ -54,7 +54,7 @@ class MIPSCfg(Cfg):
             self,
             f: "MIPSFunction",
             xnode: ET.Element) -> None:
-        Cfg.__init__(self, xnode)
+        Cfg.__init__(self, f.faddr, xnode)
         self._f = f
         self._blocks: Dict[str, MIPSCfgBlock] = {}
         self._edges: Dict[str, List[str]] = {}
