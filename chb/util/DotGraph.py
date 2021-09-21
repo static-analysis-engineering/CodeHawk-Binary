@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 max_label_length = 2000
 
@@ -118,6 +118,54 @@ class DotEdge:
             quote + self.src + quote + ' -> ' + quote + self.tgt + quote + attrs)
 
 
+class DotCluster:
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._edges: Set[Tuple[str, str]] = set([])
+        self._style: Optional[str] = None
+        self._color: str = "lightgrey"
+        self._nodestyle: Optional[str] = None
+        self._nodecolor: str = "white"
+
+    @property
+    def name(self) -> str:
+        return "cluster_" + self._name
+
+    @property
+    def edges(self) -> Set[Tuple[str, str]]:
+        return self._edges
+
+    def add_edge(self, src: str, tgt: str) -> None:
+        self._edges.add((src, tgt))
+
+    def set_filled(self) -> None:
+        self._style = "filled"
+
+    def set_node_filled(self) -> None:
+        self._nodestyle = "filled"
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("subgraph " + self.name + "{")
+        if self._style:
+            lines.append("  style=" + self._style + ";")
+        lines.append("  color=" + self._color + ";")
+        if self._nodestyle:
+            lines.append(
+                "  node [style="
+                + self._nodestyle
+                + ",color="
+                + self._nodecolor
+                + "];")
+        else:
+            lines.append("  node [color=" + self._nodecolor + "];")
+        for (src, tgt) in sorted(self.edges):
+            lines.append("  " + '"' + src + '"' + " -> " + '"' + tgt + '"' + ";")
+        lines.append("}\n")
+        return "\n".join(lines)
+
+
 class DotGraph:
 
     def __init__(self, name: str) -> None:
@@ -126,6 +174,7 @@ class DotGraph:
         self.edges: Dict[Tuple[str, str], DotEdge] = {}
         self.rankdir = 'TB'
         self.samerank: List[List[str]] = []
+        self._clusters: List[DotCluster] = []
 
     def add_node(
             self,
@@ -153,6 +202,19 @@ class DotGraph:
             labeltxt = sanitize(labeltxt)
             self.edges[(src, tgt)] = DotEdge(src, tgt, labeltxt)
 
+    def add_cluster(
+            self,
+            name: str,
+            edges: Set[Tuple[str, str]],
+            style: Optional[str] = None,
+            nodestyle: Optional[str] = None,
+            color: str = "lightgrey",
+            nodecolor: str = "white") -> None:
+        cluster = DotCluster(name)
+        for (src, tgt) in edges:
+            cluster.add_edge(src, tgt)
+        self._clusters.append(cluster)
+
     def set_top_bottom(self) -> None:
         self.rankdir = 'TB'
 
@@ -173,6 +235,8 @@ class DotGraph:
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append('digraph ' + '"' + self.name + '" {')
+        for c in self._clusters:
+            lines.append(str(c))
         lines.append(
             'edge [fontname="FreeSans", fontsize="24", '
             + 'labelfontname="FreeSans",labelfontsize="24"]')
