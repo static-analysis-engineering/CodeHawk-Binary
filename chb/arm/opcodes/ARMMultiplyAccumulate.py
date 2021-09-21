@@ -41,11 +41,11 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("MLS", ARMOpcode)
-class ARMMultiplySubtract(ARMOpcode):
-    """Multiplies two values and subtracts the product from a third register.
+@armregistry.register_tag("MLA", ARMOpcode)
+class ARMMultiplyAccumulate(ARMOpcode):
+    """Multiplies two values and adds the value of a third register.
 
-    MLS<c> <Rd>, <Rn>, <Rm>, <Ra>
+    MLA<c> <Rd>, <Rn>, <Rm>, <Ra>
 
     tags[1]: <c>
     args[0]: index of Rd in armdictionary
@@ -59,7 +59,7 @@ class ARMMultiplySubtract(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "MultiplySubtract")
+        self.check_key(2, 4, "MultiplyAccumulate")
 
     @property
     def operands(self) -> List[ARMOperand]:
@@ -74,8 +74,8 @@ class ARMMultiplySubtract(ARMOpcode):
         xprs[2]: rhsra (Ra)
         xprs[3]: (rhs1 * rhs2)
         xprs[4]: (rhs1 * rhs2) (simplified)
-        xprs[5]: (rhsra - (rhs1 * rhs2))
-        xprs[6]: (rhsra - (rhs1 * rhs2)) (simplified)
+        xprs[5]: (rhsra + (rhs1 * rhs2))
+        xprs[6]: (rhsra + (rhs1 * rhs2)) (simplified)
         """
 
         lhs = str(xdata.vars[0])
@@ -83,9 +83,9 @@ class ARMMultiplySubtract(ARMOpcode):
         prod = xdata.xprs[3]
         rprod = xdata.xprs[4]
         xprod = simplify_result(xdata.args[4], xdata.args[5], prod, rprod)
-        diff = xdata.xprs[5]
-        rdiff = xdata.xprs[6]
-        xdiff = simplify_result(xdata.args[6], xdata.args[7], diff, rdiff)
+        xsum = xdata.xprs[5]
+        rxsum = xdata.xprs[6]
+        xxsum = simplify_result(xdata.args[6], xdata.args[7], xsum, rxsum)
         return (
             lhs
             + " := "
@@ -93,4 +93,4 @@ class ARMMultiplySubtract(ARMOpcode):
             + "; "
             + lhsra
             + " := "
-            + xdiff)
+            + xxsum)
