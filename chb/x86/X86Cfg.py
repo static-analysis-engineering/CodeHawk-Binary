@@ -47,7 +47,7 @@ class X86Cfg(C.Cfg):
             self,
             x86f: "X86Function",
             xnode: ET.Element) -> None:
-        C.Cfg.__init__(self, xnode)
+        C.Cfg.__init__(self, x86f.faddr, xnode)
         self._x86f = x86f
         self._blocks: Dict[str, X86CfgBlock] = {}
 
