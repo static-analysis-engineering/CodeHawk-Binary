@@ -38,59 +38,29 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    from chb.arm.ARMDictionary import ARMDictionary
+    import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("MLS", ARMOpcode)
-class ARMMultiplySubtract(ARMOpcode):
-    """Multiplies two values and subtracts the product from a third register.
+@armregistry.register_tag("DMB", ARMOpcode)
+class ARMDataMemoryBarrier(ARMOpcode):
+    """Memory barrier that ensures the ordering of memory accesses.
 
-    MLS<c> <Rd>, <Rn>, <Rm>, <Ra>
+    DMB<c> option
 
     tags[1]: <c>
-    args[0]: index of Rd in armdictionary
-    args[1]: index of Rn in armdictionary
-    args[2]: index of Rm in armdictionary
-    args[3]: index of Ra in armdictionary
+    args[0]: index of option argument
     """
 
     def __init__(
             self,
-            d: "ARMDictionary",
+            d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "MultiplySubtract")
+        self.check_key(2, 1, "DataMemoryBarrier")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(self.args[0])]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxxxxx
-
-        vars[0]: lhs1 (Rd)
-        xprs[0]: rhs1 (Rn)
-        xprs[1]: rhs2 (Rm)
-        xprs[2]: rhsra (Ra)
-        xprs[3]: (rhs1 * rhs2)
-        xprs[4]: (rhs1 * rhs2) (simplified)
-        xprs[5]: (rhsra - (rhs1 * rhs2))
-        xprs[6]: (rhsra - (rhs1 * rhs2)) (simplified)
-        """
-
-        lhs = str(xdata.vars[0])
-        lhsra = str(xdata.vars[1])
-        prod = xdata.xprs[3]
-        rprod = xdata.xprs[4]
-        xprod = simplify_result(xdata.args[4], xdata.args[5], prod, rprod)
-        diff = xdata.xprs[5]
-        rdiff = xdata.xprs[6]
-        xdiff = simplify_result(xdata.args[6], xdata.args[7], diff, rdiff)
-        return (
-            lhs
-            + " := "
-            + xprod
-            + "; "
-            + lhsra
-            + " := "
-            + xdiff)
+        return "Data Memory Barrier " + str(self.operands[0])

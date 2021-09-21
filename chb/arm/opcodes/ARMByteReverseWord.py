@@ -50,6 +50,7 @@ class ARMByteReverseWord(ARMOpcode):
     tags[1]: <c>
     args[0]: index of Rd in armdictionary
     args[1]: index of Rm in armdictionary
+    args[2]: Thumb.wide
     """
 
     def __init__(
@@ -57,11 +58,11 @@ class ARMByteReverseWord(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 2, "ByteReverseWord")
+        self.check_key(2, 3, "ByteReverseWord")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .

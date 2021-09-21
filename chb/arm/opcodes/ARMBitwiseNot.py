@@ -52,6 +52,7 @@ class ARMBitwiseBitwiseNot(ARMOpcode):
     args[0]: {S}
     args[1]: index of op1 in armdictionary
     args[2]: index of op2 in armdictionary
+    args[3]: Thumb2 wide
     """
 
     def __init__(
@@ -59,11 +60,11 @@ class ARMBitwiseBitwiseNot(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 3, "BitwiseNot")
+        self.check_key(2, 4, "BitwiseNot")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:]]
+        return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxxx .

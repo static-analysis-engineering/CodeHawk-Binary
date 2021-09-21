@@ -47,7 +47,7 @@ class ARMCfg(Cfg):
     def __init__(self,
                  armf: "ARMFunction",
                  xnode: ET.Element) -> None:
-        Cfg.__init__(self, xnode)
+        Cfg.__init__(self, armf.faddr, xnode)
         self._armf = armf
         self._blocks: Dict[str, ARMCfgBlock] = {}
 

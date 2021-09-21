@@ -371,3 +371,16 @@ class ARMImmediateOp(ARMOperandKind):
 
     def __str__(self) -> str:
         return hex(self.value)
+
+
+@armregistry.register_tag("d", ARMOperandKind)
+class ARMDMBOption(ARMOperandKind):
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    def __str__(self) -> str:
+        return self.tags[1]
