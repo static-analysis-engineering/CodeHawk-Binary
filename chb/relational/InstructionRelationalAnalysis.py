@@ -88,11 +88,14 @@ class InstructionRelationalAnalysis:
 
     @property
     def loads_same_string(self) -> bool:
-        s1 = self.instr1.string_pointer_loaded()
-        if s1:
-            s2 = self.instr2.string_pointer_loaded()
-            if s2:
-                return (s1[0] == s2[0] and s1[1] == s2[1])
+        if self.is_mapped:
+            s1 = self.instr1.string_pointer_loaded()
+            if s1:
+                s2 = self.instr2.string_pointer_loaded()
+                if s2:
+                    return (s1[0] == s2[0] and s1[1] == s2[1])
+                else:
+                    return False
             else:
                 return False
         else:

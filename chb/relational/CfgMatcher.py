@@ -167,9 +167,33 @@ class CfgMatcher:
             self._tgt2map.setdefault(e2, [])
             self._tgt2map[e2].append(e1)
 
+    @property
+    def is_cfg_isomorphic(self) -> bool:
+        if (
+                self.cfg1.is_reducible
+                and self.cfg2.is_reducible
+                and len(self.basic_blocks1) == len(self.basic_blocks2)):
+            rpo1 = self.cfg1.rpo_sorted_nodes
+            rpo2 = self.cfg2.rpo_sorted_nodes
+            for (n, m) in zip(rpo1, rpo2):
+                self._blockmapping[n] = m
+            self.match_edges()
+            return len(self.edgemapping) == len(self.edges1)
+        else:
+            return False
+
     def match(self) -> None:
-        if len(self.blockmapping) > 0:
+        if len(self._blockmapping) > 0:
             return
+        elif (
+                self.cfg1.is_reducible
+                and self.cfg2.is_reducible
+                and len(self.basic_blocks1) == len(self.basic_blocks2)):
+            rpo1 = self.cfg1.rpo_sorted_nodes
+            rpo2 = self.cfg2.rpo_sorted_nodes
+            for (n, m) in zip(rpo1, rpo2):
+                self._blockmapping[n] = m
+            self.match_edges()
         else:
             self.initialize()
             self.collect_blockmd5s()
@@ -181,12 +205,6 @@ class CfgMatcher:
             self.collect_branch_conditions()
             self.match_branch_conditions()
             self.match_edges()
-            # self.propagate_post()
-            # self.propagate_pre()
-            # self.match_edges()
-            # self.propagate_post()
-            # self.propagate_pre()
-            # self.match_edges()
 
     def collect_blockmd5s(self) -> None:
         for (baddr, b1) in self.basic_blocks1.items():

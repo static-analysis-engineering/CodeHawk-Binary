@@ -62,6 +62,7 @@ class FunctionRelationalAnalysis:
         self._edges2: Set[Tuple[str, str]] = set([])
         self._blockmapping: Dict[str, str] = {}
         self._blockanalyses: Dict[str, BlockRelationalAnalysis] = {}
+        self._cfgmatcher: Optional[CfgMatcher] = None
 
     @property
     def app1(self) -> "AppAccess":
@@ -84,6 +85,10 @@ class FunctionRelationalAnalysis:
         """Return the difference between the two function addresses."""
 
         return int(self.faddr2, 16) - int(self.faddr1, 16)
+
+    @property
+    def moved(self) -> bool:
+        return self.faddr1 != self.faddr2
 
     @property
     def same_endianness(self) -> bool:
@@ -158,6 +163,20 @@ class FunctionRelationalAnalysis:
         return self.fn2.branchconditions
 
     @property
+    def cfgmatcher(self) -> CfgMatcher:
+        if self._cfgmatcher is None:
+            self._cfgmatcher = CfgMatcher(
+                self.app1,
+                self.fn1,
+                self.cfg1,
+                self.app2,
+                self.fn2,
+                self.cfg2,
+                {},
+                {})
+        return self._cfgmatcher
+
+    @property
     def is_md5_equal(self) -> bool:
         if self.same_endianness:
             return self.fn1.md5 == self.fn2.md5
@@ -184,10 +203,20 @@ class FunctionRelationalAnalysis:
         return False
 
     @property
+    def is_cfg_isomorphic(self) -> bool:
+        """Return true if there exists a graph isomorphism between the cfgs."""
+
+        return self.is_structurally_equivalent or self.cfgmatcher.is_cfg_isomorphic
+
+    @property
     def block_mapping(self) -> Mapping[str, str]:
         if len(self._blockmapping) == 0 and self.is_structurally_equivalent:
             for b1 in self.basic_blocks1:
                 self._blockmapping[b1] = hex(int(b1, 16) + self.offset)
+        elif self.is_cfg_isomorphic:
+            mapping = self.cfgmatcher.blockmapping
+            for b1 in self.basic_blocks1:
+                self._blockmapping[b1] = mapping[b1]
         return self._blockmapping
 
     @property
@@ -235,21 +264,32 @@ class FunctionRelationalAnalysis:
                 lines.append(
                     baddr1.ljust(12)
                     + moved.ljust(16)
-                    + md5eq.ljust(20)
+                    + md5eq.ljust(18)
                     + insch.ljust(20))
 
             if showinstructions:
                 for baddr in self.blocks_changed():
                     blra = self.block_analyses[baddr]
                     if not blra.is_md5_equal:
-                        lines.append(
-                            "\nInstructions changed in block " + baddr + ":")
-                        lines.append(blra.report())
-                        lines.append("")
+                        if len(blra.instrs_changed()) > 0:
+                            lines.append(
+                                "\nInstructions changed in block "
+                                + baddr
+                                + " ("
+                                + str(len(blra.instrs_changed()))
+                                + "):")
+                            lines.append(blra.report())
+                            lines.append("")
         else:
             cfgmatcher = CfgMatcher(
-                self.app1, self.fn1, self.cfg1,
-                self.app2, self.fn2, self.cfg2, {}, {})
+                self.app1,
+                self.fn1,
+                self.cfg1,
+                self.app2,
+                self.fn2,
+                self.cfg2,
+                {},
+                {})
             lines.append("\nCfg matching")
             for baddr1 in sorted(self.basic_blocks1):
                 if baddr1 in cfgmatcher.blockmapping:
@@ -264,28 +304,47 @@ class FunctionRelationalAnalysis:
                         moved = "no"
                     else:
                         moved = baddr2
-                        md5eq = "yes" if blra.is_md5_equal else "no"
-                        if md5eq == "no":
+                    md5eq = "yes" if blra.is_md5_equal else "no"
+                    if md5eq == "no":
+                        if blra.b1len != blra.b2len:
+                            insch = str(blra.b1len) + " -> " + str(blra.b2len)
+                        else:
                             instrs_changed = len(blra.instrs_changed())
                             instrcount = len(blra.b1.instructions)
                             insch = str(instrs_changed) + "/" + str(instrcount)
-                        else:
-                            insch = "-"
-                        lines.append(
-                            baddr1.ljust(12)
-                            + moved.ljust(16)
-                            + md5eq.ljust(20)
-                            + insch.ljust(20))
+                    else:
+                        insch = "-"
+                    lines.append(
+                        baddr1.ljust(12)
+                        + moved.ljust(16)
+                        + md5eq.ljust(18)
+                        + insch.ljust(20))
                 else:
                     lines.append(baddr1)
             blocksmatched = len(cfgmatcher.blockmapping)
             blocks1 = len(self.basic_blocks1)
             edgesmatched = len(cfgmatcher.edgemapping)
             edges1 = len(cfgmatcher.edges1)
-            lines.append(
-                "\nNodes matched: " + str(blocksmatched) + "/" + str(blocks1))
-            lines.append(
-                "Edges matched: " + str(edgesmatched) + "/" + str(edges1))
-            lines.append("")
- 
+
+            if showinstructions:
+                if blocksmatched == blocks1 and edgesmatched == edges1:
+                    for baddr in self.blocks_changed():
+                        blra = self.block_analyses[baddr]
+                        if len(blra.instrs_changed()) > 0:
+                            lines.append(
+                                "\nInstructions changed in block "
+                                + baddr
+                                + " ("
+                                + str(len(blra.instrs_changed()))
+                                + "):")
+                            lines.append(blra.report())
+                            lines.append("")
+
+                else:
+                    lines.append(
+                        "\nNodes matched: " + str(blocksmatched) + "/" + str(blocks1))
+                    lines.append(
+                        "Edges matched: " + str(edgesmatched) + "/" + str(edges1))
+                    lines.append("")
+
         return "\n".join(lines)
