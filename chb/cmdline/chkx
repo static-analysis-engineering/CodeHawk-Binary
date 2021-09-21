@@ -486,6 +486,10 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help='restrict graph to paths that include these basic blocks')
+    showcfg.add_argument(
+        "--derivedgraph",
+        action="store_true",
+        help="print nodes of derived sequence graph")
     showcfg.set_defaults(func=UCC.showcfg)
 
     # --- results functions ---

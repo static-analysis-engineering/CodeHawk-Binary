@@ -771,6 +771,7 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
     xinstr_text: bool = args.instr_text
     xsink: Optional[str] = args.sink
     xsegments: List[str] = args.segments
+    xderivedgraph: bool = args.derivedgraph
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -811,6 +812,11 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
             fname = fname + " (" + app.function_name(faddr) + ")"
 
         pdffilename = UD.print_dot(app.path, out, dotcfg.build())
+
+        if xderivedgraph:
+            graphseq = f.cfg.derived_graph_sequence
+            graphseq.to_dot(app.path, "graphseq")
+            graphseq.two_way_conditionals()
 
         if os.path.isfile(pdffilename):
             print_info("Control flow graph for "
