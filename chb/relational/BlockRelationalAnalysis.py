@@ -26,11 +26,12 @@
 # ------------------------------------------------------------------------------
 """Compares two basic blocks in two related functions in different binaries."""
 
-from typing import Dict, List, Mapping, Optional, TYPE_CHECKING
+from typing import Dict, List, Mapping, Optional, Tuple, TYPE_CHECKING
 
 from chb.relational.InstructionRelationalAnalysis import (
     InstructionRelationalAnalysis)
 
+import chb.relational.relationalutil as UR
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
@@ -53,6 +54,7 @@ class BlockRelationalAnalysis:
         self._b2 = b2
         self._instrmapping: Dict[str, str] = {}
         self._instranalyses: Dict[str, InstructionRelationalAnalysis] = {}
+        self._instrbytes: Dict[str, Tuple[List[str], List[str]]] = {}
 
     @property
     def app1(self) -> "AppAccess":
@@ -69,6 +71,14 @@ class BlockRelationalAnalysis:
     @property
     def b2(self) -> "BasicBlock":
         return self._b2
+
+    @property
+    def b1len(self) -> int:
+        return len(self.b1.instructions)
+
+    @property
+    def b2len(self) -> int:
+        return len(self.b2.instructions)
 
     @property
     def offset(self) -> int:
@@ -88,29 +98,51 @@ class BlockRelationalAnalysis:
     @property
     def instr_mapping(self) -> Mapping[str, str]:
         if len(self._instrmapping) == 0:
-            for iaddr1 in self.b1.instructions:
-                self._instrmapping[iaddr1] = hex(int(iaddr1, 16) + self.offset)
+            mapping = self.levenshtein_distance()
+            self.match_instructions(mapping)
         return self._instrmapping
+
+    def levenshtein_distance(self) -> List[Tuple[Optional[int], Optional[int]]]:
+        s1 = [i.bytestring for (a, i) in sorted(self.b1.instructions.items())]
+        s2 = [i.bytestring for (a, i) in sorted(self.b2.instructions.items())]
+        return UR.levenshtein(s1, s2)
+
+    def match_instructions(
+            self, mapping: List[Tuple[Optional[int], Optional[int]]]) -> None:
+        b1addrs = sorted(self.b1.instructions.keys())
+        b2addrs = sorted(self.b2.instructions.keys())
+        for (x, y) in mapping:
+            if x is not None and y is not None:
+                self._instrmapping[b1addrs[x]] = b2addrs[y]
 
     @property
     def instr_analyses(self) -> Mapping[str, InstructionRelationalAnalysis]:
         if len(self._instranalyses) == 0:
-            for (iaddr1, iaddr2) in self.instr_mapping.items():
-                if iaddr2 in self.b2.instructions:
-                    instr2: Optional["Instruction"] = self.b2.instructions[iaddr2]
+            for iaddr1 in self.b1.instructions:
+                if iaddr1 in self.instr_mapping:
+                    iaddr2 = self.instr_mapping[iaddr1]
+                    if iaddr2 in self.b2.instructions:
+                        instr2: Optional["Instruction"] = self.b2.instructions[iaddr2]
+                    else:
+                        instr2 = None
+                    self._instranalyses[iaddr1] = InstructionRelationalAnalysis(
+                        self.app1,
+                        self.b1.instructions[iaddr1],
+                        self.app2,
+                        instr2)
                 else:
-                    instr2 = None
-                self._instranalyses[iaddr1] = InstructionRelationalAnalysis(
-                    self.app1,
-                    self.b1.instructions[iaddr1],
-                    self.app2,
-                    instr2)
+                    self._instranalyses[iaddr1] = InstructionRelationalAnalysis(
+                        self.app1,
+                        self.b1.instructions[iaddr1],
+                        self.app2,
+                        None)
         return self._instranalyses
 
     def instrs_changed(self) -> List[str]:
         result: List[str] = []
         for iaddr in self.instr_analyses:
-            if not self.instr_analyses[iaddr].is_md5_equal:
+            if not (self.instr_analyses[iaddr].is_md5_equal
+                    or self.instr_analyses[iaddr].is_semantically_equal):
                 result.append(iaddr)
         return result
 
@@ -141,6 +173,7 @@ class BlockRelationalAnalysis:
                         + str(ira.instr2))
                     lines.append("")
                 else:
+                    b1 = ira.instr1.bytestring
                     lines.append(
                         "  V:"
                         + ira.instr1.iaddr
