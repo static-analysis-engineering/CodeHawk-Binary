@@ -41,34 +41,15 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("ITE EQ", ARMOpcode)
-@armregistry.register_tag("ITE LT", ARMOpcode)
-@armregistry.register_tag("ITE NE", ARMOpcode)
-@armregistry.register_tag("IT CC", ARMOpcode)
-@armregistry.register_tag("IT CS", ARMOpcode)
-@armregistry.register_tag("IT EQ", ARMOpcode)
-@armregistry.register_tag("IT HI", ARMOpcode)
-@armregistry.register_tag("IT LS", ARMOpcode)
-@armregistry.register_tag("ITT EQ", ARMOpcode)
-@armregistry.register_tag("ITET EQ", ARMOpcode)
-@armregistry.register_tag("ITTT EQ", ARMOpcode)
-@armregistry.register_tag("ITE LS", ARMOpcode)
-@armregistry.register_tag("ITET LS", ARMOpcode)
-@armregistry.register_tag("IT NE", ARMOpcode)
-@armregistry.register_tag("IT PL", ARMOpcode)
-@armregistry.register_tag("ITTET EQ", ARMOpcode)
-@armregistry.register_tag("ITTT CC", ARMOpcode)
-class ARMIfThen(ARMOpcode):
-    """Makes up to four following instructions conditional.
+@armregistry.register_tag("SBFX", ARMOpcode)
+class ARMSignedExtractBitField(ARMOpcode):
+    """Extracts any number of adjacent bits from a register, sign-extends them.
 
-    The conditions for the instructions in the IT block are the same as, or the
-    inverse of, the condition of the TI instruction specifies for the first
-    instruction in the block..
-
-    IT{<x>{<y>{<z>}}} <firstcond>
+    SBFX<c> <Rd>, <Rn>, #<lsb>, #<width>
 
     tags[1]: <c>
-    tags[2]: xyz
+    args[0]: index of Rd in armdictionary
+    args[1]: index of Rn in armdictionary
     """
 
     def __init__(
@@ -76,10 +57,22 @@ class ARMIfThen(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
+        self.check_key(2, 2, "SignedBitFieldExtract")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return []
+        return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return self.tags[0]
+        """xdata format: a:vxx .
+
+        vars[0]: lhs
+        xprs[0]: rhs1
+        xprs[1]: value to be stored (syntactic)
+        """
+
+        lhs = str(xdata.vars[0])
+        result = xdata.xprs[0]
+        rresult = xdata.xprs[1]
+        xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
+        return lhs + " := " + xresult

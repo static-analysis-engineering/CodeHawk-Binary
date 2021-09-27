@@ -52,6 +52,7 @@ class ARMSubtractCarry(ARMOpcode):
     args[1]: index of op1 in armdictionary
     args[2]: index of op2 in armdictionary
     args[3]: index of op3 in armdictionary
+    args[4]: is-wide (thumb)
     """
 
     def __init__(
@@ -59,7 +60,7 @@ class ARMSubtractCarry(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "SubtractCarry")
+        self.check_key(2, 5, "SubtractCarry")
 
     @property
     def operands(self) -> List[ARMOperand]:
