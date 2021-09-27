@@ -55,6 +55,7 @@ class AnalysisManager(object):
             self,
             path: str,
             filename: str,
+            xsize: int,
             deps: List[str] = [],
             so_libraries: List[str] = [],
             specializations: List[str] = [],
@@ -62,6 +63,7 @@ class AnalysisManager(object):
             mips: bool = False,
             arm: bool = False,
             thumb: bool = False,
+            no_lineq: List[str] = [],
             hints: Dict[str, Any] = {}) -> None:
         """Initializes the analyzer location and target file location
 
@@ -74,6 +76,7 @@ class AnalysisManager(object):
         """
         self.path = path
         self.filename = filename
+        self.xsize = xsize
         self.deps = deps
         self.so_libraries = so_libraries
         self.specializations = specializations
@@ -85,11 +88,15 @@ class AnalysisManager(object):
         self.config = Config()
         self.chx86_analyze = self.config.chx86_analyze
         self.chsummaries = self.config.summaries
+        self.no_lineq = no_lineq
         self.fnsanalyzed: List[str] = []
 
     # Extraction and directory preparation -------------------------------------
 
-    def extract_executable(self, chcmd: str = "-extract") -> int:
+    def extract_executable(
+            self,
+            chcmd: str = "-extract",
+            verbose: bool = False) -> int:
         """Extracts executable content into xml; returns error code."""
         os.chdir(self.path)
         xdir = UF.get_executable_dir(self.path, self.filename)
@@ -102,16 +109,20 @@ class AnalysisManager(object):
         self._makedir(fndir)
         # self._make_userdata_file()
 
-        cmd: List[str] = [self.chx86_analyze,
-                          chcmd,
-                          "-summaries",
-                          self.chsummaries]
+        cmd: List[str] = [
+            self.chx86_analyze,
+            chcmd,
+            "-xsize", str(self.xsize),
+            "-summaries",
+            self.chsummaries]
         if self.mips:
             cmd.append("-mips")
         if self.arm:
             cmd.append("-arm")
         if self.elf:
             cmd.append("-elf")
+        if verbose:
+            cmd.append("-verbose")
         for d in self.deps:
             cmd.extend(["-summaries", d])
         for s in self.so_libraries:
@@ -346,6 +357,8 @@ class AnalysisManager(object):
             cmd.extend(["-summaries", d])
         for s in self.so_libraries:
             cmd.extend(["-so_library", s])
+        for s in self.no_lineq:
+            cmd.extend(["-no_lineq", s])
         for s in self.specializations:
             cmd.extend(["-specialization", s])
         if ignore_stable:

@@ -235,6 +235,7 @@ def prepare_executable(
         xfile: str,
         doreset: bool,
         doresetx: bool,
+        verbose: bool = False,
         hints: List[str] = [],
         thumb: List[str] = []) -> None:
     """Extracts executable and sets up necessary directory structure. """
@@ -244,8 +245,9 @@ def prepare_executable(
     if doresetx:
         if os.path.isfile(xtargz):
             if not os.path.isfile(xfilename):
-                raise UF.CHBError("Warning: executable file does not exist. "
-                                  + "Not removing the extracted content file.")
+                raise UF.CHBError(
+                    "Warning: executable file does not exist. "
+                    + "Not removing the extracted content file.")
             else:
                 chdir = UF.get_ch_dir(path, xfile)
                 print("Remove " + xtargz)
@@ -302,12 +304,14 @@ def prepare_executable(
         am = AnalysisManager(
             path,
             xfile,
+            xinfo.size,
             mips=xinfo.is_mips,
             arm=xinfo.is_arm,
             elf=xinfo.is_elf)
 
         print("Extracting executable content into xml ...")
-        result = am.extract_executable("-extract")
+        result = am.extract_executable(
+            chcmd="-extract", verbose=verbose)
         if not (result == 0):
             raise UF.CHBError("Error in extracting executable")
 
@@ -333,10 +337,18 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     deps: List[str] = args.thirdpartysummaries
     so_libraries: List[str] = args.so_libraries
     hints: List[str] = args.hints  # names of json files
+    no_lineq: List[str] = args.no_lineq  # function hex addresses
 
     try:
         (path, xfile) = get_path_filename(xname)
-        prepare_executable(path, xfile, doreset, doresetx, hints, thumb)
+        prepare_executable(
+            path,
+            xfile,
+            doreset,
+            doresetx,
+            verbose=verbose,
+            hints=hints,
+            thumb=thumb)
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
@@ -351,11 +363,13 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     am = AnalysisManager(
         path,
         xfile,
+        xinfo.size,
         mips=xinfo.is_mips,
         arm=xinfo.is_arm,
         elf=xinfo.is_elf,
         deps=deps,
         so_libraries=so_libraries,
+        no_lineq=no_lineq,
         thumb=(len(thumb) > 0))
 
     if dodisassemble:
