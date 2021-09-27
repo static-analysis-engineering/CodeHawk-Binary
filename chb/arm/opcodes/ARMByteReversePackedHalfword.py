@@ -41,34 +41,16 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("ITE EQ", ARMOpcode)
-@armregistry.register_tag("ITE LT", ARMOpcode)
-@armregistry.register_tag("ITE NE", ARMOpcode)
-@armregistry.register_tag("IT CC", ARMOpcode)
-@armregistry.register_tag("IT CS", ARMOpcode)
-@armregistry.register_tag("IT EQ", ARMOpcode)
-@armregistry.register_tag("IT HI", ARMOpcode)
-@armregistry.register_tag("IT LS", ARMOpcode)
-@armregistry.register_tag("ITT EQ", ARMOpcode)
-@armregistry.register_tag("ITET EQ", ARMOpcode)
-@armregistry.register_tag("ITTT EQ", ARMOpcode)
-@armregistry.register_tag("ITE LS", ARMOpcode)
-@armregistry.register_tag("ITET LS", ARMOpcode)
-@armregistry.register_tag("IT NE", ARMOpcode)
-@armregistry.register_tag("IT PL", ARMOpcode)
-@armregistry.register_tag("ITTET EQ", ARMOpcode)
-@armregistry.register_tag("ITTT CC", ARMOpcode)
-class ARMIfThen(ARMOpcode):
-    """Makes up to four following instructions conditional.
+@armregistry.register_tag("REV16", ARMOpcode)
+class ARMByteReversePackedHalfword(ARMOpcode):
+    """Reverses the byte order in each 16-bit halfword of a 32-bit register.
 
-    The conditions for the instructions in the IT block are the same as, or the
-    inverse of, the condition of the TI instruction specifies for the first
-    instruction in the block..
-
-    IT{<x>{<y>{<z>}}} <firstcond>
+    REV16<c> <Rd>, <Rm>
 
     tags[1]: <c>
-    tags[2]: xyz
+    args[0]: index of Rd in armdictionary
+    args[1]: index of Rm in armdictionary
+    args[2]: Thumb.wide
     """
 
     def __init__(
@@ -76,10 +58,20 @@ class ARMIfThen(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
+        self.check_key(2, 3, "ByteReversePackedHalfword")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return []
+        return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return self.tags[0]
+        """xdata format: a:vxx .
+
+        vars[0]: lhs
+        xprs[0]: rhs (original rhs)
+        xprs[1]: rhs (original rhs, simplified)
+        """
+
+        lhs = str(xdata.vars[0])
+        rhs = str(xdata.xprs[1])
+        return lhs + " := byte-reverse_halfwords(" + str(rhs) + ")"

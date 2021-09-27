@@ -59,11 +59,11 @@ class ARMMultiplyAccumulate(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "MultiplyAccumulate")
+        self.check_key(2, 5, "MultiplyAccumulate")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxxxxxxx

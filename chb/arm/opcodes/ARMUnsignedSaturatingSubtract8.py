@@ -41,34 +41,16 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("ITE EQ", ARMOpcode)
-@armregistry.register_tag("ITE LT", ARMOpcode)
-@armregistry.register_tag("ITE NE", ARMOpcode)
-@armregistry.register_tag("IT CC", ARMOpcode)
-@armregistry.register_tag("IT CS", ARMOpcode)
-@armregistry.register_tag("IT EQ", ARMOpcode)
-@armregistry.register_tag("IT HI", ARMOpcode)
-@armregistry.register_tag("IT LS", ARMOpcode)
-@armregistry.register_tag("ITT EQ", ARMOpcode)
-@armregistry.register_tag("ITET EQ", ARMOpcode)
-@armregistry.register_tag("ITTT EQ", ARMOpcode)
-@armregistry.register_tag("ITE LS", ARMOpcode)
-@armregistry.register_tag("ITET LS", ARMOpcode)
-@armregistry.register_tag("IT NE", ARMOpcode)
-@armregistry.register_tag("IT PL", ARMOpcode)
-@armregistry.register_tag("ITTET EQ", ARMOpcode)
-@armregistry.register_tag("ITTT CC", ARMOpcode)
-class ARMIfThen(ARMOpcode):
-    """Makes up to four following instructions conditional.
+@armregistry.register_tag("UQSUB8", ARMOpcode)
+class ARMUnsignedSaturatingSubtract8(ARMOpcode):
+    """Performs four unsigned 8-bit integer subtractions, and saturates the result.
 
-    The conditions for the instructions in the IT block are the same as, or the
-    inverse of, the condition of the TI instruction specifies for the first
-    instruction in the block..
-
-    IT{<x>{<y>{<z>}}} <firstcond>
+    UQSUB8<c> <Rd>, <Rn>, <Rm>
 
     tags[1]: <c>
-    tags[2]: xyz
+    args[0]: index of Rd in armdictionary
+    args[1]: index of Rn in armdictionary
+    args[2]: index of Rm in armdictionary
     """
 
     def __init__(
@@ -76,10 +58,21 @@ class ARMIfThen(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
+        self.check_key(2, 3, "UnsignedSaturatingSubtract8")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return []
+        return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return self.tags[0]
+        """xdata format: a:vxx
+
+        vars[0]: lhs1 (Rd)
+        xprs[0]: rhs1 (Rn)
+        xprs[1]: rhs2 (Rm)
+        """
+
+        lhs = str(xdata.vars[0])
+        op1 = str(xdata.xprs[0])
+        op2 = str(xdata.xprs[1])
+        return (lhs + " := unsigned_saturating_subtract_8(" + op1 + ", " + op2 + ")")
