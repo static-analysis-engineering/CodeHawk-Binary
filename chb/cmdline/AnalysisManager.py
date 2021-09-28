@@ -63,7 +63,8 @@ class AnalysisManager(object):
             mips: bool = False,
             arm: bool = False,
             thumb: bool = False,
-            no_lineq: List[str] = [],
+            fns_no_lineq: List[str] = [],
+            fns_exclude: List[str] = [],
             hints: Dict[str, Any] = {}) -> None:
         """Initializes the analyzer location and target file location
 
@@ -88,7 +89,8 @@ class AnalysisManager(object):
         self.config = Config()
         self.chx86_analyze = self.config.chx86_analyze
         self.chsummaries = self.config.summaries
-        self.no_lineq = no_lineq
+        self.fns_no_lineq = fns_no_lineq
+        self.fns_exclude = fns_exclude
         self.fnsanalyzed: List[str] = []
 
     # Extraction and directory preparation -------------------------------------
@@ -357,8 +359,10 @@ class AnalysisManager(object):
             cmd.extend(["-summaries", d])
         for s in self.so_libraries:
             cmd.extend(["-so_library", s])
-        for s in self.no_lineq:
-            cmd.extend(["-no_lineq", s])
+        for s in self.fns_no_lineq:
+            cmd.extend(["-fn_no_lineq", s])
+        for s in self.fns_exclude:
+            cmd.extend(["-fn_exclude", s])
         for s in self.specializations:
             cmd.extend(["-specialization", s])
         if ignore_stable:

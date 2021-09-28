@@ -337,7 +337,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     deps: List[str] = args.thirdpartysummaries
     so_libraries: List[str] = args.so_libraries
     hints: List[str] = args.hints  # names of json files
-    no_lineq: List[str] = args.no_lineq  # function hex addresses
+    fns_no_lineq: List[str] = args.fns_no_lineq  # function hex addresses
+    fns_exclude: List[str] = args.fns_exclude  # function hex addresses
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -369,7 +370,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         elf=xinfo.is_elf,
         deps=deps,
         so_libraries=so_libraries,
-        no_lineq=no_lineq,
+        fns_no_lineq=fns_no_lineq,
+        fns_exclude=fns_exclude,
         thumb=(len(thumb) > 0))
 
     if dodisassemble:

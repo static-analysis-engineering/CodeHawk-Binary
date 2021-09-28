@@ -357,10 +357,15 @@ def parse() -> argparse.Namespace:
         default=[],
         help='names of json files with disassembly/analysis hints')
     analyzecmd.add_argument(
-        "--no_lineq",
+        "--fns_no_lineq",
         nargs="*",
         default=[],
-        help="addresses of functions on which not to analyze with linear equalities")
+        help="addresses of functions not to analyze with linear equalities")
+    analyzecmd.add_argument(
+        "--fns_exclude",
+        nargs="*",
+        default=[],
+        help="address of functions to exclude from the analysis")
     analyzecmd.set_defaults(func=UCC.analyzecmd)
 
     # --------------------------------------------------------- PE/ELF data ---
