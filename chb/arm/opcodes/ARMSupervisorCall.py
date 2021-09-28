@@ -41,15 +41,14 @@ if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("SXTH", ARMOpcode)
-class ARMSignedExtendHalfword(ARMOpcode):
-    """Extracts an 16-bit value from a register, sign-extends it, and writes it to a register.
+@armregistry.register_tag("SVC", ARMOpcode)
+class ARMSupervisorCall(ARMOpcode):
+    """Call to operating system (system call)
 
-    SXTH<c> <Rd>, <Rm>{, <rotation>}
+    SVC<c>
 
     tags[1]: <c>
-    args[0]: index of op1 in armdictionary
-    args[1]: index of op2 in armdictionary
+    args[0]: immediate operand
     """
 
     def __init__(
@@ -57,20 +56,11 @@ class ARMSignedExtendHalfword(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 3, "SignedExtendHalfword")
+        self.check_key(2, 1, "SupervisorCall")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return []
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs
-        xprs[1]: rhs (simplified)
-        """
-
-        lhs = str(xdata.vars[0])
-        result = str(xdata.xprs[1])
-        return lhs + " := " + result
+        return "--"
