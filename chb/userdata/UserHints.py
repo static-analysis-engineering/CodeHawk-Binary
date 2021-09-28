@@ -346,6 +346,12 @@ class FunctionNamesHints(HintsEntry):
                 self._revnames[name].append(addr)
         return self._revnames
 
+    def namecount(self, name) -> int:
+        if name in self.revnames:
+            return len(self.revnames[name])
+        else:
+            return 0
+
     def has_unique_address(self, name: str) -> bool:
         return name in self.revnames and len(self.revnames[name]) == 1
 
@@ -849,9 +855,11 @@ class UserHints:
                         fxsummaries[addr] = fsummaries[name]
                     else:
                         raise UF.CHBError(
-                            "No address found for function name "
+                            "No unique address found for function name "
                             + name
-                            + " in userdata")
+                            + " in userdata: "
+                            + str(definednames.namecount(name))
+                            + " addresses found")
 
             if tag in self.userdata:
                 self.userdata[tag].update(fxsummaries)
