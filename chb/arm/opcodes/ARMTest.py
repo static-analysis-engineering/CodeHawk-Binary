@@ -41,11 +41,11 @@ if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("SXTH", ARMOpcode)
-class ARMSignedExtendHalfword(ARMOpcode):
-    """Extracts an 16-bit value from a register, sign-extends it, and writes it to a register.
+@armregistry.register_tag("TST", ARMOpcode)
+class ARMTest(ARMOpcode):
+    """Performs a bitwise AND and sets the condition flags.
 
-    SXTH<c> <Rd>, <Rm>{, <rotation>}
+    TST<c> <Rn>, <Rm>
 
     tags[1]: <c>
     args[0]: index of op1 in armdictionary
@@ -57,20 +57,19 @@ class ARMSignedExtendHalfword(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 3, "SignedExtendHalfword")
+        self.check_key(2, 2, "Test")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
+        """xdata format: a:xx .
 
-        vars[0]: lhs
-        xprs[0]: rhs
-        xprs[1]: rhs (simplified)
+        xprs[0]: Rn
+        xprs[1]: Rm
         """
 
-        lhs = str(xdata.vars[0])
-        result = str(xdata.xprs[1])
-        return lhs + " := " + result
+        rhs1 = str(xdata.xprs[0])
+        rhs2 = str(xdata.xprs[1])
+        return "compare " + str(rhs1) + " and " + str(rhs2)

@@ -41,15 +41,19 @@ if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("SXTH", ARMOpcode)
-class ARMSignedExtendHalfword(ARMOpcode):
-    """Extracts an 16-bit value from a register, sign-extends it, and writes it to a register.
+@armregistry.register_tag("EOR", ARMOpcode)
+class ARMBitwiseExclusiveOr(ARMOpcode):
+    """Bitwise exclusive or instruction (register, register-shifted, and immediate)
 
-    SXTH<c> <Rd>, <Rm>{, <rotation>}
+    EOR{S}<c> <Rd>, <Rn>{, <shift>}
+    EOR{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
 
     tags[1]: <c>
-    args[0]: index of op1 in armdictionary
-    args[1]: index of op2 in armdictionary
+    args[0]: {S}
+    args[1]: index of op1 in armdictionary
+    args[2]: index of op2 in armdictionary
+    args[3]: index of op3 in armdictionary
+    args[4]: is-wide (thumb)
     """
 
     def __init__(
@@ -57,20 +61,24 @@ class ARMSignedExtendHalfword(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 3, "SignedExtendHalfword")
+        self.check_key(2, 5, "BitwiseExclusiveOr")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
+        """xdata format: a:vxxxx .
 
         vars[0]: lhs
-        xprs[0]: rhs
-        xprs[1]: rhs (simplified)
+        xprs[0]: rhs1
+        xprs[1]: rhs2
+        xprs[3]: rhs1 | rhs2 (syntactic)
+        xprs[4]: rhs1 | rhs2 (simplified)
         """
 
         lhs = str(xdata.vars[0])
-        result = str(xdata.xprs[1])
-        return lhs + " := " + result
+        result = xdata.xprs[2]
+        rresult = xdata.xprs[3]
+        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
+        return lhs + " := " + xresult
