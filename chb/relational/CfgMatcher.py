@@ -291,7 +291,6 @@ class CfgMatcher:
             if len(b1s) == 1 and len(b2s) == 1:
                 b1 = b1s[0]
                 b2 = b2s[0]
-                print(s)
                 if b1 not in self.blockmapping:
                     self._blockmapping[b1] = b2
                 elif self.blockmapping[b1] != b2:
@@ -302,7 +301,6 @@ class CfgMatcher:
             if len(b1s) == 1 and len(b2s) == 1:
                 b1 = b1s[0]
                 b2 = b2s[0]
-                print(s)
                 if b1 not in self.blockmapping:
                     self._blockmapping[b1] = b2
                 elif self.blockmapping[b1] != b2:

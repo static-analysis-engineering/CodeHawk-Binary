@@ -206,17 +206,33 @@ class FunctionRelationalAnalysis:
     def is_cfg_isomorphic(self) -> bool:
         """Return true if there exists a graph isomorphism between the cfgs."""
 
-        return self.is_structurally_equivalent or self.cfgmatcher.is_cfg_isomorphic
+        return (
+            self.is_structurally_equivalent
+            or self.cfgmatcher.is_cfg_isomorphic)
 
     @property
     def block_mapping(self) -> Mapping[str, str]:
-        if len(self._blockmapping) == 0 and self.is_structurally_equivalent:
-            for b1 in self.basic_blocks1:
-                self._blockmapping[b1] = hex(int(b1, 16) + self.offset)
-        elif self.is_cfg_isomorphic:
-            mapping = self.cfgmatcher.blockmapping
-            for b1 in self.basic_blocks1:
-                self._blockmapping[b1] = mapping[b1]
+        if len(self._blockmapping) == 0:
+            if self.is_structurally_equivalent:
+                for b1 in self.basic_blocks1:
+                    self._blockmapping[b1] = hex(int(b1, 16) + self.offset)
+            elif self.is_cfg_isomorphic:
+                try:
+                    mapping = self.cfgmatcher.blockmapping
+                    for b1 in self.basic_blocks1:
+                        self._blockmapping[b1] = mapping[b1]
+                except KeyError as e:
+                    print(
+                        "Error in mapping returned from cfg matcher of "
+                        + self.faddr1
+                        + " ("
+                        + str(len(self.basic_blocks1))
+                        + ") and "
+                        + self.faddr2
+                        + " ("
+                        + str(len(self.basic_blocks2))
+                        + "): "
+                        + str(e))
         return self._blockmapping
 
     @property
