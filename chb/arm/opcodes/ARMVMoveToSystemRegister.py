@@ -38,47 +38,34 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("ORR", ARMOpcode)
-class ARMBitwiseOr(ARMOpcode):
-    """Bitwise OR instruction (register, register-shifted, and immediate)
+@armregistry.register_tag("VMSR", ARMOpcode)
+class ARMVMoveToSystemRegister(ARMOpcode):
+    """Move core registe to floating point status word
 
-    ORR{S}<c> <Rd>, <Rn>{, <shift>}
-    ORR{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
+    VMSR<c> FPSCR <Rt>
 
     tags[1]: <c>
-    args[0]: {S}
-    args[1]: index of op1 in armdictionary
-    args[2]: index of op2 in armdictionary
-    args[3]: index of op3 in armdictionary
-    args[4]: is-wide (thumb)
+    args[0]: index of destination register in armdictionary
+    args[1]: index of source in armdictionary
     """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "BitwiseOr")
+        self.check_key(2, 2, "VMoveToSystemRegister")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx .
+        """format: a:x
 
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: rhs1 | rhs2 (syntactic)
-        xprs[3]: rhs1 | rhs2 (simplified)
+        xprs[0]: src operand
         """
-
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
-        return lhs + " := " + xresult
+        return "FPSCR := " + str(xdata.xprs[0])

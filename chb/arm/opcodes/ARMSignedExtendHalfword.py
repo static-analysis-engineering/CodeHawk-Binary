@@ -50,6 +50,7 @@ class ARMSignedExtendHalfword(ARMOpcode):
     tags[1]: <c>
     args[0]: index of op1 in armdictionary
     args[1]: index of op2 in armdictionary
+    args[2]: Thumb-wide
     """
 
     def __init__(
@@ -61,7 +62,7 @@ class ARMSignedExtendHalfword(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .

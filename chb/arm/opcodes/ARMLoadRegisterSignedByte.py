@@ -41,19 +41,17 @@ if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("ORR", ARMOpcode)
-class ARMBitwiseOr(ARMOpcode):
-    """Bitwise OR instruction (register, register-shifted, and immediate)
+@armregistry.register_tag("LDRSB", ARMOpcode)
+class ARMLoadRegisterSignedByte(ARMOpcode):
+    """Loads a byte from memory, sign-extends it to 32 bits, and writes it to a register.
 
-    ORR{S}<c> <Rd>, <Rn>{, <shift>}
-    ORR{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
+    LDRSB<c> <Rt>, [<base>, <offset>]
 
-    tags[1]: <c>
-    args[0]: {S}
-    args[1]: index of op1 in armdictionary
-    args[2]: index of op2 in armdictionary
-    args[3]: index of op3 in armdictionary
-    args[4]: is-wide (thumb)
+    tags[0]: <c>
+    args[0]: index of destination operand in armdictionary
+    args[1]: index of base register in armdictionary
+    args[2]: index of memory location in armdictionary
+    args[3]: is-wide (thumb)
     """
 
     def __init__(
@@ -61,24 +59,20 @@ class ARMBitwiseOr(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "BitwiseOr")
+        self.check_key(2, 5, "LoadRegisterSignedByte")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+        return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx .
+        """xdata format: a:vxx .
 
         vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: rhs1 | rhs2 (syntactic)
-        xprs[3]: rhs1 | rhs2 (simplified)
+        xprs[0]: value in memory location
+        xprs[1]: value in memory location (simplified)
         """
 
         lhs = str(xdata.vars[0])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
-        return lhs + " := " + xresult
+        rhs = str(xdata.xprs[1])
+        return lhs + " := " + rhs
