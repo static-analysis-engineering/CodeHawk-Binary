@@ -42,6 +42,8 @@ if TYPE_CHECKING:
 
 
 @armregistry.register_tag("VCMPE.F64", ARMOpcode)
+@armregistry.register_tag("VCMP.F64", ARMOpcode)
+@armregistry.register_tag("VCMP", ARMOpcode)
 class ARMVCompare(ARMOpcode):
     """Compares two floating-point numbers.
 

@@ -41,19 +41,18 @@ if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("ORR", ARMOpcode)
-class ARMBitwiseOr(ARMOpcode):
-    """Bitwise OR instruction (register, register-shifted, and immediate)
+@armregistry.register_tag("ORN", ARMOpcode)
+class ARMBitwiseOrNot(ARMOpcode):
+    """Bitwise Or NOT instruction (register, register-shifted, and immediate)
 
-    ORR{S}<c> <Rd>, <Rn>{, <shift>}
-    ORR{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
+    ORN{S}<c> <Rd>, <Rn>{, <shift>}
+    ORN{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
 
     tags[1]: <c>
     args[0]: {S}
     args[1]: index of op1 in armdictionary
     args[2]: index of op2 in armdictionary
     args[3]: index of op3 in armdictionary
-    args[4]: is-wide (thumb)
     """
 
     def __init__(
@@ -61,24 +60,25 @@ class ARMBitwiseOr(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "BitwiseOr")
+        self.check_key(2, 4, "BitwiseOrNot")
 
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1: -1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx .
+        """xdata format: a:vxxxxx .
 
         vars[0]: lhs
         xprs[0]: rhs1
         xprs[1]: rhs2
-        xprs[2]: rhs1 | rhs2 (syntactic)
-        xprs[3]: rhs1 | rhs2 (simplified)
+        xprs[2]: not rhs2
+        xprs[3]: rhs1 | not rhs2 (syntactic)
+        xprs[4]: rhs1 | not rhs2 (simplified)
         """
 
         lhs = str(xdata.vars[0])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
+        result = xdata.xprs[3]
+        rresult = xdata.xprs[4]
+        xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
         return lhs + " := " + xresult

@@ -41,19 +41,16 @@ if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("ORR", ARMOpcode)
-class ARMBitwiseOr(ARMOpcode):
-    """Bitwise OR instruction (register, register-shifted, and immediate)
+@armregistry.register_tag("TBH", ARMOpcode)
+class ARMTableBranchHalfword(ARMOpcode):
+    """PC-relative forward branching
 
-    ORR{S}<c> <Rd>, <Rn>{, <shift>}
-    ORR{S}<c> <Rd>, <Rn>, <Rm>, <type> <Rs>
+    TBH<c> [<Rn>, <Rm>, LSL 1]
 
     tags[1]: <c>
-    args[0]: {S}
-    args[1]: index of op1 in armdictionary
-    args[2]: index of op2 in armdictionary
-    args[3]: index of op3 in armdictionary
-    args[4]: is-wide (thumb)
+    args[0]: index of base register operand
+    args[1]: index of index register operand
+    args[2]: index of memory operand
     """
 
     def __init__(
@@ -61,24 +58,17 @@ class ARMBitwiseOr(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "BitwiseOr")
+        self.check_key(2, 3, "TableBranchHalfword")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+        return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: rhs1 | rhs2 (syntactic)
-        xprs[3]: rhs1 | rhs2 (simplified)
+        """format: a:x .
+        
+        xprs[0]: value of index register
         """
+        return "branch on " + str(xdata.xprs[0])
 
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
-        return lhs + " := " + xresult
+        

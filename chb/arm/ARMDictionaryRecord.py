@@ -91,9 +91,14 @@ class ARMDictionaryRegistry:
             ixval: IndexedTableValue,
             anchor: Type[AdR]) -> AdR:
         tag = ixval.tags[0]
+        if tag.startswith("IT"):
+            tag = "IT"
         if (anchor, tag) not in self.register:
             raise UF.CHBError(
-                "Unknown armdictionary type: " + tag + " with type " + str(anchor))
+                "Unknown armdictionary type: "
+                + tag
+                + " with type "
+                + str(anchor))
         instance = self.register[(anchor, tag)](ad, ixval)
         return cast(AdR, instance)
 
