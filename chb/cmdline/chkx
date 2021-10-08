@@ -365,7 +365,12 @@ def parse() -> argparse.Namespace:
         "--fns_exclude",
         nargs="*",
         default=[],
-        help="address of functions to exclude from the analysis")
+        help="addresses of functions to exclude from the analysis")
+    analyzecmd.add_argument(
+        "--fns_include",
+        nargs="*",
+        default=[],
+        help="addresses of function to include in the analysis")
     analyzecmd.set_defaults(func=UCC.analyzecmd)
 
     # --------------------------------------------------------- PE/ELF data ---

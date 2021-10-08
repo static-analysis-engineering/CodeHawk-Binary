@@ -65,6 +65,7 @@ class AnalysisManager(object):
             thumb: bool = False,
             fns_no_lineq: List[str] = [],
             fns_exclude: List[str] = [],
+            fns_include: List[str] = [],
             hints: Dict[str, Any] = {}) -> None:
         """Initializes the analyzer location and target file location
 
@@ -91,6 +92,7 @@ class AnalysisManager(object):
         self.chsummaries = self.config.summaries
         self.fns_no_lineq = fns_no_lineq
         self.fns_exclude = fns_exclude
+        self.fns_include = fns_include
         self.fnsanalyzed: List[str] = []
 
     # Extraction and directory preparation -------------------------------------
@@ -363,6 +365,8 @@ class AnalysisManager(object):
             cmd.extend(["-fn_no_lineq", s])
         for s in self.fns_exclude:
             cmd.extend(["-fn_exclude", s])
+        for s in self.fns_include:
+            cmd.extend(["-fn_include", s])
         for s in self.specializations:
             cmd.extend(["-specialization", s])
         if ignore_stable:
@@ -388,7 +392,7 @@ class AnalysisManager(object):
 
         count = 2
         while True:
-            if isstable == "yes" and not ignore_stable:
+            if isstable == "yes" and not ignore_stable and len(self.fns_include) == 0:
                 return True
 
             subprocess.call(jarcmd, stderr=subprocess.STDOUT)
