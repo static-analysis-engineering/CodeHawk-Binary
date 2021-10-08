@@ -54,7 +54,12 @@ def attributes_to_pretty(attr: Dict[str, str], indent: int = 0) -> str:
             lines.append(((' ' * (indent + 2)) + key + '="' + attr[key] + '"'))
         return ('\n' + '\n'.join(lines))
     else:
-        return (' ' + ' '.join(key + '="' + attr[key] + '"' for key in sorted(attr)))
+        try:
+            return (
+                ' ' + ' '.join(key + '="' + attr[key] + '"' for key in sorted(attr)))
+        except Exception as e:
+            print("Error in printing attributes: " + str(attr))
+            exit(1)
 
 
 def element_to_pretty(e: ET.Element, indent: int = 0) -> List[str]:
