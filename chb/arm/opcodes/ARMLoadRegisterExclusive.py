@@ -50,6 +50,7 @@ class ARMLoadRegisterExclusive(ARMOpcode):
     tags[1]: <c>
     args[0]: index of destination operand in armdictionary
     args[1]: index of base register in armdictionary
+    args[2]: index of index in armdictionary
     args[2]: index of memory location in armdictionary
     """
 
@@ -58,11 +59,11 @@ class ARMLoadRegisterExclusive(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 3, "LoadRegisterExclusive")
+        self.check_key(2, 4, "LoadRegisterExclusive")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 2]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .

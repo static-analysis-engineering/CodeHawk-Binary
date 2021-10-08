@@ -79,18 +79,10 @@ class ARMMultiplySubtract(ARMOpcode):
         """
 
         lhs = str(xdata.vars[0])
-        lhsra = str(xdata.vars[1])
         prod = xdata.xprs[3]
         rprod = xdata.xprs[4]
         xprod = simplify_result(xdata.args[4], xdata.args[5], prod, rprod)
         diff = xdata.xprs[5]
         rdiff = xdata.xprs[6]
         xdiff = simplify_result(xdata.args[6], xdata.args[7], diff, rdiff)
-        return (
-            lhs
-            + " := "
-            + xprod
-            + "; "
-            + lhsra
-            + " := "
-            + xdiff)
+        return (lhs + " := " + xdiff)

@@ -66,9 +66,7 @@ class ARMTableBranchByte(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         """format: a:x .
-        
+
         xprs[0]: value of index register
         """
         return "branch on " + str(xdata.xprs[0])
-
-        

@@ -65,7 +65,7 @@ class ARMStoreRegisterDual(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 4]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vvxxxx .
