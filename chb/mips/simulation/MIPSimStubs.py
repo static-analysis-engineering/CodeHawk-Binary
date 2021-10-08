@@ -4144,12 +4144,16 @@ class MIPStub_sprintf(MIPSimStub):
             iaddr: str,
             simstate: "SimulationState",
             formatstr: str) -> Tuple[str, List[str]]:
-        """Return substituted string and arguments used."""
-
-        simstate.add_logmsg(
-            "warning",
-            "no substitution for formatstring " + formatstr)
-        return (formatstr, [])
+        """Return substituted string and arguments used (as a string)."""
+        result = simstate.simsupport.substitute_formatstring(
+            self, iaddr, simstate, formatstr)
+        if result is None:
+            simstate.add_logmsg(
+                "warning",
+                self.name + " without substitution for formatstring " + formatstr)
+            return (formatstr, [])
+        else:
+            return result
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         a0 = self.get_arg_val(iaddr, simstate, "a0")  # char *restrict s
