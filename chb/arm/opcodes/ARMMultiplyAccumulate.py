@@ -48,10 +48,11 @@ class ARMMultiplyAccumulate(ARMOpcode):
     MLA<c> <Rd>, <Rn>, <Rm>, <Ra>
 
     tags[1]: <c>
-    args[0]: index of Rd in armdictionary
-    args[1]: index of Rn in armdictionary
-    args[2]: index of Rm in armdictionary
-    args[3]: index of Ra in armdictionary
+    args[0]: flags are set
+    args[1]: index of Rd in armdictionary
+    args[2]: index of Rn in armdictionary
+    args[3]: index of Rm in armdictionary
+    args[4]: index of Ra in armdictionary
     """
 
     def __init__(
@@ -79,18 +80,10 @@ class ARMMultiplyAccumulate(ARMOpcode):
         """
 
         lhs = str(xdata.vars[0])
-        lhsra = str(xdata.vars[1])
         prod = xdata.xprs[3]
         rprod = xdata.xprs[4]
         xprod = simplify_result(xdata.args[4], xdata.args[5], prod, rprod)
         xsum = xdata.xprs[5]
         rxsum = xdata.xprs[6]
         xxsum = simplify_result(xdata.args[6], xdata.args[7], xsum, rxsum)
-        return (
-            lhs
-            + " := "
-            + xprod
-            + "; "
-            + lhsra
-            + " := "
-            + xxsum)
+        return (lhs + " := " + xxsum)

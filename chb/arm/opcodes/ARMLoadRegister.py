@@ -50,8 +50,9 @@ class ARMLoadRegister(ARMOpcode):
     tags[1]: <c>
     args[0]: index of destination operand in armdictionary
     args[1]: index of base register in armdictionary
-    args[2]: index of memory location in armdictionary
-    args[3]: is-wide (thumb)
+    args[2]: index of index in armdictionary
+    args[3]: index of memory location in armdictionary
+    args[4]: is-wide (thumb)
     """
 
     def __init__(
@@ -59,11 +60,11 @@ class ARMLoadRegister(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "LoadRegister")
+        self.check_key(2, 5, "LoadRegister")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [0, 2]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 3]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """lhs, rhs, with optional instr condition and base update

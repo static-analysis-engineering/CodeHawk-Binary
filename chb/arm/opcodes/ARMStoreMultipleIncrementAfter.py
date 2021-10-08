@@ -69,7 +69,9 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .
 
+        vars[0..n]: lhs variables
         xprs[0..n]: rhs expressions
         """
 
-        return '; "'.join(" := ? := " + str(x) for x in xdata.xprs)
+        return '; '.join(
+            str(lhs) + " := " + str(x) for (lhs, x) in zip(xdata.vars, xdata.xprs))

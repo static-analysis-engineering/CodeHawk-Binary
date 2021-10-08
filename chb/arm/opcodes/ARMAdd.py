@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("ADC", ARMOpcode)   # Note: separate out
 @armregistry.register_tag("ADD", ARMOpcode)
 class ARMAdd(ARMOpcode):
     """Add (register, constant)

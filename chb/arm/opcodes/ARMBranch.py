@@ -72,6 +72,9 @@ class ARMBranch(ARMOpcode):
         else:
             return []
 
+    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
+        return xdata.xprs
+
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:x .
 
@@ -84,7 +87,11 @@ class ARMBranch(ARMOpcode):
         xprs[0]: target address (absolute)
         """
 
-        if xdata.has_branch_conditions():
+        if self.is_call_instruction(xdata):
+            tgt = xdata.call_target(self.ixd)
+            args = ", ".join(str(x) for x in self.arguments(xdata))
+            return "call " + str(tgt) + "(" + args + ")"
+        elif xdata.has_branch_conditions():
             return "if " + str(xdata.xprs[0]) + " then goto " + str(xdata.xprs[2])
         elif self.tags[1] in ["a", "unc"]:
             return "goto " + str(xdata.xprs[0])
