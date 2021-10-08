@@ -36,10 +36,12 @@ import chb.util.fileutil as UF
 
 
 named_type_sizes = {
+    "char": 1,
     "clock_t": 4,
     "int": 4,
     "uchar": 1,
-    "uint8_t": 1
+    "uint8_t": 1,
+    "uint32_t": 4
     }
 
 
@@ -105,12 +107,30 @@ def function_summary_to_xml(
     node.extend([fintfnode, semnode, docnode])
     registers = ["R0", "R1", "R2", "R3"]
     count = 0
-    for a in fsummary["args"]:
+    fnargs = fsummary["args"]
+    if len(fnargs) > 4:
+        regargs = fnargs[:4]
+        stackargs = fnargs[4:]
+    else:
+        regargs = fnargs
+        stackargs = []
+    for a in regargs:
         pnode = ET.Element("par")
         fintfnode.append(pnode)
         pnode.set("name", a["name"])
         pnode.set("loc", "register")
         pnode.set("reg", registers[count])
+        ptnode = ET.Element("type")
+        pnode.append(ptnode)
+        mk_user_btype(a["type"]).to_xml(ptnode)
+        count += 1
+    count += 1
+    for a in stackargs:
+        pnode = ET.Element("par")
+        fintfnode.append(pnode)
+        pnode.set("name", a["name"])
+        pnode.set("loc", "stack")
+        pnode.set("nr", str(count))
         ptnode = ET.Element("type")
         pnode.append(ptnode)
         mk_user_btype(a["type"]).to_xml(ptnode)

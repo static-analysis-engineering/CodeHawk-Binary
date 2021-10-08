@@ -758,9 +758,11 @@ class SymbolicAddressesHints(HintsEntry):
                 xaddrs.append(xgv)
                 xgv.set("a", gv)
                 gvname = cast(str, gvinfo["name"])
-                gvtype = cast(str, gvinfo["type"])
+                gvtype = gvinfo["type"]
                 xgv.set("name", gvname)
-                xgv.set("type", gvtype)
+                ptnode = ET.Element("type")
+                xgv.append(ptnode)
+                UT.mk_user_btype(gvtype).to_xml(ptnode)
             else:
                 raise UF.CHBError(
                     "Name of type missing from symbolic address: "
