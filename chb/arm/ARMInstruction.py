@@ -187,5 +187,11 @@ class ARMInstruction(Instruction):
                 self.opcodetext.ljust(opcodewidth) if opcodetxt else "")
             return pesp + pbytes + popcode + self.annotation
         except Exception as e:
-            print("Error in instruction: " + self.iaddr + ": " + self.opcodetext + ": " + str(e))
+            print(
+                "Error in instruction: "
+                + self.iaddr
+                + ": "
+                + self.opcodetext
+                + ": "
+                + str(e))
             return "??"

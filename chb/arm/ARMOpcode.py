@@ -106,7 +106,7 @@ class ARMOpcode(ARMDictionaryRecord):
         return self.__str__()
 
     def mnemonic_extension(self) -> str:
-        if self.mnemonic == "ITE NE":
+        if self.mnemonic.startswith("IT"):
             return ""
         elif len(self.tags) > 1:
             return get_extension(self.tags[1])
