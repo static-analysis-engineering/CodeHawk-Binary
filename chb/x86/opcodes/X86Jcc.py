@@ -107,8 +107,8 @@ class X86Jcc(X86Opcode):
     #        [ ]: no predicate found
     def annotation(self, xdata: InstrXData) -> str:
 
-        # tgtaddr = str(self.target_address)
-        tgtaddr = "tgt"
+        tgtaddr = str(self.target_address)
+        # tgtaddr = "tgt"
         if len(xdata.xprs) > 0:
             return 'if ' + str(xdata.xprs[0]) + ' goto ' + tgtaddr
         else:

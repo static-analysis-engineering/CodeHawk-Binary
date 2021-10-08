@@ -75,10 +75,10 @@ class X86Return(X86Opcode):
     def get_return_expr(self, xdata: InstrXData) -> XXpr:
         return xdata.xprs[1]
 
-    def get_operands(self) -> List[X86Operand]:
+    def operands(self) -> List[X86Operand]:
         return []
 
-    def get_annotation(self, xdata: InstrXData) -> str:
+    def annotation(self, xdata: InstrXData) -> str:
         """data format a:xx .
 
         xprs[0]: value of eax
