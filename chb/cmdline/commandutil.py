@@ -339,6 +339,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     hints: List[str] = args.hints  # names of json files
     fns_no_lineq: List[str] = args.fns_no_lineq  # function hex addresses
     fns_exclude: List[str] = args.fns_exclude  # function hex addresses
+    fns_include: List[str] = args.fns_include  # function hex addresses
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -372,6 +373,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         so_libraries=so_libraries,
         fns_no_lineq=fns_no_lineq,
         fns_exclude=fns_exclude,
+        fns_include=fns_include,
         thumb=(len(thumb) > 0))
 
     if dodisassemble:
@@ -831,7 +833,7 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
 
         if xderivedgraph:
             graphseq = f.cfg.derived_graph_sequence
-            graphseq.to_dot(app.path, "graphseq")
+            graphseq.to_dot(app.path, "graphseq_" + faddr)
             graphseq.two_way_conditionals()
 
         if os.path.isfile(pdffilename):
