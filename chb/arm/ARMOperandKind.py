@@ -41,7 +41,9 @@ type arm_operand_kind_t =
   | ARMRegBitSequence of arm_reg_t * int * int        "b"       2            2
      (* lsb, widthm1 *)
   | ARMImmediate of immediate_int                     "i"       2            0
+  | ARMFPConstant of float                            "x"       2            0
   | ARMAbsolute of doubleword_int                     "a"       1            1
+  | ARMLiteralAddress of doubleword_int               "p"       1            1
   | ARMMemMultiple of arm_reg_t * int                 "m"       2            1
      (* number of locations *)
   | ARMOffsetAddress of                               "o"       2            4
@@ -85,6 +87,10 @@ class ARMOperandKind(ARMDictionaryRecord):
 
     @property
     def is_immediate(self) -> bool:
+        return False
+
+    @property
+    def is_fp_constant(self) -> bool:
         return False
 
     @property
@@ -275,6 +281,23 @@ class ARMAbsoluteOp(ARMOperandKind):
         return str(self.address)
 
 
+@armregistry.register_tag("p", ARMOperandKind)
+class ARMLiteralAddressOp(ARMOperandKind):
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def address(self) -> "AsmAddress":
+        return self.bd.address(self.args[0])
+
+    def __str__(self) -> str:
+        return str(self.address)
+
+
 @armregistry.register_tag("m", ARMOperandKind)
 class ARMMemMultipleOp(ARMOperandKind):
 
@@ -371,6 +394,27 @@ class ARMImmediateOp(ARMOperandKind):
 
     def __str__(self) -> str:
         return hex(self.value)
+
+
+@armregistry.register_tag("x", ARMOperandKind)
+class ARMFPConstant(ARMOperandKind):
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def floatvalue(self) -> float:
+        return float(self.tags[1])
+
+    @property
+    def is_fp_constant(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return str(self.value)
 
 
 @armregistry.register_tag("d", ARMOperandKind)
