@@ -39,8 +39,10 @@ from abc import ABC, abstractmethod
 
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
+from chb.api.CallTarget import CallTarget
 from chb.app.FunctionDictionary import FunctionDictionary
 
+from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
@@ -48,6 +50,7 @@ import chb.util.fileutil as UF
 if TYPE_CHECKING:
     from chb.app.Operand import Operand
     from chb.app.StackPointerOffset import StackPointerOffset
+    from chb.invariants.XVariable import XVariable
     from chb.invariants.XXpr import XXpr
 
 
@@ -79,6 +82,10 @@ class Instruction(ABC):
     @abstractmethod
     def operands(self) -> Sequence["Operand"]:
         ...
+
+    @property
+    def operandstring(self) -> str:
+        return ", ".join(str(p) for p in self.operands)
 
     @property
     @abstractmethod
@@ -122,12 +129,41 @@ class Instruction(ABC):
 
     @property
     @abstractmethod
+    def lhs(self) -> Sequence[XVariable]:
+        """Return all left-hand-side variables that get assigned."""
+        ...
+
+    @property
+    @abstractmethod
+    def rhs(self) -> Sequence[XXpr]:
+        """Return all rhs expressions that get assigned."""
+        ...
+
+    @property
+    @abstractmethod
     def is_call_instruction(self) -> bool:
         ...
 
     @property
     @abstractmethod
+    def is_load_instruction(self) -> bool:
+        """Return true if this instruction loads data from memory."""
+        ...
+
+    @property
+    @abstractmethod
+    def is_store_instruction(self) -> bool:
+        """Return true if this instruction stores data to memory."""
+        ...
+
+    @property
+    @abstractmethod
     def is_return_instruction(self) -> bool:
+        ...
+
+    @property
+    @abstractmethod
+    def call_target(self) -> CallTarget:
         ...
 
     @property
@@ -148,6 +184,11 @@ class Instruction(ABC):
     @abstractmethod
     def string_pointer_loaded(self) -> Optional[Tuple[str, str]]:
         """Return string loaded and destination operand for pointer, or None."""
+        ...
+
+    @abstractmethod
+    def global_refs(self) -> Tuple[Sequence["XVariable"], Sequence["XXpr"]]:
+        """Return a pair of lhs, rhs global references."""
         ...
 
     @abstractmethod
