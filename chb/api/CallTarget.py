@@ -107,6 +107,10 @@ class CallTarget(InterfaceDictionaryRecord):
         return False
 
     @property
+    def is_indirect(self) -> bool:
+        return False
+
+    @property
     def is_unknown(self) -> bool:
         return False
 
@@ -297,6 +301,17 @@ class IndirectTarget(CallTarget):
             d: "chb.api.InterfaceDictionary.InterfaceDictionary",
             ixval: IndexedTableValue) -> None:
         CallTarget.__init__(self, d, ixval)
+
+    @property
+    def is_indirect(self) -> bool:
+        return True
+
+    def has_multiple_targets(self) -> bool:
+        return len(self.args) > 2
+
+    @property
+    def targets(self) -> List["CallTarget"]:
+        return [self.id.call_target(i) for i in self.args[1:]]
 
 
 @apiregistry.register_tag("u", CallTarget)
