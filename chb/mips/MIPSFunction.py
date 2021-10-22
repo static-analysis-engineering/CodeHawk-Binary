@@ -196,16 +196,6 @@ class MIPSFunction(Function):
         self.iter_instructions(f)
         return result
 
-    def call_instructions(self) -> List[MIPSInstruction]:
-        result: List[MIPSInstruction] = []
-
-        def f(iaddr: str, instr: MIPSInstruction) -> None:
-            if instr.is_call_instruction:
-                result.append(instr)
-
-        self.iter_instructions(f)
-        return result
-
     def load_word_instructions(self) -> List[MIPSInstruction]:
         result: List[MIPSInstruction] = []
 
@@ -242,7 +232,7 @@ class MIPSFunction(Function):
 
         def f(iaddr: str, instr: MIPSInstruction) -> None:
             if instr.is_call_instruction:
-                if str(instr.call_target()) == tgt:
+                if str(instr.call_target) == tgt:
                     result.append(instr)
 
         self.iter_instructions(f)

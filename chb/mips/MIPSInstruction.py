@@ -176,6 +176,14 @@ class MIPSInstruction(Instruction):
         return self.opcode.is_call_instruction(self.xdata)
 
     @property
+    def is_load_instruction(self) -> bool:
+        return False
+
+    @property
+    def is_store_instruction(self) -> bool:
+        return False
+
+    @property
     def is_load_word_instruction(self) -> bool:
         return self.opcode.is_load_word
 
@@ -201,7 +209,7 @@ class MIPSInstruction(Instruction):
         callargs = self.annotated_call_arguments()
         if callargs:
             result['args'] = callargs
-        tgt = self.call_target()
+        tgt = self.call_target
         if tgt == 'call-target:u':
             result['t'] = '?'
         else:
@@ -215,6 +223,7 @@ class MIPSInstruction(Instruction):
         else:
             raise UF.CHBError("Not a call instruction: " + str(self))
 
+    @property
     def call_target(self) -> CallTarget:
         if self.is_call_instruction:
             opc = cast(MIPSJumpLinkRegister, self.opcode)
@@ -276,9 +285,11 @@ class MIPSInstruction(Instruction):
         else:
             raise UF.CHBError('Instruction is not a memory assign')
 
-    def rhs_expr(self) -> Sequence[XXpr]:
+    @property
+    def rhs(self) -> Sequence[XXpr]:
         return self.opcode.rhs(self.xdata)
 
+    @property
     def lhs(self) -> Sequence[XVariable]:
         return self.opcode.lhs(self.xdata)
 

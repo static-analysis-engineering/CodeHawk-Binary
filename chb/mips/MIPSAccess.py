@@ -30,7 +30,7 @@
 from chb.elfformat.ELFHeader import ELFHeader
 from typing import Callable, Type, cast, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from chb.api.CallTarget import CallTarget
+from chb.api.CallTarget import CallTarget, IndirectTarget
 
 from chb.app.Callgraph import Callgraph, mk_tgt_callgraph_node, mk_app_callgraph_node
 from chb.app.AppAccess import AppAccess, HeaderTy
@@ -85,20 +85,6 @@ class MIPSAccess(AppAccess[HeaderTy]):
                     xnode)
         return self._functions
 
-    def callgraph(self) -> Callgraph:
-        if self._callgraph is None:
-            cg = Callgraph()
-            for (faddr, instrs) in self.function_calls().items():
-                fname: Optional[str] = None
-                if self.has_function_name(faddr):
-                    fname = self.function_name(faddr)
-                srcnode = mk_app_callgraph_node(faddr, fname)
-                for instr in instrs:
-                    calltgt = instr.call_target()
-                    dstnode = mk_tgt_callgraph_node(instr.iaddr, calltgt)
-                    cg.add_edge(srcnode, dstnode)
-        return cg
-
     def iter_functions(self, f: Callable[[str, MIPSFunction], None]) -> None:
         for (faddr, fn) in sorted(self.functions.items()):
             f(faddr, fn)
@@ -117,18 +103,6 @@ class MIPSAccess(AppAccess[HeaderTy]):
                     result[a] = (fnref[a], [faddr])
 
         self.iter_functions(add)
-        return result
-
-    def function_calls(self) -> Dict[str, List[MIPSInstruction]]:
-        """Returns a dictionary faddr -> MIPSInstruction."""
-        result: Dict[str, List[MIPSInstruction]] = {}
-
-        def f(faddr: str, fn: MIPSFunction) -> None:
-            calls = fn.call_instructions()
-            if len(calls) > 0:
-                result[faddr] = calls
-
-        self.iter_functions(f)
         return result
 
     @property
