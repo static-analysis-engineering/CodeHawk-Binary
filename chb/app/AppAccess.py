@@ -32,24 +32,27 @@ from abc import ABC, abstractmethod
 from typing import (
     Any,
     Callable,
+    cast,
     Dict,
     List,
     Mapping,
     Optional,
     Sequence,
     Generic,
+    Tuple,
     Type,
+    TYPE_CHECKING,
     TypeVar,
     Union,
     overload)
 
-from chb.api.CallTarget import CallTarget
+from chb.api.CallTarget import CallTarget, IndirectTarget
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
 from chb.app.AppResultData import AppResultData
 from chb.app.AppResultMetrics import AppResultMetrics
 from chb.app.BDictionary import BDictionary
-from chb.app.Callgraph import Callgraph
+from chb.app.Callgraph import Callgraph, mk_tgt_callgraph_node, mk_app_callgraph_node
 from chb.app.Function import Function
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.FunctionsData import FunctionsData
@@ -61,12 +64,17 @@ from chb.elfformat.ELFHeader import ELFHeader
 
 from chb.models.ModelsAccess import ModelsAccess
 
+from chb.invariants.XVariable import XVariable
+from chb.invariants.XXpr import XXpr
+
 from chb.peformat.PEHeader import PEHeader
 
 from chb.userdata.UserData import UserData
 
 import chb.util.fileutil as UF
 
+if TYPE_CHECKING:
+    from chb.app.Instruction import Instruction
 
 HeaderTy = TypeVar('HeaderTy', PEHeader, ELFHeader, Union[PEHeader, ELFHeader])
 
@@ -91,6 +99,9 @@ class AppAccess(ABC, Generic[HeaderTy]):
         # functions
         self._appresultdata: Optional[AppResultData] = None
         self._functioninfos: Dict[str, FunctionInfo] = {}
+
+        # callgraph
+        self._callgraph: Optional[Callgraph] = None
 
         # summaries
         self.models = ModelsAccess(self.dependencies)
@@ -239,6 +250,62 @@ class AppAccess(ABC, Generic[HeaderTy]):
                 self.interfacedictionary, faddr, xnode)
         return self._functioninfos[faddr]
 
+    # Instructions -----------------------------------------------------------
+
+    def load_instructions(self) -> Mapping[str, Mapping[str, Sequence["Instruction"]]]:
+        """Return a mapping from function address to block address to instructions."""
+
+        result: Dict[str, Mapping[str, Sequence["Instruction"]]] = {}
+        for (faddr, fn) in self.functions.items():
+            if len(fn.load_instructions()) > 0:
+                result[faddr] = fn.load_instructions()
+        return result
+
+    def store_instructions(self) -> Mapping[str, Mapping[str, Sequence["Instruction"]]]:
+        """Return a mapping from function address to block address to instructions."""
+
+        result: Dict[str, Mapping[str, Sequence["Instruction"]]] = {}
+        for (faddr, fn) in self.functions.items():
+            if len(fn.store_instructions()) > 0:
+                result[faddr] = fn.store_instructions()
+        return result
+
+    def call_instructions(self) -> Mapping[str, Mapping[str, Sequence["Instruction"]]]:
+        """Return a mapping from function address to block address to instructions."""
+
+        result: Dict[str, Mapping[str, Sequence["Instruction"]]] = {}
+        for (faddr, fn) in self.functions.items():
+            if len(fn.call_instructions()) > 0:
+                result[faddr] = fn.call_instructions()
+        return result
+
+    # Callgraph ----------------------------------------------------------------
+
+    def callgraph(self) -> Callgraph:
+        if self._callgraph is None:
+            cg = Callgraph()
+            callinstrs = self.call_instructions()
+            for faddr in callinstrs:
+                fname: Optional[str] = None
+                if self.has_function_name(faddr):
+                    fname = self.function_name(faddr)
+                srcnode = mk_app_callgraph_node(faddr, fname)
+                for baddr in callinstrs[faddr]:
+                    for instr in callinstrs[faddr][baddr]:
+                        calltgt = instr.call_target
+                        if calltgt.is_indirect:
+                            calltgt = cast(IndirectTarget, calltgt)
+                            dstnodes = [
+                                mk_tgt_callgraph_node(instr.iaddr, t)
+                                for t in calltgt.targets]
+                            for d in dstnodes:
+                                cg.add_edge(srcnode, d)
+                        else:
+                            dstnode = mk_tgt_callgraph_node(instr.iaddr, calltgt)
+                            cg.add_edge(srcnode, dstnode)
+            self._callgraph = cg
+        return self._callgraph
+
     # Address space ----------------------------------------------------------
 
     @property
@@ -247,11 +314,19 @@ class AppAccess(ABC, Generic[HeaderTy]):
         """Return the maximum address referenced in the image (in hex)."""
         ...
 
-    # Callgraph ---------------------------------------------------------------
+    # Global variables ---------------------------------------------------------
 
-    @abstractmethod
-    def callgraph(self) -> Callgraph:
-        ...
+    def global_refs(self) -> Tuple[Mapping[str, Sequence[XVariable]],
+                                   Mapping[str, Sequence[XXpr]]]:
+        lhsresult = {}
+        rhsresult = {}
+        for (faddr, fn) in self.functions.items():
+            (lhsgrefs, rhsgrefs) = fn.global_refs()
+            if len(lhsgrefs) > 0:
+                lhsresult[faddr] = lhsgrefs
+            if len(rhsgrefs) > 0:
+                rhsresult[faddr] = rhsgrefs
+        return (lhsresult, rhsresult)
 
     # Misc ---------------------------------------------------------------------
 
@@ -447,6 +522,7 @@ class AppAccess(ABC, Generic[HeaderTy]):
         return result
 
     '''
+
     # Result Metrics -----------------------------------------------------------
 
     @property

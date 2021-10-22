@@ -37,7 +37,7 @@ import hashlib
 import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, Mapping, Optional, Sequence
+from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
@@ -52,6 +52,8 @@ from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnXprDictionary import FnXprDictionary
 from chb.invariants.InvariantFact import InvariantFact
+from chb.invariants.XVariable import XVariable
+from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
 
@@ -164,6 +166,17 @@ class Function(ABC):
                             self.invdictionary.invariant_fact(ix))
         return self._invariants
 
+    def global_refs(self) -> Tuple[Sequence[XVariable], Sequence[XXpr]]:
+        lhsresult: List[XVariable] = []
+        rhsresult: List[XXpr] = []
+
+        for instr in self.instructions.values():
+            (lhs, rhs) = instr.global_refs()
+            lhsresult.extend(lhs)
+            rhsresult.extend(rhs)
+
+        return (lhsresult, rhsresult)
+
     def has_name(self) -> bool:
         return len(self.names) > 0
 
@@ -222,6 +235,33 @@ class Function(ABC):
             return self.blocks[baddr]
         else:
             raise UF.CHBError("Block " + baddr + " not found in " + self.faddr)
+
+    def load_instructions(self) -> Mapping[str, Sequence[Instruction]]:
+        """Return a mapping of block address to instructions that save to memory."""
+
+        result: Dict[str, Sequence[Instruction]] = {}
+        for (baddr, b) in self.blocks.items():
+            if len(b.load_instructions) > 0:
+                result[baddr] = b.load_instructions
+        return result
+
+    def store_instructions(self) -> Mapping[str, Sequence[Instruction]]:
+        """Return a mapping of block address to instructions that save to memory."""
+
+        result: Dict[str, Sequence[Instruction]] = {}
+        for (baddr, b) in self.blocks.items():
+            if len(b.store_instructions) > 0:
+                result[baddr] = b.store_instructions
+        return result
+
+    def call_instructions(self) -> Mapping[str, Sequence[Instruction]]:
+        """Return a mapping of block address to instructions that perform a call."""
+
+        result: Dict[str, Sequence[Instruction]] = {}
+        for (baddr, b) in self.blocks.items():
+            if len(b.call_instructions) > 0:
+                result[baddr] = b.call_instructions
+        return result
 
     def has_instruction(self, iaddr: str) -> bool:
         return iaddr in self.instructions
