@@ -115,11 +115,11 @@ class X86Opcode(X86DictionaryRecord):
         """Returns the syntactic operands."""
         return []
 
-    def lhs(self, xdata: InstrXData) -> List[XVariable]:
+    def lhs(self, xdata: InstrXData) -> Sequence[XVariable]:
         """Returns the lhs variables of an assignment if this is an assignment."""
         return []
 
-    def rhs(self, xdata: InstrXData) -> List[XXpr]:
+    def rhs(self, xdata: InstrXData) -> Sequence[XXpr]:
         """Returns the rhs exprs of an assignment if this is an assignment."""
         return []
 
