@@ -82,9 +82,6 @@ class X86Access(AppAccess[HeaderTy]):
     def call_edges(self) -> Mapping[str, Mapping[str, int]]:
         return {}
 
-    def callgraph(self) -> Callgraph:
-        raise UF.CHBNotImplementedError("X86Access", "callgraph", "")
-
     @property
     def max_address(self) -> str:
         raise UF.CHBNotImplementedError("X86Access", "max_address", "")

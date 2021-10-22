@@ -129,6 +129,14 @@ class X86Instruction(Instruction):
         return self.opcode.is_return
 
     @property
+    def is_load_instruction(self) -> bool:
+        return False
+
+    @property
+    def is_store_instruction(self) -> bool:
+        return False
+
+    @property
     def is_conditional_branch_instruction(self) -> bool:
         return self.opcode.is_conditional_branch
 
@@ -146,6 +154,9 @@ class X86Instruction(Instruction):
     def strings_referenced(self) -> List[str]:
         return []
 
+    def global_refs(self) -> Tuple[Sequence[XVariable], Sequence[XXpr]]:
+        return ([], [])
+
     def branch_predicate(self) -> XXpr:
         if self.has_branch_predicate():
             return self.opcode.predicate(self.xdata)
@@ -153,7 +164,15 @@ class X86Instruction(Instruction):
             raise UF.CHBError("Instruction does not have a branch predicate: "
                               + str(self))
 
-    def ft_conditions(self) -> List[XXpr]:
+    @property
+    def rhs(self) -> Sequence[XXpr]:
+        return self.opcode.rhs(self.xdata)
+
+    @property
+    def lhs(self) -> Sequence[XVariable]:
+        return self.opcode.lhs(self.xdata)
+
+    def ft_conditions(self) -> Sequence[XXpr]:
         if self.has_branch_condition():
             return self.opcode.ft_conditions(self.xdata)
         else:
@@ -214,6 +233,7 @@ class X86Instruction(Instruction):
     def is_call_instruction(self) -> bool:
         return self.opcode.is_call
 
+    @property
     def call_target(self) -> CallTarget:
         if self.opcode.is_call:
             opc = cast(X86Call, self.opcode)
@@ -237,7 +257,7 @@ class X86Instruction(Instruction):
         results: List[Tuple[str, str, str]] = []
         if self.is_dll_call():
             models = self.x86function.models
-            tgt = cast(DllFunction, cast(StubTarget, self.call_target()).stub)
+            tgt = cast(DllFunction, cast(StubTarget, self.call_target).stub)
             args = self.call_arguments
             dll = tgt.dll
             fname = tgt.name
@@ -301,11 +321,8 @@ class X86Instruction(Instruction):
     def has_structured_lhs(self) -> bool:
         return len(self.structured_lhs()) > 0
 
-    def rhs(self) -> List[XXpr]:
-        return self.opcode.rhs(self.xdata)
-
     def structured_rhs(self) -> List[XXpr]:
-        rhs = self.rhs()
+        rhs = self.rhs
         return [x for x in rhs if x.is_structured_expr]
 
     def is_memory_assign(self) -> bool:
