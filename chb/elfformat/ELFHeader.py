@@ -292,6 +292,18 @@ class ELFHeader:
         else:
             raise UF.CHBError("Section " + str(index) + " not found")
 
+    def get_word_value(self, index: int, addr: int, little_endian=True) -> int:
+        if index in self.sections:
+            return self.sections[index].get_word_value(addr, little_endian)
+        else:
+            raise UF.CHBError("Section " + str(index) + " not found")
+
+    def get_doubleword_value(self, index: int, addr: int, little_endian=True) -> int:
+        if index in self.sections:
+            return self.sections[index].get_doubleword_value(addr, little_endian)
+        else:
+            raise UF.CHBError("Section " + str(index) + " not found")
+
     def get_string(self, index: int, addr: int) -> str:
         if index in self.sections:
             return self.sections[index].get_string(addr)

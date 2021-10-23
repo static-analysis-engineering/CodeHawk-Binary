@@ -166,6 +166,30 @@ class ELFSection:
         else:
             raise UF.CHBError("Address not found in section " + self.name)
 
+    def get_word_value(self, address: int, little_endian=True) -> int:
+        if address in self.values:
+            b1 = self.get_byte_value(address)
+            b2 = self.get_byte_value(address + 1)
+            if little_endian:
+                return (b2 << 8) + b1
+            else:
+                return (b1 << 8) + b2
+        else:
+            raise UF.CHBError("Word address not found in section " + self.name)
+
+    def get_doubleword_value(self, address: int, little_endian=True) -> int:
+        if address in self.values:
+            b1 = self.get_byte_value(address)
+            b2 = self.get_byte_value(address + 1)
+            b3 = self.get_byte_value(address + 2)
+            b4 = self.get_byte_value(address + 3)
+            if little_endian:
+                return b1 + (b2 << 8) + (b3 << 16) + (b4 << 24)
+            else:
+                return b4 + (b3 << 8) + (b2 << 16) + (b1 << 24)
+        else:
+            raise UF.CHBError("DWord address not found in section " + self.name)
+
     def get_string(self, addr: int) -> str:
         b = self.get_byte_value(addr)
         result = ''
