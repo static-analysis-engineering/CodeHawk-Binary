@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, Dict, List, Sequence, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Sequence, TYPE_CHECKING
 
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
@@ -52,6 +52,17 @@ class SimMemoryByteLink(SV.SimByteValue):
         self._linkedto = linkedto
         self._position = position
 
+    def jsonval(self) -> Dict[str, Any]:
+        """Serialize object to json.
+
+        """
+        result: Dict[str, Any] = {}
+        result["i"] = "bl"
+        result["d"] = {}
+        result["d"]["l"] = self.linkedto.jsonval()
+        result["d"]["p"] = self.position
+        return result
+
     @property
     def linkedto(self) -> SSV.SimSymbolicValue:
         return self._linkedto
@@ -62,6 +73,10 @@ class SimMemoryByteLink(SV.SimByteValue):
 
     @property
     def is_link(self) -> bool:
+        return True
+
+    @property
+    def is_membyte_link(self) -> bool:
         return True
 
 
@@ -81,6 +96,15 @@ class SimMemory:
         self._mem: Dict[int, SV.SimByteValue] = {}
         self._initialized = initialized
         self._name = name
+
+    def jsonval(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        result["i"] = "m"
+        result["d"] = {}
+        result["d"]["m"] = {}
+        for a in sorted(self._mem):
+            result["d"]["m"][a] = self._mem[a].jsonval()
+        return result
 
     @property
     def simstate(self) -> "SimulationState":
@@ -295,7 +319,11 @@ class SimMemory:
                     return self.symbolic_little_endian(iaddr, offset, size)
                 except UF.CHBError as e:
                     raise UF.CHBError(
-                        str(e) + ": " + str(address) + ": " + str(self._mem[offset]))
+                        str(e)
+                        + ": "
+                        + str(address)
+                        + ": "
+                        + str(self._mem[offset]))
         elif size == 1:
             return self.byte(iaddr, offset)
         if self.bigendian:
