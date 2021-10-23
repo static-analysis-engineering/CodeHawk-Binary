@@ -42,6 +42,9 @@ Currently provided:
 - ARMThumbSwitchPoints
       addresses where ARM switches to Thumb-2 and v.v.
 
+- CallTargets
+      call targets for unresolved calls
+
 - DataBlocks
       pairs of addresses (start inclusive, end exclusive) that indicate data
 
@@ -234,6 +237,70 @@ class ARMThumbSwitchPoints(HintsEntry):
         lines.append("-----------------------")
         for p in self.switchpoints:
             lines.append("  " + p)
+        return "\n".join(lines)
+
+
+class CallTargetsHints(HintsEntry):
+    """List of records with call targets for unresolved calls."""
+
+    def __init__(
+            self,
+            calltargets: List[Dict[str, Any]]) -> None:
+        """Format: {fa:<function address>
+                    ia:<call-site address>
+                    tgts: [{app:<address> | dll:name | so:name | jni:index}]}
+        """
+
+        HintsEntry.__init__(self, "call-targets")
+        self._calltargets = calltargets
+
+    @property
+    def calltargets(self) -> List[Dict[str, Any]]:
+        return self._calltargets
+
+    def has_calltarget(self, fa: str, ia: str) -> bool:
+        for r in self.calltargets:
+            if r["fa"] == fa and r["ia"] == ia:
+                return True
+        return False
+
+    def update(self, d: List[Dict[str, Any]]) -> None:
+        for ct in d:
+            if not self.has_calltarget(ct["fa"], ct["ia"]):
+                self._calltargets.append(ct)
+
+    def to_xml(self, node: ET.Element) -> None:
+        xcalltargets = ET.Element(self.name)
+        node.append(xcalltargets)
+        for ct in sorted(self.calltargets, key=lambda r: (r["fa"], r["ia"])):
+            xct = ET.Element("callsite")
+            xct.set("fa", ct["fa"])
+            xct.set("ia", ct["ia"])
+            xcalltargets.append(xct)
+            for t in ct["tgts"]:
+                xtgt = ET.Element("tgt")
+                xct.append(xtgt)
+                if "app" in t:
+                    xtgt.set("ctag", "app")
+                    xtgt.set("appa", t["app"])
+                elif "dll" in t:
+                    xtgt.set("ctag", "dll")
+                    xtgt.set("name", t["dll"])
+                elif "so" in t:
+                    xtgt.set("ctag", "so")
+                    xtgt.set("name", t["so"])
+                elif "jni" in t:
+                    xtgt.set("ctag", "jni")
+                    xtgt.set("index", str(t["jni"]))
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Call targets")
+        lines.append("============")
+        for ct in self.calltargets:
+            lines.append("faddr: " + ct["fa"] + "; iaddr: " + ct["ia"])
+            for t in ct["tgts"]:
+                lines.append("   " + str(t))
         return "\n".join(lines)
 
 
@@ -790,6 +857,7 @@ class UserHints:
 
         Currently supported:
         - arm-thumb (switchpoints)
+        - call-targets
         - data-blocks
         - function-entry-points
         - non-returning-functions
@@ -813,6 +881,14 @@ class UserHints:
                 self.userdata[tag].update(switchpoints)
             else:
                 self.userdata[tag] = ARMThumbSwitchPoints(switchpoints)
+
+        if "call-targets" in hints:
+            tag = "call-targets"
+            calltargets: List[Dict[str, Any]] = hints[tag]
+            if tag in self.userdata:
+                self.userdata[tag].update(calltargets)
+            else:
+                self.userdata[tag] = CallTargetsHints(calltargets)
 
         if "data-blocks" in hints:
             tag = "data-blocks"
