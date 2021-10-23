@@ -112,3 +112,9 @@ class InstructionRelationalAnalysis:
         return (
             self.loads_same_string
             or self.calls_same_function_with_same_args)
+
+    @property
+    def has_different_annotation(self) -> bool:
+        a1 = self.instr1.annotation
+        a2 = self.instr2.annotation
+        return self.instr1.annotation != self.instr2.annotation

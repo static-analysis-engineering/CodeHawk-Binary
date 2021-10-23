@@ -307,6 +307,10 @@ class CfgMatcher:
                     print("Conflicting mapping: " + b1 + ", " + b2)
 
     def match_edges(self) -> None:
+
+        def nolog(s: str) -> None:
+            pass
+
         for (src1, tgt1) in self.edges1:
             if (src1, tgt1) in self.edgemapping:
                 continue
@@ -316,7 +320,16 @@ class CfgMatcher:
                 if (src1m, tgt1m) in self.edges2:
                     self._edgemapping[(src1, tgt1)] = (src1m, tgt1m)
                 else:
-                    print("Edge (" + src1m + ", " + tgt1m + ") not found")
+                    nolog(
+                        "Edge ("
+                        + src1m
+                        + ", "
+                        + tgt1m
+                        + ") not found as match for ("
+                        + src1
+                        + ", "
+                        + tgt1
+                        + ")")
 
     def propagate_post(self) -> None:
         for src1 in sorted(self.basic_blocks1):

@@ -57,11 +57,22 @@ class RelationalAnalysis:
        matching the two call graphs.
     """
 
-    def __init__(self, app1: "AppAccess", app2: "AppAccess") -> None:
+    def __init__(
+            self,
+            app1: "AppAccess",
+            app2: "AppAccess",
+            faddrs1: List[str] = [],
+            faddrs2: List[str] = []) -> None:
         self._app1 = app1
         self._app2 = app2
-        self._faddrs1 = sorted(app1.appfunction_addrs)
-        self._faddrs2 = sorted(app2.appfunction_addrs)
+        if faddrs1:
+            self._faddrs1 = sorted(faddrs1)
+        else:
+            self._faddrs1 = sorted(app1.appfunction_addrs)
+        if faddrs2:
+            self._faddrs2 = sorted(faddrs2)
+        else:
+            self._faddrs2 = sorted(app2.appfunction_addrs)
         self._functionmapping: Dict[str, str] = {}  # potentially partial map
         self._functionanalyses: Dict[str, FunctionRelationalAnalysis] = {}
         self._fnmd5s: Dict[str, Tuple[List[str], List[str]]] = {}
@@ -179,6 +190,9 @@ class RelationalAnalysis:
             + "blocks-changed".ljust(12))
         lines.append("-" * 88)
 
+        fnotfound: List[str] = []  # not found in patched version
+        fnotmapped: List[str] = []  # not found in original version
+
         for faddr in self.functions_changed():
             if faddr in self.function_mapping:
                 fra = self.function_analyses[faddr]
@@ -206,15 +220,19 @@ class RelationalAnalysis:
                     + streq.ljust(18)
                     + blchg.ljust(12))
             else:
-                lines.append(
-                    fnames[faddr].ljust(maxnamelen)
-                    + "not found")
+                fnotfound.append(faddr)
 
         if len(self.function_mapping) < len(self.faddrs2):
-            lines.append("\nFunctions in patched version not mapped:")
             for faddr2 in sorted(self.faddrs2):
                 if faddr2 not in self.function_mapping.values():
-                    lines.append("  " + faddr2)
+                    fnotmapped.append(faddr2)
+            lines.append(
+                "\nFunctions mapped from original to patched: "
+                + str(len(self.function_mapping)))
+            lines.append(
+                "Functions not found in patched version: " + str(len(fnotfound)))
+            lines.append(
+                "Functions in patched version not mapped: " + str(len(fnotmapped)))
 
         if showfunctions or showinstructions:
             lines.append("")
