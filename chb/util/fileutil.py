@@ -1090,6 +1090,7 @@ def get_test_filename(
 
 
 def save_test_files(
+        desc: str,
         arch: str,
         fileformat: str,
         suite: str,
@@ -1112,6 +1113,10 @@ def save_test_files(
     if os.path.isdir(testdir):
         raise CHBError("Test directory already exists. Quit")
 
+    testfilename = os.path.join(suitedir, testname)
+    with open(testfilename, "w") as fp:
+        fp.write(testname + ": " + desc)
+
     xdir = os.path.join(testdir, "x")
     os.makedirs(xdir)
 
@@ -1124,4 +1129,15 @@ def save_test_files(
     with open(xinfoname, "w") as fp:
         json.dump(xinfo, fp, indent=2)
 
-    return "Saved " + ", ".join(files.keys()) + " and " + xinfoname
+    os.chdir(suitedir)
+    targzfile = testname + ".chx.tar.gz"
+    cmd: List[str] = ["tar", "cfz", targzfile, testname + ".ch"]
+    result = subprocess.call(cmd, cwd=suitedir, stderr=subprocess.STDOUT)
+
+    return (
+        "Saved "
+        + ", ".join(files.keys())
+        + " and "
+        + xinfoname
+        + " and "
+        + targzfile)
