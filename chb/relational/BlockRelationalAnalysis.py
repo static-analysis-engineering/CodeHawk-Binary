@@ -150,7 +150,7 @@ class BlockRelationalAnalysis:
         lines: List[str] = []
         for iaddr in self.instr_analyses:
             ira = self.instr_analyses[iaddr]
-            if not ira.is_md5_equal and not ira.is_semantically_equal:
+            if not ira.is_md5_equal or ira.has_different_annotation:
                 if ira.is_mapped:
                     b1 = ira.instr1.bytestring
                     if self.same_endianness:

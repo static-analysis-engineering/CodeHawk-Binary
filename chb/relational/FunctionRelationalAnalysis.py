@@ -187,18 +187,48 @@ class FunctionRelationalAnalysis:
     def is_structurally_equivalent(self) -> bool:
         """Return true if the control flow graphs are address-isomorphic."""
 
-        if (
-                len(self.basic_blocks1) == len(self.basic_blocks2)
-                and len(self.edges1) == len(self.edges2)):
-            bbaddrs1 = self.basic_blocks1.keys()
-            bbaddrs2 = [
-                self.address2_align(b) for b in self.basic_blocks2.keys()]
+        def nolog(s: str) -> None:
+            pass
 
-            bdiff = set(bbaddrs2) - set(bbaddrs1)
-            if len(bdiff) == 0:
+        bbaddrs1 = self.basic_blocks1.keys()
+        bbaddrs2 = [
+            self.address2_align(b) for b in self.basic_blocks2.keys()]
 
-                ediff = self.edges1 - set(self.edge2_align(e) for e in self.edges2)
-                return len(ediff) == 0
+        bdiff = set(bbaddrs2) - set(bbaddrs1)
+        if len(bdiff) == 0:
+
+            ediff = self.edges1.symmetric_difference(
+                set(self.edge2_align(e) for e in self.edges2))
+            if len(ediff) == 0:
+                return True
+            elif (len(self.edges1) > len(self.edges2)):
+                ndiff = len(self.edges1) - len(self.edges2)
+                nolog(
+                    "Function-1 "
+                    + self.faddr1
+                    + " has "
+                    + str(ndiff)
+                    + " more edge(s) than "
+                    + self.faddr2
+                    + ": "
+                    + ", ".join(str(e) for e in ediff))
+                return False
+            elif (len(self.edges2) > len(self.edges1)):
+                ndiff = len(self.edges2) - len(self.edges1)
+                nolog(
+                    "Function-2 "
+                    + self.faddr2
+                    + " has "
+                    + str(ndiff)
+                    + " more edge(s) than "
+                    + self.faddr2
+                    + ": "
+                    + ", ".join(str(e) for e in ediff))
+                return False
+
+            else:
+                print("Differences in block addresses: "  + ", ".join(bdiff))
+                return False
 
         return False
 
