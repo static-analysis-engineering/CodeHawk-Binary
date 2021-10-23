@@ -169,6 +169,9 @@ class XXpr(FnXprDictionaryRecord):
         """Returns a dictionary with a count for each global variable."""
         raise UF.CHBError("Get_global_variables not supported for " + str(self))
 
+    def has_global_variables(self) -> bool:
+        return False
+
     def negated_value(self) -> int:
         raise UF.CHBError("Get_negated_value not supported for " + str(self))
 
@@ -236,6 +239,9 @@ class XprVariable(XXpr):
         if self.variable.is_global_variable:
             result[str(self.variable.global_variable_base())] = 1
         return result
+
+    def has_global_variables(self) -> bool:
+        return len(self.global_variables()) > 0
 
     @property
     def is_function_return_value(self) -> bool:
@@ -483,6 +489,9 @@ class XprCompound(XXpr):
     @property
     def is_structured_expr(self) -> bool:
         return any([op.is_structured_expr for op in self.operands])
+
+    def has_global_variables(self) -> bool:
+        return any([op.has_global_variables() for op in self.operands])
 
     @property
     def is_stack_address(self) -> bool:
