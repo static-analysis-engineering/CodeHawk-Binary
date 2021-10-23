@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 
 from abc import ABC, abstractmethod
-from typing import cast, List, Tuple
+from typing import Any, cast, Dict, List, Tuple
 
 import chb.simulation.SimUtil as SU
 
@@ -61,6 +61,9 @@ class SimValue(ABC):
 
     def __init__(self, defined: bool = True) -> None:
         self.defined = defined
+
+    def jsonval(self) -> Dict[str, Any]:
+        return {"i": "x"}
 
     @property
     @abstractmethod
@@ -465,6 +468,27 @@ class SimByteValue(SimLiteralValue):
 
     def __init__(self, value: int, defined: bool = True) -> None:
         SimLiteralValue.__init__(self, value & 255, defined=defined)
+
+    def jsonval(self) -> Dict[str, Any]:
+        """Serialize object to json.
+
+        Default values:
+        (0, defined) -> no data
+        (v, defined) -> only v
+        (_, undefined) -> only undefined
+        """
+
+        result: Dict[str, Any] = {}
+        result["i"] = "b"
+        if self.is_defined and self.value == 0:
+            return result
+        else:
+            result["d"] = {}
+            if not self.is_defined:
+                result["d"]["d"] = False
+            if self.value > 0:
+                result["d"]["v"] = self.value
+            return result
 
     @property
     def width(self) -> int:
@@ -1070,6 +1094,34 @@ class SimDoubleWordValue(SimLiteralValue):
         self.b2defined = b2defined and self.is_defined
         self.b3defined = b3defined and self.is_defined
         self.b4defined = b4defined and self.is_defined
+
+    def jsonval(self) -> Dict[str, Any]:
+        """Serialize object to json.
+
+        Default values:
+        (0, defined) -> no data
+        (_, undefined) -> no value
+        """
+
+        result: Dict[str, Any] = {}
+        result["i"] = "d"
+        if self.is_defined and self.value == 0:
+            return result
+        else:
+            result["d"] = {}
+            if not self.is_defined:
+                result["d"]["d"] = False
+            if self.value > 0:
+                result["d"]["v"] = self.value
+            if not self.b1defined:
+                result["d"]["db1"] = False
+            if not self.b2defined:
+                result["d"]["db2"] = False
+            if not self.b3defined:
+                result["d"]["db3"] = False
+            if not self.b4defined:
+                result["d"]["db4"] = False
+            return result
 
     @property
     def width(self) -> int:

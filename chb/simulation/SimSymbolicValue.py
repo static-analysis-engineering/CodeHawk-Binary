@@ -391,6 +391,16 @@ class SimGlobalAddress(SimAddress):
         SimAddress.__init__(self, "global:" + modulename, offset)
         self._modulename = modulename
 
+    def jsonval(self) -> Dict[str, Any]:
+        """Serialize object to json."""
+
+        result: Dict[str, Any] = {}
+        result["i"] = "sga"
+        result["d"] = {}
+        result["d"]["m"] = self.modulename
+        result["d"]["o"] = self.offset.jsonval()
+        return result
+
     @property
     def is_literal(self) -> bool:
         """Special case where we can't distinguish between global address and literal."""
@@ -515,6 +525,15 @@ class SimReturnAddress(SimGlobalAddress):
             offset: SV.SimDoubleWordValue) -> None:
         SimGlobalAddress.__init__(self, modulename, offset)
         self._functionaddr = functionaddr
+
+    def jsonval(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        result["i"] = "sra"
+        result["d"] = {}
+        result["d"]["f"] = self.functionaddr
+        result["d"]["m"] = self.modulename
+        result["d"]["o"] = self.offset.jsonval()
+        return result
 
     @property
     def functionaddr(self) -> str:

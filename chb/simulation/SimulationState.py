@@ -51,7 +51,7 @@ from chb.simulation.SimMappedMemory import SimMappedMemory
 from chb.simulation.SimProgramCounter import SimProgramCounter
 from chb.simulation.SimSharedMemory import SimSharedMemory
 
-from chb.simulation.SimMemory import SimMemory
+from chb.simulation.SimMemory import SimMemory, SimStackMemory
 from chb.simulation.SimStub import SimStub
 from chb.simulation.SimSupport import SimSupport
 import chb.simulation.SimSymbolicValue as SSV
@@ -398,7 +398,7 @@ class SimulationState:
 
         # registers and memory (registers are assumed to be 32 bits wide)
         self.registers: Dict[str, SV.SimValue] = {}
-        self.stackmem = SimMemory(self, False, "stack")
+        self.stackmem = SimStackMemory(self)
         self.basemem: Dict[str, SimBaseMemory] = {}
         self.mappedmem: Dict[str, SimMappedMemory] = {}
         self.sharedmem: Dict[int, SimSharedMemory] = {}  # indexed by id returned by shmget
