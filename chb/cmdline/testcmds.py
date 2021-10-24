@@ -38,6 +38,7 @@ import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
 
 from chb.tests.ELFARMTestCreator import ELFARMTestCreator
+from chb.tests.ELFThumbDisassemblyTestSet import ELFThumbDisassemblyTestSet
 from chb.tests.ELFX86TestCreator import ELFX86TestCreator
 
 import chb.util.fileutil as UF
@@ -164,6 +165,20 @@ def test_run(args: argparse.Namespace) -> NoReturn:
     exit(result)
 
 
+def test_run_parameterized(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    name: str = args.name
+
+    if name == "thumb_disassembly":
+        testrunner = ELFThumbDisassemblyTestSet()
+        testrunner.run()
+
+    else:
+        print("Parameterized test " + name + " not supported")
+    exit(0)
+
+
 def test_runall(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -245,13 +260,19 @@ def test_list(args: argparse.Namespace) -> NoReturn:
 def test_create(args: argparse.Namespace) -> NoReturn:
 
     # arguments
-    arch: str = args.arch
-    fileformat: str = args.fileformat
-    testnr: str = args.test
-    suitenr: str = args.suite
-    bytestring: str = args.bytestring
+    testspec: str = args.specfile
 
     files: Dict[str, str] = {}
+
+    with open(testspec, "r") as fp:
+        testdata = json.load(fp)
+
+    desc = testdata["desc"]
+    arch = testdata["arch"]
+    fileformat = testdata["fmt"]
+    testnr = testdata["test"]
+    suitenr = testdata["suite"]
+    bytestring = "".join(testdata["bytes"])
 
     if arch == "x86" and fileformat == "elf":
         tcx = ELFX86TestCreator(testnr, bytestring, suite=suitenr)
@@ -262,7 +283,7 @@ def test_create(args: argparse.Namespace) -> NoReturn:
         files["test_" + testnr + "_elf_header.xml"] = elfheader
         files["test_" + testnr + "_section_16.xml"] = elfsection
 
-        UF.save_test_files(arch, fileformat, suitenr, testnr, files, xinfo)
+        UF.save_test_files(desc, arch, fileformat, suitenr, testnr, files, xinfo)
 
     elif arch == "arm32" and fileformat == "elf":
         tca = ELFARMTestCreator(testnr, bytestring, suite=suitenr)
@@ -273,7 +294,7 @@ def test_create(args: argparse.Namespace) -> NoReturn:
         files["test_" + testnr + "_elf_header.xml"] = elfheader
         files["test_" + testnr + "_section_16.xml"] = elfsection
 
-        UF.save_test_files(arch, fileformat, suitenr, testnr, files, xinfo)
+        UF.save_test_files(desc, arch, fileformat, suitenr, testnr, files, xinfo)
 
     else:
         print("At present only x86-elf and arm-elf are supported")

@@ -208,6 +208,14 @@ def setup_user_data(
             armuserdata["arm-thumb"] = thumb
             userhints.add_hints(armuserdata)
 
+    # check direct command-line options
+    if len(thumb) > 0:
+        print("Use command-line options for thumb: ")
+        print(" --thumb " + " ".join(thumb))
+        cmdarmuserdata: Dict[str, List[str]] = {}
+        cmdarmuserdata["arm-thumb"] = thumb
+        userhints.add_hints(cmdarmuserdata)
+
     # read hints files
     filenames = [os.path.abspath(s) for s in hints]
     if len(filenames) > 0:
@@ -516,6 +524,52 @@ def results_callgraph(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def results_globalvars(args: argparse.Namespace) -> NoReturn:
+    """Prints out global variables being read and written per function."""
+
+    # arguments
+    xname: str = str(args.xname)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+    (lhsglobals, rhsglobals) = app.global_refs()
+
+    lhsdir: Dict[str, Dict[str, int]] = {}
+
+    print("Global variables that get assigned:")
+    print("-----------------------------------")
+    for faddr in sorted(lhsglobals):
+        print("Function " + faddr)
+        for v in lhsglobals[faddr]:
+            print("  " + str(v))
+            lhsdir.setdefault(str(v), {})
+            lhsdir[str(v)].setdefault(faddr, 0)
+            lhsdir[str(v)][faddr] += 1
+
+    for gv in sorted(lhsdir):
+        print("\nGlobal variable " + gv)
+        for faddr in sorted(lhsdir[gv]):
+            print("  " + faddr + ": " + str(lhsdir[gv][faddr]))
+
+    print("\nGlobal variables that are referenced:")
+    print("---------------------------------------")
+    for faddr in sorted(rhsglobals):
+        print("Function " + faddr)
+        for x in rhsglobals[faddr]:
+            print("  " + str(x))
+
+    exit(0)
+
+
 def results_functions(args: argparse.Namespace) -> NoReturn:
     """Prints out annotated assembly listing of all functions."""
 
@@ -747,24 +801,21 @@ def results_fileio(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
-    if not xinfo.is_mips:
-        print("This feature has only been implemented for mips so far")
-        exit(0)
-
-    app = cast(MIPSAccess, get_app(path, xfile, xinfo))
+    app = get_app(path, xfile, xinfo)
 
     results: Dict[str, Dict[str, int]] = {}
-    callinstrs = app.function_calls()
-    for (faddr, instrs) in callinstrs.items():
-        fn = cast(MIPSFunction, app.function(faddr))
-        for instr in instrs:
-            ctgt = str(instr.call_target())
-            if ctgt in ["fopen", "fopen64"]:
-                results.setdefault(ctgt, {})
-                callargs = instr.call_arguments
-                if len(args) > 1:
-                    results[ctgt].setdefault(str(callargs[0]), 0)
-                    results[ctgt][str(callargs[0])] += 1
+    callinstrs = app.call_instructions()
+    for faddr in callinstrs:
+        for (baddr, instrs) in callinstrs[faddr].items():
+            fn = app.function(faddr)
+            for instr in instrs:
+                ctgt = str(instr.call_target)
+                if ctgt in ["fopen", "fopen64"]:
+                    results.setdefault(ctgt, {})
+                    callargs = instr.call_arguments
+                    if len(args) > 1:
+                        results[ctgt].setdefault(str(callargs[0]), 0)
+                        results[ctgt][str(callargs[0])] += 1
 
     print("\nFiles opened by " + xname + ":")
     print("-" * 80)

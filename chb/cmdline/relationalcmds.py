@@ -30,7 +30,7 @@ import argparse
 import importlib
 import json
 
-from typing import NoReturn
+from typing import List, NoReturn
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
@@ -45,6 +45,8 @@ def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
     # arguments
     xname1: str = args.xname1
     xname2: str = args.xname2
+    xfunctions1: List[str] = args.functions1
+    xfunctions2: List[str] = args.functions2
     showfunctions: bool = args.functions
     showinstructions: bool = args.instructions
 
@@ -71,7 +73,8 @@ def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
     app1 = UC.get_app(path1, xfile1, xinfo1)
     app2 = UC.get_app(path2, xfile2, xinfo2)
 
-    relanalysis = RelationalAnalysis(app1, app2)
+    relanalysis = RelationalAnalysis(
+        app1, app2, faddrs1=xfunctions1, faddrs2=xfunctions2)
 
     print(relanalysis.report(showfunctions, showinstructions))
 

@@ -200,7 +200,8 @@ def simulate_mips_function(
                 simstate.set_register(e.iaddr, "a3", SV.simZero)
 
                 msg = stub.simulate(e.iaddr, simstate)
-                simstate.trace.add(" ".ljust(15) + "syscall:" + syscall + ": " + msg)
+                simstate.trace.add(
+                    " ".ljust(15) + "syscall:" + syscall + ": " + msg)
                 simstate.increment_programcounter()
             else:
                 print(str(simstate.trace))
@@ -298,6 +299,9 @@ def simulate_mips_function(
 
     print("\n\nSimulation trace")
     print(str(simstate.trace))
+
+    with open("simstackmemory.json", "w") as fp:
+        json.dump(simstate.stackmem.jsonval(), fp, indent=3)
 
     print("\n\nSimulation state")
     print("=" * 80)
