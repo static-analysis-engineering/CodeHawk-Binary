@@ -67,5 +67,8 @@ class ARMLoadCoprocessor(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[3])]
 
+    def is_load_instruction(self, xdata: InstrXData) -> bool:
+        return True
+
     def annotation(self, xdata: InstrXData) -> str:
         return "load coprocessor"

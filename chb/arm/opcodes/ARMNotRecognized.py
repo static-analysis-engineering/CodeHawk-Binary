@@ -56,7 +56,7 @@ class ARMNotRecognized(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(3, 0, "NotRecognized")
+        # self.check_key(3, 0, "NotRecognized")
 
     @property
     def operands(self) -> List[ARMOperand]:

@@ -33,6 +33,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
+from chb.invariants.XXpr import XXpr
+
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
@@ -66,6 +68,12 @@ class ARMLoadRegisterDual(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 4]]
+
+    def is_load_instruction(self, xdata: InstrXData) -> bool:
+        return True
+
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
+        return [xdata.xprs[1], xdata.xprs[3]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vvxxxx .

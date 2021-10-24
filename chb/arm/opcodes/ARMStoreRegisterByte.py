@@ -65,6 +65,9 @@ class ARMStoreRegisterByte(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 2]]
 
+    def is_store_instruction(self, xdata: InstrXData) -> bool:
+        return True
+
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .
 

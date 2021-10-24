@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 
 @armregistry.register_tag("VCMPE.F64", ARMOpcode)
 @armregistry.register_tag("VCMP.F64", ARMOpcode)
+@armregistry.register_tag("VCMPE", ARMOpcode)
 @armregistry.register_tag("VCMP", ARMOpcode)
 class ARMVCompare(ARMOpcode):
     """Compares two floating-point numbers.
@@ -51,10 +52,10 @@ class ARMVCompare(ARMOpcode):
     VCMP{E}<c>.F32 <Sd> <Sm>
 
     tags[1]: <c>
-    tags[2]: <Td>    data type (F32 or F64)
     args[0]: nan (1 = raise Invalid Operation when one of the operands is NaN)
-    args[1]: index of d in armdictionary
-    args[2]: index of m in armdictionary
+    args[1]: index of destination datatype in armdictionary
+    args[2]: index of d in armdictionary
+    args[3]: index of m in armdictionary
     """
 
     def __init__(
@@ -62,7 +63,7 @@ class ARMVCompare(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(3, 3, "VCompare")
+        self.check_key(2, 4, "VCompare")
 
     @property
     def operands(self) -> List[ARMOperand]:
