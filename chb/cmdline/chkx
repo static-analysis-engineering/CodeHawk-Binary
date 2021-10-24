@@ -131,6 +131,7 @@ import chb.cmdline.commandutil as UCC
 import chb.cmdline.fileformatcmds as FF
 import chb.cmdline.relationalcmds as R
 import chb.cmdline.simulatecmds as S
+import chb.cmdline.reportcmds as REP
 import chb.cmdline.summariescmds as SC
 import chb.cmdline.testcmds as TC
 import chb.util.dotutil as UD
@@ -619,11 +620,27 @@ def parse() -> argparse.Namespace:
         help='maximum search time (in secs)')
     resultscfgpaths.set_defaults(func=UCC.showcfgpaths)
 
-    '''
+    # -- results global variables
+    resultsglobals = resultsparsers.add_parser("globalvars")
+    resultsglobals.add_argument("xname", help="name of executable")
+    resultsglobals.set_defaults(func=UCC.results_globalvars)
+
     # ------------------------------------------------------ report subcommand
     parser_report = subparsers.add_parser('report')
     parser_report.set_defaults(func=reportcommand)
     reportparsers = parser_report.add_subparsers(title='show options')
+
+    # -- report on memory operations --
+    report_memops = reportparsers.add_parser("memops")
+    report_memops.add_argument("xname", help="name of executable")
+    report_memops.set_defaults(func=REP.report_memops)
+
+    # -- report calls
+    report_calls = reportparsers.add_parser("calls")
+    report_calls.add_argument("xname", help="name of executable")
+    report_calls.set_defaults(func=REP.report_calls)
+
+    '''
 
     # -- report application calls --
     report_appcalls = reportparsers.add_parser('appcalls')
@@ -715,6 +732,16 @@ def parse() -> argparse.Namespace:
         "--instructions",
         action="store_true",
         help="show differences at the instruction level")
+    parser_relational.add_argument(
+        "--functions1",
+        nargs="*",
+        default=[],
+        help="restrict relational analysis to these functions for the first binary")
+    parser_relational.add_argument(
+        "--functions2",
+        nargs="*",
+        default=[],
+        help="restrict relational analysis to these functions for the second binary")
     parser_relational.set_defaults(func=R.relational_analysis_cmd)
 
     # ------------------------------------------------------ simulate subcommand
@@ -796,6 +823,12 @@ def parse() -> argparse.Namespace:
         help="number of test (e.g., 001)")
     test_run.set_defaults(func=TC.test_run)
 
+    # --- run-parameterized ---
+    test_run_parameterized = testparsers.add_parser("run_parameterized")
+    test_run_parameterized.add_argument(
+        "name", help="name of parameterized test set")
+    test_run_parameterized.set_defaults(func=TC.test_run_parameterized)
+
     # --- runall ---
     test_runall = testparsers.add_parser("runall")
     test_runall.add_argument(
@@ -823,27 +856,8 @@ def parse() -> argparse.Namespace:
     # --- create ---
     test_create = testparsers.add_parser("create")
     test_create.add_argument(
-        "arch",
-        help="architecture (x86, arm32, or mips32)",
-        choices=["x86", "arm32", "mips32"])
-    test_create.add_argument(
-        "fileformat",
-        help="file format (elf or pe)",
-        choices=["elf", "pe"])
-    test_create.add_argument(
-        "test",
-        help="test number (format xxx, e.g., 003)")
-    test_create.add_argument(
-        "bytestring",
-        help="code bytes in hex (example (x86): c39090)")
-    test_create.add_argument(
-        "--suite",
-        help="suite number (format xxx, e.g., 001)",
-        default="001")
-    test_create.add_argument(
-        "--size",
-        help="size of bytestring (in hex)",
-        default="0x10")
+        "specfile",
+        help="name of json file that defines the test")
     test_create.set_defaults(func=TC.test_create)
 
     # -- parse --
