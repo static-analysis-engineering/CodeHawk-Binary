@@ -130,17 +130,25 @@ class ELFTestCreator(ABC):
 
     def _add_codelines(self, xblock: ET.Element) -> None:
         s = self.bytestring
-        chunks = [s[i:i+8] for i in range(0, len(s), 8)]
-        lines = [chunks[i:i+4] for i in range(0, len(chunks), 4)]
-        address = int("0x1000", 16)
-        for line in lines:
+        if self.size < 16:
             xline = ET.Element("aline")
-            bytestr = " ".join(line) + " "
-            xline.set("bytes", bytestr)
+            xline.set("bytes", self.bytestring)
             xline.set("print", "..")
-            xline.set("va", hex(address))
+            xline.set("va", "0x1000")
+            xline.set("length", str(self.size))
             xblock.append(xline)
-            address += 16
+        else:
+            chunks = [s[i:i+8] for i in range(0, len(s), 8)]
+            lines = [chunks[i:i+4] for i in range(0, len(chunks), 4)]
+            address = int("0x1000", 16)
+            for line in lines:
+                xline = ET.Element("aline")
+                bytestr = " ".join(line) + " "
+                xline.set("bytes", bytestr)
+                xline.set("print", "..")
+                xline.set("va", hex(address))
+                xblock.append(xline)
+                address += 16
 
     def create_elf_section(self) -> str:
         root = UX.get_codehawk_xml_header(self.name, "raw-section")
@@ -153,11 +161,6 @@ class ELFTestCreator(ABC):
         xblock = ET.Element("ablock")
         xblock.set("block", "0")
         self._add_codelines(xblock)
-        # xline = ET.Element("aline")
-        # xline.set("bytes", bytestring)
-        # xline.set("print", "..")
-        # xline.set("va", "0x1000")
-        # xblock.append(xline)
         xhex.append(xblock)
         xsec.append(xhex)
         xsh = self.get_section_header()
