@@ -35,6 +35,7 @@ from chb.app.InstrXData import InstrXData
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
 from chb.arm.ARMOperand import ARMOperand
 
+from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
 import chb.simulation.SimUtil as SU
@@ -118,6 +119,18 @@ class ARMOpcode(ARMDictionaryRecord):
         return []
 
     @property
+    def operandstring(self) -> str:
+        return ""
+
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
+        """Return lhs variables."""
+        return xdata.vars
+
+    def rhs(self, xdata: InstrXData) -> List[XXpr]:
+        """Return rhs expressions."""
+        return xdata.xprs
+
+    @property
     def is_branch_instruction(self) -> bool:
         return self.tags[0] in branch_opcodes
 
@@ -127,8 +140,11 @@ class ARMOpcode(ARMDictionaryRecord):
     def call_target(self, xdata: InstrXData) -> CallTarget:
         raise UF.CHBError("Instruction is not a call: " + str(self))
 
+    def is_load_instruction(self, xdata: InstrXData) -> bool:
+        return False
+
     def is_store_instruction(self, xdata: InstrXData) -> bool:
-        return self.tags[0] in ["STR", "STRB", "STRH"]
+        return False
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         raise SU.CHBSimError(

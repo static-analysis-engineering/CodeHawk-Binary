@@ -43,6 +43,7 @@ from chb.arm.ARMOpcode import ARMOpcode
 from chb.arm.ARMOperand import ARMOperand
 from chb.arm.opcodes.ARMBranch import ARMBranch
 
+from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
@@ -98,6 +99,14 @@ class ARMInstruction(Instruction):
         return self.opcode.mnemonic + self.opcode.mnemonic_extension()
 
     @property
+    def lhs(self) -> Sequence[XVariable]:
+        return self.opcode.lhs(self.xdata)
+
+    @property
+    def rhs(self) -> Sequence[XXpr]:
+        return self.opcode.rhs(self.xdata)
+
+    @property
     def opcodetext(self) -> str:
         try:
             operands = self.operands
@@ -119,12 +128,20 @@ class ARMInstruction(Instruction):
         return self.opcode.operands
 
     @property
+    def operandstring(self) -> str:
+        return self.opcode.operandstring
+
+    @property
     def bytestring(self) -> str:
         return self.armdictionary.read_xml_arm_bytestring(self.xnode)
 
     @property
     def is_call_instruction(self) -> bool:
         return self.opcode.is_call_instruction(self.xdata)
+
+    @property
+    def is_load_instruction(self) -> bool:
+        return self.opcode.is_load_instruction(self.xdata)
 
     @property
     def is_store_instruction(self) -> bool:
@@ -161,9 +178,19 @@ class ARMInstruction(Instruction):
     def strings_referenced(self) -> Sequence[str]:
         return []
 
+    def global_refs(self) -> Tuple[Sequence[XVariable], Sequence[XXpr]]:
+        """Return a pair of lhs, rhs global references"."""
+
+        lhs = self.opcode.lhs(self.xdata)
+        rhs = self.opcode.rhs(self.xdata)
+        return (
+            [x for x in lhs if x.is_global_variable],
+            [x for x in rhs if x.has_global_variables()])
+
     def string_pointer_loaded(self) -> Optional[Tuple[str, str]]:
         return None
 
+    @property
     def call_target(self) -> CallTarget:
         if self.is_call_instruction:
             return self.opcode.call_target(self.xdata)
