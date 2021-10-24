@@ -85,31 +85,6 @@ class ARMAccess(AppAccess[HeaderTy]):
     def call_edges(self) -> Mapping[str, Mapping[str, int]]:
         return {}
 
-    def callgraph(self) -> Callgraph:
-        if self._callgraph is None:
-            cg = Callgraph()
-            for (faddr, instrs) in self.function_calls().items():
-                fname: Optional[str] = None
-                if self.has_function_name(faddr):
-                    fname = self.function_name(faddr)
-                srcnode = mk_app_callgraph_node(faddr, fname)
-                for instr in instrs:
-                    calltgt = instr.call_target()
-                    dstnode = mk_tgt_callgraph_node(instr.iaddr, calltgt)
-                    cg.add_edge(srcnode, dstnode)
-        return cg
-
     @property
     def max_address(self) -> str:
         raise UF.CHBNotImplementedError("ARMAccess", "max_address", "")
-
-    def function_calls(self) -> Dict[str, List[ARMInstruction]]:
-        result: Dict[str, List[ARMInstruction]] = {}
-
-        def f(faddr: str, fn: ARMFunction) -> None:
-            calls = fn.call_instructions()
-            if len(calls) > 0:
-                result[faddr] = calls
-
-        self.iter_functions(f)
-        return result

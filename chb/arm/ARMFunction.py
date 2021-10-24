@@ -130,6 +130,7 @@ class ARMFunction(Function):
                     result[b.baddr] = cast(ARMInstruction, lastinstr)
         return result
 
+    '''
     def call_instructions(self) -> List[ARMInstruction]:
         result: List[ARMInstruction] = []
 
@@ -139,6 +140,7 @@ class ARMFunction(Function):
 
         self.iter_instructions(f)
         return result
+    '''
 
     def set_fnvar_dictionary(self, xnode: ET.Element) -> FnVarDictionary:
         return FnVarDictionary(self, xnode)

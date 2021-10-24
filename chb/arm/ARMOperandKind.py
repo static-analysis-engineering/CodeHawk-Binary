@@ -33,7 +33,7 @@ type arm_operand_kind_t =
   | ARMDMBOption of dmb_option_t                      "d"       2            0
   | ARMReg of arm_reg_t                               "r"       2            0
   | ARMSpecialReg of arm_special_reg_t               "sr"       2            0
-  | ARMFloatingPointRegister of int * int            "afp"      3            2
+  | ARMExtensionReg of arm_extension_reg_type_t * int  "xr"   2            1
   | ARMRegList of arm_reg_t list                      "l"     1+len(regs)    0
   | ARMShiftedReg of                                  "s"       2            1
      arm_reg_t
@@ -176,12 +176,12 @@ class ARMSpecialRegisterOp(ARMOperandKind):
         return self.register
 
 
-@armregistry.register_tag("f", ARMOperandKind)
-class ARMFloatingPointRegisterOp(ARMOperandKind):
-    """Single-precision or double-precision floating point register.
+@armregistry.register_tag("xr", ARMOperandKind)
+class ARMExtensionRegisterOp(ARMOperandKind):
+    """ARM extension register (floating point or vector)
 
-    args[0]: size (32, 64, or 128 bits)
-    args[1]: index register index (0..31)
+    tags[1]: arm_extension_reg_type (S, D, or Q)
+    args[0]: index register index (0..31)
     """
 
     def __init__(
@@ -191,20 +191,32 @@ class ARMFloatingPointRegisterOp(ARMOperandKind):
         ARMOperandKind.__init__(self, d, ixval)
 
     @property
+    def is_single(self) -> bool:
+        return self.tags[1] == "S"
+
+    @property
+    def is_double(self) -> bool:
+        return self.tags[1] == "D"
+
+    @property
+    def is_quad(self) -> bool:
+        return self.tags[1] == "Q"
+
+    @property
     def size(self) -> int:
-        return self.args[0]
+        if self.is_single:
+            return 32
+        elif self.is_double:
+            return 64
+        else:
+            return 128
 
     @property
     def index(self) -> int:
-        return self.args[1]
+        return self.args[0]
 
     def __str__(self) -> str:
-        name = "S"
-        if self.size == 64:
-            name = "D"
-        elif self.size == 128:
-            name = "Q"
-        return name + str(self.index)
+        return self.tags[1] + str(self.index)
 
 
 @armregistry.register_tag("l", ARMOperandKind)
