@@ -45,9 +45,10 @@ if TYPE_CHECKING:
 class ARMVMove(ARMOpcode):
     """Transfers the contents of a floating point register to a core register or v.v.
 
-    VMOV<c> <Sn> <Rt> or VMOV<c> <Rt> <Sn>
+    VMOV<c>.<dt> <Sn> <Rt> or VMOV<c> <Rt> <Sn> or VMOV<c> <S/Qn> #<imm>
 
     tags[1]: <c>
+    tags[2]: <dt>
     args[0]: index of op1 in armdictionary
     args[1]: index of op2 in armdictionary
     """
@@ -57,7 +58,7 @@ class ARMVMove(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 2, "VMove")
+        self.check_key(2, 3, "VMove")
 
     @property
     def operands(self) -> List[ARMOperand]:

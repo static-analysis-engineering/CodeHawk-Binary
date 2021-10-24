@@ -41,19 +41,17 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("STRD", ARMOpcode)
-class ARMStoreRegisterDual(ARMOpcode):
-    """Stores words from two registers into memory.
+@armregistry.register_tag("LDMDB", ARMOpcode)
+class ARMLoadMultipleDecrementBefore(ARMOpcode):
+    """Loads multiple registers from consecutive memory locations.
 
-    STRD<c> <Rt>, <Rt2>, [<Rn>,+/-<Rm>]{!}
+    LDMDB<c> <Rn>, <registers>
 
     tags[1]: <c>
-    args[0]: index of first destination operand in armdictionary
-    args[1]: index of second destination operand in armdictionary
-    args[2]: index of base register in armdictionary
-    args[3]: index of index register / immediate in armdictionary
-    args[4]: index of memory location in armdictionary
-    args[5]: index of second memory location in armdictionary
+    args[0]: writeback
+    args[1]: index of Rn in arm dictionary
+    args[2]: index of registers in arm dictionary
+    args[3]: index of base memory address
     """
 
     def __init__(
@@ -61,28 +59,23 @@ class ARMStoreRegisterDual(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 6, "StoreRegisterDual")
+        self.check_key(2, 4, "LoadMultipleDecrementBefore")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 4]]
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
 
-    def is_store_instruction(self, xdata: InstrXData) -> bool:
+    def is_load_instruction(self, xdata: InstrXData) -> bool:
         return True
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vvxxxx .
+        """xdata format: a:v..x.. .
 
-        vars[0]: lhs1
-        vars[1]: lhs2
-        xprs[0]: value in first register
-        xprs[1]: value in first register (simplified)
-        xprs[2]: value in second register
-        xprs[3]: value in second register (simplified)
+        vars[0..]: lhs variables
+        xprs[0..]: rhs expressions
         """
 
-        lhs1 = str(xdata.vars[0])
-        lhs2 = str(xdata.vars[1])
-        rhs = str(xdata.xprs[1])
-        rhs2 = str(xdata.xprs[3])
-        return lhs1 + " := " + rhs + "; " + lhs2 + " := " + rhs2
+        return (
+            '; '.join(str(v)
+                      + " := "
+                      + str(x) for (v, x) in zip(xdata.vars, xdata.xprs)))

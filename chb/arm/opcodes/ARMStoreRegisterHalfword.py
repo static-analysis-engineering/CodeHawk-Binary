@@ -66,6 +66,9 @@ class ARMStoreRegisterHalfword(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1: -1]]
 
+    def is_store_instruction(self, xdata: InstrXData) -> bool:
+        return True
+
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .
 

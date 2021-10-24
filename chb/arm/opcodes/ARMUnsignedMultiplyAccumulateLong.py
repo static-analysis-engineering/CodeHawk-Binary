@@ -41,19 +41,18 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("STRD", ARMOpcode)
-class ARMStoreRegisterDual(ARMOpcode):
-    """Stores words from two registers into memory.
+@armregistry.register_tag("UMLAL", ARMOpcode)
+class ARMUnsignedMultiplyAccumulateLong(ARMOpcode):
+    """Multiplies two unsigned 32-bit signed values and accumulates in a 64-bit result
 
-    STRD<c> <Rt>, <Rt2>, [<Rn>,+/-<Rm>]{!}
+    UMLAL{S}<c> <RdLo>, <RdHi>, <Rn>, <Rm>
 
     tags[1]: <c>
-    args[0]: index of first destination operand in armdictionary
-    args[1]: index of second destination operand in armdictionary
-    args[2]: index of base register in armdictionary
-    args[3]: index of index register / immediate in armdictionary
-    args[4]: index of memory location in armdictionary
-    args[5]: index of second memory location in armdictionary
+    args[0]: flags are set
+    args[1]: index of RdLo in armdictionary
+    args[2]: index of RdHi in armdictionary
+    args[3]: index of Rn in armdictionary
+    args[4]: index of Rm in armdictionary
     """
 
     def __init__(
@@ -61,28 +60,26 @@ class ARMStoreRegisterDual(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 6, "StoreRegisterDual")
+        self.check_key(2, 5, "UnsignedMultiplyAccumulateLong")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 4]]
-
-    def is_store_instruction(self, xdata: InstrXData) -> bool:
-        return True
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vvxxxx .
+        """xdata format: a:vxxxx
 
-        vars[0]: lhs1
-        vars[1]: lhs2
-        xprs[0]: value in first register
-        xprs[1]: value in first register (simplified)
-        xprs[2]: value in second register
-        xprs[3]: value in second register (simplified)
+        vars[0]: lhslo
+        vars[1]: lhshi
+        xprs[0]: rhs1
+        xprs[1]: rhs2
+        xprs[2]: (rhs1 * rhs2)
+        xprs[3]: (rhs1 * rhs2)
         """
 
-        lhs1 = str(xdata.vars[0])
-        lhs2 = str(xdata.vars[1])
-        rhs = str(xdata.xprs[1])
-        rhs2 = str(xdata.xprs[3])
-        return lhs1 + " := " + rhs + "; " + lhs2 + " := " + rhs2
+        lhslo = str(xdata.vars[0])
+        lhshi = str(xdata.vars[1])
+        result = xdata.xprs[2]
+        rresult = xdata.xprs[3]
+        xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
+        return "(" + lhslo + "," + lhshi + ")" + " := " + xresult

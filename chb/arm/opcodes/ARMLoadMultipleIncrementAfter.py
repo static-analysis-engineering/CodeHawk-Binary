@@ -65,10 +65,17 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:]]
 
-    def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
+    def is_load_instruction(self, xdata: InstrXData) -> bool:
+        return True
 
-        vars[0..n]: lhs variables
+    def annotation(self, xdata: InstrXData) -> str:
+        """xdata format: a:v..x.. .
+
+        vars[0..]: lhs variables
+        xprs[0..]: rhs expressions
         """
 
-        return '; '.join(str(v) + " := ?" for v in xdata.vars)
+        return (
+            '; '.join(str(v)
+                      + " := "
+                      + str(x) for (v, x) in zip(xdata.vars, xdata.xprs)))

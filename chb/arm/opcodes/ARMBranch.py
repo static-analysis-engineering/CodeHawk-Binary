@@ -27,6 +27,7 @@
 
 from typing import List, Sequence, TYPE_CHECKING
 
+from chb.api.CallTarget import CallTarget
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
@@ -71,6 +72,15 @@ class ARMBranch(ARMOpcode):
             return [xdata.xprs[1], xdata.xprs[0]]
         else:
             return []
+
+    def is_call_instruction(self, xdata: InstrXData) -> bool:
+        return xdata.has_call_target()
+
+    def call_target(self, xdata: InstrXData) -> "CallTarget":
+        if self.is_call_instruction(xdata):
+            return xdata.call_target(self.ixd)
+        else:
+            raise UF.CHBError("Instruction is not a call: " + str(self))
 
     def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
         return xdata.xprs

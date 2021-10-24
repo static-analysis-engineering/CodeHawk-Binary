@@ -65,6 +65,10 @@ class ARMMove(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1: -1]]
 
+    @property
+    def operandstring(self) -> str:
+        return ", ".join(str(op) for op in self.operands)
+
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vx . with optional condition, identified by
         tags[1]: "TC"
