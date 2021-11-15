@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 
 
 @armregistry.register_tag("MOV", ARMOpcode)
+@armregistry.register_tag("MOVW", ARMOpcode)
 class ARMMove(ARMOpcode):
     """Moves a constant or copies a register value to a destination register.
 
@@ -52,6 +53,7 @@ class ARMMove(ARMOpcode):
     args[1]: index of op1 in armdictionary
     args[2]: index of op2 in armdictionary
     args[3]: is-wide (thumb)
+    args[4]: wide
     """
 
     def __init__(
@@ -59,7 +61,11 @@ class ARMMove(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "Move")
+        self.check_key(2, 5, "Move")
+
+    @property
+    def mnemonic(self) -> str:
+        return self.tags[0] + ("W" if self.args[3] == 1 else "")
 
     @property
     def operands(self) -> List[ARMOperand]:
