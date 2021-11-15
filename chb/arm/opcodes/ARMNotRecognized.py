@@ -62,5 +62,9 @@ class ARMNotRecognized(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return []
 
+    @property
+    def unknown_hint(self) -> str:
+        return self.tags[1]
+
     def get_annotation(self, xdata: InstrXData) -> str:
         return "not recognized: " + self.tags[1] + "  " + self.tags[2]

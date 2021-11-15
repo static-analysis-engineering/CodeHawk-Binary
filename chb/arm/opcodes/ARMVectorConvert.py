@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
+@armregistry.register_tag("VCVTR", ARMOpcode)
 @armregistry.register_tag("VCVT", ARMOpcode)
 class ARMVectorConvert(ARMOpcode):
     """Converts between floating point and integer.

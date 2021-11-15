@@ -53,6 +53,7 @@ class ARMSubtract(ARMOpcode):
     args[2]: index of op2 in armdictionary
     args[3]: index of op3 in armdictionary
     args[4]: is-wide (thumb)
+    args[5]: wide
     """
 
     def __init__(
@@ -60,7 +61,7 @@ class ARMSubtract(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "Subtract")
+        self.check_key(2, 6, "Subtract")
 
     @property
     def operands(self) -> List[ARMOperand]:

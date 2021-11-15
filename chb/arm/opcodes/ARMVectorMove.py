@@ -41,15 +41,18 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("MOVW", ARMOpcode)
-class ARMMoveWide(ARMOpcode):
-    """Writes an immediate value to the destination register.
+@armregistry.register_tag("VMOV", ARMOpcode)
+class ARMVectorMove(ARMOpcode):
+    """Transfers a floating point register to a core register or v.v.
 
-    MOVW<c> <Rd>, #<imm16>
+    VMOV<c>.<dt> <Sn> <Rt> or VMOV<c> <Rt> <Sn> or VMOV<c> <S/Qn> #<imm>
 
     tags[1]: <c>
-    args[0]: index of Rd in arm dictionary
-    args[1]: index of imm16 in arm dictionary
+    tags[2]: <dt>
+    args[0]: index of op1 in armdictionary
+    args[1]: index of op2 in armdictionary
+    args[2]: index of op3 in armdictionary (optional)
+    args[3]: index of op4 in armdictionary (optional)
     """
 
     def __init__(
@@ -57,19 +60,27 @@ class ARMMoveWide(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 2, "MoveWide")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vx .
+        """xdata format: a:vxx . with optional condition, identified by
+        tags[1]: "TC"
 
         vars[0]: lhs
-        xprs[1]: rhs
+        xprs[0]: rhs
+        xprs[1]: condition (if flagged by tags[1])
         """
 
         lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[0])
-        return lhs + " := " + rhs
+        rhs = str(xdata.xprs[1])
+        assignment = lhs + " := " + rhs
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
