@@ -77,6 +77,10 @@ class InstructionRelationalAnalysis:
         return self.app1.header.is_big_endian == self.app2.header.is_big_endian
 
     @property
+    def same_address(self) -> bool:
+        return self.is_mapped and self.instr1.iaddr == self.instr2.iaddr
+
+    @property
     def is_md5_equal(self) -> bool:
         if self.is_mapped:
             if self.same_endianness:

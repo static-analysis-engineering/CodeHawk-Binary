@@ -227,7 +227,7 @@ class FunctionRelationalAnalysis:
                 return False
 
             else:
-                print("Differences in block addresses: "  + ", ".join(bdiff))
+                print("Differences in block addresses: " + ", ".join(bdiff))
                 return False
 
         return False
@@ -284,6 +284,17 @@ class FunctionRelationalAnalysis:
             if not self.block_analyses[baddr].is_md5_equal:
                 result.append(baddr)
         return result
+
+    def instructions_changed(self) -> int:
+        """Return the number of instructions changed in this function."""
+
+        total: int = 0
+        if self.is_structurally_equivalent:
+            for (baddr1, baddr2) in self.block_mapping.items():
+                blra = self.block_analyses[baddr1]
+                if not blra.is_md5_equal:
+                    total += len(blra.instrs_changed())
+        return total
 
     def report(self, showinstructions: bool) -> str:
         lines: List[str] = []

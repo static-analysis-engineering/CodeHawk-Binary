@@ -53,6 +53,7 @@ class BlockRelationalAnalysis:
         self._b1 = b1
         self._b2 = b2
         self._instrmapping: Dict[str, str] = {}
+        self._revinstrmapping: Dict[str, str] = {}
         self._instranalyses: Dict[str, InstructionRelationalAnalysis] = {}
         self._instrbytes: Dict[str, Tuple[List[str], List[str]]] = {}
 
@@ -102,6 +103,12 @@ class BlockRelationalAnalysis:
             self.match_instructions(mapping)
         return self._instrmapping
 
+    @property
+    def rev_instr_mapping(self) -> Mapping[str, str]:
+        if len(self._revinstrmapping) == 0:
+            mapping = self.instr_mapping
+        return self._revinstrmapping
+
     def levenshtein_distance(self) -> List[Tuple[Optional[int], Optional[int]]]:
         s1 = [i.bytestring for (a, i) in sorted(self.b1.instructions.items())]
         s2 = [i.bytestring for (a, i) in sorted(self.b2.instructions.items())]
@@ -114,6 +121,7 @@ class BlockRelationalAnalysis:
         for (x, y) in mapping:
             if x is not None and y is not None:
                 self._instrmapping[b1addrs[x]] = b2addrs[y]
+                self._revinstrmapping[b2addrs[y]] = b1addrs[x]
 
     @property
     def instr_analyses(self) -> Mapping[str, InstructionRelationalAnalysis]:
@@ -150,8 +158,12 @@ class BlockRelationalAnalysis:
         lines: List[str] = []
         for iaddr in self.instr_analyses:
             ira = self.instr_analyses[iaddr]
-            if not ira.is_md5_equal or ira.has_different_annotation:
+            if (
+                    not ira.is_md5_equal
+                    or ira.has_different_annotation
+                    or (not ira.same_address)):
                 if ira.is_mapped:
+                    moved = "" if ira.same_address else " (moved)"
                     b1 = ira.instr1.bytestring
                     if self.same_endianness:
                         b2 = ira.instr2.bytestring
@@ -170,8 +182,10 @@ class BlockRelationalAnalysis:
                         + "  "
                         + b2
                         + "  "
-                        + str(ira.instr2))
+                        + str(ira.instr2)
+                        + moved)
                     lines.append("")
+
                 else:
                     b1 = ira.instr1.bytestring
                     lines.append(
@@ -183,4 +197,14 @@ class BlockRelationalAnalysis:
                         + str(ira.instr1))
                     lines.append("  P: not mapped")
                     lines.append("")
+
+        for iaddr2 in self.b2.instructions:
+            if iaddr2 not in self.rev_instr_mapping:
+                b2instr = self.b2.instructions[iaddr2]
+                b2bytes = b2instr.bytestring
+                lines.append("  V: not mapped")
+                lines.append(
+                    "  P:" + iaddr2 + "  " + b2bytes + "  " + str(b2instr))
+                lines.append("")
+
         return "\n".join(lines)
