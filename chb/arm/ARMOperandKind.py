@@ -32,9 +32,15 @@ Corresponds to arm_operand_kind_t in bchlibarm32/BCHARMTypes
 type arm_operand_kind_t =
   | ARMDMBOption of dmb_option_t                      "d"       2            0
   | ARMReg of arm_reg_t                               "r"       2            0
+  | ARMWritebackReg of bool * arm_reg_t * int option "wr"       2            2
   | ARMSpecialReg of arm_special_reg_t               "sr"       2            0
-  | ARMExtensionReg of arm_extension_reg_type_t * int  "xr"   2            1
+  | ARMExtensionReg of arm_extension_register_t      "xr"       1            1
+  | ARMExtensionRegElement of
+       arm_extension_register_element_t              "xre"      1            1
   | ARMRegList of arm_reg_t list                      "l"     1+len(regs)    0
+  | ARMExtensionRegList of
+       arm_extension_register_list_t                 "xl"       1            1
+  | ARMSIMDList of arm_simd_list_element_t list     "simdl"     1           len
   | ARMShiftedReg of                                  "s"       2            1
      arm_reg_t
      * register_shift_rotate_t
@@ -52,6 +58,11 @@ type arm_operand_kind_t =
       * bool (* isadd *)
       * bool (* iswback *)
       * bool (* isindex *)
+  | ARMSIMDAddress of                                "simda"    2            2
+      arm_reg_t  (* base register *)
+      * int      (* alignment *)
+      * arm_simd_writeback_t (* writeback mode *)
+  | ARMFPConstant of float                            "c"       2            0
 """
 
 from typing import List, TYPE_CHECKING
@@ -64,9 +75,11 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.app.BDictionary import BDictionary, AsmAddress
+    from chb.app.ARMExtensionRegister import ARMExtensionRegister
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMMemoryOffset import ARMMemoryOffset
     from chb.arm.ARMShiftRotate import ARMShiftRotate
+    from chb.arm.ARMSIMD import ARMSIMDWriteback, ARMSIMDListElement
 
 
 class ARMOperandKind(ARMDictionaryRecord):
@@ -191,16 +204,20 @@ class ARMExtensionRegisterOp(ARMOperandKind):
         ARMOperandKind.__init__(self, d, ixval)
 
     @property
+    def xregister(self) -> "ARMExtensionRegister":
+        return self.bd.arm_extension_register(self.args[0])
+
+    @property
     def is_single(self) -> bool:
-        return self.tags[1] == "S"
+        return self.xregister.is_single
 
     @property
     def is_double(self) -> bool:
-        return self.tags[1] == "D"
+        return self.xregister.is_double
 
     @property
     def is_quad(self) -> bool:
-        return self.tags[1] == "Q"
+        return self.xregister.is_quad
 
     @property
     def size(self) -> int:
@@ -213,10 +230,10 @@ class ARMExtensionRegisterOp(ARMOperandKind):
 
     @property
     def index(self) -> int:
-        return self.args[0]
+        return self.xregister.regindex
 
     def __str__(self) -> str:
-        return self.tags[1] + str(self.index)
+        return str(self.xregister)
 
 
 @armregistry.register_tag("l", ARMOperandKind)
@@ -263,17 +280,42 @@ class ARMShiftedRegisterOp(ARMOperandKind):
         return self.armd.arm_register_shift(self.args[0])
 
     def __str__(self) -> str:
-        return self.register + "," + str(self.shift_rotate)
+        srt = str(self.shift_rotate)
+        if srt == "":
+            return self.register
+        else:
+            return self.register + "," + srt
 
 
 @armregistry.register_tag("b", ARMOperandKind)
 class ARMRegBitSequenceOp(ARMOperandKind):
+    """Sequence of bits in a register value.
+
+    tags[1]: name of register
+    args[0]: position of least significant bit
+    args[1]: width of the bit sequence
+    """
 
     def __init__(
             self,
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def register(self) -> str:
+        return self.tags[1]
+
+    @property
+    def lsb(self) -> int:
+        return self.args[0]
+
+    @property
+    def width(self) -> int:
+        return self.args[1]
+
+    def __str__(self) -> str:
+        return self.register + ", #" + str(self.lsb) + ", #" + str(self.width)
 
 
 @armregistry.register_tag("a", ARMOperandKind)
@@ -405,7 +447,7 @@ class ARMImmediateOp(ARMOperandKind):
         return True
 
     def __str__(self) -> str:
-        return hex(self.value)
+        return "#" + hex(self.value)
 
 
 @armregistry.register_tag("x", ARMOperandKind)
@@ -440,3 +482,53 @@ class ARMDMBOption(ARMOperandKind):
 
     def __str__(self) -> str:
         return self.tags[1]
+
+
+@armregistry.register_tag("simdl", ARMOperandKind)
+class ARMSIMDList(ARMOperandKind):
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def elements(self) -> List["ARMSIMDListElement"]:
+        return [self.armd.arm_simd_list_element(i) for i in self.args]
+
+    def __str__(self) -> str:
+        return "{" + ", ".join(str(e) for e in self.elements) + "}"
+
+
+@armregistry.register_tag("simda", ARMOperandKind)
+class ARMSIMDAddress(ARMOperandKind):
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def baseregister(self) -> str:
+        return self.tags[1]
+
+    @property
+    def alignment(self) -> int:
+        return self.args[0]
+
+    @property
+    def writeback(self) -> "ARMSIMDWriteback":
+        return self.armd.arm_simd_writeback(self.args[1])
+
+    def __str__(self) -> str:
+        wb = self.writeback
+        palign = "" if self.alignment == 1 else ":" + str(self.alignment)
+        pbase = self.baseregister
+        if wb.is_no_writeback:
+            return "[" + pbase + palign + "]"
+        elif wb.is_bytes_transferred:
+            return "[" + pbase + palign + "]!"
+        else:
+            return "[" + pbase + palign + "]," + str(wb)

@@ -123,4 +123,8 @@ class ARMShiftedIndexOffset(ARMMemoryOffset):
         return self.args[1]
 
     def __str__(self) -> str:
-        return self.register + "," + str(self.shift_rotate)
+        srt = str(self.shift_rotate)
+        if srt == "":
+            return self.register
+        else:
+            return self.register + "," + srt

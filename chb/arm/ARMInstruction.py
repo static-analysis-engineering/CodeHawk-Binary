@@ -109,8 +109,7 @@ class ARMInstruction(Instruction):
     @property
     def opcodetext(self) -> str:
         try:
-            operands = self.operands
-            return self.mnemonic.ljust(12) + ",".join([str(op) for op in operands])
+            return self.mnemonic.ljust(15) + self.operandstring
         except IT.IndexedTableError as e:
             opcode = self.armdictionary.read_xml_arm_opcode(self.xnode)
             raise UF.CHBError(
