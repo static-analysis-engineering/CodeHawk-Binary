@@ -193,6 +193,9 @@ class RelationalAnalysis:
         fnotfound: List[str] = []  # not found in patched version
         fnotmapped: List[str] = []  # not found in original version
 
+        totalinstrs: int = 0
+        totalblocks: int = 0
+
         for faddr in self.functions_changed():
             if faddr in self.function_mapping:
                 fra = self.function_analyses[faddr]
@@ -207,7 +210,9 @@ class RelationalAnalysis:
                 if fra.is_cfg_isomorphic:
                     streq = "yes"
                     blockschanged = len(fra.blocks_changed())
+                    totalinstrs += fra.instructions_changed()
                     allblocks = len(fra.basic_blocks1)
+                    totalblocks += blockschanged
                     blchg = str(blockschanged) + "/" + str(allblocks)
                 else:
                     streq = "no"
@@ -221,6 +226,10 @@ class RelationalAnalysis:
                     + blchg.ljust(12))
             else:
                 fnotfound.append(faddr)
+
+        lines.append("\nTotal blocks changed: " + str(totalblocks))
+        lines.append("Total instructions changed: " + str(totalinstrs))
+        lines.append("")
 
         if len(self.function_mapping) < len(self.faddrs2):
             for faddr2 in sorted(self.faddrs2):
