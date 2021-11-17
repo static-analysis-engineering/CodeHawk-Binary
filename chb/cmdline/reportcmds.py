@@ -53,7 +53,7 @@ def report_calls(args: argparse.Namespace) -> NoReturn:
     xinfo.load(path, xfile)
 
     app = UC.get_app(path, xfile, xinfo)
-    
+
     calls = app.call_instructions()
     calllist: List[Tuple[str, str]] = []
 
@@ -70,11 +70,9 @@ def report_calls(args: argparse.Namespace) -> NoReturn:
     for (c, faddr) in sorted(calllist):
         print(faddr.ljust(12) + c)
 
-
     exit(0)
 
 
-    
 def report_memops(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -109,6 +107,7 @@ def report_memops(args: argparse.Namespace) -> NoReturn:
         loadstats[faddr] = (v[0] + 1, v[1] + 1)
 
     loadxrefs: Dict[str, List[str]] = {}
+
     def add_load_xref(gv: str, faddr: str) -> None:
         loadxrefs.setdefault(gv, [])
         loadxrefs[gv].append(faddr)
@@ -139,6 +138,7 @@ def report_memops(args: argparse.Namespace) -> NoReturn:
         storestats[faddr] = (v[0] + 1, v[1] + 1)
 
     storexrefs: Dict[str, List[str]] = {}
+
     def add_store_xref(gv: str, faddr: str) -> None:
         storexrefs.setdefault(gv, [])
         storexrefs[gv].append(faddr)
@@ -179,11 +179,19 @@ def report_memops(args: argparse.Namespace) -> NoReturn:
         fknown = loadstats[faddr][1]
         loadtotal += ftotal
         loadknown += fknown
-        print(faddr + ": " + str(fknown).rjust(4) + " / " + str(ftotal).ljust(4))
+        print(
+            faddr + ": " + str(fknown).rjust(4) + " / " + str(ftotal).ljust(4))
 
     perc = (loadknown / loadtotal) * 100
     fperc = "{:.2f}".format(perc)
-    print("\nTotal: " + str(loadknown) + " / " + str(loadtotal) + " (" + fperc + "%)")
+    print(
+        "\nTotal: "
+        + str(loadknown)
+        + " / "
+        + str(loadtotal)
+        + " ("
+        + fperc
+        + "%)")
 
     print("\nStore statistics")
     print("------------------")
@@ -194,9 +202,17 @@ def report_memops(args: argparse.Namespace) -> NoReturn:
         fknown = storestats[faddr][1]
         storetotal += ftotal
         storeknown += fknown
-        print(faddr + ": " + str(fknown).rjust(4) + " / " + str(ftotal).ljust(4))
+        print(
+            faddr + ": " + str(fknown).rjust(4) + " / " + str(ftotal).ljust(4))
 
     perc = (storeknown / storetotal) * 100
     fperc = "{:.2f}".format(perc)
-    print("\nTotal: " + str(storeknown) + " / " + str(storetotal) + " (" + fperc + "%)")
+    print(
+        "\nTotal: "
+        + str(storeknown)
+        + " / "
+        + str(storetotal)
+        + " ("
+        + fperc
+        + "%)")
     exit(0)
