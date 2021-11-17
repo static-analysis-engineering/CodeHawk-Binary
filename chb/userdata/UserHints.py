@@ -932,8 +932,10 @@ class UserHints:
                         addr = definednames.get_unique_address(name)
                         fxsummaries[addr] = fsummaries[name]
                     else:
-                        raise UF.CHBError(
-                            "No unique address found for function name "
+                        print(
+                            "Skipping function summary for "
+                            + name
+                            + ", because no unique address found for "
                             + name
                             + " in userdata: "
                             + str(definednames.namecount(name))
