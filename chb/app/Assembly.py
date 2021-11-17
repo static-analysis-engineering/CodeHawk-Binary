@@ -31,7 +31,7 @@
 import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Mapping, Optional, TYPE_CHECKING
+from typing import Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
@@ -76,6 +76,25 @@ class Assembly(ABC):
     @abstractmethod
     def instructions(self) -> Mapping[str, AssemblyInstruction]:
         ...
+
+    @property
+    def unknowns(self) -> int:
+        return len(self.unknown_instructions)
+
+    @property
+    def unknown_instructions(self) -> Sequence[AssemblyInstruction]:
+        result: List[AssemblyInstruction] = []
+        for instr in self.instructions.values():
+            if instr.mnemonic == "unknown":
+                result.append(instr)
+        return result
+
+    def opcode_distribution(self) -> Dict[str, int]:
+        result: Dict[str, int] = {}
+        for instr in self.instructions.values():
+            result.setdefault(instr.mnemonic, 0)
+            result[instr.mnemonic] += 1
+        return result
 
     def __str__(self) -> str:
         lines: List[str] = []

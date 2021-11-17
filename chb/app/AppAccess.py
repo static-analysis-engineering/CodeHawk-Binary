@@ -138,6 +138,18 @@ class AppAccess(ABC, Generic[HeaderTy]):
     def pe(self) -> bool:
         return self._header_ty == PEHeader
 
+    @property
+    def is_mips(self) -> bool:
+        return False
+
+    @property
+    def is_arm(self) -> bool:
+        return False
+
+    @property
+    def is_x86(self) -> bool:
+        return False
+
     # Dictionaries  ------------------------------------------------------------
 
     @property
