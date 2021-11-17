@@ -48,7 +48,7 @@ class ARMVMultiply(ARMOpcode):
     VMUL<c>.<dt> <S/Dd>, <S/Dn>, <S/Dm>
 
     tags[1]: <c>
-    args[1]: index of destination datatype in armdictionary
+    args[0]: index of destination datatype in armdictionary
     args[1]: index of S/Dd in armdictionary
     args[2]: index of S/Dn in armdictionary
     args[3]: index of S/Dm in armdictionary
@@ -64,6 +64,10 @@ class ARMVMultiply(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
+
+    @property
+    def mnemonic(self) -> str:
+        return self.tags[0] + str(self.armd.arm_vfp_datatype(self.args[0]))
 
     def annotation(self, xdata: InstrXData) -> str:
         return "vector multiply"

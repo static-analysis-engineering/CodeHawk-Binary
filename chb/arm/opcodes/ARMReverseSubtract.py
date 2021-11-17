@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 
 @armregistry.register_tag("RSB", ARMOpcode)
 class ARMReverseSubtract(ARMOpcode):
-    """Subtracts an immediate or register value from a register and saves the result in a register.
+    """Subtracts a value from a register and saves the result in a register.
 
     SUB{S}<c> <Rd>, <Rn>, <Rm>{, <shift>}
 
@@ -65,6 +65,18 @@ class ARMReverseSubtract(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+
+    @property
+    def mnemonic(self) -> str:
+        mnem = self.tags[0]
+        if self.is_writeback:
+            return mnem + "S"
+        else:
+            return mnem
+
+    @property
+    def is_writeback(self) -> bool:
+        return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxxxx .

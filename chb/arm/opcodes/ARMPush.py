@@ -62,7 +62,11 @@ class ARMPush(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[: -1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
+
+    @property
+    def operandstring(self) -> str:
+        return str(self.operands[1])
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:v...x...
@@ -73,5 +77,6 @@ class ARMPush(ARMOpcode):
 
         vars = xdata.vars
         xprs = xdata.xprs
-        assigns = '; '.join(str(v) + " := " + str(x) for (v, x) in zip(vars, xprs))
+        assigns = '; '.join(
+            str(v) + " := " + str(x) for (v, x) in zip(vars, xprs))
         return assigns

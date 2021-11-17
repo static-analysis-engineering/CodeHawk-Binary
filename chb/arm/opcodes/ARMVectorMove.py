@@ -63,24 +63,9 @@ class ARMVectorMove(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
+        return [
+            self.armd.arm_operand(i)
+            for i in self.args[1:len(self.args)]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx . with optional condition, identified by
-        tags[1]: "TC"
-
-        vars[0]: lhs
-        xprs[0]: rhs
-        xprs[1]: condition (if flagged by tags[1])
-        """
-
-        lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[1])
-        assignment = lhs + " := " + rhs
-        if xdata.has_unknown_instruction_condition():
-            return "if ? then " + assignment
-        elif xdata.has_instruction_condition():
-            c = str(xdata.xprs[1])
-            return "if " + c + " then " + assignment
-        else:
-            return assignment
+        return "pending"

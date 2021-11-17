@@ -64,6 +64,14 @@ class ARMArithmeticShiftRight(ARMOpcode):
         self.check_key(2, 5, "ArithmeticShiftRight")
 
     @property
+    def mnemonic(self) -> str:
+        mnem = self.tags[0]
+        if self.args[0] == 1:
+            return mnem + "S"
+        else:
+            return mnem
+
+    @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 

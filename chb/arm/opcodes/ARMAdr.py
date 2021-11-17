@@ -49,8 +49,8 @@ class ARMAdr(ARMOpcode):
     and writes the result to the destination register.
 
     tags[1]: <c>
-    args[0]: index of Rd in arm dictionary
-    args[1]: index of label in arm dictionary
+    args[0]: index of Rd in armdictionary
+    args[1]: index of label in armdictionary
     """
 
     def __init__(
@@ -62,7 +62,7 @@ class ARMAdr(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:]]
+        return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vx .

@@ -40,10 +40,10 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
-
+@armregistry.register_tag("SUBW", ARMOpcode)
 @armregistry.register_tag("SUB", ARMOpcode)
 class ARMSubtract(ARMOpcode):
-    """Subtracts an immediate or register value from a register and saves the result in a register.
+    """Subtracts a value from a register and saves the result in a register.
 
     SUB{S}<c> <Rd>, <Rn>, <Rm>{, <shift>}
 
@@ -65,7 +65,31 @@ class ARMSubtract(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+        return [self.armd.arm_operand(i) for i in self.args[1: -2]]
+
+    @property
+    def mnemonic(self) -> str:
+        mnem = self.tags[0]
+        if self.is_writeback:
+            mnem = mnem + "S"
+        if self.is_thumb_wide:
+            return mnem + ".W"
+        elif self.is_wide:
+            return mnem + "W"
+        else:
+            return mnem
+
+    @property
+    def is_thumb_wide(self) -> bool:
+        return self.args[4] == 1
+
+    @property
+    def is_wide(self) -> bool:
+        return self.args[5] == 1
+
+    @property
+    def is_writeback(self) -> bool:
+        return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxxxxx .

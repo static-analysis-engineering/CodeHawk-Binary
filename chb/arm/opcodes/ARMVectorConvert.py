@@ -65,6 +65,12 @@ class ARMVectorConvert(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [3, 4]]
 
+    @property
+    def mnemonic(self) -> str:
+        dt1 = str(self.armd.arm_vfp_datatype(self.args[1]))
+        dt2 = str(self.armd.arm_vfp_datatype(self.args[2]))
+        return self.tags[0] + dt1 + dt2
+
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .
 
