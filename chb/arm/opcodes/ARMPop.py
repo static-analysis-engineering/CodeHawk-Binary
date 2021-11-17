@@ -64,6 +64,10 @@ class ARMPop(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
+    @property
+    def operandstring(self) -> str:
+        return str(self.operands[1])
+
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:v...x... .
 

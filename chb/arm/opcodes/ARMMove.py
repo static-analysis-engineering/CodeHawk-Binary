@@ -69,7 +69,7 @@ class ARMMove(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+        return [self.armd.arm_operand(i) for i in self.args[1: -2]]
 
     @property
     def operandstring(self) -> str:

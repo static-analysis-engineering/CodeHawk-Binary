@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 
 @armregistry.register_tag("RSC", ARMOpcode)
 class ARMReverseSubtractCarry(ARMOpcode):
-    """Subtracts an immediate or register value from a register and saves the result in a register.
+    """Subtracts a value from a register and saves the result in a register.
 
     RSC{S}<c> <Rd>, <Rn>, <Rm>{, <shift>}
 
@@ -62,8 +62,20 @@ class ARMReverseSubtractCarry(ARMOpcode):
         self.check_key(2, 4, "ReverseSubtractCarry")
 
     @property
+    def mnemonic(self) -> str:
+        mnem = self.tags[0]
+        if self.is_writeback:
+            return mnem + "S"
+        else:
+            return mnem
+
+    @property
+    def is_writeback(self) -> bool:
+        return self.args[0] == 1
+
+    @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

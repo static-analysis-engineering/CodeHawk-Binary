@@ -65,6 +65,18 @@ class ARMLogicalShiftRight(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 
+    @property
+    def mnemonic(self) -> str:
+        mnem = self.tags[0]
+        if self.is_writeback:
+            return mnem + "S"
+        else:
+            return mnem
+
+    @property
+    def is_writeback(self) -> bool:
+        return self.args[0] == 1
+
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxxx .
 
