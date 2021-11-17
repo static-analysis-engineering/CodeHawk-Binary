@@ -320,6 +320,11 @@ def has_analysis_results(path: str, xfile: str) -> bool:
     return os.path.isfile(filename)
 
 
+def has_asm_results(path: str, xfile: str) -> bool:
+    filename = get_arm_asm_filename(path, xfile)
+    return os.path.isfile(filename)
+
+
 def check_analysis_results(path: str, xfile: str) -> None:
     """Raises an exception if analysis results are not present."""
     filename = get_resultmetrics_filename(path, xfile)
