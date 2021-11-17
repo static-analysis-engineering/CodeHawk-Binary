@@ -120,7 +120,7 @@ class ARMOpcode(ARMDictionaryRecord):
 
     @property
     def operandstring(self) -> str:
-        return ""
+        return ", ".join(str(op) for op in self.operands)
 
     def lhs(self, xdata: InstrXData) -> List[XVariable]:
         """Return lhs variables."""

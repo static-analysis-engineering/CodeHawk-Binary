@@ -42,6 +42,7 @@ import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.arm.ARMAccess import ARMAccess
+    from chb.arm.opcodes.ARMNotRecognized import ARMNotRecognized
     from chb.simulation.SimulationState import SimulationState
 
 
@@ -63,6 +64,12 @@ class ARMAssemblyInstruction(AssemblyInstruction):
     def mnemonic(self) -> str:
         return self.opcode.mnemonic
 
+    def unknown_hint(self) -> str:
+        if self.mnemonic == "unknown":
+            return cast("ARMNotRecognized", self.opcode).unknown_hint
+        else:
+            raise UF.CHBError("Instruction is not an unknown: " + str(self))
+
     @property
     def operand_count(self) -> int:
         return len(self.opcode.operands)
@@ -79,31 +86,6 @@ class ARMAssemblyInstruction(AssemblyInstruction):
                 + str(i)
                 + " operands")
 
-    '''
-    def lw_stack_offset(self) -> Optional[int]:
-        if self.mnemonic == 'lw':
-            lwop = self.operand(2)
-            if lwop.is_mips_indirect_register_with_reg('sp'):
-                return lwop.indirect_register_offset
-        return None
-
-    def loads_program_address(self) -> bool:
-        return (self.mnemonic == 'lw'
-                and self.operand(2).is_mips_indirect_register_with_reg('gp'))
-
-    def loads_stack_value(self) -> bool:
-        return (self.mnemonic == 'lw'
-                and self.operand(2).is_mips_indirect_register_with_reg('sp'))
-
-    def assigns_stack_address(self) -> bool:
-        return (((len(self.opcode.operands) == 3)
-                 and not (str(self.operand(1)) == 'sp')
-                 and (str(self.operand(2)) == 'sp')
-                 and (self.operand(3).is_mips_immediate))
-                or (self.mnemonic == 'move'
-                    and str(self.operand(2)) == 'sp'))
-
-    '''
     def simulate(self, simstate: "SimulationState") -> str:
         try:
             return self.opcode.simulate(self.iaddr, simstate)

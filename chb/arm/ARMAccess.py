@@ -54,6 +54,10 @@ class ARMAccess(AppAccess[HeaderTy]):
         self._callgraph: Optional[Callgraph] = None
 
     @property
+    def is_arm(self) -> bool:
+        return True
+
+    @property
     def armdictionary(self) -> ARMDictionary:
         if self._armd is None:
             x = UF.get_arm_dictionary_xnode(self.path, self.filename)

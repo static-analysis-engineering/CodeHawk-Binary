@@ -39,6 +39,8 @@ from chb.arm.ARMOpcode import ARMOpcode
 from chb.arm.ARMOperand import ARMOperand
 from chb.arm.ARMOperandKind import ARMOperandKind
 from chb.arm.ARMShiftRotate import ARMShiftRotate
+from chb.arm.ARMVfpDatatype import ARMVfpDatatype
+from chb.arm.ARMSIMD import ARMSIMDWriteback, ARMSIMDListElement
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -63,16 +65,22 @@ class ARMDictionary:
             app: "AppAccess",
             xnode: ET.Element) -> None:
         self._app = app
+        self.vfp_datatype_table = IT.IndexedTable("vfp-datatype-table")
         self.register_shift_table = IT.IndexedTable("register-shift-table")
         self.memory_offset_table = IT.IndexedTable("arm-memory-offset-table")
+        self.simd_writeback_table = IT.IndexedTable("arm-simd-writeback-table")
+        self.simd_list_element_table = IT.IndexedTable(
+            "arm-simd-list-element-table")
         self.opkind_table = IT.IndexedTable("arm-opkind-table")
         self.operand_table = IT.IndexedTable("arm-operand-table")
         self.opcode_table = IT.IndexedTable("arm-opcode-table")
         self.bytestring_table = SI.StringIndexedTable("arm-bytestring-table")
-        self.instr_class_table = IT.IndexedTable("arm-instr-class-table")
         self.tables = [
+            self.vfp_datatype_table,
             self.register_shift_table,
             self.memory_offset_table,
+            self.simd_writeback_table,
+            self.simd_list_element_table,
             self.opkind_table,
             self.operand_table,
             self.opcode_table
@@ -93,6 +101,10 @@ class ARMDictionary:
 
     # ------------------ retrieve items from dictionary tables -----------------
 
+    def arm_vfp_datatype(self, ix: int) -> ARMVfpDatatype:
+        return armregistry.mk_instance(
+            self, self.vfp_datatype_table.retrieve(ix), ARMVfpDatatype)
+
     def arm_register_shift(self, ix: int) -> ARMShiftRotate:
         return armregistry.mk_instance(
             self, self.register_shift_table.retrieve(ix), ARMShiftRotate)
@@ -100,6 +112,16 @@ class ARMDictionary:
     def arm_memory_offset(self, ix: int) -> ARMMemoryOffset:
         return armregistry.mk_instance(
             self, self.memory_offset_table.retrieve(ix), ARMMemoryOffset)
+
+    def arm_simd_writeback(self, ix: int) -> ARMSIMDWriteback:
+        return armregistry.mk_instance(
+            self, self.simd_writeback_table.retrieve(ix), ARMSIMDWriteback)
+
+    def arm_simd_list_element(self, ix: int) -> ARMSIMDListElement:
+        return armregistry.mk_instance(
+            self,
+            self.simd_list_element_table.retrieve(ix),
+            ARMSIMDListElement)
 
     def arm_opkind(self, ix: int) -> ARMOperandKind:
         return armregistry.mk_instance(
@@ -146,7 +168,8 @@ class ARMDictionary:
                 t.reset()
                 t.read_xml(xtable, "n")
             else:
-                raise UF.CHBError("Table " + t.name + " not found in armdictionary")
+                raise UF.CHBError(
+                    "Table " + t.name + " not found in armdictionary")
         xstable = xnode.find(self.bytestring_table.name)
         if xstable is not None:
             self.bytestring_table.reset()

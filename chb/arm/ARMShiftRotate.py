@@ -93,7 +93,12 @@ class ARMImmSRT(ARMShiftRotate):
         return self.args[0]
 
     def __str__(self) -> str:
-        return self.shift_rotate_type + " #" + hex(self.shift_amount)
+        srt = self.shift_rotate_type
+        sam = self.shift_amount
+        if srt == "LSL" and sam == 0:
+            return ""
+        else:
+            return srt + " #" + hex(sam)
 
 
 @armregistry.register_tag("r", ARMShiftRotate)
