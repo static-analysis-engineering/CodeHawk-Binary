@@ -31,6 +31,12 @@
 import xml.etree.ElementTree as ET
 
 from chb.app.BDictionaryRecord import bdregistry
+
+from chb.app.ARMExtensionRegister import (
+    ARMExtensionRegister,
+    ARMExtensionRegisterElement,
+    ARMExtensionRegisterReplicatedElement)
+
 from chb.app.Register import Register
 
 import chb.util.fileutil as UF
@@ -68,9 +74,18 @@ class BDictionary:
         self._app = app
         self.string_table = SI.StringIndexedTable('string-table')
         self.address_table = IT.IndexedTable('address-table')
+        self.arm_extension_register_table = IT.IndexedTable(
+            "arm-extension-register-table")
+        self.arm_extension_register_element_table = IT.IndexedTable(
+            "arm-extension-register-element-table")
+        self.arm_extension_register_replicated_element_table = IT.IndexedTable(
+            "arm-extension-register-replicated-element-table")
         self.register_table = IT.IndexedTable('register-table')
         self.tables: List[IT.IndexedTable] = [
             self.address_table,
+            self.arm_extension_register_table,
+            self.arm_extension_register_element_table,
+            self.arm_extension_register_replicated_element_table,
             self.register_table]
         self.initialize(xnode)
 
@@ -85,6 +100,21 @@ class BDictionary:
 
     def address(self, ix: int) -> AsmAddress:
         return AsmAddress(self.address_table.retrieve(ix))
+
+    def arm_extension_register(self, ix: int) -> ARMExtensionRegister:
+        return ARMExtensionRegister(
+            self, self.arm_extension_register_table.retrieve(ix))
+
+    def arm_extension_register_element(
+            self, ix: int) -> ARMExtensionRegisterElement:
+        return ARMExtensionRegisterElement(
+            self, self.arm_extension_register_element_table.retrieve(ix))
+
+    def arm_extension_register_replicated_element(
+            self, ix: int) -> ARMExtensionRegisterReplicatedElement:
+        return ARMExtensionRegisterReplicatedElement(
+            self,
+            self.arm_extension_register_replicated_element_table.retrieve(ix))
 
     def register(self, ix: int) -> Register:
         return bdregistry.mk_instance(
@@ -107,11 +137,14 @@ class BDictionary:
             if xtable is not None:
                 t.read_xml(xtable, "n")
             else:
-                raise UF.CHBError("Error reading table " + t.name)
+                if t.name.startswith("arm") and (not self.app.is_arm):
+                    pass
+                else:
+                    raise UF.CHBError("Error reading table " + t.name)
         self.string_table.reset()
         xstable = xnode.find(self.string_table.name)
         if xstable is not None:
             self.string_table.read_xml(xstable)
         else:
-            raise UF.CHError("Error reading stringtable "
-                             + self.string_table.name)
+            raise UF.CHError(
+                "Error reading stringtable " + self.string_table.name)
