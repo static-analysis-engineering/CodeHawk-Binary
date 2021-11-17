@@ -823,6 +823,26 @@ def parse() -> argparse.Namespace:
         help="number of test (e.g., 001)")
     test_run.set_defaults(func=TC.test_run)
 
+    # --- disassembly ---
+    test_disassembly = testparsers.add_parser("disassembly")
+    test_disassembly.add_argument("name", help="name of json file containing filenames")
+    test_disassembly.add_argument(
+        "--maxp", type=int,
+        help="maximum number of processes",
+        default=1)
+    test_disassembly.add_argument(
+        "--selectors", nargs="*", default=[],
+        help="differentiate results by file selectors")
+    test_disassembly.add_argument(
+        "--redo",
+        action="store_true",
+        help="redo the disassembly of all files")
+    test_disassembly.add_argument(
+        "--redo_if_unknowns",
+        action="store_true",
+        help="redo the disassembly if there are unknown instructions")
+    test_disassembly.set_defaults(func=TC.test_disassembly)
+
     # --- run-parameterized ---
     test_run_parameterized = testparsers.add_parser("run_parameterized")
     test_run_parameterized.add_argument(

@@ -30,8 +30,12 @@ import argparse
 import json
 import os
 import subprocess
+import time
 
-from typing import Any, Dict, List, NoReturn, Optional, Tuple, TYPE_CHECKING
+from contextlib import contextmanager
+from multiprocessing import Pool
+
+from typing import Any, cast, Dict, List, NoReturn, Optional, Tuple, TYPE_CHECKING
 
 import chb.app.AppAccess as AP
 import chb.cmdline.commandutil as UC
@@ -45,6 +49,7 @@ import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.app.AppResultFunctionMetrics import AppResultFunctionMetrics
+    from chb.arm.ARMAssembly import ARMAssemblyInstruction
     from chb.app.Function import Function
 
 
@@ -176,6 +181,115 @@ def test_run_parameterized(args: argparse.Namespace) -> NoReturn:
 
     else:
         print("Parameterized test " + name + " not supported")
+    exit(0)
+
+
+def disassemble_x(filename: str) -> Tuple[str, int]:
+    cmd = ["chkx", "analyze", "-d", filename, "--reset"]
+    result = subprocess.call(cmd, stderr=subprocess.STDOUT)
+    return (filename, result)
+
+
+@contextmanager
+def timing(activity):
+    t0 = time.time()
+    yield
+    print(
+        '\n'
+        + ('=' * 80)
+        + '\nCompleted '
+        + activity
+        + ' in '
+        + str(time.time() - t0)
+        + ' secs'
+        + '\n'
+        + ('=' * 80))
+
+
+def test_disassembly(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    name: str = args.name
+    maxp: int = args.maxp
+    selectors: List[str] = args.selectors
+    redo: bool = args.redo
+    redo_if_unknowns: bool = args.redo_if_unknowns  # not used yet
+
+    results: List[Tuple[str, int]] = []
+
+    if not (os.path.isfile(name)):
+        UC.print_error(
+            "Please specify a json file that lists the binaries included.")
+        exit(1)
+
+    with open(name, "r") as fp:
+        testfiles = json.load(fp)
+
+    disassemblytargets: List[str] = []
+    filenames: List[Tuple[str, str]] = []
+
+    basedir = testfiles["path"]
+    for f in testfiles["files"]:
+        filename = os.path.join(basedir, f["F"])
+        try:
+            (path, xfilename) = UC.get_path_filename(filename)
+        except UF.CHBFileNotFoundError as e:
+            UC.print_error("File " + filename + " not found")
+            exit(1)
+
+        filenames.append((path, xfilename))
+        if redo or (not UF.has_asm_results(path, xfilename)):
+            disassemblytargets.append(filename)
+
+    pool = Pool(maxp)
+    with timing("disassembly"):
+        results = pool.map(disassemble_x, disassemblytargets)
+
+    failures: List[str] = []
+    zero_unknowns: List[str] = []
+    opcode_distribution: Dict[str, int] = {}
+    unknowns: Dict[str, Dict[str, int]] = {}
+
+    for (path, xfile) in filenames:
+        xinfo = XI.XInfo()
+        xinfo.load(path, xfile)
+        app = UC.get_app(path, xfile, xinfo)
+        asm = UC.get_asm(app)
+
+        opcd: Dict[str, int] = asm.opcode_distribution()
+        for (k, v) in opcd.items():
+            opcode_distribution.setdefault(k, 0)
+            opcode_distribution[k] += v
+
+        if xinfo.is_arm:
+            if "unknown" in opcd:
+                for instr in asm.unknown_instructions:
+                    instr = cast("ARMAssemblyInstruction", instr)
+                    if instr.mnemonic == "unknown":
+                        hint = instr.unknown_hint()
+                        unknowns.setdefault(hint, {})
+                        unknowns[hint].setdefault(xfile, 0)
+                        unknowns[hint][xfile] += 1
+
+        print(
+            xfile
+            + ": "
+            + str(len(asm.instructions))
+            + ", "
+            + str(asm.unknowns))
+
+    print("\nOpcode distribution")
+    for (opc, c) in sorted(opcode_distribution.items()):
+        print(str(c).rjust(10) + "  " + opc)
+
+    print("\nUnknown instructions")
+    for (hint, files) in sorted(unknowns.items()):
+        print(hint + " (" + str(sum(files[f] for f in files)) + ")")
+        for (f, c) in sorted(files.items()):
+            print("  " + str(c).rjust(8) + "  " + f)
+
+    print("Disassembled: " + str(len(results)) + " testcases")
+
     exit(0)
 
 
