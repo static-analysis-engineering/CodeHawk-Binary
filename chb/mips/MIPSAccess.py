@@ -57,6 +57,10 @@ class MIPSAccess(AppAccess[HeaderTy]):
         self._maxaddr: Optional[str] = "0x600000"    # for testing purposes
 
     @property
+    def is_mips(self) -> bool:
+        return True
+
+    @property
     def mipsdictionary(self) -> MIPSDictionary:
         if self._mipsd is None:
             x = UF.get_mips_dictionary_xnode(self.path, self.filename)

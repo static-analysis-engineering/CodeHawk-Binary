@@ -53,6 +53,10 @@ class X86Access(AppAccess[HeaderTy]):
         self._functions: Dict[str, X86Function] = {}
 
     @property
+    def is_x86(self) -> bool:
+        return True
+
+    @property
     def x86dictionary(self) -> X86Dictionary:
         if self._x86d is None:
             x = UF.get_x86_dictionary_xnode(self.path, self.filename)
