@@ -92,6 +92,7 @@ from abc import ABC, abstractmethod
 from typing import Any, cast, Dict, List, Optional, Sequence, Tuple, Union
 
 import chb.userdata.btypeutil as UT
+from chb.userdata.UserBType import UserStructBType
 
 import chb.util.fileutil as UF
 import chb.util.xmlutil as UX
@@ -677,16 +678,19 @@ class SectionHeadersHints(HintsEntry):
 class StructsHints(HintsEntry):
     """Map of struct names to struct definitions."""
 
-    def __init__(self, structs: Dict[str, Any]) -> None:
+    def __init__(self, structs: List[Dict[str, Any]]) -> None:
         HintsEntry.__init__(self, "structs")
         self._structs = structs
+        self._structtypes: Dict[str, UserStructBType] = {}
+        self._initialize()
 
     @property
-    def structs(self) -> Dict[str, Any]:
+    def structs(self) -> List[Dict[str, Any]]:
         return self._structs
 
-    def fields(self, name: str) -> List[Dict[str, Any]]:
-        return self.structs[name]["fields"]
+    @property
+    def structtypes(self) -> Dict[str, UserStructBType]:
+        return self._structtypes
 
     def update(self, d: Dict[str, Any]) -> None:
         for name in d:
@@ -696,38 +700,38 @@ class StructsHints(HintsEntry):
     def to_xml(self, node: ET.Element) -> None:
         xstructs = ET.Element(self.name)
         node.append(xstructs)
-        for name in self.structs:
+        for name in self.structtypes:
             xs = ET.Element("struct")
             xstructs.append(xs)
             xs.set("name", name)
 
-    def struct_to_xml(self, node: ET.Element, name: str) -> None:
-        snode = ET.Element("fields")
-        node.append(snode)
-        UT.struct_fields_to_xml(snode, self.fields(name))
-
     def save_struct_files(self, path: str, xfile: str) -> None:
-        for name in self.structs:
+        savedstructs: Dict[str, int] = {}
+        for name in self.structtypes:
             filename = UF.get_user_struct_filename(path, xfile, name)
-            structdef = self.structs[name]
             root = UX.get_codehawk_xml_header(xfile, "struct")
             tree = ET.ElementTree(root)
             snode = ET.Element("struct")
+            self.structtypes[name].to_xml(snode)
             root.append(snode)
             snode.set("name", name)
-            self.struct_to_xml(snode, name)
             with open(filename, "w") as fp:
                 fp.write(UX.doc_to_pretty(tree))
+
+    def _initialize(self) -> None:
+        for s in self._structs:
+            name = s["name"]
+            fields = s["fields"]
+            stype = UT.mk_struct(fields)
+            self._structtypes[name] = stype
+            UT.user_type_store.add_typedef(name, stype)
 
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append("Structs")
         lines.append("=" * 80)
-        for name in sorted(self.structs):
-            lines.append("struct " + name + "{")
-            for field in self.fields(name):
-                lines.append(field["type"] + " " + field["name"] + ";")
-            lines.append("}")
+        for name in sorted(self.structtypes):
+            lines.append(str(self.structtypes[name]))
         return "\n".join(lines)
 
 
@@ -829,7 +833,11 @@ class SymbolicAddressesHints(HintsEntry):
                 xgv.set("name", gvname)
                 ptnode = ET.Element("type")
                 xgv.append(ptnode)
-                UT.mk_user_btype(gvtype).to_xml(ptnode)
+                try:
+                    UT.mk_user_btype(gvtype).to_xml(ptnode)
+                except UF.CHBError as e:
+                    raise UF.CHBError(
+                        "Error in symbolic address for " + gvname + ": " + str(e))
             else:
                 raise UF.CHBError(
                     "Name of type missing from symbolic address: "
@@ -980,7 +988,7 @@ class UserHints:
 
         if "structs" in hints:
             tag = "structs"
-            structs: Dict[str, Any] = hints[tag]
+            structs: List[Dict[str, Any]] = hints[tag]
             if tag in self.userdata:
                 self.userdata[tag].update(structs)
             else:
