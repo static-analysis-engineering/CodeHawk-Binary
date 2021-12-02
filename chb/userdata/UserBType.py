@@ -28,12 +28,46 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Any, Dict, List
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
 
 import chb.util.fileutil as UF
 
 
-class UserBType:
+class UserBTypeStore:
+
+    def __init__(self, namedtypes: Dict[str, int]) -> None:
+        self._basetypes: Dict[str, "UserBType"] = {}
+        self._typedefs: Dict[str, "UserBType"] = {}
+        self._initialize(namedtypes)
+
+    def add_typedef(self, name: str, t: "UserBType") -> None:
+        self._typedefs[name] = t
+
+    def has_named_type(self, name) -> bool:
+        return name in self._basetypes or name in self._typedefs
+
+    def has_size_of(self, name) -> bool:
+        if name in self._basetypes:
+            return True
+        else:
+            return name in self._typedefs and self._typedefs[name].has_size()
+
+    def size_of(self, name: str) -> int:
+        if self.has_size_of(name):
+            if name in self._basetypes:
+                return self._basetypes[name].size
+            else:
+                return self._typedefs[name].size
+        else:
+            raise UF.CHBError("Size of named type: " + name + " not found")
+
+    def _initialize(self, namedtypes) -> None:
+        for (name, size) in namedtypes.items():
+            self._basetypes[name] = UserNamedBType(name, size=size)
+
+
+class UserBType(ABC):
 
     def __init__(self) -> None:
         pass
@@ -54,6 +88,14 @@ class UserBType:
     def is_struct_type(self) -> bool:
         return False
 
+    @property
+    @abstractmethod
+    def size(self) -> int:
+        ...
+
+    def has_size(self) -> bool:
+        return False
+
     def to_xml(self, node: ET.Element) -> None:
         raise UF.CHBError("No implementation for to_xml: " + str(self))
 
@@ -63,12 +105,23 @@ class UserBType:
 
 class UserNamedBType(UserBType):
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, size: Optional[int] = None) -> None:
         self._name = name
+        self._size = size
 
     @property
     def name(self) -> str:
         return self._name
+
+    def has_size(self) -> bool:
+        return self._size is not None
+
+    @property
+    def size(self) -> int:
+        if self._size is not None:
+            return self._size
+        else:
+            raise UF.CHBError("Size not available for " + self.name)
 
     @property
     def is_named_type(self) -> bool:
@@ -93,6 +146,13 @@ class UserPointerBType(UserBType):
     @property
     def is_pointer_type(self) -> bool:
         return True
+
+    def has_size(self) -> bool:
+        return True
+
+    @property
+    def size(self) -> int:
+        return 4
 
     def to_xml(self, node: ET.Element) -> None:
         ptrnode = ET.Element("ptr")
@@ -121,6 +181,13 @@ class UserArrayBType(UserBType):
     def is_array_type(self) -> bool:
         return True
 
+    def has_size(self) -> bool:
+        return self.element_type.has_size()
+
+    @property
+    def size(self) -> int:
+        return self.element_type.size * self.num_elements
+
     def to_xml(self, node: ET.Element) -> None:
         anode = ET.Element("array")
         node.append(anode)
@@ -144,6 +211,21 @@ class UserStructBType(UserBType):
     def is_struct_type(self) -> bool:
         return True
 
+    def has_size(self) -> bool:
+        return True
+
+    @property
+    def size(self) -> int:
+        return self.fields[-1].offset + self.fields[-1].size
+
+    def to_xml(self, node: ET.Element) -> None:
+        ffnode = ET.Element("fields")
+        node.append(ffnode)
+        for fld in self.fields:
+            fnode = ET.Element("field")
+            ffnode.append(fnode)
+            fld.to_xml(fnode)
+
     def __str__(self) -> str:
         lines: List[str] = []
         for f in self.fields:
@@ -157,7 +239,36 @@ class UserStructBFieldInfo:
             self,
             name: str,
             btype: UserBType,
-            offset: int) -> None:
+            offset: int,
+            size: int) -> None:
         self._name = name
         self._btype = btype
         self._offset = offset
+        self._size = size
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def field_type(self) -> "UserBType":
+        return self._btype
+
+    @property
+    def offset(self) -> int:
+        return self._offset
+
+    @property
+    def size(self) -> int:
+        return self._size
+
+    def to_xml(self, node: ET.Element) -> None:
+        node.set("name", self.name)
+        node.set("size", str(self.size))
+        node.set("offset", str(self.offset))
+        tnode = ET.Element("type")
+        node.append(tnode)
+        self.field_type.to_xml(tnode)
+
+    def __str__(self) -> str:
+        return str(self.offset).rjust(3) + "  " + self.name + ": " + str(self.field_type)

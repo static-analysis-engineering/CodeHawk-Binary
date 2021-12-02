@@ -39,10 +39,18 @@ named_type_sizes = {
     "char": 1,
     "clock_t": 4,
     "int": 4,
+    "timeval": 8,
     "uchar": 1,
     "uint8_t": 1,
-    "uint32_t": 4
+    "uint32_t": 4,
+    "uint64_t": 8
     }
+
+opaque_types = [
+    "FILE", "void"
+]
+
+user_type_store = T.UserBTypeStore(named_type_sizes)
 
 
 def align(offset: int, size: int) -> int:
@@ -50,48 +58,6 @@ def align(offset: int, size: int) -> int:
         return offset
     else:
         return ((offset // size) * size) + size
-
-
-def struct_fields_to_xml(node: ET.Element, fields: List[Dict[str, Any]]) -> None:
-    """Add <field> elements to a given <fields> node.
-
-    Each field dictionary is expected to have a name and type field. If type size
-    cannot be determined automatically, a size field should be present as well.
-
-    Offsets are computed based on type sizes and natural alignment (that is, a
-    2-byte type is 2-aligned, a 4-byte type is 4-aligned etc.). If there is more
-    padding (e.g., 1 or 2-byte types are 4-byte aligned), offsets should be
-    included as well.
-    """
-
-    offset = 0
-    for f in fields:
-        fnode = ET.Element("field")
-        node.append(fnode)
-        btype = f["type"]
-
-        fnode.set("name", f["name"])
-        btype = f["type"]
-        tnode = ET.Element("type")
-        fnode.append(tnode)
-        tnode.text = btype
-
-        if "size" in f:
-            size = f["size"]
-        elif btype in named_type_sizes:
-            size = named_type_sizes[btype]
-        else:
-            raise UF.CHBError(
-                "Size of struct field cannot be determined: " + f["name"])
-
-        if "offset" in f:
-            offset = f["offset"]
-        else:
-            offset = align(offset, size)
-
-        fnode.set("size", str(size))
-        fnode.set("offset", str(offset))
-        offset += size
 
 
 def function_summary_to_xml(
@@ -122,7 +88,11 @@ def function_summary_to_xml(
         pnode.set("reg", registers[count])
         ptnode = ET.Element("type")
         pnode.append(ptnode)
-        mk_user_btype(a["type"]).to_xml(ptnode)
+        try:
+            mk_user_btype(a["type"]).to_xml(ptnode)
+        except UF.CHBError as e:
+            raise UF.CHBError(
+                "Error in function-summary-to-xml " + name + ": " + str(e))
         count += 1
     count += 1
     for a in stackargs:
@@ -133,23 +103,39 @@ def function_summary_to_xml(
         pnode.set("nr", str(count))
         ptnode = ET.Element("type")
         pnode.append(ptnode)
-        mk_user_btype(a["type"]).to_xml(ptnode)
+        try:
+            mk_user_btype(a["type"]).to_xml(ptnode)
+        except UF.CHBError as e:
+            raise UF.CHBError(
+                "Error in function-summary-to-xml " + name + ": " + str(e))
         count += 1
     if "returntype" in fsummary:
         rnode = ET.Element("returntype")
         fintfnode.append(rnode)
-        mk_user_btype(fsummary["returntype"]).to_xml(rnode)
+        try:
+            mk_user_btype(fsummary["returntype"]).to_xml(rnode)
+        except UF.CHBError as e:
+            raise UF.CHBError(
+                "Error in function-summary-to-xml " + name + ": " + str(e))
 
 
 def mk_user_btype(d: Union[str, Dict[str, Any]]) -> T.UserBType:
-    if isinstance(d, str):
-        return T.UserNamedBType(d)
-    elif "name" in d:
-        return T.UserNamedBType(d["name"])
+    if isinstance(d, str) or "name" in d:
+        name: str = d if isinstance(d, str) else d["name"]
+        if name in opaque_types:
+            return T.UserNamedBType(name)
+        elif user_type_store.has_size_of(name):
+            size = user_type_store.size_of(name)
+            return T.UserNamedBType(name, size=size)
+        else:
+            raise UF.CHBError("Cannot determine size of named type " + name)
     elif "key" in d:
         if d["key"] == "ptr":
             if "tgt" in d:
-                return T.UserPointerBType(mk_user_btype(d["tgt"]))
+                try:
+                    return T.UserPointerBType(mk_user_btype(d["tgt"]))
+                except UF.CHBError as e:
+                    raise UF.CHBError("Error in pointer target type: " + str(e))
             else:
                 raise UF.CHBError("Expected tgt field for pointer type")
         elif d["key"] == "struct":
@@ -159,7 +145,10 @@ def mk_user_btype(d: Union[str, Dict[str, Any]]) -> T.UserBType:
                 raise UF.CHBError("Expected fields field for struct type")
         elif d["key"] == "array":
             if "tgt" in d and "size" in d:
-                return T.UserArrayBType(mk_user_btype(d["tgt"]), d["size"])
+                try:
+                    return T.UserArrayBType(mk_user_btype(d["tgt"]), d["size"])
+                except UF.CHBError as e:
+                    raise UF.CHBError("Error in array target type: " + str(e))
             else:
                 raise UF.CHBError("Expected tgt and size for array type")
         else:
@@ -170,16 +159,30 @@ def mk_user_btype(d: Union[str, Dict[str, Any]]) -> T.UserBType:
 
 def mk_field_infos(
         fields: List[Dict[str, Any]]) -> List[T.UserStructBFieldInfo]:
+    """Create a list of fieldinfos for struct fields, including offsets.
+
+    Each field dictionary is expected to have a name and type field. If type size
+    cannot be determined automatically, a size field should be present as well.
+
+    Offsets are computed based on type sizes and natural alignment (that is, a
+    2-byte type is 2-aligned, a 4-byte type is 4-aligned etc.). If there is more
+    padding (e.g., 1 or 2-byte types are 4-byte aligned), offsets should be
+    included as well.
+    """
     offset = 0
     result: List[T.UserStructBFieldInfo] = []
     for f in fields:
-        btype = f["type"]
         name = f["name"]
+        try:
+            btype = mk_user_btype(f["type"])
+        except UF.CHBError as e:
+            raise UF.CHBError(
+                "Error in parsing struct field " + name + ": " + str(e))
 
         if "size" in f:
             size = f["size"]
-        elif btype in named_type_sizes:
-            size = named_type_sizes[btype]
+        elif btype.has_size():
+            size = btype.size
         else:
             raise UF.CHBError(
                 "size of struct field cannot be determined for " + name)
@@ -189,8 +192,13 @@ def mk_field_infos(
         else:
             offset = align(offset, size)
 
-        bfieldinfo = T.UserStructBFieldInfo(name, mk_user_btype(btype), offset)
+        bfieldinfo = T.UserStructBFieldInfo(name, btype, offset, size)
         result.append(bfieldinfo)
 
         offset += size
     return result
+
+
+def mk_struct(fields: List[Dict[str, Any]]) -> T.UserStructBType:
+    fieldinfos = mk_field_infos(fields)
+    return T.UserStructBType(fieldinfos)
