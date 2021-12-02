@@ -61,6 +61,7 @@ from chb.arm.ARMAssembly import ARMAssembly
 from chb.cmdline.AnalysisManager import AnalysisManager
 
 from chb.invariants.InputConstraint import InputConstraint
+from chb.invariants.XXpr import XXpr
 
 from chb.mips.MIPSAccess import MIPSAccess
 from chb.mips.MIPSAssembly import MIPSAssembly
@@ -344,6 +345,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     iterations: int = args.iterations
     deps: List[str] = args.thirdpartysummaries
     so_libraries: List[str] = args.so_libraries
+    skip_if_asm: bool = args.skip_if_asm
+    skip_if_metrics: bool = args.skip_if_metrics
     hints: List[str] = args.hints  # names of json files
     fns_no_lineq: List[str] = args.fns_no_lineq  # function hex addresses
     fns_exclude: List[str] = args.fns_exclude  # function hex addresses
@@ -351,6 +354,21 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
 
     try:
         (path, xfile) = get_path_filename(xname)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    if skip_if_asm and UF.has_asm_results(path, xfile):
+        # we have what we need
+        print("Skip disassembly of " + xname)
+        exit(0)
+
+    if skip_if_metrics and UF.has_analysis_results(path, xfile):
+        # we have what we need
+        print("Skip analysis of " + xname)
+        exit(0)
+
+    try:
         prepare_executable(
             path,
             xfile,
@@ -541,9 +559,13 @@ def results_globalvars(args: argparse.Namespace) -> NoReturn:
     xinfo.load(path, xfile)
 
     app = get_app(path, xfile, xinfo)
+    print("Base address: " + app.header.image_base)
+    print("Max address: " + app.header.max_address_space)
+
     (lhsglobals, rhsglobals) = app.global_refs()
 
     lhsdir: Dict[str, Dict[str, int]] = {}
+    rhsdir: Dict[str, Dict[str, int]] = {}
 
     print("Global variables that get assigned:")
     print("-----------------------------------")
@@ -566,6 +588,14 @@ def results_globalvars(args: argparse.Namespace) -> NoReturn:
         print("Function " + faddr)
         for x in rhsglobals[faddr]:
             print("  " + str(x))
+            rhsdir.setdefault(str(x), {})
+            rhsdir[str(x)].setdefault(faddr, 0)
+            rhsdir[str(x)][faddr] += 1
+
+    for gx in sorted(rhsdir):
+        print("\nGlobal expression " + gx)
+        for faddr in sorted(rhsdir[gx]):
+            print("  " + faddr + ": " + str(rhsdir[gx][faddr]))
 
     exit(0)
 

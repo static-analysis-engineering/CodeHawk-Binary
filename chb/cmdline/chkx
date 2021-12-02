@@ -128,6 +128,7 @@ from typing import NoReturn
 
 import chb.cmdline.AnalysisManager as AM
 import chb.cmdline.commandutil as UCC
+import chb.cmdline.runcmds as UR
 import chb.cmdline.fileformatcmds as FF
 import chb.cmdline.relationalcmds as R
 import chb.cmdline.simulatecmds as S
@@ -357,6 +358,14 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help='names of json files with disassembly/analysis hints')
+    analyzecmd.add_argument(
+        "--skip_if_asm",
+        help="skip if assembly code is already present",
+        action="store_true")
+    analyzecmd.add_argument(
+        "--skip_if_metrics",
+        help="skip if analysis results are already present",
+        action="store_true")
     analyzecmd.add_argument(
         "--fns_no_lineq",
         nargs="*",
@@ -800,6 +809,25 @@ def parse() -> argparse.Namespace:
     table_invs.add_argument('faddr', help='hex address of executbale')
     table_invs.set_defaults(func=UCC.show_invariant_table)
 
+    # ---------------------------------------------------------- run commands
+    parser_runcmds = subparsers.add_parser("runcmds")
+    parser_runcmds.add_argument("cname", help="name of command file (json)")
+    parser_runcmds.add_argument(
+        "--targets",
+        help="list of targets to be executed",
+        nargs="*",
+        default=[])
+    parser_runcmds.add_argument(
+        "--showtargets",
+        help="show targets available",
+        action="store_true")
+    parser_runcmds.add_argument(
+        "--maxp",
+        help="number of processors",
+        type=int,
+        default=1)
+    parser_runcmds.set_defaults(func=UR.run_commands)
+
     # ---------------------------------------------------------- test subcommand
     parser_test = subparsers.add_parser("test")
     parser_test.set_defaults(func=testcommand)
@@ -822,26 +850,6 @@ def parse() -> argparse.Namespace:
         "test",
         help="number of test (e.g., 001)")
     test_run.set_defaults(func=TC.test_run)
-
-    # --- disassembly ---
-    test_disassembly = testparsers.add_parser("disassembly")
-    test_disassembly.add_argument("name", help="name of json file containing filenames")
-    test_disassembly.add_argument(
-        "--maxp", type=int,
-        help="maximum number of processes",
-        default=1)
-    test_disassembly.add_argument(
-        "--selectors", nargs="*", default=[],
-        help="differentiate results by file selectors")
-    test_disassembly.add_argument(
-        "--redo",
-        action="store_true",
-        help="redo the disassembly of all files")
-    test_disassembly.add_argument(
-        "--redo_if_unknowns",
-        action="store_true",
-        help="redo the disassembly if there are unknown instructions")
-    test_disassembly.set_defaults(func=TC.test_disassembly)
 
     # --- run-parameterized ---
     test_run_parameterized = testparsers.add_parser("run_parameterized")
