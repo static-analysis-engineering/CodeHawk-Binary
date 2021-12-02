@@ -2098,8 +2098,8 @@ class MIPStub_gettimeofday(MIPSimStub):
             a0 = cast(SSV.SimAddress, a0)
             simstate.set_memval(iaddr, a0, SV.mk_simvalue(t))
             simstate.set_memval(iaddr, a0.add_offset(4), SV.simZero)
-            simstate.set_memval(iaddr, a0.add_offset(8), SV.simZero)
-            simstate.set_memval(iaddr, a0.add_offset(12), SV.simZero)
+            # simstate.set_memval(iaddr, a0.add_offset(8), SV.simZero)
+            # simstate.set_memval(iaddr, a0.add_offset(12), SV.simZero)
         simstate.set_register(iaddr, 'v0', SV.simZero)
         return self.add_logmsg(iaddr, simstate, pargs)
 
@@ -3959,24 +3959,30 @@ class MIPSimStub_sprintf_like(MIPSimStub):
             simstate.add_logmsg(
                 'free sprintf',
                 '  to dst: ' + str(a0) + '; str: ' + str(s))
-        elif a0.is_address:
-            a0 = cast(SSV.SimAddress, a0)
-            for i in range(0, len(s)):
-                srcval = SV.SimByteValue(ord(s[i]))
-                tgtaddr = a0.add_offset(i)
-                simstate.set_memval(iaddr, tgtaddr, srcval)
-            simstate.set_memval(iaddr, a0.add_offset(len(s)), SV.SimByteValue(0))
+            return
         elif a0.is_literal and a0.is_defined:
             a0 = cast(SV.SimLiteralValue, a0)
-            raise SU.CHBSimError(
-                simstate,
-                iaddr,
-                "sprintf: Address not recognized: " + str(a0))
+            dstaddr = cast(
+                SSV.SimAddress, simstate.resolve_literal_address(iaddr, a0.value))
+            if not dstaddr.is_defined:
+                raise SU.CHBSimError(
+                    simstate,
+                    iaddr,
+                    "sprintf: Address not recognized as a global: " + str(a0))
+        elif a0.is_address:
+            dstaddr = cast(SSV.SimAddress, a0)
+
         else:
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
                 'Illegal destination address in sprintf: ' + str(a0))
+
+        for i in range(0, len(s)):
+            srcval = SV.SimByteValue(ord(s[i]))
+            tgtaddr = dstaddr.add_offset(i)
+            simstate.set_memval(iaddr, tgtaddr, srcval)
+        simstate.set_memval(iaddr, dstaddr.add_offset(len(s)), SV.SimByteValue(0))
 
     def get_logmsg(
             self,
@@ -4043,24 +4049,29 @@ class MIPStub_snprintf(MIPSimStub):
             simstate.add_logmsg(
                 'free sprintf',
                 '  to dst: ' + str(a0) + '; str: ' + str(s))
-        elif a0.is_address:
-            a0 = cast(SSV.SimAddress, a0)
-            for i in range(0, len(s)):
-                srcval = SV.SimByteValue(ord(s[i]))
-                tgtaddr = a0.add_offset(i)
-                simstate.set_memval(iaddr, tgtaddr, srcval)
-            simstate.set_memval(iaddr, a0.add_offset(len(s)), SV.SimByteValue(0))
         elif a0.is_literal and a0.is_defined:
             a0 = cast(SV.SimLiteralValue, a0)
-            raise SU.CHBSimError(
-                simstate,
-                iaddr,
-                "sprintf: Address not recognized: " + str(a0))
+            dstaddr = cast(
+                SSV.SimAddress, simstate.resolve_literal_address(iaddr, a0.value))
+            if not dstaddr.is_defined:
+                raise SU.CHBSimError(
+                    simstate,
+                    iaddr,
+                    "sprintf: Address not recognized as a global: " + str(a0))
+        elif a0.is_address:
+            dstaddr = cast(SSV.SimAddress, a0)
+
         else:
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
                 'Illegal destination address in sprintf: ' + str(a0))
+
+        for i in range(0, len(s)):
+            srcval = SV.SimByteValue(ord(s[i]))
+            tgtaddr = dstaddr.add_offset(i)
+            simstate.set_memval(iaddr, tgtaddr, srcval)
+        simstate.set_memval(iaddr, dstaddr.add_offset(len(s)), SV.SimByteValue(0))
 
     def set_returnval(
             self, iaddr: str, simstate: "SimulationState", s: str) -> None:
