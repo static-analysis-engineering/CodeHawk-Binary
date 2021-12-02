@@ -39,12 +39,16 @@ library functions.
 """
 
 from abc import ABC, abstractmethod
-from typing import cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
+from typing import (
+    cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING, Union)
 
 from chb.app.Operand import Operand
 
 from chb.simulation.ELFSimGlobalMemory import ELFSimGlobalMemory
 from chb.simulation.SimBaseMemory import SimBaseMemory
+
+import chb.simulation.SimFileUtil as SFU
+
 from chb.simulation.SimLocation import (
     SimLocation, SimRegister, SimMemoryLocation)
 from chb.simulation.SimMappedMemory import SimMappedMemory
@@ -645,11 +649,15 @@ class SimulationState:
             raise UF.CHBError("Indirect address cannot be resolved: " + str(op))
 
     def resolve_literal_address(
-            self, iaddr: str, addrvalue: int) -> SSV.SimGlobalAddress:
+            self, iaddr: str,
+            addrvalue: int) -> SSV.SimGlobalAddress:
         addr = self.modulestates[self.modulename].resolve_literal_address(
             iaddr, addrvalue)
         if addr.is_defined:
             return addr
+        # elif addrvalue == 2:
+        #    return SFU.sim_openfile("sim_stderr", "w")
+
         else:
             for shmid in self.sharedmem:
                 if self.sharedmem[shmid].has_address(addrvalue):
