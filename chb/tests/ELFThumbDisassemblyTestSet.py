@@ -45,6 +45,7 @@ tests = [
     ["MOV", "0021", "MOVS", "R1, #0x0"]
 ]
 
+
 class ELFThumbDisassemblyTestSet:
 
     def __init__(self) -> None:
@@ -126,4 +127,3 @@ class ELFThumbDisassemblyTestSet:
             self.run_test(r)
             self.check_test(r)
             self.remove_test(r)
-        
