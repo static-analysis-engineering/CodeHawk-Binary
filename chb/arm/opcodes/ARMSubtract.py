@@ -40,6 +40,7 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
 
+
 @armregistry.register_tag("SUBW", ARMOpcode)
 @armregistry.register_tag("SUB", ARMOpcode)
 class ARMSubtract(ARMOpcode):
