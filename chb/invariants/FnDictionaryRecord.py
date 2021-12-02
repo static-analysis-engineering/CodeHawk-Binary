@@ -72,6 +72,10 @@ class FnXprDictionaryRecord(IndexedTableValue):
         return self.vd.bd
 
     @property
+    def app(self) -> "chb.app.AppAccess.AppAccess":
+        return self.bd.app
+
+    @property
     def finfo(self) -> "FunctionInfo":
         return self.xd.finfo
 

@@ -101,6 +101,14 @@ class XXpr(FnXprDictionaryRecord):
     def is_constant(self) -> bool:
         return False
 
+    @property
+    def is_global_address(self) -> bool:
+        return False
+
+    @property
+    def is_global_variable(self) -> bool:
+        return False
+
     def is_int_const_value(self, n: int) -> bool:
         return False
 
@@ -172,6 +180,9 @@ class XXpr(FnXprDictionaryRecord):
     def has_global_variables(self) -> bool:
         return False
 
+    def has_global_references(self) -> bool:
+        return False
+
     def negated_value(self) -> int:
         raise UF.CHBError("Get_negated_value not supported for " + str(self))
 
@@ -234,14 +245,21 @@ class XprVariable(XXpr):
     def is_structured_expr(self) -> bool:
         return self.variable.is_structured_var
 
+    @property
+    def is_global_variable(self) -> bool:
+        return self.variable.is_global_variable
+
     def global_variables(self) -> Mapping[str, int]:
         result: Dict[str, int] = {}
-        if self.variable.is_global_variable:
+        if self.is_global_variable:
             result[str(self.variable.global_variable_base())] = 1
         return result
 
     def has_global_variables(self) -> bool:
         return len(self.global_variables()) > 0
+
+    def has_global_references(self) -> bool:
+        return self.has_global_variables()
 
     @property
     def is_function_return_value(self) -> bool:
@@ -386,6 +404,13 @@ class XprConstant(XXpr):
     def is_string_reference(self) -> bool:
         return self.constant.is_string_reference
 
+    @property
+    def is_global_address(self) -> bool:
+        return self.constant.is_global_address
+
+    def has_global_references(self) -> bool:
+        return self.is_global_address
+
     def is_int_const_value(self, n: int) -> bool:
         return (self.is_int_constant and self.intvalue == n)
 
@@ -492,6 +517,9 @@ class XprCompound(XXpr):
 
     def has_global_variables(self) -> bool:
         return any([op.has_global_variables() for op in self.operands])
+
+    def has_global_references(self) -> bool:
+        return any([op.has_global_references() for op in self.operands])
 
     @property
     def is_stack_address(self) -> bool:

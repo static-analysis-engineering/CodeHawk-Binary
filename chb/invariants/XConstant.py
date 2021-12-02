@@ -72,6 +72,10 @@ class XConstant(FnXprDictionaryRecord):
         raise UF.CHBError("Constant " + str(self) + " is not a string reference")
 
     @property
+    def is_global_address(self) -> bool:
+        return False
+
+    @property
     def is_symset(self) -> bool:
         return False
 
@@ -151,6 +155,10 @@ class XIntConst(XConstant):
     @property
     def value(self) -> int:
         return self.constant.value
+
+    @property
+    def is_global_address(self) -> bool:
+        return self.app.header.is_in_address_space(self.value)
 
     @property
     def is_int_constant(self) -> bool:
