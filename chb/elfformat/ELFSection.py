@@ -96,12 +96,18 @@ dynamicarraytags = {
     23: 'DT_JMPREL'
     }
 
-
 def get_dynamic_array_tag_name(i: int) -> str:
     if i in dynamicarraytags:
         return dynamicarraytags[i]
     else:
         return str(i)
+
+relocation_type_names = {
+    0: "R_ARM_NONE",
+    28: "R_ARM_CALL",
+    43: "R_ARM_MOVW_ABS_NC",
+    44: "R_ARM_MOVT_ABS"
+    }
 
 
 class ELFSection:
@@ -426,8 +432,15 @@ class ELFRelocationEntry:
                 "Relocation entry does not have an associated symbol name")
 
     @property
-    def symbol_type(self) -> int:
+    def relocation_type(self) -> int:
         return self.args[0]
+
+    @property
+    def relocation_type_name(self) -> str:
+        if self.relocation_type in relocation_type_names:
+            return relocation_type_names[self.relocation_type]
+        else:
+            return str(self.relocation_type)
 
     @property
     def symbol_value(self) -> str:
@@ -445,7 +458,14 @@ class ELFRelocationEntry:
 
     def __str__(self) -> str:
         if self.has_symbol_name():
-            return (self.r_offset + ": " + self.symbol_name)
+            return (
+                str(self.relocation_type_name).ljust(20)
+                + "  "
+                + self.r_offset
+                + ": "
+                + self.symbol_name
+                + ":"
+                + self.symbol_value)
         else:
             return self.r_offset + ": _"
 
@@ -477,7 +497,7 @@ class ELFRelocationTable(ELFSection):
 
     def __str__(self) -> str:
         lines: List[str] = []
-        for e in sorted(self.entries, key=lambda x: x.r_offset):
+        for e in sorted(self.entries, key=lambda x: int(x.r_offset, 16)):
             lines.append(str(e))
         return '\n'.join(lines)
 

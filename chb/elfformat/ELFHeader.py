@@ -57,6 +57,19 @@ fileheader_attributes = [
     "e_version"
     ]
 
+objectfileheader_attributes = [
+    "e_machine",
+    "e_type",
+    "e_ehsize",
+    "e_phentsize",
+    "e_phnum",
+    "e_shentsize",
+    "e_shnum",
+    "e_shoff",
+    "e_shstrndx",
+    "e_version"
+    ]
+
 machines = {
     "0": "No machine",
     "1": "AT&T WE 32100",
@@ -203,6 +216,16 @@ class ELFHeader:
             return xmachine
         else:
             raise UF.CHBError("E-machine attribute not found in ELFHeader")
+
+    def e_type(self) -> int:
+        etype = self.xfile_header.get("e_type")
+        if etype:
+            return int(etype)
+        else:
+            raise UF.CHBError("E-type attribute not found in ELFHeader")
+
+    def is_object_file(self) -> bool:
+        return self.e_type() == 1
 
     def has_string_table(self) -> bool:
         return any([s.is_string_table for s in self.sectionheaders])
@@ -396,7 +419,10 @@ class ELFHeader:
             result["sectionheaders"] = []
             fileheader = self.xfile_header
             localetable = UF.get_locale_tables(categories=["ELF"])
-            for p in fileheader_attributes:
+            attributes = fileheader_attributes
+            if self.is_object_file():
+                attributes = objectfileheader_attributes
+            for p in attributes:
                 propertyvalue = fileheader.get(p)
                 if propertyvalue is None:
                     raise UF.CHBError("Property " + p + " not found in file-header")
@@ -405,8 +431,9 @@ class ELFHeader:
                 result["fileheader"][p] = {}
                 result["fileheader"][p]["value"] = propertyvalue
                 result["fileheader"][p]["heading"] = localetable["elfheader"][p]
-            for ph in self.programheaders:
-                result["programheaders"].append(ph.as_dictionary())
+            if not self.is_object_file():
+                for ph in self.programheaders:
+                    result["programheaders"].append(ph.as_dictionary())
             for s in self.sectionheaders:
                 result["sectionheaders"].append(s.as_dictionary())
             if self.has_string_table():
@@ -427,30 +454,33 @@ class ELFHeader:
     def section_layout_to_string(self) -> str:
         lines: List[str] = []
         lines.append("\nSection Layout\n")
-        lines.append("index".ljust(8)
-                     + "name".ljust(16)
-                     + "start".rjust(10)
-                     + "size".rjust(10)
-                     + "   "
-                     + "flags")
+        lines.append(
+            "index".ljust(8)
+            + "name".ljust(16)
+            + "start".rjust(10)
+            + "size".rjust(10)
+            + "   "
+            + "flags")
         lines.append("-" * 80)
-        for s in sorted(self.sectionheaders, key=lambda s: s.index):
-            lines.append(str(s.index).rjust(3)
-                         + "     "
-                         + s.name.ljust(16)
-                         + s.vaddr.rjust(10)
-                         + s.size.rjust(10)
-                         + "   "
-                         + s.flags_string)
+        for s in sorted(self.sectionheaders, key=lambda s: int(s.index)):
+            lines.append(
+                str(s.index).rjust(3)
+                + "     "
+                + s.name.ljust(16)
+                + s.vaddr.rjust(10)
+                + s.size.rjust(10)
+                + "   "
+                + s.flags_string)
         return "\n".join(lines)
 
     def fileheaderstr(self):
         d = self.as_dictionary()
         lines: List[str] = []
         for k in d["fileheader"]:
-            lines.append(str(d["fileheader"][k]["heading"]).ljust(35)
-                         + ": "
-                         + str(d["fileheader"][k]["value"]))
+            lines.append(
+                str(d["fileheader"][k]["heading"]).ljust(35)
+                + ": "
+                + str(d["fileheader"][k]["value"]))
 
         if self.has_dynamic_table():
             lines.append("\nLinked Libraries")
@@ -465,10 +495,11 @@ class ELFHeader:
         lines.append(self.fileheaderstr())
         lines.append("\nProgram Headers")
         lines.append("-" * 80)
-        for p in self.programheaders:
-            lines.append("Program header " + str(p.index))
-            lines.append(str(p))
-            lines.append(" ")
+        if not self.is_object_file():
+            for p in self.programheaders:
+                lines.append("Program header " + str(p.index))
+                lines.append(str(p))
+                lines.append(" ")
         for s in sorted(self.sectionheaders, key=lambda s: s.index):
             lines.append("Section header " + str(s.index) + " (" + str(s.name) + ")")
             lines.append(str(s))
