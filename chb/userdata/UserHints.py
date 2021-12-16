@@ -89,7 +89,9 @@ import os
 import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
-from typing import Any, cast, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, cast, Dict, List, NewType, Optional, Sequence, Tuple, Union
+
+from chb.app.AbstractSyntaxTree import VariableNamesRec
 
 import chb.userdata.btypeutil as UT
 from chb.userdata.UserBType import UserStructBType
@@ -855,15 +857,79 @@ class SymbolicAddressesHints(HintsEntry):
         return "\n".join(lines)
 
 
+class VariableNamesHints(HintsEntry):
+    """Map of local variable names to range-dependent alternative names.
+
+    Format: { <name>: [ {"span": [<low>, <high>], "altname": <altname> } ] }
+    """
+
+    def __init__(self, variablenames: VariableNamesRec) -> None:
+        HintsEntry.__init__(self, "variable-names")
+        self._variablenames = variablenames
+
+    @property
+    def variablenames(self) -> VariableNamesRec:
+        return self._variablenames
+
+    def has_variable(self, v: str) -> bool:
+        return v in self.variablenames
+
+    def variable_name(self, v: str, addr: str) -> Optional[str]:
+        if self.has_variable(v):
+            vinfo = self.variablenames[v]
+            addri = int(addr, 16)
+            for s in vinfo:
+                vlow = int(s["span"][0], 16)
+                vhigh = int(s["span"][1], 16)
+                if vlow <= addri and addri <= vhigh:
+                    return cast(str, s["altname"])
+            else:
+                return None
+        else:
+            return None
+
+    def update(self, d: VariableNamesRec) -> None:
+        for v in d:
+            self._variablenames[v] = d[v]
+
+    def to_xml(self, node: ET.Element) -> None:
+        pass
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Variable names")
+        lines.append("--------------")
+        for v in self.variablenames:
+            lines.append(v)
+        return "\n".join(lines)
+
+
 class UserHints:
 
-    def __init__(self) -> None:
+    def __init__(self, toxml: bool = True) -> None:
         self.userdata: Dict[str, HintsEntry] = {}
+        self.astdata: Dict[str, HintsEntry] = {}
+        self._toxml = toxml
+
+    def variable_names(self) -> VariableNamesRec:
+        if "variable-names" in self.astdata:
+            entry = cast(VariableNamesHints, self.astdata["variable-names"])
+            return entry.variablenames
+        else:
+            return cast(VariableNamesRec, {})
+
+    def function_summaries(self) -> Dict[str, Any]:
+        if "function-summaries" in self.astdata:
+            entry = cast(FunctionSummariesHints, self.astdata["function-summaries"])
+            return entry.fsummaries
+        else:
+            return {}
 
     def add_hints(self, hints: Dict[str, Any]) -> None:
         """Process a user provided dictionary with user hint dictionaries.
 
         Currently supported:
+        userdata (saved in xml userdata)
         - arm-thumb (switchpoints)
         - call-targets
         - data-blocks
@@ -872,6 +938,9 @@ class UserHints:
         - section-headers
         - struct definitions
         - successors
+
+        and ast data (used in ast only):
+        - variable-names
         """
 
         if "arg-constraints" in hints:
@@ -926,33 +995,43 @@ class UserHints:
             tag = "function-summaries"
             fsummaries: Dict[str, Any] = hints[tag]
 
-            if "function-names" in self.userdata:
-                definednames = cast(
-                    FunctionNamesHints, self.userdata["function-names"])
-            else:
-                definednames = FunctionNamesHints({})
-            fxsummaries: Dict[str, Any] = {}
-            for name in fsummaries:
-                if name.startswith("0x"):
+            if not self._toxml:
+                fxsummaries: Dict[str, Any] = {}
+                for name in fsummaries:
                     fxsummaries[name] = fsummaries[name]
+                if tag in self.astdata:
+                    self.astdata[tag].update(fxsummaries)
                 else:
-                    if definednames.has_unique_address(name):
-                        addr = definednames.get_unique_address(name)
-                        fxsummaries[addr] = fsummaries[name]
-                    else:
-                        print(
-                            "Skipping function summary for "
-                            + name
-                            + ", because no unique address found for "
-                            + name
-                            + " in userdata: "
-                            + str(definednames.namecount(name))
-                            + " addresses found")
+                    self.astdata[tag] = FunctionSummariesHints(fxsummaries)
 
-            if tag in self.userdata:
-                self.userdata[tag].update(fxsummaries)
             else:
-                self.userdata[tag] = FunctionSummariesHints(fxsummaries)
+                if "function-names" in self.userdata:
+                    definednames = cast(
+                        FunctionNamesHints, self.userdata["function-names"])
+                else:
+                    definednames = FunctionNamesHints({})
+                fxsummaries = {}
+                for name in fsummaries:
+                    if name.startswith("0x"):
+                        fxsummaries[name] = fsummaries[name]
+                    else:
+                        if definednames.has_unique_address(name):
+                            addr = definednames.get_unique_address(name)
+                            fxsummaries[addr] = fsummaries[name]
+                        else:
+                            print(
+                                "Skipping function summary for "
+                                + name
+                                + ", because no unique address found for "
+                                + name
+                                + " in userdata: "
+                                + str(definednames.namecount(name))
+                                + " addresses found")
+
+                if tag in self.userdata:
+                    self.userdata[tag].update(fxsummaries)
+                else:
+                    self.userdata[tag] = FunctionSummariesHints(fxsummaries)
 
         if "indirect-jumps" in hints:
             tag = "indirect-jumps"
@@ -1009,6 +1088,14 @@ class UserHints:
                 self.userdata[tag].update(symbolicaddrs)
             else:
                 self.userdata[tag] = SymbolicAddressesHints(symbolicaddrs)
+
+        if "variable-names" in hints:
+            tag = "variable-names"
+            variablenames: VariableNamesRec = hints[tag]
+            if tag in self.astdata:
+                self.astdata[tag].update(variablenames)
+            else:
+                self.astdata[tag] = VariableNamesHints(variablenames)
 
     def save_userdata(self, path: str, xfile: str) -> None:
         ufilename = UF.get_user_system_data_filename(path, xfile)
