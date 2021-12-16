@@ -26,13 +26,17 @@
 # ------------------------------------------------------------------------------
 """Operand of an ARM assembly instruction."""
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTLval, ASTExpr, ASTInstruction
 from chb.app.Operand import Operand
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
 from chb.arm.ARMOperandKind import ARMOperandKind
 
 from chb.util.IndexedTable import IndexedTableValue
+
+import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -60,6 +64,10 @@ class ARMOperand(ARMDictionaryRecord, Operand):
         return self.opkind.is_immediate
 
     @property
+    def is_absolute(self) -> bool:
+        return self.opkind.is_absolute
+
+    @property
     def value(self) -> int:
         return self.opkind.value
 
@@ -80,8 +88,28 @@ class ARMOperand(ARMDictionaryRecord, Operand):
         return self.opkind.indirect_register
 
     @property
+    def is_register_list(self) -> bool:
+        return self.opkind.is_register_list
+
+    @property
+    def registers(self) -> List[str]:
+        return self.opkind.registers
+
+    @property
     def offset(self) -> int:
         return self.opkind.offset
+
+    def ast_lvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                ASTLval, List[ASTInstruction], List[ASTInstruction]]:
+        return self.opkind.ast_lvalue(astree)
+
+    def ast_rvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                ASTExpr, List[ASTInstruction], List[ASTInstruction]]:
+        return self.opkind.ast_rvalue(astree)
 
     def __str__(self) -> str:
         return str(self.opkind)

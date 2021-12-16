@@ -54,6 +54,18 @@ class ARMRegister(ARMRegisterBase):
                  ixval: IndexedTableValue) -> None:
         ARMRegisterBase.__init__(self, bd, ixval)
 
+    @property
+    def register(self) -> str:
+        return self.tags[1]
+
+    @property
+    def is_arm_register(self) -> bool:
+        return True
+
+    @property
+    def is_arm_stack_pointer(self) -> bool:
+        return self.register == "SP"
+
     def __str__(self) -> str:
         return self.tags[1]
 
