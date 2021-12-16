@@ -50,6 +50,7 @@ class ARMSignedExtendByte(ARMOpcode):
     tags[1]: <c>
     args[0]: index of op1 in armdictionary
     args[1]: index of op2 in armdictionary
+    args[2]: bool (T.W.)
     """
 
     def __init__(
@@ -57,7 +58,7 @@ class ARMSignedExtendByte(ARMOpcode):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 2, "SignedExtendByte")
+        self.check_key(2, 3, "SignedExtendByte")
 
     @property
     def operands(self) -> List[ARMOperand]:

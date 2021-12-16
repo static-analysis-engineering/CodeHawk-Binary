@@ -27,6 +27,10 @@
 
 from typing import List, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
@@ -94,3 +98,15 @@ class ARMMove(ARMOpcode):
             return "if " + c + " then " + assignment
         else:
             return assignment
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        (rhs, _, _) = self.operands[1].ast_rvalue(astree)
+        assign = astree.mk_assign(lhs, rhs)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return [assign]

@@ -25,9 +25,12 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
@@ -39,6 +42,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
+    from chb.invariants.XXpr import XprCompound
 
 
 @armregistry.register_tag("ADD", ARMOpcode)
@@ -98,3 +102,47 @@ class ARMAdd(ARMOpcode):
         rresult = xdata.xprs[3]
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return lhs + " := " + xresult
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        (op1, _, _) = self.operands[1].ast_rvalue(astree)
+        (op2, _, _) = self.operands[2].ast_rvalue(astree)
+        binop = astree.mk_binary_op("plus", op1, op2)
+        result = astree.mk_assign(lhs, binop)
+        astree.add_instruction_span(result.id, iaddr, bytestring)
+        return [result]
+
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        lhs = str(xdata.vars[0])
+        rhs1 = str(xdata.xprs[0])
+        rhs2 = xdata.xprs[1]
+        rhs3 = xdata.xprs[3]
+
+        if lhs == "SP" and rhs1 == "SP" and rhs2.is_constant:
+            return []
+
+        if rhs1 == "SP" and rhs3.is_stack_address:
+            print("Stack address: " + str(rhs3))
+            rhs3 = cast("XprCompound", rhs3)
+            stackoffset = rhs3.stack_address_offset()
+            if stackoffset < 0:
+                lhsast = astree.mk_variable_lval(lhs)
+                stackoffset = -stackoffset
+                varnum = "{0:0>4}".format(stackoffset)
+                varname = "var." + varnum
+                rhslval = astree.mk_variable_lval(varname)
+                rhs = astree.mk_address_of(rhslval)
+                result = astree.mk_assign(lhsast, rhs)
+                astree.add_instruction_span(result.id, iaddr, bytestring)
+                return [result]
+
+        return self.assembly_ast(astree, iaddr, bytestring, xdata)

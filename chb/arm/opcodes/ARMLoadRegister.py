@@ -27,6 +27,10 @@
 
 from typing import List, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
@@ -78,6 +82,7 @@ class ARMLoadRegister(ARMOpcode):
         """lhs, rhs, with optional instr condition and base update
 
         vars[0]: lhs
+        vars[1]: memory location expressed as a variable
         xprs[0]: value in memory location
         xprs[1]: value in memory location (simplified)
 
@@ -108,3 +113,28 @@ class ARMLoadRegister(ARMOpcode):
             pbupd = ""
 
         return pcond + lhs + " := " + rhs + pbupd
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
+        (lhs, _,_) = self.operands[0].ast_lvalue(astree)
+        assign = astree.mk_assign(lhs, rhs)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return preinstrs + [assign] + postinstrs
+
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        rhsvar = str(xdata.vars[1])
+        lhsvar = str(xdata.vars[0])
+        rhs = astree.mk_variable_expr(rhsvar)
+        lhs = astree.mk_variable_lval(lhsvar)
+        assign = astree.mk_assign(lhs, rhs)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return [assign]

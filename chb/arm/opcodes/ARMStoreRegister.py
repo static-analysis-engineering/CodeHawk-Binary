@@ -27,6 +27,10 @@
 
 from typing import List, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
@@ -91,3 +95,28 @@ class ARMStoreRegister(ARMOpcode):
             pcond = ""
 
         return pcond + assign
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        (lhs, preinstrs, postinstrs) = self.operands[1].ast_lvalue(astree)
+        (rhs, _, _) = self.operands[0].ast_rvalue(astree)
+        assign = astree.mk_assign(lhs, rhs)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return preinstrs + [assign] + postinstrs
+
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        (rhs, _, _) = self.operands[0].ast_rvalue(astree)
+        lhs = str(xdata.vars[0])
+        lval = astree.mk_variable_lval(lhs)
+        assign = astree.mk_assign(lval, rhs)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return [assign]
+        
