@@ -639,7 +639,7 @@
 	    }
 	},
 	"FLDMX": {
-	    "name": "FloadMultipleIncrementAfter",
+	    "name": "FLoadMultipleIncrementAfter",
 	    "encodings": {
 		"all": [
 		    {
@@ -648,7 +648,9 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"E": "< 29>10PUDW1<rn><vd>1011<-imm7>1",
+			"D": "Y"
 		    },
 		    {
 			"T": "A2",
@@ -656,7 +658,9 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T2"
+			"T": "T2",
+			"E": "< 29>10PUDW1<rn><vd>1010<-imm7>1",
+			"D": "Y"
 		    }
 		]
 	    }
@@ -671,7 +675,9 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"E": "< 29>10PUDW0<rn><vd>1011<-imm7>1",
+			"D": "Y"
 		    },
 		    {
 			"T": "A2",
@@ -679,7 +685,9 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T2"
+			"T": "T2",
+			"E": "< 29>10PUDW0<rn><vd>1010<-imm7>1",
+			"D": "Y"
 		    }
 		]
 	    }
@@ -2244,7 +2252,9 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T2"
+			"T": "T2",
+			"E": "< 31>0100100<15><15><rd>10ro<rm>",
+			"D": "Y"
 		    }
 		]
 	    }
@@ -2571,7 +2581,9 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"E": "< 29>1110Dsz<vn><vd>1000NQM0<vm>",
+			"D": "Y"
 		    }
 		],
 		"floating-point": [
@@ -2622,6 +2634,23 @@
 		]
 	    }
 	},
+	"VAND": {
+	    "name": "VectorBitwiseAnd",
+	    "encodings": {
+		"register": [
+		    {
+			"T": "A1",
+			"E": "<15>00100D00<vn><vd>0001NQM1<vm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 29>1110D00<vn><vd>0001NQM1<vm>",
+			"D": "Y"
+		    }
+		]
+	    }
+	},
 	"VBIC": {
 	    "name": "VectorBitwiseBitClear",
 	    "encodings": {
@@ -2630,6 +2659,16 @@
 			"T": "A1",
 			"E": "<15>001i1D000<i><vd><cm>0Q11<i4>",
 			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>1111D000<i><vd><cm>0Q11<i4>",
+			"D": "Y"
+		    }
+		],
+		"register": [
+		    {
+			"T": "A1"
 		    },
 		    {
 			"T": "T1"
@@ -2721,6 +2760,16 @@
 			"E": "< 29>1101BQ0<vd><rt>1011D0E1< 0>",
 			"D": "Y"
 		    }
+		],
+		"scalar": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>1111D11<i4><vd>11000QM0<vm>",
+			"D": "Y"
+		    }
 		]
 	    },
 	    "TC": "NA"
@@ -2730,11 +2779,30 @@
 	    "encodings": {
 		"all": [
 		    {
-			"T": "A1"
+			"T": "A1",
+			"E": "<15>00110D00<vn><vd>0001NQM1<vm>",
+			"D": "Y"
 		    },
 		    {
 			"T": "T1",
 			"E": "< 31>1110D00<vn><vd>< 1>NQM1<vm>",
+			"D": "Y"
+		    }
+		]
+	    }
+	},
+	"VEXT": {
+	    "name": "VectorExtract",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<15>00101D11<vn><vd><i4>NQM0<vm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 29>1111D11<vn><vd><i4>NQM0<vm>",
 			"D": "Y"
 		    }
 		]
@@ -2750,8 +2818,18 @@
 			"D": "Y"
 		    },
 		    {
+			"T": "T1-1",
+			"E": "< 31>0010D10<rn><vd>0111szal<rm>",
+			"D": "Y"
+		    },
+		    {
 			"T": "A1-2",
 			"E": "<15>01000D10<rn><vd>1010szal<rm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1-2",
+			"E": "< 31>0010D10<rn><vd>1010szal<rm>",
 			"D": "Y"
 		    },
 		    {
@@ -2760,8 +2838,18 @@
 			"D": "Y"
 		    },
 		    {
+			"T": "T1-3",
+			"E": "< 31>0010D10<rn><vd>0110szal<rm>",
+			"D": "Y"
+		    },
+		    {
 			"T": "A1-4",
 			"E": "<15>01000D10<rn><vd>0010szal<rm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1-4",
+			"E": "< 31>0010D10<rn><vd>0010szal<rm>",
 			"D": "Y"
 		    }
 		],
@@ -2802,10 +2890,14 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"E": "< 29>10PUDW1<rn><vd>1011<-imm8->",
+			"D": "Y"
 		    },
 		    {
-			"T": "T2"
+			"T": "T2",
+			"E": "< 29>10PUDW1<rn><vd>1010<-imm8->",
+			"D": "Y"
 		    }
 		]
 	    }
@@ -2833,6 +2925,21 @@
 			"T": "T2",
 			"E": "< 29>101UD01<rn><vd>1010<-imm8->",
 			"D": "Y"
+		    }
+		]
+	    }
+	},
+	"VMLAL": {
+	    "name": "VectorMultiplyAccumulateLong",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "T2",
+			"E": "< 31>1111Dsz<vn><vd>0010N1M0<vm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "A2"
 		    }
 		]
 	    }
@@ -2879,10 +2986,14 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "A2"
+			"T": "A2",
+			"E": "<cc><7>01D11<4H><vd>101s0000<4L>",
+			"D": "Y"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"D": "< 31>1111D000<i><vd><cm>0Qo1<i4>",
+			"D": "Y"
 		    },
 		    {
 			"T": "T2",
@@ -2900,7 +3011,9 @@
 			"T": "A2"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"E": "< 29>1110D10<vm><vd>0001MQM1<vm>",
+			"D": "Y"
 		    },
 		    {
 			"T": "T2",
@@ -2941,6 +3054,21 @@
 		    },
 		    {
 			"T": "T1"
+		    }
+		]
+	    }
+	},
+	"VMOVN": {
+	    "name": "VectorMoveNarrow",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "T1",
+			"E": "< 31>1111D11sz10<vd>001000M0<vm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "A1"
 		    }
 		]
 	    }
@@ -3007,6 +3135,66 @@
 		    {
 			"T": "T1"
 		    }
+		],
+		"by scalar": [
+		    {
+			"T": "T2"
+		    },
+		    {
+			"T": "A2"
+		    }
+		]
+	    },
+	    "TC": "NA"
+	},
+	"VMULL": {
+	    "name": "VectorMultiplyLong",
+	    "encodings": {
+		"integer and polynomial": [
+		    {
+			"T": "T2-1",
+			"E": "< 29>1111Dsz<vn><vd>11o0N0M0<vm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T2-2",
+			"E": "< 31>1111Dsz<vn><vd>11o0N0M0<vm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "A2"
+		    }
+		],
+		"by scalar": [
+		    {
+			"T": "T2",
+			"E": "< 31>1111Dsz<vn><vd>1010N1M0<vm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "A2"
+		    }
+		]
+	    }
+	},		
+	"VMVN": {
+	    "name": "VectorBitwiseNot",
+	    "encodings": {
+		"immediate": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1"
+		    }
+		],
+		"register": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1"
+		    }
 		]
 	    },
 	    "TC": "NA"
@@ -3045,7 +3233,37 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"E": "< 29>1110D10<vn><vd>0001NQM1<vm>",
+			"D": "Y"
+		    }
+		]
+	    },
+	    "TC": "NA"
+	},
+	"VPOP": {
+	    "name": "VectorPop",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "T1",
+			"E": "< 29>1001D11<13><vd>1011<-imm8->",
+			"D": "Y"
+		    },
+		    {
+			"T": "T2",
+			"E": "< 29>1001D11<13><vd>1010<-imm8->",
+			"D": "Y"
+		    },
+		    {
+			"T": "A1",
+			"E": "<cc><6>01D11<13><vd>1011<-imm8->",
+			"D": "Y"
+		    },
+		    {
+			"T": "A2",
+			"E": "<cc><6>01D11<13><vd>1010<-imm8->",
+			"D": "Y"
 		    }
 		]
 	    }
@@ -3054,6 +3272,16 @@
 	    "name": "VectorPush",
 	    "encodings": {
 		"all": [
+		    {
+			"T": "T1",
+			"E": "< 29>1010D101101<vd>1011<-imm8->",
+			"D": "Y"
+		    },
+		    {
+			"T": "T2",
+			"E": "< 29>1010D101101<vd>1010<-imm8->",
+			"D": "Y"
+		    },
 		    {
 			"T": "A1",
 			"E": "<cc><6>10D10<13><vd>1011<-imm8->",
@@ -3066,6 +3294,54 @@
 		    }
 		]
 	    }
+	},
+	"VREV16": {
+	    "name": "VectorReverseHalfwords",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>1111D11sz00<vd>00010QM0<vm>",
+			"D": "Y"
+		    }
+		]
+	    },
+	    "TC": "NA"
+	},
+	"VREV32": {
+	    "name": "VectorReverseWords",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>1111D11sz00<vd>00001QM0<vm>",
+			"D": "Y"
+		    }
+		]
+	    },
+	    "TC": "NA"
+	},
+	"VREV64": {
+	    "name": "VectorReverseDoublewords",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>1111D11sz00<vd>00000QM0<vm>",
+			"D": "Y"
+		    }
+		]
+	    },
+	    "TC": "NA"
 	},
 	"VRSRA": {
 	    "name": "VectorRoundingShiftRightAccumulate",
@@ -3082,6 +3358,53 @@
 		]
 	    }
 	},
+	"VSHL": {
+	    "name": "VectorShiftLeft",
+	    "encodings": {
+		"immediate": [
+		    {
+			"T": "T1",
+			"E": "< 29>1111D<imm6><vd>0101LQM1<vm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "A1",
+			"E": "<15>00101D<imm6><vd>0101LQM1<vm>",
+			"D": "Y"
+		    }
+		],
+		"register": [
+		    {
+			"T": "T1"
+		    },
+		    {
+			"T": "A1"
+		    }
+		]
+	    }
+	},
+	"VSHR": {
+	    "name": "VectorShiftRight",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "T1 - 1",
+			"E": "< 31>1111D<imm6><vd>0000LQM1<vm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1 - 2",
+			"E": "< 29>1111D<imm6><vd>0000LQM1<vm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "A1",
+			"E": "<15>001U1D<imm6><vd>0000<QM1<vm>",
+			"D": "Y"
+		    }
+		]
+	    }
+	},
 	"VSRA": {
 	    "name": "VectorShiftRightAccumulate",
 	    "encodings": {
@@ -3093,6 +3416,21 @@
 		    },
 		    {
 			"T": "T1"
+		    }
+		]
+	    }
+	},
+	"VSRI": {
+	    "name": "VectorShiftRightInsert",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>1111D<imm6><vd>0100LQM1<vm>",
+			"D": "Y"
 		    }
 		]
 	    }
@@ -3168,7 +3506,9 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"E": "< 29>10PUDW1<rn><vd>1011<-imm8->",
+			"D": "Y"
 		    },
 		    {
 			"T": "A2",
@@ -3176,7 +3516,9 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T2"
+			"T": "T2",
+			"E": "< 29>10PUDW1<rn><vd>1010<-imm8->",
+			"D": "Y"
 		    }
 		]
 	    }
@@ -3234,6 +3576,22 @@
 		    {
 			"T": "T2",
 			"E": "< 29>1100D11<vn><vd>101sN1M0<vm>",
+			"D": "Y"
+		    }
+		]
+	    },
+	    "TC": "NA"
+	},
+	"VTRN": {
+	    "name": "VectorTranspose",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>1111D11sz10<vd>00001QM0<vm>",
 			"D": "Y"
 		    }
 		]
