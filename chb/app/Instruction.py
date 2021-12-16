@@ -40,6 +40,9 @@ from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction, ASTExpr
 from chb.app.FunctionDictionary import FunctionDictionary
 
 from chb.invariants.XVariable import XVariable
@@ -190,6 +193,15 @@ class Instruction(ABC):
     def global_refs(self) -> Tuple[Sequence["XVariable"], Sequence["XXpr"]]:
         """Return a pair of lhs, rhs global references."""
         ...
+
+    def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+        raise UF.CHBError("assembly-ast not defined")
+
+    def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+        raise UF.CHBError("ast (abstract-syntax-tree) not defined")
+
+    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> ASTExpr:
+        raise UF.CHBError("assembly-ast-condition not defined")
 
     @abstractmethod
     def to_string(
