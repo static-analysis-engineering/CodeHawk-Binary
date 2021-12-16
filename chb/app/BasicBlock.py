@@ -38,6 +38,8 @@ import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTNode, ASTBlock, ASTInstruction, ASTStmt, ASTExpr
 from chb.app.Instruction import Instruction
 
 from chb.invariants.XXpr import XXpr
@@ -118,6 +120,21 @@ class BasicBlock(ABC):
         for instr in self.instructions.values():
             m.update(instr.rev_bytestring.encode("utf-8"))
         return m.hexdigest()
+
+    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> ASTExpr:
+        return self.last_instruction.assembly_ast_condition(astree)
+
+    def assembly_ast(self, astree: AbstractSyntaxTree) -> ASTStmt:
+        instrs: List[ASTInstruction] = []
+        for (a, i) in sorted(self.instructions.items(), key = lambda p:int(p[0], 16)):
+            instrs.extend(i.assembly_ast(astree))
+        return astree.mk_instr_sequence(instrs)
+
+    def ast(self, astree: AbstractSyntaxTree) -> ASTStmt:
+        instrs: List[ASTInstruction] = []
+        for (a, i) in sorted(self.instructions.items(), key = lambda p:int(p[0], 16)):
+            instrs.extend(i.ast(astree))
+        return astree.mk_instr_sequence(instrs)
 
     @abstractmethod
     def to_string(

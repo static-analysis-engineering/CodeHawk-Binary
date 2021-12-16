@@ -33,12 +33,20 @@ Subclasses:
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple
+from typing import (
+    Any, Dict, List, Mapping, NewType, Optional, Sequence, Set, Tuple, TYPE_CHECKING, Union)
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree, VariableNamesRec
+
+import chb.app.ASTNode as AST
 
 from chb.app.CfgBlock import CfgBlock
 from chb.app.DerivedGraphSequence import DerivedGraphSequence
 
 import chb.util.fileutil as UF
+
+if TYPE_CHECKING:
+    from chb.app.Function import Function
 
 
 class Cfg:
@@ -105,6 +113,68 @@ class Cfg:
         else:
             return []
 
+    def stmt_ast(
+            self,
+            fn: "Function",
+            astree: AbstractSyntaxTree,
+            blockstmts: Dict[str, AST.ASTStmt]) -> AST.ASTNode:
+        twowayconds = self.derived_graph_sequence.two_way_conditionals()
+
+        def construct(
+                n: str,
+                follow: Optional[str],
+                result: List[AST.ASTStmt]) -> AST.ASTStmt:
+            if follow and n == follow:
+                return astree.mk_block(result)
+            elif len(self.successors(n)) == 0:
+                return astree.mk_block(result + [blockstmts[n]])
+            elif len(self.successors(n)) == 1:
+                return construct(self.successors(n)[0], follow, result + [blockstmts[n]])
+            elif len(self.successors(n)) == 2:
+                if n in twowayconds:
+                    follownode: Optional[str] = twowayconds[n]
+                else:
+                    follownode = None
+                ifbranch = construct(self.successors(n)[1], follownode, [])
+                elsebranch = construct(self.successors(n)[0], follownode, [])
+                condition = fn.blocks[n].assembly_ast_condition(astree)
+                bstmt = astree.mk_branch(condition, ifbranch, elsebranch)
+                if follownode:
+                    return construct(follownode, follow, result + [blockstmts[n], bstmt])
+                else:
+                    return astree.mk_block(result + [blockstmts[n], bstmt])
+            else:
+                raise UF.CHBError("Multi branch for " + n)
+
+        return construct(self.faddr, None, [])
+
+    def assembly_ast(
+            self,
+            fn: "Function",
+            variablenames: VariableNamesRec,
+            functionsummaries: Dict[str, Any]) -> Tuple[AST.ASTNode, AbstractSyntaxTree]:
+        astree = AbstractSyntaxTree(self.faddr, variablenames, functionsummaries)
+        blockstmts: Dict[str, AST.ASTStmt] = {}
+        for n in self.rpo_sorted_nodes:
+            blocknode = fn.blocks[n].assembly_ast(astree)
+            blockstmts[n] = blocknode
+
+        fnbody = self.stmt_ast(fn, astree, blockstmts)
+        return (fnbody, astree)
+
+    def ast(self,
+            fn: "Function",
+            variablenames: VariableNamesRec,
+            functionsummaries: Dict[str, Any]) -> Tuple[AST.ASTNode, AbstractSyntaxTree]:
+        astree = AbstractSyntaxTree(self.faddr, variablenames, functionsummaries)
+        blockstmts: Dict[str, AST.ASTStmt] = {}
+        for n in self.rpo_sorted_nodes:
+            blocknode = fn.blocks[n].ast(astree)
+            blockstmts[n] = blocknode
+
+        fnbody = self.stmt_ast(fn, astree, blockstmts)
+        return (fnbody, astree)
+
     def max_loop_level(self) -> int:
         return max([len(self.blocks[b].looplevels) for b in self.blocks])
 
@@ -124,6 +194,10 @@ class Cfg:
             raise UF.CHBError("Blockaddress " + baddr + " not found in cfg")
 
     def successors(self, src: str) -> Sequence[str]:
+        """Addresses of the successor basic blocks.
+
+        For an if-then-else branch the else branch is the first successor.
+        """
         if src in self._edges:
             return self._edges[src]
         else:

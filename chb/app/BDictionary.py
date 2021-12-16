@@ -38,6 +38,7 @@ from chb.app.ARMExtensionRegister import (
     ARMExtensionRegisterReplicatedElement)
 
 from chb.app.Register import Register
+from chb.arm.ARMRegister import ARMRegister
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT

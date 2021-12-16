@@ -37,10 +37,13 @@ import hashlib
 import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import (
+    Any, Callable, cast, Dict, List, Mapping, NewType, Optional, Sequence, Tuple, Union)
 
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree, VariableNamesRec
+from chb.app.ASTNode import ASTNode
 from chb.app.BasicBlock import BasicBlock
 from chb.app.BDictionary import BDictionary
 from chb.app.Cfg import Cfg
@@ -54,6 +57,8 @@ from chb.invariants.FnXprDictionary import FnXprDictionary
 from chb.invariants.InvariantFact import InvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
+
+from chb.userdata.UserHints import UserHints
 
 import chb.util.fileutil as UF
 
@@ -209,6 +214,17 @@ class Function(ABC):
     @property
     def cfg(self) -> Cfg:
         raise UF.CHBError("Property cfg not implemented for Function")
+
+    def ast(self,
+            variablenames: VariableNamesRec = cast(VariableNamesRec, {}),
+            functionsummaries: Dict[str, Any] = {}) -> Tuple[ASTNode, AbstractSyntaxTree]:
+        return self.cfg.ast(self, variablenames, functionsummaries)
+
+    def assembly_ast(
+            self,
+            variablenames: VariableNamesRec = cast(VariableNamesRec, {}),
+            functionsummaries: Dict[str, Any] = {}) -> Tuple[ASTNode, AbstractSyntaxTree]:
+        return self.cfg.assembly_ast(self, variablenames, functionsummaries)
 
     @abstractmethod
     def strings_referenced(self) -> List[str]:
