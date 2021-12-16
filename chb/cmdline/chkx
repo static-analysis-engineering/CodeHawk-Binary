@@ -472,6 +472,17 @@ def parse() -> argparse.Namespace:
         help="list of names of terminal nodes to constrain callgraph")
     resultscg.set_defaults(func=UCC.results_callgraph)
 
+    # -- results ast (abstract syntax tree) --
+    showast = resultsparsers.add_parser("ast")
+    showast.add_argument("xname", help="name of executable")
+    showast.add_argument("faddr", help="address of function (in hex)")
+    showast.add_argument(
+        "--hints",
+        help="names of json files with userdata hints",
+        nargs="*",
+        default=[])
+    showast.set_defaults(func=UCC.showast)
+
     # -- results cfg (control flow graph) --
     showcfg = resultsparsers.add_parser("cfg")
     showcfg.add_argument("xname", help="name of executable")

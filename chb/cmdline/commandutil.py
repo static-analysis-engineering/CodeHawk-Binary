@@ -51,8 +51,13 @@ from typing import (
     Sequence,
     TYPE_CHECKING)
 
+from chb.app.AbstractSyntaxTree import VariableNamesRec
+
+import chb.app.ASTUtil as UA
+
 from chb.app.AppAccess import AppAccess
 from chb.app.Assembly import Assembly
+from chb.app.ASTNode import ASTStmt, ASTExpr
 from chb.app.Callgraph import CallgraphNode
 
 from chb.arm.ARMAccess import ARMAccess
@@ -218,6 +223,7 @@ def setup_user_data(
         userhints.add_hints(cmdarmuserdata)
 
     # read hints files
+    os.chdir(path)
     filenames = [os.path.abspath(s) for s in hints]
     if len(filenames) > 0:
         print("use hints files: " + ", ".join(filenames))
@@ -856,6 +862,119 @@ def results_fileio(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def showast(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    faddr: str = args.faddr
+    hints: List[str] = args.hints  # names of json files
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    # read hints files
+    os.chdir(path)
+    userhints = UserHints(toxml=False)
+    filenames = [os.path.abspath(s) for s in hints]
+    if len(filenames) > 0:
+        print("use hints files: " + ", ".join(filenames))
+        for filename in filenames:
+            try:
+                with open(filename, "r") as fp:
+                    fuserdata = json.load(fp)
+                if "userdata" in fuserdata:
+                    userhints.add_hints(fuserdata["userdata"])
+                else:
+                    print_error(
+                        "Expected to find userdata in " + filename)
+                    exit(1)
+            except Exception as e:
+                print_error(
+                    "Error in reading " + filename + ": " + str(e))
+                exit(1)
+
+    app = get_app(path, xfile, xinfo)
+    if app.has_function(faddr):
+        f = app.function(faddr)
+        if f is None:
+            print_error("Unable to find function " + faddr)
+            exit(1)
+        fname = faddr
+        if app.has_function_name(faddr):
+            fname = app.function_name(faddr)
+        variablenames: VariableNamesRec = userhints.variable_names()
+        functionsummaries: Dict[str, Any] = userhints.function_summaries()
+        (ast, astree) = f.ast(variablenames, functionsummaries)
+        astree.add_function_declaration(fname)
+
+        ast = cast(ASTStmt, ast)
+        addresstaken = ast.address_taken()
+        variablesused = ast.variables_used()
+        callees = ast.callees()
+        for callee in callees:
+            astree.add_function_declaration(callee)
+        storagerecords = UA.storage_records(list(sorted(variablesused)))
+
+        instr_usedefs_e: Dict[int, Dict[str, List[Tuple[int, ASTExpr]]]] = {}
+
+        for i in range(0, 5):
+            instr_usedefs_e = {}
+            usedefs = ast.usedefs_x({}, addresstaken, instr_usedefs_e)
+            ast = ast.transform_instr_subx(instr_usedefs_e)
+
+        instr_live_x: Dict[int, Set[str]] = {}
+        live_x = ast.live_e(set([]), instr_live_x)
+
+        mapping: Dict[int, int] = {}
+        astreduced = ast.reduce(mapping, instr_live_x)
+
+        revmapping: Dict[int, List[int]] = {}
+        for (i, j) in mapping.items():
+            revmapping.setdefault(j, [])
+            revmapping[j].append(i)
+
+        print("\nC-like representation")
+        print("-" * 80)
+        for decl in astree.vardecls.values():
+            print(decl.to_c_like())
+        print("")
+        print(astreduced.to_c_like(sp = 3))
+
+        ast_output: Dict[str, Any] = {}
+        ast_output["functions"] = astfunctions = []
+        astfunction: Dict[str, Any] = {}
+        if app.has_function_name(faddr):
+            astfunction["name"] = app.function_name(faddr)
+        astfunction["va"] = faddr
+        astfunction["assembly-ast"] = {}
+        astfunction["assembly-ast"]["nodes"] = ast.serialize()
+        astfunction["assembly-ast"]["startnode"] = ast.id
+        astfunction["lifted-ast"] = {}
+        astfunction["lifted-ast"]["nodes"] = astreduced.serialize()
+        astfunction["lifted-ast"]["startnode"] = astreduced.id
+        astfunction["spans"] = astree.spans
+        astfunction["storage"] = storagerecords
+        astfunction["ast-mapping"] = revmapping
+        astfunctions.append(astfunction)
+
+        with open(xfile + "_ast.json", "w") as fp:
+            json.dump(ast_output, fp, indent=2)
+
+        exit(0)
+
+    else:
+        print_error("Function " + faddr + " not found")
+        exit(1)
+    exit(0)
+
+
 def showcfg(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -914,8 +1033,7 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
 
         if xderivedgraph:
             graphseq = f.cfg.derived_graph_sequence
-            graphseq.to_dot(app.path, "graphseq_" + faddr)
-            graphseq.two_way_conditionals()
+            graphseq.to_dot(app.path, xfile + "_graphseq_" + faddr)
 
         if os.path.isfile(pdffilename):
             print_info("Control flow graph for "
