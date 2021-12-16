@@ -1708,8 +1708,10 @@ class ASTSubstitutedExpr(ASTLvalExpr):
             self,
             mapping: Dict[int, int],
             live_x: Mapping[int, Set[str]] = {}) -> "ASTExpr":
-        mapping[self.id] = self.substituted_expr.id
-        return self.substituted_expr.reduce(mapping, live_x)
+        # mapping[self.id] = self.substituted_expr.id
+        r_lval = self.lval.reduce(mapping, live_x)
+        r_substituted_expr = self.substituted_expr.reduce(mapping, live_x)
+        return ASTSubstitutedExpr(self.id, r_lval, self.assign_id, r_substituted_expr)
 
     def noderecord(self) -> ASTNodeRecord:
         result = ASTNode.noderecord(self)
