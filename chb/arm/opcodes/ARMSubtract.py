@@ -29,6 +29,9 @@ from typing import List, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction
+
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
@@ -107,3 +110,30 @@ class ARMSubtract(ARMOpcode):
         rresult = xdata.xprs[3]
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return lhs + " := " + xresult
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        (op1, _, _) = self.operands[1].ast_rvalue(astree)
+        (op2, _, _) = self.operands[2].ast_rvalue(astree)
+        binop = astree.mk_binary_op("minus", op1, op2)
+        result = astree.mk_assign(lhs, binop)
+        astree.add_instruction_span(result.id, iaddr, bytestring)
+        return [result]
+
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        lhs = str(xdata.vars[0])
+        rhs1 = str(xdata.xprs[0])
+        rhs2 = str(xdata.xprs[1])
+        if lhs == "SP" and rhs1 == "SP" and xdata.xprs[1].is_constant:
+            return []
+        else:
+            return self.assembly_ast(astree, iaddr, bytestring, xdata)

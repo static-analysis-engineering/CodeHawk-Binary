@@ -27,6 +27,10 @@
 
 from typing import List, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
@@ -92,3 +96,52 @@ class ARMPop(ARMOpcode):
             pcond = ""
 
         return pcond + assigns
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        regsop = self.operands[1]
+        if not regsop.is_register_list:
+            raise UF.CHBError("Argument to push is not a register list")
+
+        (splval, _, _) = self.operands[0].ast_lvalue(astree)
+        (sprval, _, _) = self.operands[0].ast_rvalue(astree)
+
+        instrs: List[AST.ASTInstruction] = []
+        registers = regsop.registers
+        sp_incr = 4 * len(registers)
+        sp_offset = 0
+        for r in registers:
+            sp_offset_c = astree.mk_integer_constant(sp_offset)
+            addr = astree.mk_binary_op("plus", sprval, sp_offset_c)
+            lhs = astree.mk_variable_lval(r)
+            rhs = astree.mk_memref_expr(addr)
+            instrs.append(astree.mk_assign(lhs, rhs))
+            sp_offset += 4
+        sp_incr_c = astree.mk_integer_constant(sp_incr)
+        sp_rhs = astree.mk_binary_op("plus", sprval, sp_incr_c)
+        instrs.append(astree.mk_assign(splval, sp_rhs))
+        astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
+        return instrs
+
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        vars = xdata.vars
+        xprs = xdata.xprs
+        instrs: List[AST.ASTInstruction] = []
+        return []
+
+        '''
+        for (v, x) in zip(vars, xprs):
+            lhs = astree.mk_variable_lval(str(v), str(v))
+            rhs = astree.mk_variable_expr(str(x), str(x))
+            instrs.append(astree.mk_assign(lhs, rhs))
+        astree.add_instruction_span(instrs[0].id, iaddr, len(bytestring) // 2)
+        return instrs
+        '''
