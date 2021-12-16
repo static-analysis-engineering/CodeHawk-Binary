@@ -174,7 +174,8 @@ class GraphInterval:
                     else:
                         unresolved.append(m)
 
-        print("Unresolved: " + ", ".join(unresolved))
+        if len(unresolved) > 0:
+            print("Unresolved: " + ", ".join(unresolved))
         return self._twowayconditionals
 
     def post(self, n) -> Set[str]:

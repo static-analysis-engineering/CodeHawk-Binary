@@ -114,6 +114,7 @@ class ARMOpcode(ARMDictionaryRecord):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
+        '''
         print(
             bytestring
             + "  "
@@ -122,6 +123,7 @@ class ARMOpcode(ARMDictionaryRecord):
             + self.operandstring
             + ": "
             + self.annotation(xdata))
+        '''
         return []
 
     def assembly_ast_condition(

@@ -131,7 +131,6 @@ class ARMAdd(ARMOpcode):
             return []
 
         if rhs1 == "SP" and rhs3.is_stack_address:
-            print("Stack address: " + str(rhs3))
             rhs3 = cast("XprCompound", rhs3)
             stackoffset = rhs3.stack_address_offset()
             if stackoffset < 0:
