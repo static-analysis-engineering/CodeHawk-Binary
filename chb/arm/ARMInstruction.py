@@ -32,6 +32,8 @@ from typing import (
 
 from chb.api.CallTarget import CallTarget
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTNode, ASTInstruction, ASTExpr
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.Instruction import Instruction
 from chb.app.InstrXData import InstrXData
@@ -168,6 +170,24 @@ class ARMInstruction(Instruction):
     @property
     def annotation(self) -> str:
         return self.opcode.annotation(self.xdata).ljust(40)
+
+    def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+        astree.set_current_addr(self.iaddr)
+        return self.opcode.assembly_ast(
+            astree, self.iaddr, self.bytestring, self.xdata)
+
+    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> ASTExpr:
+        return self.opcode.assembly_ast_condition(
+            astree, self.iaddr, self.bytestring, self.xdata)
+
+    def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+        astree.set_current_addr(self.iaddr)
+        return self.opcode.ast(
+            astree, self.iaddr, self.bytestring, self.xdata)
+
+    def ast_condition(self, astree: AbstractSyntaxTree) -> ASTExpr:
+        return self.opcode.ast_condition(
+            astree, self.iaddr, self.bytestring, self.xdata)
 
     @property
     def stackpointer_offset(self) -> StackPointerOffset:

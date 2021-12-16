@@ -40,6 +40,9 @@ type arm_memory_offset_t =
 
 from typing import List, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.app.ASTNode as AST
+
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord, armregistry
 
 import chb.util.fileutil as UF
@@ -59,6 +62,21 @@ class ARMMemoryOffset(ARMDictionaryRecord):
             ixval: IndexedTableValue) -> None:
         ARMDictionaryRecord.__init__(self, d, ixval)
 
+    @property
+    def is_immediate(self) -> bool:
+        return False
+
+    @property
+    def is_index(self) -> bool:
+        return False
+
+    @property
+    def is_shifted_index(self) -> bool:
+        return False
+
+    def ast_rvalue(self, astree: AbstractSyntaxTree) -> AST.ASTExpr:
+        raise UF.CHBError("AST value not defined for " + str(self))
+
     def __str(self) -> str:
         return "memory-offset: " + self.tags[0]
 
@@ -75,6 +93,13 @@ class ARMImmOffset(ARMMemoryOffset):
     @property
     def immediate(self) -> int:
         return self.args[0]
+
+    @property
+    def is_immediate(self) -> bool:
+        return True
+
+    def ast_rvalue(self, astree: AbstractSyntaxTree) -> AST.ASTExpr:
+        return astree.mk_integer_constant(self.immediate)
 
     def __str__(self) -> str:
         return "#" + hex(self.immediate)
@@ -96,6 +121,13 @@ class ARMIndexOffset(ARMMemoryOffset):
     @property
     def offset(self) -> int:
         return self.args[0]
+
+    @property
+    def is_index(self) -> bool:
+        return True
+
+    def ast_rvalue(self, astree: AbstractSyntaxTree) -> AST.ASTExpr:
+        return astree.mk_variable_expr(self.register)
 
     def __str(self) -> str:
         return self.register
@@ -121,6 +153,10 @@ class ARMShiftedIndexOffset(ARMMemoryOffset):
     @property
     def offset(self) -> int:
         return self.args[1]
+
+    @property
+    def is_shifted_index(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         srt = str(self.shift_rotate)

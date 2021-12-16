@@ -30,6 +30,8 @@ from typing import List, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction, ASTExpr
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
@@ -105,6 +107,53 @@ class ARMOpcode(ARMDictionaryRecord):
 
     def annotation(self, xdata: InstrXData) -> str:
         return self.__str__()
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        print(
+            bytestring
+            + "  "
+            + self.mnemonic
+            + " "
+            + self.operandstring
+            + ": "
+            + self.annotation(xdata))
+        return []
+
+    def assembly_ast_condition(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> ASTExpr:
+        msg = (
+            bytestring
+            + "  "
+            + self.mnemonic
+            + " "
+            + self.operandstring
+            + ": "
+            + self.annotation(xdata))
+        raise UF.CHBError("No assembly-ast-condition defined for " + msg)
+
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        return self.assembly_ast(astree, iaddr, bytestring, xdata)
+
+    def ast_condition(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> ASTExpr:
+        return self.assembly_ast_condition(astree, iaddr, bytestring, xdata)
 
     def mnemonic_extension(self) -> str:
         if self.mnemonic.startswith("IT"):

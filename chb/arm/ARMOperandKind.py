@@ -65,7 +65,11 @@ type arm_operand_kind_t =
   | ARMFPConstant of float                            "c"       2            0
 """
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
 
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord, armregistry
 
@@ -128,12 +132,42 @@ class ARMOperandKind(ARMDictionaryRecord):
             "Indirect register not available for operand kind " + str(self))
 
     @property
+    def is_register_list(self) -> bool:
+        return False
+
+    @property
+    def registers(self) -> List[str]:
+        raise UF.CHBError("Operand is not a register list " + str(self))
+
+    @property
     def offset(self) -> int:
         raise UF.CHBError("Offset not avaialable for operand kind " + str(self))
 
     @property
     def value(self) -> int:
         raise UF.CHBError("Value not available for operand kind " + str(self))
+
+    def ast_lvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        raise UF.CHBError(
+            "AST lvalue not available for operand kind "
+            + self.tags[0]
+            + "("
+            + str(self)\
+            + ")" )
+
+    def ast_rvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        raise UF.CHBError(
+            "AST rvalue not available for operand kind "
+            + self.tags[0]
+            + "("
+            + str(self)
+            + ")") 
 
     def __str__(self) -> str:
         return "operandkind: " + self.tags[0]
@@ -159,6 +193,18 @@ class ARMRegisterOp(ARMOperandKind):
     @property
     def is_register(self) -> bool:
         return True
+
+    def ast_lvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (astree.mk_variable_lval(self.register),[], [])
+
+    def ast_rvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (astree.mk_variable_expr(self.register), [], [])
 
     def __str__(self) -> str:
         return self.register
@@ -253,6 +299,10 @@ class ARMRegListOp(ARMOperandKind):
     def registers(self) -> List[str]:
         return self.tags[1:]
 
+    @property
+    def is_register_list(self) -> bool:
+        return True
+
     def __str__(self) -> str:
         return "{" + ",".join(self.registers) + "}"
 
@@ -331,6 +381,16 @@ class ARMAbsoluteOp(ARMOperandKind):
     def address(self) -> "AsmAddress":
         return self.bd.address(self.args[0])
 
+    @property
+    def is_absolute(self) -> bool:
+        return True
+
+    def ast_rvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (astree.mk_integer_constant(self.address.get_int()), [], [])
+
     def __str__(self) -> str:
         return str(self.address)
 
@@ -347,6 +407,14 @@ class ARMLiteralAddressOp(ARMOperandKind):
     @property
     def address(self) -> "AsmAddress":
         return self.bd.address(self.args[0])
+
+    def ast_rvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        gvname = "gv_" + self.address.get_hex()
+        gv = astree.mk_variable_expr(gvname)
+        return (gv, [], [])
 
     def __str__(self) -> str:
         return str(self.address)
@@ -387,6 +455,10 @@ class ARMOffsetAddressOp(ARMOperandKind):
         return self.tags[1]
 
     @property
+    def indirect_register(self) -> str:
+        return self.register
+
+    @property
     def align(self) -> int:
         return self.args[0]
 
@@ -409,6 +481,37 @@ class ARMOffsetAddressOp(ARMOperandKind):
     @property
     def is_index(self) -> bool:
         return self.args[4] == 1
+
+    def ast_lvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        offset = self.memory_offset.ast_rvalue(astree)
+        if not self.is_add:
+            offset = astree.mk_unary_op("minus", offset)
+        xreg = astree.mk_variable_expr(self.register)
+        xindex = astree.mk_binary_op("plus", xreg, offset)
+
+        if self.is_write_back:
+            reglv = astree.mk_variable_lval(self.register)
+            assign = astree.mk_assign(reglv, xindex)
+            if self.is_index:
+                memexp = astree.mk_memref_lval(xindex)
+                return (memexp, [], [assign])
+            else:
+                memexp = astree.mk_memref_lval(xreg)
+                return (memexp, [], [assign])
+        else:
+            memexp = astree.mk_memref_lval(xindex)
+            return (memexp, [], [])
+
+    def ast_rvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        (lval, preinstrs, postinstrs) = self.ast_lvalue(astree)
+        rval = astree.mk_lval_expr(lval)
+        return (rval, preinstrs, postinstrs)
 
     def __str__(self) -> str:
         memoffset = str(self.memory_offset)
@@ -445,6 +548,18 @@ class ARMImmediateOp(ARMOperandKind):
     @property
     def is_immediate(self) -> bool:
         return True
+
+    def ast_lvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        raise UF.CHBError("Immediate operand cannot be an lvalue")
+
+    def ast_rvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (astree.mk_integer_constant(self.value), [], [])
 
     def __str__(self) -> str:
         return "#" + hex(self.value)
