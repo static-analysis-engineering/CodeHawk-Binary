@@ -27,6 +27,9 @@
 
 from typing import List, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
@@ -63,3 +66,11 @@ class ARMNoOperation(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         return "--"
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        return []

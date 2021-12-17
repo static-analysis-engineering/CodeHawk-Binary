@@ -111,14 +111,10 @@ def storage_records(names: List[str]) -> List[Dict[str, str]]:
         elif name.startswith("gv_"):
             rec["type"] = "global"
             rec["va"] = name[3:]
-        elif name.startswith("var."):
+        elif name.startswith("var"):
             rec["type"] = "stack"
             rec["offset"] = str(int(name[4:]))
         else:
             continue
         result.append(rec)
     return result
-                    
-
-
-    

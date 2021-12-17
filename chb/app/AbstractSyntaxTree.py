@@ -88,6 +88,7 @@ class AbstractSyntaxTree:
         self._symboltable: Dict[Tuple[str, str], AST.ASTVarInfo] = {}
         self._symboltable[("ignored", "__none__")] = ignoredvariable
         self._vardecls: Dict[str, AST.ASTVarDeclaration] = {}
+        self._unsupported: Dict[str, List[str]] = {}
 
     @property
     def spans(self) -> List[ASTSpanRecord]:
@@ -160,6 +161,14 @@ class AbstractSyntaxTree:
         spanrec["id"] = id
         spanrec["spans"] = [span]
         self.add_span(cast(ASTSpanRecord, spanrec))
+
+    def add_instruction_unsupported(self, mnem: str, instr: str) -> None:
+        self._unsupported.setdefault(mnem, [])
+        self._unsupported[mnem].append(instr)
+
+    @property
+    def unsupported_instructions(self) -> Dict[str, List[str]]:
+        return self._unsupported
 
     def set_current_addr(self, addr: str) -> None:
         """Set address of current instruction.
@@ -285,8 +294,6 @@ class AbstractSyntaxTree:
             id = self.new_id()
             vardecl = AST.ASTVarDeclaration(id, fvar)
             self._vardecls[name] = vardecl
-        else:
-            print("no summary found for " + name)
 
     def mk_variable(self, name: str) -> AST.ASTVariable:
         id = self.new_id()

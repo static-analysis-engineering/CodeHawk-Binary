@@ -28,6 +28,7 @@
 from typing import List, TYPE_CHECKING
 
 from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction
 
 import chb.app.ASTNode as AST
 
@@ -89,3 +90,11 @@ class ARMCompareBranchZero(ARMOpcode):
         condition = astree.mk_binary_op("eq", regvar, zero)
         astree.add_instruction_span(condition.id, iaddr, bytestring)
         return condition
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        return []

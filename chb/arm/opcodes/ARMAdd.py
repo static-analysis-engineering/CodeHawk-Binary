@@ -144,4 +144,13 @@ class ARMAdd(ARMOpcode):
                 astree.add_instruction_span(result.id, iaddr, bytestring)
                 return [result]
 
+        elif rhs1 == "PC" or str(rhs2) == "PC":
+            if rhs3.is_constant:
+                rhsval = rhs3.constant.value
+                rhsast = astree.mk_integer_constant(rhsval)
+                lhsast = astree.mk_variable_lval(lhs)
+                result = astree.mk_assign(lhsast, rhsast)
+                astree.add_instruction_span(result.id, iaddr, bytestring)
+                return [result]
+
         return self.assembly_ast(astree, iaddr, bytestring, xdata)

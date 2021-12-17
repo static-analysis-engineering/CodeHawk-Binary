@@ -28,6 +28,10 @@
 from typing import List, Sequence, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
@@ -107,3 +111,11 @@ class ARMBranch(ARMOpcode):
             return "goto " + str(xdata.xprs[0])
         else:
             return "if ? goto " + str(xdata.xprs[0])
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        return []
