@@ -114,16 +114,16 @@ class ARMOpcode(ARMDictionaryRecord):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
-        '''
-        print(
-            bytestring
+        msg = (
+            iaddr + ": "
+            + bytestring
             + "  "
             + self.mnemonic
             + " "
             + self.operandstring
             + ": "
             + self.annotation(xdata))
-        '''
+        astree.add_instruction_unsupported(self.mnemonic, msg)
         return []
 
     def assembly_ast_condition(

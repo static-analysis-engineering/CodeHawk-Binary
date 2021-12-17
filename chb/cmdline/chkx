@@ -475,12 +475,20 @@ def parse() -> argparse.Namespace:
     # -- results ast (abstract syntax tree) --
     showast = resultsparsers.add_parser("ast")
     showast.add_argument("xname", help="name of executable")
-    showast.add_argument("faddr", help="address of function (in hex)")
+    showast.add_argument(
+        "--functions",
+        help="addresses (in hex) of functions to be included in ast",
+        nargs="*",
+        default=[])
     showast.add_argument(
         "--hints",
         help="names of json files with userdata hints",
         nargs="*",
         default=[])
+    showast.add_argument(
+        "--verbose", "-v",
+        help="print spans and available expressions",
+        action="store_true")
     showast.set_defaults(func=UCC.showast)
 
     # -- results cfg (control flow graph) --

@@ -1334,7 +1334,10 @@ class ASTVariable(ASTLHost):
         if self.id == -1:
             return []
         else:
-            return [self.noderecord()]
+            result: List[ASTNodeRecord] = []
+            result.append(self.noderecord())
+            result.extend(self.varinfo.serialize())
+            return result
 
     def to_c_like(self, sp: int = 0) -> str:
         return self.displayname
@@ -1514,6 +1517,14 @@ class ASTExpr(ASTNode):
     def __init__(self, id: int, tag: str) -> None:
         ASTNode.__init__(self, id, tag)
 
+    @property
+    def is_integer_constant(self) -> bool:
+        return False
+
+    @property
+    def cvalue(self) -> int:
+        raise Exception("Internal error in ASTExpr: " + str(self))
+
     def use(self) -> List[str]:
         return []
 
@@ -1558,6 +1569,10 @@ class ASTIntegerConstant(ASTConstant):
     def cvalue(self) -> int:
         return self._cvalue
 
+    @property
+    def is_integer_constant(self) -> bool:
+        return True
+
     def use(self) -> List[str]:
         return []
 
@@ -1570,7 +1585,10 @@ class ASTIntegerConstant(ASTConstant):
         return [self.noderecord()]
 
     def to_c_like(self, sp: int = 0) -> str:
-        return str(self.cvalue)
+        if self.cvalue > 100000:
+            return hex(self.cvalue)
+        else:
+            return str(self.cvalue)
 
     def to_string(self, sp: int = 0) -> str:
         return ASTNode.to_string(self, sp) + "(" + str(self.cvalue) + ")"
@@ -1695,6 +1713,17 @@ class ASTSubstitutedExpr(ASTLvalExpr):
     @property
     def substituted_expr(self) -> "ASTExpr":
         return self._expr
+
+    @property
+    def is_integer_constant(self) -> bool:
+        return self.substituted_expr.is_integer_constant
+
+    @property
+    def cvalue(self) -> int:
+        if self.is_integer_constant:
+            return self.substituted_expr.cvalue
+        else:
+            raise Exception("Internal error in substituted expression")
 
     def use(self) -> List[str]:
         return self.substituted_expr.use()
@@ -1846,7 +1875,23 @@ class ASTBinaryOp(ASTExpr):
         return result
 
     def to_c_like(self, sp: int = 0) -> str:
-        return self.exp1.to_c_like() + operators[self.op] + self.exp2.to_c_like()
+        if (
+                self.exp1.is_integer_constant
+                and self.exp2.is_integer_constant
+                and self.op in ["plus", "minus"]):
+            if self.op == "plus":
+                result = self.exp1.cvalue + self.exp2.cvalue
+            else:
+                result = self.exp1.cvalue - self.exp2.cvalue
+            if result > 100000:
+                return hex(result)
+            else:
+                return str(result)
+        else:
+            return (
+                self.exp1.to_c_like()
+                + operators[self.op]
+                + self.exp2.to_c_like())
 
     def to_string(self, sp: int = 0) -> str:
         lines: List[str] = []

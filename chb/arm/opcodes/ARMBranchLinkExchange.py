@@ -25,17 +25,27 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Sequence, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Sequence, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction, ASTExpr
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction, ASTExpr
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+from chb.arm.ARMOperandKind import ARMOperandKind, ARMAbsoluteOp
 
 from chb.invariants.XXpr import XXpr
+
+from chb.models.ModelsAccess import ModelsAccess
+from chb.models.ModelsType import MNamedType
 
 import chb.util.fileutil as UF
 
@@ -102,3 +112,68 @@ class ARMBranchLinkExchange(ARMOpcode):
             return xdata.call_target(self.ixd)
         else:
             raise UF.CHBError("Instruction is not a call: " + str(self))
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        lhs = astree.mk_variable_lval("R0")
+        tgt = self.operands[0]
+        if tgt.is_absolute:
+            tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
+            if self.app.has_function_name(tgtaddr.address.get_hex()):
+                faddr = tgtaddr.address.get_hex()
+                fnsymbol = self.app.function_name(faddr)
+                tgtxpr: ASTExpr = astree.mk_variable_expr(fnsymbol)
+            else:
+                (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
+        else:
+            (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
+        call = astree.mk_call(lhs, tgtxpr, [])
+        astree.add_instruction_span(call.id, iaddr, bytestring)
+        return [call]
+
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        if self.is_call(xdata) and xdata.has_call_target():
+            models = ModelsAccess()
+            tgt = str(xdata.call_target(self.ixd))
+            if tgt.startswith("App:"):
+                tgt = tgt[4:]
+            if models.has_so_function_summary(tgt):
+                summary = models.so_function_summary(tgt)
+                returntype = summary.signature.returntype
+                if returntype.is_named_type:
+                    returntype = cast(MNamedType, returntype)
+                    typename = returntype.typename
+                    if typename == "void" or typename == "VOID":
+                        lhs = astree.mk_ignored_lval()
+                    else:
+                        lhs = astree.mk_variable_lval("R0")
+                else:
+                    lhs = astree.mk_variable_lval("R0")
+            else:
+                lhs = astree.mk_variable_lval("R0")
+            tgtxpr = astree.mk_variable_expr(tgt)
+            args = self.arguments(xdata)
+            argregs = ["R0", "R1", "R2", "R3"]
+            callargs = argregs[:len(args)]
+            argxprs: List[ASTExpr] = []
+            for (reg, arg) in zip(callargs, args):
+                if arg.is_string_reference:
+                    regast = astree.mk_variable_expr(reg)
+                    cstr = arg.constant.string_reference()
+                    saddr = hex(arg.constant.value)
+                    argxprs.append(astree.mk_string_constant(regast, cstr, saddr))
+                else:
+                    argxprs.append(astree.mk_variable_expr(reg))
+            call = astree.mk_call(lhs, tgtxpr, argxprs)
+            astree.add_instruction_span(call.id, iaddr, bytestring)
+            return [call]
+        else:
+            return self.assembly_ast(astree, iaddr, bytestring, xdata)

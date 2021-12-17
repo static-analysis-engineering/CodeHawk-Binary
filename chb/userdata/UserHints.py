@@ -918,6 +918,13 @@ class UserHints:
         else:
             return cast(VariableNamesRec, {})
 
+    def symbolic_addresses(self) -> Dict[str, Dict[str, str]]:
+        if "symbolic-addresses" in self.astdata:
+            entry = cast(SymbolicAddressesHints, self.astdata["symbolic-addresses"])
+            return entry.symbolicaddrs
+        else:
+            return {}
+
     def function_summaries(self) -> Dict[str, Any]:
         if "function-summaries" in self.astdata:
             entry = cast(FunctionSummariesHints, self.astdata["function-summaries"])
@@ -938,6 +945,7 @@ class UserHints:
         - section-headers
         - struct definitions
         - successors
+        - symbolic addresses
 
         and ast data (used in ast only):
         - variable-names
@@ -1084,10 +1092,16 @@ class UserHints:
         if "symbolic-addresses" in hints:
             tag = "symbolic-addresses"
             symbolicaddrs: Dict[str, Dict[str, str]] = hints[tag]
-            if tag in self.userdata:
-                self.userdata[tag].update(symbolicaddrs)
+            if self._toxml:
+                if tag in self.userdata:
+                    self.userdata[tag].update(symbolicaddrs)
+                else:
+                    self.userdata[tag] = SymbolicAddressesHints(symbolicaddrs)
             else:
-                self.userdata[tag] = SymbolicAddressesHints(symbolicaddrs)
+                if tag in self.astdata:
+                    self.astdata[tag].update(symbolicaddrs)
+                else:
+                    self.astdata[tag] = SymbolicAddressesHints(symbolicaddrs)
 
         if "variable-names" in hints:
             tag = "variable-names"
