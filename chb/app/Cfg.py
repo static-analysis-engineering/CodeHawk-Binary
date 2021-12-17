@@ -152,8 +152,10 @@ class Cfg:
             self,
             fn: "Function",
             variablenames: VariableNamesRec,
-            functionsummaries: Dict[str, Any]) -> Tuple[AST.ASTNode, AbstractSyntaxTree]:
-        astree = AbstractSyntaxTree(self.faddr, variablenames, functionsummaries)
+            functionsummaries: Dict[str, Any],
+            symbolicaddrs: Dict[str, Dict[str, Any]]) -> Tuple[AST.ASTNode, AbstractSyntaxTree]:
+        astree = AbstractSyntaxTree(
+            self.faddr, variablenames, functionsummaries, symbolicaddrs)
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
             blocknode = fn.blocks[n].assembly_ast(astree)
@@ -165,8 +167,9 @@ class Cfg:
     def ast(self,
             fn: "Function",
             variablenames: VariableNamesRec,
-            functionsummaries: Dict[str, Any]) -> Tuple[AST.ASTNode, AbstractSyntaxTree]:
-        astree = AbstractSyntaxTree(self.faddr, variablenames, functionsummaries)
+            functionsummaries: Dict[str, Any],
+            symbolicaddrs: Dict[str, Dict[str, Any]]) -> Tuple[AST.ASTNode, AbstractSyntaxTree]:
+        astree = AbstractSyntaxTree(self.faddr, variablenames, functionsummaries, symbolicaddrs)
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
             blocknode = fn.blocks[n].ast(astree)

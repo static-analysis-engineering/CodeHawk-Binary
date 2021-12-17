@@ -217,14 +217,16 @@ class Function(ABC):
 
     def ast(self,
             variablenames: VariableNamesRec = cast(VariableNamesRec, {}),
-            functionsummaries: Dict[str, Any] = {}) -> Tuple[ASTNode, AbstractSyntaxTree]:
-        return self.cfg.ast(self, variablenames, functionsummaries)
+            functionsummaries: Dict[str, Any] = {},
+            symbolicaddrs: Dict[str, Dict[str, Any]] = {}) -> Tuple[ASTNode, AbstractSyntaxTree]:
+        return self.cfg.ast(self, variablenames, functionsummaries, symbolicaddrs)
 
     def assembly_ast(
             self,
             variablenames: VariableNamesRec = cast(VariableNamesRec, {}),
-            functionsummaries: Dict[str, Any] = {}) -> Tuple[ASTNode, AbstractSyntaxTree]:
-        return self.cfg.assembly_ast(self, variablenames, functionsummaries)
+            functionsummaries: Dict[str, Any] = {},
+            symbolicaddrs: Dict[str, Dict[str, Any]] = {}) -> Tuple[ASTNode, AbstractSyntaxTree]:
+        return self.cfg.assembly_ast(self, variablenames, functionsummaries, symbolicaddrs)
 
     @abstractmethod
     def strings_referenced(self) -> List[str]:

@@ -923,8 +923,9 @@ def showast(args: argparse.Namespace) -> NoReturn:
             variablenames: VariableNamesRec = userhints.variable_names()
             functionsummaries: Dict[str, Any] = userhints.function_summaries()
             symbolicaddrs: Dict[str, Dict[str, Any]] = userhints.symbolic_addresses()
+
             try:
-                (ast, astree) = f.ast(variablenames, functionsummaries)
+                (ast, astree) = f.ast(variablenames, functionsummaries, symbolicaddrs)
             except UF.CHBError as e:
                 print("=" * 80)
                 print("AST generation is still experimental with limited support.")
@@ -956,6 +957,10 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 astree.add_function_declaration(callee)
             storagerecords = UA.storage_records(list(sorted(variablesused)))
             instr_usedefs_e: Dict[int, Dict[str, List[Tuple[int, ASTExpr]]]] = {}
+
+            macronames: Dict[int, str] = {}
+            for s in symbolicaddrs:
+                macronames[int(s, 16)] = symbolicaddrs[s]["name"]
 
             for i in range(0, 5):
                 instr_usedefs_e = {}
@@ -1000,7 +1005,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
             live_x = ast.live_e(set([]), instr_live_x)
 
             mapping: Dict[int, int] = {}
-            astreduced = ast.reduce(mapping, instr_live_x)
+            astreduced = ast.reduce(mapping, instr_live_x, macronames)
 
             revmapping: Dict[int, List[int]] = {}
             for (i, j) in mapping.items():

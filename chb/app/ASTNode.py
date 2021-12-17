@@ -121,12 +121,15 @@ class ASTNode:
         return self._tag
 
     def transform_instr_subx(
-            self, usedefs_e: Dict[int, Dict[str, List[Tuple[int, "ASTExpr"]]]]) -> "ASTNode":
+            self,
+            usedefs_e: Dict[int, Dict[str, List[Tuple[int, "ASTExpr"]]]]) -> "ASTNode":
         return self
 
     def reduce(
             self,
-            mapping: Dict[int, int], live_x: Mapping[int, Set[str]] = {}) -> "ASTNode":
+            mapping: Dict[int, int],
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTNode":
         return self
 
     def variables_used(self) -> Set[str]:
@@ -499,7 +502,8 @@ class ASTStmt(ASTNode):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTStmt":
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTStmt":
         return self
 
     def variables_used(self) -> Set[str]:
@@ -563,13 +567,17 @@ class ASTBlock(ASTStmt):
     def transform_instr_subx(
             self,
             usedefs_e: Dict[int, Dict[str, List[Tuple[int, "ASTExpr"]]]]) -> "ASTBlock":
-        return ASTBlock(self.id, [s.transform_instr_subx(usedefs_e) for s in self.stmts])
+        return ASTBlock(
+            self.id,
+            [s.transform_instr_subx(usedefs_e) for s in self.stmts])
 
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTBlock":
-        return ASTBlock(self.id, [s.reduce(mapping, live_x) for s in self.stmts])
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTBlock":
+        return ASTBlock(
+            self.id, [s.reduce(mapping, live_x, macronames) for s in self.stmts])
 
     def noderecord(self) -> ASTNodeRecord:
         result = ASTNode.noderecord(self)
@@ -658,16 +666,19 @@ class ASTInstrSequence(ASTStmt):
             self,
             usedefs_e: Dict[int, Dict[str, List[Tuple[int, "ASTExpr"]]]]) -> "ASTInstrSequence":
         return ASTInstrSequence(
-            self.id, [i.transform_instr_subx(usedefs_e) for i in self.instructions])
+            self.id,
+            [i.transform_instr_subx(usedefs_e) for i in self.instructions])
 
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTInstrSequence":
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTInstrSequence":
         result: List["ASTInstruction"] = []
         return ASTInstrSequence(
             self.id,
-            [i.reduce(mapping, live_x) for i in self.instructions if i.is_live(live_x)])
+            [i.reduce(mapping, live_x, macronames)
+             for i in self.instructions if i.is_live(live_x)])
 
     def noderecord(self) -> ASTNodeRecord:
         result = ASTNode.noderecord(self)
@@ -770,10 +781,11 @@ class ASTBranch(ASTStmt):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTBranch":
-        r_if = self.ifstmt.reduce(mapping, live_x)
-        r_else = self.elsestmt.reduce(mapping, live_x)
-        r_cond = self.condition.reduce(mapping, live_x)
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTBranch":
+        r_if = self.ifstmt.reduce(mapping, live_x, macronames)
+        r_else = self.elsestmt.reduce(mapping, live_x, macronames)
+        r_cond = self.condition.reduce(mapping, live_x, macronames)
         return ASTBranch(self.id, r_cond, r_if, r_else)
         
     def noderecord(self) -> ASTNodeRecord:
@@ -851,7 +863,8 @@ class ASTInstruction(ASTNode, ABC):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTInstruction":
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTInstruction":
         return self
 
     def use(self) -> List[str]:
@@ -915,7 +928,8 @@ class ASTAssign(ASTInstruction):
         return UA.update_usedef_assign(usedefs_e, self.id, self.define(), self.rhs)
 
     def transform_instr_subx(
-            self, usedefs_e: Dict[int, Dict[str, List[Tuple[int, "ASTExpr"]]]]) -> "ASTAssign":
+            self,
+            usedefs_e: Dict[int, Dict[str, List[Tuple[int, "ASTExpr"]]]]) -> "ASTAssign":
         if self.id in usedefs_e:
             xform_lhs = self.lhs.transform_subx(usedefs_e[self.id])
             xform_rhs = self.rhs.transform_subx(usedefs_e[self.id])
@@ -926,9 +940,10 @@ class ASTAssign(ASTInstruction):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTAssign":
-        r_lhs = self.lhs.reduce(mapping, live_x)
-        r_rhs = self.rhs.reduce(mapping, live_x)
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTAssign":
+        r_lhs = self.lhs.reduce(mapping, live_x, macronames)
+        r_rhs = self.rhs.reduce(mapping, live_x, macronames)
         return ASTAssign(self.id, r_lhs, r_rhs)
 
     def is_live(self, live_x: Mapping[int, Set[str]] = {}) -> bool:
@@ -1061,9 +1076,10 @@ class ASTCall(ASTInstruction):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTCall":
-        r_args = [a.reduce(mapping, live_x) for a in self.arguments]
-        r_lhs = self.lhs.reduce(mapping, live_x)
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTCall":
+        r_args = [a.reduce(mapping, live_x, macronames) for a in self.arguments]
+        r_lhs = self.lhs.reduce(mapping, live_x, macronames)
         return ASTCall(self.id, r_lhs, self.tgt, r_args)
     
     def noderecord(self) -> ASTNodeRecord:
@@ -1155,9 +1171,10 @@ class ASTLval(ASTNode):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTLval":
-        r_lhost = self.lhost.reduce(mapping, live_x)
-        r_offset = self.offset.reduce(mapping, live_x)
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTLval":
+        r_lhost = self.lhost.reduce(mapping, live_x, macronames)
+        r_offset = self.offset.reduce(mapping, live_x, macronames)
         return ASTLval(self.id, r_lhost, r_offset)
 
     def noderecord(self) -> ASTNodeRecord:
@@ -1215,7 +1232,8 @@ class ASTLHost(ASTNode):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTLHost":
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTLHost":
         return self
 
 
@@ -1385,8 +1403,9 @@ class ASTMemRef(ASTLHost):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTMemRef":
-        r_memexp = self.memexp.reduce(mapping, live_x)
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTMemRef":
+        r_memexp = self.memexp.reduce(mapping, live_x, macronames)
         return ASTMemRef(self.id, r_memexp)
 
     def to_c_like(self, sp: int = 0) -> str:
@@ -1419,7 +1438,8 @@ class ASTOffset(ASTNode):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTOffset":
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTOffset":
         return self
 
 
@@ -1468,8 +1488,9 @@ class ASTFieldOffset(ASTOffset):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTFieldOffset":
-        r_offset = self.offset.reduce(mapping, live_x)
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTFieldOffset":
+        r_offset = self.offset.reduce(mapping, live_x, macronames)
         return ASTFieldOffset(self.id, self.fieldname, r_offset)
 
     def __str__(self) -> str:
@@ -1503,9 +1524,10 @@ class ASTIndexOffset(ASTOffset):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTIndexOffset":
-        r_index = self.index.reduce(mapping, live_x)
-        r_offset = self.offset.reduce(mapping, live_x)
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTIndexOffset":
+        r_index = self.index.reduce(mapping, live_x, macronames)
+        r_offset = self.offset.reduce(mapping, live_x, macronames)
         return ASTIndexOffset(self.id, r_index, r_offset)
 
     def __str__(self) -> str:
@@ -1540,7 +1562,8 @@ class ASTExpr(ASTNode):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTExpr":
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTExpr":
         return self
 
 
@@ -1561,13 +1584,18 @@ class ASTConstant(ASTExpr):
 
 class ASTIntegerConstant(ASTConstant):
 
-    def __init__(self, id: int, cvalue: int) -> None:
+    def __init__(self, id: int, cvalue: int, macroname: Optional[str] = None) -> None:
         ASTConstant.__init__(self, id, "integer-constant")
         self._cvalue = cvalue
+        self._macroname = macroname
 
     @property
     def cvalue(self) -> int:
         return self._cvalue
+
+    @property
+    def macroname(self) -> Optional[str]:
+        return self._macroname
 
     @property
     def is_integer_constant(self) -> bool:
@@ -1576,16 +1604,31 @@ class ASTIntegerConstant(ASTConstant):
     def use(self) -> List[str]:
         return []
 
+    def reduce(
+            self,
+            mapping: Dict[int, int],
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTExpr":
+        if self.cvalue in macronames:
+            macroname = macronames[self.cvalue]
+            return ASTIntegerConstant(self.id, self.cvalue, macroname)
+        else:
+            return self
+
     def noderecord(self) -> ASTNodeRecord:
         result = ASTNode.noderecord(self)
         result["value"] = str(self.cvalue)
+        if self.macroname:
+            result["macroname"] = self.macroname
         return result
 
     def serialize(self) -> List[ASTNodeRecord]:
         return [self.noderecord()]
 
     def to_c_like(self, sp: int = 0) -> str:
-        if self.cvalue > 100000:
+        if self.macroname:
+            return self.macroname
+        elif self.cvalue > 100000:
             return hex(self.cvalue)
         else:
             return str(self.cvalue)
@@ -1671,8 +1714,9 @@ class ASTLvalExpr(ASTExpr):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTExpr":
-        r_lval = self.lval.reduce(mapping, live_x)
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTExpr":
+        r_lval = self.lval.reduce(mapping, live_x, macronames)
         return ASTLvalExpr(self.id, r_lval)
 
     def noderecord(self) -> ASTNodeRecord:
@@ -1736,11 +1780,16 @@ class ASTSubstitutedExpr(ASTLvalExpr):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTExpr":
-        # mapping[self.id] = self.substituted_expr.id
-        r_lval = self.lval.reduce(mapping, live_x)
-        r_substituted_expr = self.substituted_expr.reduce(mapping, live_x)
-        return ASTSubstitutedExpr(self.id, r_lval, self.assign_id, r_substituted_expr)
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTExpr":
+        if self.is_integer_constant:
+            return ASTIntegerConstant(
+                self.id, self.cvalue).reduce(mapping, live_x, macronames)
+        else:
+            # mapping[self.id] = self.substituted_expr.id
+            r_lval = self.lval.reduce(mapping, live_x, macronames)
+            r_substituted_expr = self.substituted_expr.reduce(mapping, live_x, macronames)
+            return ASTSubstitutedExpr(self.id, r_lval, self.assign_id, r_substituted_expr)
 
     def noderecord(self) -> ASTNodeRecord:
         result = ASTNode.noderecord(self)
@@ -1797,8 +1846,10 @@ class ASTUnaryOp(ASTExpr):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTUnaryOp":
-        return ASTUnaryOp(self.id, self.op, self.exp.reduce(mapping, live_x))
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTUnaryOp":
+        return ASTUnaryOp(
+            self.id, self.op, self.exp.reduce(mapping, live_x, macronames))
 
     def to_c_like(self, sp: int = 0) -> str:
         return operators[self.op] + self.exp.to_c_like()
@@ -1838,6 +1889,23 @@ class ASTBinaryOp(ASTExpr):
     def exp2(self) -> "ASTExpr":
         return self._exp2
 
+    @property
+    def is_integer_constant(self) -> bool:
+        return (
+            self.exp1.is_integer_constant
+            and self.exp2.is_integer_constant
+            and self.op in ["plus", "minus"])
+
+    @property
+    def cvalue(self) -> int:
+        if self.op in ["plus", "minus"]:
+            if self.exp1.is_integer_constant and self.exp2.is_integer_constant:
+                return self.exp1.cvalue + self.exp2.cvalue
+            else:
+                raise Exception("Internal error in binary op: " + str(self))
+        else:
+            raise Exception("Internal error in binary op: " + str(self))
+
     def address_taken(self) -> Set[str]:
         return self.exp1.address_taken().union(self.exp2.address_taken())
 
@@ -1856,10 +1924,22 @@ class ASTBinaryOp(ASTExpr):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTBinaryOp":
-        r_exp1 = self.exp1.reduce(mapping, live_x)
-        r_exp2 = self.exp2.reduce(mapping, live_x)
-        return ASTBinaryOp(self.id, self.op, r_exp1, r_exp2)
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTExpr":
+        r_exp1 = self.exp1.reduce(mapping, live_x, macronames)
+        r_exp2 = self.exp2.reduce(mapping, live_x, macronames)
+        if (
+                r_exp1.is_integer_constant
+                and r_exp2.is_integer_constant
+                and self.op in ["plus", "minus"]):
+            if self.op == "plus":
+                result = r_exp1.cvalue + r_exp2.cvalue
+                return ASTIntegerConstant(
+                    self.id, result).reduce(mapping, live_x, macronames)
+            else:
+                return ASTBinaryOp(self.id, self.op, r_exp1, r_exp2)
+        else:
+            return ASTBinaryOp(self.id, self.op, r_exp1, r_exp2)
 
     def noderecord(self) -> ASTNodeRecord:
         result = ASTNode.noderecord(self)
@@ -1875,23 +1955,7 @@ class ASTBinaryOp(ASTExpr):
         return result
 
     def to_c_like(self, sp: int = 0) -> str:
-        if (
-                self.exp1.is_integer_constant
-                and self.exp2.is_integer_constant
-                and self.op in ["plus", "minus"]):
-            if self.op == "plus":
-                result = self.exp1.cvalue + self.exp2.cvalue
-            else:
-                result = self.exp1.cvalue - self.exp2.cvalue
-            if result > 100000:
-                return hex(result)
-            else:
-                return str(result)
-        else:
-            return (
-                self.exp1.to_c_like()
-                + operators[self.op]
-                + self.exp2.to_c_like())
+        return (self.exp1.to_c_like() + operators[self.op] + self.exp2.to_c_like())
 
     def to_string(self, sp: int = 0) -> str:
         lines: List[str] = []
@@ -1926,7 +1990,8 @@ class ASTAddressOf(ASTExpr):
     def reduce(
             self,
             mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {}) -> "ASTAddressOf":
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTAddressOf":
         return self
 
     def to_string(self, sp: int = 0) -> str:

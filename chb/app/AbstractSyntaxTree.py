@@ -78,7 +78,8 @@ class AbstractSyntaxTree:
             self,
             faddr: str,
             variablenames: VariableNamesRec = cast(VariableNamesRec, {}),
-            functionsummaries: Dict[str, Any] = {})-> None:
+            functionsummaries: Dict[str, Any] = {},
+            symbolicaddrs: Dict[str, Dict[str, Any]] = {})-> None:
         self._faddr = faddr
         self._counter = 0
         self._spans: List[ASTSpanRecord] = []
