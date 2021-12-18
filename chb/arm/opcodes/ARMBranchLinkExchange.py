@@ -104,8 +104,10 @@ class ARMBranchLinkExchange(ARMOpcode):
             args = ", ".join(str(x) for x in self.arguments(xdata))
             return "call " + str(tgt) + "(" + args + ")"
 
-        ctgt = str(xdata.xprs[0])
-        return "call " + ctgt
+        else:
+            ctgt = str(xdata.xprs[0])
+            args = ", ".join(str(xdata.xprs[i]) for i in [1, 2, 3, 4])
+            return "call " + ctgt + "(" + args + ")"
 
     def call_target(self, xdata: InstrXData) -> "CallTarget":
         if xdata.has_call_target():
