@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Compares two instructions in two related functions in different binaries."""
 
-from typing import cast, Optional, TYPE_CHECKING
+from typing import cast, List, Optional, TYPE_CHECKING
 
 import chb.util.fileutil as UF
 
@@ -119,6 +119,19 @@ class InstructionRelationalAnalysis:
 
     @property
     def has_different_annotation(self) -> bool:
-        a1 = self.instr1.annotation
-        a2 = self.instr2.annotation
-        return self.instr1.annotation != self.instr2.annotation
+        if self.is_mapped:
+            a1 = self.instr1.annotation
+            a2 = self.instr2.annotation
+            return self.instr1.annotation != self.instr2.annotation
+        else:
+            return True
+
+    def calls_function(self, callees: List[str]) -> bool:
+        annotation = self.instr1.annotation
+        if len(callees) == 0:
+            return True
+        for c in callees:
+            if c in annotation and "call" in annotation:
+                return True
+        else:
+            return False

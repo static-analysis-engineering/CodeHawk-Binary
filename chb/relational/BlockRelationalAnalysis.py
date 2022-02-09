@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -146,15 +146,17 @@ class BlockRelationalAnalysis:
                         None)
         return self._instranalyses
 
-    def instrs_changed(self) -> List[str]:
+    def instrs_changed(self, callees: List[str]) -> List[str]:
         result: List[str] = []
         for iaddr in self.instr_analyses:
-            if not (self.instr_analyses[iaddr].is_md5_equal
-                    or self.instr_analyses[iaddr].is_semantically_equal):
+            ira = self.instr_analyses[iaddr]
+            if len(callees) > 0 and (not ira.calls_function(callees)):
+                continue
+            if (not ira.is_md5_equal) or (ira.has_different_annotation):
                 result.append(iaddr)
         return result
 
-    def report(self) -> str:
+    def report(self, callees: List[str] = []) -> str:
         lines: List[str] = []
         for iaddr in self.instr_analyses:
             ira = self.instr_analyses[iaddr]
@@ -162,6 +164,9 @@ class BlockRelationalAnalysis:
                     not ira.is_md5_equal
                     or ira.has_different_annotation
                     or (not ira.same_address)):
+                if len(callees) > 0:
+                    if not (ira.calls_function(callees) and ira.has_different_annotation):
+                        continue
                 if ira.is_mapped:
                     moved = "" if ira.same_address else " (moved)"
                     b1 = ira.instr1.bytestring
@@ -199,8 +204,20 @@ class BlockRelationalAnalysis:
                     lines.append("")
 
         for iaddr2 in self.b2.instructions:
+
+            def calls(callees: List[str], ann: str) -> bool:
+                for c in callees:
+                    if c in ann and "call" in ann:
+                        return True
+                else:
+                    return False
+
             if iaddr2 not in self.rev_instr_mapping:
                 b2instr = self.b2.instructions[iaddr2]
+                if len(callees) > 0 and calls(callees, b2instr.annotation):
+                    pass
+                else:
+                    continue
                 b2bytes = b2instr.bytestring
                 lines.append("  V: not mapped")
                 lines.append(

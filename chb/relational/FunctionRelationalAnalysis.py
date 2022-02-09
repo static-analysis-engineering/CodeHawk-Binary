@@ -285,7 +285,7 @@ class FunctionRelationalAnalysis:
                 result.append(baddr)
         return result
 
-    def instructions_changed(self) -> int:
+    def instructions_changed(self, callees: List[str] = []) -> int:
         """Return the number of instructions changed in this function."""
 
         total: int = 0
@@ -293,10 +293,10 @@ class FunctionRelationalAnalysis:
             for (baddr1, baddr2) in self.block_mapping.items():
                 blra = self.block_analyses[baddr1]
                 if not blra.is_md5_equal:
-                    total += len(blra.instrs_changed())
+                    total += len(blra.instrs_changed(callees))
         return total
 
-    def report(self, showinstructions: bool) -> str:
+    def report(self, showinstructions: bool, callees: List[str] = []) -> str:
         lines: List[str] = []
         lines.append(
             "block".ljust(12)
@@ -313,7 +313,7 @@ class FunctionRelationalAnalysis:
                     moved = baddr2
                 md5eq = "yes" if blra.is_md5_equal else "no"
                 if md5eq == "no":
-                    instrs_changed = len(blra.instrs_changed())
+                    instrs_changed = len(blra.instrs_changed(callees))
                     instrcount = len(blra.b1.instructions)
                     insch = str(instrs_changed) + "/" + str(instrcount)
                 else:
@@ -328,14 +328,14 @@ class FunctionRelationalAnalysis:
                 for baddr in self.blocks_changed():
                     blra = self.block_analyses[baddr]
                     if not blra.is_md5_equal:
-                        if len(blra.instrs_changed()) > 0:
+                        if len(blra.instrs_changed(callees)) > 0:
                             lines.append(
                                 "\nInstructions changed in block "
                                 + baddr
                                 + " ("
-                                + str(len(blra.instrs_changed()))
+                                + str(len(blra.instrs_changed(callees)))
                                 + "):")
-                            lines.append(blra.report())
+                            lines.append(blra.report(callees))
                             lines.append("")
         else:
             cfgmatcher = CfgMatcher(
@@ -364,9 +364,16 @@ class FunctionRelationalAnalysis:
                     md5eq = "yes" if blra.is_md5_equal else "no"
                     if md5eq == "no":
                         if blra.b1len != blra.b2len:
-                            insch = str(blra.b1len) + " -> " + str(blra.b2len)
+                            instrs_changed = len(blra.instrs_changed(callees))
+                            insch = (
+                                str(blra.b1len)
+                                + " -> "
+                                + str(blra.b2len)
+                                + " ("
+                                + str(instrs_changed)
+                                + ")")
                         else:
-                            instrs_changed = len(blra.instrs_changed())
+                            instrs_changed = len(blra.instrs_changed(callees))
                             instrcount = len(blra.b1.instructions)
                             insch = str(instrs_changed) + "/" + str(instrcount)
                     else:
@@ -387,14 +394,14 @@ class FunctionRelationalAnalysis:
                 if blocksmatched == blocks1 and edgesmatched == edges1:
                     for baddr in self.blocks_changed():
                         blra = self.block_analyses[baddr]
-                        if len(blra.instrs_changed()) > 0:
+                        if len(blra.instrs_changed(callees)) > 0:
                             lines.append(
                                 "\nInstructions changed in block "
                                 + baddr
                                 + " ("
-                                + str(len(blra.instrs_changed()))
+                                + str(len(blra.instrs_changed(callees)))
                                 + "):")
-                            lines.append(blra.report())
+                            lines.append(blra.report(callees))
                             lines.append("")
 
                 else:
@@ -403,5 +410,16 @@ class FunctionRelationalAnalysis:
                     lines.append(
                         "Edges matched: " + str(edgesmatched) + "/" + str(edges1))
                     lines.append("")
+                    for baddr in self.blocks_changed():
+                        blra = self.block_analyses[baddr]
+                        if len(blra.instrs_changed(callees)) > 0:
+                            lines.append(
+                                "\nInstructions changed in block "
+                                + baddr
+                                + " ("
+                                + str(len(blra.instrs_changed(callees)))
+                                + "):")
+                            lines.append(blra.report(callees))
+                            lines.append("")
 
         return "\n".join(lines)
