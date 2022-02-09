@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,16 +27,26 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, cast, Dict, List, Sequence, TYPE_CHECKING
+from typing import (
+    Any, cast, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING)
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval, ASTNoOffset
+
+from chb.bctypes.BCTyp import BCTyp
 
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XXpr import XXpr
+import chb.invariants.XXprUtil as XU
 
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import (
     MIPSOpcode, simplify_result, get_jump_table_targets)
 from chb.mips.MIPSOperand import MIPSOperand
+
+from chb.models.ModelsAccess import ModelsAccess
+from chb.models.ModelsType import MNamedType
 
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
@@ -47,7 +57,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    from chb.api.CallTarget import CallTarget
+    from chb.api.CallTarget import CallTarget, AppTarget
     from chb.mips.MIPSDictionary import MIPSDictionary
     from chb.simulation.SimulationState import SimulationState
 
@@ -116,6 +126,118 @@ class MIPSJumpRegister(MIPSOpcode):
             jtgts = ''
         tgtx = str(xdata.xprs[0])
         return 'jmp* ' + tgtx + '  ' + jtgts + ' (' + str(self.src_operand) + ')'
+
+    def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
+        if xdata.has_return_value:
+            return xdata.xprs[0]
+        else:
+            return None
+
+    def target_expr_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            xdata: InstrXData) -> ASTExpr:
+        calltarget = xdata.call_target(self.ixd)
+        tgtname = calltarget.name
+        if calltarget.is_app_target:
+            apptgt = cast("AppTarget", calltarget)
+            return astree.mk_global_variable_expr(
+                tgtname, globaladdress=int(str(apptgt.address), 16))
+        else:
+            return astree.mk_global_variable_expr(tgtname)
+
+    def lhs_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            xdata: InstrXData) -> Tuple[ASTLval, List[ASTInstruction]]:
+
+        def indirect_lhs(
+                rtype: Optional[BCTyp]) -> Tuple[ASTLval, List[ASTInstruction]]:
+            tmplval = astree.mk_returnval_variable_lval(iaddr, rtype)
+            tmprhs = astree.mk_lval_expr(tmplval)
+            reglval = astree.mk_register_variable_lval("v0")
+            return (tmplval, [astree.mk_assign(reglval, tmprhs)])
+
+        calltarget = xdata.call_target(self.ixd)
+        tgtname = calltarget.name
+        models = ModelsAccess()
+        if astree.has_symbol(tgtname) and astree.symbol(tgtname).vtype:
+            fnsymbol = astree.symbol(tgtname)
+            if fnsymbol.returns_void:
+                return (astree.mk_ignored_lval(), [])
+            elif astree.ignore_return_value(tgtname):
+                return (astree.mk_ignored_lval(), [])
+            else:
+                return indirect_lhs(fnsymbol.vtype)
+        elif models.has_so_function_summary(tgtname):
+            summary = models.so_function_summary(tgtname)
+            returntype = summary.signature.returntype
+            if returntype.is_named_type:
+                returntype = cast(MNamedType, returntype)
+                typename = returntype.typename
+                if typename == "void" or typename == "VOID":
+                    return (astree.mk_ignored_lval(), [])
+                elif astree.ignore_return_value(tgtname):
+                    return (astree.mk_ignored_lval(), [])
+                else:
+                    return indirect_lhs(None)
+            elif astree.ignore_return_value(tgtname):
+                return (astree.mk_ignored_lval(), [])
+            else:
+                return indirect_lhs(None)
+        else:
+            return indirect_lhs(None)
+
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        tgtx = str(xdata.xprs[0])
+        if tgtx == "$ra_in":
+            return []
+        elif self.is_call(xdata) and xdata.has_call_target():
+            calltarget = xdata.call_target(self.ixd)
+            tgtname = calltarget.name
+            tgtxpr = self.target_expr_ast(astree, xdata)
+            (lhs, assigns) = self.lhs_ast(astree, iaddr, xdata)
+            args = self.arguments(xdata)
+            argxprs: List[ASTExpr] = []
+            for arg in args:
+                if XU.is_struct_field_address(arg, astree):
+                    addr = XU.xxpr_to_struct_field_address_expr(arg, astree)
+                elif arg.is_string_reference:
+                    xpr = XU.xxpr_to_ast_expr(arg, astree)
+                    cstr = arg.constant.string_reference()
+                    saddr = hex(arg.constant.value)
+                    argxprs.append(astree.mk_string_constant(xpr, cstr, saddr))
+                elif arg.is_argument_value:
+                    argindex = arg.argument_index()
+                    funarg = astree.function_argument(argindex)
+                    if funarg:
+                        astxpr = astree.mk_register_variable_expr(
+                            funarg.name, vtype=funarg.typ, parameter=argindex)
+                        argxprs.append(astxpr)
+                    else:
+                        astxpr = XU.xxpr_to_ast_expr(arg, astree)
+                        argxprs.append(astxpr)
+                else:
+                    astxpr = XU.xxpr_to_ast_expr(arg, astree)
+                    argxprs.append(astxpr)
+            if lhs.is_ignored:
+                call: ASTInstruction = astree.mk_call(lhs, tgtxpr, argxprs)
+                astree.add_instruction_span(call.id, iaddr, bytestring)
+                return [call]
+            else:
+                call = cast(ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
+                astree.add_instruction_span(call.id, iaddr, bytestring)
+                for assign in assigns:
+                    astree.add_instruction_span(assign.id, iaddr, bytestring)
+                return [call] + assigns
+        else:
+            #  TODO: accomodate indirect jumps
+            return []
 
     def call_target(self, xdata: InstrXData) -> "CallTarget":
         if self.is_call(xdata):

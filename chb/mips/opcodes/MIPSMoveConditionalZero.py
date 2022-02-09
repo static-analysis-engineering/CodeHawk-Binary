@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,9 @@
 
 from typing import cast, List, Sequence, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTExpr, ASTInstruction
+
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XVariable import XVariable
@@ -37,6 +40,8 @@ from chb.invariants.XXpr import XXpr
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
 from chb.mips.MIPSOperand import MIPSOperand
+
+import chb.invariants.XXprUtil as XU
 
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
@@ -79,8 +84,8 @@ class MIPSMoveConditionalZero(MIPSOpcode):
         vars[0]: lhs
         xprs[0]: rhs
         xprs[1]: testxpr
-        xprs[2]: condition (syntactic)
-        xprs[3]: condition (simplified)
+        xprs[2]: condition (simplified)
+        xprs[3]: rhs of lhs (alternative value)
         """
 
         lhs = str(xdata.vars[0])
@@ -89,6 +94,21 @@ class MIPSMoveConditionalZero(MIPSOpcode):
         ccond = xdata.xprs[2]
         xcond = simplify_result(xdata.args[2], xdata.args[3], cond, ccond)
         return 'if ' + xcond + ' then ' + lhs + ' := ' + rhs
+
+    def ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
+        cond = XU.xxpr_to_ast_expr(xdata.xprs[2], astree)
+        rhs2 = XU.xxpr_to_ast_expr(xdata.xprs[3], astree)
+        rhs1 = XU.xxpr_to_ast_expr(xdata.xprs[0], astree)
+        rhs = astree.mk_question(cond, rhs1, rhs2)
+        assign = astree.mk_assign(lhs, rhs)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return [assign]
 
     @property
     def src_operand(self) -> MIPSOperand:
