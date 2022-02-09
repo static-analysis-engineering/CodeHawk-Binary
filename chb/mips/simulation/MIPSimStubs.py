@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -308,6 +308,21 @@ class MIPSimStub(SimStub):
                 return simstate.memval(iaddr, stackaddr, 4)
         return SV.simUndefinedDW
 
+    def get_nth_arg_val(
+            self,
+            iaddr: str,
+            simstate: "SimulationState",
+            argindex: int) -> SV.SimValue:
+        """Returns a SimValue for either a register or stack argument."""
+
+        if argindex < 0:
+            return SV.simUndefinedDW
+        elif argindex < 4:
+            argname = "a" + str(argindex)
+            return self.get_arg_val(iaddr, simstate, argname)
+        else:
+            return self.get_stack_arg_val(iaddr, simstate, argindex)
+
     def get_arg_string(
             self,
             iaddr: str,
@@ -374,6 +389,21 @@ class MIPSimStub(SimStub):
                 return self.get_string_at_address(iaddr, simstate, stackaddr)
         return "******stack-address-not-defined*******"
 
+    def get_nth_arg_string(
+            self,
+            iaddr: str,
+            simstate: "SimulationState",
+            argindex: int) -> str:
+        """Returns an associated string with a register or stack argument."""
+
+        if argindex < 0:
+            return "invalid argument index: " + str(argindex)
+        elif argindex < 4:
+            argname = "a" + str(argindex)
+            return self.get_arg_string(iaddr, simstate, argname)
+        else:
+            return self.get_stack_arg_string(iaddr, simstate, argindex)
+
     def get_arg_deref_string(
             self,
             iaddr: str,
@@ -414,6 +444,63 @@ class MIPSimStub(SimStub):
                 iaddr,
                 ("Argument is not an address in arg_deref_string: "
                  + str(saddrptr)))
+
+    def substitute_formatstring(
+            self,
+            iaddr: str,
+            simstate: "SimulationState",
+            fmtstringindex: int) -> Tuple[str, List[str]]:
+        """Return substituted string and arguments used (as a string)."""
+
+        fmtstring = self.get_nth_arg_string(iaddr, simstate, fmtstringindex)
+
+        # First check if the user supplied a custom return value
+        result = simstate.simsupport.substitute_formatstring(
+            self, iaddr, simstate, fmtstring)
+        if result is not None:
+            return result
+
+        # Extract the format specifiers from the formatstring
+        fmt_items = SU.extract_format_items(fmtstring)
+
+        if fmt_items is None:
+            simstate.add_logmsg(
+                "warning",
+                self.name
+                + " without substitution (unable to extract format items)")
+            return (fmtstring, [])
+
+        if len(fmt_items) == 0:
+            simstate.add_logmsg(
+                "warning",
+                self.name
+                + " without substitution (no format items found)")
+
+        # Retrieve the associated arguments and substitute them in the format string
+        pos: int = 0
+        printstring: str = ""
+        varargs: List[str] = []
+        argcounter: int = fmtstringindex + 1
+        for (index, item) in fmt_items:
+            printstring += fmtstring[pos:index]
+            vararg: SV.SimValue = self.get_nth_arg_val(iaddr, simstate, argcounter)
+            if item == "%s":
+                varargstr: str = self.get_nth_arg_string(
+                    iaddr, simstate, argcounter)
+                printstring += varargstr
+            elif item == "%d":
+                if vararg.is_literal:
+                    vararg = cast(SV.SimLiteralValue, vararg)
+                    printstring += str(vararg.value)
+                else:
+                    printstring += "%d"
+            else:
+                printstring += item
+            pos = index + len(item)
+            argcounter += 1
+            varargs.append(str(vararg))
+        printstring += fmtstring[pos:len(fmtstring)]
+        return (printstring, varargs)
 
     def is_error_operation(self) -> bool:
         return False
@@ -583,7 +670,7 @@ class MIPStub_atoi(MIPSimStub):
             simstate.add_logmsg(
                 "error:",
                 "Conversion to int failed in atoi: " + a0str)
-            result = -1
+            result = 0
         simstate.set_register(iaddr, "v0", SV.mk_simvalue(result))
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
 
@@ -1049,7 +1136,7 @@ class MIPStub_fclose(MIPSimStub):
             elif a0.is_file_pointer:
                 try:
                     a0 = cast(SSV.SimSymbolicFilePointer, a0)
-                    a0.fp.close()
+                    SFU.sim_close_file_pointer(a0)
                     simstate.add_logmsg('i/o', 'Successfully closed ' + str(a0))
                 except Exception as e:
                     simstate.add_logmsg(
@@ -1271,9 +1358,13 @@ class MIPStub_fputs(MIPSimStub):
         if simstate.simsupport.file_operations_enabled:
             if a1.is_file_pointer:
                 a1 = cast(SSV.SimSymbolicFilePointer, a1)
+                print("fputs: write to " + str(a1) + ": " + a0str)
                 a1.fp.write(a0str)
                 returnval = 1
             else:
+                simstate.add_logmsg(
+                    "warning",
+                    self.name + ": " + str(a1) + " is not a file-pointer")
                 returnval = -1
         else:
             returnval = -1
@@ -1322,18 +1413,6 @@ class MIPStub_fopen(MIPSimStub):
     def is_io_operation(self) -> bool:
         return True
 
-    def simulate_success(
-            self,
-            iaddr: str,
-            simstate: "SimulationState",
-            pargs: str,
-            filename: str,
-            filepointer: IO[Any],
-            comment: str = "") -> str:
-        returnval = SSV.mk_filepointer(filename, filepointer)
-        simstate.set_register(iaddr, 'v0', returnval)
-        return self.add_logmsg(iaddr, simstate, pargs, returnval=str(returnval))
-
     def simulate_failure(
             self,
             iaddr: str,
@@ -1375,18 +1454,6 @@ class MIPStub_fopen64(MIPSimStub):
     def is_io_operation(self) -> bool:
         return True
 
-    def simulate_success(
-            self,
-            iaddr: str,
-            simstate: "SimulationState",
-            pargs: str,
-            filename: str,
-            filepointer: IO[Any],
-            comment: str = "") -> str:
-        returnval = SSV.mk_filepointer(filename, filepointer)
-        simstate.set_register(iaddr, 'v0', returnval)
-        return self.add_logmsg(iaddr, simstate, pargs, returnval=str(returnval))
-
     def simulate_failure(
             self,
             iaddr: str,
@@ -1400,22 +1467,22 @@ class MIPStub_fopen64(MIPSimStub):
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         """Logs i/o; returns 0 in v0."""
 
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        a0str = self.get_arg_string(iaddr, simstate, 'a0')
-        a1str = self.get_arg_string(iaddr, simstate, 'a1')
+        a0 = self.get_arg_val(iaddr, simstate, "a0")   # const char *restrict pathname
+        a1 = self.get_arg_val(iaddr, simstate, "a1")   # const char *restrict mode
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
         pargs = (
-            ','.join(str(a) + ':' + str(s)
+            ",".join(str(a) + ':' + str(s)
                      for (a, s) in [(a0, a0str), (a1, a1str)]))
-        if a0str == '/dev/console':
-            fpconsole = open('devconsole', 'w')
-            return self.simulate_success(
-                iaddr,
-                simstate,
-                pargs,
-                'devconsole',
-                fpconsole,
-                comment='assume access to /dev/console is always enabled')
+
+        if simstate.simsupport.file_operations_enabled:
+            if SFU.sim_file_exists(a0str) or a1str.startswith("w"):
+                fp = SFU.sim_openfile(a0str, a1str)
+                simstate.set_register(iaddr, "v0", fp)
+                return self.add_logmsg(
+                    iaddr, simstate, pargs, returnval=str(fp))
+            else:
+                return self.simulate_failure(iaddr, simstate, pargs, "file not found")
         else:
             return self.simulate_failure(iaddr, simstate, pargs)
 
@@ -1664,18 +1731,19 @@ class MIPStub_fprintf(MIPSimStub):
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         a0 = self.get_arg_val(iaddr, simstate, "a0")  # FILE *restrict stream
         a1 = self.get_arg_val(iaddr, simstate, "a1")  # const char *restrict format
-        a1str = self.get_arg_string(iaddr, simstate, "a1")
+        fmtstring = self.get_arg_string(iaddr, simstate, "a1")
+        (printstring, varargs) = self.substitute_formatstring(iaddr, simstate, 1)
         if simstate.simsupport.file_operations_enabled:
             if a0.is_file_pointer:
                 a0 = cast(SSV.SimSymbolicFilePointer, a0)
-                a0.fp.write(a1str)
-                returnval = len(a1str)
+                a0.fp.write(printstring)
+                returnval = len(printstring)
             else:
                 returnval = -1
         else:
             returnval = -1
         simstate.set_register(iaddr, "v0", SV.mk_simvalue(returnval))
-        pargs = str(a0) + ',' + str(a1) + ':' + a1str
+        pargs = str(a0) + ',' + str(a1) + ':' + fmtstring + " -> " + printstring
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(returnval))
 
 
@@ -1876,12 +1944,20 @@ class MIPStub_getopt(MIPSimStub):
         result: int = -1
         optargaddr = simstate.simsupport.optargaddr
 
+        # optargstate is an alternative address through which uclibc seems
+        # to pass the current option back to the caller (as inferred from
+        # observed program behavior)
+        optargstate = simstate.simsupport.optargstate
+
         if not optargaddr.is_address:
             simstate.add_logmsg("warning", "getopt: optargaddress has not been set")
             simstate.set_register(iaddr, "v0", SV.mk_simvalue(result))
             return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
         else:
             optargaddr = cast(SSV.SimAddress, optargaddr)
+
+        if optargstate.is_address:
+            optargstate = cast(SSV.SimAddress, optargstate)
 
         if a0.is_undefined or a1.is_undefined or a2.is_undefined:
             raise SU.CHBSimError(
@@ -1913,45 +1989,54 @@ class MIPStub_getopt(MIPSimStub):
         else:
             optstring = a2str
 
-        if self.optind < argc:
-            argaddr = argv.add_offset(self.optind * 4)
-            self.optopt = simstate.memval(iaddr, argaddr, 4)
-            if self.optopt.is_address:
-                option = self.get_string_at_address(iaddr, simstate, self.optopt)
-                if option.startswith("-") and len(option) == 2:
-                    option = option[1]
+        if self.optind >= argc:  # no more arguments to process
+            simstate.set_register(iaddr, 'v0', SV.mk_simvalue(result))
+            return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
 
-                    if self.has_argument(a2str, option):
-                        self.optind += 1
-                        argvaladdr = argv.add_offset(self.optind * 4)
-                        nextargaddr = simstate.memval(iaddr, argvaladdr, 4)
-                        if nextargaddr.is_address:
-                            nextarg = self.get_string_at_address(iaddr, simstate, nextargaddr)
+        # more arguments to process
+        print("getopt. optind: " + str(self.optind) + "; argc: " + str(argc))
+        argaddr = argv.add_offset(self.optind * 4)
+        print("argaddr: " + str(argaddr))
+        self.optopt = simstate.memval(iaddr, argaddr, 4)
+        if self.optopt.is_address:
+            option = self.get_string_at_address(iaddr, simstate, self.optopt)
+            print("option: " + str(option) + "(" + str(len(option)) + ")")
+            if option.startswith("-") and len(option) == 2:
+                option = option[1]
+                print("option: " + str(option))
+                if self.has_argument(a2str, option):
+                    self.optind += 1
+                    argvaladdr = argv.add_offset(self.optind * 4)
+                    nextargaddr = simstate.memval(iaddr, argvaladdr, 4)
+                    if nextargaddr.is_address:
+                        nextarg = self.get_string_at_address(
+                            iaddr, simstate, nextargaddr)
 
-                            if nextarg.startswith("-"):
-                                emptyarg = SSV.mk_string_address(":")
-                                simstate.set_memval(iaddr, optargaddr, emptyarg)
-                            else:
-                                simstate.set_memval(iaddr, optargaddr, argvaladdr)
-                                self.optind += 1
+                        if nextarg.startswith("-"):
+                            emptyarg = SSV.mk_string_address(":")
+                            simstate.set_memval(iaddr, optargaddr, emptyarg)
                         else:
-                            simstate.add_logmsg(
-                                "warning",
-                                "getopt: nextarg is not an address")
-                    else:  # there is no argument
-                        self.optind += 1
-                    result = ord(option)
+                            simstate.set_memval(iaddr, optargaddr, argvaladdr)
+                            self.optind += 1
+                    else:
+                        simstate.add_logmsg(
+                            "warning",
+                            "getopt: nextarg is not an address")
+                else:  # there is no argument
+                    self.optind += 1
+                result = ord(option)
+                if optargstate.is_address:
+                    optargstate = cast("SSV.SimAddress", optargstate)
+                    optionval = SV.mk_simvalue(ord(option) - 65)
+                    simstate.set_memval(iaddr, optargstate, optionval)
 
-                else:  # option does not start with "-"
-                    pass
-            else:
-                raise SU.CHBSimError(
-                    simstate,
-                    iaddr,
-                    "getopt: optopt is not an address: " + str(self.optopt))
-
-        else:  # no more arguments to process
-            pass
+            else:  # option does not start with "-"
+                pass
+        else:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "getopt: optopt is not an address: " + str(self.optopt))
 
         simstate.set_register(iaddr, 'v0', SV.mk_simvalue(result))
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
@@ -4000,39 +4085,6 @@ class MIPSimStub_sprintf_like(MIPSimStub):
             self, iaddr: str, simstate: "SimulationState", s: str) -> None:
         simstate.set_register(iaddr, 'v0', SV.mk_simvalue(len(s)))
 
-    def substitute_formatstring(
-            self,
-            iaddr: str,
-            simstate: "SimulationState",
-            a1str: str) -> Tuple[str, List[str]]:
-        """Return substituted string and arguments used (as a string)."""
-        result = simstate.simsupport.substitute_formatstring(
-            self, iaddr, simstate, a1str)
-        if result is not None:
-            return result
-        if a1str == '%s':
-            a2 = self.get_arg_val(iaddr, simstate, 'a2')
-            a2str = self.get_arg_string(iaddr, simstate, 'a2')
-            printstring = a2str
-            varargs = [str(a2) + ':' + a2str]
-            return (printstring, varargs)
-        elif a1str == '%d':
-            a2 = self.get_arg_val(iaddr, simstate, 'a2')
-            if a2.is_literal and a2.is_defined:
-                a2 = cast(SV.SimLiteralValue, a2)
-                printstring = str(a2.value)
-                varargs = [str(a2)]
-                return (printstring, varargs)
-            else:
-                raise SU.CHBSimError(
-                    simstate,
-                    iaddr,
-                    "Argument a2 not recognized: " + str(a2))
-
-        else:
-            simstate.add_logmsg('warning', self.name + " without substitution")
-            return (a1str, [])
-
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         return "to be overridden"
 
@@ -4087,35 +4139,40 @@ class MIPStub_snprintf(MIPSimStub):
         a1 = self.get_arg_val(iaddr, simstate, "a1")
         a2 = self.get_arg_val(iaddr, simstate, "a2")
         a2str = self.get_arg_string(iaddr, simstate, "a2")
-        pargs = str(a0) + ',' + str(a1) + "," + str(a2) + ':' + a2str + ',' + ','.join(varargs)
+        pargs = (
+            str(a0)
+            + ','
+            + str(a1)
+            + ","
+            + str(a2)
+            + ':'
+            + a2str
+            + ','
+            + ','.join(varargs))
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(len(s)))
-
-    def substitute_formatstring(
-            self,
-            iaddr: str,
-            simstate: "SimulationState",
-            a2str: str) -> Tuple[str, List[str]]:
-        """Return substituted string and arguments used (as a string)."""
-        result = simstate.simsupport.substitute_formatstring(
-            self, iaddr, simstate, a2str)
-        if result is None:
-            simstate.add_logmsg("warning", self.name + " without substitution")
-            return (a2str, [])
-        else:
-            return result
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         a0 = self.get_arg_val(iaddr, simstate, 'a0')
         a1 = self.get_arg_val(iaddr, simstate, 'a1')
         a2 = self.get_arg_val(iaddr, simstate, 'a2')
         a2str = self.get_arg_string(iaddr, simstate, 'a2')
-        (printstring, varargs) = self.substitute_formatstring(
-            iaddr, simstate, a2str)
+        (printstring, varargs) = self.substitute_formatstring(iaddr, simstate, 3)
         self.write_string_to_buffer(iaddr, simstate, printstring)
         self.set_returnval(iaddr, simstate, printstring)
         pvarargs = ", ".join(varargs)
-        # pargs = ','.join(str(a) for a in [a0, a1, a2])
-        return self.get_logmsg(iaddr, simstate, varargs, printstring)
+        pargs = (
+            str(a0)
+            + ", "
+            + str(a1)
+            + ", "
+            + str(a2)
+            + ":"
+            + a2str
+            + " -> "
+            + printstring)
+        pargs = pargs + ", " + pvarargs
+        return self.add_logmsg(
+            iaddr, simstate, pargs, returnval=str(len(printstring)))
 
 
 class MIPStub_sprintf(MIPSimStub):
@@ -4150,22 +4207,6 @@ class MIPStub_sprintf(MIPSimStub):
             simstate.set_memval(iaddr, tgtaddr, srcval)
         simstate.set_memval(iaddr, dstaddr.add_offset(len(s)), SV.simZerobyte)
 
-    def substitute_formatstring(
-            self,
-            iaddr: str,
-            simstate: "SimulationState",
-            formatstr: str) -> Tuple[str, List[str]]:
-        """Return substituted string and arguments used (as a string)."""
-        result = simstate.simsupport.substitute_formatstring(
-            self, iaddr, simstate, formatstr)
-        if result is None:
-            simstate.add_logmsg(
-                "warning",
-                self.name + " without substitution for formatstring " + formatstr)
-            return (formatstr, [])
-        else:
-            return result
-
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         a0 = self.get_arg_val(iaddr, simstate, "a0")  # char *restrict s
         a1 = self.get_arg_val(iaddr, simstate, "a1")  # const char *restrict format
@@ -4177,8 +4218,7 @@ class MIPStub_sprintf(MIPSimStub):
                 iaddr,
                 "some argument to sprintf is undefined")
 
-        (printstring, varargs) = self.substitute_formatstring(
-            iaddr, simstate, a1str)
+        (printstring, varargs) = self.substitute_formatstring(iaddr, simstate, 2)
         self.write_string_to_buffer(iaddr, simstate, printstring)
         simstate.set_register(iaddr, "v0", SV.mk_simvalue(len(printstring)))
         pargs = ', '.join([str(a0), a1str] + varargs)
