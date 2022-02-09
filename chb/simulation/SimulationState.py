@@ -604,6 +604,8 @@ class SimulationState:
             offset: int,
             opsize: int) -> SV.SimValue:
         base = sym.name
+        if base.startswith("/stderr"):
+            return sym
         if base not in self.basemem:
             self.basemem[base] = SimBaseMemory(self, base)
             self.add_logmsg(iaddr, "Initialize base memory for " + base)

@@ -56,6 +56,9 @@ def sim_mkdir(pathname: str) -> int:
 
 def sim_openfile(filename: str, mode: str) -> SSV.SimSymbolicFilePointer:
     print("Open file " + filename)
+    if SSV.SimSymbolicFilePointer.has_openfile(filename):
+        return SSV.SimSymbolicFilePointer.openfile(filename)
+
     if filename.startswith("/"):
         simfilename = os.path.join("simdisk", filename[1:])
         simpathname = os.path.dirname(simfilename)
@@ -64,9 +67,18 @@ def sim_openfile(filename: str, mode: str) -> SSV.SimSymbolicFilePointer:
             os.makedirs(simpathname)
         print("Open " + simfilename + " with mode " + mode)
         fp = open(simfilename, mode)
-        return SSV.mk_filepointer(simfilename, fp)
+        symfp = SSV.mk_filepointer(filename, simfilename, fp)
+        SSV.SimSymbolicFilePointer.add_openfile(filename, symfp)
+        return symfp
     else:
-        return SSV.mk_filepointer(simfilename, filename, defined=False)
+        return SSV.mk_filepointer(
+            filename, simfilename, filename, defined=False)
+
+
+def sim_close_file_pointer(symfp: SSV.SimSymbolicFilePointer) -> None:
+    print("Close file " + symfp.filename)
+    symfp.fp.close()
+    SSV.SimSymbolicFilePointer.closefile(symfp.filename)
 
 
 def sim_file_exists(filename: str) -> bool:
