@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -215,18 +215,11 @@ class Function(ABC):
     def cfg(self) -> Cfg:
         raise UF.CHBError("Property cfg not implemented for Function")
 
-    def ast(self,
-            variablenames: VariableNamesRec = cast(VariableNamesRec, {}),
-            functionsummaries: Dict[str, Any] = {},
-            symbolicaddrs: Dict[str, Dict[str, Any]] = {}) -> Tuple[ASTNode, AbstractSyntaxTree]:
-        return self.cfg.ast(self, variablenames, functionsummaries, symbolicaddrs)
+    def ast(self, astree: AbstractSyntaxTree) -> ASTNode:
+        return self.cfg.ast(self, astree)
 
-    def assembly_ast(
-            self,
-            variablenames: VariableNamesRec = cast(VariableNamesRec, {}),
-            functionsummaries: Dict[str, Any] = {},
-            symbolicaddrs: Dict[str, Dict[str, Any]] = {}) -> Tuple[ASTNode, AbstractSyntaxTree]:
-        return self.cfg.assembly_ast(self, variablenames, functionsummaries, symbolicaddrs)
+    def assembly_ast(self, astree: AbstractSyntaxTree) -> ASTNode:
+        return self.cfg.assembly_ast(self, astree)
 
     @abstractmethod
     def strings_referenced(self) -> List[str]:

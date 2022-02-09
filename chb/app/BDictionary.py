@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -47,7 +47,7 @@ import chb.util.StringIndexedTable as SI
 from typing import Callable, List, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import chb.app.AppAccess
+    from chb.app.AppAccess import AppAccess
 
 
 class AsmAddress(IT.IndexedTableValue):
@@ -70,8 +70,8 @@ class BDictionary:
 
     def __init__(
             self,
-            app: "chb.app.AppAccess.AppAccess",
-            xnode: ET.Element):
+            app: "AppAccess",
+            xnode: ET.Element) -> None:
         self._app = app
         self.string_table = SI.StringIndexedTable('string-table')
         self.address_table = IT.IndexedTable('address-table')
@@ -91,7 +91,7 @@ class BDictionary:
         self.initialize(xnode)
 
     @property
-    def app(self) -> "chb.app.AppAccess.AppAccess":
+    def app(self) -> "AppAccess":
         return self._app
 
     # -------------- Retrieve items from dictionary tables ---------------------

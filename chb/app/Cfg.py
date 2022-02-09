@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,6 +42,8 @@ import chb.app.ASTNode as AST
 
 from chb.app.CfgBlock import CfgBlock
 from chb.app.DerivedGraphSequence import DerivedGraphSequence
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -138,7 +140,10 @@ class Cfg:
                 ifbranch = construct(self.successors(n)[1], follownode, [])
                 elsebranch = construct(self.successors(n)[0], follownode, [])
                 condition = fn.blocks[n].assembly_ast_condition(astree)
-                bstmt = astree.mk_branch(condition, ifbranch, elsebranch)
+                pcoffset = (
+                    (int(self.successors(n)[1], 16) - int(self.successors(n)[0], 16))
+                    - 2)
+                bstmt = astree.mk_branch(condition, ifbranch, elsebranch, pcoffset)
                 if follownode:
                     return construct(follownode, follow, result + [blockstmts[n], bstmt])
                 else:
@@ -151,32 +156,32 @@ class Cfg:
     def assembly_ast(
             self,
             fn: "Function",
-            variablenames: VariableNamesRec,
-            functionsummaries: Dict[str, Any],
-            symbolicaddrs: Dict[str, Dict[str, Any]]) -> Tuple[AST.ASTNode, AbstractSyntaxTree]:
-        astree = AbstractSyntaxTree(
-            self.faddr, variablenames, functionsummaries, symbolicaddrs)
+            astree: AbstractSyntaxTree) -> AST.ASTNode:
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
             blocknode = fn.blocks[n].assembly_ast(astree)
             blockstmts[n] = blocknode
 
-        fnbody = self.stmt_ast(fn, astree, blockstmts)
-        return (fnbody, astree)
+        return self.stmt_ast(fn, astree, blockstmts)
 
     def ast(self,
             fn: "Function",
-            variablenames: VariableNamesRec,
-            functionsummaries: Dict[str, Any],
-            symbolicaddrs: Dict[str, Dict[str, Any]]) -> Tuple[AST.ASTNode, AbstractSyntaxTree]:
-        astree = AbstractSyntaxTree(self.faddr, variablenames, functionsummaries, symbolicaddrs)
+            astree: AbstractSyntaxTree) -> AST.ASTNode:
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
             blocknode = fn.blocks[n].ast(astree)
+            if fn.blocks[n].has_return:
+                instr = fn.blocks[n].last_instruction
+                rv = instr.return_value()
+                if rv is not None:
+                    astexpr: Optional[AST.ASTExpr] = XU.xxpr_to_ast_expr(rv, astree)
+                else:
+                    astexpr = None
+                rtnstmt = astree.mk_return_stmt(astexpr)
+                blocknode = astree.mk_block([blocknode, rtnstmt])
             blockstmts[n] = blocknode
 
-        fnbody = self.stmt_ast(fn, astree, blockstmts)
-        return (fnbody, astree)
+        return self.stmt_ast(fn, astree, blockstmts)
 
     def max_loop_level(self) -> int:
         return max([len(self.blocks[b].looplevels) for b in self.blocks])

@@ -72,6 +72,14 @@ class Register(BDictionaryRecord):
         BDictionaryRecord.__init__(self, bd, ixval)
 
     @property
+    def name(self) -> str:
+        return self.tags[1]
+
+    @property
+    def is_stack_pointer(self) -> bool:
+        return self.is_mips_stack_pointer
+
+    @property
     def is_arm_register(self) -> bool:
         return False
 

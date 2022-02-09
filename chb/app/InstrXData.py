@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -182,7 +182,24 @@ class InstrXData(IndexedTableValue):
                 + str(self))
 
     def has_branch_conditions(self) -> bool:
-        return len(self.tags) == 2 and self.tags[1] == "TF"
+        return len(self.tags) > 1 and self.tags[1] == "TF"
+
+    def has_condition_setter(self) -> bool:
+        return len(self.tags) == 4 and self.tags[1] == "TF"
+
+    def get_condition_setter(self) -> str:
+        if len(self.tags) > 2:
+            return self.tags[2]
+        else:
+            raise UF.CHBError(
+                "XData does not have a condition setter")
+
+    def get_condition_setter_bytestring(self) -> str:
+        if len(self.tags) > 3:
+            return self.tags[3]
+        else:
+            raise UF.CHBError(
+                "XData does not have a condition setter bytestring")
 
     def get_branch_conditions(self) -> Sequence[XXpr]:
         if self.has_branch_conditions():
@@ -199,6 +216,14 @@ class InstrXData(IndexedTableValue):
 
     def has_base_update(self) -> bool:
         return "bu" in self.tags
+
+    def instruction_is_subsumed(self) -> bool:
+        """An instruction may be subsumed as part of an ITE construct (ARM)."""
+
+        return "subsumed" in self.tags
+
+    def has_return_value(self) -> bool:
+        return "rv" in self.tags
 
     def __str__(self) -> str:
         lines: List[str] = []
