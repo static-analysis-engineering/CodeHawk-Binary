@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyrigth (c) 2021      Aarno Labs LLC
+# Copyrigth (c) 2021-2022      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -110,6 +110,7 @@ class SimSupport:
             self,
             stepcount: int = 100,
             optargaddr: SV.SimValue = SV.simZero,
+            optargstate: SV.SimValue = SV.simZero,
             patched_globals: Dict[str, str] = {},
             environment_variables: Dict[str, str] = {},
             environmentptr_address: Optional[SSV.SimGlobalAddress] = None,
@@ -118,6 +119,7 @@ class SimSupport:
             file_operations_enabled: bool = True) -> None:
         self._stepcount = stepcount
         self._optargaddr = optargaddr  # address where argument is saved by cli
+        self._optargstate = optargstate  # address where optarg option is saved (uclibc)
         self._patched_globals = patched_globals
         self._environment_variables = environment_variables
         self._environmentptr_address = environmentptr_address
@@ -164,6 +166,14 @@ class SimSupport:
     @property
     def optargaddr(self) -> SV.SimValue:
         return self._optargaddr
+
+    # Optargstate is an alternative global address that may be used by uclibc
+    # to identify the option chosen, and may also hold a stderr file pointer
+    # (as inferred from observed program behavior).
+
+    @property
+    def optargstate(self) -> SV.SimValue:
+        return self._optargstate
 
     @property
     def patched_globals(self) -> Mapping[str, str]:

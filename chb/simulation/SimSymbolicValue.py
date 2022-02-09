@@ -119,9 +119,10 @@ def mk_libc_table_value_deref(
 
 def mk_filepointer(
         filename: str,
+        simfilename: str,
         filepointer: Any,
         defined: bool = True) -> "SimSymbolicFilePointer":
-    return SimSymbolicFilePointer(filename, filepointer, defined=defined)
+    return SimSymbolicFilePointer(filename, simfilename, filepointer, defined=defined)
 
 
 def mk_filedescriptor(
@@ -958,6 +959,16 @@ class SimSymbol(SimSymbolicValue):
         return self._type
 
     @property
+    def value(self) -> Optional[int]:
+        if (
+                self.minval is not None
+                and self.maxval is not None
+                and self.minval == self.maxval):
+            return self.minval
+        else:
+            return None
+
+    @property
     def minval(self) -> Optional[int]:
         return self._minval
 
@@ -1065,15 +1076,49 @@ class SimSymbolicFilePointer(SimSymbol):
     provided.
     """
 
-    def __init__(self, filename: str, fp: Any, defined: bool = True):
+    def __init__(
+            self, filename: str,
+            simfilename: str,
+            fp: Any, defined: bool = True):
         SimSymbol.__init__(
             self, filename + '_filepointer', type='ptr2FILE', defined=defined)
         self._filename = filename
+        self._simfilename = simfilename
         self._fp = fp    # pointer returned by open
+        if self._filename == "/stderr":
+            self._minval = 2
+            self._maxval = 2
+
+    # Dictionary keys are the filenames as used in the binary
+    openfiles: Dict[str, "SimSymbolicFilePointer"] = {}
+
+    @classmethod
+    def add_openfile(cls, name: str, fp: "SimSymbolicFilePointer") -> None:
+        cls.openfiles[name] = fp
+
+    @classmethod
+    def has_openfile(cls, name) -> bool:
+        return name in cls.openfiles
+
+    @classmethod
+    def openfile(cls, name) -> "SimSymbolicFilePointer":
+        if cls.has_openfile(name):
+            return cls.openfiles[name]
+        else:
+            raise UF.CHBError("No open file found for: " + name)
+
+    @classmethod
+    def closefile(cls, name) -> None:
+        if cls.has_openfile(name):
+            del cls.openfiles[name]
 
     @property
     def filename(self) -> str:
         return self._filename
+
+    @property
+    def simfilename(self) -> str:
+        return self._simfilename
 
     @property
     def fp(self) -> IO[Any]:

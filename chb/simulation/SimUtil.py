@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,8 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, Mapping, Optional, Sequence, TYPE_CHECKING
+import re
+from typing import List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING
 
 import chb.util.fileutil as UF
 
@@ -420,3 +421,26 @@ class CHBSimFallthroughException(UF.CHBError):
 
     def set_instructions_processed(self, p: List["Instruction"]) -> None:
         self.processed = p
+
+
+def extract_format_items(s: str) -> List[Tuple[int, str]]:
+    """Return a list (index, format item) pairs from a c-style format string.
+
+    Based on:
+    https://stackoverflow.com/questions/30011379/how-can-i-parse-a-c-format-string-in-python
+    """
+
+    cfmt = '''\
+    (                                  # start of capture group 1
+    %                                  # literal "%"
+    (?:                                # first option
+    (?:[-+0 #]{0,5})                   # optional flags
+    (?:\d+|\*)?                        # width
+    (?:\.(?:\d+|\*))?                  # precision
+    (?:h|l|ll|w|I|I32|I64)?            # size
+    [cCdiouxXeEfgGaAnpsSZ]             # type
+    ) |                                # OR
+    %%)                                # literal "%%"
+    '''
+
+    return [(m.start(1), m.group(1)) for m in re.finditer(cfmt, s, flags=re.X)]

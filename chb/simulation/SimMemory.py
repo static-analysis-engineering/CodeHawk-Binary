@@ -303,6 +303,8 @@ class SimMemory:
             address: SSV.SimAddress,
             size: int) -> SV.SimValue:
         offset = address.offsetvalue
+        if address.base.startswith("/stderr"):
+            return cast(SV.SimValue, address)
         if offset not in self._mem:
             raise SU.CHBSimError(
                 self.simstate,

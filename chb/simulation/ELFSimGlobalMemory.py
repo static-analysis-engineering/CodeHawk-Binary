@@ -31,6 +31,8 @@ from typing import cast, Dict, List, Mapping, TYPE_CHECKING
 
 from chb.elfformat.ELFHeader import ELFHeader
 from chb.simulation.SimMemory import SimMemory
+
+import chb.simulation.SimFileUtil as SFU
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
 import chb.simulation.SimValue as SV
@@ -89,10 +91,17 @@ class ELFSimGlobalMemory(SimMemory):
         return hex(address.offsetvalue) in self.patched_globals
 
     def get_patched_global(
-            self, address: SSV.SimAddress) -> SV.SimDoubleWordValue:
+            self, address: SSV.SimAddress) -> SV.SimValue:
         if self.has_patched_global(address):
-            hexval = self.patched_globals[hex(address.offsetvalue)]
-            return cast(SV.SimDoubleWordValue, SV.mk_simvalue(int(hexval, 16)))
+            glbval = self.patched_globals[hex(address.offsetvalue)]
+
+            result: SV.SimValue
+            if glbval == "stderr":
+                result = SFU.sim_openfile("/stderr", "w")
+                result = cast(SV.SimValue, result)
+            else:
+                result = cast(SV.SimValue, SV.mk_simvalue(int(glbval, 16)))
+            return result
         else:
             raise UF.CHBError('No patched global found for ' + str(address))
 
