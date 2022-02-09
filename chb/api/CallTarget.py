@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -114,6 +114,10 @@ class CallTarget(InterfaceDictionaryRecord):
     def is_unknown(self) -> bool:
         return False
 
+    @property
+    def name(self) -> str:
+        return str(self)
+
     def __str__(self) -> str:
         return "call-target:" + self.tags[0]
 
@@ -189,6 +193,10 @@ class StaticStubTarget(CallTarget):
     def is_so_target(self) -> bool:
         return self.stub.is_so_stub
 
+    @property
+    def name(self) -> str:
+        return self.stub.name
+
     def __str__(self) -> str:
         return str(self.stub) + '@' + str(self.address)
 
@@ -220,8 +228,17 @@ class AppTarget(CallTarget):
             raise UF.CHBError(
                 "Application target " + str(self.address) + " does not have a name")
 
+    @property
     def is_app_target(self) -> bool:
         return True
+
+    @property
+    def name(self) -> str:
+        addr = str(self.address)
+        if self.app.has_function_name(addr):
+            return self.app.function_name(addr)
+        else:
+            return addr
 
     def __str__(self) -> str:
         addr = str(self.address)
