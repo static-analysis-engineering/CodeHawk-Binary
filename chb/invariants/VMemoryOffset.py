@@ -83,7 +83,12 @@ class VMemoryOffset(FnVarDictionaryRecord):
         return False
 
     def offsetvalue(self) -> int:
-        raise UF.CHBError("Offsetvalue is not supported for " + str(self))
+        raise UF.CHBError(
+            "Offsetvalue is not supported for "
+            + str(self)
+            + " ("
+            + self.tags[0]
+            + ")")
 
     def __str__(self) -> str:
         return "memory-offset:" + self.tags[0]
@@ -140,7 +145,7 @@ class VMemoryOffsetConstantOffset(VMemoryOffset):
 
     @property
     def is_constant_value_offset(self) -> bool:
-        return self.has_no_offset() or self.offset.has_no_offset()
+        return self.has_no_offset()
 
     def has_no_offset(self) -> bool:
         return self.offset.is_no_offset
