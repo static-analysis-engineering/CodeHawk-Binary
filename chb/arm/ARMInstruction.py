@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -150,7 +150,7 @@ class ARMInstruction(Instruction):
 
     @property
     def is_return_instruction(self) -> bool:
-        raise UF.CHBError("is-return-instruction: not implemented")
+        return self.opcode.is_return_instruction(self.xdata)
 
     @property
     def is_branch_instruction(self) -> bool:
@@ -176,7 +176,7 @@ class ARMInstruction(Instruction):
         return self.opcode.assembly_ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
-    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> ASTExpr:
+    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
         return self.opcode.assembly_ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata)
 
@@ -185,7 +185,7 @@ class ARMInstruction(Instruction):
         return self.opcode.ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
-    def ast_condition(self, astree: AbstractSyntaxTree) -> ASTExpr:
+    def ast_condition(self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
         return self.opcode.ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata)
 

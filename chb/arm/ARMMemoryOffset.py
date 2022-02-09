@@ -127,7 +127,7 @@ class ARMIndexOffset(ARMMemoryOffset):
         return True
 
     def ast_rvalue(self, astree: AbstractSyntaxTree) -> AST.ASTExpr:
-        return astree.mk_variable_expr(self.register)
+        return astree.mk_register_variable_expr(self.register)
 
     def __str(self) -> str:
         return self.register

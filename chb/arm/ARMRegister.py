@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 from chb.app.BDictionaryRecord import bdregistry
 from chb.app.Register import Register
 
+import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
@@ -65,6 +66,17 @@ class ARMRegister(ARMRegisterBase):
     @property
     def is_arm_stack_pointer(self) -> bool:
         return self.register == "SP"
+
+    @property
+    def is_arm_argument_register(self) -> bool:
+        return self.register in ["R0", "R1", "R2", "R3"]
+
+    def argument_index(self) -> int:
+        if self.is_arm_argument_register:
+            return int(self.register[1:])
+        else:
+            raise UF.CHBError(
+                "Register is not an argument register: " + str(self))
 
     def __str__(self) -> str:
         return self.tags[1]
