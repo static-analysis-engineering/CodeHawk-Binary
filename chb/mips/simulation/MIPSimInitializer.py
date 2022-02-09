@@ -77,5 +77,5 @@ class MIPSimInitializer(SimulationInitializer):
             aoffset += 1
 
         # null-terminate the list of arguments
-        argptr = SSV.mk_stack_address(len(self.cmdlineargs) * 4)
+        argptr = SSV.mk_stack_address((len(self.cmdlineargs) * 4) + 16)
         simstate.set_memval(simstate.startaddr, argptr, SV.simZero)
