@@ -414,17 +414,7 @@ class VFunctionReturnValue(VConstantValueVariable):
         return self.finfo.call_target(self.callsite)
 
     def __str__(self) -> str:
-        if self.has_call_target():
-            args = self.call_arguments()
-            if args is None:
-                pargs: str = '(?)'
-            else:
-                pargs = (
-                    '('
-                    + ','.join([str(a) for a in self.call_arguments()]) + ')')
-            return 'rtn_' + str(self.call_target()) + pargs + ')'
-        else:
-            return 'rtn_' + self.callsite
+        return "rtn_" + self.callsite
 
 
 @varregistry.register_tag("fp", VConstantValueVariable)

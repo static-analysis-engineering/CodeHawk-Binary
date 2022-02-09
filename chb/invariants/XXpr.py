@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -71,6 +71,7 @@ xpr_operator_strings = {
     "le": " <= ",
     "lor": " || ",
     "land": " && ",
+    "lnot": "!",
     "lt": " < ",
     "minus": " - ",
     "mod": " % ",
@@ -102,6 +103,10 @@ class XXpr(FnXprDictionaryRecord):
         return False
 
     @property
+    def is_int_constant(self) -> bool:
+        return False
+
+    @property
     def is_global_address(self) -> bool:
         return False
 
@@ -127,6 +132,16 @@ class XXpr(FnXprDictionaryRecord):
     @property
     def is_stack_base_address(self) -> bool:
         return False
+
+    @property
+    def is_argument_value(self) -> bool:
+        return False
+
+    def argument_index(self) -> int:
+        if self.is_argument_value:
+            return self.variable.denotation.argument_index()
+        else:
+            raise UF.CHBError("Xpr is not an argument value: " + str(self))
 
     @property
     def is_true(self) -> bool:
@@ -238,6 +253,10 @@ class XprVariable(XXpr):
         return self.xd.variable(self.args[0])
 
     @property
+    def is_register_variable(self) -> bool:
+        return self.variable.is_register_variable
+
+    @property
     def is_var(self) -> bool:
         return True
 
@@ -270,6 +289,12 @@ class XprVariable(XXpr):
     def is_argument_value(self) -> bool:
         return (self.variable.has_denotation()
                 and self.variable.is_argument_value)
+
+    def argument_index(self) -> int:
+        if self.is_argument_value:
+            return self.variable.denotation.argument_index()
+        else:
+            raise UF.CHBError("Xpr is not an argument value: " + str(self))
 
     @property
     def is_argument_deref_value(self) -> bool:
@@ -364,7 +389,11 @@ class XprVariable(XXpr):
         if self.is_function_return_value:
             tgtval = self.returnval_target()
             if tgtval:
-                return 'rtn_' + str(tgtval)
+                if str(tgtval) == "getenv":
+                    args = str(self.returnval_arguments()[0])
+                    return "rtn_getenv(" + args + ")"
+                else:
+                    return 'rtn_' + str(tgtval)
             else:
                 return str(self.variable)
         else:
@@ -604,7 +633,6 @@ class XprCompound(XXpr):
     def to_input_constraint(self) -> Optional[IC.InputConstraint]:
         if self.is_returnval_comparison:
             tgt = str(self.returnval_comparison_target())
-            print("Target: " + tgt)
             if tgt == 'getenv':
                 if self.operator == 'ne' and self.operands[1].is_zero:
                     envarg = self.returnval_comparison_arguments()[0]
@@ -623,7 +651,6 @@ class XprCompound(XXpr):
                         return IC.StringNotStartsWithConstraint(argk, cstr)
             elif tgt in ['strcmp', 'strcasecmp']:
                 callargs = self.returnval_comparison_arguments()
-                print("Arguments: " + ", ".join([str(a) for a in callargs]))
                 cstr = callargs[1]
                 argk = callargs[0].to_input_constraint_value()
                 if argk is not None:

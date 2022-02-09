@@ -75,6 +75,18 @@ class XVariable(FnXprDictionaryRecord):
     def is_tmp(self) -> bool:
         return (self.seqnr == -1)
 
+    @property
+    def is_register_variable(self) -> bool:
+        return self.has_denotation and self.denotation.is_register_variable
+
+    @property
+    def is_memory_variable(self) -> bool:
+        return self.has_denotation and self.denotation.is_memory_variable
+
+    @property
+    def is_auxiliary_variable(self) -> bool:
+        return self.has_denotation and self.denotation.is_auxiliary_variable
+
     def has_denotation(self) -> bool:
         return self.seqnr > 0
 
