@@ -348,12 +348,6 @@ def check_analyzer() -> None:
         raise CHBAnalyzerNotFoundError(config.chx86_analyze)
 
 
-def check_cil_parser() -> None:
-    """Raises an exception if the cil parser is not present."""
-    if not os.path.isfile(config.parseFile):
-        raise CHBError("Cil parser not found")
-
-
 def get_locale_file() -> Dict[str, Any]:
     """Loads a file with table headers."""
     filename = os.path.join(config.utildir, "localetable.json")
