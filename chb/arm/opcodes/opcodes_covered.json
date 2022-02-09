@@ -50,7 +50,8 @@
 		    }
 		]
 	    },
-	    "A": "Y"
+	    "A": "Y",
+	    "TC": "DA"
 	},
 	"ADD": {
 	    "name": "Add",
@@ -373,7 +374,8 @@
 		    }
 		]
 	    },
-	    "A": "Y"
+	    "A": "Y",
+	    "TC": "DA"
 	},
 	"BL": {
 	    "name": "BranchLink",
@@ -595,7 +597,8 @@
 		    }
 		]
 	    },
-	    "A": "Y"
+	    "A": "Y",
+	    "TC": "NA"
 	},
 	"EOR": {
 	    "name": "BitwiseExclusiveOr",
@@ -636,7 +639,8 @@
 			"D": "Y"
 		    }
 		]
-	    }
+	    },
+	    "TC": "DA"
 	},
 	"FLDMX": {
 	    "name": "FLoadMultipleIncrementAfter",
@@ -1028,7 +1032,8 @@
 			"D": "Y"
 		    }
 		]
-	    }
+	    },
+	    "TC": "DA"
 	},
 	"LDRSH": {
 	    "name": "LoadRegisterSignedHalfword",
@@ -1337,7 +1342,8 @@
 			"D": "Y"
 		    }
 		]
-	    }
+	    },
+	    "TC": "Y"
 	},
 	"MVN": {
 	    "name": "BitwiseNot",
@@ -1402,7 +1408,8 @@
 			"D": "Y"
 		    }
 		]
-	    }
+	    },
+	    "TC": "Y"
 	},
 	"ORN": {
 	    "name": "BitwiseOrNot",
@@ -1422,7 +1429,8 @@
 		    }
 		]
 	    },
-	    "A": "Y"
+	    "A": "Y",
+	    "TC": "DA"
 	},
 	"ORR": {
 	    "name": "BitwiseOr",
@@ -1651,7 +1659,8 @@
 			"T": "T2"
 		    }
 		]
-	    }
+	    },
+	    "TC": "DA"
 	},			
 	"RRX": {
 	    "name": "RotateRightExtend",
@@ -1666,7 +1675,8 @@
 			"T": "T1"
 		    }
 		]
-	    }
+	    },
+	    "TC": "DA"
 	},
 	"RSB": {
 	    "name": "ReverseSubtract",
@@ -2223,7 +2233,8 @@
 			"D": "Y"
 		    }
 		]
-	    }
+	    },
+	    "TC": "DA"
 	},
 	"SWPB": {
 	    "name": "SwapByte",
@@ -2235,7 +2246,8 @@
 			"D": "Y"
 		    }
 		]
-	    }
+	    },
+	    "TC": "DA"
 	},
 	"SXTB": {
 	    "name": "SignedExtendByte",
@@ -2257,7 +2269,8 @@
 			"D": "Y"
 		    }
 		]
-	    }
+	    },
+	    "TC": "DA"
 	},
 	"SXTH": {
 	    "name": "SignedExtendHalfword",
@@ -2292,7 +2305,8 @@
 			"D": "Y"
 		    }
 		]
-	    }
+	    },
+	    "TC": "NA"
 	},
 	"TBH": {
 	    "name": "TableBranchHalfword",
@@ -2304,7 +2318,8 @@
 			"D": "Y"
 		    }
 		]
-	    }
+	    },
+	    "TC": "NA"
 	},
 	"TEQ": {
 	    "name": "TestEquivalence",
@@ -2602,7 +2617,8 @@
 			"T": "T2"
 		    }
 		]
-	    }
+	    },
+	    "TC": "NA"
 	},
 	"VADDL": {
 	    "name": "VectorAddLong",
@@ -2674,7 +2690,8 @@
 			"T": "T1"
 		    }
 		]
-	    }
+	    },
+	    "TC": "NA"
 	},
 	"VCMP": {
 	    "name": "VCompare",
