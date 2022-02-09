@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,10 @@
 # ------------------------------------------------------------------------------
 
 from typing import List, Sequence, TYPE_CHECKING
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
 
 from chb.app.InstrXData import InstrXData
 
@@ -79,3 +83,12 @@ class ARMBranchExchange(ARMOpcode):
             return "return"
         else:
             return "goto " + tgt
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        """Need check for branch on LR, which should emit a return statement."""
+        return []

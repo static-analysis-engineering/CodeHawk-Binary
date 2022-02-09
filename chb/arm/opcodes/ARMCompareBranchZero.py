@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -85,7 +85,7 @@ class ARMCompareBranchZero(ARMOpcode):
             bytestring: str,
             xdata: InstrXData) -> AST.ASTExpr:
         reg = str(self.operands[0])
-        regvar = astree.mk_variable_expr(reg)
+        regvar = astree.mk_register_variable_expr(reg)
         zero = astree.mk_integer_constant(0)
         condition = astree.mk_binary_op("eq", regvar, zero)
         astree.add_instruction_span(condition.id, iaddr, bytestring)
