@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -454,47 +454,6 @@ class FunctionNamesHints(HintsEntry):
         return "\n".join(lines)
 
 
-class FunctionSummariesHints(HintsEntry):
-    """Mapping of function addresses to function summaries.
-
-    Format:
-       <name/address>: { "args": <list of name, type>,
-                         "returntype": type }
-    """
-
-    def __init__(self, fsummaries: Dict[str, Any]) -> None:
-        HintsEntry.__init__(self, "function-summaries")
-        self._fsummaries = fsummaries
-
-    @property
-    def fsummaries(self) -> Dict[str, Any]:
-        return self._fsummaries
-
-    def update(self, d: Dict[str, Any]) -> None:
-        for faddr in d:
-            if faddr not in self._fsummaries:
-                self._fsummaries[faddr] = d[faddr]
-
-    def to_xml(self, node: ET.Element) -> None:
-        pass
-
-    def fsummary_to_xml(self, node: ET.Element, name: str) -> None:
-        UT.function_summary_to_xml(node, name, self.fsummaries[name])
-
-    def save_summaries(self, path: str, xfile: str) -> None:
-        for name in self.fsummaries:
-            filename = UF.get_user_function_summary_filename(path, xfile, name)
-            fsummary = self.fsummaries[name]
-            root = UX.get_codehawk_xml_header(xfile, "function-summary")
-            tree = ET.ElementTree(root)
-            fnode = ET.Element("function-summary")
-            root.append(fnode)
-            fnode.set("name", name)
-            self.fsummary_to_xml(fnode, name)
-            with open(filename, "w") as fp:
-                fp.write(UX.doc_to_pretty(tree))
-
-
 class IndirectJumpsHints(HintsEntry):
     """List of records that specify the targets of an indirect jump.
 
@@ -807,60 +766,59 @@ class SuccessorsHints(HintsEntry):
 class SymbolicAddressesHints(HintsEntry):
     """Map of global variable addresses to name/type info on the variables.
 
-    Format: { <gv-addr>: {"name": <name>, "type": <type-name>} }
+    Format: { <gv-addr>: name }
+
+    It is expected that the type of name is provided through a header file
     """
 
-    def __init__(self, symbolicaddrs: Dict[str, Dict[str, str]]) -> None:
+    def __init__(self, symbolicaddrs: Dict[str, str]) -> None:
         HintsEntry.__init__(self, "symbolic-addresses")
         self._symbolicaddrs = symbolicaddrs
 
     @property
-    def symbolicaddrs(self) -> Dict[str, Dict[str, str]]:
+    def symbolicaddrs(self) -> Dict[str, str]:
         return self._symbolicaddrs
 
-    def update(self, d: Dict[str, Dict[str, str]]) -> None:
+    def update(self, d: Dict[str, str]) -> None:
         for gv in d:
             self._symbolicaddrs[gv] = d[gv]
 
     def to_xml(self, node: ET.Element) -> None:
         xaddrs = ET.Element(self.name)
         node.append(xaddrs)
-        for (gv, gvinfo) in self.symbolicaddrs.items():
-            if "name" in gvinfo and "type" in gvinfo:
-                xgv = ET.Element("syma")
-                xaddrs.append(xgv)
-                xgv.set("a", gv)
-                gvname = cast(str, gvinfo["name"])
-                gvtype = gvinfo["type"]
-                xgv.set("name", gvname)
-                ptnode = ET.Element("type")
-                xgv.append(ptnode)
-                try:
-                    UT.mk_user_btype(gvtype).to_xml(ptnode)
-                except UF.CHBError as e:
-                    raise UF.CHBError(
-                        "Error in symbolic address for " + gvname + ": " + str(e))
-            else:
-                raise UF.CHBError(
-                    "Name of type missing from symbolic address: "
-                    + gv)
+        for (gv, gvname) in self.symbolicaddrs.items():
+            xgv = ET.Element("syma")
+            xaddrs.append(xgv)
+            xgv.set("a", gv)
+            gvname = cast(str, gvname)
+            xgv.set("name", gvname)
+            ptnode = ET.Element("type")
+            xgv.append(ptnode)
+            ptnode.text = "unknown"
 
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append("Symbolic addresses")
         lines.append("------------------")
-        for (gv, gvinfo) in self.symbolicaddrs.items():
-            if "name" in gvinfo and "type" in gvinfo:
-                gvname = cast(str, gvinfo["name"])
-                gvtype = cast(str, gvinfo["type"])
-                lines.append(gv + ": " + gvname + " (" + gvtype + ")")
+        for (gv, gvname) in self.symbolicaddrs.items():
+            lines.append(gv + ": " + gvname)
         return "\n".join(lines)
 
 
 class VariableNamesHints(HintsEntry):
     """Map of local variable names to range-dependent alternative names.
 
-    Format: { <name>: [ {"span": [<low>, <high>], "altname": <altname> } ] }
+    Format: { <fname>: {
+                "registers": {
+                   <name>: [{"span": [<low>, <high>], "altname": <altname>}]
+                },
+                "stack": {
+                   <offset>: [{"span": [<low>, <high>], "altname": <altname>}]
+                },
+                "other": {
+                   <iaddr>: [{"altname": <altname>}]
+                }
+            }
     """
 
     def __init__(self, variablenames: VariableNamesRec) -> None:
@@ -870,23 +828,6 @@ class VariableNamesHints(HintsEntry):
     @property
     def variablenames(self) -> VariableNamesRec:
         return self._variablenames
-
-    def has_variable(self, v: str) -> bool:
-        return v in self.variablenames
-
-    def variable_name(self, v: str, addr: str) -> Optional[str]:
-        if self.has_variable(v):
-            vinfo = self.variablenames[v]
-            addri = int(addr, 16)
-            for s in vinfo:
-                vlow = int(s["span"][0], 16)
-                vhigh = int(s["span"][1], 16)
-                if vlow <= addri and addri <= vhigh:
-                    return cast(str, s["altname"])
-            else:
-                return None
-        else:
-            return None
 
     def update(self, d: VariableNamesRec) -> None:
         for v in d:
@@ -918,19 +859,28 @@ class UserHints:
         else:
             return cast(VariableNamesRec, {})
 
-    def symbolic_addresses(self) -> Dict[str, Dict[str, str]]:
+    def symbolic_addresses(self) -> Dict[str, str]:
         if "symbolic-addresses" in self.astdata:
             entry = cast(SymbolicAddressesHints, self.astdata["symbolic-addresses"])
             return entry.symbolicaddrs
         else:
             return {}
 
+    def rev_function_names(self) -> Dict[str, str]:
+        if "function-names" in self.astdata:
+            entry = cast(FunctionNamesHints, self.astdata["function-names"])
+            return {k: v[0] for (k, v) in entry.revnames.items()}
+        else:
+            return {}
+
+    '''
     def function_summaries(self) -> Dict[str, Any]:
         if "function-summaries" in self.astdata:
             entry = cast(FunctionSummariesHints, self.astdata["function-summaries"])
             return entry.fsummaries
         else:
             return {}
+    '''
 
     def add_hints(self, hints: Dict[str, Any]) -> None:
         """Process a user provided dictionary with user hint dictionaries.
@@ -994,52 +944,16 @@ class UserHints:
         if "function-names" in hints:
             tag = "function-names"
             fnames: Dict[str, str] = hints[tag]
-            if tag in self.userdata:
-                self.userdata[tag].update(fnames)
-            else:
-                self.userdata[tag] = FunctionNamesHints(fnames)
-
-        if "function-summaries" in hints:
-            tag = "function-summaries"
-            fsummaries: Dict[str, Any] = hints[tag]
-
-            if not self._toxml:
-                fxsummaries: Dict[str, Any] = {}
-                for name in fsummaries:
-                    fxsummaries[name] = fsummaries[name]
-                if tag in self.astdata:
-                    self.astdata[tag].update(fxsummaries)
-                else:
-                    self.astdata[tag] = FunctionSummariesHints(fxsummaries)
-
-            else:
-                if "function-names" in self.userdata:
-                    definednames = cast(
-                        FunctionNamesHints, self.userdata["function-names"])
-                else:
-                    definednames = FunctionNamesHints({})
-                fxsummaries = {}
-                for name in fsummaries:
-                    if name.startswith("0x"):
-                        fxsummaries[name] = fsummaries[name]
-                    else:
-                        if definednames.has_unique_address(name):
-                            addr = definednames.get_unique_address(name)
-                            fxsummaries[addr] = fsummaries[name]
-                        else:
-                            print(
-                                "Skipping function summary for "
-                                + name
-                                + ", because no unique address found for "
-                                + name
-                                + " in userdata: "
-                                + str(definednames.namecount(name))
-                                + " addresses found")
-
+            if self._toxml:
                 if tag in self.userdata:
-                    self.userdata[tag].update(fxsummaries)
+                    self.userdata[tag].update(fnames)
                 else:
-                    self.userdata[tag] = FunctionSummariesHints(fxsummaries)
+                    self.userdata[tag] = FunctionNamesHints(fnames)
+            else:
+                if tag in self.astdata:
+                    self.astdata[tag].update(fnames)
+                else:
+                    self.astdata[tag] = FunctionNamesHints(fnames)
 
         if "indirect-jumps" in hints:
             tag = "indirect-jumps"
@@ -1091,7 +1005,7 @@ class UserHints:
 
         if "symbolic-addresses" in hints:
             tag = "symbolic-addresses"
-            symbolicaddrs: Dict[str, Dict[str, str]] = hints[tag]
+            symbolicaddrs: Dict[str, str] = hints[tag]
             if self._toxml:
                 if tag in self.userdata:
                     self.userdata[tag].update(symbolicaddrs)
@@ -1119,12 +1033,6 @@ class UserHints:
         # structs are saved individually in a structs directory
         if "structs" in self.userdata:
             self.userdata["structs"].save_struct_files(path, xfile)
-
-        # function summaries are saved individually in a functions directory
-        if "function-summaries" in self.userdata:
-            cast(
-                FunctionSummariesHints,
-                self.userdata["function-summaries"]).save_summaries(path, xfile)
 
     def to_xml(self, filename: str) -> ET.ElementTree:
         root = UX.get_codehawk_xml_header(filename, "system-userdata")
