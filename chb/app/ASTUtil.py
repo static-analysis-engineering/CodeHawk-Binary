@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,11 +28,11 @@
 
 import copy
 
-from typing import Dict, List, Tuple, TYPE_CHECKING
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from chb.app.ASTNode import ASTExpr, ASTLval
+    from chb.app.ASTNode import ASTExpr, ASTLval, ASTVarInfo
 
 
 arm_registers = [
@@ -40,71 +40,13 @@ arm_registers = [
     "R9", "R10" "R11", "R12", "SP", "LR", "PC"]
 
 
-def join_usedefs(usedefs: List[Dict[str, List[Tuple[int, "ASTExpr"]]]]) -> Dict[
-        str, List[Tuple[int, "ASTExpr"]]]:
-    if len(usedefs) == 0:
-        return {}
-    else:
-        result: Dict[str, List[Tuple[int, "ASTExpr"]]] = copy.deepcopy(usedefs[0])
-        for u in usedefs[1:]:
-            for s in u:
-                result.setdefault(s, [])
-                for (id, expr) in u[s]:
-                    if all(r[0] != id for r in result[s]):
-                        result[s].append((id, expr))
-        return result
-
-
-def update_usedef_assign(
-        usedefs_e: Dict[str, List[Tuple[int, "ASTExpr"]]],
-        instrid: int,
-        kill: str,
-        gendef: "ASTExpr") -> Dict[str, List[Tuple[int, "ASTExpr"]]]:
-    usedefs: Dict[str, List[Tuple[int, "ASTExpr"]]] = {}
-    if kill not in usedefs_e:
-        usedefs = copy.deepcopy(usedefs_e)        
-        if kill in gendef.use():
-            return usedefs
-        else:
-            usedefs[kill] = [(instrid, gendef)]
-            return usedefs
-
-    for v in usedefs_e:
-        if v == kill and v in gendef.use():
-            pass   # remove from usedefs
-        elif v == kill:
-            usedefs[v] = [(instrid, gendef)]
-        else:
-            newdefs: List[Tuple[int, "ASTExpr"]] = []
-            for (id, expr) in usedefs_e[v]:
-                if kill not in expr.use():
-                    newdefs.append((id, expr))
-            if len(newdefs) > 0:
-                usedefs[v] = newdefs
-    return usedefs
-
-
-def update_usedef_call(
-        usedefs_e: Dict[str, List[Tuple[int, "ASTExpr"]]],
-        kill: List[str]) -> Dict[str, List[Tuple[int, "ASTExpr"]]]:
-    usedefs: Dict[str, List[Tuple[int, "ASTExpr"]]] = {}
-    for v in usedefs_e:
-        if v in kill:
-            pass  # remove from usedefs
-        else:
-            newdefs: List[Tuple[int, "ASTExpr"]] = []
-            for (id, expr) in usedefs_e[v]:
-                if len(set(kill).intersection(set(expr.use()))) == 0:
-                    newdefs.append((id, expr))
-            if len(newdefs) > 0:
-                usedefs[v] = newdefs
-    return usedefs
-
-
-def storage_records(names: List[str]) -> List[Dict[str, str]]:
+def storage_records(vinfos: Sequence["ASTVarInfo"]) -> List[Dict[str, str]]:
     result: List[Dict[str, str]] = []
-    for name in names:
+    for vinfo in vinfos:
         rec: Dict[str, str] = {}
+        name = vinfo.vname
+        if name == "ignored":
+            continue
         rec["name"] = name
         if name in arm_registers:
             rec["type"] = "register"
@@ -114,7 +56,130 @@ def storage_records(names: List[str]) -> List[Dict[str, str]]:
         elif name.startswith("var"):
             rec["type"] = "stack"
             rec["offset"] = str(int(name[4:]))
+        elif vinfo.is_parameter:
+            rec["type"] = "parameter"
+            rec["index"] = str(vinfo.parameter)
+        elif vinfo.is_global:
+            rec["type"] = "global"
+            rec["va"] = hex(vinfo.global_address)
         else:
-            continue
+            rec["type"] = "unknown"
         result.append(rec)
     return result
+
+
+def has_global_denotation(
+        varinfos: List["ASTVarInfo"], gaddr: str) -> Optional["ASTVarInfo"]:
+    addr = int(gaddr, 16)
+    for vinfo in varinfos:
+        if vinfo.global_address > 0 and vinfo.vtype is not None:
+            if addr == vinfo.global_address:
+                return vinfo
+            elif vinfo.vtype.is_struct:
+                bytesize = vinfo.vtype.byte_size()
+                structextent = vinfo.global_address + bytesize
+                if addr > vinfo.global_address and addr < structextent:
+                    return vinfo
+    else:
+        return None
+
+
+class UseDef:
+    """Holds a mapping from variables to (label * expr) tuples on node entry.
+
+    These definitions are used for replacement, hence only one definition is
+    allowed.
+    """
+
+    def __init__(self, defs: Mapping[str, Tuple[int, "ASTExpr"]]) -> None:
+        self._defs = defs
+
+    @property
+    def defs(self) -> Mapping[str, Tuple[int, "ASTExpr"]]:
+        return self._defs
+
+    @property
+    def variables(self) -> Sequence[str]:
+        return list(self.defs.keys())
+
+    def has_name(self, v: str) -> bool:
+        return v in self.defs
+
+    def get(self, v: str) -> Tuple[int, "ASTExpr"]:
+        if v in self.defs:
+            return self.defs[v]
+        else:
+            raise Exception("Variable: " + v + " not found in usedef")
+
+    def apply_assign(
+            self, instrid: int, kill: str, gendef: "ASTExpr") -> "UseDef":
+
+        if kill not in self.defs:
+            if kill in gendef.use():             # nothing to add or remove
+                return UseDef(self.defs)
+
+        usedefs: Dict[str, Tuple[int, "ASTExpr"]] = {}
+        if kill not in self.defs:
+            usedefs[kill] = (instrid, gendef)
+
+        for v in self.defs:
+            if v == kill and v in gendef.use():
+                pass    # remove from usedefs
+            elif v == kill:
+                usedefs[v] = (instrid, gendef)    # replace
+            elif kill not in self.defs[v][1].use():
+                usedefs[v] = self.defs[v]         # keep this def
+            else:
+                pass   # leave out this def
+
+        return UseDef(usedefs)
+
+    def apply_call(self, kill: Sequence[str]) -> "UseDef":
+        usedefs: Dict[str, Tuple[int, "ASTExpr"]] = {}
+        for v in self.defs:
+            if v in kill:
+                pass   # remove from usedefs
+            else:
+                for k in kill:
+                    if k in self.defs[v][1].use():
+                        break         # remove from usedefs
+                else:
+                    usedefs[v] = self.defs[v]    # keep this def
+
+        return UseDef(usedefs)
+
+    def join(self, other: "UseDef") -> "UseDef":
+
+        # only keep definitions that are shared
+        if len(other.defs) == 0 or len(self.defs) == 0:
+            return UseDef({})
+
+        newdefs: Dict[str, Tuple[int, "ASTExpr"]] = {}
+        for v in self.defs:
+            if v in other.defs:
+                if self.defs[v][0] == other.defs[v][0]:
+                    newdefs[v] = self.defs[v]
+
+        return UseDef(newdefs)
+
+
+class InstrUseDef:
+
+    def __init__(self) -> None:
+        self._instrdefs: Dict[int, UseDef] = {}
+
+    @property
+    def instrdefs(self) -> Dict[int, UseDef]:
+        return self._instrdefs
+
+    def has(self, instrid: int) -> bool:
+        return instrid in self.instrdefs
+
+    def set(self, instrid: int, usedef: UseDef) -> None:
+        self._instrdefs[instrid] = usedef
+
+    def get(self, instrid: int) -> UseDef:
+        if instrid in self.instrdefs:
+            return self.instrdefs[instrid]
+        else:
+            raise Exception("Instruction id: " + str(instrid) + " not in usedef")

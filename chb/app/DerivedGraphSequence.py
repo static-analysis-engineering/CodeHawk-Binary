@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -175,7 +175,7 @@ class GraphInterval:
                         unresolved.append(m)
 
         if len(unresolved) > 0:
-            print("Unresolved: " + ", ".join(unresolved))
+            print("Unresolved two-way conditional: " + ", ".join(unresolved))
         return self._twowayconditionals
 
     def post(self, n) -> Set[str]:
@@ -346,11 +346,12 @@ class IntervalGraph:
                 worklist = worklist[1:]
                 if c in self.edges:
                     for tgt in self.edges[c]:
-                        tgtpre = self.revedges[tgt]
-                        if interval.has_nodes(set(tgtpre)):
-                            interval.add_node(tgt)
-                            worklist.append(tgt)
-                            covered.add(tgt)
+                        if tgt not in worklist:
+                            tgtpre = self.revedges[tgt]
+                            if interval.has_nodes(set(tgtpre)):
+                                interval.add_node(tgt)
+                                worklist.append(tgt)
+                                covered.add(tgt)
 
             for src in self.edges:
                 for tgt in self.edges[src]:

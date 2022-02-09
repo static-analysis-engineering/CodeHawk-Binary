@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -194,13 +194,16 @@ class Instruction(ABC):
         """Return a pair of lhs, rhs global references."""
         ...
 
+    def return_value(self) -> Optional[XXpr]:
+        return None
+
     def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
         raise UF.CHBError("assembly-ast not defined")
 
     def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
         raise UF.CHBError("ast (abstract-syntax-tree) not defined")
 
-    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> ASTExpr:
+    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
         raise UF.CHBError("assembly-ast-condition not defined")
 
     @abstractmethod

@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -60,6 +60,9 @@ from chb.app.JumpTables import JumpTables
 from chb.app.SystemInfo import SystemInfo
 from chb.app.StringXRefs import StringsXRefs
 
+from chb.bctypes.BCDictionary import BCDictionary
+from chb.bctypes.BCFiles import BCFiles
+
 from chb.elfformat.ELFHeader import ELFHeader
 
 from chb.models.ModelsAccess import ModelsAccess
@@ -107,8 +110,10 @@ class AppAccess(ABC, Generic[HeaderTy]):
         self.models = ModelsAccess(self.dependencies)
 
         # application-wide dictionaries
+        self._bcdictionary: Optional[BCDictionary] = None
         self._bdictionary: Optional[BDictionary] = None
         self._interfacedictionary: Optional[InterfaceDictionary] = None
+        self._bcfiles: Optional[BCFiles] = None
 
         self._systeminfo: Optional[SystemInfo] = None
 
@@ -153,6 +158,13 @@ class AppAccess(ABC, Generic[HeaderTy]):
     # Dictionaries  ------------------------------------------------------------
 
     @property
+    def bcdictionary(self) -> BCDictionary:
+        if self._bcdictionary is None:
+            x = UF.get_bcdictionary_xnode(self.path, self.filename)
+            self._bcdictionary = BCDictionary(self, x)
+        return self._bcdictionary
+
+    @property
     def bdictionary(self) -> BDictionary:
         if self._bdictionary is None:
             x = UF.get_bdictionary_xnode(self.path, self.filename)
@@ -166,12 +178,20 @@ class AppAccess(ABC, Generic[HeaderTy]):
             self._interfacedictionary = InterfaceDictionary(self, x)
         return self._interfacedictionary
 
+    @property
+    def bcfiles(self) -> BCFiles:
+        if self._bcfiles is None:
+            x = UF.get_bc_files_xnode(self.path, self.filename)
+            self._bcfiles = BCFiles(self, x)
+        return self._bcfiles
+
     # File format --------------------------------------------------------------
     @property
     def header(self) -> HeaderTy:
         if self._header is None:
             x = self._header_ty.get_xnode(self.path, self.filename)
-            self._header = self._header_ty(self.path, self.filename, x, self.dependencies)
+            self._header = self._header_ty(
+                self.path, self.filename, x, self.dependencies)
         return self._header
 
     # Systeminfo ---------------------------------------------------------------
