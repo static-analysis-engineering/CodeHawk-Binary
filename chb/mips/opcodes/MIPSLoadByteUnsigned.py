@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,10 @@
 
 from typing import cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XXpr import XXpr
@@ -37,6 +41,8 @@ from chb.invariants.XXpr import XXpr
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
 from chb.mips.MIPSOperand import MIPSOperand
+
+import chb.invariants.XXprUtil as XU
 
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
@@ -88,6 +94,17 @@ class MIPSLoadByteUnsigned(MIPSOpcode):
             rhs = '*(' + str(xdata.xprs[1]) + ')'
         return lhs + ' := ' + rhs
 
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        rhs = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
+        lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
+        assign = astree.mk_assign(lhs, rhs)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return [assign]
+
     @property
     def dst_operand(self) -> MIPSOperand:
         return self.mipsd.mips_operand(self.args[0])
@@ -123,7 +140,10 @@ class MIPSLoadByteUnsigned(MIPSOpcode):
             result = SV.simUndefinedDW
             simstate.add_logmsg(
                 "warning",
-                "lbu: memory value not recognized " + iaddr + " from address " + str(srcval))
+                "lbu: memory value not recognized "
+                + iaddr
+                + " from address "
+                + str(srcval))
 
         lhs = simstate.set(iaddr, dstop, result)
         simstate.increment_programcounter()

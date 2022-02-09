@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,10 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import cast, List, Sequence, TYPE_CHECKING
+from typing import cast, List, Optional, Sequence, TYPE_CHECKING
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
 
 from chb.app.InstrXData import InstrXData
 
@@ -37,6 +40,8 @@ from chb.invariants.XXpr import XXpr
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
 from chb.mips.MIPSOperand import MIPSOperand
+
+import chb.invariants.XXprUtil as XU
 
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
@@ -100,6 +105,32 @@ class MIPSBranchNotEqual(MIPSOpcode):
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         return [xdata.xprs[4], xdata.xprs[3]]
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        return []
+
+    def assembly_ast_condition(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Optional[ASTExpr]:
+        ftconds = self.ft_conditions(xdata)
+        if len(ftconds) == 2:
+            tcond = ftconds[1]
+            if tcond.is_constant:
+                astcond = XU.xxpr_to_ast_expr(xdata.xprs[2], astree)
+            else:
+                astcond = XU.xxpr_to_ast_expr(tcond, astree)
+            astree.add_instruction_span(astcond.id, iaddr, bytestring)
+            return astcond
+        else:
+            return None
 
     @property
     def src1_operand(self) -> MIPSOperand:

@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,11 +27,15 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Sequence, TYPE_CHECKING
+from typing import cast, List, Optional, Sequence, TYPE_CHECKING
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
 
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XXpr import XXpr
+import chb.invariants.XXprUtil as XU
 
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
@@ -58,3 +62,26 @@ class MIPSBranchOpcode(MIPSOpcode):
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         return []
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        return []
+
+    def assembly_ast_condition(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Optional[ASTExpr]:
+        ftconds = self.ft_conditions(xdata)
+        if len(ftconds) == 2:
+            tcond = ftconds[1]
+            astcond = XU.xxpr_to_ast_expr(tcond, astree)
+            astree.add_instruction_span(astcond.id, iaddr, bytestring)
+            return astcond
+        else:
+            return None

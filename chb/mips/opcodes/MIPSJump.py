@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +28,9 @@
 # ------------------------------------------------------------------------------
 
 from typing import cast, List, Sequence, TYPE_CHECKING
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
 
 from chb.app.InstrXData import InstrXData
 
@@ -76,6 +79,14 @@ class MIPSJump(MIPSOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         return 'goto ' + str(self.target)
+
+    def assembly_ast_tmp(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        return []
 
     # --------------------------------------------------------------------------
     # Operation:

@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,10 @@
 
 from typing import cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XVariable import XVariable
@@ -37,6 +41,8 @@ from chb.invariants.XXpr import XXpr
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
 from chb.mips.MIPSOperand import MIPSOperand
+
+import chb.invariants.XXprUtil as XU
 
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
@@ -88,6 +94,18 @@ class MIPSStoreByte(MIPSOpcode):
         rrhs = xdata.xprs[1]
         xrhs = simplify_result(xdata.args[1], xdata.args[2], rhs, rrhs)
         return lhs + ' := ' + xrhs
+
+    def ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        rhs = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
+        lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
+        assign = astree.mk_assign(lhs, rhs)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return [assign]
 
     @property
     def src_operand(self) -> MIPSOperand:

@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,10 @@
 
 from typing import cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XVariable import XVariable
@@ -38,6 +42,8 @@ from chb.invariants.XXpr import XXpr
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result, derefstr
 from chb.mips.MIPSOperand import MIPSOperand
+
+import chb.invariants.XXprUtil as XU
 
 import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimUtil as SU
@@ -49,6 +55,10 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
+    from chb.invariants.VAssemblyVariable import VAuxiliaryVariable
+    from chb.invariants.VConstantValueVariable import VInitialRegisterValue
+    from chb.invariants.XXpr import XprVariable
+    from chb.mips.MIPSRegister import MIPSRegister
     from chb.simulation.SimulationState import SimulationState
 
 
@@ -91,6 +101,38 @@ class MIPSStoreWord(MIPSOpcode):
         if lhs == '?' and len(xdata.xprs) == 3:
             lhs = derefstr(xdata.xprs[2])
         return lhs + ' := ' + xrhs
+
+    def is_spill(self, xdata: InstrXData) -> bool:
+        swaddr = xdata.xprs[2]
+        if swaddr.is_stack_address:
+            rhs = xdata.xprs[1]
+            if rhs.is_var:
+                rhsv = cast("XprVariable", rhs).variable
+                if rhsv.denotation.is_auxiliary_variable:
+                    v = cast("VAuxiliaryVariable", rhsv.denotation)
+                    if v.auxvar.is_initial_register_value:
+                        vx = cast("VInitialRegisterValue", v.auxvar)
+                        r = cast("MIPSRegister", vx.register)
+                        return (
+                            r.is_mips_callee_saved_register
+                            or r.is_mips_global_pointer
+                            or r.is_mips_return_address_register)
+        return False
+
+    def ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        if self.is_spill(xdata):
+            return []
+        else:
+            rhs = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
+            lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
+            assign = astree.mk_assign(lhs, rhs)
+            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            return [assign]
 
     @property
     def dst_operand(self) -> MIPSOperand:

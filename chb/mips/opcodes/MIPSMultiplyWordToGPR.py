@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,10 +29,14 @@
 
 from typing import cast, List, Sequence, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTExpr, ASTInstruction
+
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
+import chb.invariants.XXprUtil as XU
 
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
@@ -88,6 +92,18 @@ class MIPSMultiplyWordToGPR(MIPSOpcode):
         rresult = xdata.xprs[3]
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return (lhs + ' := ' + xresult)
+
+    def ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
+        rhs = XU.xxpr_to_ast_expr(xdata.xprs[3], astree)
+        assign = astree.mk_assign(lhs, rhs)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return [assign]
 
     @property
     def dst_operand(self) -> MIPSOperand:
