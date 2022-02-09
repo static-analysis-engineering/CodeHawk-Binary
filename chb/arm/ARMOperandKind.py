@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -155,8 +155,8 @@ class ARMOperandKind(ARMDictionaryRecord):
             "AST lvalue not available for operand kind "
             + self.tags[0]
             + "("
-            + str(self)\
-            + ")" )
+            + str(self)
+            + ")")
 
     def ast_rvalue(
             self,
@@ -167,7 +167,7 @@ class ARMOperandKind(ARMDictionaryRecord):
             + self.tags[0]
             + "("
             + str(self)
-            + ")") 
+            + ")")
 
     def __str__(self) -> str:
         return "operandkind: " + self.tags[0]
@@ -198,13 +198,13 @@ class ARMRegisterOp(ARMOperandKind):
             self,
             astree: AbstractSyntaxTree) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        return (astree.mk_variable_lval(self.register),[], [])
+        return (astree.mk_variable_lval(self.register), [], [])
 
     def ast_rvalue(
             self,
             astree: AbstractSyntaxTree) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        return (astree.mk_variable_expr(self.register), [], [])
+        return (astree.mk_register_variable_expr(self.register), [], [])
 
     def __str__(self) -> str:
         return self.register
@@ -413,7 +413,8 @@ class ARMLiteralAddressOp(ARMOperandKind):
             astree: AbstractSyntaxTree) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         gvname = "gv_" + self.address.get_hex()
-        gv = astree.mk_variable_expr(gvname)
+        gv = astree.mk_global_variable_expr(
+            gvname, globaladdress=self.address.get_int())
         return (gv, [], [])
 
     def __str__(self) -> str:
@@ -489,7 +490,7 @@ class ARMOffsetAddressOp(ARMOperandKind):
         offset = self.memory_offset.ast_rvalue(astree)
         if not self.is_add:
             offset = astree.mk_unary_op("minus", offset)
-        xreg = astree.mk_variable_expr(self.register)
+        xreg = astree.mk_register_variable_expr(self.register)
         xindex = astree.mk_binary_op("plus", xreg, offset)
 
         if self.is_write_back:

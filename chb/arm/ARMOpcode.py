@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """ARM opcodes."""
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
 
@@ -131,7 +131,7 @@ class ARMOpcode(ARMDictionaryRecord):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> ASTExpr:
+            xdata: InstrXData) -> Optional[ASTExpr]:
         msg = (
             bytestring
             + "  "
@@ -154,7 +154,7 @@ class ARMOpcode(ARMDictionaryRecord):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> ASTExpr:
+            xdata: InstrXData) -> Optional[ASTExpr]:
         return self.assembly_ast_condition(astree, iaddr, bytestring, xdata)
 
     def mnemonic_extension(self) -> str:
@@ -184,6 +184,9 @@ class ARMOpcode(ARMDictionaryRecord):
     @property
     def is_branch_instruction(self) -> bool:
         return self.tags[0] in branch_opcodes
+
+    def is_return_instruction(self, xdata: InstrXData) -> bool:
+        return False
 
     def is_call_instruction(self, xdata: InstrXData) -> bool:
         return xdata.has_call_target()
