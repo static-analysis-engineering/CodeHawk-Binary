@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -44,6 +44,9 @@ The structure of the directory x.ch is:
 
 analysis:
 - a/x_functions.xml
+    x_bcdict.xml            cil types
+    x_bdict.xml             basic types
+    x_ixdict.xml            interface types
     x_global_state.xml
     x_system_info.xml
     x_functions.jar
@@ -54,6 +57,11 @@ analysis:
                   x_a_vars.xml
                   x_a_invs.xml
                   x_a_tinvs.xml
+
+artifacts obtained from parsed c files
+- c/x_bc_files.xml
+    functions/x_sub_a_bc.xml   for a function address a (without 0x)
+    functions/x_name_bc.xml    for a given function name
 
 results:
 - r/x_app.xml
@@ -340,6 +348,12 @@ def check_analyzer() -> None:
         raise CHBAnalyzerNotFoundError(config.chx86_analyze)
 
 
+def check_cil_parser() -> None:
+    """Raises an exception if the cil parser is not present."""
+    if not os.path.isfile(config.parseFile):
+        raise CHBError("Cil parser not found")
+
+
 def get_locale_file() -> Dict[str, Any]:
     """Loads a file with table headers."""
     filename = os.path.join(config.utildir, "localetable.json")
@@ -392,6 +406,15 @@ def get_executable_dir(path: str, xfile: str) -> str:
 
 def get_executable_targz_filename(path: str, xfile: str) -> str:
     return os.path.join(path, xfile + ".chx.tar.gz")
+
+
+def get_c_dir(path: str, xfile: str) -> str:
+    xdir = os.path.join(path, xfile + ".ch")
+    return os.path.join(xdir, "c")
+
+
+def get_c_functions_dir(path: str, xfile: str) -> str:
+    return os.path.join(get_c_dir(path, xfile), "functions")
 
 
 def get_results_dir(path: str, xfile: str) -> str:
@@ -512,6 +535,36 @@ def get_systeminfo_filename(path: str, xfile: str) -> str:
 def get_systeminfo_xnode(path: str, xfile: str) -> ET.Element:
     filename = get_systeminfo_filename(path, xfile)
     return get_chb_xnode(filename, "system-info")
+
+
+def get_bcdictionary_filename(path: str, xfile: str) -> str:
+    fdir = get_analysis_dir(path, xfile)
+    return get_chb_filename(fdir, xfile, "bcdict.xml")
+
+
+def get_bcdictionary_xnode(path: str, xfile: str) -> ET.Element:
+    filename = get_bcdictionary_filename(path, xfile)
+    return get_chb_xnode(filename, "bcdictionary")
+
+
+def get_bc_files_filename(path: str, xfile: str) -> str:
+    fdir = get_c_dir(path, xfile)
+    return get_chb_filename(fdir, xfile, "bcfiles.xml")
+
+
+def get_bc_files_xnode(path: str, xfile: str) -> ET.Element:
+    filename = get_bc_files_filename(path, xfile)
+    return get_chb_xnode(filename, "bcfiles")
+
+
+def get_bc_function_file_filename(path: str, xfile: str, fname: str) -> str:
+    fdir = get_c_dir(path, xfile)
+    return get_chb_function_top_filename(fdir, xfile, fname, "_bc.xml")
+
+
+def get_bc_function_file_xnode(path: str, xfile: str, fname: str) -> ET.Element:
+    filename = get_bc_function_file_filename(path, xfile, fname)
+    return get_chb_xnode(filename, "bcfunction")
 
 
 def get_bdictionary_filename(path: str, xfile: str) -> str:
