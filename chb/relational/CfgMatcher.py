@@ -205,6 +205,8 @@ class CfgMatcher:
             self.collect_branch_conditions()
             self.match_branch_conditions()
             self.match_edges()
+            self.propagate_post()
+            self.propagate_pre()
 
     def collect_blockmd5s(self) -> None:
         for (baddr, b1) in self.basic_blocks1.items():
@@ -309,7 +311,7 @@ class CfgMatcher:
     def match_edges(self) -> None:
 
         def nolog(s: str) -> None:
-            pass
+            print(s)
 
         for (src1, tgt1) in self.edges1:
             if (src1, tgt1) in self.edgemapping:

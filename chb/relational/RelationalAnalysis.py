@@ -62,7 +62,9 @@ class RelationalAnalysis:
             app1: "AppAccess",
             app2: "AppAccess",
             faddrs1: List[str] = [],
-            faddrs2: List[str] = []) -> None:
+            faddrs2: List[str] = [],
+            usermapping: Dict[str, str] = {},
+            callees: List[str] = []) -> None:
         self._app1 = app1
         self._app2 = app2
         if faddrs1:
@@ -73,6 +75,8 @@ class RelationalAnalysis:
             self._faddrs2 = sorted(faddrs2)
         else:
             self._faddrs2 = sorted(app2.appfunction_addrs)
+        self._usermapping = usermapping
+        self._callees = callees
         self._functionmapping: Dict[str, str] = {}  # potentially partial map
         self._functionanalyses: Dict[str, FunctionRelationalAnalysis] = {}
         self._fnmd5s: Dict[str, Tuple[List[str], List[str]]] = {}
@@ -100,6 +104,10 @@ class RelationalAnalysis:
     @property
     def fncount2(self) -> int:
         return len(self._faddrs2)
+
+    @property
+    def usermapping(self) -> Dict[str, str]:
+        return self._usermapping
 
     @property
     def function_analyses(self) -> Mapping[str, FunctionRelationalAnalysis]:
@@ -141,7 +149,8 @@ class RelationalAnalysis:
                 self.app1.callgraph(),
                 self.app2,
                 self.faddrs2,
-                self.app2.callgraph())
+                self.app2.callgraph(),
+                self.usermapping)
             self._functionmapping = callgraphmatcher.function_mapping
 
         return self._functionmapping
@@ -252,7 +261,7 @@ class RelationalAnalysis:
                 if faddr in self.function_analyses:
                     fra = self.function_analyses[faddr]
                     lines.append("\nFunction " + fnames[faddr])
-                    lines.append(fra.report(showinstructions))
+                    lines.append(fra.report(showinstructions, self._callees))
                 else:
                     lines.append(
                         "\nFunction "
