@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,8 @@ from typing import (
 
 import chb.api.MIPSLinuxSyscalls as SC
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTNode, ASTInstruction, ASTExpr
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XVariable import XVariable
@@ -155,6 +157,62 @@ class MIPSOpcode(MIPSDictionaryRecord):
     """
     def annotation(self, xdata: InstrXData) -> str:
         return self.__str__()
+
+    def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
+        raise UF.CHBError("Instruction is not a return instruction: " + str(self))
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        msg = (
+            iaddr + ": "
+            + bytestring
+            + "  "
+            + self.mnemonic
+            + " "
+            + self.operandstring
+            + ": "
+            + self.annotation(xdata))
+        astree.add_instruction_unsupported(self.mnemonic, msg)
+        return []
+
+    def assembly_ast_condition(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Optional[ASTExpr]:
+        msg = (
+            bytestring
+            + "  "
+            + self.mnemonic
+            + " "
+            + self.operandstring
+            + ": "
+            + self.annotation(xdata))
+        raise UF.CHBError("No assembly-ast-condition defined for " + msg)
+
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        return self.assembly_ast(astree, iaddr, bytestring, xdata)
+
+    def ast_condition(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Optional[ASTExpr]:
+        return self.assembly_ast_condition(astree, iaddr, bytestring, xdata)
+
+    @property
+    def operandstring(self) -> str:
+        return ", ".join(str(op) for op in self.operands)
 
     @property
     def is_return_instruction(self) -> bool:

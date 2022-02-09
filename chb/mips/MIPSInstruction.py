@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +34,9 @@ from typing import (
     Any, cast, Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING)
 
 from chb.api.CallTarget import CallTarget
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTNode, ASTInstruction, ASTExpr
 
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.Instruction import Instruction
@@ -135,6 +138,24 @@ class MIPSInstruction(Instruction):
     def operand_values(self) -> Sequence[XXpr]:
         return self.opcode.operand_values(self.xdata)
 
+    def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+        astree.set_current_addr(self.iaddr)
+        return self.opcode.assembly_ast(
+            astree, self.iaddr, self.bytestring, self.xdata)
+
+    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
+        return self.opcode.assembly_ast_condition(
+            astree, self.iaddr, self.bytestring, self.xdata)
+
+    def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+        astree.set_current_addr(self.iaddr)
+        return self.opcode.ast(
+            astree, self.iaddr, self.bytestring, self.xdata)
+
+    def ast_condition(self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
+        return self.opcode.ast_condition(
+            astree, self.iaddr, self.bytestring, self.xdata)
+
     @property
     def strings_referenced(self) -> Sequence[str]:
         return self.opcode.strings(self.xdata)
@@ -194,6 +215,13 @@ class MIPSInstruction(Instruction):
     @property
     def is_restore_register_instruction(self) -> bool:
         return self.opcode.is_restore_register
+
+    def return_value(self) -> Optional[XXpr]:
+        if self.is_return_instruction:
+            return self.opcode.return_value(self.xdata)
+        else:
+            raise UF.CHBError(
+                "Instruction is not a return instruction: " + str(self))
 
     def is_call_to_app_function(self, tgtaddr: str) -> bool:
         if self.is_call_instruction:
