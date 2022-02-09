@@ -71,6 +71,7 @@ def simulate_mips_function(
         stub_imports: List[str] = [],
         mainargs: List[str] = [],
         optargaddrstr: Optional[str] = None,
+        optargstatestr: Optional[str] = None,
         patched_globals: Dict[str, str] = {},
         envptr_addr: Optional[str] = None) -> NoReturn:
 
@@ -116,13 +117,17 @@ def simulate_mips_function(
         environmentptr_address = None
 
     optargaddr: SV.SimValue = SV.simZero
+    optargstate: SV.SimValue = SV.simZero
     if optargaddrstr:
         optargaddr = SSV.mk_global_address(int(optargaddrstr, 16), xname)
+    if optargstatestr:
+        optargstate = SSV.mk_global_address(int(optargstatestr, 16), xname)
 
     def default_simsupport() -> SimSupport:
         return SimSupport(
             stepcount=stepcount,
             optargaddr=optargaddr,
+            optargstate=optargstate,
             patched_globals=patched_globals,
             environmentptr_address=environmentptr_address)
 
@@ -136,6 +141,7 @@ def simulate_mips_function(
                 simsupport = getattr(importedmodule, d)(
                     stepcount=stepcount,
                     optargaddr=optargaddr,
+                    optargstate=optargstate,
                     patched_globals=patched_globals,
                     environmentptr_address=environmentptr_address)
                 break
@@ -363,6 +369,7 @@ def simulate_function_cmd(args: argparse.Namespace) -> NoReturn:
     stub_imports: List[str] = args.stub_imports
     mainargs: List[str] = args.mainargs
     optargaddrstr: Optional[str] = args.optargaddr
+    optargstatestr: Optional[str] = args.optargstate
     patched_globals: List[str] = args.patched_globals
     envptr_addr: Optional[str] = args.envptr_addr
 
@@ -402,6 +409,7 @@ def simulate_function_cmd(args: argparse.Namespace) -> NoReturn:
             stub_imports=stub_imports,
             mainargs=[x.lstrip() for x in mainargs],
             optargaddrstr=optargaddrstr,
+            optargstatestr=optargstatestr,
             patched_globals=unpack_named_strings(patched_globals),
             envptr_addr=envptr_addr)
 

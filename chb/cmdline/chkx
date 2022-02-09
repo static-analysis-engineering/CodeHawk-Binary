@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -67,6 +67,8 @@ the analysis results:
     results dllcalls <xname>      output a listing of dll calls (PE32 only)
     results stringargs <xname>    output a listing of calls with string arguments
     results iocs <xname>          output a listing of indicators of compromise encountered
+
+    results extract <xname>       extract tables
 
 The analyzer comes with a large collection of summaries for library functions.
 These summaries can be queried independently of any executable with the following
@@ -359,6 +361,11 @@ def parse() -> argparse.Namespace:
         default=[],
         help='names of json files with disassembly/analysis hints')
     analyzecmd.add_argument(
+        "--headers",
+        nargs="*",
+        default=[],
+        help="names of c header files with summaries/data structures")
+    analyzecmd.add_argument(
         "--skip_if_asm",
         help="skip if assembly code is already present",
         action="store_true")
@@ -476,6 +483,20 @@ def parse() -> argparse.Namespace:
     showast = resultsparsers.add_parser("ast")
     showast.add_argument("xname", help="name of executable")
     showast.add_argument(
+        "--decompile",
+        help="attempt to decompile all functions without loops",
+        action="store_true")
+    showast.add_argument(
+        "--exclude",
+        help="exclude from decompilation",
+        nargs="*",
+        default=[])
+    showast.add_argument(
+        "--ignore_return_value",
+        help="functions whose returnvalue can be considered ignored",
+        nargs="*",
+        default=[])
+    showast.add_argument(
         "--functions",
         help="addresses (in hex) of functions to be included in ast",
         nargs="*",
@@ -534,6 +555,10 @@ def parse() -> argparse.Namespace:
         "--derivedgraph",
         action="store_true",
         help="print nodes of derived sequence graph")
+    showcfg.add_argument(
+        "--save_edges",
+        action="store_true",
+        help="save edges as a json file with the same name as the pdf output")
     showcfg.set_defaults(func=UCC.showcfg)
 
     # --- results functions ---
@@ -608,6 +633,28 @@ def parse() -> argparse.Namespace:
     resultsbranchconditions.add_argument(
         "function", help="hex address of function")
     resultsbranchconditions.set_defaults(func=UCC.results_branchconditions)
+
+    # --- results extract ---
+    resultsextract = resultsparsers.add_parser("extract")
+    resultsextract.add_argument("xname", help="name of executable")
+    resultsextract.add_argument("addr", help="start address of object to extract")
+    resultsextract.add_argument(
+        "out", help="filename to save results (without extension)")
+    resultsextract.add_argument(
+        "--structure",
+        nargs="*",
+        default=["hex"],
+        help="specification of record fields (int, str, hex, or fp)")
+    resultsextract.add_argument(
+        "--stringtables",
+        nargs="*",
+        help="include multiple tables consisting of strings")
+    resultsextract.add_argument(
+        "--size",
+        type=int,
+        default=0,
+        help="number of records to extract (default: end by zero termination)")
+    resultsextract.set_defaults(func=UCC.results_extract)
 
     # --- results fileio ---
     resultsfileio = resultsparsers.add_parser("fileio")
@@ -770,6 +817,14 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help="restrict relational analysis to these functions for the second binary")
+    parser_relational.add_argument(
+        "--usermapping",
+        help="name of json file with initial function mapping")
+    parser_relational.add_argument(
+        "--callees",
+        help="names of function calls of interest",
+        nargs="*",
+        default=[])
     parser_relational.set_defaults(func=R.relational_analysis_cmd)
 
     # ------------------------------------------------------ simulate subcommand
@@ -795,6 +850,9 @@ def parse() -> argparse.Namespace:
         "--mainargs", nargs="*", help="arguments passed to main", default=[])
     parser_simulate.add_argument(
         "--optargaddr", help="address where optarg is stored")
+    parser_simulate.add_argument(
+        "--optargstate",
+        help="alternative address where optarg is stored (uclibc)")
     parser_simulate.add_argument(
         "--patched_globals",
         nargs="*",

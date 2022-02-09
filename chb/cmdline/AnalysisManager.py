@@ -63,6 +63,7 @@ class AnalysisManager(object):
             mips: bool = False,
             arm: bool = False,
             thumb: bool = False,
+            ifilenames: List[str] = [],
             fns_no_lineq: List[str] = [],
             fns_exclude: List[str] = [],
             fns_include: List[str] = [],
@@ -87,6 +88,7 @@ class AnalysisManager(object):
         self.arm = arm
         self.thumb = thumb
         self.hints = hints
+        self.ifilenames = ifilenames
         self.config = Config()
         self.chx86_analyze = self.config.chx86_analyze
         self.chsummaries = self.config.summaries
@@ -192,6 +194,8 @@ class AnalysisManager(object):
             cmd.extend(["-summaries", d])
         for s in self.so_libraries:
             cmd.extend(["-so_library", s])
+        for ifile in self.ifilenames:
+            cmd.extend(["-ifile", ifile])
         if save_xml:
             cmd.append("-save_disassembly_status_in_xml")
         cmd.extend(["-disassemble", self.filename])
@@ -384,7 +388,10 @@ class AnalysisManager(object):
               + " iterations)")
         print(" ".join(cmd))
         self._print_analysis_header()
-        result = self._call_analysis(cmd, timeout=timeout)
+        firstcmd = cmd[:]
+        for ifile in self.ifilenames:
+            firstcmd.extend(["-ifile", ifile])
+        result = self._call_analysis(firstcmd, timeout=timeout)
         if result != 0:
             return result
         (isstable, results) = self._get_results()

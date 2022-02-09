@@ -29,8 +29,9 @@
 import argparse
 import importlib
 import json
+import os
 
-from typing import List, NoReturn
+from typing import Dict, List, NoReturn, Optional
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
@@ -49,6 +50,19 @@ def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
     xfunctions2: List[str] = args.functions2
     showfunctions: bool = args.functions
     showinstructions: bool = args.instructions
+    usermappingfile: Optional[str] = args.usermapping
+    callees: List[str] = args.callees
+
+    usermapping: Dict[str, str] = {}
+    if usermappingfile is not None:
+        if os.path.isfile(usermappingfile):
+            with open(usermappingfile, "r") as fp:
+                userdata = json.load(fp)
+                usermapping = userdata["function-mapping"]
+        else:
+            UC.print_error(
+                "Usermapping file " + usermappingfile + " not found")
+            exit(1)
 
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -74,7 +88,12 @@ def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
     app2 = UC.get_app(path2, xfile2, xinfo2)
 
     relanalysis = RelationalAnalysis(
-        app1, app2, faddrs1=xfunctions1, faddrs2=xfunctions2)
+        app1,
+        app2,
+        faddrs1=xfunctions1,
+        faddrs2=xfunctions2,
+        usermapping=usermapping,
+        callees=callees)
 
     print(relanalysis.report(showfunctions, showinstructions))
 

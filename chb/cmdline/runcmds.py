@@ -87,8 +87,12 @@ def run_commands(args: argparse.Namespace) -> NoReturn:
             "Please specify a json file that lists the analysis commands.")
         exit(1)
 
-    with open(name, "r") as fp:
-        cmdsfile = json.load(fp)
+    try:
+        with open(name, "r") as fp:
+            cmdsfile = json.load(fp)
+    except json.decoder.JSONDecodeError as e:
+        UC.print_error("Error in json commands file: " + str(e))
+        exit(1)
 
     if "targets" not in cmdsfile:
         UC.print_error(
