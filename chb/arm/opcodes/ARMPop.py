@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -71,6 +71,17 @@ class ARMPop(ARMOpcode):
     @property
     def operandstring(self) -> str:
         return str(self.operands[1])
+
+    def is_return_instruction(self, xdata: InstrXData) -> bool:
+        vars = xdata.vars
+        xprs = xdata.xprs
+        xctr = len(vars)
+        pairs = zip(vars, xprs[:xctr])
+        for (v, x) in pairs:
+            if str(v) == "PC" and str(x) == "LR_in":
+                return True
+        else:
+            return False
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:v...x... .

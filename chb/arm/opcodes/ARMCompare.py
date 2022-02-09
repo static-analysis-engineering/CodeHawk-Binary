@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,10 @@
 # ------------------------------------------------------------------------------
 
 from typing import List, TYPE_CHECKING
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
 
 from chb.app.InstrXData import InstrXData
 
@@ -74,3 +78,11 @@ class ARMCompare(ARMOpcode):
         rhs1 = str(xdata.xprs[0])
         rhs2 = str(xdata.xprs[1])
         return "compare " + str(rhs1) + " and " + str(rhs2)
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        return []

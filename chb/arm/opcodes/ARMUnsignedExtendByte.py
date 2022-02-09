@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,10 @@
 
 from typing import List, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
@@ -43,7 +47,7 @@ if TYPE_CHECKING:
 
 @armregistry.register_tag("UXTB", ARMOpcode)
 class ARMUnsignedExtendByte(ARMOpcode):
-    """Extracts an 8-bit value from a register, zero-extends it, and writes it to a register.
+    """Extracts an 8-bit value from a register, zero-extends it.
 
     UXTB<c> <Rd>, <Rm>{, <rotation>}
 
@@ -78,3 +82,15 @@ class ARMUnsignedExtendByte(ARMOpcode):
         rresult = xdata.xprs[2]
         xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
         return lhs + " := " + xresult
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
+        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        assign = astree.mk_assign(lhs, rhs)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return preinstrs + [assign] + postinstrs

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,11 +30,13 @@ from typing import cast, List, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction
+from chb.app.ASTNode import ASTExpr, ASTInstruction
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -42,7 +44,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
-    from chb.invariants.XXpr import XprCompound
+    from chb.invariants.XXpr import XprCompound, XprConstant
 
 
 @armregistry.register_tag("ADD", ARMOpcode)
@@ -122,7 +124,7 @@ class ARMAdd(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
-        lhs = str(xdata.vars[0])
+        lhs = xdata.vars[0]
         rhs1 = str(xdata.xprs[0])
         rhs2 = xdata.xprs[1]
         rhs3 = xdata.xprs[3]
@@ -130,27 +132,23 @@ class ARMAdd(ARMOpcode):
         if lhs == "SP" and rhs1 == "SP" and rhs2.is_constant:
             return []
 
+        lhsast = XU.xvariable_to_ast_lval(lhs, astree)
         if rhs1 == "SP" and rhs3.is_stack_address:
             rhs3 = cast("XprCompound", rhs3)
             stackoffset = rhs3.stack_address_offset()
-            if stackoffset < 0:
-                lhsast = astree.mk_variable_lval(lhs)
-                stackoffset = -stackoffset
-                varnum = "{0:0>4}".format(stackoffset)
-                varname = "var." + varnum
-                rhslval = astree.mk_variable_lval(varname)
-                rhs = astree.mk_address_of(rhslval)
-                result = astree.mk_assign(lhsast, rhs)
-                astree.add_instruction_span(result.id, iaddr, bytestring)
-                return [result]
+            rhslval = astree.mk_stack_variable_lval(stackoffset)
+            rhsast: ASTExpr = astree.mk_address_of(rhslval)
 
         elif rhs1 == "PC" or str(rhs2) == "PC":
-            if rhs3.is_constant:
-                rhsval = rhs3.constant.value
+            if rhs3.is_int_constant:
+                rhsval = cast("XprConstant", rhs3).intvalue
                 rhsast = astree.mk_integer_constant(rhsval)
-                lhsast = astree.mk_variable_lval(lhs)
-                result = astree.mk_assign(lhsast, rhsast)
-                astree.add_instruction_span(result.id, iaddr, bytestring)
-                return [result]
+            else:
+                rhsast = XU.xxpr_to_ast_expr(rhs3, astree)
 
-        return self.assembly_ast(astree, iaddr, bytestring, xdata)
+        else:
+            rhsast = XU.xxpr_to_ast_expr(rhs3, astree)
+
+        result = astree.mk_assign(lhsast, rhsast)
+        astree.add_instruction_span(result.id, iaddr, bytestring)
+        return [result]

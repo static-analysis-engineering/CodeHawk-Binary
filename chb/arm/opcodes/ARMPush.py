@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -106,7 +106,7 @@ class ARMPush(ARMOpcode):
             sp_offset_c = astree.mk_integer_constant(sp_offset)
             addr = astree.mk_binary_op("minus", sprval, sp_offset_c)
             lhs = astree.mk_memref_lval(addr)
-            rhs = astree.mk_variable_expr(r)
+            rhs = astree.mk_register_variable_expr(r)
             instrs.append(astree.mk_assign(lhs, rhs))
             sp_offset -= 4
         sp_decr_c = astree.mk_integer_constant(sp_decr)
