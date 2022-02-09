@@ -5,7 +5,8 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2020      Henny Sipma
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -73,6 +74,10 @@ class MIPSRegister(MIPSRegisterBase):
         MIPSRegisterBase.__init__(self, bd, ixval)
 
     @property
+    def name(self) -> str:
+        return self.tags[1]
+
+    @property
     def is_mips_register(self) -> bool:
         return True
 
@@ -81,17 +86,33 @@ class MIPSRegister(MIPSRegisterBase):
         return self.tags[1] in ['a0', 'a1', 'a2', 'a3']
 
     @property
+    def is_mips_return_value_register(self) -> bool:
+        return self.tags[1] in ["v0", "v1"]
+
+    @property
     def is_mips_stack_pointer(self) -> bool:
-        return self.tags[1] in ['sp']
+        return self.tags[1] in ["sp"]
+
+    @property
+    def is_mips_callee_saved_register(self) -> bool:
+        return self.tags[1] in ["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7"]
+
+    @property
+    def is_mips_global_pointer(self) -> bool:
+        return self.tags[1] in ["gp"]
+
+    @property
+    def is_mips_return_address_register(self) -> bool:
+        return self.tags[1] == "ra"
 
     def argument_index(self) -> int:
         if self.is_mips_argument_register:
-            return int(self.tags[1][1:]) + 1
+            return int(self.tags[1][1:])
         else:
             raise UF.CHBError("MIPS register is not an argument register")
 
     def __str__(self) -> str:
-        return self.tags[1]
+        return self.name
 
 
 @bdregistry.register_tag("ps", Register)
