@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs
+# Copyright (c) 2021-2022 Aarno Labs
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -34,7 +34,7 @@ from typing import Dict, List
 import chb.util.fileutil as UF
 
 
-class JumpTable(object):
+class JumpTable:
 
     def __init__(self, xnode: ET.Element) -> None:
         self.xnode = xnode
