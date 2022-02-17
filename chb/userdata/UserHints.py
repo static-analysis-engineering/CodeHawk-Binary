@@ -42,6 +42,9 @@ Currently provided:
 - ARMThumbSwitchPoints
       addresses where ARM switches to Thumb-2 and v.v.
 
+- CallbackTables
+      global addresses that hold a pointer to a callback table
+
 - CallTargets
       call targets for unresolved calls
 
@@ -89,7 +92,8 @@ import os
 import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
-from typing import Any, cast, Dict, List, NewType, Optional, Sequence, Tuple, Union
+from typing import (
+    Any, cast, Dict, List, Mapping, NewType, Optional, Sequence, Tuple, Union)
 
 from chb.app.AbstractSyntaxTree import VariableNamesRec
 
@@ -243,6 +247,42 @@ class ARMThumbSwitchPoints(HintsEntry):
         return "\n".join(lines)
 
 
+class CallbackTables(HintsEntry):
+    """Dictionary of addresses mapped to global variable names."""
+
+    def __init__(self, callbacktables: Dict[str, str]) -> None:
+        """Format: {va:<name of (typed) global variable>}."""
+
+        HintsEntry.__init__(self, "call-back-tables")
+        self._callbacktables = callbacktables
+
+    @property
+    def callbacktables(self) -> Mapping[str, str]:
+        return self._callbacktables
+
+    def update(self, d: Dict[str, str]):
+        for (k, v) in d.items():
+            if k not in self.callbacktables:
+                self._callbacktables[k] = v
+
+    def to_xml(self, node: ET.Element) -> None:
+        xcallbacktables = ET.Element(self.name)
+        node.append(xcallbacktables)
+        for (k, v) in sorted(self.callbacktables.items()):
+            xkv = ET.Element("cbt")
+            xkv.set("va", k)
+            xkv.set("name", v)
+            xcallbacktables.append(xkv)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Call-back tables")
+        lines.append("=" * 20)
+        for (k, v) in sorted(self.callbacktables.items()):
+            lines.append(k.ljust(12) + v)
+        return "\n".join(lines)
+
+
 class CallTargetsHints(HintsEntry):
     """List of records with call targets for unresolved calls."""
 
@@ -251,7 +291,11 @@ class CallTargetsHints(HintsEntry):
             calltargets: List[Dict[str, Any]]) -> None:
         """Format: {fa:<function address>
                     ia:<call-site address>
-                    tgts: [{app:<address> | dll:name | so:name | jni:index}]}
+                    tgts: [{app:<address>
+                           | dll:name
+                           | so:name
+                           | jni:index
+                           | cbt:addr:offset}]}
         """
 
         HintsEntry.__init__(self, "call-targets")
@@ -292,6 +336,11 @@ class CallTargetsHints(HintsEntry):
                 elif "so" in t:
                     xtgt.set("ctag", "so")
                     xtgt.set("name", t["so"])
+                elif "cba" in t:
+                    (cba, offset) = t["cba"].split(":")
+                    xtgt.set("ctag", "cbt")
+                    xtgt.set("cba", cba)
+                    xtgt.set("offset", offset)
                 elif "jni" in t:
                     xtgt.set("ctag", "jni")
                     xtgt.set("index", str(t["jni"]))
@@ -916,6 +965,14 @@ class UserHints:
                 self.userdata[tag].update(switchpoints)
             else:
                 self.userdata[tag] = ARMThumbSwitchPoints(switchpoints)
+
+        if "call-back-tables" in hints:
+            tag = "call-back-tables"
+            callbacktables: Dict[str, str] = hints[tag]
+            if tag in self.userdata:
+                self.userdata[tag].update(callbacktables)
+            else:
+                self.userdata[tag] = CallbackTables(callbacktables)
 
         if "call-targets" in hints:
             tag = "call-targets"
