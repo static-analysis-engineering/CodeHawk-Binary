@@ -56,14 +56,15 @@ type call_target_t =
       doubleword_int * function_stub_t
   | AppTarget of doubleword_int                      "app"      1       1
   | InlinedAppTarget of doubleword_int * string      "inl"      1       2
-  | WrappedTarget of                                "wrap"      1    3+length(pars)
+  | WrappedTarget of                                "wrap"      1   3+length(pars)
       doubleword_int
       * function_api_t
       * call_target_t
       * (api_parameter_t * bterm_t) list
   | VirtualTarget of function_api_t                    "v"      1        1
-  | IndirectTarget of                                  "i"      1     1+length(tgts)
+  | IndirectTarget of                                  "i"      1   1+length(tgts)
       bterm_t * call_target_t list
+  | CallbackTableTarget of string * int                "cb"     1        2
   | UnknownTarget                                      "u"      1        0
 
 """
@@ -71,7 +72,8 @@ type call_target_t =
 from typing import cast, List, TYPE_CHECKING
 
 from chb.api.FunctionStub import FunctionStub, DllFunction
-from chb.api.InterfaceDictionaryRecord import InterfaceDictionaryRecord, apiregistry
+from chb.api.InterfaceDictionaryRecord import (
+    InterfaceDictionaryRecord, apiregistry)
 from chb.app.BDictionary import AsmAddress
 
 import chb.util.fileutil as UF
@@ -108,6 +110,10 @@ class CallTarget(InterfaceDictionaryRecord):
 
     @property
     def is_indirect(self) -> bool:
+        return False
+
+    @property
+    def is_call_back_table(self) -> bool:
         return False
 
     @property
@@ -226,7 +232,9 @@ class AppTarget(CallTarget):
             return self.app.function_name(str(self.address))
         else:
             raise UF.CHBError(
-                "Application target " + str(self.address) + " does not have a name")
+                "Application target "
+                + str(self.address)
+                + " does not have a name")
 
     @property
     def is_app_target(self) -> bool:
@@ -329,6 +337,32 @@ class IndirectTarget(CallTarget):
     @property
     def targets(self) -> List["CallTarget"]:
         return [self.id.call_target(i) for i in self.args[1:]]
+
+
+@apiregistry.register_tag("cb", CallTarget)
+class CallbackTableTarget(CallTarget):
+    """Target is dispatched on a function pointer in a list of structs."""
+
+    def __init__(
+            self,
+            d: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            ixval: IndexedTableValue) -> None:
+        CallTarget.__init__(self, d, ixval)
+
+    @property
+    def is_call_back_table(self) -> bool:
+        return True
+
+    @property
+    def address(self) -> str:
+        return str(self.bd.address(self.args[0]))
+
+    @property
+    def offset(self) -> int:
+        return self.args[1]
+
+    def __str__(self) -> str:
+        return "call-back-table@" + str(self.address)
 
 
 @apiregistry.register_tag("u", CallTarget)
