@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -520,6 +520,8 @@ def results_callgraph(args: argparse.Namespace) -> NoReturn:
             return "green"
         elif node.is_unknown_tgt:
             return "yellow"
+        elif node.is_call_back_table_node or node.is_tagged_app_node:
+            return "orange"
         else:
             return "lightblue"
 
@@ -1204,15 +1206,17 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 revmapping.setdefault(j, [])
                 revmapping[j].append(i)
 
-            print("\nC-like representation for " + fname)
-            print("-" * 80)
+            # print("\nC-like representation for " + fname)
+            # print("-" * 80)
 
             functioncount += 1
+            print("")
             if astree.has_function_prototype():
                 print(str(astree.function_prototype()) + "{")
+            else:
+                print("int " + fname + "(?)")
             print(astreduced.to_c_like(sp=3))
-            if astree.has_function_prototype():
-                print("}")
+            print("}\n")
 
             if not decompile:
 
