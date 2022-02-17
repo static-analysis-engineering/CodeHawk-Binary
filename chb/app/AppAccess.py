@@ -46,13 +46,19 @@ from typing import (
     Union,
     overload)
 
-from chb.api.CallTarget import CallTarget, IndirectTarget
+from chb.api.CallTarget import CallTarget, IndirectTarget, CallbackTableTarget
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
 from chb.app.AppResultData import AppResultData
 from chb.app.AppResultMetrics import AppResultMetrics
 from chb.app.BDictionary import BDictionary
-from chb.app.Callgraph import Callgraph, mk_tgt_callgraph_node, mk_app_callgraph_node
+from chb.app.CallbackTables import CallbackTables
+from chb.app.Callgraph import (
+    Callgraph,
+    mk_tgt_callgraph_node,
+    mk_app_callgraph_node,
+    mk_tagged_app_callgraph_node,
+    mk_call_back_node)
 from chb.app.Function import Function
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.FunctionsData import FunctionsData
@@ -211,6 +217,10 @@ class AppAccess(ABC, Generic[HeaderTy]):
     def jumptables(self) -> JumpTables:
         return self.systeminfo.jumptables
 
+    @property
+    def callbacktables(self) -> CallbackTables:
+        return self.systeminfo.callbacktables
+
     # Functions ----------------------------------------------------------------
 
     @property
@@ -332,6 +342,20 @@ class AppAccess(ABC, Generic[HeaderTy]):
                                 for t in calltgt.targets]
                             for d in dstnodes:
                                 cg.add_edge(srcnode, d)
+                        elif calltgt.is_call_back_table:
+                            dstnode = mk_call_back_node(calltgt)
+                            cg.add_edge(srcnode, dstnode)
+                            cbtgt = cast(CallbackTableTarget, calltgt)
+                            cbtable = self.callbacktables.callbacktables[cbtgt.address]
+                            cbttgts = cbtable.tagged_fields_at_offset(cbtgt.offset)
+                            for (tag, cbfaddr) in cbttgts.items():
+                                if self.has_function_name(cbfaddr):
+                                    cbfname = tag + ":" + self.function_name(cbfaddr)
+                                else:
+                                    cbfname = tag + ":" + cbfaddr
+                                apptgtnode = mk_tagged_app_callgraph_node(
+                                    tag, cbfaddr, cbfname)
+                                cg.add_edge(dstnode, apptgtnode)
                         else:
                             dstnode = mk_tgt_callgraph_node(instr.iaddr, calltgt)
                             cg.add_edge(srcnode, dstnode)

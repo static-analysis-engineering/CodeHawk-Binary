@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,7 @@ import xml.etree.ElementTree as ET
 from typing import List, Optional, Sequence
 
 from chb.app.BDictionary import BDictionary
+from chb.app.CallbackTables import CallbackTables
 from chb.app.FunctionsData import FunctionsData
 from chb.app.JumpTables import JumpTables
 from chb.app.StringXRefs import StringsXRefs, StringXRefs
@@ -48,6 +49,7 @@ class SystemInfo:
         self._fdata: Optional[FunctionsData] = None
         self._stringxrefs: Optional[StringsXRefs] = None
         self._jumptables: Optional[JumpTables] = None
+        self._callbacktables: Optional[CallbackTables] = None
 
     @property
     def bd(self) -> BDictionary:
@@ -103,3 +105,13 @@ class SystemInfo:
             else:
                 raise UF.CHBError("Jumptables not found in system info")
         return self._jumptables
+
+    @property
+    def callbacktables(self) -> CallbackTables:
+        if self._callbacktables is None:
+            xtables = self.xnode.find("call-back-tables")
+            if xtables is not None:
+                self._callbacktables = CallbackTables(xtables)
+            else:
+                raise UF.CHBError("Callback tables not found in system info")
+        return self._callbacktables
