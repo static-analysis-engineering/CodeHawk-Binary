@@ -1721,6 +1721,7 @@ class MIPStub_fork(MIPSimStub):
 
 
 class MIPStub_fprintf(MIPSimStub):
+    """int fprintf(FILE *restrict stream, const char *restrict format, ...);"""
 
     def __init__(self) -> None:
         MIPSimStub.__init__(self, "fprintf")
@@ -2055,7 +2056,6 @@ class MIPStub_getopt_long(MIPSimStub):
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         """Logs i/o, returns -1 in v0."""
-        print("Simulate getopt_long")
         a0 = self.get_arg_val(iaddr, simstate, 'a0')
         a1 = self.get_arg_val(iaddr, simstate, 'a1')
         a2 = self.get_arg_val(iaddr, simstate, 'a2')
@@ -4090,6 +4090,7 @@ class MIPSimStub_sprintf_like(MIPSimStub):
 
 
 class MIPStub_snprintf(MIPSimStub):
+    """int snprintf(char *restrict s, size_t n, const char *restrict format, ...);"""
 
     def __init__(self) -> None:
         MIPSimStub.__init__(self, "snprintf")
@@ -4109,7 +4110,7 @@ class MIPStub_snprintf(MIPSimStub):
                 raise SU.CHBSimError(
                     simstate,
                     iaddr,
-                    "sprintf: Address not recognized as a global: " + str(a0))
+                    "snprintf: Address not recognized as a global: " + str(a0))
         elif a0.is_address:
             dstaddr = cast(SSV.SimAddress, a0)
 
@@ -4117,7 +4118,7 @@ class MIPStub_snprintf(MIPSimStub):
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
-                'Illegal destination address in sprintf: ' + str(a0))
+                'Illegal destination address in snprintf: ' + str(a0))
 
         for i in range(0, len(s)):
             srcval = SV.SimByteValue(ord(s[i]))
@@ -4156,7 +4157,7 @@ class MIPStub_snprintf(MIPSimStub):
         a1 = self.get_arg_val(iaddr, simstate, 'a1')
         a2 = self.get_arg_val(iaddr, simstate, 'a2')
         a2str = self.get_arg_string(iaddr, simstate, 'a2')
-        (printstring, varargs) = self.substitute_formatstring(iaddr, simstate, 3)
+        (printstring, varargs) = self.substitute_formatstring(iaddr, simstate, 2)
         self.write_string_to_buffer(iaddr, simstate, printstring)
         self.set_returnval(iaddr, simstate, printstring)
         pvarargs = ", ".join(varargs)
@@ -4176,6 +4177,7 @@ class MIPStub_snprintf(MIPSimStub):
 
 
 class MIPStub_sprintf(MIPSimStub):
+    """int sprintf(char *restrict s, const char *restrict format, ...);"""
 
     def __init__(self) -> None:
         MIPSimStub.__init__(self, "sprintf")
@@ -4218,7 +4220,7 @@ class MIPStub_sprintf(MIPSimStub):
                 iaddr,
                 "some argument to sprintf is undefined")
 
-        (printstring, varargs) = self.substitute_formatstring(iaddr, simstate, 2)
+        (printstring, varargs) = self.substitute_formatstring(iaddr, simstate, 1)
         self.write_string_to_buffer(iaddr, simstate, printstring)
         simstate.set_register(iaddr, "v0", SV.mk_simvalue(len(printstring)))
         pargs = ', '.join([str(a0), a1str] + varargs)
