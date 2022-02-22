@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Sequence, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Sequence, TYPE_CHECKING
 
 from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
@@ -49,6 +49,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    from chb.api.CallTarget import CallTarget, AppTarget
     from chb.mips.MIPSDictionary import MIPSDictionary
     from chb.simulation.SimulationState import SimulationState
 
@@ -77,8 +78,39 @@ class MIPSJump(MIPSOpcode):
     def target(self) -> MIPSOperand:
         return self.mipsd.mips_operand(self.args[0])
 
+    def has_string_arguments(self, xdata: InstrXData) -> bool:
+        return any([x.is_string_reference for x in self.arguments(xdata)])
+
+    def has_stack_arguments(self, xdata: InstrXData) -> bool:
+        return any([x.is_stack_address for x in self.arguments(xdata)])
+
+    def annotated_call_arguments(
+            self, xdata: InstrXData) -> Sequence[Dict[str, Any]]:
+        return [x.to_annotated_value() for x in xdata.xprs]
+
+    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
+        return xdata.xprs
+
+    def is_call(self, xdata: InstrXData) -> bool:
+        return len(xdata.tags) == 2 and xdata.tags[1] == "call"
+
+    def is_call_instruction(self, xdata: InstrXData) -> bool:
+        return self.is_call(xdata)
+
     def annotation(self, xdata: InstrXData) -> str:
-        return 'goto ' + str(self.target)
+        if self.is_call(xdata) and xdata.has_call_target():
+            tgt = xdata.call_target(self.ixd)
+            args = ", ".join(str(x) for x in self.arguments(xdata))
+            return "call " + str(tgt) + "(" + args + ")"
+
+        else:
+            return 'goto ' + str(self.target)
+
+    def call_target(self, xdata: InstrXData) -> "CallTarget":
+        if self.is_call(xdata):
+            return xdata.call_target(self.ixd)
+        else:
+            raise UF.CHBError("Instruction is not a call: " + str(self))
 
     def assembly_ast_tmp(
             self,
