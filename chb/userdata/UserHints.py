@@ -247,6 +247,43 @@ class ARMThumbSwitchPoints(HintsEntry):
         return "\n".join(lines)
 
 
+class StructTables(HintsEntry):
+    """Dictionary of addresses mapped to global variable names."""
+
+    def __init__(self, structtables: Dict[str, Tuple[str, int]]) -> None:
+        """Format: {va: [<name of typed global variable>, size of record]}."""
+
+        HintsEntry.__init__(self, "struct-tables")
+        self._structtables = structtables
+
+    @property
+    def structtables(self) -> Mapping[str, Tuple[str, int]]:
+        return self._structtables
+
+    def update(self, d: Dict[str, Tuple[str, int]]):
+        for (k, v) in d.items():
+            if k not in self.structtables:
+                self._structtables[k] = v
+
+    def to_xml(self, node: ET.Element) -> None:
+        xstructtables = ET.Element(self.name)
+        node.append(xstructtables)
+        for (k, (v, size)) in sorted(self.structtables.items()):
+            xst = ET.Element("st")
+            xst.set("va", k)
+            xst.set("name", v)
+            xst.set("size", str(size))
+            xstructtables.append(xst)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Struct-tables")
+        lines.append("=" * 20)
+        for (k, (v, size)) in sorted(self.structtables.items()):
+            lines.append(k.ljust(12) + v + " (" + str(size) + ")")
+        return "\n".join(lines)
+
+
 class CallbackTables(HintsEntry):
     """Dictionary of addresses mapped to global variable names."""
 
@@ -1043,6 +1080,14 @@ class UserHints:
                 self.userdata[tag].update(sectionheaders)
             else:
                 self.userdata[tag] = SectionHeadersHints(sectionheaders)
+
+        if "struct-tables" in hints:
+            tag = "struct-tables"
+            structtables: Dict[str, Tuple[str, int]] = hints[tag]
+            if tag in self.userdata:
+                self.userdata[tag].update(structtables)
+            else:
+                self.userdata[tag] = StructTables(structtables)
 
         if "structs" in hints:
             tag = "structs"

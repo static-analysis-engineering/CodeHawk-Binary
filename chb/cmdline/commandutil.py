@@ -855,6 +855,7 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
     size: int = int(args.size)
     structure: List[str] = args.structure
     stringtables: List[str] = args.stringtables
+    structtable: bool = args.structtable
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -881,6 +882,18 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
 
     table: List[List[str]] = []
     little_endian = not elfheader.is_big_endian
+
+    if structtable:
+        if addr in app.structtables.structtables:
+            sttable = app.structtables.structtables[addr]
+            print(str(sttable))
+            outfilename = xout + ".json"
+            with open(outfilename, "w") as fp:
+                json.dump(sttable.serialize(), fp)
+            exit(0)
+        else:
+            print_error("Structtable address not found: " + addr)
+            exit(1)
 
     if stringtables:
         for addr in stringtables:

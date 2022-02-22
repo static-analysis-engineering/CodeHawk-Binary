@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,8 +29,10 @@
 import argparse
 import importlib
 import json
+import os
 
-from typing import Any, Callable, cast, Dict, List, NoReturn, Optional, Tuple, TYPE_CHECKING
+from typing import (
+    Any, Callable, cast, Dict, List, NoReturn, Optional, Tuple, TYPE_CHECKING)
 
 import chb.api.MIPSLinuxSyscalls as SC
 import chb.app.AppAccess as AP
@@ -73,10 +75,27 @@ def simulate_mips_function(
         optargaddrstr: Optional[str] = None,
         optargstatestr: Optional[str] = None,
         patched_globals: Dict[str, str] = {},
-        envptr_addr: Optional[str] = None) -> NoReturn:
+        envptr_addr: Optional[str] = None,
+        environment_variables: str = None) -> NoReturn:
 
     bigendian = app.header.is_big_endian
     print("big endian " if bigendian else "little endian")
+
+    if environment_variables is not None:
+        if os.path.isfile(environment_variables):
+            try:
+                with open(environment_variables, "r") as fp:
+                    environmentvars: Dict[str, str] = json.load(fp)
+                print("Environment variables read: " + str(len(environmentvars)))
+            except ValueError as e:
+                raise UF.CHBJSONParseError(environment_variables, e)
+        else:
+            UC.print_error(
+                "Environment-variables file: "
+                + environment_variables
+                + " not found")
+    else:
+        environmentvars = {}
 
     stubs: Dict[str, "MIPSimStub"] = stubbed_libc_functions()
     for stubimport in stub_imports:
@@ -129,6 +148,7 @@ def simulate_mips_function(
             optargaddr=optargaddr,
             optargstate=optargstate,
             patched_globals=patched_globals,
+            environment_variables=environmentvars,
             environmentptr_address=environmentptr_address)
 
     if support:
@@ -143,6 +163,7 @@ def simulate_mips_function(
                     optargaddr=optargaddr,
                     optargstate=optargstate,
                     patched_globals=patched_globals,
+                    environment_variables=environmentvars,
                     environmentptr_address=environmentptr_address)
                 break
         else:
@@ -372,6 +393,7 @@ def simulate_function_cmd(args: argparse.Namespace) -> NoReturn:
     optargstatestr: Optional[str] = args.optargstate
     patched_globals: List[str] = args.patched_globals
     envptr_addr: Optional[str] = args.envptr_addr
+    environment_variables: Optional[str] = args.environment_variables
 
     mainargs = [a.strip() for a in mainargs]
 
@@ -411,6 +433,7 @@ def simulate_function_cmd(args: argparse.Namespace) -> NoReturn:
             optargaddrstr=optargaddrstr,
             optargstatestr=optargstatestr,
             patched_globals=unpack_named_strings(patched_globals),
+            environment_variables=environment_variables,
             envptr_addr=envptr_addr)
 
     elif xinfo.is_arm:

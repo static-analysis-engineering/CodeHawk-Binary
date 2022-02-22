@@ -10,6 +10,8 @@ ConfigLocal.py
 *.json~
 *.md~
 *.exe~
+*.txt~
+*.yaml~
 chkx~
 
 # Byte-compiled / optimized / DLL files
@@ -138,6 +140,9 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+mypy-html.css
+index.html
+chb/cmdline/chkx.py
 
 # Pyre type checker
 .pyre/

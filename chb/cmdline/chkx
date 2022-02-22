@@ -646,6 +646,10 @@ def parse() -> argparse.Namespace:
         default=["hex"],
         help="specification of record fields (int, str, hex, or fp)")
     resultsextract.add_argument(
+        "--structtable",
+        action="store_true",
+        help="extract structtable at the given address")
+    resultsextract.add_argument(
         "--stringtables",
         nargs="*",
         help="include multiple tables consisting of strings")
@@ -858,6 +862,9 @@ def parse() -> argparse.Namespace:
         nargs="*",
         help="globals with modified values (format: hexaddr:hexvalue)",
         default=[])
+    parser_simulate.add_argument(
+        "--environment_variables",
+        help="filename of dictionary that maps names to values")
     parser_simulate.add_argument(
         "--envptr_addr",
         help="hex address of location that holds pointer to the environment variables")
