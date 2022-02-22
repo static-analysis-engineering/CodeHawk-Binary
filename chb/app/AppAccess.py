@@ -65,6 +65,7 @@ from chb.app.FunctionsData import FunctionsData
 from chb.app.JumpTables import JumpTables
 from chb.app.SystemInfo import SystemInfo
 from chb.app.StringXRefs import StringsXRefs
+from chb.app.StructTables import StructTables
 
 from chb.bctypes.BCDictionary import BCDictionary
 from chb.bctypes.BCFiles import BCFiles
@@ -220,6 +221,10 @@ class AppAccess(ABC, Generic[HeaderTy]):
     @property
     def callbacktables(self) -> CallbackTables:
         return self.systeminfo.callbacktables
+
+    @property
+    def structtables(self) -> StructTables:
+        return self.systeminfo.structtables
 
     # Functions ----------------------------------------------------------------
 

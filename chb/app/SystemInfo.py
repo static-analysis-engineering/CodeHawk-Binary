@@ -34,6 +34,7 @@ from chb.app.CallbackTables import CallbackTables
 from chb.app.FunctionsData import FunctionsData
 from chb.app.JumpTables import JumpTables
 from chb.app.StringXRefs import StringsXRefs, StringXRefs
+from chb.app.StructTables import StructTables
 
 import chb.util.fileutil as UF
 
@@ -50,6 +51,7 @@ class SystemInfo:
         self._stringxrefs: Optional[StringsXRefs] = None
         self._jumptables: Optional[JumpTables] = None
         self._callbacktables: Optional[CallbackTables] = None
+        self._structtables: Optional[StructTables] = None
 
     @property
     def bd(self) -> BDictionary:
@@ -115,3 +117,13 @@ class SystemInfo:
             else:
                 raise UF.CHBError("Callback tables not found in system info")
         return self._callbacktables
+
+    @property
+    def structtables(self) -> StructTables:
+        if self._structtables is None:
+            xtables = self.xnode.find("struct-tables")
+            if xtables is not None:
+                self._structtables = StructTables(xtables)
+            else:
+                raise UF.CHBError("Struct tables not found in system info")
+        return self._structtables

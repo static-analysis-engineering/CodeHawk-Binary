@@ -98,6 +98,9 @@ class MIPSJumpRegister(MIPSOpcode):
     def is_call(self, xdata: InstrXData) -> bool:
         return len(xdata.tags) == 2 and xdata.tags[1] == "call"
 
+    def is_call_instruction(self, xdata: InstrXData) -> bool:
+        return self.is_call(xdata)
+
     def is_jump_table(self, xdata: InstrXData) -> bool:
         return len(xdata.tags) == 2 and xdata.tags[1] == "table"
 
