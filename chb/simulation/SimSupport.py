@@ -89,6 +89,35 @@ class SimInstructionIntercept:
         pass
 
 
+class ConfigurationValues:
+    """Class to hold and manipulate configuration values."""
+
+    def __init__(self, initialvalues: Dict[str, str]) -> None:
+        self._values = initialvalues
+
+    @property
+    def values(self) -> Dict[str, str]:
+        return self._values
+
+    def config_has(self, key: str) -> bool:
+        return key in self.values
+
+    def config_get(self, key: str) -> str:
+        if key in self.values:
+            return self.values[key]
+        else:
+            raise UF.CHBError("No configuration value found for " + key)
+
+    def config_set(self, key: str, value: str) -> None:
+        self._values[key] = value
+
+    def config_match(self, key: str, value: str) -> bool:
+        if key in self.values:
+            return self.values[key] == value
+        else:
+            raise UF.CHBError("No configuration value found for " + key)
+
+
 class SimSupport:
     """Base class to be subclassed to override network/file operations etc.
 
@@ -112,6 +141,7 @@ class SimSupport:
             optargaddr: SV.SimValue = SV.simZero,
             optargstate: SV.SimValue = SV.simZero,
             patched_globals: Dict[str, str] = {},
+            configvalues: Dict[str, str] = {},
             environment_variables: Dict[str, str] = {},
             environmentptr_address: Optional[SSV.SimGlobalAddress] = None,
             diskfilenames: Dict[str, str] = {},
@@ -121,6 +151,7 @@ class SimSupport:
         self._optargaddr = optargaddr  # address where argument is saved by cli
         self._optargstate = optargstate  # address where optarg option is saved (uclibc)
         self._patched_globals = patched_globals
+        self._configvalues = ConfigurationValues(configvalues)
         self._environment_variables = environment_variables
         self._environmentptr_address = environmentptr_address
         self._forkchoices = forkchoices
@@ -182,6 +213,12 @@ class SimSupport:
     @property
     def file_operations_enabled(self) -> bool:
         return self._file_operations_enabled
+
+    # Configuration values
+
+    @property
+    def configvalues(self) -> ConfigurationValues:
+        return self._configvalues
 
     # Environment variables
 

@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs
+# Copyright (c) 2021-2022 Aarno Labs
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -92,8 +92,8 @@ def mk_base_address(
         tgttype=tgttype)
 
 
-def mk_string_address(s: str) -> "SimStringAddress":
-    return SimStringAddress(s)
+def mk_string_address(s: str, offset_in_string: int = 0) -> "SimStringAddress":
+    return SimStringAddress(s, offset_in_string=offset_in_string)
 
 
 def mk_symbol(
@@ -744,15 +744,24 @@ class SimSymbolicReturnAddress(SimSymbolicValue):
 class SimStringAddress(SimSymbolicValue):
     """Address of a constant string."""
 
-    def __init__(self, stringval: str) -> None:
+    def __init__(self, stringval: str, offset_in_string: int = 0) -> None:
         SimSymbolicValue.__init__(self)
         self._stringval = stringval
+        self._offset_in_string = offset_in_string
+
+    @property
+    def offset_in_string(self) -> int:
+        return self._offset_in_string
+
+    @property
+    def full_stringval(self) -> str:
+        return self._stringval
 
     @property
     def stringval(self) -> str:
         """Return the string pointed to by this address."""
 
-        return self._stringval
+        return self._stringval[self.offset_in_string:]
 
     @property
     def is_string_address(self) -> bool:
@@ -764,19 +773,22 @@ class SimStringAddress(SimSymbolicValue):
             if v.value == 0:
                 return self
             elif v.value > 0:
-                if len(self.stringval) > v.value:
-                    return mk_string_address(self.stringval[v.value:])
-                elif len(self.stringval) == v.value:
-                    return mk_string_address("")
+                if len(self.stringval) >= v.value:
+                    return mk_string_address(
+                        self.full_stringval,
+                        offset_in_string=v.value)
                 else:
-                    raise UF.CHBError('Cannot add ' + str(v.value)
-                                      + ' to string of length: '
-                                      + str(len(self.stringval)))
+                    raise UF.CHBError(
+                        "Cannot add "
+                        + str(v.value)
+                        + " to string of length: "
+                        + str(len(self.stringval)))
             else:
-                raise UF.CHBError('Unable to add negative number to string address: '
-                                  + str(v.value))
+                raise UF.CHBError(
+                    "Unable to add negative number to string address: "
+                    + str(v.value))
         else:
-            raise UF.CHBError('String address: value to be added is undefined')
+            raise UF.CHBError("String address: value to be added is undefined")
 
     def __str__(self) -> str:
         if len(self.stringval) < 100:

@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyrigth (c) 2021      Aarno Labs LLC
+# Copyrigth (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -157,6 +157,10 @@ class SimValue(ABC):
 
     @property
     def is_stack_address(self) -> bool:
+        return False
+
+    @property
+    def is_base_address(self) -> bool:
         return False
 
     @property

@@ -50,7 +50,7 @@ from chb.simulation.SimBaseMemory import SimBaseMemory
 import chb.simulation.SimFileUtil as SFU
 
 from chb.simulation.SimLocation import (
-    SimLocation, SimRegister, SimMemoryLocation)
+    SimLocation, SimRegister, SimMemoryLocation, SimStringPosition)
 from chb.simulation.SimMappedMemory import SimMappedMemory
 from chb.simulation.SimProgramCounter import SimProgramCounter
 from chb.simulation.SimSharedMemory import SimSharedMemory
@@ -677,6 +677,11 @@ class SimulationState:
     def lhs(self, iaddr: str, op: Operand) -> SimLocation:
         if op.is_register:
             return SimRegister(op.register)
+        elif (
+                op.is_indirect_register
+                and self.regval(iaddr, op.indirect_register).is_string_address):
+            saddr = cast(SSV.SimStringAddress, self.regval(iaddr, op.indirect_register))
+            return SimStringPosition(saddr, op.offset)
         elif op.is_indirect_register:
             addr = self.compute_indirect_address(iaddr, op)
             return SimMemoryLocation(addr)

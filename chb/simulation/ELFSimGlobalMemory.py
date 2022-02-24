@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -98,6 +98,12 @@ class ELFSimGlobalMemory(SimMemory):
             result: SV.SimValue
             if glbval == "stderr":
                 result = SFU.sim_openfile("/stderr", "w")
+                result = cast(SV.SimValue, result)
+            elif glbval == "p_stdin":
+                result = SFU.sim_openfile("stdin", "r")
+                result = cast(SV.SimValue, result)
+            elif glbval == "p_stdout":
+                result = SFU.sim_openfile("stdout", "r")
                 result = cast(SV.SimValue, result)
             else:
                 result = cast(SV.SimValue, SV.mk_simvalue(int(glbval, 16)))

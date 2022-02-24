@@ -863,8 +863,13 @@ def parse() -> argparse.Namespace:
         help="globals with modified values (format: hexaddr:hexvalue)",
         default=[])
     parser_simulate.add_argument(
+        "--config_values",
+        nargs="*",
+        help="filename of dictionary that maps keys to values")
+    parser_simulate.add_argument(
         "--environment_variables",
-        help="filename of dictionary that maps names to values")
+        nargs="*",
+        help="filenames of dictionaries that map names to values")
     parser_simulate.add_argument(
         "--envptr_addr",
         help="hex address of location that holds pointer to the environment variables")
