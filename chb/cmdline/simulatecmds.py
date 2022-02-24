@@ -76,26 +76,62 @@ def simulate_mips_function(
         optargstatestr: Optional[str] = None,
         patched_globals: Dict[str, str] = {},
         envptr_addr: Optional[str] = None,
-        environment_variables: str = None) -> NoReturn:
+        environment_variables: Optional[List[str]] = None,
+        config_value_files: Optional[List[str]] = None) -> NoReturn:
 
     bigendian = app.header.is_big_endian
     print("big endian " if bigendian else "little endian")
 
+    environmentvars: Dict[str, str] = {}
     if environment_variables is not None:
-        if os.path.isfile(environment_variables):
-            try:
-                with open(environment_variables, "r") as fp:
-                    environmentvars: Dict[str, str] = json.load(fp)
-                print("Environment variables read: " + str(len(environmentvars)))
-            except ValueError as e:
-                raise UF.CHBJSONParseError(environment_variables, e)
-        else:
-            UC.print_error(
-                "Environment-variables file: "
-                + environment_variables
-                + " not found")
-    else:
-        environmentvars = {}
+        for f_envvar in environment_variables:
+            if os.path.isfile(f_envvar):
+                try:
+                    with open(f_envvar, "r") as fp:
+                        f_envvar_d = json.load(fp)
+                except ValueError as e:
+                    raise UF.CHBJSONParseError(f_envvar, e)
+                if "key-values" in f_envvar_d:
+                    print(
+                        "Environment variables read: "
+                        + str(len(f_envvar_d["key-values"])))
+                    environmentvars.update(f_envvar_d["key-values"])
+                else:
+                    UC.print_error(
+                        "No table with key-value pairs found in "
+                        + f_envvar
+                        + "\nPlease include key-value mapping with name key-values")
+                    exit(1)
+            else:
+                UC.print_error(
+                    "Environment-variables file: "
+                    + f_envvar
+                    + " not found")
+
+    configvals: Dict[str, str] = {}
+    if config_value_files is not None:
+        for f_config in config_value_files:
+            if os.path.isfile(f_config):
+                try:
+                    with open(f_config, "r") as fp:
+                        f_config_d = json.load(fp)
+                except ValueError as e:
+                    raise UF.CHBJSONParseError(f_config, e)
+                if "key-values" in f_config_d:
+                    print("Config values read: "
+                          + str(len(f_config_d["key-values"])))
+                    configvals.update(f_config_d["key-values"])
+                else:
+                    UC.print_error(
+                        "No table with key-value pairs found in "
+                        + f_config
+                        + "\nPlease include key-value mapping with name key-values")
+                    exit(1)
+            else:
+                UC.print_error(
+                    "Config-values file: "
+                    + f_config
+                    + " not found")
 
     stubs: Dict[str, "MIPSimStub"] = stubbed_libc_functions()
     for stubimport in stub_imports:
@@ -149,6 +185,7 @@ def simulate_mips_function(
             optargstate=optargstate,
             patched_globals=patched_globals,
             environment_variables=environmentvars,
+            configvalues=configvals,
             environmentptr_address=environmentptr_address)
 
     if support:
@@ -393,7 +430,8 @@ def simulate_function_cmd(args: argparse.Namespace) -> NoReturn:
     optargstatestr: Optional[str] = args.optargstate
     patched_globals: List[str] = args.patched_globals
     envptr_addr: Optional[str] = args.envptr_addr
-    environment_variables: Optional[str] = args.environment_variables
+    environment_variables: Optional[List[str]] = args.environment_variables
+    config_values: Optional[List[str]] = args.config_values
 
     mainargs = [a.strip() for a in mainargs]
 
@@ -433,6 +471,7 @@ def simulate_function_cmd(args: argparse.Namespace) -> NoReturn:
             optargaddrstr=optargaddrstr,
             optargstatestr=optargstatestr,
             patched_globals=unpack_named_strings(patched_globals),
+            config_value_files=config_values,
             environment_variables=environment_variables,
             envptr_addr=envptr_addr)
 

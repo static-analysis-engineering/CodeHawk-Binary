@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -50,6 +50,10 @@ class SimLocation:
 
     @property
     def is_memory_location(self) -> bool:
+        return False
+
+    @property
+    def is_string_position(self) -> bool:
         return False
 
     @property
@@ -142,3 +146,32 @@ class SimMemoryLocation(SimLocation):
 
     def __str__(self) -> str:
         return str(self.simaddress)
+
+
+class SimStringPosition(SimLocation):
+
+    def __init__(
+            self,
+            stringaddress: SSV.SimStringAddress,
+            offset_in_string: int = 0) -> None:
+        self._stringaddress = stringaddress
+        self._offset_in_string = offset_in_string
+
+    @property
+    def stringaddress(self) -> SSV.SimStringAddress:
+        return self._stringaddress
+
+    @property
+    def offset_in_string(self) -> int:
+        return self._offset_in_string
+
+    @property
+    def is_string_position(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return (
+            "in-string:"
+            + str(self.stringaddress)
+            + ":"
+            + str(self.offset_in_string))

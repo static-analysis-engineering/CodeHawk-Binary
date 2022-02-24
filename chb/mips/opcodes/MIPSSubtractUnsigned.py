@@ -135,6 +135,15 @@ class MIPSSubtractUnsigned(MIPSOpcode):
             expr = str(src1val) + ' - ' + str(src2val)
             raise SU.CHBSymbolicExpression(simstate, iaddr, dstop, expr)
 
+        elif src1val.is_base_address and src2val.is_base_address:
+            src1val = cast(SSV.SimBaseAddress, src1val)
+            src2val = cast(SSV.SimBaseAddress, src2val)
+            if src1val.base == src2val.base:
+                diff = (src1val.offsetvalue - src2val.offsetvalue) % (SU.max32 + 1)
+                result = SV.mk_simvalue(diff)
+            else:
+                result = SV.simUndefinedDW
+
         elif src1val.is_string_address and src2val.is_string_address:
             src1val = cast(SSV.SimStringAddress, src1val)
             src2val = cast(SSV.SimStringAddress, src2val)

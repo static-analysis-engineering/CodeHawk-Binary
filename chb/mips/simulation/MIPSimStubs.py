@@ -251,7 +251,12 @@ def stubbed_libc_functions() -> Dict[str, "MIPSimStub"]:
         "waitpid": MIPStub_waitpid(),
         "write": MIPStub_write(),
         "isLanSubnet": MIPStub_isLanSubnet(),
-        "msglogd": MIPStub_msglogd()     # libmsglog.so
+        "msglogd": MIPStub_msglogd(),     # libmsglog.so
+        "config_commit": MIPStub_config_commit(),  # libconfig.so
+        "config_get": MIPStub_config_get(),  # libconfig.so
+        "config_set": MIPStub_config_set(),  # libconfig.so
+        "config_match": MIPStub_config_match(),  # libconfig.so
+        "config_invmatch": MIPStub_config_invmatch()  # libconfig.so
     }
 
 
@@ -4926,9 +4931,17 @@ class MIPStub_strstr(MIPSimStub):
                 "some argument to strstr is undefined")
 
         if a0.is_address:
-            addr = cast(SSV.SimAddress, a0)
+            addr: SV.SimValue = cast(SV.SimValue, a0)
         elif a0.is_literal:
             addr = simstate.resolve_literal_address(iaddr, a0.literal_value)
+        elif a0.is_string_address:
+            addr = cast(SV.SimValue, a0)
+
+        else:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "argument to strstr is not recognized as an address: " + str(a0))
 
         if addr.is_undefined:
             raise SU.CHBSimError(
@@ -4942,7 +4955,8 @@ class MIPStub_strstr(MIPSimStub):
                 result: SV.SimValue = SSV.mk_string_address(a0str[index:])
 
             else:
-                result = addr.add_offset(index)
+                saddr = cast(SSV.SimAddress, addr)
+                result = saddr.add_offset(index)
 
         else:
             result = SV.simZero
@@ -5575,3 +5589,107 @@ class MIPStub_msglogd(MIPSimStub):
         pargs = ','.join(str(a) for a in [a0, a1, a2])
         simstate.add_logmsg('i/o', self.name + '(' + pargs + ')')
         return self.add_logmsg(iaddr, simstate, pargs)
+
+
+class MIPStub_config_commit(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "config_commit")
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        simstate.set_register(iaddr, "v0", SV.simZero)
+        simstate.add_logmsg("config", "commit")
+        return self.add_logmsg(iaddr, simstate, "", returnval="0")
+
+
+class MIPStub_config_get(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "config_get")
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        if simstate.simsupport.configvalues.config_has(a0str):
+            configval = simstate.simsupport.configvalues.config_get(a0str)
+            result: SV.SimValue = SSV.mk_string_address(configval)
+            configmsg = "retrieved: " + str(result) + " for " + a0str
+        else:
+            result = SSV.mk_string_address("")
+            configmsg = "no config value found for " + a0str
+        simstate.set_register(iaddr, "v0", result)
+        simstate.add_logmsg("config", configmsg)
+        pargs = str(a0) + ":" + a0str
+        return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
+
+
+class MIPStub_config_set(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "config_set")
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
+        simstate.simsupport.configvalues.config_set(a0str, a1str)
+        simstate.set_register(iaddr, "v0", SV.simZero)
+        pargs = str(a0) + ":" + a0str + ", " + str(a1) + ":" + a1str
+        configmsg = "set: " + a0str + " to " + a1str
+        simstate.add_logmsg("config", configmsg)
+        return self.add_logmsg(iaddr, simstate, pargs, returnval="0x0")
+
+
+class MIPStub_config_match(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "config_match")
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
+        configvalues = simstate.simsupport.configvalues
+        if configvalues.config_has(a0str):
+            result = configvalues.config_match(a0str, a1str)
+            if result:
+                configmsg = "matched value for " + a0str + " with " + a1str
+                resultval = SV.simOne
+            else:
+                configmsg = "no match for " + a0str + " with " + a1str
+                resultval = SV.simZero
+        else:
+            resultval = SV.simZero
+            configmsg = "config key " + a0str + " not found"
+        pargs = str(a0) + ":" + a0str + ", " + str(a1) + ":" + a1str
+        simstate.add_logmsg("config", configmsg)
+        return self.add_logmsg(iaddr, simstate, pargs, returnval=str(resultval))
+
+
+class MIPStub_config_invmatch(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "config_match")
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
+        configvalues = simstate.simsupport.configvalues
+        if configvalues.config_has(a1str):
+            result = configvalues.config_match(a1str, a0str)
+            if result:
+                configmsg = "inverse matched value for " + a1str + " with " + a0str
+                resultval = SV.simOne
+            else:
+                configmsg = "no inverse match for " + a1str + " with " + a0str
+                resultval = SV.simZero
+        else:
+            resultval = SV.simZero
+            configmsg = "config key " + a1str + " not found"
+        pargs = str(a0) + ":" + a0str + ", " + str(a1) + ":" + a1str
+        simstate.add_logmsg("config", configmsg)
+        return self.add_logmsg(iaddr, simstate, pargs, returnval=str(resultval))
