@@ -92,8 +92,9 @@ def mk_base_address(
         tgttype=tgttype)
 
 
-def mk_string_address(s: str, offset_in_string: int = 0) -> "SimStringAddress":
-    return SimStringAddress(s, offset_in_string=offset_in_string)
+def mk_string_address(
+        base: str, stringval: str, offset_in_string: int = 0) -> "SimStringAddress":
+    return SimStringAddress(base, stringval, offset_in_string=offset_in_string)
 
 
 def mk_symbol(
@@ -696,7 +697,8 @@ class SimBaseAddress(SimAddress):
             self.base, newoffset, buffersize=self.buffersize, tgttype=self.tgttype)
 
     def align(self, v: int) -> "SimBaseAddress":
-        newoffset = self.offset.bitwise_and(SV.mk_simvalue(v))
+        newoffset = cast(
+            SV.SimDoubleWordValue, self.offset.bitwise_and(SV.mk_simvalue(v)))
         return SimBaseAddress(
             self.base, newoffset, buffersize=self.buffersize, tgttype=self.tgttype)
 
@@ -741,31 +743,40 @@ class SimSymbolicReturnAddress(SimSymbolicValue):
         return True
 
 
-class SimStringAddress(SimSymbolicValue):
-    """Address of a constant string."""
+class SimStringAddress(SimBaseAddress):
+    """Address of a constant string.
 
-    def __init__(self, stringval: str, offset_in_string: int = 0) -> None:
-        SimSymbolicValue.__init__(self)
+    The address points into a SimStringMemory object.
+    """
+
+    def __init__(
+            self,
+            base: str,
+            stringval: str,
+            offset_in_string: int = 0) -> None:
+        SimBaseAddress.__init__(
+            self,
+            base,
+            cast(SV.SimDoubleWordValue, SV.mk_simvalue(offset_in_string)),
+            buffersize=len(stringval) + 1)
         self._stringval = stringval
-        self._offset_in_string = offset_in_string
 
     @property
     def offset_in_string(self) -> int:
-        return self._offset_in_string
-
-    @property
-    def full_stringval(self) -> str:
-        return self._stringval
+        return self.offsetvalue
 
     @property
     def stringval(self) -> str:
-        """Return the string pointed to by this address."""
-
-        return self._stringval[self.offset_in_string:]
+        return self._stringval
 
     @property
     def is_string_address(self) -> bool:
         return True
+
+    def add_offset(self, v: int) -> "SimStringAddress":
+        newoffset = self.offsetvalue + v
+        return SimStringAddress(
+            self.base, self.stringval, offset_in_string=newoffset)
 
     def add(self, v: SV.SimValue) -> "SimStringAddress":
         if v.is_literal and v.is_defined:
@@ -775,8 +786,9 @@ class SimStringAddress(SimSymbolicValue):
             elif v.value > 0:
                 if len(self.stringval) >= v.value:
                     return mk_string_address(
-                        self.full_stringval,
-                        offset_in_string=v.value)
+                        self.base,
+                        self.stringval,
+                        offset_in_string=self.offset_in_string + v.value)
                 else:
                     raise UF.CHBError(
                         "Cannot add "
@@ -792,7 +804,10 @@ class SimStringAddress(SimSymbolicValue):
 
     def __str__(self) -> str:
         if len(self.stringval) < 100:
-            return "string:" + self.stringval
+            poffset = (
+                "" if self.offset_in_string == 0
+                else "[" + str(self.offset_in_string) + "]")
+            return "string:" + self.base + ":" + self.stringval + poffset
         else:
             return (
                 "string[length:"

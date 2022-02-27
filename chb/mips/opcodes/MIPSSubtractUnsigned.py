@@ -144,12 +144,6 @@ class MIPSSubtractUnsigned(MIPSOpcode):
             else:
                 result = SV.simUndefinedDW
 
-        elif src1val.is_string_address and src2val.is_string_address:
-            src1val = cast(SSV.SimStringAddress, src1val)
-            src2val = cast(SSV.SimStringAddress, src2val)
-            diff = src2val.stringval.find(src1val.stringval)
-            result = SV.mk_simvalue(diff)
-
         elif src1val.is_stack_address and src2val.is_stack_address:
             src1val = cast(SSV.SimStackAddress, src1val)
             src2val = cast(SSV.SimStackAddress, src2val)

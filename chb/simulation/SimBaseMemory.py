@@ -34,7 +34,7 @@ may also be used initially for pointers passed in to functions, of which it is
 not yet known at what kind of memory they point.
 """
 
-from typing import Optional, TYPE_CHECKING
+from typing import cast, Optional, TYPE_CHECKING
 
 from chb.simulation.SimMemory import SimMemory
 import chb.simulation.SimSymbolicValue as SSV
@@ -101,3 +101,102 @@ class SimBaseMemory(SimMemory):
             return SSV.SimSymbol(name)
         else:
             return memval
+
+
+class SimStringMemory(SimBaseMemory):
+    """Represents the unknown memory that holds a constant string.
+
+    It allows for modification of the memory to reflect that not all programs
+    respect the restriction. Violations are logged.
+    """
+
+    def __init__(
+            self,
+            simstate: "SimulationState",
+            base: str,
+            strvalue: str) -> None:
+        SimBaseMemory.__init__(
+            self, simstate, base, initialized=True, buffersize=len(strvalue) + 1)
+        self._strvalue = strvalue    # original string value
+        self._strval: Optional[str] = strvalue
+        self._initialize()
+
+    @property
+    def base(self) -> str:
+        return self.name
+
+    @property
+    def original_string(self) -> str:
+        return self._strvalue
+
+    def has_stringval(self) -> bool:
+        return self._strval is not None
+
+    @property
+    def stringval(self) -> str:
+        if self._strval is not None:
+            return self._strval
+        else:
+            raise UF.CHBError(
+                "SimString Memory value unknown for "
+                + self.original_string
+                + " in "
+                + self.base)
+
+    def free(self) -> None:
+        self.simstate.add_logmsg(
+            "stringmem:" + self.base,
+            "illegal free of constant string: " + self.original_string)
+
+    def is_modified(self) -> bool:
+        return (
+            (not self.has_stringval())
+            or (self.original_string != self.stringval))
+
+    def get(self, iaddr: str, address: SSV.SimAddress, size: int) -> SV.SimValue:
+        offset = address.offsetvalue
+        if self.has_stringval() and offset < self.buffersize-1 and size == 1:
+            return SV.mk_simvalue(ord(self.stringval[offset]), size=1)
+        elif self.has_stringval() and offset == self.buffersize-1 and size == 1:
+            return SV.simZerobyte
+        else:
+            return SimBaseMemory.get(self, iaddr, address, size)
+
+    def set(
+            self,
+            iaddr: str,
+            address: SSV.SimAddress,
+            srcval: SV.SimValue) -> None:
+        """Modify the string if this is a one-char replacement."""
+
+        offset = address.offsetvalue
+        self.simstate.add_logmsg(
+            "stringmem:" + self.base + "@" + iaddr,
+            "modifying constant string: " + self.original_string)
+        if (
+                srcval.is_literal
+                and srcval.size == 1
+                and self._strval is not None):
+            newchar = chr(cast(SV.SimLiteralValue, srcval).value)
+            if offset <= len(self.stringval):
+                self._strval = (
+                    self._strval[:offset] + newchar + self._strval[offset + 1:])
+                SimBaseMemory.set(self, iaddr, address, srcval)
+                self._strval = None
+            else:
+                self.simstate.add_logmsg(
+                    "stringmem:" + self.base + "@" + iaddr,
+                    "attempt to write beyond the limits of a constant string")
+        else:
+            SimBaseMemory.set(self, iaddr, address, srcval)
+            self._strval = None
+
+    def _initialize(self) -> None:
+        for (offset, c) in enumerate(self.original_string):
+            charval = SV.mk_simvalue(ord(c), size=1)
+            address = SSV.mk_base_address(
+                self.base, offset=offset, buffersize=self.buffersize)
+            SimBaseMemory.set(self, "0x0", address, charval)
+        ntaddress = SSV.mk_base_address(
+            self.base, offset=self.buffersize-1, buffersize=self.buffersize)
+        SimBaseMemory.set(self, "0x0", ntaddress, SV.simZerobyte)

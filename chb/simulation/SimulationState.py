@@ -45,12 +45,12 @@ from typing import (
 from chb.app.Operand import Operand
 
 from chb.simulation.ELFSimGlobalMemory import ELFSimGlobalMemory
-from chb.simulation.SimBaseMemory import SimBaseMemory
+from chb.simulation.SimBaseMemory import SimBaseMemory, SimStringMemory
 
 import chb.simulation.SimFileUtil as SFU
 
 from chb.simulation.SimLocation import (
-    SimLocation, SimRegister, SimMemoryLocation, SimStringPosition)
+    SimLocation, SimRegister, SimMemoryLocation)
 from chb.simulation.SimMappedMemory import SimMappedMemory
 from chb.simulation.SimProgramCounter import SimProgramCounter
 from chb.simulation.SimSharedMemory import SimSharedMemory
@@ -183,7 +183,13 @@ class SimModule:
 
     def export_address(self, sym: str) -> int:
         if self.is_exported(sym):
-            print("Symbol " + sym + " linked to " + self.name + ":" + hex(self.exports[sym]))
+            print(
+                "Symbol "
+                + sym
+                + " linked to "
+                + self.name
+                + ":"
+                + hex(self.exports[sym]))
             return self.exports[sym]
         else:
             raise UF.CHBError(
@@ -563,7 +569,7 @@ class SimulationState:
             if regval.is_string_address and opsize == 1:
                 regval = cast(SSV.SimStringAddress, regval)
                 return self.rhs_string_char(iaddr, regval, offset)
-            elif regval.is_symbol:
+            if regval.is_symbol:
                 regval = cast(SSV.SimSymbol, regval)
                 return self.rhs_symbol(iaddr, regval, offset, opsize)
             elif regval.is_address:
@@ -677,12 +683,13 @@ class SimulationState:
     def lhs(self, iaddr: str, op: Operand) -> SimLocation:
         if op.is_register:
             return SimRegister(op.register)
+        '''
         elif (
                 op.is_indirect_register
                 and self.regval(iaddr, op.indirect_register).is_string_address):
             saddr = cast(SSV.SimStringAddress, self.regval(iaddr, op.indirect_register))
-            return SimStringPosition(saddr, op.offset)
-        elif op.is_indirect_register:
+            return SimStringPosition(saddr, op.offset) '''
+        if op.is_indirect_register:
             addr = self.compute_indirect_address(iaddr, op)
             return SimMemoryLocation(addr)
         elif op.is_immediate:
@@ -760,6 +767,14 @@ class SimulationState:
                          + ")"))
             elif address.is_stack_address:
                 self.stackmem.set(iaddr, address, srcval)
+            elif address.is_string_address:
+                address = cast(SSV.SimStringAddress, address)
+                base = address.base
+                if base not in self.basemem:
+                    self.basemem[base] = SimStringMemory(
+                        self, base, address.stringval)
+                    self.add_logmsg(iaddr, "initialize string memory for " + base)
+                self.basemem[base].set(iaddr, address, srcval)
             elif address.is_base_address:
                 address = cast(SSV.SimBaseAddress, address)
                 base = address.base
@@ -810,6 +825,14 @@ class SimulationState:
                          + ")"))
             elif address.is_stack_address:
                 return self.stackmem.get(iaddr, address, size)
+            elif address.is_string_address:
+                address = cast(SSV.SimStringAddress, address)
+                base = address.base
+                if address.base not in self.basemem:
+                    self.basemem[base] = SimStringMemory(
+                        self, base, address.stringval)
+                    self.add_logmsg(iaddr, "initialize string memory for " + base)
+                return self.basemem[base].get(iaddr, address, size)
             elif address.is_base_address:
                 address = cast(SSV.SimBaseAddress, address)
                 if address.base in self.basemem:
@@ -855,6 +878,18 @@ class SimulationState:
         lines.append("Stack memory:")
         lines.append("-" * 80)
         lines.append(str(self.stackmem))
+        lines.append("=" * 80)
+        lines.append("")
+
+        # heap
+        lines.append("-" * 80)
+        lines.append("Heap memory:")
+        lines.append("-" * 80)
+        for base in self.basemem:
+            lines.append("Base: " + base)
+            lines.append("-" * 80)
+            lines.append(str(self.basemem[base]))
+            lines.append("~" * 80)
         lines.append("=" * 80)
         lines.append("")
 

@@ -173,13 +173,5 @@ class MIPSAddImmediateUnsigned(MIPSOpcode):
         elif srcval.is_literal:
             return do_assign(SV.mk_simvalue(srcval.literal_value + immval))
 
-        elif srcval.is_string_address:
-            srcval = cast(SSV.SimStringAddress, srcval)
-            if immval == len(srcval.stringval):
-                result = SSV.mk_string_address('')
-            else:
-                result = SSV.mk_string_address(srcval.stringval[immval:])
-            return do_assign(result)
-
         else:
             return do_assign(SV.simUndefinedDW)
