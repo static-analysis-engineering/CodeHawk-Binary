@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -142,6 +142,7 @@ class MIPSBranchNotEqualLikely(MIPSOpcode):
             else:
                 result = SV.simtrue
 
+        # Note: this condition may be too strong for string addresses
         elif src1val.is_address and src2val.is_address:
             src1val = cast(SSV.SimAddress, src1val)
             src2val = cast(SSV.SimAddress, src2val)
@@ -164,20 +165,6 @@ class MIPSBranchNotEqualLikely(MIPSOpcode):
                 result = SV.simtrue
             else:
                 result = SV.simUndefinedBool
-
-        elif src1val.is_string_address and src2val.is_literal:
-            if src2val.literal_value == 0:
-                result = SV.simtrue
-            else:
-                result = SV.simUndefinedBool
-
-        elif src1val.is_string_address and src2val.is_string_address:
-            v1 = cast(SSV.SimStringAddress, src1val)
-            v2 = cast(SSV.SimStringAddress, src2val)
-            if v1.stringval == v2.stringval:
-                result = SV.simfalse
-            else:
-                result = SV.simtrue
 
         else:
             result = SV.simUndefinedBool

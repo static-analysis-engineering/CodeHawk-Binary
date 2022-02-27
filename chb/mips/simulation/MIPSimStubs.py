@@ -345,17 +345,14 @@ class MIPSimStub(SimStub):
             saddr: SV.SimValue) -> str:
         result = ''
         offset = 0
-        if saddr.is_string_address:
-            saddr = cast(SSV.SimStringAddress, saddr)
-            return saddr.stringval
+        if saddr.is_address:
+            saddr = cast(SSV.SimAddress, saddr)
+            return simstate.get_string_from_memaddr(iaddr, saddr)
         elif saddr.is_symbol:
             saddr = cast(SSV.SimSymbol, saddr)
-            return 'symbol:' + saddr.name
+            return "symbol:" + saddr.name
         elif saddr.is_literal and not saddr.is_defined:
-            return '*****address-not-defined*****'
-        elif saddr.is_address:
-            gaddr = cast(SSV.SimGlobalAddress, saddr)
-
+            return "*****address-not-defined*****"
         elif saddr.is_literal and saddr.is_defined:
             saddr = cast(SV.SimLiteralValue, saddr)
             gaddr = simstate.resolve_literal_address(iaddr, saddr.value)
@@ -364,21 +361,14 @@ class MIPSimStub(SimStub):
                     simstate,
                     iaddr,
                     "String argument is not a valid address: " + str(saddr))
-        else:
-            gaddr = cast(SSV.SimGlobalAddress, saddr)
+            elif gaddr.is_address:
+                gaddr = cast(SSV.SimGlobalAddress, gaddr)
+                return simstate.get_string_from_memaddr(iaddr, gaddr)
 
-        while True:
-            srcaddr = gaddr.add_offset(offset)
-            srcval = simstate.memval(iaddr, srcaddr, 1)
-            if srcval.is_literal and srcval.is_defined:
-                srcval = cast(SV.SimLiteralValue, srcval)
-                if srcval.value == 0:
-                    break
-                result += chr(srcval.value)
-                offset += 1
-            else:
-                break
-        return result
+        raise SU.CHBSimError(
+            simstate,
+            iaddr,
+            "String argument is not a valid address: " + str(saddr))
 
     def get_stack_arg_string(
             self,
@@ -716,10 +706,12 @@ class MIPStub_basename(MIPSimStub):
         MIPSimStub.__init__(self, 'basename')
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        """Returns (in v0) the basename set in simstate, expressed as SimString."""
+        """Returns (in v0) the basename set in simstate."""
 
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        simstate.set_register(iaddr, 'v0', SSV.mk_string_address(simstate.modulename))
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        base = "basename_" + iaddr
+        stringaddress = SSV.mk_string_address(base, simstate.modulename)
+        simstate.set_register(iaddr, "v0", stringaddress)
         return self.add_logmsg(iaddr, simstate, str(a0))
 
 
@@ -792,7 +784,17 @@ class MIPStub_calculate_checksum(MIPSimStub):
 class MIPStub_calloc(MIPSimStub):
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, 'calloc')
+        MIPSimStub.__init__(self, "calloc")
+        self._sitecounters: Dict[str, int] = {}
+
+    @property
+    def sitecounters(self) -> Dict[str, int]:
+        return self._sitecounters
+
+    def sitecounter(self, site: str) -> int:
+        self.sitecounters.setdefault(site, 0)
+        self.sitecounters[site] += 1
+        return self.sitecounters[site]
 
     def is_memalloc_operation(self) -> bool:
         return True
@@ -800,9 +802,10 @@ class MIPStub_calloc(MIPSimStub):
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         """Initializes the memory to 0."""
 
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        base = 'calloc_' + iaddr
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        site = "calloc_" + iaddr
+        base = site + ":" + str(self.sitecounter(site))
         if a0.is_literal and a0.is_defined and a1.is_literal and a1.is_defined:
             a0 = cast(SV.SimLiteralValue, a0)
             a1 = cast(SV.SimLiteralValue, a1)
@@ -1043,15 +1046,16 @@ class MIPStub_epoll_wait(MIPSimStub):
 class MIPStub___errno_location(MIPSimStub):
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, '__errno_location')
+        MIPSimStub.__init__(self, "__errno_location")
 
     def is_error_operation(self) -> bool:
         return True
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        result = SSV.mk_string_address('error-string')
-        simstate.set_register(iaddr, 'v0', result)
-        return self.add_logmsg(iaddr, simstate, str(result))
+        base = "errno_" + iaddr
+        stringaddr = SSV.mk_string_address(base, "error-string")
+        simstate.set_register(iaddr, "v0", stringaddr)
+        return self.add_logmsg(iaddr, simstate, str(stringaddr))
 
 
 class MIPStub_execve(MIPSimStub):
@@ -1338,7 +1342,7 @@ class MIPStub_fgets(MIPSimStub):
         elif a1.is_literal and a1.is_defined:
             a1 = cast(SV.SimLiteralValue, a1)
             for i in range(0, a1.value - 1):
-                srcval = SV.SimByteValue(ord('t'))
+                srcval = SV.SimByteValue(ord("t"))
                 tgtaddr = a0.add_offset(i)
                 simstate.set_memval(iaddr, tgtaddr, srcval)
             simstate.set_memval(
@@ -1845,7 +1849,17 @@ class MIPStub_getcwd(MIPSimStub):
 class MIPStub_getenv(MIPSimStub):
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, 'getenv')
+        MIPSimStub.__init__(self, "getenv")
+        self._sitecounters: Dict[str, int] = {}
+
+    @property
+    def sitecounters(self) -> Dict[str, int]:
+        return self._sitecounters
+
+    def sitecounter(self, site: str) -> int:
+        self.sitecounters.setdefault(site, 0)
+        self.sitecounters[site] += 1
+        return self.sitecounters[site]
 
     def is_environment_operation(self) -> bool:
         return True
@@ -1853,18 +1867,19 @@ class MIPStub_getenv(MIPSimStub):
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         """Logs getenv request, returns environment variable from simstate."""
 
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a0str = self.get_arg_string(iaddr, simstate, 'a0')
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
         if simstate.simsupport.has_environment_variable(a0str):
             envvalue = simstate.simsupport.get_environment_variable(a0str)
-            result: SV.SimValue = SSV.mk_string_address(envvalue)
-            envmsg = 'retrieved: ' + str(result) + ' for ' + a0str
+            base = "getenv:" + a0str
+            result: SV.SimValue = SSV.mk_string_address(base, envvalue)
+            envmsg = "retrieved: " + str(result) + " for " + a0str
         else:
             result = SV.simZero
-            envmsg = 'no environment value found for ' + a0str
-        simstate.set_register(iaddr, 'v0', result)
-        simstate.add_logmsg('getenv', envmsg)
-        pargs = str(a0) + ':' + a0str
+            envmsg = "no environment value found for " + a0str
+        simstate.set_register(iaddr, "v0", result)
+        simstate.add_logmsg("getenv", envmsg)
+        pargs = str(a0) + ":" + a0str
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
 
 
@@ -1887,33 +1902,46 @@ class MIPStub_gethostname(MIPSimStub):
 class MIPStub_getline(MIPSimStub):
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, 'getline')
+        MIPSimStub.__init__(self, "getline")
+        self._sitecounters: Dict[str, int] = {}
+
+    @property
+    def sitecounters(self) -> Dict[str, int]:
+        return self._sitecounters
+
+    def sitecounter(self, site) -> int:
+        self.sitecounters.setdefault(site, 0)
+        self.sitecounters[site] += 1
+        return self.sitecounters[site]
 
     def is_io_operation(self) -> bool:
         return True
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        a1deref = self.get_arg_deref_val(iaddr, simstate, 'a1')
-        a2 = self.get_arg_val(iaddr, simstate, 'a2')
-        pargs = str(a0) + ',' + str(a1) + ':' + str(a1deref) + ',' + str(a2)
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a1deref = self.get_arg_deref_val(iaddr, simstate, "a1")
+        a2 = self.get_arg_val(iaddr, simstate, "a2")
+        pargs = str(a0) + "," + str(a1) + ":" + str(a1deref) + "," + str(a2)
         if a2.is_file_pointer and a0.is_address:
             a0 = cast(SSV.SimAddress, a0)
             a2 = cast(SSV.SimSymbolicFilePointer, a2)
             line = a2.fp.readline()
             result = len(line)
             if result > 0:
-                sval = SSV.mk_string_address(line)
+                site = "getline_" + iaddr
+                base = site + ":" + str(self.sitecounter(site))
+                sval = SSV.mk_string_address(base, line)
                 simstate.set_memval(iaddr, a0, sval)
-                simstate.add_logmsg('i/o', 'Read line: ' + line + ' from ' + str(a2))
+                simstate.add_logmsg(
+                    "i/o", "Read line: " + line + " from " + str(a2))
             else:
-                simstate.add_logmsg('i/o', 'Reached eof of ' + str(a2))
+                simstate.add_logmsg("i/o", "Reached eof of " + str(a2))
                 result = -1
         else:
-            simstate.add_logmsg('i/o', 'No input read from ' + str(a2))
+            simstate.add_logmsg("i/o", "No input read from " + str(a2))
             result = -1
-        simstate.set_register(iaddr, 'v0', SV.mk_simvalue(result))
+        simstate.set_register(iaddr, "v0", SV.mk_simvalue(result))
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
 
 
@@ -1929,9 +1957,19 @@ class MIPStub_getopt(MIPSimStub):
         self.optarg = SV.simZero
         self.optind = 1  # keeps track of the current option
         self.optopt: SV.SimValue = SV.simZero  # points to current cmdline argument
+        self._sitecounters: Dict[str, int] = {}
 
     def is_io_operation(self) -> bool:
         return True
+
+    @property
+    def sitecounters(self) -> Dict[str, int]:
+        return self._sitecounters
+
+    def sitecounter(self, site: str) -> int:
+        self.sitecounters.setdefault(site, 0)
+        self.sitecounters[site] += 1
+        return self.sitecounters[site]
 
     def has_argument(self, cmdstr: str, c: str) -> bool:
         cindex = cmdstr.find(c)
@@ -1956,7 +1994,8 @@ class MIPStub_getopt(MIPSimStub):
         optargstate = simstate.simsupport.optargstate
 
         if not optargaddr.is_address:
-            simstate.add_logmsg("warning", "getopt: optargaddress has not been set")
+            simstate.add_logmsg(
+                "warning", "getopt: optargaddress has not been set")
             simstate.set_register(iaddr, "v0", SV.mk_simvalue(result))
             return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
         else:
@@ -2019,7 +2058,9 @@ class MIPStub_getopt(MIPSimStub):
                             iaddr, simstate, nextargaddr)
 
                         if nextarg.startswith("-"):
-                            emptyarg = SSV.mk_string_address(":")
+                            site = "getopt_" + iaddr
+                            base = site + ":" + str(self.sitecounter(site))
+                            emptyarg = SSV.mk_string_address(base, ":")
                             simstate.set_memval(iaddr, optargaddr, emptyarg)
                         else:
                             simstate.set_memval(iaddr, optargaddr, argvaladdr)
@@ -2269,17 +2310,36 @@ class MIPStub_inet_aton(MIPSimStub):
 
 
 class MIPStub_inet_ntoa(MIPSimStub):
+    """char *inet_ntoa(struct in_addr in);
+
+    Returns a pointer to the network address in internet standard notation.
+    The return value may point to static data that may be overwritten by
+    subsequent calls to inet_ntoa().
+    """
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, 'inet_ntoa')
+        MIPSimStub.__init__(self, "inet_ntoa")
+        self._sitecounters: Dict[str, int] = {}
+
+    @property
+    def sitecounters(self) -> Dict[str, int]:
+        return self._sitecounters
+
+    def sitecounter(self, site: str) -> int:
+        self.sitecounters.setdefault(site, 0)
+        self.sitecounters[site] += 1
+        return self.sitecounters[site]
 
     def is_network_operation(self) -> bool:
         return True
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        simstate.set_register(iaddr, 'v0', SSV.mk_string_address('0.0.0'))
-        return self.add_logmsg(iaddr, simstate, str(a0))
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        site = "inet_ntoa_" + iaddr
+        base = site + ":" + str(self.sitecounter(site))
+        result = SSV.mk_string_address(base, "0.0.0.0")
+        simstate.set_register(iaddr, "v0", result)
+        return self.add_logmsg(iaddr, simstate, str(a0), returnval=str(result))
 
 
 class MIPStub_inet_pton(MIPSimStub):
@@ -2529,91 +2589,65 @@ class MIPStub_memcmp(MIPSimStub):
                 iaddr,
                 "memcmp: size argument is not a literal value: " + str(a2))
 
-        if a0.is_string_address:
-            str1 = cast(SSV.SimStringAddress, a0).stringval
-            parg0 = str1
-            if len(str1) + 1 < n:
+        if a0.is_address:
+            s1addr = cast(SSV.SimAddress, a0)
+        elif a0.is_literal:
+            s1addr = simstate.resolve_literal_address(iaddr, a0.literal_value)
+            if s1addr.is_undefined:
                 raise SU.CHBSimError(
                     simstate,
                     iaddr,
-                    "memcmp: s1 string is too short: " + str1)
-            s1 = [ord(c) for c in str1]
-            if len(s1) < n:
-                s1 = s1 + [0]
-
+                    "memcmp: address of s1 cannot be resolved: " + str(a0))
         else:
-            if a0.is_address:
-                s1addr = cast(SSV.SimAddress, a0)
-            elif a0.is_literal:
-                s1addr = simstate.resolve_literal_address(iaddr, a0.literal_value)
-                if s1addr.is_undefined:
-                    raise SU.CHBSimError(
-                        simstate,
-                        iaddr,
-                        "memcmp: address of s1 cannot be resolved: " + str(a0))
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "memcmp: invalid address for s1: " + str(a0))
+
+        parg0 = str(s1addr)
+        s1 = []
+        for i in range(0, n):
+            addr = s1addr.add_offset(i)
+            s1val = simstate.memval(iaddr, addr, 1)
+            if s1val.is_defined and s1val.is_literal:
+                s1.append(s1val.literal_value)
             else:
                 raise SU.CHBSimError(
                     simstate,
                     iaddr,
-                    "memcmp: invalid address for s1: " + str(a0))
+                    "memcmp: value for comparison in s1 at i="
+                    + str(i)
+                    + " is undefined")
 
-            parg0 = str(s1addr)
-            s1 = []
-            for i in range(0, n):
-                addr = s1addr.add_offset(i)
-                s1val = simstate.memval(iaddr, addr, 1)
-                if s1val.is_defined and s1val.is_literal:
-                    s1.append(s1val.literal_value)
-                else:
-                    raise SU.CHBSimError(
-                        simstate,
-                        iaddr,
-                        "memcmp: value for comparison in s1 at i="
-                        + str(i)
-                        + " is undefined")
-
-        if a1.is_string_address:
-            str2 = cast(SSV.SimStringAddress, a1).stringval
-            parg1 = str2
-            if len(str2) + 1 < n:
+        if a1.is_address:
+            s2addr = cast(SSV.SimAddress, a1)
+        elif a1.is_literal:
+            s2addr = simstate.resolve_literal_address(iaddr, a1.literal_value)
+            if s2addr.is_undefined:
                 raise SU.CHBSimError(
                     simstate,
                     iaddr,
-                    "memcmp: s2 string is too short: " + str2)
-            s2 = [ord(c) for c in str2]
-            if len(s2) < n:
-                s2 = s2 + [0]
-
+                    "memcmp: address of s2 cannot be resolved: " + str(a1))
         else:
-            if a1.is_address:
-                s2addr = cast(SSV.SimAddress, a1)
-            elif a1.is_literal:
-                s2addr = simstate.resolve_literal_address(iaddr, a1.literal_value)
-                if s2addr.is_undefined:
-                    raise SU.CHBSimError(
-                        simstate,
-                        iaddr,
-                        "memcmp: address of s2 cannot be resolved: " + str(a1))
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "memcmp: invalid address for s2: " + str(a1))
+
+        parg1 = str(s2addr)
+        s2 = []
+        for i in range(0, n):
+            addr = s2addr.add_offset(i)
+            s2val = simstate.memval(iaddr, addr, 1)
+            if s2val.is_defined and s2val.is_literal:
+                s2.append(s2val.literal_value)
             else:
                 raise SU.CHBSimError(
                     simstate,
                     iaddr,
-                    "memcmp: invalid address for s2: " + str(a1))
-
-            parg1 = str(s2addr)
-            s2 = []
-            for i in range(0, n):
-                addr = s2addr.add_offset(i)
-                s2val = simstate.memval(iaddr, addr, 1)
-                if s2val.is_defined and s2val.is_literal:
-                    s2.append(s2val.literal_value)
-                else:
-                    raise SU.CHBSimError(
-                        simstate,
-                        iaddr,
-                        "memcmp: value for comparison in s2 at i="
-                        + str(i)
-                        + " is undefined")
+                    "memcmp: value for comparison in s2 at i="
+                    + str(i)
+                    + " is undefined")
 
         for i in range(0, n):
             if s1[i] < s2[i]:
@@ -2647,7 +2681,8 @@ class MIPStub_memcpy(MIPSimStub):
                 "warning",
                 iaddr + ": memcpy: some arguments are undefined; nothing copied")
             simstate.set_register
-            return self.add_logmsg(iaddr, simstate, pargs, returnval="nothing copied")
+            return self.add_logmsg(
+                iaddr, simstate, pargs, returnval="nothing copied")
 
         if a0.is_address:
             dstaddr = cast(SSV.SimAddress, a0)
@@ -2672,7 +2707,7 @@ class MIPStub_memcpy(MIPSimStub):
         else:
             srcaddr = a1
 
-        if not (srcaddr.is_address or srcaddr.is_string_address):
+        if not srcaddr.is_address:
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
@@ -2686,38 +2721,13 @@ class MIPStub_memcpy(MIPSimStub):
                 iaddr,
                 "memcpy: count is not a literal: " + str(a2))
 
-        if srcaddr.is_string_address:
-            srcaddr = cast(SSV.SimStringAddress, srcaddr)
-            srcstr = srcaddr.stringval
-            if len(srcstr) >= count:
-                for i in range(0, count):
-                    srcval = SV.mk_simcharvalue(srcstr[i])
-                    tgtaddr = dstaddr.add_offset(i)
-                    simstate.set_memval(iaddr, tgtaddr, srcval)
-            elif len(srcstr) + 1 == count:   # include null terminator
-                for i in range(0, count-1):
-                    srcval = SV.mk_simcharvalue(srcstr[i])
-                    tgtaddr = dstaddr.add_offset(i)
-                    simstate.set_memval(iaddr, tgtaddr, srcval)
-                simstate.set_memval(
-                    iaddr, dstaddr.add_offset(count-1), SV.simZerobyte)
-            else:
-                raise SU.CHBSimError(
-                    simstate,
-                    iaddr,
-                    "memcpy with source string of length: "
-                    + str(len(srcstr))
-                    + " and length argument "
-                    + str(count))
-
-        else:
-            srcaddr = cast(SSV.SimAddress, srcaddr)
-            for i in range(0, count):
-                srcval = cast(
-                    SV.SimByteValue, simstate.memval(
-                        iaddr, srcaddr.add_offset(i), 1))
-                tgtaddr = dstaddr.add_offset(i)
-                simstate.set_memval(iaddr, tgtaddr, srcval)
+        srcaddr = cast(SSV.SimAddress, srcaddr)
+        for i in range(0, count):
+            srcval = cast(
+                SV.SimByteValue, simstate.memval(
+                    iaddr, srcaddr.add_offset(i), 1))
+            tgtaddr = dstaddr.add_offset(i)
+            simstate.set_memval(iaddr, tgtaddr, srcval)
 
         return self.add_logmsg(iaddr, simstate, pargs)
 
@@ -2743,16 +2753,7 @@ class MIPStub_memmove(MIPSimStub):
 
         if a2.is_defined and a2.is_literal:
             a2 = cast(SV.SimLiteralValue, a2)
-            if a1.is_string_address:
-                a1 = cast(SSV.SimStringAddress, a1)
-                srcstr = a1.stringval
-                for i in range(0, a2.value):
-                    srcval: SV.SimValue = SV.mk_simvalue(ord(srcstr[i]), 1)
-                    tgtaddr = dstaddr.add_offset(i)
-                    simstate.set_memval(iaddr, tgtaddr, srcval)
-                else:
-                    pass
-            elif a1.is_literal and a1.is_defined:
+            if a1.is_literal and a1.is_defined:
                 a1 = cast(SV.SimLiteralValue, a1)
                 raise UF.CHBError("Illegal address in memmove: " + str(a1))
 
@@ -2786,11 +2787,13 @@ class MIPStub_memset(MIPSimStub):
 
         def result(returnval: SV.SimValue) -> str:
             simstate.set_register(iaddr, "v0", returnval)
-            return self.add_logmsg(iaddr, simstate, pargs, returnval=str(returnval))
+            return self.add_logmsg(
+                iaddr, simstate, pargs, returnval=str(returnval))
 
         if a0.is_undefined or a1.is_undefined or a2.is_undefined:
             simstate.add_logmsg(
-                "warning", iaddr + ": Unable to perform memset; some value is undefined")
+                "warning",
+                iaddr + ": Unable to perform memset; some value is undefined")
             return result(SV.simUndefinedDW)
 
         if a0.is_address and a1.is_literal and a2.is_literal:
@@ -4312,27 +4315,23 @@ class MIPStub_strcasecmp(MIPSimStub):
 
 
 class MIPStub_strchr(MIPSimStub):
+    """char *strchr(const char *s, int c);
+
+    Return a pointer to the byte, or a null pointer if the byte was not found.
+    """
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, 'strchr')
+        MIPSimStub.__init__(self, "strchr")
 
     def is_string_operation(self) -> bool:
         return True
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        """Returns pointer to the first character that matches the second argument."""
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        pargs = ','.join(str(a) for a in [a0, a1])
-        if a0.is_string_address and a1.is_literal and a1.is_defined:
-            a1 = cast(SV.SimLiteralValue, a1)
-            a0str = self.get_arg_string(iaddr, simstate, 'a0')
-            if not (chr(a1.value) in a0str):
-                returnval: SV.SimValue = SV.simZero
-            else:
-                index = a0str.find(str(chr(a1.value)))
-                returnval = SSV.mk_string_address(a0str[index:])
-        elif a0.is_address and a1.is_literal and a1.is_defined:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        pargs = ",".join(str(a) for a in [a0, a1])
+
+        if a0.is_address and a1.is_literal and a1.is_defined:
             a0 = cast(SSV.SimAddress, a0)
             a1 = cast(SV.SimLiteralValue, a1)
             i = 0
@@ -4341,7 +4340,7 @@ class MIPStub_strchr(MIPSimStub):
                 if c.is_literal and c.is_defined:
                     c = cast(SV.SimLiteralValue, c)
                     if c.value == a1.value:
-                        returnval = a0.add_offset(i)
+                        returnval: SV.SimValue = a0.add_offset(i)
                         break
                     elif c.value == 0:
                         returnval = SV.simZero
@@ -4352,7 +4351,8 @@ class MIPStub_strchr(MIPSimStub):
                     returnval = SV.simUndefinedDW
                     break
             simstate.set_register(iaddr, 'v0', returnval)
-            return self.add_logmsg(iaddr, simstate, pargs, returnval=str(returnval))
+            return self.add_logmsg(
+                iaddr, simstate, pargs, returnval=str(returnval))
         else:
             returnval = SV.simZero
         if a1.is_literal and a1.is_defined:
@@ -4417,10 +4417,10 @@ class MIPStub_strcmp(MIPSimStub):
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         """Compares the two arguments and returns the result in v0."""
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')   # str1
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')   # str2
-        a0str = self.get_arg_string(iaddr, simstate, 'a0')
-        a1str = self.get_arg_string(iaddr, simstate, 'a1')
+        a0 = self.get_arg_val(iaddr, simstate, "a0")   # str1
+        a1 = self.get_arg_val(iaddr, simstate, "a1")   # str2
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
         if a0str == a1str:
             result = 0
         elif a0str < a1str:
@@ -4534,9 +4534,9 @@ class MIPStub_strcpy(MIPSimStub):
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         """Copies characters from src to dst up to and including null terminator."""
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        a1str = self.get_arg_string(iaddr, simstate, 'a1')
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
         returnmsg = ""
 
         if a0.is_undefined or a1.is_undefined:
@@ -4557,18 +4557,13 @@ class MIPStub_strcpy(MIPSimStub):
                     "strcpy: illegal destination address: " + str(a0))
         else:
             raise SU.CHBSimError(
-                simstate, iaddr, 'strcpy: illegal destination address: ' + str(a0))
+                simstate,
+                iaddr,
+                "strcpy: illegal destination address: " + str(a0))
 
-        if a1.is_string_address:
-            for i in range(0, len(a1str)):
-                srcval = SV.SimByteValue(ord(a1str[i]))
-                tgtaddr = dstaddr.add_offset(i)
-                simstate.set_memval(iaddr, tgtaddr, srcval)
-            simstate.set_memval(
-                iaddr, dstaddr.add_offset(len(a1str)), SV.SimByteValue(0))
-        elif a1.is_symbol:
+        if a1.is_symbol:
             simstate.add_logmsg(
-                'free strcpy', 'src:' + str(a1) + ' to dst: ' + str(a0))
+                "free strcpy", "src:" + str(a1) + " to dst: " + str(a0))
         else:
             for i in range(0, len(a1str)):
                 srcval = SV.SimByteValue(ord(a1str[i]))
@@ -4576,7 +4571,7 @@ class MIPStub_strcpy(MIPSimStub):
                 simstate.set_memval(iaddr, tgtaddr, srcval)
             simstate.set_memval(
                 iaddr, dstaddr.add_offset(len(a1str)), SV.SimByteValue(0))
-            returnmsg = "copied " + str(len(a1str)) + " to " + str(dstaddr)
+            returnmsg = "copied " + str(len(a1str)) + " chars to " + str(dstaddr)
         simstate.set_register(iaddr, "v0", dstaddr)
         pargs = str(dstaddr) + ',' + str(a1) + ':' + a1str
         return self.add_logmsg(iaddr, simstate, pargs, returnval=returnmsg)
@@ -4585,7 +4580,17 @@ class MIPStub_strcpy(MIPSimStub):
 class MIPStub_strdup(MIPSimStub):
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, 'strdup')
+        MIPSimStub.__init__(self, "strdup")
+        self._sitecounters: Dict[str, int] = {}
+
+    @property
+    def sitecounters(self) -> Dict[str, int]:
+        return self._sitecounters
+
+    def sitecounter(self, site: str) -> int:
+        self.sitecounters.setdefault(site, 0)
+        self.sitecounters[site] += 1
+        return self.sitecounters[site]
 
     def is_string_operation(self) -> bool:
         return True
@@ -4595,11 +4600,13 @@ class MIPStub_strdup(MIPSimStub):
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         """Returns a pointer to a duplicated string in v0."""
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
+
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
         if a0.is_string_address:
             a0 = cast(SSV.SimStringAddress, a0)
             s = a0.stringval
-            base = 'strdup_' + iaddr
+            site = "strdup_" + iaddr
+            base = site + ":" + str(self.sitecounter(site))
             buffersize = len(s) + 1
             address = SSV.mk_base_address(base, 0, buffersize=buffersize)
             simstate.basemem[base] = SimBaseMemory(
@@ -4609,12 +4616,14 @@ class MIPStub_strdup(MIPSimStub):
                     iaddr,
                     address.add_offset(i),
                     SV.mk_simvalue(ord(s[i]), size=1))
-            simstate.set_memval(iaddr, address.add_offset(buffersize - 1), SV.simZero)
+            simstate.set_memval(
+                iaddr, address.add_offset(buffersize - 1), SV.simZero)
             result = address
 
         elif a0.is_symbol:
             a0 = cast(SSV.SimSymbol, a0)
-            base = 'strdup_' + iaddr
+            site = "strdup_" + iaddr
+            base = site + ":" + str(self.sitecounter(site))
             contents = a0.name + '_duplicate'
             buffersize = len(contents) + 1
             address = SSV.mk_base_address(base, 0, buffersize=buffersize)
@@ -4628,7 +4637,8 @@ class MIPStub_strdup(MIPSimStub):
             result = address
         else:
             a0str = self.get_arg_string(iaddr, simstate, 'a0')
-            base = 'strdup_' + iaddr
+            site = "strdup_" + iaddr
+            base = site + ":" + str(self.sitecounter(site))
             address = SSV.mk_base_address(base, 0, buffersize=len(a0str))
             for i in range(0, len(a0str)):
                 simstate.set_memval(
@@ -4643,14 +4653,32 @@ class MIPStub_strdup(MIPSimStub):
 
 
 class MIPStub_strerror(MIPSimStub):
+    """char *strerror(int errnum);
+
+    Return a pointer to the generated message string. The application shall not
+    modify the string returned. The returned string pointer might be invalidated
+    or the string content might be overwritten by a subsequent call to strerror.
+    """
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, 'strerror')
+        MIPSimStub.__init__(self, "strerror")
+        self._sitecounters: Dict[str, int] = {}
+
+    @property
+    def sitecounters(self) -> Dict[str, int]:
+        return self._sitecounters
+
+    def sitecounter(self, site) -> int:
+        self.sitecounters.setdefault(site, 0)
+        self.sitecounters[site] += 1
+        return self.sitecounters[site]
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        rval = SSV.mk_string_address('strerror-' + str(a0))
-        simstate.set_register(iaddr, 'v0', rval)
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        site = "strerror_" + iaddr
+        base = site + ":" + str(self.sitecounter(site))
+        rval = SSV.mk_string_address(base, "strerror-" + str(a0))
+        simstate.set_register(iaddr, "v0", rval)
         return self.add_logmsg(iaddr, simstate, str(a0))
 
 
@@ -4769,22 +4797,7 @@ class MIPStub_strncpy(MIPSimStub):
             + str(a2)
             + ")")
 
-        if a1.is_string_address:
-            a1 = cast(SSV.SimStringAddress, a1)
-            if len(a1str) < count:
-                for i in range(0, len(a1str)):
-                    srcval = SV.mk_simcharvalue(a1str[i])
-                    tgtaddr = dstaddr.add_offset(i)
-                    simstate.set_memval(iaddr, tgtaddr, srcval)
-                simstate.set_memval(
-                    iaddr, dstaddr.add_offset(len(a1str)), SV.simZerobyte)
-            else:
-                for i in range(0, count):
-                    srcval = SV.mk_simcharvalue(a1str[i])
-                    tgtaddr = dstaddr.add_offset(i)
-                    simstate.set_memval(iaddr, tgtaddr, srcval)
-
-        elif a1.is_address:
+        if a1.is_address:
             a1 = cast(SSV.SimAddress, a1)
             for i in range(0, count):
                 srcaddr = a1.add_offset(i)
@@ -4805,26 +4818,24 @@ class MIPStub_strncpy(MIPSimStub):
 
 
 class MIPStub_strrchr(MIPSimStub):
+    """char *strrchr(const char *s, int c);
+
+    Locate the last occurrence of c in the string pointed to by s and return
+    a pointer to the byte or a null pointer if c does not occur in the string.
+    """
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, 'strrchr')
+        MIPSimStub.__init__(self, "strrchr")
 
     def is_string_operation(self) -> bool:
         return True
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a0str = self.get_arg_string(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        if a0.is_string_address and a1.is_literal and a1.is_defined:
-            a0 = cast(SSV.SimStringAddress, a0)
-            a1 = cast(SV.SimLiteralValue, a1)
-            if not (chr(a1.value) in a0str):
-                returnval: SV.SimValue = SV.simZero
-            else:
-                index = a0str.rfind(str(chr(a1.value)))
-                returnval = SSV.mk_string_address(a0.stringval[index:])
-        elif a0.is_address and a1.is_literal and a1.is_defined:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+
+        if a0.is_address and a1.is_literal and a1.is_defined:
             a0 = cast(SSV.SimAddress, a0)
             a1 = cast(SV.SimLiteralValue, a1)
             i = len(a0str)
@@ -4832,7 +4843,6 @@ class MIPStub_strrchr(MIPSimStub):
                 c = simstate.memval(iaddr, a0.add_offset(i), 1)
                 if c.is_literal and c.is_defined:
                     c = cast(SV.SimLiteralValue, c)
-                    print(str(i) + ": " + str(c) + " vs " + str(a1.value))
                     if c.value == a1.value:
                         break
                     else:
@@ -4840,7 +4850,7 @@ class MIPStub_strrchr(MIPSimStub):
                 else:
                     break
             if i >= 0:
-                returnval = a0.add_offset(i)
+                returnval: SV.SimValue = a0.add_offset(i)
             else:
                 returnval = SV.simZero
         else:
@@ -4904,25 +4914,33 @@ class MIPStub_strsep(MIPSimStub):
                 simstate.set_memval(iaddr, a0, SV.simZero)
 
         a1ordstr = '{' + ','.join(str(ord(c)) for c in a1str) + '}'
-        pargs = str(a0) + ':&' + a0derefstr + ',' + str(a1) + ':' + a1str + a1ordstr
+        pargs = (
+            str(a0) + ':&' + a0derefstr + ',' + str(a1) + ':' + a1str + a1ordstr)
         simstate.set_register(iaddr, 'v0', a0)
         return self.add_logmsg(iaddr, simstate, pargs)
 
 
 class MIPStub_strstr(MIPSimStub):
+    """char *strstr(const char *s1, const char *s2);
+
+    Locate the first occurrence in the string pointed to by s1 of the sequence
+    of bytes in the string pointed to by s2. Return a pointer to the located
+    string or a null pointer if the string is not found.
+    """
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, 'strstr')
+        MIPSimStub.__init__(self, "strstr")
 
     def is_string_operation(self) -> bool:
         return True
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        a0str = self.get_arg_string(iaddr, simstate, 'a0')
-        a1str = self.get_arg_string(iaddr, simstate, 'a1')
-        pargs = ','.join(str(a) + ':' + s for (a, s) in [(a0, a0str), (a1, a1str)])
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
+        pargs = (
+            ",".join(str(a) + ":" + s for (a, s) in [(a0, a0str), (a1, a1str)]))
 
         if a0.is_undefined or a1.is_undefined:
             raise SU.CHBSimError(
@@ -4934,8 +4952,6 @@ class MIPStub_strstr(MIPSimStub):
             addr: SV.SimValue = cast(SV.SimValue, a0)
         elif a0.is_literal:
             addr = simstate.resolve_literal_address(iaddr, a0.literal_value)
-        elif a0.is_string_address:
-            addr = cast(SV.SimValue, a0)
 
         else:
             raise SU.CHBSimError(
@@ -4951,13 +4967,8 @@ class MIPStub_strstr(MIPSimStub):
 
         index = a0str.find(a1str)
         if index >= 0:
-            if a0.is_string_address:
-                result: SV.SimValue = SSV.mk_string_address(a0str[index:])
-
-            else:
-                saddr = cast(SSV.SimAddress, addr)
-                result = saddr.add_offset(index)
-
+            saddr = cast(SSV.SimAddress, addr)
+            result: SV.SimValue = saddr.add_offset(index)
         else:
             result = SV.simZero
         simstate.set_register(iaddr, "v0", result)
@@ -4986,40 +4997,65 @@ class MIPStub_strtof(MIPSimStub):
 
 
 class MIPStub_strtok(MIPSimStub):
+    """char *strtok(char *restrict s, const char *restrict sep);
+
+    A sequence of calls breaks the string pointed to be s into a sequence of
+    tokens, each of which is delimited by a byte from the string pointed to by
+    sep. The first call in the sequence has s as its first argument and is
+    followd by calls with a null pointer as their first argument.
+    """
 
     def __init__(self) -> None:
         MIPSimStub.__init__(self, 'strtok')
-        self.state: Optional[str] = None
+        self._state: Optional[SSV.SimStringAddress] = None
+
+    @property
+    def state(self) -> SSV.SimStringAddress:
+        if self._state is not None:
+            return self._state
+        else:
+            raise UF.CHBError("strtok state has not been set")
+
+    def has_state(self) -> bool:
+        return self._state is not None
+
+    def set_state(self, tgtstring: str) -> SSV.SimStringAddress:
+        saddr = SSV.mk_string_address("strtok", tgtstring)
+        self._state = saddr
+        return saddr
 
     def is_string_operation(self) -> bool:
         return True
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        a1str = self.get_arg_string(iaddr, simstate, 'a1')
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
         if a0.is_literal and a0.is_defined:
             a0 = cast(SV.SimLiteralValue, a0)
             if a0.value == 0:
-                pargs = str(a0) + ',' + str(a1) + ':' + a1str
-                a0str = self.state
+                pargs = str(a0) + "," + str(a1) + ":" + a1str
+                if self.has_state():
+                    saddr = self.state
+                else:
+                    raise SU.CHBSimError(
+                        simstate, iaddr, "strtok state has not been set")
             else:
-                a0str = self.get_arg_string(iaddr, simstate, 'a0')
-                pargs = str(a0) + ':' + a0str + ',' + str(a1) + ':' + a1str
+                a0str = self.get_arg_string(iaddr, simstate, "a0")
+                saddr = self.set_state(a0str)
+                pargs = str(a0) + ":" + a0str + "," + str(a1) + ":" + a1str
         else:
             raise SU.CHBSimError(
                 simstate, iaddr, "Undefined value in strtok: " + str(a0))
-        if a0str:
-            index = a0str.find(a1str)
-            if index > 0:
-                result: SV.SimValue = SSV.mk_string_address(a0str[index:])
-                self.state = a0str[index+1:]
-            else:
-                result = a0
-                self.state = None
+        tgtstring = simstate.get_string_from_memaddr(iaddr, saddr)
+        index = tgtstring.find(a1str)
+        if index > 0:
+            result: SV.SimValue = saddr.add_offset(index)
+            self._state = cast(SSV.SimStringAddress, result)
         else:
             result = SV.simZero
-        simstate.set_register(iaddr, 'v0', result)
+            self._state = None
+        simstate.set_register(iaddr, "v0", result)
         return self.add_logmsg(iaddr, simstate, pargs)
 
 
@@ -5085,7 +5121,8 @@ class MIPStub_strtok_r(MIPSimStub):
             result = self.get_arg_deref_val(iaddr, simstate, 'a2')
             if result.is_address:
                 result = cast(SSV.SimAddress, result)
-                simstate.set_memval(iaddr, result.add_offset(minpos), SV.SimByteValue(0))
+                simstate.set_memval(
+                    iaddr, result.add_offset(minpos), SV.SimByteValue(0))
                 simstate.set_memval(iaddr, a2, result.add_offset(minpos+1))
             else:
                 simstate.add_logmsg(iaddr, "strtok: result is not an address")
@@ -5606,16 +5643,28 @@ class MIPStub_config_get(MIPSimStub):
 
     def __init__(self) -> None:
         MIPSimStub.__init__(self, "config_get")
+        self._sitecounters: Dict[str, int] = {}
+
+    @property
+    def sitecounters(self) -> Dict[str, int]:
+        return self._sitecounters
+
+    def sitecounter(self, site) -> int:
+        self.sitecounters.setdefault(site, 0)
+        self.sitecounters[site] += 1
+        return self.sitecounters[site]
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         a0 = self.get_arg_val(iaddr, simstate, "a0")
         a0str = self.get_arg_string(iaddr, simstate, "a0")
+        site = "config_get_" + iaddr
+        base = site + ":" + str(self.sitecounter(site))
         if simstate.simsupport.configvalues.config_has(a0str):
             configval = simstate.simsupport.configvalues.config_get(a0str)
-            result: SV.SimValue = SSV.mk_string_address(configval)
+            result: SV.SimValue = SSV.mk_string_address(base, configval)
             configmsg = "retrieved: " + str(result) + " for " + a0str
         else:
-            result = SSV.mk_string_address("")
+            result = SSV.mk_string_address(base, "")
             configmsg = "no config value found for " + a0str
         simstate.set_register(iaddr, "v0", result)
         simstate.add_logmsg("config", configmsg)

@@ -169,6 +169,7 @@ class MIPSBranchEqual(MIPSOpcode):
             else:
                 result = SV.simfalse
 
+        # Note: this condition may be too strong for string addresses
         elif src1val.is_address and src2val.is_address:
             src1val = cast(SSV.SimAddress, src1val)
             src2val = cast(SSV.SimAddress, src2val)
@@ -192,25 +193,11 @@ class MIPSBranchEqual(MIPSOpcode):
             else:
                 result = SV.simUndefinedBool
 
-        elif src1val.is_string_address and src2val.is_literal:
-            if src2val.literal_value == 0:
-                result = SV.simfalse
-            else:
-                result = SV.simUndefinedBool
-
         elif src1val.is_dynamic_link_symbol and src2val.is_literal:
             if src2val.literal_value == 0:
                 result = SV.simfalse
             else:
                 result = SV.simUndefinedBool
-
-        elif src1val.is_string_address and src2val.is_string_address:
-            s1 = cast(SSV.SimStringAddress, src1val)
-            s2 = cast(SSV.SimStringAddress, src2val)
-            if s1.stringval == s2.stringval:
-                result = SV.simtrue
-            else:
-                result = SV.simfalse
 
         else:
             result = SV.simUndefinedBool
