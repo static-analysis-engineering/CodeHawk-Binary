@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -62,6 +62,7 @@ class AnalysisManager(object):
             elf: bool = False,
             mips: bool = False,
             arm: bool = False,
+            power: bool = False,
             thumb: bool = False,
             ifilenames: List[str] = [],
             fns_no_lineq: List[str] = [],
@@ -86,6 +87,7 @@ class AnalysisManager(object):
         self.elf = elf
         self.mips = mips
         self.arm = arm
+        self.power = power
         self.thumb = thumb
         self.hints = hints
         self.ifilenames = ifilenames
@@ -125,6 +127,8 @@ class AnalysisManager(object):
             cmd.append("-mips")
         if self.arm:
             cmd.append("-arm")
+        if self.power:
+            cmd.append("-power")
         if self.elf:
             cmd.append("-elf")
         if verbose:
@@ -184,6 +188,8 @@ class AnalysisManager(object):
             cmd.append("-mips")
         if self.arm:
             cmd.append("-arm")
+        if self.power:
+            cmd.append("-power")
         if self.elf:
             cmd.append("-elf")
         if verbose:

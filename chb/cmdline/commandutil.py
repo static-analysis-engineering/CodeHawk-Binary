@@ -79,6 +79,8 @@ from chb.mips.MIPSCfgPath import MIPSCfgPath
 from chb.mips.MIPSFunction import MIPSFunction
 from chb.mips.MIPSInstruction import MIPSInstruction
 
+from chb.power.PowerAccess import PowerAccess
+
 import chb.cmdline.XInfo as XI
 import chb.graphics.DotCfg as DC
 from chb.graphics.DotCallgraph import DotCallgraph
@@ -151,6 +153,8 @@ def get_app(path: str, xfile: str, xinfo: XI.XInfo) -> AppAccess:
         return MIPSAccess(path, xfile, fileformat=format)
     elif arch == "arm":
         return ARMAccess(path, xfile, fileformat=format)
+    elif arch == "powerpc":
+        return PowerAccess(path, xfile, fileformat=format)
     else:
         raise UF.CHBError("Archicture " + arch + " not yet supported")
 
@@ -307,6 +311,7 @@ def prepare_executable(
 
         # check architecture and file format
         if not (xinfo.is_x86
+                or xinfo.is_powerpc
                 or xinfo.is_mips
                 or xinfo.is_arm):
             raise UF.CHBError("Architecture "
@@ -329,6 +334,7 @@ def prepare_executable(
             xinfo.size,
             mips=xinfo.is_mips,
             arm=xinfo.is_arm,
+            power=xinfo.is_powerpc,
             elf=xinfo.is_elf)
 
         print("Extracting executable content into xml ...")
@@ -421,6 +427,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         xinfo.size,
         mips=xinfo.is_mips,
         arm=xinfo.is_arm,
+        power=xinfo.is_powerpc,
         elf=xinfo.is_elf,
         deps=deps,
         so_libraries=so_libraries,

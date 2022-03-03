@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -57,6 +57,8 @@ def get_architecture(ftype: str) -> str:
         return "x86"
     if "x86-64" in ftype:
         return "x64"
+    if "PowerPC" in ftype:
+        return "powerpc"
     return "?"
 
 
@@ -125,6 +127,10 @@ class XInfo:
     @property
     def is_x86(self) -> bool:
         return self.architecture == "x86"
+
+    @property
+    def is_powerpc(self) -> bool:
+        return self.architecture == "powerpc"
 
     @property
     def is_elf(self) -> bool:
