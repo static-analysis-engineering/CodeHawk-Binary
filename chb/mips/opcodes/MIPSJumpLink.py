@@ -196,9 +196,7 @@ class MIPSJumpLink(MIPSOpcode):
                     argindex = arg.argument_index()
                     funarg = astree.function_argument(argindex)
                     if funarg:
-                        astxpr = astree.mk_register_variable_expr(
-                            funarg.name, vtype=funarg.typ, parameter=argindex)
-                        argxprs.append(astxpr)
+                        argxprs.append(astree.mk_lval_expr(funarg))
                     else:
                         astxpr = XU.xxpr_to_ast_expr(arg, astree)
                         argxprs.append(astxpr)

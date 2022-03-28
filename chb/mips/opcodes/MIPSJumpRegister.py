@@ -219,9 +219,7 @@ class MIPSJumpRegister(MIPSOpcode):
                     argindex = arg.argument_index()
                     funarg = astree.function_argument(argindex)
                     if funarg:
-                        astxpr = astree.mk_register_variable_expr(
-                            funarg.name, vtype=funarg.typ, parameter=argindex)
-                        argxprs.append(astxpr)
+                        argxprs.append(astree.mk_lval_expr(funarg))
                     else:
                         astxpr = XU.xxpr_to_ast_expr(arg, astree)
                         argxprs.append(astxpr)
@@ -300,7 +298,11 @@ class MIPSJumpRegister(MIPSOpcode):
             return "goto " + str(gaddr)
 
         elif srcval.is_literal:
-            gaddr = simstate.resolve_literal_address(iaddr, srcval.literal_value)
+            try:
+                gaddr = simstate.resolve_literal_address(iaddr, srcval.literal_value)
+            except SU.CHBSimError as e:
+                gaddr = SSV.mk_global_address(srcval.literal_value, "external")
+
             if gaddr.is_defined:
                 simstate.simprogramcounter.set_delayed_programcounter(gaddr)
                 return "goto " + str(gaddr)

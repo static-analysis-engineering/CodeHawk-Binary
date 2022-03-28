@@ -107,6 +107,7 @@ def stubbed_libc_functions() -> Dict[str, "MIPSimStub"]:
         "fopen64": MIPStub_fopen64(),
         "fork": MIPStub_fork(),
         "fprintf": MIPStub_fprintf(),
+        "fputc": MIPStub_fputc(),
         "fputs": MIPStub_fputs(),
         "fread": MIPStub_fread(),
         "free": MIPStub_free(),
@@ -131,6 +132,7 @@ def stubbed_libc_functions() -> Dict[str, "MIPSimStub"]:
         "getsockname": MIPStub_getsockname(),
         "gettimeofday": MIPStub_gettimeofday(),
         "getuid": MIPStub_getuid(),
+        "gmtime": MIPStub_gmtime(),
         "index": MIPStub_index(),
         "inet_addr": MIPStub_inet_addr(),
         "inet_aton": MIPStub_inet_aton(),
@@ -181,6 +183,8 @@ def stubbed_libc_functions() -> Dict[str, "MIPSimStub"]:
         "reboot": MIPStub_reboot(),
         "recv": MIPStub_recv(),
         "recvfrom": MIPStub_recvfrom(),
+        "remove": MIPStub_remove(),
+        "rename": MIPStub_rename(),
         "rt_sigaction": MIPStub_sigaction(name="rt_sigaction"),
         "sched_get_priority_max": MIPStub_sched_get_priority_max(),
         "sched_get_priority_min": MIPStub_sched_get_priority_max(),
@@ -221,7 +225,9 @@ def stubbed_libc_functions() -> Dict[str, "MIPSimStub"]:
         "strcpy": MIPStub_strcpy(),
         "strdup": MIPStub_strdup(),
         "strerror": MIPStub_strerror(),
+        "strftime": MIPStub_strftime(),
         "stristr": MIPStub_stristr(),
+        "strlcpy": MIPStub_strlcpy(),
         "strlen": MIPStub_strlen(),
         "strncasecmp": MIPStub_strncasecmp(),
         "strncat": MIPStub_strncat(),
@@ -256,7 +262,9 @@ def stubbed_libc_functions() -> Dict[str, "MIPSimStub"]:
         "config_get": MIPStub_config_get(),  # libconfig.so
         "config_set": MIPStub_config_set(),  # libconfig.so
         "config_match": MIPStub_config_match(),  # libconfig.so
-        "config_invmatch": MIPStub_config_invmatch()  # libconfig.so
+        "config_invmatch": MIPStub_config_invmatch(),  # libconfig.so
+        "config_unset": MIPStub_config_unset(),  # libconfig.so
+        "init_libconfig": MIPStub_init_libconfig(),  # libconfig.so
     }
 
 
@@ -381,7 +389,8 @@ class MIPSimStub(SimStub):
             if sp.is_stack_address:
                 sp = cast(SSV.SimStackAddress, sp)
                 stackaddr = sp.add_offset(4 * argindex)
-                return self.get_string_at_address(iaddr, simstate, stackaddr)
+                stringaddr = simstate.memval(iaddr, stackaddr, 4)
+                return self.get_string_at_address(iaddr, simstate, stringaddr)
         return "******stack-address-not-defined*******"
 
     def get_nth_arg_string(
@@ -1307,40 +1316,55 @@ class MIPStub_fgets(MIPSimStub):
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         """Inputs tainted characters."""
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        a2 = self.get_arg_val(iaddr, simstate, 'a2')
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a2 = self.get_arg_val(iaddr, simstate, "a2")
 
-        pargs = str(a0) + ',' + str(a1) + ',' + str(a2)
-        simstate.set_register(iaddr, 'v0', a0)
+        pargs = str(a0) + "," + str(a1) + "," + str(a2)
+        simstate.set_register(iaddr, "v0", a0)
         if not a0.is_address:
             return self.add_logmsg(iaddr, simstate, pargs)
-
         a0 = cast(SSV.SimAddress, a0)
+
+        if a1.is_literal and a1.is_defined:
+            a1 = cast(SV.SimLiteralValue, a1)
+        else:
+            return self.add_logmsg(iaddr, simstate, pargs)
+
+        bytes = simstate.simsupport.read_filepointer_input(iaddr, a2, a1.value)
+        if len(bytes) > 0:
+            for i in range(0, len(bytes)):
+                srcval = SV.SimByteValue(bytes[i])
+                tgtaddr = a0.add_offset(i)
+                simstate.set_memval(iaddr, tgtaddr, srcval)
+            simstate.set_memval(
+                iaddr, a0.add_offset(len(bytes)), SV.SimByteValue(0))
+            return self.add_logmsg(iaddr, simstate, pargs)
+
         if a2.is_symbolic:
             a2 = cast(SSV.SimSymbol, a2)
             if a2.is_file_pointer:
                 a2 = cast(SSV.SimSymbolicFilePointer, a2)
-                if a1.is_literal and a1.is_defined:
-                    a1 = cast(SV.SimLiteralValue, a1)
-                    for i in range(0, a1.value - 1):
-                        c = a2.fp.read(1)
-                        if c == '':
-                            if i == 0:
-                                simstate.set_register(iaddr, 'v0', SV.simZero)
-                                break
-                            srcval = SV.SimByteValue(255)
-                            tgtaddr = a0.add_offset(i)
-                            simstate.set_memval(iaddr, tgtaddr, srcval)
+                i = 0
+                while i < a1.value - 1:
+                    c = a2.fp.read(1)
+                    if c == '':
+                        if i == 0:
+                            simstate.set_register(iaddr, 'v0', SV.simZero)
                             break
-                        else:
-                            srcval = SV.SimByteValue(ord(c))
-                            tgtaddr = a0.add_offset(i)
-                            simstate.set_memval(iaddr, tgtaddr, srcval)
-                    simstate.set_memval(
-                        iaddr, a0.add_offset(a1.value - 1), SV.SimByteValue(0))
-        elif a1.is_literal and a1.is_defined:
-            a1 = cast(SV.SimLiteralValue, a1)
+                        srcval = SV.SimByteValue(255)
+                        tgtaddr = a0.add_offset(i)
+                        simstate.set_memval(iaddr, tgtaddr, srcval)
+                        break
+                    else:
+                        srcval = SV.SimByteValue(ord(c))
+                        tgtaddr = a0.add_offset(i)
+                        simstate.set_memval(iaddr, tgtaddr, srcval)
+                        i += 1
+                simstate.set_memval(
+                    iaddr, a0.add_offset(a1.value - 1), SV.SimByteValue(0))
+
+        else:
             for i in range(0, a1.value - 1):
                 srcval = SV.SimByteValue(ord("t"))
                 tgtaddr = a0.add_offset(i)
@@ -1349,6 +1373,36 @@ class MIPStub_fgets(MIPSimStub):
                 iaddr, a0.add_offset(a1.value - 1), SV.SimByteValue(0))
 
         return self.add_logmsg(iaddr, simstate, pargs)
+
+
+class MIPStub_fputc(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "fputc")
+
+    def is_io_operation(self) -> bool:
+        return True
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")  # int c
+        a1 = self.get_arg_val(iaddr, simstate, "a1")  # FILE *stream
+        pargs = str(a0) + ", " + str(a1)
+        if simstate.simsupport.file_operations_enabled:
+            if a0.is_literal and a1.is_file_pointer:
+                a0 = cast(SV.SimLiteralValue, a0)
+                a1 = cast(SSV.SimSymbolicFilePointer, a1)
+                print("fputc: write to " + str(a1) + ": " + str(a0))
+                a1.fp.write(str(a0.value))
+                returnval = a0
+            else:
+                simstate.add_logmsg(
+                    "warning",
+                    self.name + ": " + str(a1) + " is not a file-pointer")
+                returnval = SV.mk_simvalue(-1)
+        else:
+            returnval = SV.mk_simvalue(-1)
+        simstate.set_register(iaddr, "v0", returnval)
+        return self.add_logmsg(iaddr, simstate, pargs, returnval=str(returnval))
 
 
 class MIPStub_fputs(MIPSimStub):
@@ -2246,6 +2300,35 @@ class MIPStub_getuid(MIPSimStub):
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         simstate.set_register(iaddr, 'v0', SV.simOne)
         return self.add_logmsg(iaddr, simstate, '')
+
+
+class MIPStub_gmtime(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "gmtime")
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        base = "gmtime_"
+        address = SSV.mk_base_address(base, 0, buffersize=36)
+        t = time.gmtime()
+        print("time: " + str(t))
+
+        def set_tm(off, tmval):
+            simstate.set_memval(
+                iaddr, address.add_offset(off), SV.mk_simvalue(tmval))
+
+        set_tm(0, t.tm_sec)
+        set_tm(4, t.tm_min)
+        set_tm(8, t.tm_hour)
+        set_tm(12, t.tm_mday)
+        set_tm(16, t.tm_mon)
+        set_tm(20, t.tm_year)
+        set_tm(24, t.tm_wday)
+        set_tm(28, t.tm_yday)
+        set_tm(32, t.tm_isdst)
+        simstate.set_register(iaddr, "v0", address)
+        return self.add_logmsg(iaddr, simstate, str(a0))
 
 
 class MIPStub_index(MIPSimStub):
@@ -3802,6 +3885,41 @@ class MIPStub_recvfrom(MIPSimStub):
             return self.add_logmsg(iaddr, simstate, pargs, returnval='-1')
 
 
+class MIPStub_remove(MIPSimStub):
+    """Removes a file."""
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "remove")
+
+    def is_io_operation(self) -> bool:
+        return True
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        pargs = str(a0) + ":" + a0str
+        simstate.set_register(iaddr, "v0", SV.simZero)
+        return self.add_logmsg(iaddr, simstate, pargs, returnval="0")
+
+
+class MIPStub_rename(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "rename")
+
+    def is_io_operation(self) -> bool:
+        return True
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
+        pargs = str(a0) + ":" + a0str + ", " + str(a1) + ":" + a1str
+        simstate.set_register(iaddr, "v0", SV.simZero)
+        return self.add_logmsg(iaddr, simstate, pargs, returnval="0")
+
+
 class MIPStub_sched_get_priority_max(MIPSimStub):
 
     def __init__(self) -> None:
@@ -4231,7 +4349,7 @@ class MIPStub_sprintf(MIPSimStub):
         (printstring, varargs) = self.substitute_formatstring(iaddr, simstate, 1)
         self.write_string_to_buffer(iaddr, simstate, printstring)
         simstate.set_register(iaddr, "v0", SV.mk_simvalue(len(printstring)))
-        pargs = ', '.join([str(a0), a1str] + varargs)
+        pargs = ", ".join([str(a0), a1str] + varargs) + " -> " + printstring
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(len(printstring)))
 
 
@@ -4682,6 +4800,24 @@ class MIPStub_strerror(MIPSimStub):
         return self.add_logmsg(iaddr, simstate, str(a0))
 
 
+class MIPStub_strftime(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "strftime")
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a2 = self.get_arg_val(iaddr, simstate, "a2")
+        a2str = self.get_arg_string(iaddr, simstate, "a2")
+        a3 = self.get_arg_val(iaddr, simstate, "a3")
+
+        pargs = str(a0) + ", " + str(a1) + ", " + str(a2) + ":" + a2str + ", " + str(a3)
+        result = SV.mk_simvalue(len(a2str))
+        simstate.set_register(iaddr, "v0", result)
+        return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
+
+
 class MIPStub_stristr(MIPSimStub):
 
     def __init__(self) -> None:
@@ -4705,6 +4841,87 @@ class MIPStub_stristr(MIPSimStub):
         simstate.set_register(iaddr, 'v0', result)
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
 
+
+class MIPStub_strlcpy(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "strlcpy")
+
+    def is_string_operation(self) -> bool:
+        return True
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a1 = self.get_arg_val(iaddr, simstate, "a1")
+        a2 = self.get_arg_val(iaddr, simstate, "a2")
+        parglist = [str(a) for a in [a0, a1, a2]]
+
+        if a0.is_undefined or a1.is_undefined or a2.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "strlcpy: some arguments are undefined ("
+                + ", ".join(parglist)
+                + ")")
+
+        if a0.is_address:
+            dstaddr = cast(SSV.SimAddress, a0)
+
+        elif a0.is_literal:
+            dstaddr = simstate.resolve_literal_address(iaddr, a0.literal_value)
+            if dstaddr.is_undefined:
+                raise SU.CHBSimError(
+                    simstate,
+                    iaddr,
+                    "strlcpy: invalid destination address: " + str(a0))
+
+        else:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "strlcpy: destination address not recognized: " + str(a0))
+
+        if a2.is_literal:
+            count = a2.literal_value
+        else:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "strlcpy: size is not valid: " + str(a2))
+
+        a1str = self.get_arg_string(iaddr, simstate, "a1")
+        pargs = (
+            str(dstaddr)
+            + ", "
+            + a1str
+            + ", "
+            + str(a2)
+            + ")")
+
+        if a1.is_address:
+            a1 = cast(SSV.SimAddress, a1)
+            for i in range(0, count - 1):
+                srcaddr = a1.add_offset(i)
+                srcval = cast(
+                    SV.SimByteValue, simstate.memval(iaddr, srcaddr, 1))
+                tgtaddr = dstaddr.add_offset(i)
+                simstate.set_memval(iaddr, tgtaddr, srcval)
+                if srcval.value == 0:
+                    break
+            else:
+                # strlcpy always null-terminates
+                tgtaddr = dstaddr.add_offset(count - 1)
+                simstate.set_memval(iaddr, tgtaddr, SV.simZero)
+        else:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "strlcpy: invalid source address: " + str(a1))
+
+        # return value is the length of the string it tries to create
+        a1_len = SV.mk_simvalue(len(a1str))
+        simstate.set_register(iaddr, "v0", a1_len)
+        return self.add_logmsg(iaddr, simstate, pargs)
 
 class MIPStub_strlen(MIPSimStub):
 
@@ -4999,10 +5216,16 @@ class MIPStub_strtof(MIPSimStub):
 class MIPStub_strtok(MIPSimStub):
     """char *strtok(char *restrict s, const char *restrict sep);
 
-    A sequence of calls breaks the string pointed to be s into a sequence of
+    A sequence of calls breaks the string pointed to by s into a sequence of
     tokens, each of which is delimited by a byte from the string pointed to by
     sep. The first call in the sequence has s as its first argument and is
-    followd by calls with a null pointer as their first argument.
+    followed by calls with a null pointer as their first argument.
+
+    The first call in the sequence searches the string pointed to by s for the
+    first byte that is not contained in the current separator string pointed
+    to by sep. If no such byte is found, then there are no tokens in the string
+    pointed to by s and strtok() shall return a null pointer. If such a byte is
+    found, it is the start of the first token.
     """
 
     def __init__(self) -> None:
@@ -5019,10 +5242,25 @@ class MIPStub_strtok(MIPSimStub):
     def has_state(self) -> bool:
         return self._state is not None
 
-    def set_state(self, tgtstring: str) -> SSV.SimStringAddress:
-        saddr = SSV.mk_string_address("strtok", tgtstring)
+    def set_state(
+            self,
+            iaddr: str,
+            simstate: "SimulationState",
+            tgtstring: str) -> SSV.SimStringAddress:
+        saddr = SSV.mk_string_address("strtok:" + tgtstring, tgtstring)
         self._state = saddr
         return saddr
+
+    def update_state(
+            self,
+            iaddr: str,
+            simstate: "SimulationState",
+            index: int) -> None:
+        if self._state is None:
+            return
+        sepaddress = self._state.add_offset(index)
+        simstate.set_memval(iaddr, sepaddress, SV.simZerobyte)
+        self._state = self._state.add_offset(index + 1)
 
     def is_string_operation(self) -> bool:
         return True
@@ -5031,29 +5269,43 @@ class MIPStub_strtok(MIPSimStub):
         a0 = self.get_arg_val(iaddr, simstate, "a0")
         a1 = self.get_arg_val(iaddr, simstate, "a1")
         a1str = self.get_arg_string(iaddr, simstate, "a1")
-        if a0.is_literal and a0.is_defined:
+
+        result: SV.SimValue = SV.simZero
+
+        if a0.is_address:
+            a0str = self.get_arg_string(iaddr, simstate, "a0")
+            if a0str == "":
+                result = SV.simZero
+            else:
+                result = cast(SV.SimValue, self.set_state(iaddr, simstate, a0str))
+            pargs = str(a0) + ":" + a0str + "," + str(a1) + ":" + a1str
+
+        elif a0.is_literal and a0.is_defined:
             a0 = cast(SV.SimLiteralValue, a0)
             if a0.value == 0:
                 pargs = str(a0) + "," + str(a1) + ":" + a1str
                 if self.has_state():
-                    saddr = self.state
+                    result = cast(SV.SimValue, self.state)
                 else:
-                    raise SU.CHBSimError(
-                        simstate, iaddr, "strtok state has not been set")
+                    pass
             else:
                 a0str = self.get_arg_string(iaddr, simstate, "a0")
-                saddr = self.set_state(a0str)
+                result = cast(SV.SimValue, self.set_state(iaddr, simstate, a0str))
                 pargs = str(a0) + ":" + a0str + "," + str(a1) + ":" + a1str
         else:
             raise SU.CHBSimError(
                 simstate, iaddr, "Undefined value in strtok: " + str(a0))
-        tgtstring = simstate.get_string_from_memaddr(iaddr, saddr)
+
+        if self.has_state():
+            tgtstring = simstate.get_string_from_memaddr(iaddr, self.state)
+        else:
+            tgtstring = ""
+
+        # find separator (assume single-character separator for now)
         index = tgtstring.find(a1str)
         if index > 0:
-            result: SV.SimValue = saddr.add_offset(index)
-            self._state = cast(SSV.SimStringAddress, result)
+            self.update_state(iaddr, simstate, index)
         else:
-            result = SV.simZero
             self._state = None
         simstate.set_register(iaddr, "v0", result)
         return self.add_logmsg(iaddr, simstate, pargs)
@@ -5710,9 +5962,10 @@ class MIPStub_config_match(MIPSimStub):
                 configmsg = "no match for " + a0str + " with " + a1str
                 resultval = SV.simZero
         else:
-            resultval = SV.simZero
+            resultval = SV.simOne
             configmsg = "config key " + a0str + " not found"
         pargs = str(a0) + ":" + a0str + ", " + str(a1) + ":" + a1str
+        simstate.set_register(iaddr, "v0", resultval)
         simstate.add_logmsg("config", configmsg)
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(resultval))
 
@@ -5737,8 +5990,33 @@ class MIPStub_config_invmatch(MIPSimStub):
                 configmsg = "no inverse match for " + a1str + " with " + a0str
                 resultval = SV.simZero
         else:
-            resultval = SV.simZero
+            resultval = SV.simOne
             configmsg = "config key " + a1str + " not found"
         pargs = str(a0) + ":" + a0str + ", " + str(a1) + ":" + a1str
         simstate.add_logmsg("config", configmsg)
+        simstate.set_register(iaddr, "v0", resultval)
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(resultval))
+
+
+class MIPStub_config_unset(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "config_unset")
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        a0 = self.get_arg_val(iaddr, simstate, "a0")
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        pargs = str(a0) + ":" + a0str
+        simstate.set_register(iaddr, "v0", SV.simZero)
+        return self.add_logmsg(iaddr, simstate, pargs)
+
+
+class MIPStub_init_libconfig(MIPSimStub):
+
+    def __init__(self) -> None:
+        MIPSimStub.__init__(self, "init_libconfig")
+
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        simstate.add_logmsg("config", "init_libconfig()")
+        simstate.set_register(iaddr, "v0", SV.simZero)
+        return self.add_logmsg(iaddr, simstate, "", returnval="0")
