@@ -309,6 +309,20 @@ class ELFHeader:
                     self, self.sectionheaders[index], xsection)
         return self._sections
 
+    def get_sectionheader_by_name(self, name: str) -> Optional[ELFSectionHeader]:
+        for h in self.sectionheaders:
+            if h.name == name:
+                return h
+        else:
+            return None
+
+    def get_section_start_address(self, name: str) -> Optional[str]:
+        h = self.get_sectionheader_by_name(name)
+        if h is not None:
+            return h.vaddr
+        else:
+            return None
+
     def get_memory_value(self, index: int, addr: int) -> int:
         if index in self.sections:
             return self.sections[index].get_byte_value(addr)
