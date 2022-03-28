@@ -194,9 +194,7 @@ class MIPSJumpLinkRegister(MIPSOpcode):
                     argindex = arg.argument_index()
                     funarg = astree.function_argument(argindex)
                     if funarg:
-                        astxpr = astree.mk_register_variable_expr(
-                            funarg.name, vtype=funarg.typ, parameter=argindex)
-                        argxprs.append(astxpr)
+                        argxprs.append(astree.mk_lval_expr(funarg))
                     else:
                         astxpr = XU.xxpr_to_ast_expr(arg, astree)
                         argxprs.append(astxpr)
@@ -258,7 +256,11 @@ class MIPSJumpLinkRegister(MIPSOpcode):
 
         # check if literal could be an address
         elif tgtval.is_literal:
-            tgtaddr = simstate.resolve_literal_address(iaddr, tgtval.literal_value)
+            try:
+                tgtaddr = simstate.resolve_literal_address(iaddr, tgtval.literal_value)
+            except SU.CHBSimError as e:
+                tgtaddr = SSV.mk_global_address(tgtval.literal_value, "external")
+
             if tgtaddr.is_undefined:
                 raise SU.CHBSimError(
                     simstate,
