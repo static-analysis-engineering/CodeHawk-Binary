@@ -90,7 +90,7 @@ class SimBaseMemory(SimMemory):
         try:
             memval = SimMemory.get(self, iaddr, address, size)
         except SU.CHBSimError as e:
-            print("Error in basemem: " + str(e))
+            print("Error in basemem with address: " + str(address) + " (" + str(e) + ")")
             name = (self.name
                     + '['
                     + str(address.offsetvalue)
@@ -171,7 +171,7 @@ class SimStringMemory(SimBaseMemory):
 
         offset = address.offsetvalue
         self.simstate.add_logmsg(
-            "stringmem:" + self.base + "@" + iaddr,
+            "stringmem:" + self.base + " at " + iaddr,
             "modifying constant string: " + self.original_string)
         if (
                 srcval.is_literal
@@ -182,10 +182,18 @@ class SimStringMemory(SimBaseMemory):
                 self._strval = (
                     self._strval[:offset] + newchar + self._strval[offset + 1:])
                 SimBaseMemory.set(self, iaddr, address, srcval)
+                self.simstate.add_logmsg(
+                    "stringmem:" + self.base + " at " + iaddr,
+                    "new value: "
+                    + self.simstate.get_string_from_memaddr(
+                        iaddr, address.add_offset(1))
+                    + "; original value: "
+                    + self.simstate.get_string_from_memaddr(
+                        iaddr, SSV.mk_base_address(self.base)))
                 self._strval = None
             else:
                 self.simstate.add_logmsg(
-                    "stringmem:" + self.base + "@" + iaddr,
+                    "stringmem:" + self.base + " at " + iaddr,
                     "attempt to write beyond the limits of a constant string")
         else:
             SimBaseMemory.set(self, iaddr, address, srcval)

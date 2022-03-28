@@ -24,6 +24,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Note: When using a user-defined SimSupport module via import, the filename
+is to be given without extension, and the directory where the file resides must
+be added to the PYTHONPATH.
+"""
 
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING, Union
 
@@ -113,7 +117,7 @@ class ConfigurationValues:
 
     def config_match(self, key: str, value: str) -> bool:
         if key in self.values:
-            return self.values[key] == value
+            return self.values[key] <= value
         else:
             raise UF.CHBError("No configuration value found for " + key)
 
@@ -290,6 +294,14 @@ class SimSupport:
             buffer: SSV.SimAddress,
             buffersize: int) -> List[int]:
         """Return bytes that are read in at a read call at this address."""
+        return []
+
+    def read_filepointer_input(
+            self,
+            iaddr: str,
+            filepointer: SV.SimValue,
+            buffersize: int) -> List[int]:
+        """Return bytes that are read in at an fgets call at this address."""
         return []
 
     def supplemental_library_stubs(self) -> Dict[str, str]:
