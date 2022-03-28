@@ -71,12 +71,29 @@ if TYPE_CHECKING:
 
 prefer_stubs = [
     "access",
+    "atoi",
+    "calloc",
     "cdbg_printf",
     "chdir",
     "close",
+    "exit",
+    "fclose",
     "fflush",
+    "fgets",
+    "fopen",
+    "fprintf",
+    "fputc",
+    "fputs",
+    "free",
+    "fscanf",
+    "fwrite",
     "get_current_dir_name",
     "getenv",
+    "getopt_long",
+    "gmtime",
+    "inet_addr",
+    "inet_aton",
+    "ioctl",
     "malloc",
     "mallopt",
     "memcpy",
@@ -86,16 +103,30 @@ prefer_stubs = [
     "printf",
     "putenv",
     "realloc",
+    "remove",
+    "rename",
     "setsid",
     "shmat",
     "shmget",
     "sigaction",
+    "snprintf",
+    "socket",
+    "sprintf",
+    "stat",
+    "strcasecmp",
     "strcmp",
     "strcpy",
+    "strftime",
+    "strlcpy",
     "strlen",
+    "strncasecmp",
     "strncpy",
     "strstr",
+    "strtok",
+    "system",
     "tcsetattr",
+    "time",
+    "unlink",
     "unsetenv"]
 
 
@@ -659,18 +690,21 @@ class SimulationState:
     def resolve_literal_address(
             self, iaddr: str,
             addrvalue: int) -> SSV.SimGlobalAddress:
-        addr = self.modulestates[self.modulename].resolve_literal_address(
-            iaddr, addrvalue)
+        if self.modulename in self.modulestates:
+            addr = self.modulestates[self.modulename].resolve_literal_address(
+                iaddr, addrvalue)
+        else:
+            addr = SSV.mk_undefined_global_address(self.modulename)
+
         if addr.is_defined:
             return addr
-        # elif addrvalue == 2:
-        #    return SFU.sim_openfile("sim_stderr", "w")
 
         else:
             for shmid in self.sharedmem:
                 if self.sharedmem[shmid].has_address(addrvalue):
                     addr = SSV.mk_global_address(addrvalue, "shared:" + str(shmid))
                     return addr
+
             else:
                 raise SU.CHBSimError(
                     self,

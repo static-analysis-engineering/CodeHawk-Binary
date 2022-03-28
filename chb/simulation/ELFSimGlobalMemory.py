@@ -100,11 +100,15 @@ class ELFSimGlobalMemory(SimMemory):
                 result = SFU.sim_openfile("/stderr", "w")
                 result = cast(SV.SimValue, result)
             elif glbval == "p_stdin":
-                result = SFU.sim_openfile("stdin", "r")
-                result = cast(SV.SimValue, result)
+                result = SFU.sim_openfile("/fstdin", "r")
+                base = SSV.mk_base_address("base_stdin", offset=0, buffersize=4)
+                self.simstate.set_memval("0x0", base, result)
+                result = cast(SV.SimValue, base)
             elif glbval == "p_stdout":
-                result = SFU.sim_openfile("stdout", "r")
-                result = cast(SV.SimValue, result)
+                result = SFU.sim_openfile("/fstdout", "w")
+                base = SSV.mk_base_address("base_stdout", offset=0, buffersize=4)
+                self.simstate.set_memval("0x0", base, result)
+                result = cast(SV.SimValue, base)
             else:
                 result = cast(SV.SimValue, SV.mk_simvalue(int(glbval, 16)))
             return result
