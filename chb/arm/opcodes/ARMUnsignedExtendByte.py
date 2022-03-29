@@ -37,6 +37,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
+import chb.invariants.XXprUtil as XU
+
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
@@ -91,6 +93,7 @@ class ARMUnsignedExtendByte(ARMOpcode):
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        rhs = XU.xxpr_to_ast_expr(xdata.xprs[2], astree)
         assign = astree.mk_assign(lhs, rhs)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs

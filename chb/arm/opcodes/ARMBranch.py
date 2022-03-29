@@ -115,7 +115,7 @@ class ARMBranch(ARMOpcode):
             args = ", ".join(str(x) for x in self.arguments(xdata))
             return "call " + str(tgt) + "(" + args + ")"
         elif xdata.has_branch_conditions():
-            return "if " + str(xdata.xprs[0]) + " then goto " + str(xdata.xprs[2])
+            return "if " + str(xdata.xprs[0]) + " then goto " + str(xdata.xprs[4])
         elif self.tags[1] in ["a", "unc"]:
             return "goto " + str(xdata.xprs[0])
         else:
@@ -222,9 +222,7 @@ class ARMBranch(ARMOpcode):
                     argindex = arg.argument_index()
                     funarg = astree.function_argument(argindex)
                     if funarg:
-                        astxpr = astree.mk_register_variable_expr(
-                            funarg.name, vtype=funarg.typ, parameter=argindex)
-                        argxprs.append(astxpr)
+                        argxprs.append(astree.mk_lval_expr(funarg))
                     else:
                         argxprs.append(astree.mk_register_variable_expr(reg))
                 else:

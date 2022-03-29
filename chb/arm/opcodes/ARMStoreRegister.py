@@ -121,6 +121,9 @@ class ARMStoreRegister(ARMOpcode):
         # (rhs, _, _) = self.operands[0].ast_rvalue(astree)
         rhs = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
         lhs = xdata.vars[0]
+        if str(lhs).startswith("?"):
+            return self.assembly_ast(astree, iaddr, bytestring, xdata)
+
         lval = XU.xvariable_to_ast_lval(lhs, astree)
         assign = astree.mk_assign(lval, rhs)
         astree.add_instruction_span(assign.id, iaddr, bytestring)

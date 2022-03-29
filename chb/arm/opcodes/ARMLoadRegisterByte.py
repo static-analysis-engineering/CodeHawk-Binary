@@ -108,9 +108,12 @@ class ARMLoadRegisterByte(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        rhslval = XU.xvariable_to_ast_lval(xdata.vars[1], astree)
-        rhs = astree.mk_lval_expr(rhslval)
+        preinstrs: List[AST.ASTInstruction] = []
+        postinstrs: List[AST.ASTInstruction] = []
+        rhsrval = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
+        if str(rhsrval).startswith("temp") or str(rhsrval).startswith("(temp"):
+            (rhsrval, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
         lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
-        assign = astree.mk_assign(lhs, rhs)
+        assign = astree.mk_assign(lhs, rhsrval)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return [assign]
+        return preinstrs + [assign] + postinstrs

@@ -216,9 +216,7 @@ class ARMBranchLinkExchange(ARMOpcode):
                     argindex = arg.argument_index()
                     funarg = astree.function_argument(argindex)
                     if funarg:
-                        astxpr = astree.mk_register_variable_expr(
-                            funarg.name, vtype=funarg.typ, parameter=argindex)
-                        argxprs.append(astxpr)
+                        argxprs.append(astree.mk_lval_expr(funarg))
                     else:
                         argxprs.append(astree.mk_register_variable_expr(reg))
                 else:

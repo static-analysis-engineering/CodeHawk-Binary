@@ -132,7 +132,11 @@ class ARMLoadRegister(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+        preinstrs: List[AST.ASTInstruction] = []
+        postinstrs: List[AST.ASTInstruction] = []
         rhs = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
+        if str(rhs).startswith("temp"):
+            (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
         lhs = astree.mk_register_variable_lval(str(xdata.vars[0]))
         assign = astree.mk_assign(lhs, rhs)
         astree.add_instruction_span(assign.id, iaddr, bytestring)

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -71,7 +71,7 @@ class ARMStoreRegisterHalfword(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [0, 2]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 3]]
 
     def is_store_instruction(self, xdata: InstrXData) -> bool:
         return True
@@ -95,7 +95,9 @@ class ARMStoreRegisterHalfword(ARMOpcode):
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         (lhs, preinstrs, postinstrs) = self.operands[1].ast_lvalue(astree)
+        mask = astree.mk_integer_constant((256 * 256) - 1)
         (rhs, _, _) = self.operands[0].ast_rvalue(astree)
+        rhs = astree.mk_binary_op("band", rhs, mask)
         assign = astree.mk_assign(lhs, rhs)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs
@@ -107,6 +109,9 @@ class ARMStoreRegisterHalfword(ARMOpcode):
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         (rhs, _, _) = self.operands[0].ast_rvalue(astree)
         lhs = xdata.vars[0]
+        if str(lhs) == "?":
+            return self.assembly_ast(astree, iaddr, bytestring, xdata)
+
         lval = XU.xvariable_to_ast_lval(lhs, astree)
         assign = astree.mk_assign(lval, rhs)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
