@@ -40,6 +40,34 @@ arm_registers = [
     "R9", "R10" "R11", "R12", "SP", "LR", "PC"]
 
 
+def get_arm_arg_loc(index: int) -> str:
+    if index < 4:
+        return "R" + str(index)
+    else:
+        return "stack:" + str(4 * (index - 4))
+
+
+def get_mips_arg_loc(index: int) -> str:
+    if index < 4:
+        return "a" + str(index)
+    else:
+        return "stack:" + str(16 + (4 * (index - 4)))
+
+
+def get_arg_loc(callingconvention: str, index: int) -> str:
+    """Return a string that denotes the location of a given function argument."""
+
+    if index < 0:
+        raise Exception(
+            "Argument index cannot be smaller than zero: " + str(index))
+    if callingconvention == "arm":
+        return get_arm_arg_loc(index)
+    elif callingconvention == "mips":
+        return get_mips_arg_loc(index)
+    else:
+        return "?"
+
+
 def storage_records(vinfos: Sequence["ASTVarInfo"]) -> List[Dict[str, str]]:
     result: List[Dict[str, str]] = []
     for vinfo in vinfos:

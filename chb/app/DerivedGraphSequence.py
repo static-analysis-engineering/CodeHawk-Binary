@@ -156,7 +156,15 @@ class GraphInterval:
             else:
                 return None
 
-        unresolved: List[str] = []
+        def is_descendant(child: str, parent: str) -> bool:
+            for i in self.post(parent):
+                if child == i:
+                    return True
+                if is_descendant(child, i):
+                    return True
+            return False
+
+        unresolved: Set[str] = set([])
 
         if len(self._twowayconditionals) == 0:
             for m in self.rpo_revsorted_nodes:
@@ -168,11 +176,15 @@ class GraphInterval:
                     follow = find_follow(m)
                     if follow is not None:
                         self._twowayconditionals[m] = follow
+                        toberemoved: List[str] = []
                         for k in unresolved:
-                            self._twowayconditionals[k] = follow
-                        unresolved = []
+                            if is_descendant(follow, k):
+                                self._twowayconditionals[k] = follow
+                                toberemoved.append(k)
+                        for k in toberemoved:
+                            unresolved.remove(k)
                     else:
-                        unresolved.append(m)
+                        unresolved.add(m)
 
         if len(unresolved) > 0:
             print("Unresolved two-way conditional: " + ", ".join(unresolved))

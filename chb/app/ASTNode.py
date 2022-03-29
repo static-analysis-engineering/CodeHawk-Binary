@@ -115,6 +115,7 @@ import copy
 from abc import ABC, abstractmethod
 from typing import (
     Any,
+    Callable,
     cast,
     Dict,
     List,
@@ -127,10 +128,10 @@ from typing import (
     TYPE_CHECKING,
     Union)
 
-from chb.app.ASTUtil import InstrUseDef, UseDef
+from chb.app.ASTUtil import InstrUseDef, UseDef, get_arg_loc
 
 if TYPE_CHECKING:
-    from chb.bctypes.BCTyp import BCTyp, BCTypFun, BCTypArray
+    from chb.bctypes.BCTyp import BCTyp, BCTypFun, BCTypArray, BCTypComp
 
 
 ASTNodeRecord = NewType(
@@ -144,7 +145,7 @@ operators = {
     "and": " && ",   # logical and
     "bor": " | ",    # bitwise or
     "bxor": " ^ ",   # bitwise xor
-    "asr": " >> ",   # arithmetic shift right
+    "asr": " >> ",   # arithmetic shift right; need to infer type as signed
     "band": " & ",   # bitwise and
     "div": " / ",    # integer division
     "eq": " == ",
@@ -153,7 +154,9 @@ operators = {
     "le": " <= ",
     "lor": " || ",   # logical or
     "lsl": " << ",   # logical shift left
+    "lsr": " >> ",   # logical shift right; need to infer type as unsigned
     "lt": " < ",
+    "mod": " % ", 
     "shiftlt": " << ",
     "minus": " - ",
     "mult": " * ",   # multiplication
@@ -198,6 +201,30 @@ class ASTNode:
     @property
     def tag(self) -> str:
         return self._tag
+
+    @property
+    def is_ast_stmt(self) -> bool:
+        return False
+
+    @property
+    def is_ast_lval(self) -> bool:
+        return False
+
+    @property
+    def is_ast_expr(self) -> bool:
+        return False
+
+    @property
+    def is_ast_offset(self) -> bool:
+        return False
+
+    @property
+    def is_ast_lhost(self) -> bool:
+        return False
+
+    @property
+    def is_ast_instruction(self) -> bool:
+        return False
 
     def transform_instr_subx(
             self,
@@ -248,6 +275,26 @@ class ASTStmt(ASTNode):
 
     def __init__(self, id: int, tag: str) -> None:
         ASTNode.__init__(self, id, tag)
+
+    @property
+    def is_ast_stmt(self) -> bool:
+        return True
+
+    @property
+    def is_ast_return(self) -> bool:
+        return False
+
+    @property
+    def is_ast_block(self) -> bool:
+        return False
+
+    @property
+    def is_ast_branch(self) -> bool:
+        return False
+
+    @property
+    def is_ast_instruction_sequence(self) -> bool:
+        return False
 
     def is_empty(self) -> bool:
         return False
@@ -305,6 +352,10 @@ class ASTReturn(ASTStmt):
     def __init__(self, id: int, expr: Optional["ASTExpr"]) -> None:
         ASTStmt.__init__(self, id, "return")
         self._expr = expr
+
+    @property
+    def is_ast_return(self) -> bool:
+        return True
 
     @property
     def expr(self) -> "ASTExpr":
@@ -399,6 +450,10 @@ class ASTBlock(ASTStmt):
     def __init__(self, id: int, stmts: List["ASTStmt"]) -> None:
         ASTStmt.__init__(self, id, "block")
         self._stmts = stmts
+
+    @property
+    def is_ast_block(self) -> bool:
+        return True
 
     @property
     def stmts(self) -> Sequence["ASTStmt"]:
@@ -511,6 +566,10 @@ class ASTInstrSequence(ASTStmt):
         self._aexp: Dict[int, List["ASTExpr"]] = {}
 
     @property
+    def is_ast_instruction_sequence(self) -> bool:
+        return True
+
+    @property
     def instructions(self) -> Sequence["ASTInstruction"]:
         return self._instrs
 
@@ -621,6 +680,10 @@ class ASTBranch(ASTStmt):
         self._ifstmt = ifstmt
         self._elsestmt = elsestmt
         self._relative_offset = relative_offset
+
+    @property
+    def is_ast_branch(self) -> bool:
+        return True
 
     @property
     def ifstmt(self) -> "ASTStmt":
@@ -753,6 +816,18 @@ class ASTInstruction(ASTNode, ABC):
     def __init__(self, id: int, tag: str) -> None:
         ASTNode.__init__(self, id, tag)
 
+    @property
+    def is_ast_instruction(self) -> bool:
+        return True
+
+    @property
+    def is_ast_assign(self) -> bool:
+        return False
+
+    @property
+    def is_ast_call(self) -> bool:
+        return False
+
     @abstractmethod
     def define(self) -> str:
         ...
@@ -801,6 +876,10 @@ class ASTAssign(ASTInstruction):
         ASTInstruction.__init__(self, id, "assign")
         self._lhs = lhs
         self._rhs = rhs
+
+    @property
+    def is_ast_assign(self) -> bool:
+        return True
 
     @property
     def lhs(self) -> "ASTLval":
@@ -878,6 +957,8 @@ class ASTAssign(ASTInstruction):
             return True
         elif self.lhs.has_altname():
             return True
+        elif str(self.lhs).startswith("rtn_"):
+            return True
         elif self.id in live_x:
             return str(self.lhs) in live_x[self.id]
         else:
@@ -901,7 +982,8 @@ class ASTAssign(ASTInstruction):
             + self.lhs.to_c_like()
             + " = "
             + self.rhs.to_c_like()
-            + ";")
+            + ";"
+            + " // " + str(self.id))
         return default
 
     def to_string(self, sp: int = 0) -> str:
@@ -931,6 +1013,10 @@ class ASTCall(ASTInstruction):
         self._lhs = lhs
         self._tgt = tgt
         self._args = args
+
+    @property
+    def is_ast_call(self) -> bool:
+        return True
 
     @property
     def lhs(self) -> "ASTLval":
@@ -1036,7 +1122,7 @@ class ASTCall(ASTInstruction):
             self.tgt.to_c_like()
             + "("
             + ", ".join(str(a.to_c_like()) for a in self.arguments)
-            + ");")
+            + ");  // " + str(self.id))
         if self.lhs.id == -1:
             return indent + calltgt
         else:
@@ -1068,6 +1154,10 @@ class ASTLval(ASTNode):
         ASTNode.__init__(self, id, "lval")
         self._lhost = lhost
         self._offset = offset
+
+    @property
+    def is_ast_lval(self) -> bool:
+        return True
 
     @property
     def is_ignored(self) -> bool:
@@ -1115,7 +1205,9 @@ class ASTLval(ASTNode):
         return self.lhost.use() + self.offset.use()
 
     def transform_subx(self, usedefs_e: UseDef) -> "ASTLval":
-        return self
+        xlhost = self.lhost.transform_subx(usedefs_e)
+        xoffset = self.offset.transform_subx(usedefs_e)
+        return ASTLval(self.id, xlhost, xoffset)
 
     def reduce(
             self,
@@ -1143,9 +1235,9 @@ class ASTLval(ASTNode):
         return result
 
     def to_c_like(self, sp: int = 0) -> str:
-        if self.offset.id == -1:
-            return self.lhost.to_c_like()
-        elif self.lhost.is_memref:
+        # if self.offset.id == -1:
+        #   return self.lhost.to_c_like()
+        if self.lhost.is_memref:
             memexp = cast("ASTMemRef", self.lhost).memexp
             if self.offset.is_field_offset:
                 fieldname = cast("ASTFieldOffset", self.offset).fieldname
@@ -1174,6 +1266,10 @@ class ASTLHost(ASTNode):
 
     def __init__(self, id: int, tag: str) -> None:
         ASTNode.__init__(self, id, tag)
+
+    @property
+    def is_ast_lhost(self) -> bool:
+        return True
 
     @property
     def is_ignored(self) -> bool:
@@ -1227,13 +1323,15 @@ class ASTVarInfo(ASTNode):
             vtype: Optional["BCTyp"],
             altname: Optional[str],
             parameter: Optional[int],
-            globaladdress: Optional[int]) -> None:
+            globaladdress: Optional[int],
+            arrayindex: Optional[int] = None) -> None:
         ASTNode.__init__(self, id, "varinfo")
         self._vname = vname
         self._vtype = vtype
         self._altname = altname
         self._parameter = parameter
         self._globaladdress = globaladdress
+        self._arrayindex = arrayindex
 
     @property
     def is_ignored(self) -> bool:
@@ -1250,6 +1348,12 @@ class ASTVarInfo(ASTNode):
     @property
     def altname(self) -> Optional[str]:
         return self._altname
+
+    @property
+    def arrayindex(self) -> Optional[int]:
+        """Return the starting array index (for arrays packed into one variable)."""
+
+        return self._arrayindex
 
     def has_altname(self) -> bool:
         return self.altname is not None
@@ -1340,6 +1444,131 @@ class ASTVarInfo(ASTNode):
             return self.altname
         else:
             return self.vname
+
+
+class ASTFormalVarInfo(ASTVarInfo):
+    """Represents a formal parameter of a function in C source view.
+
+    The parameter index refers to the source view index (zero-based).
+    The arglocs field holds the locations where the argument to the
+    function are stored upon function entry. In most cases this will
+    be a single location (register or stack). C, however, allows struct
+    arguments, which may be distributed over multiple argument locations.
+    To adequately represent this case, offsets are added that represent
+    which field is in which argument location. If the struct includes
+    arrays (possibly packed arrays of e.g., chars), the starting index
+    of these arrays is represented as well.
+
+    The argindex refers to the actual argument index in the binary
+    (zero-based).
+
+    The arglocs (argument locations) is a list of tuples consisting of:
+    - the location (represented as a string, e.g., 'R0', or 'stack:16')
+    - the offset, if this argument is a field in a struct (default NoOffset)
+    - the starting index, if this is an array broken up into multiple parts
+      (default 0)
+    """
+
+    def __init__(
+            self,
+            id: int,
+            vname: str,
+            vtype: Optional["BCTyp"],
+            parameter: int,
+            argindex: int) -> None:
+        ASTVarInfo.__init__(
+            self, id, vname, vtype, None, parameter, None, None)
+        self._argindex = argindex
+        self._arglocs: List[Tuple[str, "ASTOffset", int]] = []
+
+    @property
+    def arglocs(self) -> List[Tuple[str, "ASTOffset", int]]:
+        return self._arglocs
+
+    def argloc(self, index: int) -> Tuple[str, "ASTOffset", int]:
+        if len(self.arglocs) > index:
+            return self.arglocs[index]
+        else:
+            raise Exception(
+                "Formal " + self.vname + ": illegal index: " + str(index))
+
+    @property
+    def numargs(self) -> int:
+        return len(self.arglocs)
+
+    @property
+    def argindex(self) -> int:
+        return self._argindex
+
+    def initialize(self, new_id: Callable[[], int], callingconvention: str) -> int:
+        argtype = self.vtype
+        if argtype is not None:
+            if callingconvention == "arm":
+                return self._initialize_arm_arguments(new_id, argtype)
+            elif callingconvention == "mips":
+                return self._initialize_mips_arguments(new_id, argtype)
+            else:
+                raise Exception(
+                    "Calling convention " + str(callingconvention) + " not recognized")
+        else:
+            raise Exception(
+                "Formal parameter has no type")
+
+    def _initialize_arm_arguments(self, new_id: Callable[[], int], argtype: "BCTyp") -> int:
+        """Set up arguments according to the standard ARM ABI.
+
+        The default calling convention for ARM:
+        - the first four arguments are passed in R0, R1, R2, R3
+        - subsequent arguments are passed on the stack starting at offset 0
+        """
+        if argtype.is_scalar:
+            argloc = get_arg_loc("arm", self.argindex)
+            self._arglocs.append((argloc, ASTNoOffset(-1), 0))
+            return self.argindex + 1
+        elif argtype.is_struct:
+            structtyp = cast("BCTypComp", argtype)
+            fieldoffsets = structtyp.compinfo.fieldoffsets()
+            fieldcounter = 0
+            for (offset, finfo) in fieldoffsets:
+                if finfo.fieldname.startswith("__"):
+                    continue    # padding field for alignment
+                if finfo.byte_size() <= 4:
+                    argloc = get_arg_loc("arm", self.argindex + fieldcounter)
+                    fieldcounter += 1
+                    fieldoffset = ASTFieldOffset(
+                        new_id(),
+                        finfo.fieldname,
+                        finfo.fieldtype,
+                        ASTNoOffset(-1))
+                    self._arglocs.append((argloc, fieldoffset, 0))
+                else:
+                    if finfo.fieldtype.is_array:
+                        atype = cast("BCTypArray", finfo.fieldtype)
+                        if (
+                                atype.has_constant_size()
+                                and atype.tgttyp.byte_size() == 1):
+                            # assume array element are packed
+                            argcount = atype.byte_size() // 4
+                            for i in range(0, argcount):
+                                argloc = get_arg_loc("arm", self.argindex + fieldcounter)
+                                fieldcounter += 1
+                                fieldoffset = ASTFieldOffset(
+                                    new_id(), finfo.fieldname, finfo.fieldtype, ASTNoOffset(-1))
+                                self._arglocs.append((argloc, fieldoffset, i * 4))
+            return self.argindex + fieldcounter
+        else:
+            return 0
+
+    def _initialize_mips_arguments(sefl, new_id: Callable[[], int], argtype: "BCTyp") -> int:
+        return 0
+
+    def __str__(self) -> str:
+        if len(self.arglocs) == 1:
+            p_arglocs = self.arglocs[0][0]
+        else:
+            p_arglocs = ", ".join(
+                str(loc) + ": " + str(offset) for (loc, offset, _) in self.arglocs)
+        return ASTVarInfo.__str__(self) + " (" + p_arglocs + ")"
 
 
 class ASTVariable(ASTLHost):
@@ -1466,6 +1695,10 @@ class ASTMemRef(ASTLHost):
         result.extend(self.memexp.serialize())
         return result
 
+    def transform_subx(self, usedefs_e: UseDef) -> "ASTMemRef":
+        xmemexp = self.memexp.transform_subx(usedefs_e)
+        return ASTMemRef(self.id, xmemexp)
+
     def reduce(
             self,
             mapping: Dict[int, int],
@@ -1493,6 +1726,10 @@ class ASTOffset(ASTNode):
         ASTNode.__init__(self, id, tag)
 
     @property
+    def is_ast_offset(self) -> bool:
+        return True
+
+    @property
     def is_field_offset(self) -> bool:
         return False
 
@@ -1515,6 +1752,9 @@ class ASTOffset(ASTNode):
 
     def variables_used(self) -> Set[str]:
         return set([])
+
+    def transform_subx(self, usedefs_e: UseDef) -> "ASTOffset":
+        return self
 
     def reduce(
             self,
@@ -1696,6 +1936,42 @@ class ASTExpr(ASTNode):
         ASTNode.__init__(self, id, tag)
 
     @property
+    def is_ast_expr(self) -> bool:
+        return True
+
+    @property
+    def is_ast_constant(self) -> bool:
+        return False
+
+    @property
+    def is_ast_lval_expr(self) -> bool:
+        return False
+
+    @property
+    def is_ast_substituted_expr(self) -> bool:
+        return False
+
+    @property
+    def is_ast_cast_expr(self) -> bool:
+        return False
+
+    @property
+    def is_ast_unary_op(self) -> bool:
+        return False
+
+    @property
+    def is_ast_binary_op(self) -> bool:
+        return False
+
+    @property
+    def is_ast_question(self) -> bool:
+        return False
+
+    @property
+    def is_ast_addressof(self) -> bool:
+        return False
+
+    @property
     def is_integer_constant(self) -> bool:
         return False
 
@@ -1731,6 +2007,10 @@ class ASTConstant(ASTExpr):
 
     def __init__(self, id: int, tag: str) -> None:
         ASTExpr.__init__(self, id, tag)
+
+    @property
+    def is_ast_constant(self) -> bool:
+        return True
 
     def use(self) -> List[str]:
         return []
@@ -1850,6 +2130,10 @@ class ASTLvalExpr(ASTExpr):
         self._lval = lval
 
     @property
+    def is_ast_lval_expr(self) -> bool:
+        return True
+
+    @property
     def lval(self) -> "ASTLval":
         return self._lval
 
@@ -1879,7 +2163,8 @@ class ASTLvalExpr(ASTExpr):
             else:
                 return ASTSubstitutedExpr(self.id, self.lval, assign_id, expr)
         else:
-            return self
+            xlval = self.lval.transform_subx(usedefs_e)
+            return ASTLvalExpr(self.id, xlval)
 
     def reduce(
             self,
@@ -1919,6 +2204,10 @@ class ASTSubstitutedExpr(ASTLvalExpr):
         ASTLvalExpr.__init__(self, id, lval, tag="substituted-expr")
         self._assign_id = assign_id
         self._expr = expr
+
+    @property
+    def is_ast_substituted_expr(self) -> bool:
+        return True
 
     @property
     def assign_id(self) -> int:
@@ -1973,10 +2262,79 @@ class ASTSubstitutedExpr(ASTLvalExpr):
         result: List[ASTNodeRecord] = []
         result.append(self.noderecord())
         result.extend(self.lval.serialize())
+        result.extend(self.substituted_expr.serialize())
         return result
 
     def to_c_like(self, sp: int = 0) -> str:
         return self.substituted_expr.to_c_like()
+
+    def __str__(self) -> str:
+        return str(self.substituted_expr)
+
+
+class ASTCastE(ASTExpr):
+
+    def __init__(self, id: int, tgttyp: str, exp: "ASTExpr") -> None:
+        ASTExpr.__init__(self, id, "cast-expr")
+        self._tgttyp = tgttyp
+        self._exp = exp
+
+    @property
+    def is_ast_cast_expr(self) -> bool:
+        return True
+
+    @property
+    def tgttyp(self) -> str:
+        return self._tgttyp
+
+    @property
+    def exp(self) -> "ASTExpr":
+        return self._exp
+
+    def address_taken(self) -> Set[str]:
+        return self.exp.address_taken()
+
+    def variables_used(self) -> Set[str]:
+        return self.exp.variables_used()
+
+    def use(self) -> List[str]:
+        return self.exp.use()
+
+    def noderecord(self) -> ASTNodeRecord:
+        result = ASTNode.noderecord(self)
+        result["args"] = [self.exp.id]
+        result["type"] = self.tgttyp
+        return result
+
+    def serialize(self) -> List[ASTNodeRecord]:
+        result: List[ASTNodeRecord] = []
+        result.append(self.noderecord())
+        result.extend(self.exp.serialize())
+        return result
+
+    def transform_subx(self, usedefs_e: UseDef) -> "ASTCastE":
+        xform_exp = self.exp.transform_subx(usedefs_e)
+        return ASTCastE(self.id, self.tgttyp, xform_exp)
+
+    def reduce(
+            self,
+            mapping: Dict[int, int],
+            live_x: Mapping[int, Set[str]] = {},
+            macronames: Mapping[int, str] = {}) -> "ASTCastE":
+        return ASTCastE(
+            self.id, self.tgttyp, self.exp.reduce(mapping, live_x, macronames))
+
+    def to_c_like(self, sp: int = 0) -> str:
+        return "(" + str(self.tgttyp) + ")" + self.exp.to_c_like()
+
+    def to_string(self, sp: int = 0) -> str:
+        lines: List[str] = []
+        lines.append(ASTNode.to_string(self, sp))
+        lines.append(self.exp.to_string(sp + 2))
+        return "\n".join(lines)
+
+    def __str__(self) -> str:
+        return "((" + str(self.tgttyp) + ")" + str(self.exp) + ")"
 
 
 class ASTUnaryOp(ASTExpr):
@@ -1985,6 +2343,10 @@ class ASTUnaryOp(ASTExpr):
         ASTExpr.__init__(self, id, "unary-op")
         self._op = op
         self._exp = exp
+
+    @property
+    def is_ast_unary_op(self) -> bool:
+        return True
 
     @property
     def op(self) -> str:
@@ -2048,6 +2410,10 @@ class ASTBinaryOp(ASTExpr):
         self._op = op
         self._exp1 = exp1
         self._exp2 = exp2
+
+    @property
+    def is_ast_binary_op(self) -> bool:
+        return True
 
     @property
     def op(self) -> str:
@@ -2156,6 +2522,10 @@ class ASTQuestion(ASTExpr):
         self._exp1 = exp1
         self._exp2 = exp2
         self._exp3 = exp3
+
+    @property
+    def is_ast_question(self) -> bool:
+        return True
 
     @property
     def exp1(self) -> "ASTExpr":
