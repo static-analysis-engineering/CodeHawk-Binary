@@ -65,7 +65,7 @@ type arm_operand_kind_t =
   | ARMFPConstant of float                            "c"       2            0
 """
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 
@@ -82,7 +82,7 @@ if TYPE_CHECKING:
     from chb.app.ARMExtensionRegister import ARMExtensionRegister
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMMemoryOffset import ARMMemoryOffset
-    from chb.arm.ARMShiftRotate import ARMShiftRotate
+    from chb.arm.ARMShiftRotate import ARMShiftRotate, ARMImmSRT
     from chb.arm.ARMSIMD import ARMSIMDWriteback, ARMSIMDListElement
 
 
@@ -329,6 +329,43 @@ class ARMShiftedRegisterOp(ARMOperandKind):
     def shift_rotate(self) -> "ARMShiftRotate":
         return self.armd.arm_register_shift(self.args[0])
 
+    def ast_lvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        raise UF.CHBError(
+            "AST lvalue unexpected for shifted register " + str(self))
+
+    def ast_rvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        srt = self.shift_rotate
+        rvar = astree.mk_register_variable_expr(self.register)
+        if srt.is_imm_srt:
+            srt = cast("ARMImmSRT", srt)
+            shiftamount = srt.shift_amount
+            if shiftamount == 0:
+                return (rvar, [], [])
+            else:
+                shiftoperand = astree.mk_integer_constant(shiftamount)
+                if srt.is_shift_left:
+                    xpr = astree.mk_binary_op("lsl", rvar, shiftoperand)
+                elif srt.is_logical_shift_right:
+                    xpr = astree.mk_binary_op("lsr", rvar, shiftoperand)
+                elif srt.is_arithmetic_shift_right:
+                    xpr = astree.mk_binary_op("asr", rvar, shiftoperand)
+                else:
+                    raise UF.CHBError(
+                        "Shifted register operand "
+                        + str(self)
+                        + " not yet supported")
+        else:
+            raise UF.CHBError(
+                "Shifted register operand " + str(self) + " not yet supported")
+
+        return (xpr, [], [])
+
     def __str__(self) -> str:
         srt = str(self.shift_rotate)
         if srt == "":
@@ -362,7 +399,42 @@ class ARMRegBitSequenceOp(ARMOperandKind):
 
     @property
     def width(self) -> int:
-        return self.args[1]
+        return self.args[1] + 1
+
+    def ast_lvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        raise UF.CHBError(
+            "AST lvalue unexpected for bit sequende operand " + str(self))
+
+    def ast_rvalue(
+            self,
+            astree: AbstractSyntaxTree) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        """
+        from: https://stackoverflow.com/questions/8366625/arm-bit-field-extract
+
+        dest = (src >> lsb) & ((1 << width) - 1);
+        """
+        rvar = astree.mk_register_variable_expr(self.register)
+        width = self.width
+        lsb = self.lsb
+        if width == 8:
+            mask = astree.mk_integer_constant(255)
+            if lsb == 0:
+                xpr = astree.mk_binary_op("and", rvar, mask)
+            else:
+                shiftamount = astree.mk_integer_constant(lsb)
+                xprsub = astree.mk_binary_op("lsr", rvar, shiftamount)
+                xpr = astree.mk_binary_op("band", xprsub, mask)
+        else:
+            raise UF.CHBError(
+                "Bit sequence operator for width "
+                + str(width)
+                + " not yet supported")
+
+        return (xpr, [], [])
 
     def __str__(self) -> str:
         return self.register + ", #" + str(self.lsb) + ", #" + str(self.width)

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -66,6 +66,38 @@ class ARMShiftRotate(ARMDictionaryRecord):
             ixval: IndexedTableValue) -> None:
         ARMDictionaryRecord.__init__(self, d, ixval)
 
+    @property
+    def is_imm_srt(self) -> bool:
+        return False
+
+    @property
+    def is_reg_srt(self) -> bool:
+        return False
+
+    @property
+    def shift_rotate_type(self) -> str:
+        return self.tags[1]
+
+    @property
+    def is_shift_left(self) -> bool:
+        return self.shift_rotate_type == "LSL"
+
+    @property
+    def is_logical_shift_right(self) -> bool:
+        return self.shift_rotate_type == "LSR"
+
+    @property
+    def is_arithmetic_shift_right(self) -> bool:
+        return self.shift_rotate_type == "ASR"
+
+    @property
+    def is_rotate_right(self) -> bool:
+        return self.shift_rotate_type == "ROR"
+
+    @property
+    def is_rotate_right_extend(self) -> bool:
+        return self.shift_rotate_type == "RRX"
+
     def __str__(self) -> str:
         return "shift-rotate: " + self.tags[0]
 
@@ -85,8 +117,8 @@ class ARMImmSRT(ARMShiftRotate):
         ARMShiftRotate.__init__(self, d, ixval)
 
     @property
-    def shift_rotate_type(self) -> str:
-        return self.tags[1]
+    def is_imm_srt(self) -> bool:
+        return True
 
     @property
     def shift_amount(self) -> int:
@@ -116,8 +148,8 @@ class ARMRegSRT(ARMShiftRotate):
         ARMShiftRotate.__init__(self, d, ixval)
 
     @property
-    def shift_rotate_type(self) -> str:
-        return self.tags[1]
+    def is_reg_srt(self) -> bool:
+        return True
 
     @property
     def register(self) -> str:

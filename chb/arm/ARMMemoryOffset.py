@@ -38,7 +38,7 @@ type arm_memory_offset_t =
       * int
 """
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, TYPE_CHECKING
 
 from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.app.ASTNode as AST
@@ -51,7 +51,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
-    from chb.arm.ARMShiftRotate import ARMShiftRotate
+    from chb.arm.ARMShiftRotate import ARMShiftRotate, ARMImmSRT
 
 
 class ARMMemoryOffset(ARMDictionaryRecord):
@@ -157,6 +157,17 @@ class ARMShiftedIndexOffset(ARMMemoryOffset):
     @property
     def is_shifted_index(self) -> bool:
         return True
+
+    def ast_rvalue(self, astree: AbstractSyntaxTree) -> AST.ASTExpr:
+        srt = self.shift_rotate
+        if srt.is_imm_srt and srt.is_shift_left:
+            srt = cast("ARMImmSRT", srt)
+            rxpr = astree.mk_register_variable_expr(self.register)
+            scale = astree.mk_integer_constant(srt.shift_amount)
+            return astree.mk_binary_op("lsl", rxpr, scale)
+        else:
+            raise UF.CHBError(
+                "shifted-index-offset not yet supported for " + str(self))
 
     def __str__(self) -> str:
         srt = str(self.shift_rotate)
