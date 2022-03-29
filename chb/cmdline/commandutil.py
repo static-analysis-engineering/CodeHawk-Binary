@@ -63,6 +63,8 @@ from chb.app.Assembly import Assembly
 from chb.app.ASTNode import ASTStmt, ASTExpr, ASTVariable
 from chb.app.Callgraph import CallgraphNode
 
+import chb.app.ASTDeserializer as D
+
 from chb.arm.ARMAccess import ARMAccess
 from chb.arm.ARMAssembly import ARMAssembly
 
@@ -1090,12 +1092,15 @@ def showast(args: argparse.Namespace) -> NoReturn:
             revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
             revfunctionnames = userhints.rev_function_names()
 
+            print("Architecture: " + str(xinfo.architecture))
+
             astree = AbstractSyntaxTree(
                 faddr,
                 fname,
                 variablenames=variablenames,
                 symbolicaddrs=symbolicaddrs,
-                ignore_return_value=ignore_return_value)
+                ignore_return_value=ignore_return_value,
+                callingconvention=xinfo.architecture)
             gvars: List[ASTVariable] = []
 
             if app.bcfiles.has_functiondef(fname):
@@ -1221,6 +1226,8 @@ def showast(args: argparse.Namespace) -> NoReturn:
             mapping: Dict[int, int] = {}
             astreduced = ast.reduce(mapping, instr_live_x, macronames)
 
+            astreduced = astree.rewrite_stmt(astreduced)
+
             revmapping: Dict[int, List[int]] = {}
             for (i, j) in mapping.items():
                 revmapping.setdefault(j, [])
@@ -1262,6 +1269,17 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 jsonfilenames[fname] = xfile + "_" + faddr + "_ast.json"
                 with open(jsonfilenames[fname], "w") as fp:
                     json.dump(ast_output, fp, indent=2)
+
+                if args.verbose:
+                    dastree = D.AbstractSyntaxTree(
+                        astfunction["lifted-ast"]["nodes"],
+                        astfunction["lifted-ast"]["startnode"],
+                        astfunction["available-expressions"])
+                    print("\nDeserialized lifted ast")
+                    print(str(dastree.to_c_like()))
+
+                    print("\nAvailable expressions for R5")
+                    print(dastree.var_available_expressions("R5"))
 
         else:
             print_error("Function " + faddr + " not found")
