@@ -202,3 +202,6 @@ class BCDictionary:
         else:
             raise UF.CHBError(
                 "Error reading stringtable " + self.string_table.name)
+        for ix in self.typeinfo_table.keys():
+            tinfo = self.typeinfo(ix)
+            self.typeinfo_names[tinfo.tname] = tinfo

@@ -46,10 +46,15 @@ class BCDictionaryRecord(IndexedTableValue):
             ixval: IndexedTableValue) -> None:
         IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
         self._bcd = bcd
+        self._ixval = ixval
 
     @property
     def bcd(self) -> "BCDictionary":
         return self._bcd
+
+    @property
+    def ixval(self) -> IndexedTableValue:
+        return self._ixval
 
     def serialize(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {}

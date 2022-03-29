@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, TYPE_CHECKING
 
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
 
@@ -34,7 +34,7 @@ import chb.util.IndexedTable as IT
 
 if TYPE_CHECKING:
     from chb.bctypes.BCDictionary import BCDictionary
-    from chb.bctypes.BCTyp import BCTyp
+    from chb.bctypes.BCTyp import BCTyp, BCTypComp, BCTypArray
 
 
 class BCFunArg(BCDictionaryRecord):
@@ -57,6 +57,27 @@ class BCFunArg(BCDictionaryRecord):
         return str(self.typ) + " " + self.name
 
 
+class BCStructFieldFunArg(BCFunArg):
+
+    def __init__(
+            self,
+            bcd: "BCDictionary",
+            ixval: IT.IndexedTableValue,
+            name: str,
+            typ: "BCTyp") -> None:
+        BCFunArg.__init__(self, bcd, ixval)
+        self._name = name
+        self._typ = typ
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def typ(self) -> "BCTyp":
+        return self._typ
+
+
 class BCFunArgs(BCDictionaryRecord):
 
     def __init__(
@@ -72,6 +93,14 @@ class BCFunArgs(BCDictionaryRecord):
     @property
     def argtypes(self) -> List["BCTyp"]:
         return [a.typ for a in self.funargs]
+
+    @property
+    def is_scalar_argtypes(self) -> bool:
+        for t in self.argtypes:
+            if not t.is_scalar:
+                return False
+        else:
+            return True
 
     def __str__(self) -> str:
         return "(" + ", ".join(str(a) for a in self.funargs) + ")"
