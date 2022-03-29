@@ -89,6 +89,7 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        rhs = astree.mk_cast_expr("uint32_t", rhs)
         assign = astree.mk_assign(lhs, rhs)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs

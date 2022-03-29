@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -104,8 +104,14 @@ class ARMStoreRegisterByte(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        (rhs, _, _) = self.operands[0].ast_rvalue(astree)
+        # (rhs, _, _) = self.operands[0].ast_rvalue(astree)
+        rhs = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
+        mask = astree.mk_integer_constant(255)
+        rhs = astree.mk_binary_op("band", rhs, mask)
         lhs = xdata.vars[0]
+        if str(lhs) == "?":
+            return self.assembly_ast(astree, iaddr, bytestring, xdata)
+
         lval = XU.xvariable_to_ast_lval(lhs, astree)
         assign = astree.mk_assign(lval, rhs)
         astree.add_instruction_span(assign.id, iaddr, bytestring)

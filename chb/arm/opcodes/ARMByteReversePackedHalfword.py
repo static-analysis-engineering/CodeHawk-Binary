@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,9 @@
 # ------------------------------------------------------------------------------
 
 from typing import List, TYPE_CHECKING
+
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.app.ASTNode import ASTInstruction
 
 from chb.app.InstrXData import InstrXData
 
@@ -75,3 +78,13 @@ class ARMByteReversePackedHalfword(ARMOpcode):
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
         return lhs + " := byte-reverse_halfwords(" + str(rhs) + ")"
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[ASTInstruction]:
+        """TBD: To be updated."""
+
+        return []

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,11 +27,17 @@
 
 from typing import List, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -79,3 +85,32 @@ class ARMMoveTop(ARMOpcode):
         rresult = xdata.xprs[4]
         xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
         return lhs + " := " + xresult
+
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        (op1, _, _) = self.operands[1].ast_rvalue(astree)
+        (op2, _, _) = self.operands[2].ast_rvalue(astree)
+        i16 = astree.mk_integer_constant(16)
+        e16 = astree.mk_integer_constant(256 * 256)
+        xpr1 = astree.mk_binary_op("lsl", op2, i16)
+        xpr2 = astree.mk_binary_op("mod", op1, e16)
+        xpr = astree.mk_binary_op("plus", xpr1, xpr2)
+        result = astree.mk_assign(lhs, xpr)
+        astree.add_instruction_span(result.id, iaddr, bytestring)
+        return [result]
+
+    def ast(self,
+            astree:AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
+        rhs = XU.xxpr_to_ast_expr(xdata.xprs[4], astree)
+        result = astree.mk_assign(lhs, rhs)
+        astree.add_instruction_span(result.id, iaddr, bytestring)
+        return [result]
