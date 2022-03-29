@@ -35,6 +35,7 @@ from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.bctypes.BCCompInfo import BCCompInfo
 from chb.bctypes.BCDictionary import BCDictionary
 from chb.bctypes.BCFunctionDefinition import BCFunctionDefinition
+from chb.bctypes.BCTyp import BCTyp
 from chb.bctypes.BCTypeInfo import BCTypeInfo
 from chb.bctypes.BCVarInfo import BCVarInfo
 
@@ -49,7 +50,7 @@ class BCFiles:
 
     def __init__(self, app: "AppAccess", xnode: ET.Element) -> None:
         self._app = app
-        self._gtypes: List[BCTypeInfo] = []
+        self._gtypes: List[BCTyp] = []
         self._gcomptags: List[BCCompInfo] = []
         self._gvardecls: List[BCVarInfo] = []
         self._gvardefs: List[BCVarInfo] = []
@@ -65,7 +66,7 @@ class BCFiles:
         return self.app.bcdictionary
 
     @property
-    def gtypes(self) -> List[BCTypeInfo]:
+    def gtypes(self) -> List[BCTyp]:
         return self._gtypes
 
     @property
@@ -105,8 +106,8 @@ class BCFiles:
     def initialize(self, xnode: ET.Element) -> None:
         self.initialize_compinfos(xnode.find("compinfos"))
         self.initialize_typeinfos(xnode.find("typeinfos"))
-        self.initialize_vardecls(xnode.find("varinfos"))
-        self.initialize_vardefs(xnode.find("varinfodecls"))
+        self.initialize_vardefs(xnode.find("varinfos"))
+        self.initialize_vardecls(xnode.find("varinfodecls"))
         self.initialize_functions(xnode.find("ifuns"))
 
     def initialize_compinfos(self, tnode: Optional[ET.Element]) -> None:
@@ -125,11 +126,11 @@ class BCFiles:
                 ixs = x.get("ixs")
                 if name and ixs:
                     ids = [int(n) for n in ixs.split(",")]
-                    self._gtypes.append(self.bcd.typeinfo(ids[0]))
+                    self._gtypes.append(self.bcd.typ(ids[0]))
 
     def initialize_vardecls(self, tnode: Optional[ET.Element]) -> None:
         if tnode:
-            for x in tnode.findall("gvardecl"):
+            for x in tnode.findall("vid"):
                 name = x.get("name")
                 ixs = x.get("ixs")
                 if name and ixs:
@@ -138,7 +139,7 @@ class BCFiles:
 
     def initialize_vardefs(self, tnode: Optional[ET.Element]) -> None:
         if tnode:
-            for x in tnode.findall("gvar"):
+            for x in tnode.findall("vi"):
                 name = x.get("name")
                 ixs = x.get("ixs")
                 if name and ixs:
