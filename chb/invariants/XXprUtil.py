@@ -163,7 +163,6 @@ def stack_variable_to_ast_lval(
     if offset.is_constant_value_offset:
         return astree.mk_stack_variable_lval(offset.offsetvalue())
 
-    print("stack variable: " + str(offset))
     return astree.mk_variable_lval("stack: " + str(offset))
 
 
@@ -239,14 +238,11 @@ def basevar_variable_to_ast_lval(
                     return astree.mk_lval(baselval.lhost, indexoffset)
                 elif offsetvalue == 0:
                     return astree.mk_memref_lval(basexpr)
-            else:
-                print(" -> Basevar with basetype")
         else:
             index = offsetvalue
             indexoffset = astree.mk_scalar_index_offset(index)
             return astree.mk_lval(baselval.lhost, indexoffset)
 
-    print("Basevar_variable: " + str(basevar) + "; offset: " + str(offset))
     return astree.mk_variable_lval(str(basevar) + str(offset))
 
 
@@ -261,7 +257,6 @@ def global_variable_to_ast_lval(
         return astree.mk_global_variable_lval(
             gvname, globaladdress=int(gaddr, 16))
 
-    print("global-variable: " + "gv_" + str(offset))
     return astree.mk_variable_lval("gv_" + str(offset))
 
 
@@ -277,7 +272,6 @@ def vmemory_variable_to_ast_lval(
     elif xvmem.is_global_variable:
         return global_variable_to_ast_lval(xvmem.offset, astree)
 
-    print("VMemoryVariable: " + str(xvmem) + " (" + xvmem.tags[0] + ")")
     return astree.mk_variable_lval(str(xvmem))
 
 
@@ -287,17 +281,15 @@ def vinitregister_value_to_ast_lval(
 
     if vconstvar.is_argument_value:
         argindex = vconstvar.argument_index()
-        funarg = astree.function_argument(argindex)
-        if funarg:
-            return astree.mk_register_variable_lval(
-                funarg.name, vtype=funarg.typ, parameter=argindex)
+        arglval = astree.function_argument(argindex)
+        if arglval is not None:
+            return arglval
         else:
             return astree.mk_register_variable_lval(str(vconstvar.register))
 
     elif vconstvar.register.is_stack_pointer:
         return astree.mk_register_variable_lval("base_sp")
     else:
-        print("Initial Register Value: " + str(vconstvar.register))
         return astree.mk_register_variable_lval(str(vconstvar.register))
 
 
@@ -306,6 +298,19 @@ def vinitmemory_value_to_ast_lval(
         astree: AbstractSyntaxTree) -> AST.ASTLval:
 
     xvar = vconstvar.variable
+
+    if xvar.is_memory_variable:
+        xvmem = cast("VMemoryVariable", xvar.denotation)
+        if xvmem.base.is_local_stack_frame:
+            offset = xvmem.offset
+            if offset.is_constant_value_offset:
+                offsetval = offset.offsetvalue()
+                if offsetval >= 0 and (offsetval % 4) == 0:
+                    argindex = 4 + (offsetval // 4)
+                    flval = astree.function_argument(argindex)
+                    if flval is not None:
+                        return flval
+
     return xvariable_to_ast_lval(xvar, astree)
 
 
@@ -340,9 +345,7 @@ def vauxiliary_variable_to_ast_lval(
         vconstvar = cast("VFunctionReturnValue", vconstvar)
         return vfunctionreturn_value_to_ast_lval(vconstvar, astree)
 
-    print("VConstvar: " + vconstvar.tags[0] + " " + str(xvaux))
     """TODO: split up."""
-    print("auxiliary variable: " + str(xvaux))
     return astree.mk_variable_lval(str(xvaux))
 
 
@@ -372,5 +375,4 @@ def xvariable_to_ast_lval(
         return vauxiliary_variable_to_ast_lval(xvaux, astree)
 
     else:
-        print("other: " + str(xv))
         return astree.mk_variable_lval(str(xv))
