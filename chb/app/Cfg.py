@@ -87,6 +87,25 @@ class Cfg:
                 self._edges[src].append(tgt)
         return self._edges
 
+    def modify_edges(
+            self,
+            remove: List[Tuple[str, str]],
+            add: List[Tuple[str, str]]) -> None:
+        for (src, tgt) in remove:
+            for (s, tl) in self.edges.items():
+                if s == src:
+                    if tgt in tl:
+                        tgtlist: List[str] = [x for x in tl]
+                        tgtlist.remove(tgt)
+                        self._edges[src] = tgtlist
+        for (src, tgt) in add:
+            for (s, tl) in self.edges.items():
+                if s == src:
+                    if tgt not in tl:
+                        tgtlist = [x for x in tl]
+                        tgtlist.append(tgt)
+                        self._edges[src] = tgtlist
+
     @property
     def edges_as_set(self) -> Set[Tuple[str, str]]:
         result: Set[Tuple[str, str]] = set([])

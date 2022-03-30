@@ -510,6 +510,16 @@ def parse() -> argparse.Namespace:
         "--verbose", "-v",
         help="print spans and available expressions",
         action="store_true")
+    showast.add_argument(
+        "--remove_edges",
+        nargs="*",
+        default=[],
+        help="list of edges to be removed (in the form faddr:src-addr:tgt-addr in hex)")
+    showast.add_argument(
+        "--add_edges",
+        nargs="*",
+        default=[],
+        help="list of edges to be added (in the form faddr:src-addr:tgt-addr in hex)")
     showast.set_defaults(func=UCC.showast)
 
     # -- results cfg (control flow graph) --
@@ -559,6 +569,16 @@ def parse() -> argparse.Namespace:
         "--save_edges",
         action="store_true",
         help="save edges as a json file with the same name as the pdf output")
+    showcfg.add_argument(
+        "--remove_edges",
+        nargs="*",
+        default=[],
+        help="list of edges to be removed (in the form src-addr:tgt-addr in hex)")
+    showcfg.add_argument(
+        "--add_edges",
+        nargs="*",
+        default=[],
+        help="list of edges to be added (in the form src-addr:tgt-addr in hex)")
     showcfg.set_defaults(func=UCC.showcfg)
 
     # --- results functions ---
