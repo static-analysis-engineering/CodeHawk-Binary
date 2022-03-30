@@ -1004,6 +1004,31 @@ def results_fileio(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def extract_function_edges(edges: List[str]) -> Dict[str, List[Tuple[str, str]]]:
+    result: Dict[str, List[Tuple[str, str]]] = {}
+    for x in edges:
+        if ":" in x:
+            edge = x.split(":")
+            if len(edge) == 3:
+                result.setdefault(edge[0], [])
+                result[edge[0]].append((edge[1], edge[2]))
+            else:
+                print_error(
+                    "Error in format of edge specification: "
+                    + x
+                    + "; Edge has " + str(len(edge)) + " components: "
+                    + ", ".join(edge)
+                    + ". Expected 3 items: faddr:src:tgt")
+                exit(1)
+        else:
+            print_error(
+                "Error in format of edge specification: "
+                + x
+                + "; Expected to find two colon separators: faddr:src:tgt")
+            exit(1)
+    return result
+
+
 def showast(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -1013,6 +1038,8 @@ def showast(args: argparse.Namespace) -> NoReturn:
     ignore_return_value: List[str] = args.ignore_return_value
     functions: List[str] = args.functions
     hints: List[str] = args.hints  # names of json files
+    remove_edges: List[str] = args.remove_edges
+    add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
 
     if (not decompile) and len(functions) == 0:
@@ -1020,6 +1047,12 @@ def showast(args: argparse.Namespace) -> NoReturn:
             "Please specify at least one function address\n"
             + "with the --functions command-line option.")
         exit(1)
+
+    rmedges: Dict[str, List[Tuple[str, str]]] = {}
+    adedges: Dict[str, List[Tuple[str, str]]] = {}
+    if len(remove_edges) + len(add_edges) > 0:
+        rmedges = extract_function_edges(remove_edges)
+        adedges = extract_function_edges(add_edges)
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -1080,6 +1113,13 @@ def showast(args: argparse.Namespace) -> NoReturn:
             if f is None:
                 print_error("Unable to find function " + faddr)
                 continue
+
+            fnrmedges = rmedges[faddr]
+            fnadedges = adedges[faddr]
+            if len(fnrmedges) + len(fnadedges) > 0:
+                print("Remove " + str(len(fnrmedges)) + " edge(s) from cfg")
+                print("Add " + str(len(fnadedges)) + " edge(s) to cfg")
+                f.cfg.modify_edges(fnrmedges, fnadedges)
 
             fname = faddr
             if app.has_function_name(faddr):
@@ -1304,6 +1344,29 @@ def showast(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def extract_edges(edges: List[str]) -> List[Tuple[str, str]]:
+    result: List[Tuple[str, str]] = []
+    for x in edges:
+        if ":" in x:
+            edge = x.split(":")
+            if len(edge) == 2:
+                result.append((edge[0], edge[1]))
+            else:
+                print_error(
+                    "Error in format of edge specification: "
+                    + x
+                    + "; Edge has " + str(len(edge)) + " components: "
+                    + ", ".join(edge))
+                exit(1)
+        else:
+            print_error(
+                "Error in format of edge specification: "
+                + x
+                + "; Expected to find colon separator")
+            exit(1)
+    return result
+
+
 def showcfg(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -1320,6 +1383,8 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
     xsegments: List[str] = args.segments
     xsave_edges: bool = args.save_edges
     xderivedgraph: bool = args.derivedgraph
+    remove_edges: List[str] = args.remove_edges
+    add_edges: List[str] = args.add_edges
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -1337,6 +1402,11 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
         if f is None:
             print_error("Unable to find function " + faddr)
             exit(1)
+        if len(remove_edges) + len(add_edges) > 0:
+            rmedges = extract_edges(remove_edges)
+            adedges = extract_edges(add_edges)
+            f.cfg.modify_edges(rmedges, adedges)
+
         graphname = "cfg_" + faddr
         if xsink is not None:
             graphname += "_" + xsink
