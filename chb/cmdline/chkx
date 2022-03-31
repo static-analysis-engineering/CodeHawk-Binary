@@ -520,6 +520,11 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help="list of edges to be added (in the form faddr:src-addr:tgt-addr in hex)")
+    showast.add_argument(
+        "--show_available_exprs",
+        nargs="*",
+        default=[],
+        help="list of left-hand sides for which to show available expressions (e.g., R5)")
     showast.set_defaults(func=UCC.showast)
 
     # -- results cfg (control flow graph) --
