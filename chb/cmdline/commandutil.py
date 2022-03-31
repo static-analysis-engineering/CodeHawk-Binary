@@ -1041,6 +1041,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
     remove_edges: List[str] = args.remove_edges
     add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
+    available_exprs: List[str] = args.show_available_exprs
 
     if (not decompile) and len(functions) == 0:
         print_error(
@@ -1114,11 +1115,15 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 print_error("Unable to find function " + faddr)
                 continue
 
-            fnrmedges = rmedges[faddr]
-            fnadedges = adedges[faddr]
+            fnrmedges: List[Tuple[str, str]] = []
+            fnadedges: List[Tuple[str, str]] = []
+            if faddr in rmedges:
+                fnrmedges = rmedges[faddr]
+                print("Remove " + str(len(fnrmedges)) + " edge(s) from cfg")                
+            if faddr in adedges:
+                fnadedges = adedges[faddr]
+                print("Add " + str(len(fnadedges)) + " edge(s) to cfg")                
             if len(fnrmedges) + len(fnadedges) > 0:
-                print("Remove " + str(len(fnrmedges)) + " edge(s) from cfg")
-                print("Add " + str(len(fnadedges)) + " edge(s) to cfg")
                 f.cfg.modify_edges(fnrmedges, fnadedges)
 
             fname = faddr
@@ -1211,8 +1216,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
 
             ast = cast(ASTStmt, ast)
 
-            # print(ast.to_c_like(sp=3))
-
             defs = ast.defs()
             addresstaken = ast.address_taken()
             callees = ast.callees()
@@ -1273,9 +1276,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 revmapping.setdefault(j, [])
                 revmapping[j].append(i)
 
-            # print("\nC-like representation for " + fname)
-            # print("-" * 80)
-
             functioncount += 1
             print("")
             if astree.has_function_prototype():
@@ -1310,16 +1310,18 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 with open(jsonfilenames[fname], "w") as fp:
                     json.dump(ast_output, fp, indent=2)
 
-                if args.verbose:
+                if args.verbose or len(available_exprs) > 0:
                     dastree = D.AbstractSyntaxTree(
                         astfunction["lifted-ast"]["nodes"],
                         astfunction["lifted-ast"]["startnode"],
-                        astfunction["available-expressions"])
+                        astfunction["available-expressions"],
+                        astfunction["spans"])
                     print("\nDeserialized lifted ast")
                     print(str(dastree.to_c_like()))
 
-                    print("\nAvailable expressions for R5")
-                    print(dastree.var_available_expressions("R5"))
+                    if len(available_exprs) > 0:
+                        print("\nAvailable expressions for " + ", ".join(available_exprs))
+                        print(dastree.var_available_expressions(available_exprs))
 
         else:
             print_error("Function " + faddr + " not found")

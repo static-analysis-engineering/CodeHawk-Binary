@@ -311,7 +311,7 @@ class CfgMatcher:
     def match_edges(self) -> None:
 
         def nolog(s: str) -> None:
-            print(s)
+            pass
 
         for (src1, tgt1) in self.edges1:
             if (src1, tgt1) in self.edgemapping:
@@ -332,6 +332,13 @@ class CfgMatcher:
                         + ", "
                         + tgt1
                         + ")")
+
+    def unmatched_edges(self) -> List[Tuple[str, str]]:
+        result: List[Tuple[str, str]] = []
+        for (s2, t2) in self.edges2:
+            if (s2, t2) not in self.edges1:
+                result.append((s2, t2))
+        return result                                       
 
     def propagate_post(self) -> None:
         for src1 in sorted(self.basic_blocks1):
@@ -384,7 +391,15 @@ class CfgMatcher:
                 + str(len(self.edges1))
                 + ")")
             for ((src1, tgt1), (src2, tgt2)) in sorted(self.edgemapping.items()):
+                if (src1 + tgt1) != (src2 + tgt2):
+                    changed = " (changed)"
+                else:
+                    changed = ""
                 lines.append(
                     "  " + src1 + ", " + tgt1
-                    + "  -->  " + src2 + ", " + tgt2)
+                    + "  -->  " + src2 + ", " + tgt2 + changed)
+        if len(self.unmatched_edges()) > 0:
+            lines.append("\nNew edges (" + str(len(self.unmatched_edges())) + ")")
+            for (s, t) in self.unmatched_edges():
+                lines.append(s + ", " + t)
         return "\n".join(lines)

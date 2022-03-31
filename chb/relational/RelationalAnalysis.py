@@ -226,6 +226,7 @@ class RelationalAnalysis:
                 else:
                     streq = "no"
                     blchg = str(len(fra.cfg_blocks1)) + " -> " + str(len(fra.cfg_blocks2))
+                    totalblocks += abs(len(fra.cfg_blocks2) - len(fra.cfg_blocks1))
 
                 lines.append(
                     fnames[faddr].ljust(maxnamelen)
@@ -237,7 +238,6 @@ class RelationalAnalysis:
                 fnotfound.append(faddr)
 
         lines.append("\nTotal blocks changed: " + str(totalblocks))
-        lines.append("Total instructions changed: " + str(totalinstrs))
         lines.append("")
 
         if len(self.function_mapping) < len(self.faddrs2):

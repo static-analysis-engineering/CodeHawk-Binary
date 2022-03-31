@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -421,5 +421,9 @@ class FunctionRelationalAnalysis:
                                 + "):")
                             lines.append(blra.report(callees))
                             lines.append("")
+
+                print("\n\nCfg matcher")
+                print("=" * 40)
+                lines.append(str(cfgmatcher))
 
         return "\n".join(lines)
