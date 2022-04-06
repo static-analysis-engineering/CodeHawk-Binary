@@ -1137,8 +1137,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
             revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
             revfunctionnames = userhints.rev_function_names()
 
-            print("Architecture: " + str(xinfo.architecture))
-
             astree = AbstractSyntaxTree(
                 faddr,
                 fname,
@@ -1239,6 +1237,9 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 for span in spans:
                     print(str(span))
                 print("=" * 80)
+
+            if verbose:
+                print(ast.to_c_like(sp=3))
 
             spanmap: Dict[int, str] = {}
             for spanrec in spans:

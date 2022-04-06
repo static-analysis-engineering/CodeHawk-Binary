@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -53,6 +53,7 @@ def do_cmd(cmd: Tuple[Optional[str], List[str]]) -> Tuple[List[str], int]:
     if filename is not None:
         with open(filename, "w") as fp:
             fp.write(resultoutput)
+        print("Output written to " + filename)
     else:
         print(resultoutput)
     return (cmd[1], resultcode)
@@ -141,7 +142,8 @@ def run_commands(args: argparse.Namespace) -> NoReturn:
             collecteddata: Dict[str, Dict[str, int]] = {}
             unknowns: Dict[str, Dict[str, int]] = {}
             opcode_distribution: Dict[str, int] = {}
-            filenames: List[str] = [cmdinst["args"][0] for cmdinst in tgts["instances"]]
+            filenames: List[str] = [
+                cmdinst["args"][0] for cmdinst in tgts["instances"]]
             for filename in filenames:
                 (path, xfile) = UC.get_path_filename(filename)
                 xinfo = XI.XInfo()
