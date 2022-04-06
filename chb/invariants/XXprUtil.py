@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, TYPE_CHECKING
+from typing import cast, List, Set, TYPE_CHECKING
 
 from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 
@@ -65,6 +65,16 @@ def xxpr_to_struct_field_address_expr(
     return astree.get_struct_field_address(xpr.intvalue)
 
 
+def xxpr_list_to_ast_exprs(
+        xprs: List[X.XXpr], astree: AbstractSyntaxTree) -> List[AST.ASTExpr]:
+
+    if all(xpr.is_var for xpr in xprs):
+        return xprvariable_list_to_ast_exprs(
+            [cast(X.XprVariable, xpr) for xpr in xprs], astree)
+
+    return [xxpr_to_ast_expr(xpr, astree) for xpr in xprs]
+
+
 def xxpr_to_ast_expr(xpr: X.XXpr, astree: AbstractSyntaxTree) -> AST.ASTExpr:
     """Convert an XXpr expression into an AST Expr node."""
 
@@ -92,6 +102,13 @@ def xconstant_to_ast_expr(
     else:
         raise UF.CHBError(
             "AST conversion of xconstant " + str(xc) + " not yet supported")
+
+
+def xprvariable_list_to_ast_exprs(
+        xvs: List[X.XprVariable], astree: AbstractSyntaxTree) -> List[AST.ASTExpr]:
+
+    lvals = xvariable_list_to_ast_lvals([xv.variable for xv in xvs], astree)
+    return [astree.mk_lval_expr(lval) for lval in lvals]
 
 
 def xprvariable_to_ast_expr(
@@ -275,6 +292,29 @@ def vmemory_variable_to_ast_lval(
     return astree.mk_variable_lval(str(xvmem))
 
 
+def vinitregister_value_list_to_ast_lvals(
+        vconstvars: List["VInitialRegisterValue"],
+        astree: AbstractSyntaxTree) -> List[AST.ASTLval]:
+
+    if all(vconstvar.is_argument_value for vconstvar in vconstvars):
+        formal_argindices: Set[int] = set([])
+        formal_locindices: Set[int] = set([])
+        for vconstvar in vconstvars:
+            argindex = vconstvar.argument_index()
+            (formal, locindex) = astree.get_formal_locindex(argindex)
+            formal_argindices.add(formal.argindex)
+            formal_locindices.add(locindex)
+
+        if len(formal_argindices) == 1:
+            # All register arguments refer to the same formal argument
+            if len(formal_locindices) == len(formal.arglocs):
+                # All components of the formal are covered
+                argtype = formal.vtype
+
+    return [astree.mk_register_variable_lval(str(vconstvar.register))
+            for vconstvar in vconstvars]
+
+
 def vinitregister_value_to_ast_lval(
         vconstvar: "VInitialRegisterValue",
         astree: AbstractSyntaxTree) -> AST.ASTLval:
@@ -328,6 +368,17 @@ def vfunctionreturn_value_to_ast_lval(
     return astree.mk_returnval_variable_lval(vconstvar.callsite, vtype)
 
 
+def vauxiliary_variable_list_to_ast_lvals(
+        xvauxs: List["VAuxiliaryVariable"],
+        astree: AbstractSyntaxTree) -> List[AST.ASTLval]:
+
+    if all(xvaux.auxvar.is_initial_register_value for xvaux in xvauxs):
+        vconstvars = [
+            cast("VInitialRegisterValue", xvaux.auxvar) for xvaux in xvauxs]
+        return vinitregister_value_list_to_ast_lvals(vconstvars, astree)
+
+    return [astree.mk_variable_lval(str(xvaux)) for xvaux in xvauxs]
+
 def vauxiliary_variable_to_ast_lval(
         xvaux: "VAuxiliaryVariable", astree: AbstractSyntaxTree) -> AST.ASTLval:
 
@@ -347,6 +398,16 @@ def vauxiliary_variable_to_ast_lval(
 
     """TODO: split up."""
     return astree.mk_variable_lval(str(xvaux))
+
+
+def xvariable_list_to_ast_lvals(
+        xvs: List[X.XVariable], astree: AbstractSyntaxTree) -> List[AST.ASTLval]:
+
+    if all(xv.is_auxiliary_variable for xv in xvs):
+        return vauxiliary_variable_list_to_ast_lvals(
+            [cast("VAuxiliaryVariable", xv.denotation) for xv in xvs], astree)
+
+    return [xvariable_to_ast_lval(xv, astree) for xv in xvs]
 
 
 def xvariable_to_ast_lval(
