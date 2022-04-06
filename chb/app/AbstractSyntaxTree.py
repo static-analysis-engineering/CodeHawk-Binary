@@ -250,18 +250,24 @@ class AbstractSyntaxTree:
                     raise Exception(
                         "get_formal_locindex: "
                         + str(argindex)
-                        + " is too large")
-        raise Exception("No formal found for argindex: " + str(argindex))
+                        + " is too large. Formals:  "
+                        + ", ".join(str(f) for f in self.formals))
+
+        else:
+            raise Exception("No formal found for argindex: " + str(argindex))
 
     def function_argument(self, index: int) -> Optional[AST.ASTLval]:
         """Return the argument with the given index (zero-based)."""
 
-        (formal, locindex) = self.get_formal_locindex(index)
-        id = self.new_id()
-        regvar = AST.ASTVariable(id, formal)
-        id = self.new_id()
-        (loc, offset, start) = formal.argloc(locindex)
-        return AST.ASTLval(id, regvar, offset)
+        if len(self.formals) > 0:
+            (formal, locindex) = self.get_formal_locindex(index)
+            id = self.new_id()
+            regvar = AST.ASTVariable(id, formal)
+            id = self.new_id()
+            (loc, offset, start) = formal.argloc(locindex)
+            return AST.ASTLval(id, regvar, offset)
+        else:
+            return None
 
     def has_symbol(self, name: str, altname: Optional[str] = None) -> bool:
         index = (name, altname) if altname else (name, "__none__")

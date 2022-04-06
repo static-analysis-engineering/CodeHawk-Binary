@@ -158,6 +158,7 @@ operators = {
     "lt": " < ",
     "mod": " % ", 
     "shiftlt": " << ",
+    "shiftrt": " >> ",
     "minus": " - ",
     "mult": " * ",   # multiplication
     "ne": " != ",
@@ -1259,7 +1260,7 @@ class ASTLval(ASTNode):
         return "\n".join(lines)
 
     def __str__(self) -> str:
-        return str(self.lhost) + self.offset_to_string()
+        return str(self.lhost) + str(self.offset)
 
 
 class ASTLHost(ASTNode):
@@ -1490,7 +1491,12 @@ class ASTFormalVarInfo(ASTVarInfo):
             return self.arglocs[index]
         else:
             raise Exception(
-                "Formal " + self.vname + ": illegal index: " + str(index))
+                "Formal "
+                + self.vname
+                + ": illegal index: "
+                + str(index)
+                + " (number of argument locations: "
+                + str(len(self.arglocs)))
 
     @property
     def numargs(self) -> int:
@@ -1514,7 +1520,8 @@ class ASTFormalVarInfo(ASTVarInfo):
             raise Exception(
                 "Formal parameter has no type")
 
-    def _initialize_arm_arguments(self, new_id: Callable[[], int], argtype: "BCTyp") -> int:
+    def _initialize_arm_arguments(
+            self, new_id: Callable[[], int], argtype: "BCTyp") -> int:
         """Set up arguments according to the standard ARM ABI.
 
         The default calling convention for ARM:
@@ -1547,20 +1554,33 @@ class ASTFormalVarInfo(ASTVarInfo):
                         if (
                                 atype.has_constant_size()
                                 and atype.tgttyp.byte_size() == 1):
-                            # assume array element are packed
+                            # assume array elements are packed
                             argcount = atype.byte_size() // 4
                             for i in range(0, argcount):
-                                argloc = get_arg_loc("arm", self.argindex + fieldcounter)
+                                argloc = get_arg_loc(
+                                    "arm", self.argindex + fieldcounter)
                                 fieldcounter += 1
                                 fieldoffset = ASTFieldOffset(
-                                    new_id(), finfo.fieldname, finfo.fieldtype, ASTNoOffset(-1))
+                                    new_id(),
+                                    finfo.fieldname,
+                                    finfo.fieldtype,
+                                    ASTNoOffset(-1))
                                 self._arglocs.append((argloc, fieldoffset, i * 4))
+            for loc in self._arglocs:
+                print(str(loc[0]) + ", " + str(loc[1]))
             return self.argindex + fieldcounter
         else:
             return 0
 
-    def _initialize_mips_arguments(sefl, new_id: Callable[[], int], argtype: "BCTyp") -> int:
-        return 0
+    def _initialize_mips_arguments(
+            self, new_id: Callable[[], int], argtype: "BCTyp") -> int:
+        if argtype.is_scalar or argtype.is_pointer:
+            argloc = get_arg_loc("mips", self.argindex)
+            self._arglocs.append((argloc, ASTNoOffset(-1), 0))
+            return self.argindex + 1
+        else:
+            print("Argument type is not a scalar: " + str(argtype))
+            return 0
 
     def __str__(self) -> str:
         if len(self.arglocs) == 1:
