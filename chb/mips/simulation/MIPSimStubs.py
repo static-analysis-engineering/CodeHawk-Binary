@@ -1436,9 +1436,10 @@ class MIPStub_fputs(MIPSimStub):
 
 
 class MIPStub_fileno(MIPSimStub):
+    """map a stream pointer to a file descriptor."""
 
     def __init__(self) -> None:
-        MIPSimStub.__init__(self, 'fileno')
+        MIPSimStub.__init__(self, "fileno")
 
     def is_io_operation(self) -> bool:
         return True
@@ -1451,7 +1452,7 @@ class MIPStub_fileno(MIPSimStub):
             a0 = cast(SSV.SimSymbol, a0)
             if a0.is_file_pointer:
                 a0 = cast(SSV.SimSymbolicFilePointer, a0)
-                fpresult = SSV.mk_filedescriptor(a0.filename, a0.fp)
+                fpresult = SFU.sim_fileno(a0)
                 simstate.set_register(iaddr, "v0", fpresult)
                 returnval = str(fpresult)
             elif a0.is_symbol:
@@ -2991,14 +2992,44 @@ class MIPStub_open(MIPSimStub):
     def is_io_operation(self) -> bool:
         return True
 
+    def simulate_failure(
+            self,
+            filename: str,
+            iaddr: str,
+            simstate: "SimulationState",
+            pargs: str,
+            comment: str = "") -> str:
+        simstate.set_register(iaddr, "v0", SV.mk_simvalue(-1))
+        simstate.add_logmsg(
+            "warning", "File " + filename + " was not opened (" + comment + ")")
+        return self.add_logmsg(iaddr, simstate, pargs, returnval="-1")
+
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        a0str = self.get_arg_string(iaddr, simstate, 'a0')
-        pargs = str(a0) + ':' + a0str + ',' + str(a1)
-        simstate.set_register(iaddr, 'v0', SV.mk_simvalue(-1))
-        simstate.add_logmsg('warning', 'File ' + a0str + ' was not opened')
-        return self.add_logmsg(iaddr, simstate, pargs, returnval='-1')
+        a0 = self.get_arg_val(iaddr, simstate, "a0")   # const char *path
+        a1 = self.get_arg_val(iaddr, simstate, "a1")   # int oflag
+        a0str = self.get_arg_string(iaddr, simstate, "a0")
+        pargs = str(a0) + ":" + a0str + "," + str(a1)
+
+        if simstate.simsupport.file_operations_enabled:
+            if a1.is_literal:
+                a1 = cast(SV.SimLiteralValue, a1)
+                if SFU.sim_file_exists(a0str) or hex(a1.value) == "0x301":
+                    fd = SFU.sim_openfile_fd(a0str, "w")
+                    simstate.set_register(iaddr, "v0", fd)
+                    return self.add_logmsg(
+                        iaddr, simstate, pargs, returnval=str(fd))
+                else:
+                    return self.simulate_failure(
+                        iaddr, a0str, simstate, pargs, "file not found")
+            else:
+                return self.simulate_failure(
+                    a0str, iaddr, simstate, pargs, "file operations not enabled")
+        else:
+            return self.simulate_failure(
+                a0str, iaddr, simstate, pargs, "unable to read oflag")
+        simstate.set_register(iaddr, "v0", SV.mk_simvalue(-1))
+        simstate.add_logmsg("warning", "File " + a0str + " was not opened")
+        return self.add_logmsg(iaddr, simstate, pargs, returnval="-1")
 
 
 class MIPStub_open64(MIPSimStub):
@@ -5799,6 +5830,7 @@ class MIPStub_waitpid(MIPSimStub):
 
 
 class MIPStub_write(MIPSimStub):
+    """ssize_t write(int fildes, const void *buf, size_t nbyte);"""
 
     def __init__(self) -> None:
         MIPSimStub.__init__(self, 'write')
@@ -5808,12 +5840,13 @@ class MIPStub_write(MIPSimStub):
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         """Logs i/o, returns a2 in v0 for now."""
-        a0 = self.get_arg_val(iaddr, simstate, 'a0')
-        a1 = self.get_arg_val(iaddr, simstate, 'a1')
-        a2 = self.get_arg_val(iaddr, simstate, 'a2')
+        a0 = self.get_arg_val(iaddr, simstate, "a0")  # int fildes
+        a1 = self.get_arg_val(iaddr, simstate, "a1")  # void *buf
+        a2 = self.get_arg_val(iaddr, simstate, "a2")  # size_t nbyte
         pargs = ','.join(str(a) for a in [a0, a1, a2])
         if a0.is_literal:
-            simstate.add_logmsg('i/o', 'Not a valid file descriptor: ' + str(a0))
+            simstate.add_logmsg(
+                "i/o", "write: Not a valid file descriptor: " + str(a0))
             result: SV.SimValue = SV.mk_simvalue(-1)
 
         else:
@@ -5832,15 +5865,23 @@ class MIPStub_write(MIPSimStub):
                     if srcval.is_literal and srcval.is_defined:
                         srcval = cast(SV.SimLiteralValue, srcval)
                         a0.filedescriptor.write(chr(srcval.value))
-                else:
-                    simstate.add_logmsg(iaddr, "No values written to file")
-                    result = a2
+                result = a2
                 simstate.add_logmsg(
-                    'i/o',
-                    'Successfully wrote ' + str(a2) + ' bytes to ' + str(a0))
+                    "i/o",
+                    "Successfully wrote " + str(a2) + " bytes to " + str(a0))
 
             else:
                 result = SV.mk_simvalue(-1)
+                msg = "write: "
+                if not a0.is_file_descriptor:
+                    msg += "a0: " + str(a0) + " is not a file descriptor"
+                elif not a1.is_address:
+                    msg += "a1: " + str(a1) + " is not an address"
+                elif not a2.is_literal:
+                    msg += "a2: " + str(a2) + " is not a literal"
+                elif not a2.is_defined:
+                    msg += "a2: " + str(a2) + " is undefined"
+                simstate.add_logmsg(iaddr, msg)
         simstate.set_register(iaddr, 'v0', result)
         return self.add_logmsg(iaddr, simstate, pargs, returnval=str(result))
 
