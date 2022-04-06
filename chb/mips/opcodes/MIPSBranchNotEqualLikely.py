@@ -115,6 +115,8 @@ class MIPSBranchNotEqualLikely(MIPSOpcode):
     #        condition <- (GPR[rs] != GPR[rt])
     #   I+1: if condition then
     #          PC <- PC + target_offset
+    #        else
+    #          NullifyCurrentInstruction()
     #        endif
     # --------------------------------------------------------------------------
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
@@ -122,18 +124,27 @@ class MIPSBranchNotEqualLikely(MIPSOpcode):
         src2op = self.src2_operand
         src1val = simstate.rhs(iaddr, src1op)
         src2val = simstate.rhs(iaddr, src2op)
-        tgt = self.target
-        truetgt = simstate.resolve_literal_address(iaddr, tgt.absolute_address_value)
+        truetgt = simstate.resolve_literal_address(
+            iaddr, self.target.absolute_address_value)
         falsetgt = simstate.programcounter.add_offset(8)
         simstate.increment_programcounter()
+
+        msg = ""
 
         if truetgt.is_undefined:
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
-                "bnel: branch target address cannot be resolved: " + str(tgt))
+                "bnel: branch target address cannot be resolved: "
+                + str(self.target))
 
         if src1val.is_undefined or src2val.is_undefined:
+            msg = (
+                "src1: "
+                + str(src1val)
+                + " or src2: "
+                + str(src2val)
+                + " is undefined")
             result = SV.simUndefinedBool
 
         elif src1val.is_literal and src2val.is_literal:
@@ -158,22 +169,29 @@ class MIPSBranchNotEqualLikely(MIPSOpcode):
             if src2val.literal_value == 0:
                 result = SV.simtrue
             else:
+                msg = (
+                    "src1: "
+                    + str(src1op)
+                    + " is an address and src2 is literal")
                 result = SV.simUndefinedBool
 
         elif src1val.is_file_pointer and src2val.is_literal:
             if src2val.literal_value == 0:
                 result = SV.simtrue
             else:
+                msg = "src1 is file pointer and src2 is literal"
                 result = SV.simUndefinedBool
 
         else:
+            msg = "none of the conditions apply"
             result = SV.simUndefinedBool
 
         if result.is_defined:
             if result.is_true:
                 simstate.simprogramcounter.set_delayed_programcounter(truetgt)
             else:
-                simstate.simprogramcounter.set_delayed_programcounter(falsetgt)
+                # delay slot is not executed if condition is false
+                simstate.simprogramcounter.set_programcounter(falsetgt)
             expr = str(src1val) + ' != ' + str(src2val)
             return SU.simbranch(iaddr, simstate, truetgt, falsetgt, expr, result)
         else:
@@ -182,4 +200,10 @@ class MIPSBranchNotEqualLikely(MIPSOpcode):
                 iaddr,
                 truetgt,
                 falsetgt,
-                'bnel: ' + str(src1val) + ' != ' + str(src2val))
+                "bnel: "
+                + str(src1val)
+                + " != "
+                + str(src2val)
+                + " ("
+                + msg
+                + ")")

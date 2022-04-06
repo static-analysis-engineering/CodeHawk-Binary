@@ -172,7 +172,8 @@ class MIPSBranchEqualLikely(MIPSBranchOpcode):
             if result.is_true:
                 simstate.simprogramcounter.set_delayed_programcounter(truetgt)
             else:
-                simstate.simprogramcounter.set_delayed_programcounter(falsetgt)
+                # delay slot is not executed if condition is false
+                simstate.simprogramcounter.set_programcounter(falsetgt)
             expr = str(src1val) + " == " + str(src2val)
             return SU.simbranch(iaddr, simstate, truetgt, falsetgt, expr, result)
         else:

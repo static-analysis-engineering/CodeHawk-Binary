@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -118,7 +118,7 @@ class MIPSBranchLTZero(MIPSBranchOpcode):
         truetgt = simstate.resolve_literal_address(iaddr, tgt)
         falsetgt = simstate.programcounter.add_offset(8)
         simstate.increment_programcounter()
-        expr = str(srcval) + "< 0"
+        expr = str(srcval) + " < 0"
 
         if truetgt.is_undefined:
             raise SU.CHBSimError(

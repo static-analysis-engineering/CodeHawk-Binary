@@ -153,8 +153,8 @@ class MIPSBranchNotEqual(MIPSOpcode):
         src2op = self.src2_operand
         src1val = simstate.rhs(iaddr, src1op)
         src2val = simstate.rhs(iaddr, src2op)
-        tgt = self.target
-        truetgt = simstate.resolve_literal_address(iaddr, tgt.absolute_address_value)
+        truetgt = simstate.resolve_literal_address(
+            iaddr, self.target.absolute_address_value)
         falsetgt = simstate.programcounter.add_offset(8)
         simstate.increment_programcounter()
 
@@ -162,7 +162,8 @@ class MIPSBranchNotEqual(MIPSOpcode):
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
-                "bne: branch target address cannot be resolved: " + str(tgt))
+                "bne: branch target address cannot be resolved: "
+                + str(self.target))
 
         if src1val.is_undefined or src2val.is_undefined:
             result = SV.simUndefinedBool

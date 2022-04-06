@@ -146,7 +146,7 @@ class MIPSBranchLEZero(MIPSBranchOpcode):
         truetgt = simstate.resolve_literal_address(iaddr, tgt)
         falsetgt = simstate.programcounter.add_offset(8)
         simstate.increment_programcounter()
-        expr = str(srcval) + "<= 0"
+        expr = str(srcval) + " <= 0"
 
         if truetgt.is_undefined:
             raise SU.CHBSimError(
