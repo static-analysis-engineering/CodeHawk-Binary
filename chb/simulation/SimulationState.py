@@ -78,8 +78,10 @@ prefer_stubs = [
     "close",
     "exit",
     "fclose",
+    "fcntl",
     "fflush",
     "fgets",
+    "fileno",
     "fopen",
     "fprintf",
     "fputc",
@@ -114,6 +116,7 @@ prefer_stubs = [
     "sprintf",
     "stat",
     "strcasecmp",
+    "strcat",
     "strcmp",
     "strcpy",
     "strftime",
@@ -127,7 +130,8 @@ prefer_stubs = [
     "tcsetattr",
     "time",
     "unlink",
-    "unsetenv"]
+    "unsetenv",
+    "write"]
 
 
 class SimModule:

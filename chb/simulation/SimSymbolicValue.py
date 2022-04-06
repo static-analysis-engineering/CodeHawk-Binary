@@ -93,7 +93,9 @@ def mk_base_address(
 
 
 def mk_string_address(
-        base: str, stringval: str, offset_in_string: int = 0) -> "SimStringAddress":
+        base: str,
+        stringval: str,
+        offset_in_string: int = 0) -> "SimStringAddress":
     return SimStringAddress(base, stringval, offset_in_string=offset_in_string)
 
 
@@ -114,7 +116,9 @@ def mk_libc_table_value(name: str, offset: int = 0) -> "SimLibcTableValue":
 
 
 def mk_libc_table_value_deref(
-        name: str, offset1: int = 0, offset2: int = 0) -> "SimLibcTableValueDeref":
+        name: str,
+        offset1: int = 0,
+        offset2: int = 0) -> "SimLibcTableValueDeref":
     return SimLibcTableValueDeref(name, offset1, offset2)
 
 
@@ -123,13 +127,17 @@ def mk_filepointer(
         simfilename: str,
         filepointer: Any,
         defined: bool = True) -> "SimSymbolicFilePointer":
-    return SimSymbolicFilePointer(filename, simfilename, filepointer, defined=defined)
+    return SimSymbolicFilePointer(
+        filename, simfilename, filepointer, defined=defined)
 
 
 def mk_filedescriptor(
         filename: str,
-        filedescriptor: Any) -> "SimSymbolicFileDescriptor":
-    return SimSymbolicFileDescriptor(filename, filedescriptor)
+        simfilename: str,
+        filedescriptor: Any,
+        defined: bool = True) -> "SimSymbolicFileDescriptor":
+    return SimSymbolicFileDescriptor(
+        filename, simfilename, filedescriptor, defined=defined)
 
 
 def mk_symboltablehandle(name: str) -> "SimSymbolTableHandle":
@@ -1183,19 +1191,57 @@ class SimSymbolicFileDescriptor(SimSymbol):
     """Represents a file descriptor.
 
     It is assumed that this value is non-negative.
+
+    This object keeps the actual filedescriptor returned by the python
+    'open' function call, so it can actually read from the file 
+    provided.
     """
 
-    def __init__(self, filename: str, fd: IO[Any]) -> None:
-        SimSymbol.__init__(self, filename + '_filedescriptor', type="int")
+    def __init__(
+            self,
+            filename: str,
+            simfilename: str,
+            fd: Any,
+            defined: bool = True) -> None:
+        SimSymbol.__init__(
+            self, filename + "_filedescriptor", type="int", defined=defined)
         self._filename = filename
-        self._fd = fd
+        self._simfilename = simfilename
+        self._fd = fd   # pointer returned by open
+
+    # Dictionary keys are the filenames as used in the binary
+    openfiles: Dict[str, "SimSymbolicFileDescriptor"] = {}
+
+    @classmethod
+    def add_openfile(cls, name: str, fd: "SimSymbolicFileDescriptor") -> None:
+        cls.openfiles[name] = fd
+
+    @classmethod
+    def has_openfile(cls, name) -> bool:
+        return name in cls.openfiles
+
+    @classmethod
+    def openfile(cls, name) -> "SimSymbolicFileDescriptor":
+        if cls.has_openfile(name):
+            return cls.openfiles[name]
+        else:
+            raise UF.CHBError("No open file found for: " + name)
+
+    @classmethod
+    def closefile(cls, name) -> None:
+        if cls.has_openfile(name):
+            del cls.openfiles[name]
 
     @property
     def filename(self) -> str:
         return self._filename
 
     @property
-    def filedescriptor(self) -> IO[Any]:
+    def simfilename(self) -> str:
+        return self._simfilename
+
+    @property
+    def filedescriptor(self) -> Any:
         return self._fd
 
     @property
