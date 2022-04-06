@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -103,52 +103,66 @@ class MIPSBranchGEZeroLikely(MIPSBranchOpcode):
     def src_operand(self) -> MIPSOperand:
         return self.mipsd.mips_operand(self.args[0])
 
-    @property
-    def tgt_offset(self) -> MIPSOperand:
-        return self.mipsd.mips_operand(self.args[1])
-
+    # --------------------------------------------------------------------------
+    # Operation:
+    #   I:   target_offset <- sign_extend(offset || 0[2])
+    #          condition <- (GPR[rs] >= 0[32]
+    #   I+1: if condition then
+    #          PC <- PC + target_offset
+    #        else
+    #          NullifyCurrentInstruction
+    #        endif
+    # --------------------------------------------------------------------------
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         srcop = self.src_operand
-        tgtop = self.tgt_offset
         srcval = simstate.rhs(iaddr, srcop)
-        truetgt = simstate.resolve_literal_address(iaddr, tgtop.absolute_address_value)
+        truetgt = simstate.resolve_literal_address(
+            iaddr, self.target.absolute_address_value)
         falsetgt = simstate.programcounter.add_offset(8)
         simstate.increment_programcounter()
-        expr = str(srcval) + " >= 0"
-
-        def unknowntgt() -> NoReturn:
-            simstate.add_logmsg("warning", iaddr + ": bgezl branch unknown: " + expr)
-            raise SU.CHBSimBranchUnknownError(
-                simstate, iaddr, truetgt, falsetgt, ("bgezl: " + expr))
-
-        def knowntgt(result: SV.SimBoolValue) -> str:
-            tgt = truetgt if result.is_true else falsetgt
-            simstate.simprogramcounter.set_delayed_programcounter(tgt)
-            return SU.simbranch(iaddr, simstate, truetgt, falsetgt, expr, result)
 
         if truetgt.is_undefined:
             raise SU.CHBSimError(
                 simstate,
                 iaddr,
-                "begzl target address cannot be resolved: " + str(self.tgt_offset))
+                "bgezl: branch target address cannot be resolved: "
+                + str(self.target.absolute_address_value))
 
-        if srcval.is_undefined:
-            unknowntgt()
+        elif srcval.is_undefined:
+            result = SV.simUndefinedBool
 
-        if srcval.is_literal:
+        elif srcval.is_literal:
             v = SV.mk_simvalue(srcval.literal_value)
             if v.to_signed_int() >= 0:
-                return knowntgt(SV.simtrue)
+                result = SV.simtrue
             else:
-                return knowntgt(SV.simfalse)
+                result = SV.simfalse
+
+        elif srcval.is_address:
+            result = SV.simtrue
+
+        elif srcval.is_file_pointer:
+            result = SV.simtrue
 
         elif srcval.is_symbol:
             srcval = cast(SSV.SimSymbol, srcval)
             result = srcval.is_non_negative
-            if result.is_undefined:
-                unknowntgt()
-            else:
-                return knowntgt(result)
 
         else:
-            unknowntgt()
+            result = SV.simUndefinedBool
+
+        if result.is_defined:
+            if result.is_true:
+                simstate.simprogramcounter.set_delayed_programcounter(truetgt)
+            else:
+                # delay slot is not executed if condtiion is false
+                simstate.simprogramcounter.set_programcounter(falsetgt)
+            expr = str(srcval) + " >= 0"
+            return SU.simbranch(iaddr, simstate, truetgt, falsetgt, expr, result)
+        else:
+            raise SU.CHBSimBranchUnknownError(
+                simstate,
+                iaddr,
+                truetgt,
+                falsetgt,
+                "bgezl: " + str(srcval) + " >= 0")

@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -99,3 +99,61 @@ class MIPSBranchLTZeroLikely(MIPSBranchOpcode):
         rresult = xdata.xprs[2]
         xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
         return 'if ' + xresult + ' then goto ' + str(self.target)
+
+    @property
+    def src_operand(self) -> MIPSOperand:
+        return self.mipsd.mips_operand(self.args[0])
+
+    # --------------------------------------------------------------------------
+    # Operation:
+    #   I: target_offset <- sign_extend(offset || 0[2])
+    #      condition <- GPR[rs] < 0[GPRLEN]
+    #   I+1: if condition then
+    #           PC <- PC + target_offset
+    #        else
+    #           NullifyCurrentInstruction()
+    #        endif
+    # --------------------------------------------------------------------------
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        srcop = self.src_operand
+        srcval = simstate.rhs(iaddr, srcop)
+        tgt = self.target.absolute_address_value
+        truetgt = simstate.resolve_literal_address(iaddr, tgt)
+        falsetgt = simstate.programcounter.add_offset(8)
+        simstate.increment_programcounter()
+        expr = str(srcval) + " < 0"
+
+        if truetgt.is_undefined:
+            raise SU.CHBSimError(
+                simstate,
+                iaddr,
+                "bltzl: target address cannot be resolved: " + str(tgt))
+
+        if srcval.is_undefined:
+            result = SV.simUndefinedBool
+
+        elif srcval.is_literal:
+            v = SV.mk_simvalue(srcval.literal_value)
+            if v.to_signed_int() < 0:
+                result = SV.simtrue
+            else:
+                result = SV.simfalse
+
+        elif srcval.is_symbol:
+            srcval = cast(SSV.SimSymbol, srcval)
+            result = srcval.is_non_positive
+
+        else:
+            result = SV.simUndefinedBool
+
+        if result.is_defined:
+            if result.is_true:
+                simstate.simprogramcounter.set_delayed_programcounter(truetgt)
+            else:
+                # delay slot is not executed if condition is false
+                simstate.simprogramcounter.set_programcounter(falsetgt)
+            return SU.simbranch(iaddr, simstate, truetgt, falsetgt, expr, result)
+
+        else:
+            raise SU.CHBSimBranchUnknownError(
+                simstate, iaddr, truetgt, falsetgt, "bltzl: " + expr)

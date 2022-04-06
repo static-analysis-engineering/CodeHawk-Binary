@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -110,6 +110,8 @@ class MIPSBranchLEZeroLikely(MIPSBranchOpcode):
     #      condition <- GPR[rs] <= 0[GPRLEN]
     #   I+1: if condition then
     #           PC <- PC + target_offset
+    #        else
+    #           NullifyCurrentInstruction()
     #        endif
     # --------------------------------------------------------------------------
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
@@ -119,7 +121,7 @@ class MIPSBranchLEZeroLikely(MIPSBranchOpcode):
         truetgt = simstate.resolve_literal_address(iaddr, tgt)
         falsetgt = simstate.programcounter.add_offset(8)
         simstate.increment_programcounter()
-        expr = str(srcval) + "<= 0"
+        expr = str(srcval) + " <= 0"
 
         if truetgt.is_undefined:
             raise SU.CHBSimError(
@@ -148,7 +150,8 @@ class MIPSBranchLEZeroLikely(MIPSBranchOpcode):
             if result.is_true:
                 simstate.simprogramcounter.set_delayed_programcounter(truetgt)
             else:
-                simstate.simprogramcounter.set_delayed_programcounter(falsetgt)
+                # delay slot is not executed if condition is false
+                simstate.simprogramcounter.set_programcounter(falsetgt)
             return SU.simbranch(iaddr, simstate, truetgt, falsetgt, expr, result)
 
         else:
