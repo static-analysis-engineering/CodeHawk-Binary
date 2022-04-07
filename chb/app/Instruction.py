@@ -203,7 +203,9 @@ class Instruction(ABC):
     def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
         raise UF.CHBError("ast (abstract-syntax-tree) not defined")
 
-    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
+    def assembly_ast_condition(
+            self, astree: AbstractSyntaxTree,
+            reverse: bool = False) -> Optional[ASTExpr]:
         raise UF.CHBError("assembly-ast-condition not defined")
 
     @abstractmethod

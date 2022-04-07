@@ -150,7 +150,8 @@ class Cfg:
             elif len(self.successors(n)) == 0:
                 return astree.mk_block(result + [blockstmts[n]])
             elif len(self.successors(n)) == 1:
-                return construct(self.successors(n)[0], follow, result + [blockstmts[n]])
+                return construct(
+                    self.successors(n)[0], follow, result + [blockstmts[n]])
             elif len(self.successors(n)) == 2:
                 if n in twowayconds:
                     follownode: Optional[str] = twowayconds[n]
@@ -158,13 +159,22 @@ class Cfg:
                     follownode = None
                 ifbranch = construct(self.successors(n)[1], follownode, [])
                 elsebranch = construct(self.successors(n)[0], follownode, [])
-                condition = fn.blocks[n].assembly_ast_condition(astree)
                 pcoffset = (
                     (int(self.successors(n)[1], 16) - int(self.successors(n)[0], 16))
                     - 2)
-                bstmt = astree.mk_branch(condition, ifbranch, elsebranch, pcoffset)
+                # if ifbranch.is_ast_block and ifbranch.is_empty:
+                if False:
+                    condition = fn.blocks[n].assembly_ast_condition(
+                        astree, reverse=True)
+                    bstmt = astree.mk_branch(
+                        condition, elsebranch, ifbranch, pcoffset)
+                else:
+                    condition = fn.blocks[n].assembly_ast_condition(astree)
+                    bstmt = astree.mk_branch(
+                        condition, ifbranch, elsebranch, pcoffset)
                 if follownode:
-                    return construct(follownode, follow, result + [blockstmts[n], bstmt])
+                    return construct(
+                        follownode, follow, result + [blockstmts[n], bstmt])
                 else:
                     return astree.mk_block(result + [blockstmts[n], bstmt])
             else:
