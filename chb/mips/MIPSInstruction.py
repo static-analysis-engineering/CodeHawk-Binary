@@ -143,7 +143,10 @@ class MIPSInstruction(Instruction):
         return self.opcode.assembly_ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
-    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
+    def assembly_ast_condition(
+            self,
+            astree: AbstractSyntaxTree,
+            reverse: bool = False) -> Optional[ASTExpr]:
         return self.opcode.assembly_ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata)
 
@@ -152,7 +155,10 @@ class MIPSInstruction(Instruction):
         return self.opcode.ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
-    def ast_condition(self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
+    def ast_condition(
+            self,
+            astree: AbstractSyntaxTree,
+            reverse: bool = False) -> Optional[ASTExpr]:
         return self.opcode.ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata)
 

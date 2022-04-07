@@ -248,11 +248,15 @@ class ARMBranch(ARMOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Optional[ASTExpr]:
+            xdata: InstrXData,
+            reverse: bool) -> Optional[ASTExpr]:
         ftconds = self.ft_conditions(xdata)
         if len(ftconds) == 2:
-            tcond = ftconds[1]
-            astcond = XU.xxpr_to_ast_expr(tcond, astree)
+            if reverse:
+                condition = ftconds[0]
+            else:
+                condition = ftconds[1]
+            astcond = XU.xxpr_to_ast_expr(condition, astree)
             if xdata.has_condition_setter():
                 csetter = xdata.get_condition_setter()
                 cbytestr = xdata.get_condition_setter_bytestring()
