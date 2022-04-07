@@ -122,8 +122,10 @@ class BasicBlock(ABC):
         return m.hexdigest()
 
     def assembly_ast_condition(
-            self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
-        return self.last_instruction.assembly_ast_condition(astree)
+            self,
+            astree: AbstractSyntaxTree,
+            reverse: bool = False) -> Optional[ASTExpr]:
+        return self.last_instruction.assembly_ast_condition(astree, reverse=reverse)
 
     def assembly_ast(self, astree: AbstractSyntaxTree) -> ASTStmt:
         instrs: List[ASTInstruction] = []

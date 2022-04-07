@@ -785,17 +785,31 @@ class AbstractSyntaxTree:
         id = self.new_id()
         return AST.ASTAddressOf(id, lval)
 
-    def mk_binary_op(self, op: str, exp1: AST.ASTExpr, exp2: AST.ASTExpr) -> AST.ASTExpr:
+    def mk_binary_op(
+            self, op: str,
+            exp1: AST.ASTExpr,
+            exp2: AST.ASTExpr) -> AST.ASTExpr:
         if exp2.is_integer_constant and op == "lsl":
             expvalue = cast(AST.ASTIntegerConstant, exp2).cvalue
             if expvalue == 0:
                 return exp1
+        if exp1.is_integer_constant and exp2.is_integer_constant and op == "band":
+            # 0 & x = x & 0 = 0
+            exp1value = cast(AST.ASTIntegerConstant, exp1).cvalue
+            exp2value = cast(AST.ASTIntegerConstant, exp2).cvalue
+            if exp1value == 0:
+                return exp1
+            elif exp2value == 0:
+                return exp2
 
         id = self.new_id()
         return AST.ASTBinaryOp(id, op, exp1, exp2)
 
     def mk_question(
-            self, exp1: AST.ASTExpr, exp2: AST.ASTExpr, exp3: AST.ASTExpr) -> AST.ASTExpr:
+            self,
+            exp1: AST.ASTExpr,
+            exp2: AST.ASTExpr,
+            exp3: AST.ASTExpr) -> AST.ASTExpr:
         id = self.new_id()
         return AST.ASTQuestion(id, exp1, exp2, exp3)
 

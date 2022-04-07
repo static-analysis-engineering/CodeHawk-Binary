@@ -280,6 +280,7 @@ def global_variable_to_ast_lval(
 def vmemory_variable_to_ast_lval(
         xvmem: "VMemoryVariable", astree: AbstractSyntaxTree) -> AST.ASTLval:
     """TODO: split up."""
+
     if xvmem.base.is_local_stack_frame:
         return stack_variable_to_ast_lval(xvmem.offset, astree)
 

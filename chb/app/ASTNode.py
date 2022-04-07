@@ -151,7 +151,9 @@ operators = {
     "eq": " == ",
     "ge": " >= ",
     "gt": " > ",
+    "land": " && ",
     "le": " <= ",
+    "lnot": " ! ",
     "lor": " || ",   # logical or
     "lsl": " << ",   # logical shift left
     "lsr": " >> ",   # logical shift right; need to infer type as unsigned
