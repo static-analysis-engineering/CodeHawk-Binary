@@ -176,18 +176,20 @@ class ARMInstruction(Instruction):
         return self.opcode.assembly_ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
-    def assembly_ast_condition(self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
+    def assembly_ast_condition(
+            self, astree: AbstractSyntaxTree, reverse=False) -> Optional[ASTExpr]:
         return self.opcode.assembly_ast_condition(
-            astree, self.iaddr, self.bytestring, self.xdata)
+            astree, self.iaddr, self.bytestring, self.xdata, reverse)
 
     def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
         astree.set_current_addr(self.iaddr)
         return self.opcode.ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
-    def ast_condition(self, astree: AbstractSyntaxTree) -> Optional[ASTExpr]:
+    def ast_condition(
+            self, astree: AbstractSyntaxTree, reverse=False) -> Optional[ASTExpr]:
         return self.opcode.ast_condition(
-            astree, self.iaddr, self.bytestring, self.xdata)
+            astree, self.iaddr, self.bytestring, self.xdata, reverse)
 
     @property
     def stackpointer_offset(self) -> StackPointerOffset:

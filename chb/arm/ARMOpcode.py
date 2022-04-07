@@ -131,7 +131,8 @@ class ARMOpcode(ARMDictionaryRecord):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Optional[ASTExpr]:
+            xdata: InstrXData,
+            reverse: bool) -> Optional[ASTExpr]:
         msg = (
             bytestring
             + "  "
@@ -154,8 +155,10 @@ class ARMOpcode(ARMDictionaryRecord):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Optional[ASTExpr]:
-        return self.assembly_ast_condition(astree, iaddr, bytestring, xdata)
+            xdata: InstrXData,
+            reverse: bool) -> Optional[ASTExpr]:
+        return self.assembly_ast_condition(
+            astree, iaddr, bytestring, xdata, reverse)
 
     def mnemonic_extension(self) -> str:
         if self.mnemonic.startswith("IT"):

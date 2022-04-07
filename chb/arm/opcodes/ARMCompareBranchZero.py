@@ -83,11 +83,15 @@ class ARMCompareBranchZero(ARMOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> AST.ASTExpr:
+            xdata: InstrXData,
+            reverse: bool) -> AST.ASTExpr:
         reg = str(self.operands[0])
         regvar = astree.mk_register_variable_expr(reg)
         zero = astree.mk_integer_constant(0)
-        condition = astree.mk_binary_op("eq", regvar, zero)
+        if reverse:
+            condition = astree.mk_binary_op("neq", regvar, zero)
+        else:
+            condition = astree.mk_binary_op("eq", regvar, zero)
         astree.add_instruction_span(condition.id, iaddr, bytestring)
         return condition
 
