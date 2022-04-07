@@ -27,11 +27,17 @@
 
 from typing import List, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -78,3 +84,65 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
         return '; '.join(
             str(lhs) + " := " + str(x) for (lhs, x) in zip(xdata.vars, xdata.xprs))
+
+    # --------------------------------------------------------------------------
+    # address = R[n];
+    # for i = 0 to 14
+    #   if registers<i> == '1' then
+    #     MemA[address, 4] = R[i];
+    #     address = address + 4;
+    # if registers<15> == '1' then
+    #   MemA[address, 4] = PCStoreValue();
+    # if wback then
+    #   R[n] = R[n] + 4 * BitCount(registers);
+    # --------------------------------------------------------------------------
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        baseop = self.operands[0]
+        regsop = self.operands[1]
+        if not regsop.is_register_list:
+            raise UF.CHBError("Argument to STM is not a register list")
+
+        (reglval, _, _) = baseop.ast_lvalue(astree)
+        (regrval, _, _) = baseop.ast_rvalue(astree)
+
+        instrs: List[AST.ASTInstruction] = []
+        registers = regsop.registers
+        reg_incr = 4 * len(registers)
+        reg_offset = 0
+        for r in registers:
+            reg_offset_c = astree.mk_integer_constant(reg_offset)
+            addr = astree.mk_binary_op("plus", regrval, reg_offset_c)
+            lhs = astree.mk_memref_lval(addr)
+            rhs = astree.mk_register_variable_expr(r)
+            instrs.append(astree.mk_assign(lhs, rhs))
+            reg_offset += 4
+        if self.args[0] == 1:
+            reg_incr_c = astree.mk_integer_constant(reg_incr)
+            reg_rhs = astree.mk_binary_op("plus", regrval, reg_incr_c)
+            instrs.append(astree.mk_assign(reglval, reg_rhs))
+        astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
+        return instrs
+
+    def ast(self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        vars = xdata.vars
+        xprs = xdata.xprs[:-1]
+        basexpr = xdata.xprs[-1]
+
+        instrs: List[AST.ASTInstruction] = []
+
+        for (v, x) in zip(vars, xprs):
+            lhs = XU.xvariable_to_ast_lval(v, astree)
+            rhs = XU.xxpr_to_ast_expr(x, astree)
+            instrs.append(astree.mk_assign(lhs, rhs))
+
+        astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
+        return instrs

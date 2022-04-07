@@ -27,6 +27,10 @@
 
 from typing import List, TYPE_CHECKING
 
+from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+
+import chb.app.ASTNode as AST
+
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
@@ -79,3 +83,46 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
             '; '.join(str(v)
                       + " := "
                       + str(x) for (v, x) in zip(xdata.vars, xdata.xprs)))
+
+    # -------------------------------------------------------------------------
+    # address = R[n];
+    # for i = 0 to 14
+    #   if registers<i> == '1' then
+    #     R[i] = MemA[address, 4];
+    #     address = address + 4;
+    # if registers<15> == '1' then
+    #   loadWritePC(MemA[address, 4]);
+    # if wback && registers<n> == '0' then
+    #   R[n] = R[n] + 4 * BitCount(registers);
+    # -------------------------------------------------------------------------
+    def assembly_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        baseop = self.operands[0]
+        regsop = self.operands[1]
+        if not regsop.is_register_list:
+            raise UF.CHBError("Argument to LDM is not a register list")
+
+        (reglval, _, _) = baseop.ast_lvalue(astree)
+        (regrval, _, _) = baseop.ast_rvalue(astree)
+
+        instrs: List[AST.ASTInstruction] = []
+        registers = regsop.registers
+        reg_incr = 4 * len(registers)
+        reg_offset = 0
+        for r in registers:
+            reg_offset_c = astree.mk_integer_constant(reg_offset)
+            addr = astree.mk_binary_op("plus", regrval, reg_offset_c)
+            rhs = astree.mk_memref_expr(addr)
+            lhs = astree.mk_register_variable_lval(r)
+            instrs.append(astree.mk_assign(lhs, rhs))
+            reg_offset += 4
+        if self.args[0] == 1:
+            reg_incr_c = astree.mk_integer_constant(reg_incr)
+            reg_rhs = astree.mk_binary_op("plus", regrval, reg_incr_c)
+            instrs.append(astree.mk_assign(reglval, reg_rhs))
+        astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
+        return instrs

@@ -135,7 +135,6 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         rhss = XU.xxpr_list_to_ast_exprs(xprs, astree)
 
         for (v, x) in zip(vars, xprs):
-            print("STMDB: " + str(v) + " := " + str(x))
             lhs = XU.xvariable_to_ast_lval(v, astree)
             rhs = XU.xxpr_to_ast_expr(x, astree)
             instrs.append(astree.mk_assign(lhs, rhs))
