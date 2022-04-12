@@ -101,11 +101,17 @@ class MIPSMultiplyWord(MIPSOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
-        lhslo = XU.xvariable_to_ast_lval(xdata.vars[1], astree)
-        rhs = XU.xxpr_to_ast_expr(xdata.xprs[3], astree)
-        assign = astree.mk_assign(lhslo, rhs)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return [assign]
+        lhslos = XU.xvariable_to_ast_lvals(xdata.vars[1], astree)
+        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[3], astree)
+        if len(lhslos) == 1 and len(rhss) == 0:
+            lhslo = lhslos[0]
+            rhs = rhss[0]
+            assign = astree.mk_assign(lhslo, rhs)
+            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            return [assign]
+        else:
+            raise UF.CHBError(
+                "MIPSMultiplyWord: multiple expressions/lvals in ast")
 
     @property
     def dstlo_operand(self) -> MIPSOperand:

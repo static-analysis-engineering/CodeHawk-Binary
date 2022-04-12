@@ -42,6 +42,8 @@ from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
 
 from chb.util.IndexedTable import IndexedTableValue
 
+import chb.util.fileutil as UF
+
 if TYPE_CHECKING:
     from chb.mips.MIPSDictionary import MIPSDictionary
 
@@ -80,8 +82,13 @@ class MIPSBranchOpcode(MIPSOpcode):
         ftconds = self.ft_conditions(xdata)
         if len(ftconds) == 2:
             tcond = ftconds[1]
-            astcond = XU.xxpr_to_ast_expr(tcond, astree)
-            astree.add_instruction_span(astcond.id, iaddr, bytestring)
-            return astcond
+            astconds = XU.xxpr_to_ast_exprs(tcond, astree)
+            if len(astconds) > 1:
+                raise UF.CHBError(
+                    "Multiple expressions for MIPS condition")
+            else:
+                astcond = astconds[0]
+                astree.add_instruction_span(astcond.id, iaddr, bytestring)
+                return astcond
         else:
             return None
