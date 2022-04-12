@@ -65,7 +65,7 @@ type arm_operand_kind_t =
   | ARMFPConstant of float                            "c"       2            0
 """
 
-from typing import cast, List, Tuple, TYPE_CHECKING
+from typing import cast, List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 
@@ -119,6 +119,10 @@ class ARMOperandKind(ARMDictionaryRecord):
         return False
 
     @property
+    def is_shifted_register(self) -> bool:
+        return False
+
+    @property
     def register(self) -> str:
         raise UF.CHBError("Register not available for operand kind " + str(self))
 
@@ -146,6 +150,11 @@ class ARMOperandKind(ARMDictionaryRecord):
     @property
     def value(self) -> int:
         raise UF.CHBError("Value not available for operand kind " + str(self))
+
+    @property
+    def scale_factor(self) -> Optional[int]:
+        raise UF.CHBError(
+            "Scale factor not available for operand kind " + str(self))
 
     def ast_lvalue(
             self,
@@ -326,8 +335,28 @@ class ARMShiftedRegisterOp(ARMOperandKind):
         return self.tags[1]
 
     @property
+    def is_shifted_register(self) -> bool:
+        return True
+
+    @property
     def shift_rotate(self) -> "ARMShiftRotate":
         return self.armd.arm_register_shift(self.args[0])
+
+    @property
+    def scale_factor(self) -> Optional[int]:
+        srt = self.shift_rotate
+        if srt.is_imm_srt:
+            srt = cast("ARMImmSRT", srt)
+            shiftamount = srt.shift_amount
+            if shiftamount == 0:
+                return 1
+            else:
+                if srt.is_shift_left:
+                    return 2**shiftamount
+                else:
+                    return None
+        else:
+            return None
 
     def ast_lvalue(
             self,
@@ -423,7 +452,7 @@ class ARMRegBitSequenceOp(ARMOperandKind):
         if width == 8:
             mask = astree.mk_integer_constant(255)
             if lsb == 0:
-                xpr = astree.mk_binary_op("and", rvar, mask)
+                xpr = astree.mk_binary_op("band", rvar, mask)
             else:
                 shiftamount = astree.mk_integer_constant(lsb)
                 xprsub = astree.mk_binary_op("lsr", rvar, shiftamount)

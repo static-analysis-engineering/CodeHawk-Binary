@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Operand of an ARM assembly instruction."""
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.app.ASTNode import ASTLval, ASTExpr, ASTInstruction
@@ -86,6 +86,10 @@ class ARMOperand(ARMDictionaryRecord, Operand):
     @property
     def indirect_register(self) -> str:
         return self.opkind.indirect_register
+
+    @property
+    def is_shifted_register(self) -> bool:
+        return self.opkind.is_shifted_register
 
     @property
     def is_register_list(self) -> bool:
