@@ -34,36 +34,58 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING
 if TYPE_CHECKING:
     from chb.app.ASTNode import ASTExpr, ASTLval, ASTVarInfo
 
+import chb.util.fileutil as UF
+
 
 arm_registers = [
     "R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8",
     "R9", "R10" "R11", "R12", "SP", "LR", "PC"]
 
 
-def get_arm_arg_loc(index: int) -> str:
+def get_arm_arg_loc(bytecounter: int, size: int) -> str:
+    index = bytecounter // 4
+    rem = bytecounter % 4
     if index < 4:
-        return "R" + str(index)
+        if size == 4:
+            if rem == 0:
+                return "R" + str(index)
+            else:
+                raise UF.CHBError(
+                    "Unexpected alignment in arm argument location")
+        else:
+            return "R" + str(index) + ":" + str(rem)
+    
     else:
-        return "stack:" + str(4 * (index - 4))
+        return "stack:" + str(bytecounter - 16)
 
 
-def get_mips_arg_loc(index: int) -> str:
+def get_mips_arg_loc(bytecounter: int, size: int) -> str:
+    index = bytecounter // 4
+    rem = bytecounter % 4
     if index < 4:
-        return "a" + str(index)
+        if size == 4:
+            if rem == 0:
+                return "a" + str(index)
+            else:
+                raise UF.CHBError(
+                    "Unexpected alignment in mips argument location")
+        else:
+            return "a" + str(index) + ":" + str(rem)
     else:
-        return "stack:" + str(16 + (4 * (index - 4)))
+        return "stack:" + str(bytecounter)
 
 
-def get_arg_loc(callingconvention: str, index: int) -> str:
+def get_arg_loc(callingconvention: str, bytecounter: int, size: int) -> str:
     """Return a string that denotes the location of a given function argument."""
 
+    index = bytecounter // 4
     if index < 0:
         raise Exception(
             "Argument index cannot be smaller than zero: " + str(index))
     if callingconvention == "arm":
-        return get_arm_arg_loc(index)
+        return get_arm_arg_loc(bytecounter, size)
     elif callingconvention == "mips":
-        return get_mips_arg_loc(index)
+        return get_mips_arg_loc(bytecounter, size)
     else:
         return "?"
 
@@ -119,11 +141,13 @@ class UseDef:
     allowed.
     """
 
-    def __init__(self, defs: Mapping[str, Tuple[int, "ASTExpr"]]) -> None:
+    def __init__(
+            self,
+            defs: Mapping[str, Tuple[int, "ASTLval", "ASTExpr"]]) -> None:
         self._defs = defs
 
     @property
-    def defs(self) -> Mapping[str, Tuple[int, "ASTExpr"]]:
+    def defs(self) -> Mapping[str, Tuple[int, "ASTLval", "ASTExpr"]]:
         return self._defs
 
     @property
@@ -133,29 +157,44 @@ class UseDef:
     def has_name(self, v: str) -> bool:
         return v in self.defs
 
-    def get(self, v: str) -> Tuple[int, "ASTExpr"]:
+    def has_stack_variable(self) -> bool:
+        return any(v.startswith("localvar_") for v in self.defs)
+
+    def get(self, v: str) -> Tuple[int, "ASTLval", "ASTExpr"]:
         if v in self.defs:
             return self.defs[v]
         else:
             raise Exception("Variable: " + v + " not found in usedef")
 
     def apply_assign(
-            self, instrid: int, kill: str, gendef: "ASTExpr") -> "UseDef":
+            self,
+            instrid: int,
+            lval: "ASTLval",
+            gendef: "ASTExpr") -> "UseDef":
+
+        # print("Apply assign: " + str(lval) + " := " + str(gendef))
+
+        kill = str(lval)
+
+        if not lval.is_variable:        # some protection against aliasing
+            return UseDef(self.defs)    # needs to be strengthened
 
         if kill not in self.defs:
             if kill in gendef.use():             # nothing to add or remove
                 return UseDef(self.defs)
 
-        usedefs: Dict[str, Tuple[int, "ASTExpr"]] = {}
+        usedefs: Dict[str, Tuple[int, "ASTLval", "ASTExpr"]] = {}
         if kill not in self.defs:
-            usedefs[kill] = (instrid, gendef)
+            usedefs[kill] = (instrid, lval, gendef)
 
         for v in self.defs:
             if v == kill and v in gendef.use():
                 pass    # remove from usedefs
             elif v == kill:
-                usedefs[v] = (instrid, gendef)    # replace
-            elif kill not in self.defs[v][1].use():
+                usedefs[v] = (instrid, lval, gendef)    # replace
+            elif (
+                    kill not in self.defs[v][1].use()
+                    and kill not in self.defs[v][2].use()):
                 usedefs[v] = self.defs[v]         # keep this def
             else:
                 pass   # leave out this def
@@ -163,7 +202,7 @@ class UseDef:
         return UseDef(usedefs)
 
     def apply_call(self, kill: Sequence[str]) -> "UseDef":
-        usedefs: Dict[str, Tuple[int, "ASTExpr"]] = {}
+        usedefs: Dict[str, Tuple[int, "ASTLval", "ASTExpr"]] = {}
         for v in self.defs:
             if v in kill:
                 pass   # remove from usedefs
@@ -182,13 +221,20 @@ class UseDef:
         if len(other.defs) == 0 or len(self.defs) == 0:
             return UseDef({})
 
-        newdefs: Dict[str, Tuple[int, "ASTExpr"]] = {}
+        newdefs: Dict[str, Tuple[int, "ASTLval", "ASTExpr"]] = {}
         for v in self.defs:
             if v in other.defs:
                 if self.defs[v][0] == other.defs[v][0]:
                     newdefs[v] = self.defs[v]
 
         return UseDef(newdefs)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        for (name, (i, lv, x)) in self.defs.items():
+            ctype = str(lv.ctype) + " " if lv.ctype else ""
+            lines.append(ctype + name + ": " + str(x))
+        return "\n".join(lines)
 
 
 class InstrUseDef:
