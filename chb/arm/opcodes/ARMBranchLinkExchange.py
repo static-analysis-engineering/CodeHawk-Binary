@@ -214,7 +214,11 @@ class ARMBranchLinkExchange(ARMOpcode):
                     argxprs.append(astree.mk_string_constant(regast, cstr, saddr))
                 elif arg.is_argument_value:
                     argindex = arg.argument_index()
-                    funarg = astree.function_argument(argindex)
+                    funargs = astree.function_argument(argindex)
+                    if len(funargs) != 1:
+                        raise UF.CHBError(
+                            "ARMBranchLinkExchange: no or multiple function arguments")
+                    funarg = funargs[0]
                     if funarg:
                         argxprs.append(astree.mk_lval_expr(funarg))
                     else:
@@ -223,7 +227,7 @@ class ARMBranchLinkExchange(ARMOpcode):
                     argxprs.append(astree.mk_register_variable_expr(reg))
             if len(args) > 4:
                 for a in args[4:]:
-                    argxprs.append(XU.xxpr_to_ast_expr(a, astree))
+                    argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
             if lhs.is_ignored:
                 call: ASTInstruction = astree.mk_call(lhs, tgtxpr, argxprs)
                 astree.add_instruction_span(call.id, iaddr, bytestring)

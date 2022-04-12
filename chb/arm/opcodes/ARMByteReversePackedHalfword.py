@@ -79,12 +79,32 @@ class ARMByteReversePackedHalfword(ARMOpcode):
         rhs = str(xdata.xprs[1])
         return lhs + " := byte-reverse_halfwords(" + str(rhs) + ")"
 
+
+    # --------------------------------------------------------------------------
+    # Operation
+    #   bits(32) result;
+    #   result<31:24> = R[m]<23:16>;
+    #   result<23:16> = R[m]<31:24>;
+    #   result<15:8> = R[m]<7:0>
+    #   result<7:0> = R[m]<15:8>
+    #   R[d] = result;
+    # --------------------------------------------------------------------------
     def assembly_ast(
             self,
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
-        """TBD: To be updated."""
 
-        return []
+        annotations: List[str] = [iaddr, "REV16"]
+
+        (rhs, _, _) = self.operands[1].ast_rvalue(astree)
+        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        b0 = astree.mk_byte_expr(1, rhs)
+        b1 = astree.mk_byte_expr(0, rhs)
+        b2 = astree.mk_byte_expr(3, rhs)
+        b3 = astree.mk_byte_expr(2, rhs)
+        result = astree.mk_byte_sum([b0, b1, b2, b3])
+        assign = astree.mk_assign(lhs, result, annotations=annotations)
+        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        return [assign]

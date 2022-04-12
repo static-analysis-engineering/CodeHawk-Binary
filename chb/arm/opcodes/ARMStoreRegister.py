@@ -107,9 +107,12 @@ class ARMStoreRegister(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "STR"]
+
         (lhs, preinstrs, postinstrs) = self.operands[1].ast_lvalue(astree)
         (rhs, _, _) = self.operands[0].ast_rvalue(astree)
-        assign = astree.mk_assign(lhs, rhs)
+        assign = astree.mk_assign(lhs, rhs, annotations=annotations)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs
 
@@ -119,12 +122,20 @@ class ARMStoreRegister(ARMOpcode):
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         # (rhs, _, _) = self.operands[0].ast_rvalue(astree)
-        rhs = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
+        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], astree)
         lhs = xdata.vars[0]
         if str(lhs).startswith("?"):
             return self.assembly_ast(astree, iaddr, bytestring, xdata)
 
-        lval = XU.xvariable_to_ast_lval(lhs, astree)
-        assign = astree.mk_assign(lval, rhs)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return [assign]
+        annotations: List[str] = [iaddr, "STR"]
+
+        lvals = XU.xvariable_to_ast_lvals(lhs, astree)
+        if len(lvals) == 1 and len(rhss) == 1:
+            lval = lvals[0]
+            rhs = rhss[0]
+            assign = astree.mk_assign(lval, rhs, annotations=annotations)
+            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            return [assign]
+        else:
+            raise UF.CHBError(
+                "ARMStoreRegister: multiple expressions/lvals in ast")

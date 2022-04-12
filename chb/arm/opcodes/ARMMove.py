@@ -113,9 +113,10 @@ class ARMMove(ARMOpcode):
         if xdata.instruction_is_subsumed():
             return []
         else:
+            annotations: List[str] = [iaddr, "MOV"]
             (lhs, _, _) = self.operands[0].ast_lvalue(astree)
             (rhs, _, _) = self.operands[1].ast_rvalue(astree)
-            assign = astree.mk_assign(lhs, rhs)
+            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
             astree.add_instruction_span(assign.id, iaddr, bytestring)
             return [assign]
 
@@ -128,10 +129,15 @@ class ARMMove(ARMOpcode):
         if xdata.instruction_is_subsumed():
             return []
         else:
-            lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
-            rhs = XU.xxpr_to_ast_expr(xdata.xprs[0], astree)
-            # (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-            # (rhs, _, _) = self.operands[1].ast_rvalue(astree)
-            assign = astree.mk_assign(lhs, rhs)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
-            return [assign]
+            annotations: List[str] = [iaddr, "MOV"]
+            lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
+            rhss = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
+            if len(lhss) == 1 and len(rhss) == 1:
+                lhs = lhss[0]
+                rhs = rhss[0]
+                assign = astree.mk_assign(lhs, rhs, annotations=annotations)
+                astree.add_instruction_span(assign.id, iaddr, bytestring)
+                return [assign]
+            else:
+                raise UF.CHBError(
+                    "ARMMove: multiple expressions/lvals in ast")

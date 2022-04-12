@@ -93,11 +93,17 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "UMULL"]
+
         (rhs1, preinstrs1, postinstrs1) = self.operands[2].ast_rvalue(astree)
         (rhs2, preinstrs2, postinstrs2) = self.operands[3].ast_rvalue(astree)
         (lhs1, _, _) = self.operands[0].ast_lvalue(astree)
         (lhs2, _, _) = self.operands[1].ast_lvalue(astree)
         binop = astree.mk_binary_op("mult", rhs1, rhs2)
-        assign = astree.mk_assign(lhs1, binop)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return preinstrs1 + preinstrs2 + [assign] + postinstrs1 + postinstrs2
+        zero = astree.mk_integer_constant(0)
+        assign1 = astree.mk_assign(lhs1, binop, annotations=(annotations + ["low"]))
+        assign2 = astree.mk_assign(lhs2, zero, annotations=annotations)
+        astree.add_instruction_span(assign1.id, iaddr, bytestring)
+        astree.add_instruction_span(assign2.id, iaddr, bytestring)
+        return preinstrs1 + preinstrs2 + [assign1, assign2] + postinstrs1 + postinstrs2

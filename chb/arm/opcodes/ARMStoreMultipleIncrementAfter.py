@@ -72,6 +72,14 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 
+    @property
+    def operandstring(self) -> str:
+        return (
+            str(self.armd.arm_operand(self.args[1]))
+            + ("!" if self.args[0] == 1 else "")
+            + ", "
+            + str(self.armd.arm_operand(self.args[2])))
+
     def is_store_instruction(self, xdata: InstrXData) -> bool:
         return True
 
@@ -125,7 +133,9 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
             reg_incr_c = astree.mk_integer_constant(reg_incr)
             reg_rhs = astree.mk_binary_op("plus", regrval, reg_incr_c)
             instrs.append(astree.mk_assign(reglval, reg_rhs))
-        astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
+
+        for instr in instrs:
+            astree.add_instruction_span(instr.id, iaddr, bytestring)
         return instrs
 
     def ast(self,
@@ -140,9 +150,16 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         instrs: List[AST.ASTInstruction] = []
 
         for (v, x) in zip(vars, xprs):
-            lhs = XU.xvariable_to_ast_lval(v, astree)
-            rhs = XU.xxpr_to_ast_expr(x, astree)
-            instrs.append(astree.mk_assign(lhs, rhs))
+            lhss = XU.xvariable_to_ast_lvals(v, astree)
+            rhss = XU.xxpr_to_ast_exprs(x, astree)
+            if len(lhss) == 1 and len(rhss) == 1:
+                lhs = lhss[0]
+                rhs = rhss[0]
+                instrs.append(astree.mk_assign(lhs, rhs))
+            else:
+                raise UF.CHBError(
+                    "ARMStoreMulipleIncrementAfter: multiple expressions/lvals in ast")
 
-        astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
+        for instr in instrs:
+            astree.add_instruction_span(instr.id, iaddr, bytestring)
         return instrs

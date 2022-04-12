@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, TYPE_CHECKING
 
 from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 
@@ -45,6 +45,8 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.bctypes.BCTyp import BCTypComp, BCTypArray
+    from chb.invariants.VAssemblyVariable import VMemoryVariable
 
 
 @armregistry.register_tag("STMDB", ARMOpcode)
@@ -100,6 +102,8 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         if not regsop.is_register_list:
             raise UF.CHBError("Argument to STMDB is not a register list")
 
+        annotations: List[str] = [iaddr, "STMDB"]        
+
         (reglval, _, _) = baseop.ast_lvalue(astree)
         (regrval, _, _) = baseop.ast_rvalue(astree)
 
@@ -112,12 +116,12 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             addr = astree.mk_binary_op("minus", regrval, reg_offset_c)
             lhs = astree.mk_memref_lval(addr)
             rhs = astree.mk_register_variable_expr(r)
-            instrs.append(astree.mk_assign(lhs, rhs))
+            instrs.append(astree.mk_assign(lhs, rhs, annotations=annotations))
             reg_offset -= 4
         if self.args[0] == 1:
             reg_decr_c = astree.mk_integer_constant(reg_decr)
             reg_rhs = astree.mk_binary_op("minus", regrval, reg_decr_c)
-            instrs.append(astree.mk_assign(reglval, reg_rhs))
+            instrs.append(astree.mk_assign(reglval, reg_rhs, annotations=annotations))
         astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
         return instrs
 
@@ -131,13 +135,64 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         basexpr = xdata.xprs[-1]
 
         instrs: List[AST.ASTInstruction] = []
+        annotations: List[str] = [iaddr, "STMDB"]
 
         rhss = XU.xxpr_list_to_ast_exprs(xprs, astree)
 
-        for (v, x) in zip(vars, xprs):
-            lhs = XU.xvariable_to_ast_lval(v, astree)
-            rhs = XU.xxpr_to_ast_expr(x, astree)
-            instrs.append(astree.mk_assign(lhs, rhs))
+        if len(rhss) == 1 and rhss[0].ctype and rhss[0].ctype.is_struct:
+            # the registers represent a single struct
+            structtype = cast("BCTypComp", rhss[0].ctype)
+            compinfo = structtype.compinfo
+            
+            if vars[0].is_memory_variable:
+                xvar = cast("VMemoryVariable", vars[0].denotation)
+                if xvar.base.is_local_stack_frame:
+                    startingoffset = xvar.offset.offsetvalue()
+                    offset = startingoffset
+                    for field in compinfo.fieldinfos:
+                        fieldtype = field.fieldtype
+                        if fieldtype.is_scalar:
+                            lhs = astree.mk_stack_variable_lval(
+                                offset, vtype=fieldtype)
+                            fieldoffset = astree.mk_field_offset(field.fieldname, fieldtype)
+                            rhs0 = cast(AST.ASTLvalExpr, rhss[0])
+                            rhslval = astree.mk_lval(rhs0.lval.lhost, fieldoffset)
+                            rhs = astree.mk_lval_expr(rhslval)
+                            instrs.append(astree.mk_assign(lhs, rhs, annotations=annotations))
+                            offset += fieldtype.byte_size()
+                        elif fieldtype.is_array:
+                            arraytype = cast("BCTypArray", fieldtype)
+                            if arraytype.has_constant_size:
+                                arraysize = arraytype.sizevalue
+                                eltsize = arraytype.tgttyp.byte_size()
+                                for index in range(0, arraysize):
+                                    lhs = astree.mk_stack_variable_lval(
+                                        offset, vtype=arraytype.tgttyp)
+                                    indexoffset = astree.mk_scalar_index_offset(index)
+                                    varoffset = astree.mk_field_offset(
+                                        field.fieldname, fieldtype, offset=indexoffset)
+                                    rhs0 = cast(AST.ASTLvalExpr, rhss[0])
+                                    rhslval = astree.mk_lval(rhs0.lval.lhost, varoffset)
+                                    rhs = astree.mk_lval_expr(rhslval)
+                                    instrs.append(astree.mk_assign(lhs, rhs, annotations=annotations))
+                                    offset += eltsize
+                        else:
+                            continue
 
-        astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
+            else:
+                instrs.append(astree.mk_assign(lhs, rhss[0], annotations=annotations))
+        else:
+            for (v, x) in zip(vars, xprs):
+                lhss = XU.xvariable_to_ast_lvals(v, astree)
+                rhss = XU.xxpr_to_ast_exprs(x, astree)
+                if len(lhss) == 1 and len(rhss) == 1:
+                    lhs = lhss[0]
+                    rhs = rhss[0]
+                    instrs.append(astree.mk_assign(lhs, rhs, annotations=annotations))
+                else:
+                    raise UF.CHBError(
+                        "ARMStoreMultipleDecrementBefore: multiple expressions/lvals in ast")
+
+        for instr in instrs:
+            astree.add_instruction_span(instr.id, iaddr, bytestring)
         return instrs

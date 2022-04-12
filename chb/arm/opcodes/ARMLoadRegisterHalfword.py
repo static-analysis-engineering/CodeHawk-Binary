@@ -95,9 +95,12 @@ class ARMLoadRegisterHalfword(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "LDRH"]
+
         (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        assign = astree.mk_assign(lhs, rhs)
+        assign = astree.mk_assign(lhs, rhs, annotations=annotations)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs
 
@@ -106,9 +109,27 @@ class ARMLoadRegisterHalfword(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        rhs = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
-        lhsvar = str(xdata.vars[0])
+
+        annotations: List[str] = [iaddr, "LDRH"]
+
+        rhslvals = XU.xvariable_to_ast_lvals(xdata.vars[1], astree, size=2)
+        lhsvar = str(xdata.vars[0])        
         lhs = astree.mk_variable_lval(lhsvar)
-        assign = astree.mk_assign(lhs, rhs)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return [assign]
+        if len(rhslvals) == 1:
+            rhslval = rhslvals[0]
+            rhs = astree.mk_lval_expr(rhslval)
+            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
+            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            return [assign]
+
+        if len(rhslvals) == 2:
+            b0 = astree.mk_lval_expr(rhslvals[0])
+            b1 = astree.mk_lval_expr(rhslvals[1])
+            rhs = astree.mk_byte_sum([b0, b1])
+            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
+            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            return [assign]
+
+        else:
+            raise UF.CHBError(
+                "ARMLoadRegisterHalfword: multiple expressions/lvals in ast")

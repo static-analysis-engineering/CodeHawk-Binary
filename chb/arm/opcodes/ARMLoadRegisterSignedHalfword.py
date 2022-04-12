@@ -82,6 +82,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
         """xdata format: a:vxx .
 
         vars[0]: lhs
+        vars[1]: rhs memory location
         xprs[0]: value in memory location
         xprs[1]: value in memory location (simplified)
         """
@@ -96,9 +97,12 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "LDRSH"]
+
         (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        assign = astree.mk_assign(lhs, rhs)
+        assign = astree.mk_assign(lhs, rhs, annotations=annotations)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs
 
@@ -107,10 +111,18 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        rhslval = XU.xvariable_to_ast_lval(xdata.vars[1], astree)
-        rhs = astree.mk_lval_expr(rhslval)
-        # rhs = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
-        lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
-        assign = astree.mk_assign(lhs, rhs)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return [assign]
+
+        annotations: List[str] = [iaddr, "LDRSH"]
+
+        rhslvals = XU.xvariable_to_ast_lvals(xdata.vars[1], astree)
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
+        if len(rhslvals) == 1 and len(lhss) == 1:
+            rhslval = rhslvals[0]
+            lhs = lhss[0]
+            rhs = astree.mk_lval_expr(rhslval)        
+            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
+            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            return [assign]
+        else:
+            raise UF.CHBError(
+                "ARMLoadRegisterSignedHalfword: multiple expressions/lvals in ast")

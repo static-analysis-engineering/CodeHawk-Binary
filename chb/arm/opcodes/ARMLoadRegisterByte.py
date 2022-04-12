@@ -83,6 +83,7 @@ class ARMLoadRegisterByte(ARMOpcode):
         """xdata format: a:vxx .
 
         vars[0]: lhs
+        vars[1]: memory location expressed as a variable
         xprs[0]: value in memory location
         xprs[1]: value in memory location (simplified)
         """
@@ -97,9 +98,12 @@ class ARMLoadRegisterByte(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "LDRB"]
+
         (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        assign = astree.mk_assign(lhs, rhs)
+        assign = astree.mk_assign(lhs, rhs, annotations=annotations)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs
 
@@ -108,12 +112,22 @@ class ARMLoadRegisterByte(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "LDR"]
+
         preinstrs: List[AST.ASTInstruction] = []
         postinstrs: List[AST.ASTInstruction] = []
-        rhsrval = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
-        if str(rhsrval).startswith("temp") or str(rhsrval).startswith("(temp"):
-            (rhsrval, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
-        lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
-        assign = astree.mk_assign(lhs, rhsrval)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return preinstrs + [assign] + postinstrs
+        rhsrvals = XU.xxpr_to_ast_exprs(xdata.xprs[1], astree)
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)        
+        if len(rhsrvals) == 1 and len(lhss) == 1:
+            rhsrval = rhsrvals[0]
+            lhs = lhss[0]
+            if str(rhsrval).startswith("temp") or str(rhsrval).startswith("(temp"):
+                (rhsrval, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
+
+            assign = astree.mk_assign(lhs, rhsrval, annotations=annotations)
+            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            return preinstrs + [assign] + postinstrs
+        else:
+            raise UF.CHBError(
+                "ARMLoadRegisterByte: multiple expressions/lvals in ast")
