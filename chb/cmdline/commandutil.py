@@ -1214,7 +1214,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
 
             ast = cast(ASTStmt, ast)
 
-            defs = ast.defs()
+            # defs = ast.defs()
             addresstaken = ast.address_taken()
             callees = ast.callees()
             storagerecords = astree.storage_records()
@@ -1247,13 +1247,16 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 spans_at_id = cast(List[Dict[str, Any]], spanrec["spans"])
                 spanmap[spanid] = spans_at_id[0]["base_va"]
 
-            availablexprs: Dict[str, List[Tuple[int, str, str]]] = {}
+            availablexprs: Dict[str, List[Tuple[int, str, str, str]]] = {}
             for instrlabel in instr_usedefs_e.instrdefs:
                 if instrlabel in spanmap:
                     addr = spanmap[instrlabel]
-                    availablexprs[addr] = cast(List[Tuple[int, str, str]], [])
+                    availablexprs[addr] = cast(List[Tuple[int, str, str, str]], [])
                     for (v, d) in instr_usedefs_e.get(instrlabel).defs.items():
-                        availablexprs[addr].append((d[0], v, d[1].to_c_like()))
+                        lvaltype = d[1].ctype
+                        if lvaltype is None:
+                            lvaltype = d[2].ctype
+                        availablexprs[addr].append((d[0], v, d[2].to_c_like(), str(lvaltype)))
 
             if verbose:
                 print("\nAvailable expressions")
@@ -1323,6 +1326,12 @@ def showast(args: argparse.Namespace) -> NoReturn:
                     if len(available_exprs) > 0:
                         print("\nAvailable expressions for " + ", ".join(available_exprs))
                         print(dastree.var_available_expressions(available_exprs))
+
+                    if len(astree.notes) > 0:
+                        print("\nNotes")
+                        print("=" * 80)
+                        print("\n".join(astree.notes))
+                        print("=" * 80)
 
         else:
             print_error("Function " + faddr + " not found")
