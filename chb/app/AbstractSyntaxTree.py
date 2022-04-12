@@ -164,6 +164,14 @@ class AbstractSyntaxTree:
         self._fprototype: Optional["BCVarInfo"] = None
         self._functiondef: Optional["BCFunctionDefinition"] = None
         self._formals: List[AST.ASTFormalVarInfo] = []
+        self._notes: List[str] = []
+
+    def add_note(self, note: str) -> None:
+        self._notes.append(note)
+
+    @property
+    def notes(self) -> List[str]:
+        return self._notes
 
     @property
     def fname(self) -> str:
@@ -241,11 +249,17 @@ class AbstractSyntaxTree:
         else:
             raise Exception("Function has no known prototype")
 
-    def get_formal_locindex(self, argindex: int) -> Tuple[AST.ASTFormalVarInfo, int]:
+    def get_formal_locindices(
+            self, argindex: int) -> Tuple[AST.ASTFormalVarInfo, List[int]]:
+        """Return the indices of the arg location(s) for argindex.
+
+        There may be more than one location in case of a packed array.
+        """
+
         for formal in reversed(self.formals):
             if argindex >= formal.argindex:
                 if (argindex - formal.argindex) < formal.numargs:
-                    return (formal, argindex - formal.argindex)
+                    return (formal, formal.arglocs_for_argindex(argindex))
                 else:
                     raise Exception(
                         "get_formal_locindex: "
@@ -256,18 +270,24 @@ class AbstractSyntaxTree:
         else:
             raise Exception("No formal found for argindex: " + str(argindex))
 
-    def function_argument(self, index: int) -> Optional[AST.ASTLval]:
-        """Return the argument with the given index (zero-based)."""
+    def function_argument(self, index: int) -> List[AST.ASTLval]:
+        """Return the argument(s) with the given index (zero-based).
+
+        There may be more than one argument, in case of a packed array.
+        """
 
         if len(self.formals) > 0:
-            (formal, locindex) = self.get_formal_locindex(index)
+            (formal, locindices) = self.get_formal_locindices(index)
             id = self.new_id()
             regvar = AST.ASTVariable(id, formal)
             id = self.new_id()
-            (loc, offset, start) = formal.argloc(locindex)
-            return AST.ASTLval(id, regvar, offset)
+            lvals: List[AST.ASTLval] = []
+            for locindex in locindices:
+                (loc, offset, size) = formal.argloc(locindex)
+                lvals.append(AST.ASTLval(id, regvar, offset))
+            return lvals
         else:
-            return None
+            return []
 
     def has_symbol(self, name: str, altname: Optional[str] = None) -> bool:
         index = (name, altname) if altname else (name, "__none__")
@@ -681,6 +701,12 @@ class AbstractSyntaxTree:
         id = self.new_id()
         return AST.ASTLval(id, var, nooffset)
 
+    def mk_formal_lval(self, formal: AST.ASTFormalVarInfo) -> AST.ASTLval:
+        id = self.new_id()
+        var = AST.ASTVariable(id, formal)
+        id = self.new_id()
+        return AST.ASTLval(id, var, nooffset)
+
     def mk_register_variable_lval(
             self,
             name: str,
@@ -777,30 +803,108 @@ class AbstractSyntaxTree:
         id = self.new_id()
         return AST.ASTStringConstant(id, expr, cstr, saddr)
 
-    def mk_assign(self, lval: AST.ASTLval, rhs: AST.ASTExpr) -> AST.ASTAssign:
+    def mk_assign(
+            self,
+            lval: AST.ASTLval,
+            rhs: AST.ASTExpr,
+            annotations: List[str] = []) -> AST.ASTAssign:
         id = self.new_id()
-        return AST.ASTAssign(id, lval, rhs)
+        return AST.ASTAssign(id, lval, rhs, annotations=annotations)
 
     def mk_address_of(self, lval: AST.ASTLval) -> AST.ASTAddressOf:
         id = self.new_id()
         return AST.ASTAddressOf(id, lval)
 
+    def mk_byte_expr(self, index: int, x: AST.ASTExpr) -> AST.ASTExpr:
+        if index == 0:
+            mask = self.mk_integer_constant(255)
+            return self.mk_binary_op("band", x, mask)
+        elif index == 1:
+            mask = self.mk_integer_constant(255)
+            shift = self.mk_integer_constant(8)
+            shiftop = self.mk_binary_op("lsr", x, shift)
+            return self.mk_binary_op("band", x, mask)
+        elif index == 2:
+            mask = self.mk_integer_constant(255)
+            shift = self.mk_integer_constant(16)
+            shiftop = self.mk_binary_op("lsr", x, shift)
+            return self.mk_binary_op("band", x, mask)
+        elif index == 3:
+            shift = self.mk_integer_constant(24)
+            return self.mk_binary_op("lsr", x, shift)
+        else:
+            raise Exception("Byte extraction limited to 32 bit operands")
+
+    def mk_byte_sum(self, bytes: List[AST.ASTExpr]) -> AST.ASTExpr:
+        """Return expression for the sum of the bytes, least significant first."""
+
+        result: AST.ASTExpr = self.mk_integer_constant(0)
+        shift = 0
+        for b in bytes:
+            addend = self.mk_binary_op(
+                "shiftlt", b, self.mk_integer_constant(shift))
+            result = self.mk_binary_op("plus", result, addend)
+            shift += 8
+        return result
+
     def mk_binary_op(
             self, op: str,
             exp1: AST.ASTExpr,
             exp2: AST.ASTExpr) -> AST.ASTExpr:
-        if exp2.is_integer_constant and op == "lsl":
+        if exp2.is_integer_constant and op in ["lsl", "shiftlt"]:
             expvalue = cast(AST.ASTIntegerConstant, exp2).cvalue
             if expvalue == 0:
                 return exp1
+
+        if exp1.is_integer_constant and op in ["plus"]:
+            expvalue = cast(AST.ASTIntegerConstant, exp1).cvalue
+            if expvalue == 0:
+                return exp2
+
         if exp1.is_integer_constant and exp2.is_integer_constant and op == "band":
-            # 0 & x = x & 0 = 0
             exp1value = cast(AST.ASTIntegerConstant, exp1).cvalue
             exp2value = cast(AST.ASTIntegerConstant, exp2).cvalue
+
+            # 0 & x = x & 0 = 0
             if exp1value == 0:
                 return exp1
             elif exp2value == 0:
                 return exp2
+
+            # x & 255 = x  if x <= 255
+            if exp1value <= 255 and exp2value == 255:
+                return exp1
+
+        if exp1.is_ast_lval_expr and exp2.is_integer_constant and op == "band":
+            exp1lval = cast(AST.ASTLvalExpr, exp1).lval
+            if exp1lval.ctype:
+                exp2value = cast(AST.ASTIntegerConstant, exp2).cvalue
+                typesize = exp1lval.ctype.byte_size()
+
+                # if the type is smaller than the mask, ignore the mask
+                if exp2value in [255, (256 * 256) - 1] and typesize == 1:
+                    return exp1
+
+        if exp1.is_ast_binary_op and exp2.is_integer_constant and op == "band":
+            exp1 = cast(AST.ASTBinaryOp, exp1)
+            exp2value = cast(AST.ASTIntegerConstant, exp2).cvalue
+
+            # (x & y) & z = x & y  if y <= z
+            if exp1.exp2.is_integer_constant and exp1.op == "band":
+                exp12value = cast(AST.ASTIntegerConstant, exp1.exp2).cvalue
+                if exp12value <= exp2value:
+                    return exp1
+
+        if (
+                exp1.is_ast_binary_op
+                and exp2.is_integer_constant
+                and op == "eq"):
+            exp1 = cast(AST.ASTBinaryOp, exp1)
+            exp2value = cast(AST.ASTIntegerConstant, exp2).cvalue
+
+            # (x != y) == 0  ==> x == y
+            if exp2value == 0 and exp1.op in ["ne", "neq"]:
+                return self.mk_binary_op("eq", exp1.exp1, exp1.exp2)
 
         id = self.new_id()
         return AST.ASTBinaryOp(id, op, exp1, exp2)
@@ -814,6 +918,31 @@ class AbstractSyntaxTree:
         return AST.ASTQuestion(id, exp1, exp2, exp3)
 
     def mk_unary_op(self, op: str, exp: AST.ASTExpr) -> AST.ASTExpr:
+        if exp.is_ast_binary_op and op == "lnot":
+            exp = cast(AST.ASTBinaryOp, exp)
+            reversals: Dict[str, str] = {
+                "ne": "eq",
+                "eq": "ne",
+                "gt": "le",
+                "ge": "lt",
+                "lt": "ge",
+                "le": "gt"}
+            if exp.op in reversals:
+                newop = reversals[exp.op]
+                return self.mk_binary_op(newop, exp.exp1, exp.exp2)
+            if (
+                    exp.op == "lor"
+                    and exp.exp1.is_ast_binary_op
+                    and exp.exp2.is_ast_binary_op):
+                exp1 = cast(AST.ASTBinaryOp, exp.exp1)
+                exp2 = cast(AST.ASTBinaryOp, exp.exp2)
+                if exp1.op in reversals and exp2.op in reversals:
+                    newop1 = reversals[exp1.op]
+                    newop2 = reversals[exp2.op]
+                    newexp1 = self.mk_binary_op(newop1, exp1.exp1, exp1.exp2)
+                    newexp2 = self.mk_binary_op(newop2, exp2.exp1, exp2.exp2)
+                    return self.mk_binary_op("land", newexp1, newexp2)
+
         id = self.new_id()
         return AST.ASTUnaryOp(id, op, exp)
 
@@ -885,12 +1014,45 @@ class AbstractSyntaxTree:
         return AST.ASTAssign(
             assign.id,
             self.rewrite_lval(assign.lhs),
-            self.rewrite_expr(assign.rhs))
+            self.rewrite_expr(assign.rhs),
+            annotations=assign.annotations)
 
     def rewrite_call(self, call: AST.ASTCall) -> AST.ASTInstruction:
         return call
 
-    def rewrite_lval_to_indexed_array_lval(
+    def rewrite_array_lval_to_indexed_array_lval(
+            self,
+            lvalid: int,
+            memexp: AST.ASTBinaryOp,
+            default: Callable[[], AST.ASTLval]) -> AST.ASTLval:
+        base = cast(AST.ASTLvalExpr, memexp.exp1)
+        if base.is_ast_substituted_expr:
+            base = cast(AST.ASTSubstitutedExpr, base)
+            basexpr = base.substituted_expr
+            if basexpr.is_ast_lval_expr:
+                base = cast(AST.ASTLvalExpr, basexpr)
+        basetype = base.ctype
+        if basetype and basetype.is_array:
+            basetype = cast("BCTypArray", basetype)
+            elsize = basetype.tgttyp.byte_size()
+            if elsize == 1:
+                indexexp = memexp.exp2
+                indexoffset = self.mk_expr_index_offset(indexexp)
+                lvalnewid = self.new_id()
+                return AST.ASTLval(lvalnewid, base.lval.lhost, indexoffset)
+            else:
+                self.add_note("rewrite-array-to-array: 1")
+                return default()
+        else:
+            self.add_note(
+                "rewrite-array-to-array: 2"
+                + "; base: "
+                + str(base)
+                + ": "
+                + str(basetype))
+            return default()
+
+    def rewrite_base_lval_to_indexed_array_lval(
             self,
             lvalid: int,
             memexp: AST.ASTBinaryOp,
@@ -915,22 +1077,22 @@ class AbstractSyntaxTree:
                                 lvalnewid = self.new_id()
                                 return AST.ASTLval(lvalnewid, bvar, newindexexp)
                             else:
-                                print("rewrite-to-array: 1")
+                                self.add_note("rewrite-to-array: 1")
                                 return default()
                         else:
-                            print("rewrite-to-array: 2")
+                            self.add_note("rewrite-to-array: 2")
                             return default()
                     else:
-                        print("rewrite-to-array: 3")
+                        self.add_note("rewrite-to-array: 3")
                         return default()
                 else:
-                    print("rewrite-to-array: 4")
+                    self.add_note("rewrite-to-array: 4")
                     return default()
             else:
-                print("rewrite-to-array: 5")
+                self.add_note("rewrite-to-array: 5")
                 return default()
         else:
-            print("rewrite-to_array: 6")
+            self.add_note("rewrite-to_array: 6")
             return default()
 
 
@@ -964,12 +1126,16 @@ class AbstractSyntaxTree:
                             newlvalid, newmemref, fieldoffset)
                         return newlval
                     else:
+                        self.add_note("rewrite-to-fieldoffset-1")
                         return default()
                 else:
+                    self.add_note("rewrite-to-fieldoffset-2")
                     return default()
             else:
+                self.add_note("rewrite-to-fieldoffset-3")
                 return default()
         else:
+            self.add_note("rewrite-to_fieldoffset-4")
             return default()
 
     def rewrite_lval(self, lval: AST.ASTLval) -> AST.ASTLval:
@@ -987,17 +1153,50 @@ class AbstractSyntaxTree:
             if lhost.memexp.is_ast_binary_op:
                 memexp = cast(AST.ASTBinaryOp, lhost.memexp)
                 if memexp.op == "plus" and memexp.exp1.is_integer_constant:
-                    return self.rewrite_lval_to_indexed_array_lval(lval.id, memexp, default)
+                    return self.rewrite_base_lval_to_indexed_array_lval(
+                        lval.id, memexp, default)
 
                 elif (
                         memexp.op == "plus"
                         and memexp.exp1.is_ast_lval_expr
                         and memexp.exp2.is_integer_constant):
-                    return self.rewrite_lval_to_fieldoffset_lval(lval.id, memexp, default)
+                    return self.rewrite_lval_to_fieldoffset_lval(
+                        lval.id, memexp, default)
+
+                elif (
+                        memexp.op == "plus"
+                        and memexp.exp1.is_ast_lval_expr
+                        and memexp.exp1.is_ast_substituted_expr):
+                    return self.rewrite_array_lval_to_indexed_array_lval(
+                        lval.id, memexp, default)
 
                 else:
+                    self.add_note(
+                        "rewrite-lval-1 memxp: "
+                        + str(memexp.exp1)
+                        + " "
+                        + str(memexp.op)
+                        + " "
+                        + str(memexp.exp2)
+                        + ": "
+                        + str(memexp.exp1.ctype)
+                        + "  "
+                        + str(offset))
                     return default()
             else:
+                self.add_note("rewrite-lval-2 lhost: " + str(lhost)) 
+                return default()
+        else:
+            if offset.is_no_offset and (not lhost.ctype):
+                return default()
+            elif lval.ctype and lval.ctype.is_integer:
+                return default()
+            else:
+                self.add_note(
+                    "rewrite-lval-3: lhost: "
+                    + str(lval)
+                    + ": "
+                    + str(lval.ctype))
                 return default()
 
         return AST.ASTLval(

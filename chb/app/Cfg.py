@@ -34,7 +34,7 @@ Subclasses:
 import xml.etree.ElementTree as ET
 
 from typing import (
-    Any, Dict, List, Mapping, NewType, Optional, Sequence, Set, Tuple, TYPE_CHECKING, Union)
+    Any, cast, Dict, List, Mapping, NewType, Optional, Sequence, Set, Tuple, TYPE_CHECKING, Union)
 
 from chb.app.AbstractSyntaxTree import AbstractSyntaxTree, VariableNamesRec
 
@@ -160,18 +160,32 @@ class Cfg:
                 ifbranch = construct(self.successors(n)[1], follownode, [])
                 elsebranch = construct(self.successors(n)[0], follownode, [])
                 pcoffset = (
-                    (int(self.successors(n)[1], 16) - int(self.successors(n)[0], 16))
+                    (int(self.successors(n)[1], 16)
+                     - int(self.successors(n)[0], 16))
                     - 2)
-                # if ifbranch.is_ast_block and ifbranch.is_empty:
-                if False:
+                if ifbranch.is_empty():
                     condition = fn.blocks[n].assembly_ast_condition(
                         astree, reverse=True)
                     bstmt = astree.mk_branch(
                         condition, elsebranch, ifbranch, pcoffset)
                 else:
                     condition = fn.blocks[n].assembly_ast_condition(astree)
-                    bstmt = astree.mk_branch(
-                        condition, ifbranch, elsebranch, pcoffset)
+                    if (
+                            (not elsebranch.is_empty())
+                            and condition
+                            and condition.is_ast_binary_op):
+                        cond = cast(AST.ASTBinaryOp, condition)
+                        if cond.op in ["neq", "ne"]:
+                            condition = astree.mk_binary_op(
+                                "eq", cond.exp1, cond.exp2)
+                            bstmt = astree.mk_branch(
+                                condition, elsebranch, ifbranch, pcoffset)
+                        else:
+                            bstmt = astree.mk_branch(
+                                condition, ifbranch, elsebranch, pcoffset)
+                    else:
+                        bstmt = astree.mk_branch(
+                            condition, ifbranch, elsebranch, pcoffset)
                 if follownode:
                     return construct(
                         follownode, follow, result + [blockstmts[n], bstmt])
@@ -203,9 +217,10 @@ class Cfg:
                 instr = fn.blocks[n].last_instruction
                 rv = instr.return_value()
                 if rv is not None:
-                    astexpr: Optional[AST.ASTExpr] = XU.xxpr_to_ast_expr(rv, astree)
+                    astexprs: List[AST.ASTExpr] = XU.xxpr_to_ast_exprs(rv, astree)
                 else:
-                    astexpr = None
+                    astexprs = []
+                astexpr = astexprs[0] if len(astexprs) == 1 else None
                 rtnstmt = astree.mk_return_stmt(astexpr)
                 blocknode = astree.mk_block([blocknode, rtnstmt])
             blockstmts[n] = blocknode

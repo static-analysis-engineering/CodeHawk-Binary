@@ -51,13 +51,35 @@ operators = {
     "lt": " < ",
     "mod": " % ", 
     "shiftlt": " << ",
+    "shiftrt": " >> ",
     "minus": " - ",
     "mult": " * ",   # multiplication
     "ne": " != ",
+    "neq": " != ",
     "plus": " + "
     }
 
 nodecache: Dict[int, "ASTNode"] = {}
+
+
+duplicate_nodes: Dict[int, List["ASTNode"]] = {}
+
+
+def add_to_node_cache(id: int, node: "ASTNode") -> None:
+    if id in nodecache:
+        duplicate_nodes.setdefault(id, [nodecache[id]])
+        duplicate_nodes[id].append(node)
+    nodecache[id] = node
+
+
+def duplicates_to_string() -> str:
+    lines: List[str] = []
+    for (id, nodes) in sorted(duplicate_nodes.items()):
+        lines.append("\n" + str(id))
+        for n in nodes:
+            lines.append(
+                "  " + n.tag + " [" + ", ".join(str(a) for a in n.args) + "]")
+    return "\n".join(lines)
 
 
 class ASTNode:
@@ -179,6 +201,7 @@ class ASTAssign(ASTInstruction):
         return cast("ASTExpr", nodecache[self.args[1]])
     
     def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
+        span = spanmap[self.id] if self.id in spanmap else "no span found"
         return (
             (" " * sp)
             + self.lhs.to_c_like()
@@ -187,7 +210,7 @@ class ASTAssign(ASTInstruction):
             + ";"
             + " // " + str(self.id)
             + " ("
-            + spanmap[self.id]
+            + span
             + ")")
         
 
@@ -238,6 +261,10 @@ class ASTLval(ASTNode):
         return cast("ASTLHost", nodecache[self.args[0]])
 
     @property
+    def is_memref(self) -> bool:
+        return self.lhost.is_memref
+
+    @property
     def offset(self) -> "ASTOffset":
         if self.args[1] == -1:
             return ASTNoOffset(-1, "no-offset", [])
@@ -254,7 +281,10 @@ class ASTLval(ASTNode):
                 return memexp.to_c_like() + "->" + str(self.offset)[1:]
             elif self.offset.is_index_offset:
                 indexoffset = cast("ASTIndexOffset", self.offset)
-                return memexp.to_c_like() + " + " + indexoffset.index_expr.to_c_like()
+                return (
+                    memexp.to_c_like()
+                    + " + "
+                    + indexoffset.index_expr.to_c_like())
             else:
                 return self.lhost.to_c_like() + self.offset.to_c_like()
         else:
@@ -688,7 +718,7 @@ class AbstractSyntaxTree:
                 node = ASTAddressOf(id, tag, args)
             else:
                 node = ASTNode(id, tag, args)
-            nodecache[id] = node
+            add_to_node_cache(id, node)
 
     def to_c_like(self):
         return nodecache[self.startnode].to_c_like(spanmap = self.spanmap)

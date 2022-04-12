@@ -131,7 +131,8 @@ from typing import (
 from chb.app.ASTUtil import InstrUseDef, UseDef, get_arg_loc
 
 if TYPE_CHECKING:
-    from chb.bctypes.BCTyp import BCTyp, BCTypFun, BCTypArray, BCTypComp
+    from chb.bctypes.BCTyp import (
+        BCTyp, BCTypPtr, BCTypFun, BCTypArray, BCTypComp)
 
 
 ASTNodeRecord = NewType(
@@ -140,6 +141,39 @@ ASTNodeRecord = NewType(
 
 c_indent = 3
 
+"""
+Names used in relation to CIL sum types:
+
+Unary operators:
+ Neg: "neg"
+ BNot: "bnot"
+ LNot: "lnot"
+
+Binary operators:    
+ PlusA: "plusa"
+ PlusPI: "pluspi"
+ IndexPI: "indexpi"
+ MinusA: "minusa"
+ MinusPI: "minuspi"
+ MinusPP: "minuspp"
+ Mult: "mult"
+ Div: "div"
+ Mod: "mod"
+ Shiftlt: "shiftlt"
+ Shiftrt: "shiftrt"
+ Lt: "lt"
+ Gt: "gt"
+ Le: "le"
+ Ge: "ge"
+ Eq: "eq"
+ Ne: "ne"
+ BAnd: "band"
+ BXor: "bxor"
+ BOr: "bor"
+ LAnd: "land"
+ LOr: "lor"
+
+"""
 
 operators = {
     "and": " && ",   # logical and
@@ -158,13 +192,14 @@ operators = {
     "lsl": " << ",   # logical shift left
     "lsr": " >> ",   # logical shift right; need to infer type as unsigned
     "lt": " < ",
-    "mod": " % ", 
-    "shiftlt": " << ",
-    "shiftrt": " >> ",
     "minus": " - ",
+    "mod": " % ",     
     "mult": " * ",   # multiplication
     "ne": " != ",
-    "plus": " + "
+    "neq": " != ",
+    "plus": " + ",
+    "shiftlt": " << ",
+    "shiftrt": " >> "
     }
 
 
@@ -240,11 +275,6 @@ class ASTNode:
             live_x: Mapping[int, Set[str]] = {},
             macronames: Mapping[int, str] = {}) -> "ASTNode":
         return self
-
-    def defs(self) -> List[Tuple[int, str]]:
-        """Return list of (instr-id (assign or call), variable) pairs."""
-
-        return []
 
     def variables_used(self) -> Set[str]:
         return set([])
@@ -376,9 +406,6 @@ class ASTReturn(ASTStmt):
         else:
             return set([])
 
-    def defs(self) -> List[Tuple[int, str]]:
-        return []
-
     def variables_used(self) -> Set[str]:
         if self.has_return_value():
             return self.expr.variables_used()
@@ -471,12 +498,6 @@ class ASTBlock(ASTStmt):
         else:
             return self.stmts[0].address_taken().union(
                 *(s.address_taken() for s in self.stmts[1:]))
-
-    def defs(self) -> List[Tuple[int, str]]:
-        result: List[Tuple[int, str]] = []
-        for s in self.stmts:
-            result.extend(s.defs())
-        return result
 
     def variables_used(self) -> Set[str]:
         if self.is_empty():
@@ -585,12 +606,6 @@ class ASTInstrSequence(ASTStmt):
         else:
             return self.instructions[0].address_taken().union(
                 *(i.address_taken() for i in self.instructions))
-
-    def defs(self) -> List[Tuple[int, str]]:
-        result: List[Tuple[int, str]] = []
-        for instr in self.instructions:
-            result.extend(instr.defs())
-        return result
 
     def variables_used(self) -> Set[str]:
         if self.is_empty():
@@ -711,9 +726,6 @@ class ASTBranch(ASTStmt):
         return self.ifstmt.address_taken().union(
             self.elsestmt.address_taken()).union(self.condition.address_taken())
 
-    def defs(self) -> List[Tuple[int, str]]:
-        return self.ifstmt.defs() + self.elsestmt.defs()
-
     def variables_used(self) -> Set[str]:
         return self.ifstmt.variables_used().union(
             self.elsestmt.variables_used()).union(self.condition.variables_used())
@@ -832,7 +844,7 @@ class ASTInstruction(ASTNode, ABC):
         return False
 
     @abstractmethod
-    def define(self) -> str:
+    def define(self) -> "ASTLval":
         ...
 
     def address_taken(self) -> Set[str]:
@@ -875,10 +887,16 @@ class ASTInstruction(ASTNode, ABC):
 
 class ASTAssign(ASTInstruction):
 
-    def __init__(self, id: int, lhs: "ASTLval", rhs: "ASTExpr") -> None:
+    def __init__(
+            self,
+            id: int,
+            lhs: "ASTLval",
+            rhs: "ASTExpr",
+            annotations: List[str] = []) -> None:
         ASTInstruction.__init__(self, id, "assign")
         self._lhs = lhs
         self._rhs = rhs
+        self._annotations = annotations
 
     @property
     def is_ast_assign(self) -> bool:
@@ -892,25 +910,26 @@ class ASTAssign(ASTInstruction):
     def rhs(self) -> "ASTExpr":
         return self._rhs
 
+    @property
+    def annotations(self) -> List[str]:
+        return self._annotations
+
     def address_taken(self) -> Set[str]:
         return self.lhs.address_taken().union(self.rhs.address_taken())
 
     def variables_used(self) -> Set[str]:
         return self.lhs.variables_used().union(self.rhs.variables_used())
 
-    def defs(self) -> List[Tuple[int, str]]:
-        return [(self.id, self.define() + " (" + str(self.rhs) + ")")]
-
     def callees(self) -> Set[str]:
         return set([])
 
-    def define(self) -> str:
-        return str(self.lhs)
+    def define(self) -> "ASTLval":
+        return self.lhs
 
     def use(self) -> List[str]:
         return self.rhs.use()
 
-    def kill(self) -> List[str]:
+    def kill(self) -> List["ASTLval"]:
         return [self.define()]
 
     def live_e(self, live_x: Set[str], result: Dict[int, Set[str]]) -> Set[str]:
@@ -938,7 +957,8 @@ class ASTAssign(ASTInstruction):
         if usedefs_e.has(self.id):
             xform_lhs = self.lhs.transform_subx(usedefs_e.get(self.id))
             xform_rhs = self.rhs.transform_subx(usedefs_e.get(self.id))
-            return ASTAssign(self.id, xform_lhs, xform_rhs)
+            return ASTAssign(
+                self.id, xform_lhs, xform_rhs, annotations=self.annotations)
         else:
             return self
 
@@ -949,7 +969,7 @@ class ASTAssign(ASTInstruction):
             macronames: Mapping[int, str] = {}) -> "ASTAssign":
         r_lhs = self.lhs.reduce(mapping, live_x, macronames)
         r_rhs = self.rhs.reduce(mapping, live_x, macronames)
-        return ASTAssign(self.id, r_lhs, r_rhs)
+        return ASTAssign(self.id, r_lhs, r_rhs, annotations=self.annotations)
 
     def is_live(self, live_x: Mapping[int, Set[str]] = {}) -> bool:
         if self.lhs.to_c_like() == self.rhs.to_c_like():
@@ -980,13 +1000,17 @@ class ASTAssign(ASTInstruction):
         return result
 
     def to_c_like(self, sp: int = 0) -> str:
+        annotations = str(self.id)
+        if len(self.annotations) > 0:
+            annotations = " " + ", ".join(self.annotations)
         default = (
             (" " * sp)
             + self.lhs.to_c_like()
             + " = "
             + self.rhs.to_c_like()
             + ";"
-            + " // " + str(self.id))
+            + " // "
+            + annotations)
         return default
 
     def to_string(self, sp: int = 0) -> str:
@@ -1037,12 +1061,6 @@ class ASTCall(ASTInstruction):
         return self.tgt.address_taken().union(
             *(a.address_taken() for a in self.arguments))
 
-    def defs(self) -> List[Tuple[int, str]]:
-        if self.lhs.id == -1:
-            return []
-        else:
-            return [(self.id, str(self.lhs))]
-
     def variables_used(self) -> Set[str]:
         return self.lhs.variables_used().union(
             self.tgt.variables_used()).union(
@@ -1051,8 +1069,8 @@ class ASTCall(ASTInstruction):
     def callees(self) -> Set[str]:
         return set([str(self.tgt)])
 
-    def define(self) -> str:
-        return str(self.lhs)
+    def define(self) -> "ASTLval":
+        return self.lhs
 
     def use(self) -> List[str]:
         result = []
@@ -1078,7 +1096,8 @@ class ASTCall(ASTInstruction):
 
     def transform_instr_subx(self, usedefs_e: InstrUseDef) -> "ASTCall":
         if usedefs_e.has(self.id):
-            xform_args = [a.transform_subx(usedefs_e.get(self.id)) for a in self.arguments]
+            xform_args = [
+                a.transform_subx(usedefs_e.get(self.id)) for a in self.arguments]
             return ASTCall(self.id, self.lhs, self.tgt, xform_args)
         else:
             return self
@@ -1184,6 +1203,10 @@ class ASTLval(ASTNode):
     @property
     def is_memref(self) -> bool:
         return self.lhost.is_memref
+
+    @property
+    def is_variable(self) -> bool:
+        return self.lhost.is_variable
 
     @property
     def is_global(self) -> bool:
@@ -1459,17 +1482,16 @@ class ASTFormalVarInfo(ASTVarInfo):
     arguments, which may be distributed over multiple argument locations.
     To adequately represent this case, offsets are added that represent
     which field is in which argument location. If the struct includes
-    arrays (possibly packed arrays of e.g., chars), the starting index
-    of these arrays is represented as well.
+    arrays (possibly packed arrays of e.g., chars), registers may be
+    subdivided by byte (e.g., R0:0, R0:1, etc.)
 
     The argindex refers to the actual argument index in the binary
     (zero-based).
 
     The arglocs (argument locations) is a list of tuples consisting of:
-    - the location (represented as a string, e.g., 'R0', or 'stack:16')
+    - the location (represented as a string, e.g., 'R0', R0:0 or 'stack:16')
     - the offset, if this argument is a field in a struct (default NoOffset)
-    - the starting index, if this is an array broken up into multiple parts
-      (default 0)
+    - the size of the location (can be 1, 2, or 4)
     """
 
     def __init__(
@@ -1502,11 +1524,29 @@ class ASTFormalVarInfo(ASTVarInfo):
 
     @property
     def numargs(self) -> int:
-        return len(self.arglocs)
+        """Return the number of arguments in 4-byte equivalents."""
+
+        return sum(argloc[2] for argloc in self.arglocs) // 4
 
     @property
     def argindex(self) -> int:
+        """Return the index of the first (binary) argument for this formal."""
+
         return self._argindex
+
+    def arglocs_for_argindex(self, argindex: int) -> List[int]:
+        result: List[int] = []
+        localargindex = argindex - self.argindex
+        low = 4 * localargindex
+        high = low + 4
+        counter: int = 0
+        offset: int = 0
+        for l in self.arglocs:
+            if offset >= low and offset < high:
+                result.append(counter)
+            counter += 1
+            offset += l[2]
+        return result
 
     def initialize(self, new_id: Callable[[], int], callingconvention: str) -> int:
         argtype = self.vtype
@@ -1517,7 +1557,9 @@ class ASTFormalVarInfo(ASTVarInfo):
                 return self._initialize_mips_arguments(new_id, argtype)
             else:
                 raise Exception(
-                    "Calling convention " + str(callingconvention) + " not recognized")
+                    "Calling convention "
+                    + str(callingconvention)
+                    + " not recognized")
         else:
             raise Exception(
                 "Formal parameter has no type")
@@ -1531,25 +1573,24 @@ class ASTFormalVarInfo(ASTVarInfo):
         - subsequent arguments are passed on the stack starting at offset 0
         """
         if argtype.is_scalar:
-            argloc = get_arg_loc("arm", self.argindex)
-            self._arglocs.append((argloc, ASTNoOffset(-1), 0))
+            argloc = get_arg_loc("arm", self.argindex * 4, 4)
+            self._arglocs.append((argloc, ASTNoOffset(-1), 4))
             return self.argindex + 1
         elif argtype.is_struct:
             structtyp = cast("BCTypComp", argtype)
             fieldoffsets = structtyp.compinfo.fieldoffsets()
-            fieldcounter = 0
+            argbytecounter = 4 * self.argindex
             for (offset, finfo) in fieldoffsets:
-                if finfo.fieldname.startswith("__"):
-                    continue    # padding field for alignment
                 if finfo.byte_size() <= 4:
-                    argloc = get_arg_loc("arm", self.argindex + fieldcounter)
-                    fieldcounter += 1
+                    fieldsize = finfo.byte_size()
+                    argloc = get_arg_loc("arm", argbytecounter, fieldsize)
+                    argbytecounter += fieldsize
                     fieldoffset = ASTFieldOffset(
                         new_id(),
                         finfo.fieldname,
                         finfo.fieldtype,
                         ASTNoOffset(-1))
-                    self._arglocs.append((argloc, fieldoffset, 0))
+                    self._arglocs.append((argloc, fieldoffset, fieldsize))
                 else:
                     if finfo.fieldtype.is_array:
                         atype = cast("BCTypArray", finfo.fieldtype)
@@ -1557,28 +1598,30 @@ class ASTFormalVarInfo(ASTVarInfo):
                                 atype.has_constant_size()
                                 and atype.tgttyp.byte_size() == 1):
                             # assume array elements are packed
-                            argcount = atype.byte_size() // 4
-                            for i in range(0, argcount):
+                            for i in range(0, atype.sizevalue):
                                 argloc = get_arg_loc(
-                                    "arm", self.argindex + fieldcounter)
-                                fieldcounter += 1
+                                    "arm", argbytecounter, 1)
+                                indexoffset = ASTIndexOffset(
+                                    new_id(),
+                                    ASTIntegerConstant(new_id(), i),
+                                    ASTNoOffset(-1))
                                 fieldoffset = ASTFieldOffset(
                                     new_id(),
                                     finfo.fieldname,
                                     finfo.fieldtype,
-                                    ASTNoOffset(-1))
-                                self._arglocs.append((argloc, fieldoffset, i * 4))
-            for loc in self._arglocs:
-                print(str(loc[0]) + ", " + str(loc[1]))
-            return self.argindex + fieldcounter
+                                    indexoffset)
+                                argbytecounter += 1
+                                self._arglocs.append((argloc, fieldoffset, 1))
+
+            return argbytecounter // 4
         else:
             return 0
 
     def _initialize_mips_arguments(
             self, new_id: Callable[[], int], argtype: "BCTyp") -> int:
         if argtype.is_scalar or argtype.is_pointer:
-            argloc = get_arg_loc("mips", self.argindex)
-            self._arglocs.append((argloc, ASTNoOffset(-1), 0))
+            argloc = get_arg_loc("mips", self.argindex * 4, 4)
+            self._arglocs.append((argloc, ASTNoOffset(-1), 4))
             return self.argindex + 1
         else:
             print("Argument type is not a scalar: " + str(argtype))
@@ -1906,11 +1949,17 @@ class ASTIndexOffset(ASTOffset):
         if basetype is None:
             return None
         elif basetype.is_array:
-            bt = cast("BCTypArray", basetype)
+            btarray = cast("BCTypArray", basetype)
             if self.offset.is_no_offset:
-                return bt.tgttyp
+                return btarray.tgttyp
             else:
-                return self.offset.offset_ctype(bt.tgttyp)
+                return self.offset.offset_ctype(btarray.tgttyp)
+        elif basetype.is_pointer:
+            btptr = cast("BCTypPtr", basetype)
+            if self.offset.is_no_offset:
+                return btptr.tgttyp
+            else:
+                return self.offset.offset_ctype(btptr.tgttyp)
         else:
             return None
 
@@ -2046,7 +2095,10 @@ class ASTConstant(ASTExpr):
 
 class ASTIntegerConstant(ASTConstant):
 
-    def __init__(self, id: int, cvalue: int, macroname: Optional[str] = None) -> None:
+    def __init__(
+            self, id: int,
+            cvalue: int,
+            macroname: Optional[str] = None) -> None:
         ASTConstant.__init__(self, id, "integer-constant")
         self._cvalue = cvalue
         self._macroname = macroname
@@ -2175,7 +2227,7 @@ class ASTLvalExpr(ASTExpr):
     def transform_subx(self, usedefs_e: UseDef) -> "ASTExpr":
         name = str(self.lval)
         if usedefs_e.has_name(name):
-            (assign_id, expr) = usedefs_e.get(name)
+            (assign_id, lval, expr) = usedefs_e.get(name)
             if name in expr.use():
                 # Don't replace variable if it occurs in expression
                 return self
