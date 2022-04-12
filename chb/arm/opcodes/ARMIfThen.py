@@ -87,9 +87,14 @@ class ARMIfThen(ARMOpcode):
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         if len(xdata.vars) == 1 and len(xdata.xprs) == 1:
             lhs = astree.mk_variable_lval(str(xdata.vars[0]))
-            rhs = XU.xxpr_to_ast_expr(xdata.xprs[0], astree)
-            assign = astree.mk_assign(lhs, rhs)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
-            return [assign]
+            rhss = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
+            if len(rhss) == 1:
+                rhs = rhss[0]
+                assign = astree.mk_assign(lhs, rhs)
+                astree.add_instruction_span(assign.id, iaddr, bytestring)
+                return [assign]
+            else:
+                return []
         else:
-            return []
+            raise UF.CHBError(
+                "ARMIfThen: multiple expressions/lvals in ast")

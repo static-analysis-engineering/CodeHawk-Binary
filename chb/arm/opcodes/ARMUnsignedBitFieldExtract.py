@@ -82,6 +82,11 @@ class ARMUnsignedExtractBitField(ARMOpcode):
         xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
         return lhs + " := " + xresult
 
+    # --------------------------------------------------------------------------
+    # Operation
+    #  msbit = lsbit = widthminus1
+    #  R[d] = ZeroExtend(R[n]<msbit:lsbit>, 32);
+    # --------------------------------------------------------------------------
     def assembly_ast(
             self,
             astree: AbstractSyntaxTree,

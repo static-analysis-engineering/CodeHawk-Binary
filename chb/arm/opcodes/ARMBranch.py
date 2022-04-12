@@ -220,7 +220,11 @@ class ARMBranch(ARMOpcode):
                     argxprs.append(astree.mk_string_constant(regast, cstr, saddr))
                 elif arg.is_argument_value:
                     argindex = arg.argument_index()
-                    funarg = astree.function_argument(argindex)
+                    funargs = astree.function_argument(argindex)
+                    if len(funargs) != 1:
+                        raise UF.CHBError(
+                            "ARMBranch: no or multiple function arguments")
+                    funarg = funargs[0]
                     if funarg:
                         argxprs.append(astree.mk_lval_expr(funarg))
                     else:
@@ -229,7 +233,7 @@ class ARMBranch(ARMOpcode):
                     argxprs.append(astree.mk_register_variable_expr(reg))
             if len(args) > 4:
                 for a in args[4:]:
-                    argxprs.append(XU.xxpr_to_ast_expr(a, astree))
+                    argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
             if lhs.is_ignored:
                 call: ASTInstruction = astree.mk_call(lhs, tgtxpr, argxprs)
                 astree.add_instruction_span(call.id, iaddr, bytestring)
@@ -256,18 +260,23 @@ class ARMBranch(ARMOpcode):
                 condition = ftconds[0]
             else:
                 condition = ftconds[1]
-            astcond = XU.xxpr_to_ast_expr(condition, astree)
-            if xdata.has_condition_setter():
-                csetter = xdata.get_condition_setter()
-                cbytestr = xdata.get_condition_setter_bytestring()
-                if int(csetter, 16) + (len(cbytestr) // 2) == int(iaddr, 16):
-                    newaddr = hex(int(iaddr, 16) - (len(cbytestr) // 2))
-                    astree.add_instruction_span(
-                        astcond.id, newaddr, cbytestr + bytestring)
+            astconds = XU.xxpr_to_ast_exprs(condition, astree)
+            if len(astconds) == 1:
+                astcond = astconds[0]
+                if xdata.has_condition_setter():
+                    csetter = xdata.get_condition_setter()
+                    cbytestr = xdata.get_condition_setter_bytestring()
+                    if int(csetter, 16) + (len(cbytestr) // 2) == int(iaddr, 16):
+                        newaddr = hex(int(iaddr, 16) - (len(cbytestr) // 2))
+                        astree.add_instruction_span(
+                            astcond.id, newaddr, cbytestr + bytestring)
+                    else:
+                        astree.add_instruction_span(astcond.id, iaddr, bytestring)
                 else:
                     astree.add_instruction_span(astcond.id, iaddr, bytestring)
+                return astcond
             else:
-                astree.add_instruction_span(astcond.id, iaddr, bytestring)
-            return astcond
+                raise UF.CHBError(
+                    "ARMBranch: multiple expressions for condition")
         else:
             return None

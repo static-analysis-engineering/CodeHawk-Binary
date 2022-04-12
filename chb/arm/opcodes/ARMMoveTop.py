@@ -92,6 +92,9 @@ class ARMMoveTop(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "MOVT"]
+
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (op1, _, _) = self.operands[1].ast_rvalue(astree)
         (op2, _, _) = self.operands[2].ast_rvalue(astree)
@@ -100,7 +103,7 @@ class ARMMoveTop(ARMOpcode):
         xpr1 = astree.mk_binary_op("lsl", op2, i16)
         xpr2 = astree.mk_binary_op("mod", op1, e16)
         xpr = astree.mk_binary_op("plus", xpr1, xpr2)
-        result = astree.mk_assign(lhs, xpr)
+        result = astree.mk_assign(lhs, xpr, annotations=annotations)
         astree.add_instruction_span(result.id, iaddr, bytestring)
         return [result]
 
@@ -109,8 +112,17 @@ class ARMMoveTop(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
-        rhs = XU.xxpr_to_ast_expr(xdata.xprs[4], astree)
-        result = astree.mk_assign(lhs, rhs)
-        astree.add_instruction_span(result.id, iaddr, bytestring)
-        return [result]
+
+        annotations: List[str] = [iaddr, "MOVT"]
+
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
+        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[4], astree)
+        if len(lhss) == 1 and len(rhss) == 1:
+            lhs = lhss[0]
+            rhs = rhss[0]        
+            result = astree.mk_assign(lhs, rhs, annotations=annotations)
+            astree.add_instruction_span(result.id, iaddr, bytestring)
+            return [result]
+        else:
+            raise UF.CHBError(
+                "ARMMoveTop: multiple expressions/lvals in ast")

@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -42,13 +42,14 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMOperandKind import ARMShiftedRegisterOp
 
 
 @armregistry.register_tag("RSB", ARMOpcode)
 class ARMReverseSubtract(ARMOpcode):
     """Subtracts a value from a register and saves the result in a register.
 
-    SUB{S}<c> <Rd>, <Rn>, <Rm>{, <shift>}
+    RSB{S}<c> <Rd>, <Rn>, <Rm>{, <shift>}
 
     tags[1]: <c>
     args[0]: {S}
@@ -103,9 +104,24 @@ class ARMReverseSubtract(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "RSB"]
+
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (op1, _, _) = self.operands[1].ast_rvalue(astree)
         (op2, _, _) = self.operands[2].ast_rvalue(astree)
+        if (
+                self.operands[0].register == self.operands[1].register
+                and self.operands[0].register == self.operands[2].register
+                and self.operands[2].is_shifted_register):
+            operand2 = self.operands[2]
+            if operand2.opkind.scale_factor:
+                scale = astree.mk_integer_constant(operand2.opkind.scale_factor - 1)
+                binop = astree.mk_binary_op("mult", op1, scale)
+                result = astree.mk_assign(lhs, binop, annotations=annotations)
+                astree.add_instruction_span(result.id, iaddr, bytestring)
+                return [result]
+            
         binop = astree.mk_binary_op("minus", op2, op1)
         result = astree.mk_assign(lhs, binop)
         astree.add_instruction_span(result.id, iaddr, bytestring)

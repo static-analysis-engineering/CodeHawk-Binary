@@ -117,11 +117,14 @@ class ARMSubtract(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "SUB"]
+
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (op1, _, _) = self.operands[1].ast_rvalue(astree)
         (op2, _, _) = self.operands[2].ast_rvalue(astree)
         binop = astree.mk_binary_op("minus", op1, op2)
-        result = astree.mk_assign(lhs, binop)
+        result = astree.mk_assign(lhs, binop, annotations=annotations)
         astree.add_instruction_span(result.id, iaddr, bytestring)
         return [result]
 

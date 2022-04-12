@@ -103,10 +103,13 @@ class ARMLogicalShiftRight(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "LSR"]
+
         (rhs1, preinstrs1, postinstrs1) = self.operands[1].ast_rvalue(astree)
         (rhs2, preinstrs2, postinstrs2) = self.operands[2].ast_rvalue(astree)
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         binop = astree.mk_binary_op("lsr", rhs1, rhs2)
-        assign = astree.mk_assign(lhs, binop)
+        assign = astree.mk_assign(lhs, binop, annotations=annotations)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
         return preinstrs1 + preinstrs2 + [assign] + postinstrs1 + postinstrs2

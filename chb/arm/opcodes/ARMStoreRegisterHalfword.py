@@ -94,11 +94,14 @@ class ARMStoreRegisterHalfword(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "STRH"]
+
         (lhs, preinstrs, postinstrs) = self.operands[1].ast_lvalue(astree)
         mask = astree.mk_integer_constant((256 * 256) - 1)
         (rhs, _, _) = self.operands[0].ast_rvalue(astree)
         rhs = astree.mk_binary_op("band", rhs, mask)
-        assign = astree.mk_assign(lhs, rhs)
+        assign = astree.mk_assign(lhs, rhs, annotations=annotations)
         astree.add_instruction_span(assign.id, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs
 
@@ -107,12 +110,20 @@ class ARMStoreRegisterHalfword(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "STRH"]
+
         (rhs, _, _) = self.operands[0].ast_rvalue(astree)
         lhs = xdata.vars[0]
         if str(lhs) == "?":
             return self.assembly_ast(astree, iaddr, bytestring, xdata)
 
-        lval = XU.xvariable_to_ast_lval(lhs, astree)
-        assign = astree.mk_assign(lval, rhs)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return [assign]
+        lvals = XU.xvariable_to_ast_lvals(lhs, astree)
+        if len(lvals) == 1:
+            lval = lvals[0]
+            assign = astree.mk_assign(lval, rhs, annotations=annotations)
+            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            return [assign]
+        else:
+            raise UF.CHBError(
+                "ARMStoreRegisterHalfword: multiple lvals in ast")

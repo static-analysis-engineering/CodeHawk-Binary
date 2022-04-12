@@ -152,6 +152,8 @@ class ARMBranchLink(ARMOpcode):
             fnsymbol = astree.symbol(tgtname)
             if fnsymbol.returns_void:
                 return (astree.mk_ignored_lval(), [])
+            elif astree.ignore_return_value(tgtname):
+                return (astree.mk_ignored_lval(), [])
             else:
                 return indirect_lhs(fnsymbol.vtype)
         elif models.has_so_function_summary(tgtname):
@@ -161,6 +163,8 @@ class ARMBranchLink(ARMOpcode):
                 returntype = cast(MNamedType, returntype)
                 typename = returntype.typename
                 if typename == "void" or typename == "VOID":
+                    return (astree.mk_ignored_lval(), [])
+                elif astree.ignore_return_value(tgtname):
                     return (astree.mk_ignored_lval(), [])
                 else:
                     return indirect_lhs(None)
@@ -217,7 +221,11 @@ class ARMBranchLink(ARMOpcode):
                     argxprs.append(astree.mk_string_constant(regast, cstr, saddr))
                 elif arg.is_argument_value:
                     argindex = arg.argument_index()
-                    funarg = astree.function_argument(argindex)
+                    funargs = astree.function_argument(argindex)
+                    if len(funargs) != 1:
+                        raise UF.CHBError(
+                            "ARMBranchLink: no or multiple function arguments")
+                    funarg = funargs[0]
                     if funarg:
                         argxprs.append(astree.mk_lval_expr(funarg))
                     else:
@@ -226,7 +234,7 @@ class ARMBranchLink(ARMOpcode):
                     argxprs.append(astree.mk_register_variable_expr(reg))
             if len(args) > 4:
                 for a in args[4:]:
-                    argxprs.append(XU.xxpr_to_ast_expr(a, astree))
+                    argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
             if lhs.is_ignored:
                 call: ASTInstruction = astree.mk_call(lhs, tgtxpr, argxprs)
                 astree.add_instruction_span(call.id, iaddr, bytestring)

@@ -111,11 +111,14 @@ class ARMAdd(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
+
+        annotations: List[str] = [iaddr, "ADD"]
+
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (op1, _, _) = self.operands[1].ast_rvalue(astree)
         (op2, _, _) = self.operands[2].ast_rvalue(astree)
         binop = astree.mk_binary_op("plus", op1, op2)
-        result = astree.mk_assign(lhs, binop)
+        result = astree.mk_assign(lhs, binop, annotations=annotations)
         astree.add_instruction_span(result.id, iaddr, bytestring)
         return [result]
 
@@ -132,7 +135,12 @@ class ARMAdd(ARMOpcode):
         if lhs == "SP" and rhs1 == "SP" and rhs2.is_constant:
             return []
 
-        lhsast = XU.xvariable_to_ast_lval(lhs, astree)
+        annotations: List[str] = [iaddr, "ADD"]
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, astree)
+        if len(lhsasts) != 1:
+            raise UF.CHBError("ARMAdd: multiple lvals in ast")
+        lhsast = lhsasts[0]
         if rhs1 == "SP" and rhs3.is_stack_address:
             rhs3 = cast("XprCompound", rhs3)
             stackoffset = rhs3.stack_address_offset()
@@ -140,15 +148,21 @@ class ARMAdd(ARMOpcode):
             rhsast: ASTExpr = astree.mk_address_of(rhslval)
 
         elif rhs1 == "PC" or str(rhs2) == "PC":
+            annotations.append("PC-relative")
             if rhs3.is_int_constant:
                 rhsval = cast("XprConstant", rhs3).intvalue
                 rhsast = astree.mk_integer_constant(rhsval)
             else:
-                rhsast = XU.xxpr_to_ast_expr(rhs3, astree)
+                rhsasts = XU.xxpr_to_ast_exprs(rhs3, astree)
+                if len(rhsasts) == 1:
+                    rhsast = rhsasts[0]
+                else:
+                    raise UF.CHBError(
+                        "ARMAdd: multiple expressions in ast")
 
         else:
-            rhsast = XU.xxpr_to_ast_expr(rhs3, astree)
+            return self.assembly_ast(astree, iaddr, bytestring, xdata)
 
-        result = astree.mk_assign(lhsast, rhsast)
+        result = astree.mk_assign(lhsast, rhsast, annotations=annotations)
         astree.add_instruction_span(result.id, iaddr, bytestring)
         return [result]
