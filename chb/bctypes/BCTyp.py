@@ -137,6 +137,10 @@ class BCTyp(BCDictionaryRecord):
         return False
 
     @property
+    def is_integer(self) -> bool:
+        return False
+
+    @property
     def is_pointer(self) -> bool:
         return False
 
@@ -209,6 +213,10 @@ class BCTypInt(BCTyp):
     @property
     def ikind(self) -> str:
         return self.tags[1]
+
+    @property
+    def is_integer(self) -> bool:
+        return True
 
     @property
     def is_scalar(self) -> bool:
@@ -413,6 +421,10 @@ class BCTypNamed(BCTyp):
     def is_scalar(self) -> bool:
         return self.typedef.ttype.is_scalar
 
+    @property
+    def is_integer(self) -> bool:
+        return self.typedef.ttype.is_integer
+
     def byte_size(self) -> int:
         return self.typedef.ttype.byte_size()
 
@@ -422,7 +434,8 @@ class BCTypNamed(BCTyp):
         return result
 
     def __str__(self) -> str:
-        return self.tname
+        return str(self.typedef.ttype)
+        # return self.tname + " (" + str(self.typedef.ttype) + ")"
 
 
 @bcregistry.register_tag("tcomp", BCTyp)
