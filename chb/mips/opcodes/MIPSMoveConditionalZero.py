@@ -101,14 +101,26 @@ class MIPSMoveConditionalZero(MIPSOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
-        lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
-        cond = XU.xxpr_to_ast_expr(xdata.xprs[2], astree)
-        rhs2 = XU.xxpr_to_ast_expr(xdata.xprs[3], astree)
-        rhs1 = XU.xxpr_to_ast_expr(xdata.xprs[0], astree)
-        rhs = astree.mk_question(cond, rhs1, rhs2)
-        assign = astree.mk_assign(lhs, rhs)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return [assign]
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
+        conds = XU.xxpr_to_ast_exprs(xdata.xprs[2], astree)
+        rhs2s = XU.xxpr_to_ast_exprs(xdata.xprs[3], astree)
+        rhs1s = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
+        if (
+                len(lhss) == 1
+                and len(conds) == 1
+                and len(rhs2s) == 1
+                and len(rhs1s) == 1):
+            lhs = lhss[0]
+            cond = conds[0]
+            rhs2 = rhs2s[0]
+            rhs1 = rhs1s[0]
+            rhs = astree.mk_question(cond, rhs1, rhs2)
+            assign = astree.mk_assign(lhs, rhs)
+            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            return [assign]
+        else:
+            raise UF.CHBError(
+                "MIPMoveConditionalZero: multiple expressions/lvals in ast")
 
     @property
     def src_operand(self) -> MIPSOperand:

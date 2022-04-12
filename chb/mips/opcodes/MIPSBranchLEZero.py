@@ -104,29 +104,6 @@ class MIPSBranchLEZero(MIPSBranchOpcode):
         xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
         return 'if ' + xresult + ' then goto ' + str(self.target)
 
-    def assembly_ast(
-            self,
-            astree: AbstractSyntaxTree,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
-        return []
-
-    def assembly_ast_condition(
-            self,
-            astree: AbstractSyntaxTree,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> Optional[ASTExpr]:
-        ftconds = self.ft_conditions(xdata)
-        if len(ftconds) == 2:
-            tcond = ftconds[1]
-            astcond = XU.xxpr_to_ast_expr(tcond, astree)
-            astree.add_instruction_span(astcond.id, iaddr, bytestring)
-            return astcond
-        else:
-            return None
-
     @property
     def src_operand(self) -> MIPSOperand:
         return self.mipsd.mips_operand(self.args[0])

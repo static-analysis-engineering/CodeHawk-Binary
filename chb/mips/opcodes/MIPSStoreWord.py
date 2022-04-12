@@ -128,11 +128,17 @@ class MIPSStoreWord(MIPSOpcode):
         if self.is_spill(xdata):
             return []
         else:
-            rhs = XU.xxpr_to_ast_expr(xdata.xprs[1], astree)
-            lhs = XU.xvariable_to_ast_lval(xdata.vars[0], astree)
-            assign = astree.mk_assign(lhs, rhs)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
-            return [assign]
+            rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], astree)
+            lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
+            if len(rhss) == 1 and len(lhss) == 1:
+                rhs = rhss[0]
+                lhs = lhss[0]
+                assign = astree.mk_assign(lhs, rhs)
+                astree.add_instruction_span(assign.id, iaddr, bytestring)
+                return [assign]
+            else:
+                raise UF.CHBError(
+                    "MIPSStoreWord: multiple expressions/lval in ast")
 
     @property
     def dst_operand(self) -> MIPSOperand:

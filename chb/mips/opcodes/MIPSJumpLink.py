@@ -188,21 +188,31 @@ class MIPSJumpLink(MIPSOpcode):
                 if XU.is_struct_field_address(arg, astree):
                     addr = XU.xxpr_to_struct_field_address_expr(arg, astree)
                 elif arg.is_string_reference:
-                    xpr = XU.xxpr_to_ast_expr(arg, astree)
+                    xprs = XU.xxpr_to_ast_exprs(arg, astree)
+                    if len(xprs) != 1:
+                        raise UF.CHBError(
+                            "MIPSJumpLink: multiple expressions for string constant")
+                    else:
+                        xpr = xprs[0]
                     cstr = arg.constant.string_reference()
                     saddr = hex(arg.constant.value)
                     argxprs.append(astree.mk_string_constant(xpr, cstr, saddr))
                 elif arg.is_argument_value:
                     argindex = arg.argument_index()
-                    funarg = astree.function_argument(argindex)
+                    funargs = astree.function_argument(argindex)
+                    if len(funargs) != 1:
+                        raise UF.CHBError(
+                            "MIPSJumpLink: None or multiple expressions for funarg")
+                    else:
+                        funarg = funargs[0]
                     if funarg:
                         argxprs.append(astree.mk_lval_expr(funarg))
                     else:
-                        astxpr = XU.xxpr_to_ast_expr(arg, astree)
-                        argxprs.append(astxpr)
+                        astxprs = XU.xxpr_to_ast_exprs(arg, astree)
+                        argxprs.extend(astxprs)
                 else:
-                    astxpr = XU.xxpr_to_ast_expr(arg, astree)
-                    argxprs.append(astxpr)
+                    astxprs = XU.xxpr_to_ast_exprs(arg, astree)
+                    argxprs.extend(astxprs)
             if lhs.is_ignored:
                 call: ASTInstruction = astree.mk_call(lhs, tgtxpr, argxprs)
                 astree.add_instruction_span(call.id, iaddr, bytestring)

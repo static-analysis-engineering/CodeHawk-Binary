@@ -41,6 +41,8 @@ from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
 from chb.mips.MIPSOperand import MIPSOperand
 
+from chb.mips.opcodes.MIPSBranchOpcode import MIPSBranchOpcode
+
 import chb.invariants.XXprUtil as XU
 
 import chb.simulation.SimSymbolicValue as SSV
@@ -56,7 +58,7 @@ if TYPE_CHECKING:
     from chb.simulation.SimulationState import SimulationState
 
 
-@mipsregistry.register_tag("bne", MIPSOpcode)
+@mipsregistry.register_tag("bne", MIPSBranchOpcode)
 class MIPSBranchNotEqual(MIPSOpcode):
     """BNE rs, rt, offset
 
@@ -105,32 +107,6 @@ class MIPSBranchNotEqual(MIPSOpcode):
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         return [xdata.xprs[4], xdata.xprs[3]]
-
-    def assembly_ast(
-            self,
-            astree: AbstractSyntaxTree,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
-        return []
-
-    def assembly_ast_condition(
-            self,
-            astree: AbstractSyntaxTree,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> Optional[ASTExpr]:
-        ftconds = self.ft_conditions(xdata)
-        if len(ftconds) == 2:
-            tcond = ftconds[1]
-            if tcond.is_constant:
-                astcond = XU.xxpr_to_ast_expr(xdata.xprs[2], astree)
-            else:
-                astcond = XU.xxpr_to_ast_expr(tcond, astree)
-            astree.add_instruction_span(astcond.id, iaddr, bytestring)
-            return astcond
-        else:
-            return None
 
     @property
     def src1_operand(self) -> MIPSOperand:
