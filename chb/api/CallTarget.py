@@ -109,6 +109,10 @@ class CallTarget(InterfaceDictionaryRecord):
         return False
 
     @property
+    def is_static_stub_target(self) -> bool:
+        return False
+
+    @property
     def is_indirect(self) -> bool:
         return False
 
@@ -194,6 +198,10 @@ class StaticStubTarget(CallTarget):
     @property
     def stub(self) -> FunctionStub:
         return self.id.function_stub(self.args[1])
+
+    @property
+    def is_static_stub_target(self) -> bool:
+        return True
 
     @property
     def is_so_target(self) -> bool:
