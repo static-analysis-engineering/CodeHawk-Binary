@@ -339,11 +339,13 @@ def global_variable_to_ast_lvals(
 
     if offset.is_constant_value_offset:
         gaddr = hex(offset.offsetvalue())
-        gvname = astree.global_variable_name(gaddr)
-        if gvname is None:
+        gvinfo = astree.symboltable.global_variable_name(gaddr)
+        if gvinfo is not None:
+            return [astree.mk_vinfo_variable_lval(gvinfo)]
+        else:
             gvname = "gv_" + gaddr
-        return [astree.mk_global_variable_lval(
-            gvname, globaladdress=int(gaddr, 16))]
+            return [astree.mk_global_variable_lval(
+                gvname, globaladdress=offset.offsetvalue())]
 
     return [astree.mk_variable_lval("gv_" + str(offset))]
 
@@ -442,7 +444,7 @@ def vfunctionreturn_value_to_ast_lvals(
     if vconstvar.has_call_target():
         calltarget = str(vconstvar.call_target())
         if astree.has_symbol(calltarget):
-            vinfo = astree.symbol(calltarget)
+            vinfo = astree.get_symbol(calltarget)
             vtype = vinfo.vtype
 
     return [astree.mk_returnval_variable_lval(vconstvar.callsite, vtype)]
