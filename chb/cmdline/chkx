@@ -129,6 +129,7 @@ import sys
 from typing import NoReturn
 
 import chb.cmdline.AnalysisManager as AM
+import chb.cmdline.astcmds as AST
 import chb.cmdline.commandutil as UCC
 import chb.cmdline.runcmds as UR
 import chb.cmdline.fileformatcmds as FF
@@ -487,13 +488,11 @@ def parse() -> argparse.Namespace:
         help="attempt to decompile all functions without loops",
         action="store_true")
     showast.add_argument(
+        "--outputfile", "-o",
+        help="filename to save symboltables and asts in json format")
+    showast.add_argument(
         "--exclude",
         help="exclude from decompilation",
-        nargs="*",
-        default=[])
-    showast.add_argument(
-        "--ignore_return_value",
-        help="functions whose returnvalue can be considered ignored",
         nargs="*",
         default=[])
     showast.add_argument(
@@ -525,7 +524,7 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help="list of left-hand sides for which to show available expressions (e.g., R5)")
-    showast.set_defaults(func=UCC.showast)
+    showast.set_defaults(func=AST.showast)
 
     # -- results cfg (control flow graph) --
     showcfg = resultsparsers.add_parser("cfg")
