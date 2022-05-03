@@ -129,14 +129,16 @@ from typing import (
     Union)
 
 from chb.app.ASTUtil import InstrUseDef, UseDef, get_arg_loc
+from chb.app.ASTVarInfo import ASTVarInfo
+
+import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.bctypes.BCTyp import (
         BCTyp, BCTypPtr, BCTypFun, BCTypArray, BCTypComp)
-
-
-ASTNodeRecord = NewType(
-    "ASTNodeRecord", Dict[str, Union[List[str], List[int], int, str]])
+    from chb.app.ASTTransformer import ASTTransformer
+    from chb.app.ASTVarInfo import ASTVarInfo
+    from chb.app.ASTVisitor import ASTVisitor
 
 
 c_indent = 3
@@ -228,17 +230,20 @@ floattypes = {
 
 class ASTNode:
 
-    def __init__(self, id: int, tag: str) -> None:
-        self._id = id
+    def __init__(self, tag: str) -> None:
         self._tag = tag
-
-    @property
-    def id(self) -> int:
-        return self._id
 
     @property
     def tag(self) -> str:
         return self._tag
+
+    @abstractmethod
+    def accept(self, visitor: "ASTVisitor") -> None:
+        ...
+
+    @abstractmethod
+    def transform(self, transformer: "ASTTransformer") -> "ASTNode":
+        ...
 
     @property
     def is_ast_stmt(self) -> bool:
@@ -264,50 +269,34 @@ class ASTNode:
     def is_ast_instruction(self) -> bool:
         return False
 
-    def transform_instr_subx(
-            self,
-            usedefs_e: InstrUseDef) -> "ASTNode":
-        return self
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTNode":
-        return self
-
     def variables_used(self) -> Set[str]:
         return set([])
 
     def callees(self) -> Set[str]:
         return set([])
 
-    def noderecord(self) -> ASTNodeRecord:
-        result: Dict[str, Any] = {}
-        result["id"] = self.id
-        result["tag"] = str(self.tag)
-        return cast(ASTNodeRecord, result)
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        return []
-
     def to_c_like(self, sp: int = 0) -> str:
-        return (" " * sp) + str(self.id) + ":" + self.tag
+        return (" " * sp) + self.tag
 
     def to_string(self, sp: int = 0) -> str:
-        return (" " * sp) + str(self.id) + ":" + self.tag
+        return (" " * sp) + self.tag
 
     def structure_to_string(self, sp: int = 0) -> str:
-        return (" " * sp) + str(self.id) + ":" + self.tag
+        return (" " * sp) + self.tag
 
     def __str__(self) -> str:
-        return str(self.id) + ":" + self.tag
+        return self.tag
 
 
 class ASTStmt(ASTNode):
 
-    def __init__(self, id: int, tag: str) -> None:
-        ASTNode.__init__(self, id, tag)
+    def __init__(self, stmtid: int, tag: str) -> None:
+        ASTNode.__init__(self, tag)
+        self._stmtid = stmtid
+
+    @property
+    def stmtid(self) -> int:
+        return self._stmtid
 
     @property
     def is_ast_stmt(self) -> bool:
@@ -329,46 +318,15 @@ class ASTStmt(ASTNode):
     def is_ast_instruction_sequence(self) -> bool:
         return False
 
+    @abstractmethod
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
+        ...
+
     def is_empty(self) -> bool:
         return False
 
     def address_taken(self) -> Set[str]:
         return set([])
-
-    @abstractmethod
-    def live_e(self, live_x: Set[str], node_live_x: Dict[int, Set[str]]) -> Set[str]:
-        """Return the live variables at node entry given live variables at node exit.
-
-        live_x: the set of live variables at node exit
-        node_live_x: mapping from instruction nodes to live exit variables
-        """
-        ...
-
-    @abstractmethod
-    def usedefs_x(
-            self,
-            usedefs_e: UseDef,
-            addresstaken: Set[str],
-            node_usedefs_e: InstrUseDef) -> UseDef:
-        """Return the reaching definitions of variables that may be substituted.
-
-        usedefs_e: the reaching definitions at node entry
-                   Var -> (Label * expr)
-        addresstaken: set of variables whose address is taken
-        node_usedefs_e: mapping from instruction nodes to reaching definitions
-                        Label -> Var -> (Label * expr)
-        """
-        ...
-
-    def transform_instr_subx(self, usedefs_e: InstrUseDef) -> "ASTStmt":
-        return self
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTStmt":
-        return self
 
     def variables_used(self) -> Set[str]:
         return set([])
@@ -382,8 +340,8 @@ class ASTStmt(ASTNode):
 
 class ASTReturn(ASTStmt):
 
-    def __init__(self, id: int, expr: Optional["ASTExpr"]) -> None:
-        ASTStmt.__init__(self, id, "return")
+    def __init__(self, stmtid: int, expr: Optional["ASTExpr"]) -> None:
+        ASTStmt.__init__(self, stmtid, "return")
         self._expr = expr
 
     @property
@@ -396,6 +354,12 @@ class ASTReturn(ASTStmt):
             return self._expr
         else:
             raise Exception("Function does not return a value")
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_return_stmt(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
+        return transformer.transform_return_stmt(self)
 
     def has_return_value(self) -> bool:
         return self._expr is not None
@@ -411,55 +375,6 @@ class ASTReturn(ASTStmt):
             return self.expr.variables_used()
         else:
             return set([])
-
-    def live_e(self, live_x: Set[str], result: Dict[int, Set[str]]) -> Set[str]:
-        result[self.id] = live_x
-        if self.has_return_value():
-            return set(self.expr.use())
-        else:
-            return set([])
-
-    def usedefs_x(
-            self,
-            usedefs_e: UseDef,
-            addresstaken: Set[str],
-            node_usedefs_e: InstrUseDef) -> UseDef:
-        node_usedefs_e.set(self.id, usedefs_e)
-        if self.has_return_value():
-            node_usedefs_e.set(self.id, usedefs_e)
-        return UseDef({})
-
-    def transform_instr_subx(self, usedefs_e: InstrUseDef) -> "ASTReturn":
-        if self.has_return_value():
-            xexpr: Optional["ASTExpr"] = self.expr.transform_subx(
-                usedefs_e.get(self.id))
-        else:
-            xexpr = None
-        return ASTReturn(self.id, xexpr)
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTReturn":
-        if self.has_return_value():
-            r_expr: Optional["ASTExpr"] = self.expr.reduce(mapping, live_x, macronames)
-        else:
-            r_expr = None
-        return ASTReturn(self.id, r_expr)
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        if self.has_return_value():
-            result["args"] = [self.expr.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        if self.has_return_value():
-            result.extend(self.expr.serialize())
-        return result
 
     def to_c_like(self, sp: int = 0) -> str:
         indent = " " * sp
@@ -477,8 +392,8 @@ class ASTReturn(ASTStmt):
 
 class ASTBlock(ASTStmt):
 
-    def __init__(self, id: int, stmts: List["ASTStmt"]) -> None:
-        ASTStmt.__init__(self, id, "block")
+    def __init__(self, stmtid: int, stmts: List["ASTStmt"]) -> None:
+        ASTStmt.__init__(self, stmtid, "block")
         self._stmts = stmts
 
     @property
@@ -488,6 +403,12 @@ class ASTBlock(ASTStmt):
     @property
     def stmts(self) -> Sequence["ASTStmt"]:
         return self._stmts
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_block_stmt(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
+        return transformer.transform_block_stmt(self)
 
     def is_empty(self) -> bool:
         return all(s.is_empty() for s in self.stmts)
@@ -512,47 +433,6 @@ class ASTBlock(ASTStmt):
         else:
             return self.stmts[0].callees().union(
                 *(s.callees() for s in self.stmts[1:]))
-
-    def live_e(self, live_x: Set[str], result: Dict[int, Set[str]]) -> Set[str]:
-        sxit = live_x.copy()
-        for s in reversed(self.stmts):
-            sxit = s.live_e(sxit, result)
-        return sxit
-
-    def usedefs_x(
-            self,
-            usedefs_e: UseDef,
-            addresstaken: Set[str],
-            node_usedefs_e: InstrUseDef) -> UseDef:
-        usedefs = usedefs_e
-        for s in self.stmts:
-            usedefs = s.usedefs_x(usedefs, addresstaken, node_usedefs_e)
-        return usedefs
-
-    def transform_instr_subx(self, usedefs_e: InstrUseDef) -> "ASTBlock":
-        return ASTBlock(
-            self.id,
-            [s.transform_instr_subx(usedefs_e) for s in self.stmts])
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTBlock":
-        return ASTBlock(
-            self.id, [s.reduce(mapping, live_x, macronames) for s in self.stmts])
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [s.id for s in self.stmts]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        for s in self.stmts:
-            result.extend(s.serialize())
-        return result
 
     def to_c_like(self, sp: int = 0) -> str:
         lines: List[str] = []
@@ -584,8 +464,8 @@ class ASTBlock(ASTStmt):
 
 class ASTInstrSequence(ASTStmt):
 
-    def __init__(self, id: int, instrs: List["ASTInstruction"]) -> None:
-        ASTStmt.__init__(self, id, "instrs")
+    def __init__(self, stmtid: int, instrs: List["ASTInstruction"]) -> None:
+        ASTStmt.__init__(self, stmtid, "instrs")
         self._instrs: List["ASTInstruction"] = instrs
         self._aexp: Dict[int, List["ASTExpr"]] = {}
 
@@ -596,6 +476,12 @@ class ASTInstrSequence(ASTStmt):
     @property
     def instructions(self) -> Sequence["ASTInstruction"]:
         return self._instrs
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_instruction_sequence_stmt(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
+        return transformer.transform_instruction_sequence_stmt(self)
 
     def is_empty(self) -> bool:
         return len(self.instructions) == 0
@@ -621,50 +507,6 @@ class ASTInstrSequence(ASTStmt):
             return self.instructions[0].callees().union(
                 *(i.callees() for i in self.instructions))
 
-    def live_e(self, live_x: Set[str], result: Dict[int, Set[str]]) -> Set[str]:
-        ixtlive = live_x.copy()
-        for i in reversed(self.instructions):
-            ixtlive = i.live_e(ixtlive, result)
-        return ixtlive
-
-    def usedefs_x(
-            self,
-            usedefs_e: UseDef,
-            addresstaken: Set[str],
-            node_usedefs_e: InstrUseDef) -> UseDef:
-        usedefs = usedefs_e
-        for i in self.instructions:
-            usedefs = i.usedefs_x(usedefs, addresstaken, node_usedefs_e)
-        return usedefs
-
-    def transform_instr_subx(self, usedefs_e: InstrUseDef) -> "ASTInstrSequence":
-        return ASTInstrSequence(
-            self.id,
-            [i.transform_instr_subx(usedefs_e) for i in self.instructions])
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTInstrSequence":
-        result: List["ASTInstruction"] = []
-        return ASTInstrSequence(
-            self.id,
-            [i.reduce(mapping, live_x, macronames)
-             for i in self.instructions if i.is_live(live_x)])
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [i.id for i in self.instructions]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        for i in self.instructions:
-            result.extend(i.serialize())
-        return result
-
     def to_c_like(self, sp: int = 0) -> str:
         lines: List[str] = []
         for i in self.instructions:
@@ -688,12 +530,12 @@ class ASTBranch(ASTStmt):
 
     def __init__(
             self,
-            id: int,
+            stmtid: int,
             cond: "ASTExpr",
             ifstmt: "ASTStmt",
             elsestmt: "ASTStmt",
             relative_offset: int) -> None:
-        ASTStmt.__init__(self, id, "if")
+        ASTStmt.__init__(self, stmtid, "if")
         self._cond = cond
         self._ifstmt = ifstmt
         self._elsestmt = elsestmt
@@ -719,6 +561,12 @@ class ASTBranch(ASTStmt):
     def relative_offset(self) -> int:
         return self._relative_offset
 
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_branch_stmt(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
+        return transformer.transform_branch_stmt(self)
+
     def is_empty(self) -> bool:
         return self.ifstmt.is_empty() and self.elsestmt.is_empty()
 
@@ -732,55 +580,6 @@ class ASTBranch(ASTStmt):
 
     def callees(self) -> Set[str]:
         return self.ifstmt.callees().union(self.elsestmt.callees())
-
-    def live_e(self, live_x: Set[str], result: Dict[int, Set[str]]) -> Set[str]:
-        iflive_e = self.ifstmt.live_e(live_x, result)
-        elselive_e = self.elsestmt.live_e(live_x, result)
-        condlive_e = self.condition.use()
-        itelive_e = iflive_e.union(elselive_e).union(condlive_e)
-        result[self.id] = live_x
-        return itelive_e
-
-    def usedefs_x(
-            self,
-            usedefs_e: UseDef,
-            addresstaken: Set[str],
-            node_usedefs_e: InstrUseDef) -> UseDef:
-        node_usedefs_e.set(self.id, usedefs_e)
-        node_usedefs_e.set(self.condition.id, usedefs_e)
-        ifusedefs = self.ifstmt.usedefs_x(usedefs_e, addresstaken, node_usedefs_e)
-        elseusedefs = self.elsestmt.usedefs_x(usedefs_e, addresstaken, node_usedefs_e)
-        return ifusedefs.join(elseusedefs)
-
-    def transform_instr_subx(self, usedefs_e: InstrUseDef) -> "ASTBranch":
-        xform_if = self.ifstmt.transform_instr_subx(usedefs_e)
-        xform_else = self.elsestmt.transform_instr_subx(usedefs_e)
-        xform_cond = self.condition.transform_subx(usedefs_e.get(self.id))
-        return ASTBranch(self.id, xform_cond, xform_if, xform_else, self.relative_offset)
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTBranch":
-        r_if = self.ifstmt.reduce(mapping, live_x, macronames)
-        r_else = self.elsestmt.reduce(mapping, live_x, macronames)
-        r_cond = self.condition.reduce(mapping, live_x, macronames)
-        return ASTBranch(self.id, r_cond, r_if, r_else, self.relative_offset)
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["pc-offset"] = self.relative_offset
-        result["args"] = [self.condition.id, self.ifstmt.id, self.elsestmt.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.condition.serialize())
-        result.extend(self.ifstmt.serialize())
-        result.extend(self.elsestmt.serialize())
-        return result
 
     def to_c_like(self, sp: int = 0) -> str:
         lines: List[str] = []
@@ -820,16 +619,21 @@ class ASTBranch(ASTStmt):
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append(ASTNode.to_string(self))
-        lines.append("Condition: " + str(self.condition.id))
-        lines.append("  Then   : " + str(self.ifstmt.id))
-        lines.append("  Else   : " + str(self.elsestmt.id))
+        lines.append("Condition: " + str(self.condition))
+        lines.append("  Then   : " + str(self.ifstmt.stmtid))
+        lines.append("  Else   : " + str(self.elsestmt.stmtid))
         return "\n".join(lines)
 
 
 class ASTInstruction(ASTNode, ABC):
 
-    def __init__(self, id: int, tag: str) -> None:
-        ASTNode.__init__(self, id, tag)
+    def __init__(self, instrid: int, tag: str) -> None:
+        ASTNode.__init__(self, tag)
+        self._instrid = instrid
+
+    @property
+    def instrid(self) -> int:
+        return self._instrid
 
     @property
     def is_ast_instruction(self) -> bool:
@@ -847,6 +651,10 @@ class ASTInstruction(ASTNode, ABC):
     def define(self) -> "ASTLval":
         ...
 
+    @abstractmethod
+    def transform(self, transformer: "ASTTransformer") -> "ASTInstruction":
+        ...
+
     def address_taken(self) -> Set[str]:
         return set([])
 
@@ -856,31 +664,6 @@ class ASTInstruction(ASTNode, ABC):
     def callees(self) -> Set[str]:
         return set([])
 
-    @abstractmethod
-    def live_e(self, live_x: Set[str], result: Dict[int, Set[str]]) -> Set[str]:
-        ...
-
-    @abstractmethod
-    def usedefs_x(
-            self,
-            usedefs_e: UseDef,
-            addresstaken: Set[str],
-            node_usedefs_e: InstrUseDef) -> UseDef:
-        ...
-
-    def transform_instr_subx(self, usedefs_e: InstrUseDef) -> "ASTInstruction":
-        return self
-
-    def is_live(self, live_x: Mapping[int, Set[str]] = {}) -> bool:
-        return True
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTInstruction":
-        return self
-
     def use(self) -> List[str]:
         return []
 
@@ -889,11 +672,11 @@ class ASTAssign(ASTInstruction):
 
     def __init__(
             self,
-            id: int,
+            instrid: int,
             lhs: "ASTLval",
             rhs: "ASTExpr",
             annotations: List[str] = []) -> None:
-        ASTInstruction.__init__(self, id, "assign")
+        ASTInstruction.__init__(self, instrid, "assign")
         self._lhs = lhs
         self._rhs = rhs
         self._annotations = annotations
@@ -914,6 +697,12 @@ class ASTAssign(ASTInstruction):
     def annotations(self) -> List[str]:
         return self._annotations
 
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_assign_instr(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTInstruction":
+        return transformer.transform_assign_instr(self)
+
     def address_taken(self) -> Set[str]:
         return self.lhs.address_taken().union(self.rhs.address_taken())
 
@@ -932,75 +721,8 @@ class ASTAssign(ASTInstruction):
     def kill(self) -> List["ASTLval"]:
         return [self.define()]
 
-    def live_e(self, live_x: Set[str], result: Dict[int, Set[str]]) -> Set[str]:
-        live_e: Set[str] = set([])
-        kill = self.kill()
-        for v in live_x:
-            if v not in kill:
-                live_e.add(v)
-        for v in self.use():
-            live_e.add(v)
-        if self.lhs.is_global:
-            live_e.add(str(self.lhs))
-        result[self.id] = live_x
-        return live_e
-
-    def usedefs_x(
-            self,
-            usedefs_e: UseDef,
-            addresstaken: Set[str],
-            node_usedefs_e: InstrUseDef) -> UseDef:
-        node_usedefs_e.set(self.id, usedefs_e)
-        return usedefs_e.apply_assign(self.id, self.define(), self.rhs)
-
-    def transform_instr_subx(self, usedefs_e: InstrUseDef) -> "ASTAssign":
-        if usedefs_e.has(self.id):
-            xform_lhs = self.lhs.transform_subx(usedefs_e.get(self.id))
-            xform_rhs = self.rhs.transform_subx(usedefs_e.get(self.id))
-            return ASTAssign(
-                self.id, xform_lhs, xform_rhs, annotations=self.annotations)
-        else:
-            return self
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTAssign":
-        r_lhs = self.lhs.reduce(mapping, live_x, macronames)
-        r_rhs = self.rhs.reduce(mapping, live_x, macronames)
-        return ASTAssign(self.id, r_lhs, r_rhs, annotations=self.annotations)
-
-    def is_live(self, live_x: Mapping[int, Set[str]] = {}) -> bool:
-        if self.lhs.to_c_like() == self.rhs.to_c_like():
-            return False
-        elif self.lhs.is_memref:
-            return True
-        elif self.lhs.is_global:
-            return True
-        elif self.lhs.has_altname():
-            return True
-        elif str(self.lhs).startswith("rtn_"):
-            return True
-        elif self.id in live_x:
-            return str(self.lhs) in live_x[self.id]
-        else:
-            return True
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [self.lhs.id, self.rhs.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.lhs.serialize())
-        result.extend(self.rhs.serialize())
-        return result
-
     def to_c_like(self, sp: int = 0) -> str:
-        annotations = str(self.id)
+        annotations = str(self.instrid)
         if len(self.annotations) > 0:
             annotations = " " + ", ".join(self.annotations)
         default = (
@@ -1032,11 +754,11 @@ class ASTCall(ASTInstruction):
 
     def __init__(
             self,
-            id: int,
+            instrid: int,
             lhs: "ASTLval",
             tgt: "ASTExpr",
             args: List["ASTExpr"]) -> None:
-        ASTInstruction.__init__(self, id, "call")
+        ASTInstruction.__init__(self, instrid, "call")
         self._lhs = lhs
         self._tgt = tgt
         self._args = args
@@ -1056,6 +778,12 @@ class ASTCall(ASTInstruction):
     @property
     def arguments(self) -> List["ASTExpr"]:
         return self._args
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_call_instr(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTInstruction":
+        return transformer.transform_call_instr(self)
 
     def address_taken(self) -> Set[str]:
         return self.tgt.address_taken().union(
@@ -1080,63 +808,7 @@ class ASTCall(ASTInstruction):
         return result
 
     def kill(self) -> List[str]:
-        return ["R0", "R1", "R2", "R3", "$v0", "$v1"]
-
-    def live_e(self, live_x: Set[str], result: Dict[int, Set[str]]) -> Set[str]:
-        live_e: Set[str] = set([])
-        kill = self.kill()
-        for v in live_x:
-            if v not in kill:
-                live_e.add(v)
-        for a in self.arguments:
-            for v in a.use():
-                live_e.add(v)
-        result[self.id] = live_x
-        return live_e
-
-    def transform_instr_subx(self, usedefs_e: InstrUseDef) -> "ASTCall":
-        if usedefs_e.has(self.id):
-            xform_args = [
-                a.transform_subx(usedefs_e.get(self.id)) for a in self.arguments]
-            return ASTCall(self.id, self.lhs, self.tgt, xform_args)
-        else:
-            return self
-
-    def usedefs_x(
-            self,
-            usedefs_e: UseDef,
-            addresstaken: Set[str],
-            node_usedefs_e: InstrUseDef) -> UseDef:
-        node_usedefs_e.set(self.id, usedefs_e)
-        kill = self.kill() + list(addresstaken)
-        return usedefs_e.apply_call(kill)
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTCall":
-        r_args = [a.reduce(mapping, live_x, macronames) for a in self.arguments]
-        r_lhs = self.lhs.reduce(mapping, live_x, macronames)
-        return ASTCall(self.id, r_lhs, self.tgt, r_args)
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [
-            self.lhs.id,
-            self.tgt.id,
-            *(a.id for a in self.arguments)]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        if self.lhs.id != -1:
-            result.extend(self.lhs.serialize())
-        result.extend(self.tgt.serialize())
-        for a in self.arguments:
-            result.extend(a.serialize())
-        return result
+        return ["R0", "R1", "R2", "R3", "$v0", "$v1", str(self.lhs)]
 
     def to_c_like(self, sp: int = 0) -> str:
         indent = " " * sp
@@ -1144,17 +816,13 @@ class ASTCall(ASTInstruction):
             self.tgt.to_c_like()
             + "("
             + ", ".join(str(a.to_c_like()) for a in self.arguments)
-            + ");  // " + str(self.id))
-        if self.lhs.id == -1:
-            return indent + calltgt
-        else:
-            return indent + self.lhs.to_c_like() + " = " + calltgt
+            + ");  // " + str(self.instrid))
+        return indent + self.lhs.to_c_like() + " = " + calltgt
 
     def to_string(self, sp: int = 0) -> str:
         lines: List[str] = []
         lines.append(ASTNode.to_string(self, sp))
-        if self.lhs.id != -1:
-            lines.append(self.lhs.to_string(sp + 2))
+        lines.append(self.lhs.to_string(sp + 2))
         lines.append(self.tgt.to_string(sp + 2))
         for a in self.arguments:
             lines.append(a.to_string(sp + 2))
@@ -1162,7 +830,7 @@ class ASTCall(ASTInstruction):
 
     def __str__(self) -> str:
         lines: List[str] = []
-        lhs = "  void return" if self.lhs.id == -1 else "  " + str(self.lhs)
+        lhs = str(self.lhs)
         lines.append(ASTNode.__str__(self))
         lines.append(lhs)
         lines.append("  " + str(self.tgt))
@@ -1172,8 +840,8 @@ class ASTCall(ASTInstruction):
 
 class ASTLval(ASTNode):
 
-    def __init__(self, id: int, lhost: "ASTLHost", offset: "ASTOffset") -> None:
-        ASTNode.__init__(self, id, "lval")
+    def __init__(self, lhost: "ASTLHost", offset: "ASTOffset") -> None:
+        ASTNode.__init__(self, "lval")
         self._lhost = lhost
         self._offset = offset
 
@@ -1182,16 +850,18 @@ class ASTLval(ASTNode):
         return True
 
     @property
-    def is_ignored(self) -> bool:
-        return self.lhost.is_ignored
-
-    @property
     def lhost(self) -> "ASTLHost":
         return self._lhost
 
     @property
     def offset(self) -> "ASTOffset":
         return self._offset
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_lval(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTLval":
+        return transformer.transform_lval(self)
 
     @property
     def ctype(self) -> Optional["BCTyp"]:
@@ -1212,9 +882,6 @@ class ASTLval(ASTNode):
     def is_global(self) -> bool:
         return self.lhost.is_global
 
-    def has_altname(self) -> bool:
-        return self.lhost.is_variable and self.lhost.has_altname()
-
     def address_taken(self) -> Set[str]:
         return self.lhost.address_taken().union(self.offset.address_taken())
 
@@ -1222,7 +889,7 @@ class ASTLval(ASTNode):
         return self.lhost.variables_used().union(self.offset.variables_used())
 
     def offset_to_string(self, sp: int = 0) -> str:
-        if self.offset.id == -1:
+        if self.offset.is_no_offset:
             return ""
         else:
             return self.offset.to_string(sp)
@@ -1230,39 +897,7 @@ class ASTLval(ASTNode):
     def use(self) -> List[str]:
         return self.lhost.use() + self.offset.use()
 
-    def transform_subx(self, usedefs_e: UseDef) -> "ASTLval":
-        xlhost = self.lhost.transform_subx(usedefs_e)
-        xoffset = self.offset.transform_subx(usedefs_e)
-        return ASTLval(self.id, xlhost, xoffset)
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTLval":
-        r_lhost = self.lhost.reduce(mapping, live_x, macronames)
-        r_offset = self.offset.reduce(mapping, live_x, macronames)
-        return ASTLval(self.id, r_lhost, r_offset)
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [self.lhost.id, self.offset.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        if self.lhost.id == -1 and self.offset.id == -1:
-            return []
-        else:
-            result: List[ASTNodeRecord] = []
-            result.append(self.noderecord())
-            if self.offset.id != -1:
-                result.extend(self.offset.serialize())
-            result.extend(self.lhost.serialize())
-        return result
-
     def to_c_like(self, sp: int = 0) -> str:
-        # if self.offset.id == -1:
-        #   return self.lhost.to_c_like()
         if self.lhost.is_memref:
             memexp = cast("ASTMemRef", self.lhost).memexp
             if self.offset.is_field_offset:
@@ -1280,7 +915,7 @@ class ASTLval(ASTNode):
         lines: List[str] = []
         lines.append(ASTNode.to_string(self, sp))
         lines.append(self.lhost.to_string(sp + 2))
-        if self.offset.id != -1:
+        if not self.offset.is_no_offset:
             lines.append(self.offset_to_string(sp + 2))
         return "\n".join(lines)
 
@@ -1290,16 +925,12 @@ class ASTLval(ASTNode):
 
 class ASTLHost(ASTNode):
 
-    def __init__(self, id: int, tag: str) -> None:
-        ASTNode.__init__(self, id, tag)
+    def __init__(self, tag: str) -> None:
+        ASTNode.__init__(self, tag)
 
     @property
     def is_ast_lhost(self) -> bool:
         return True
-
-    @property
-    def is_ignored(self) -> bool:
-        return False
 
     @property
     def is_memref(self) -> bool:
@@ -1317,8 +948,9 @@ class ASTLHost(ASTNode):
     def ctype(self) -> Optional["BCTyp"]:
         return None
 
-    def has_altname(self) -> bool:
-        return False
+    @abstractmethod
+    def transform(self, transformer: "ASTTransformer") -> "ASTLHost":
+        ...
 
     def use(self) -> List[str]:
         return []
@@ -1329,326 +961,17 @@ class ASTLHost(ASTNode):
     def variables_used(self) -> Set[str]:
         return set([])
 
-    def transform_subx(self, usedefs: UseDef) -> "ASTLHost":
-        return self
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTLHost":
-        return self
-
-
-class ASTVarInfo(ASTNode):
-
-    def __init__(
-            self,
-            id: int,
-            vname: str,
-            vtype: Optional["BCTyp"],
-            altname: Optional[str],
-            parameter: Optional[int],
-            globaladdress: Optional[int],
-            arrayindex: Optional[int] = None) -> None:
-        ASTNode.__init__(self, id, "varinfo")
-        self._vname = vname
-        self._vtype = vtype
-        self._altname = altname
-        self._parameter = parameter
-        self._globaladdress = globaladdress
-        self._arrayindex = arrayindex
-
-    @property
-    def is_ignored(self) -> bool:
-        return self.id == (-1)
-
-    @property
-    def vname(self) -> str:
-        return self._vname
-
-    @property
-    def vtype(self) -> Optional["BCTyp"]:
-        return self._vtype
-
-    @property
-    def altname(self) -> Optional[str]:
-        return self._altname
-
-    @property
-    def arrayindex(self) -> Optional[int]:
-        """Return the starting array index (for arrays packed into one variable)."""
-
-        return self._arrayindex
-
-    def has_altname(self) -> bool:
-        return self.altname is not None
-
-    @property
-    def displayname(self) -> str:
-        if self.altname:
-            return self.altname
-        else:
-            return self.vname
-
-    @property
-    def is_function(self) -> bool:
-        if self.vtype:
-            return self.vtype.is_function
-        else:
-            return False
-
-    @property
-    def returns_void(self) -> bool:
-        if self.is_function:
-            vtype = cast("BCTypFun", self.vtype)
-            return vtype.returntype.is_void
-        else:
-            return False
-
-    @property
-    def is_struct(self) -> bool:
-        if self.vtype:
-            return self.vtype.is_struct
-        else:
-            return False
-
-    @property
-    def is_global(self) -> bool:
-        return self._globaladdress is not None
-
-    @property
-    def is_parameter(self) -> bool:
-        return self._parameter is not None
-
-    def has_global_address(self) -> bool:
-        return self._globaladdress is not None
-
-    @property
-    def global_address(self) -> int:
-        if self._globaladdress is not None:
-            return self._globaladdress
-        else:
-            raise Exception(
-                "Varinfo " + self.vname + " does not have a global address")
-
-    @property
-    def parameter(self) -> int:
-        if self._parameter is not None:
-            return self._parameter
-        else:
-            raise Exception("VArinfo " + self.vname + " is not a parameter")
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["vname"] = self.vname
-        if self.altname:
-            result["altname"] = self.altname
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        return result
-
-    def to_c_like(self, sp: int = 0) -> str:
-        if self.is_function:
-            vty = cast("BCTypFun", self.vtype)
-            return (
-                str(vty.returntype)
-                + " "
-                + self.vname
-                + str(vty.argtypes))
-        else:
-            if self.vtype:
-                return str(self.vtype) + " " + self.displayname
-            else:
-                return self.displayname
-
-    def __str__(self) -> str:
-        if self.altname:
-            return self.altname
-        else:
-            return self.vname
-
-
-class ASTFormalVarInfo(ASTVarInfo):
-    """Represents a formal parameter of a function in C source view.
-
-    The parameter index refers to the source view index (zero-based).
-    The arglocs field holds the locations where the argument to the
-    function are stored upon function entry. In most cases this will
-    be a single location (register or stack). C, however, allows struct
-    arguments, which may be distributed over multiple argument locations.
-    To adequately represent this case, offsets are added that represent
-    which field is in which argument location. If the struct includes
-    arrays (possibly packed arrays of e.g., chars), registers may be
-    subdivided by byte (e.g., R0:0, R0:1, etc.)
-
-    The argindex refers to the actual argument index in the binary
-    (zero-based).
-
-    The arglocs (argument locations) is a list of tuples consisting of:
-    - the location (represented as a string, e.g., 'R0', R0:0 or 'stack:16')
-    - the offset, if this argument is a field in a struct (default NoOffset)
-    - the size of the location (can be 1, 2, or 4)
-    """
-
-    def __init__(
-            self,
-            id: int,
-            vname: str,
-            vtype: Optional["BCTyp"],
-            parameter: int,
-            argindex: int) -> None:
-        ASTVarInfo.__init__(
-            self, id, vname, vtype, None, parameter, None, None)
-        self._argindex = argindex
-        self._arglocs: List[Tuple[str, "ASTOffset", int]] = []
-
-    @property
-    def arglocs(self) -> List[Tuple[str, "ASTOffset", int]]:
-        return self._arglocs
-
-    def argloc(self, index: int) -> Tuple[str, "ASTOffset", int]:
-        if len(self.arglocs) > index:
-            return self.arglocs[index]
-        else:
-            raise Exception(
-                "Formal "
-                + self.vname
-                + ": illegal index: "
-                + str(index)
-                + " (number of argument locations: "
-                + str(len(self.arglocs)))
-
-    @property
-    def numargs(self) -> int:
-        """Return the number of arguments in 4-byte equivalents."""
-
-        return sum(argloc[2] for argloc in self.arglocs) // 4
-
-    @property
-    def argindex(self) -> int:
-        """Return the index of the first (binary) argument for this formal."""
-
-        return self._argindex
-
-    def arglocs_for_argindex(self, argindex: int) -> List[int]:
-        result: List[int] = []
-        localargindex = argindex - self.argindex
-        low = 4 * localargindex
-        high = low + 4
-        counter: int = 0
-        offset: int = 0
-        for l in self.arglocs:
-            if offset >= low and offset < high:
-                result.append(counter)
-            counter += 1
-            offset += l[2]
-        return result
-
-    def initialize(self, new_id: Callable[[], int], callingconvention: str) -> int:
-        argtype = self.vtype
-        if argtype is not None:
-            if callingconvention == "arm":
-                return self._initialize_arm_arguments(new_id, argtype)
-            elif callingconvention == "mips":
-                return self._initialize_mips_arguments(new_id, argtype)
-            else:
-                raise Exception(
-                    "Calling convention "
-                    + str(callingconvention)
-                    + " not recognized")
-        else:
-            raise Exception(
-                "Formal parameter has no type")
-
-    def _initialize_arm_arguments(
-            self, new_id: Callable[[], int], argtype: "BCTyp") -> int:
-        """Set up arguments according to the standard ARM ABI.
-
-        The default calling convention for ARM:
-        - the first four arguments are passed in R0, R1, R2, R3
-        - subsequent arguments are passed on the stack starting at offset 0
-        """
-        if argtype.is_scalar:
-            argloc = get_arg_loc("arm", self.argindex * 4, 4)
-            self._arglocs.append((argloc, ASTNoOffset(-1), 4))
-            return self.argindex + 1
-        elif argtype.is_struct:
-            structtyp = cast("BCTypComp", argtype)
-            fieldoffsets = structtyp.compinfo.fieldoffsets()
-            argbytecounter = 4 * self.argindex
-            for (offset, finfo) in fieldoffsets:
-                if finfo.byte_size() <= 4:
-                    fieldsize = finfo.byte_size()
-                    argloc = get_arg_loc("arm", argbytecounter, fieldsize)
-                    argbytecounter += fieldsize
-                    fieldoffset = ASTFieldOffset(
-                        new_id(),
-                        finfo.fieldname,
-                        finfo.fieldtype,
-                        ASTNoOffset(-1))
-                    self._arglocs.append((argloc, fieldoffset, fieldsize))
-                else:
-                    if finfo.fieldtype.is_array:
-                        atype = cast("BCTypArray", finfo.fieldtype)
-                        if (
-                                atype.has_constant_size()
-                                and atype.tgttyp.byte_size() == 1):
-                            # assume array elements are packed
-                            for i in range(0, atype.sizevalue):
-                                argloc = get_arg_loc(
-                                    "arm", argbytecounter, 1)
-                                indexoffset = ASTIndexOffset(
-                                    new_id(),
-                                    ASTIntegerConstant(new_id(), i),
-                                    ASTNoOffset(-1))
-                                fieldoffset = ASTFieldOffset(
-                                    new_id(),
-                                    finfo.fieldname,
-                                    finfo.fieldtype,
-                                    indexoffset)
-                                argbytecounter += 1
-                                self._arglocs.append((argloc, fieldoffset, 1))
-
-            return argbytecounter // 4
-        else:
-            return 0
-
-    def _initialize_mips_arguments(
-            self, new_id: Callable[[], int], argtype: "BCTyp") -> int:
-        if argtype.is_scalar or argtype.is_pointer:
-            argloc = get_arg_loc("mips", self.argindex * 4, 4)
-            self._arglocs.append((argloc, ASTNoOffset(-1), 4))
-            return self.argindex + 1
-        else:
-            print("Argument type is not a scalar: " + str(argtype))
-            return 0
-
-    def __str__(self) -> str:
-        if len(self.arglocs) == 1:
-            p_arglocs = self.arglocs[0][0]
-        else:
-            p_arglocs = ", ".join(
-                str(loc) + ": " + str(offset) for (loc, offset, _) in self.arglocs)
-        return ASTVarInfo.__str__(self) + " (" + p_arglocs + ")"
-
 
 class ASTVariable(ASTLHost):
 
-    def __init__(
-            self,
-            id: int,
-            varinfo: ASTVarInfo) -> None:
-        ASTLHost.__init__(self, id, "var")
+    def __init__(self, varinfo: ASTVarInfo) -> None:
+        ASTLHost.__init__(self, "var")
         self._varinfo = varinfo
 
     @property
-    def is_ignored(self) -> bool:
-        return self.varinfo.is_ignored
-
+    def is_variable(self) -> bool:
+        return True
+        
     @property
     def varinfo(self) -> ASTVarInfo:
         return self._varinfo
@@ -1665,19 +988,11 @@ class ASTVariable(ASTLHost):
     def is_global(self) -> bool:
         return self.varinfo.is_global
 
-    @property
-    def displayname(self) -> str:
-        if self.varinfo.altname:
-            return self.varinfo.altname
-        else:
-            return self.vname
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_variable(self)
 
-    @property
-    def is_variable(self) -> bool:
-        return True
-
-    def has_altname(self) -> bool:
-        return self.varinfo.has_altname()
+    def transform(self, transformer: "ASTTransformer") -> "ASTLHost":
+        return transformer.transform_variable(self)
 
     def address_taken(self) -> Set[str]:
         return set([])
@@ -1691,22 +1006,8 @@ class ASTVariable(ASTLHost):
         else:
             return [self.vname]
 
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [self.varinfo.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        if self.id == -1:
-            return []
-        else:
-            result: List[ASTNodeRecord] = []
-            result.append(self.noderecord())
-            # result.extend(self.varinfo.serialize())
-            return result
-
     def to_c_like(self, sp: int = 0) -> str:
-        return self.displayname
+        return self.vname
 
     def to_string(self, sp: int = 0) -> str:
         return ASTNode.to_string(self, sp) + "(" + self.vname + ")"
@@ -1719,14 +1020,23 @@ class ASTMemRef(ASTLHost):
 
     def __init__(
             self,
-            id: int,
             memexp: "ASTExpr") -> None:
-        ASTLHost.__init__(self, id, "memref")
+        ASTLHost.__init__(self, "memref")
         self._memexp = memexp
 
     @property
+    def is_memref(self) -> bool:
+        return True
+        
+    @property
     def memexp(self) -> "ASTExpr":
         return self._memexp
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_memref(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTLHost":
+        return transformer.transform_memref(self)        
 
     @property
     def ctype(self) -> Optional["BCTyp"]:
@@ -1736,10 +1046,6 @@ class ASTMemRef(ASTLHost):
         else:
             return None
 
-    @property
-    def is_memref(self) -> bool:
-        return True
-
     def address_taken(self) -> Set[str]:
         return self.memexp.address_taken()
 
@@ -1748,29 +1054,6 @@ class ASTMemRef(ASTLHost):
 
     def use(self) -> List[str]:
         return self.memexp.use()
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [self.memexp.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.memexp.serialize())
-        return result
-
-    def transform_subx(self, usedefs_e: UseDef) -> "ASTMemRef":
-        xmemexp = self.memexp.transform_subx(usedefs_e)
-        return ASTMemRef(self.id, xmemexp)
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTMemRef":
-        r_memexp = self.memexp.reduce(mapping, live_x, macronames)
-        return ASTMemRef(self.id, r_memexp)
 
     def to_c_like(self, sp: int = 0) -> str:
         return "(*(" + self.memexp.to_c_like() + "))"
@@ -1787,8 +1070,8 @@ class ASTMemRef(ASTLHost):
 
 class ASTOffset(ASTNode):
 
-    def __init__(self, id: int, tag: str) -> None:
-        ASTNode.__init__(self, id, tag)
+    def __init__(self, tag: str) -> None:
+        ASTNode.__init__(self, tag)
 
     @property
     def is_ast_offset(self) -> bool:
@@ -1806,6 +1089,10 @@ class ASTOffset(ASTNode):
     def is_no_offset(self) -> bool:
         return False
 
+    @abstractmethod
+    def transform(self, transformer: "ASTTransformer") -> "ASTOffset":
+        ...
+
     def offset_ctype(self, basetype: Optional["BCTyp"]) -> Optional["BCTyp"]:
         return None
 
@@ -1818,25 +1105,21 @@ class ASTOffset(ASTNode):
     def variables_used(self) -> Set[str]:
         return set([])
 
-    def transform_subx(self, usedefs_e: UseDef) -> "ASTOffset":
-        return self
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTOffset":
-        return self
-
 
 class ASTNoOffset(ASTOffset):
 
-    def __init__(self, id: int) -> None:
-        ASTOffset.__init__(self, id, "no-offset")
+    def __init__(self) -> None:
+        ASTOffset.__init__(self, "no-offset")
 
     @property
     def is_no_offset(self) -> bool:
         return True
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_no_offset(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTOffset":
+        return transformer.transform_no_offset(self)
 
     def use(self) -> List[str]:
         return []
@@ -1858,15 +1141,18 @@ class ASTFieldOffset(ASTOffset):
 
     def __init__(
             self,
-            id: int,
             fieldname: str,
             fieldtype: "BCTyp",
             offset: "ASTOffset") -> None:
-        ASTOffset.__init__(self, id, "field-offset")
+        ASTOffset.__init__(self, "field-offset")
         self._fieldname = fieldname
         self._fieldtype = fieldtype
         self._offset = offset
 
+    @property
+    def is_field_offset(self) -> bool:
+        return True
+        
     @property
     def fieldname(self) -> str:
         return self._fieldname
@@ -1879,9 +1165,11 @@ class ASTFieldOffset(ASTOffset):
     def offset(self) -> "ASTOffset":
         return self._offset
 
-    @property
-    def is_field_offset(self) -> bool:
-        return True
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_field_offset(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTOffset":
+        return transformer.transform_field_offset(self)
 
     def offset_ctype(self, basetype: Optional["BCTyp"]) -> Optional["BCTyp"]:
         if self.offset.is_no_offset:
@@ -1898,27 +1186,6 @@ class ASTFieldOffset(ASTOffset):
     def use(self) -> List[str]:
         return self.offset.use()
 
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTFieldOffset":
-        r_offset = self.offset.reduce(mapping, live_x, macronames)
-        return ASTFieldOffset(self.id, self.fieldname, self.fieldtype, r_offset)
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [self.offset.id]
-        result["fname"] = self.fieldname
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        if self.offset.id != -1:
-            result.extend(self.offset.serialize())
-        return result
-
     def to_c_like(self, sp: int = 0) -> str:
         return "." + self.fieldname + self.offset.to_c_like()
 
@@ -1928,11 +1195,15 @@ class ASTFieldOffset(ASTOffset):
 
 class ASTIndexOffset(ASTOffset):
 
-    def __init__(self, id, index: "ASTExpr", offset: "ASTOffset") -> None:
-        ASTOffset.__init__(self, id, "index-offset")
+    def __init__(self, index: "ASTExpr", offset: "ASTOffset") -> None:
+        ASTOffset.__init__(self, "index-offset")
         self._index = index
         self._offset = offset
 
+    @property
+    def is_index_offset(self) -> bool:
+        return True
+        
     @property
     def index(self) -> "ASTExpr":
         return self._index
@@ -1941,9 +1212,11 @@ class ASTIndexOffset(ASTOffset):
     def offset(self) -> "ASTOffset":
         return self._offset
 
-    @property
-    def is_index_offset(self) -> bool:
-        return True
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_index_offset(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTOffset":
+        return transformer.transform_index_offset(self)
 
     def offset_ctype(self, basetype: Optional["BCTyp"]) -> Optional["BCTyp"]:
         if basetype is None:
@@ -1972,28 +1245,6 @@ class ASTIndexOffset(ASTOffset):
     def use(self) -> List[str]:
         return self.index.use() + self.offset.use()
 
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTIndexOffset":
-        r_index = self.index.reduce(mapping, live_x, macronames)
-        r_offset = self.offset.reduce(mapping, live_x, macronames)
-        return ASTIndexOffset(self.id, r_index, r_offset)
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [self.index.id, self.offset.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.index.serialize())
-        if self.offset.id != -1:
-            result.extend(self.offset.serialize())
-        return result
-
     def to_c_like(self, sp: int = 0) -> str:
         return "[" + self.index.to_c_like() + "]" + self.offset.to_c_like()
 
@@ -2002,9 +1253,19 @@ class ASTIndexOffset(ASTOffset):
 
 
 class ASTExpr(ASTNode):
+    """Universal interface to all expression types.
 
-    def __init__(self, id: int, tag: str) -> None:
-        ASTNode.__init__(self, id, tag)
+    This class presents the union of properties and methods for all subclasses,
+    but calls will fail (or return None in case of an optional returntype) on 
+    those properties and methods not supported for the subclass they are called
+    on.
+
+    This approach requires checking the subclass with the is_... property, but
+    avoids the need for subsequent explicit casting (for type checking).
+    """
+
+    def __init__(self, tag: str) -> None:
+        ASTNode.__init__(self, tag)
 
     @property
     def is_ast_expr(self) -> bool:
@@ -2012,6 +1273,18 @@ class ASTExpr(ASTNode):
 
     @property
     def is_ast_constant(self) -> bool:
+        return False
+
+    @property
+    def is_integer_constant(self) -> bool:
+        return False
+
+    @property
+    def is_global_address(self) -> bool:
+        return False
+   
+    @property
+    def is_string_constant(self) -> bool:
         return False
 
     @property
@@ -2043,16 +1316,111 @@ class ASTExpr(ASTNode):
         return False
 
     @property
-    def is_integer_constant(self) -> bool:
-        return False
-
-    @property
     def cvalue(self) -> int:
-        raise Exception("Internal error in ASTExpr: " + str(self))
+        """Applicable only if is_integer_constant."""
+
+        raise UF.CHBError(
+            "Property cvalue not supported on expr type: " + self.tag)
 
     @property
-    def ctype(self) -> Optional["BCTyp"]:
+    def ctype(self) -> Optional["BCTyp"]:        
         return None
+
+    @property
+    def address_expr(self) -> "ASTExpr":
+        """Applicable only if is_global_address or is_string_address."""
+
+        raise UF.CHBError(
+            "Property address_expr not supported on expr type: " + self.tag)
+        
+
+    @property
+    def address_tgt_type(self) -> Optional["BCTyp"]:
+        """Applicable only if is_global_address or is_ast_addressof."""
+
+        raise UF.CHBError(
+            "Property address_tgt_type not supported on expr type: " + self.tag)
+
+    @property
+    def cstr(self) -> str:
+        """Applicable only if is_string_address."""
+
+        raise UF.CHBError(
+            "Property cstr not supported on expr type: " + self.tag)
+
+    @property
+    def string_address(self) -> str:
+        """Applicable only if is_string_address."""
+
+        raise UF.CHBError(
+            "Property string_address not supported on expr type: " + self.tag)
+
+    @property
+    def lval(self) -> "ASTLval":
+        """Applicable only if is_ast_lval_expr or is_ast_addressof."""
+
+        raise UF.CHBError(
+            "Property lval not supported on expr type: " + self.tag)
+
+    @property
+    def assign_id(self) -> int:
+        """Applicable only if is_ast_substituted_expr."""
+
+        raise UF.CHBError(
+            "Property assign_id not supported on expr type: " + self.tag)
+
+    @property
+    def substituted_expr(self) -> "ASTExpr":
+        """Applicable only if is_ast_substituted_expr."""
+
+        raise UF.CHBError(
+            "Property substituted_expr not supported on expr type: " + self.tag)
+
+    @property
+    def cast_tgt_type(self) -> str:
+        """Applicable only if is_ast_cast_expr."""
+
+        raise UF.CHBError(
+            "Property cast_tgt_type not supported on expr type: " + self.tag)
+
+    @property
+    def cast_expr(self) -> "ASTExpr":
+        """Applicable only if is_cast_expr."""
+
+        raise UF.CHBError(
+            "Property cast_expr not supported on expr type: " + self.tag)
+
+    @property
+    def op(self) -> str:
+        """Applicable only if is_ast_unary_op or is_ast_binary_op."""
+
+        raise UF.CHBError(
+            "Property op not supported on expr type: " + self.tag)
+
+    @property
+    def exp1(self) -> "ASTExpr":
+        """Applicable only if is_ast_unary_op, is_ast_binary_op, or is_ast_question."""
+
+        raise UF.CHBError(
+            "Property exp1 not supported on expr type: " + self.tag)
+
+    @property
+    def exp2(self) -> "ASTExpr":
+        """Applicable only if is_ast_binary_op or is_ast_question."""
+
+        raise UF.CHBError(
+            "Property exp2 not supported on expr type: " + self.tag)
+
+    @property
+    def exp3(self) -> "ASTExpr":
+        """Applicable only if is_ast_question."""
+
+        raise UF.CHBError(
+            "Property exp3 not supported on expr type: " + self.tag)
+
+    @abstractmethod
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        ...
 
     def use(self) -> List[str]:
         return []
@@ -2063,21 +1431,11 @@ class ASTExpr(ASTNode):
     def variables_used(self) -> Set[str]:
         return set([])
 
-    def transform_subx(self, usedefs: UseDef) -> "ASTExpr":
-        return self
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTExpr":
-        return self
-
 
 class ASTConstant(ASTExpr):
 
-    def __init__(self, id: int, tag: str) -> None:
-        ASTExpr.__init__(self, id, tag)
+    def __init__(self, tag: str) -> None:
+        ASTExpr.__init__(self, tag)
 
     @property
     def is_ast_constant(self) -> bool:
@@ -2095,54 +1453,29 @@ class ASTConstant(ASTExpr):
 
 class ASTIntegerConstant(ASTConstant):
 
-    def __init__(
-            self, id: int,
-            cvalue: int,
-            macroname: Optional[str] = None) -> None:
-        ASTConstant.__init__(self, id, "integer-constant")
+    def __init__(self, cvalue: int, tag: str = "integer-constant") -> None:
+        ASTConstant.__init__(self, tag)
         self._cvalue = cvalue
-        self._macroname = macroname
-
-    @property
-    def cvalue(self) -> int:
-        return self._cvalue
-
-    @property
-    def macroname(self) -> Optional[str]:
-        return self._macroname
 
     @property
     def is_integer_constant(self) -> bool:
         return True
 
+    @property
+    def cvalue(self) -> int:
+        return self._cvalue
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_integer_constant(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_integer_constant(self)
+
     def use(self) -> List[str]:
         return []
 
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTExpr":
-        if self.cvalue in macronames:
-            macroname = macronames[self.cvalue]
-            return ASTIntegerConstant(self.id, self.cvalue, macroname)
-        else:
-            return self
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["value"] = str(self.cvalue)
-        if self.macroname:
-            result["macroname"] = self.macroname
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        return [self.noderecord()]
-
     def to_c_like(self, sp: int = 0) -> str:
-        if self.macroname:
-            return self.macroname
-        elif self.cvalue > 100000:
+        if self.cvalue > 100000:
             return hex(self.cvalue)
         else:
             return str(self.cvalue)
@@ -2154,16 +1487,72 @@ class ASTIntegerConstant(ASTConstant):
         return str(self.cvalue)
 
 
+class ASTGlobalAddressConstant(ASTIntegerConstant):
+    """An integer constant that is the address of a global variable."""
+
+    def __init__(self, cvalue: int, addressexpr: "ASTExpr") -> None:
+        ASTIntegerConstant.__init__(self, cvalue, tag="global-address")
+        self._addressexpr = addressexpr
+
+    @property
+    def is_global_address(self) -> bool:
+        return True
+
+    @property
+    def address_expr(self) -> "ASTExpr":
+        return self._addressexpr
+
+    @property
+    def is_ast_lval_expr(self) -> bool:
+        return self.address_expr.is_ast_lval_expr
+
+    @property
+    def lval(self) -> "ASTLval":
+        return self.address_expr.lval
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_global_address(self)
+
+    def transformer(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_global_address(self)
+
+    @property
+    def address_tgt_type(self) -> Optional["BCTyp"]:
+        if self.address_expr.is_ast_addressof:
+            expr = cast("ASTAddressOf", self.address_expr)
+            lval = expr.lval
+            if expr.lval.is_variable and expr.lval.offset.is_no_offset:
+                varinfo = cast("ASTVariable", expr.lval.lhost).varinfo
+                return varinfo.vtype
+            else:
+                return None
+        else:
+            return None
+    @property
+    def ctype(self) -> Optional["BCTyp"]:
+        return self.address_expr.ctype
+
+    def to_c_like(self, sp: int = 0) -> str:
+        return self.address_expr.to_c_like()
+
+    def __str__(self) -> str:
+        return str(self.address_expr)
+
+
 class ASTStringConstant(ASTConstant):
 
-    def __init__(self, id: int, expr: "ASTExpr", cstr: str, saddr: str) -> None:
-        ASTConstant.__init__(self, id, "string-constant")
+    def __init__(self, expr: "ASTExpr", cstr: str, saddr: str) -> None:
+        ASTConstant.__init__(self, "string-constant")
         self._expr = expr    # expression that produced the string
         self._cstr = cstr
         self._saddr = saddr
 
     @property
-    def expr(self) -> "ASTExpr":
+    def is_string_constant(self) -> bool:
+        return True
+        
+    @property
+    def address_expr(self) -> "ASTExpr":
         return self._expr
 
     @property
@@ -2174,18 +1563,14 @@ class ASTStringConstant(ASTConstant):
     def string_address(self) -> str:
         return self._saddr
 
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_string_constant(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_string_constant(self)
+
     def use(self) -> List[str]:
         return []
-        # return self.expr.use()
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["cstr"] = self.cstr
-        result["va"] = self.string_address
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        return [self.noderecord()]
 
     def to_c_like(self, sp: int = 0) -> str:
         return '"' + self.cstr + '"'
@@ -2199,8 +1584,8 @@ class ASTStringConstant(ASTConstant):
 
 class ASTLvalExpr(ASTExpr):
 
-    def __init__(self, id: int, lval: "ASTLval", tag: str = "lval-expr") -> None:
-        ASTExpr.__init__(self, id, tag)
+    def __init__(self, lval: "ASTLval", tag: str = "lval-expr") -> None:
+        ASTExpr.__init__(self, tag)
         self._lval = lval
 
     @property
@@ -2210,6 +1595,12 @@ class ASTLvalExpr(ASTExpr):
     @property
     def lval(self) -> "ASTLval":
         return self._lval
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_lval_expression(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_lval_expression(self)
 
     @property
     def ctype(self) -> Optional["BCTyp"]:
@@ -2223,41 +1614,6 @@ class ASTLvalExpr(ASTExpr):
 
     def use(self) -> List[str]:
         return self.lval.use()
-
-    def transform_subx(self, usedefs_e: UseDef) -> "ASTExpr":
-        name = str(self.lval)
-        if usedefs_e.has_name(name):
-            (assign_id, lval, expr) = usedefs_e.get(name)
-            if name in expr.use():
-                # Don't replace variable if it occurs in expression
-                return self
-            elif self.lval.has_altname():
-                # Don't replace names given by the user
-                return self
-            else:
-                return ASTSubstitutedExpr(self.id, self.lval, assign_id, expr)
-        else:
-            xlval = self.lval.transform_subx(usedefs_e)
-            return ASTLvalExpr(self.id, xlval)
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTExpr":
-        r_lval = self.lval.reduce(mapping, live_x, macronames)
-        return ASTLvalExpr(self.id, r_lval)
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [self.lval.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.lval.serialize())
-        return result
 
     def to_c_like(self, sp: int = 0) -> str:
         return self.lval.to_c_like()
@@ -2273,9 +1629,18 @@ class ASTLvalExpr(ASTExpr):
 
 
 class ASTSubstitutedExpr(ASTLvalExpr):
+    """An expression that was substituted for an lvalue-expression (rhs).
 
-    def __init__(self, id: int, lval: "ASTLval", assign_id: int, expr: "ASTExpr") -> None:
-        ASTLvalExpr.__init__(self, id, lval, tag="substituted-expr")
+    This expression subtype is introduced to keep track of provenance. Its use
+    is mostly transparent w.r.t. to other properties, in the sense that all
+    properties and methods are directly delegated to the substituted expression.
+
+    In particular, the visitor and transformer are delegated to the substituted 
+    expression. The transformer re-assembles the substituted expression.
+    """
+
+    def __init__(self, lval: "ASTLval", assign_id: int, expr: "ASTExpr") -> None:
+        ASTLvalExpr.__init__(self, lval, tag="substituted-expr")
         self._assign_id = assign_id
         self._expr = expr
 
@@ -2292,8 +1657,55 @@ class ASTSubstitutedExpr(ASTLvalExpr):
         return self._expr
 
     @property
+    def super_lval(self) -> "ASTLval":
+        """Return the lval from the original instruction.
+
+        Note: requires type:ignore because of a bug in mypy.
+        """
+
+        return ASTLvalExpr.lval.fget(self) # type:ignore
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        self.substituted_expr.accept(visitor)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return ASTSubstitutedExpr(
+            # get the lval from the super class (but in mypy requires ignore)
+            ASTLvalExpr.lval.fget(self), # type:ignore
+            self.assign_id,
+            cast("ASTExpr", self.substituted_expr.transform(transformer)))
+
+    @property
+    def is_ast_constant(self) -> bool:
+        return self.substituted_expr.is_ast_constant
+
+    @property
     def is_integer_constant(self) -> bool:
         return self.substituted_expr.is_integer_constant
+
+    @property
+    def is_global_address(self) -> bool:
+        return self.substituted_expr.is_global_address
+
+    @property
+    def address_expr(self) -> "ASTExpr":
+        return self.substituted_expr.address_expr
+
+    @property
+    def is_string_constant(self) -> bool:
+        return self.substituted_expr.is_string_constant
+
+    @property
+    def is_ast_lval_expr(self) -> bool:
+        """Note: this property is overridden from its super class."""
+        
+        return self.substituted_expr.is_ast_lval_expr
+
+    @property
+    def lval(self) -> "ASTLval":
+        """Note: this property is overridden from its super class."""
+        
+        return self.substituted_expr.lval
 
     @property
     def cvalue(self) -> int:
@@ -2302,42 +1714,22 @@ class ASTSubstitutedExpr(ASTLvalExpr):
         else:
             raise Exception("Internal error in substituted expression")
 
+    @property
+    def ctype(self) -> Optional["BCTyp"]:
+        return self.substituted_expr.ctype
+
+    @property
+    def is_ast_addressof(self) -> bool:
+        return self.substituted_expr.is_ast_addressof
+
+    def variables_used(self) -> Set[str]:
+        return self.substituted_expr.variables_used()
+
+    def address_taken(self) -> Set[str]:
+        return self.substituted_expr.address_taken()
+
     def use(self) -> List[str]:
         return self.substituted_expr.use()
-
-    def transform_subx(self, usedefs_e: UseDef) -> "ASTExpr":
-        xform_exp = self.substituted_expr.transform_subx(usedefs_e)
-        if str(self.lval) in xform_exp.use():
-            return self
-        else:
-            return ASTSubstitutedExpr(self.id, self.lval, self.assign_id, xform_exp)
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTExpr":
-        if self.is_integer_constant:
-            return ASTIntegerConstant(
-                self.id, self.cvalue).reduce(mapping, live_x, macronames)
-        else:
-            # mapping[self.id] = self.substituted_expr.id
-            r_lval = self.lval.reduce(mapping, live_x, macronames)
-            r_substituted_expr = self.substituted_expr.reduce(mapping, live_x, macronames)
-            return ASTSubstitutedExpr(self.id, r_lval, self.assign_id, r_substituted_expr)
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["assigned"] = self.assign_id
-        result["args"] = [self.lval.id, self.substituted_expr.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.lval.serialize())
-        result.extend(self.substituted_expr.serialize())
-        return result
 
     def to_c_like(self, sp: int = 0) -> str:
         return self.substituted_expr.to_c_like()
@@ -2348,8 +1740,8 @@ class ASTSubstitutedExpr(ASTLvalExpr):
 
 class ASTCastE(ASTExpr):
 
-    def __init__(self, id: int, tgttyp: str, exp: "ASTExpr") -> None:
-        ASTExpr.__init__(self, id, "cast-expr")
+    def __init__(self, tgttyp: str, exp: "ASTExpr") -> None:
+        ASTExpr.__init__(self, "cast-expr")
         self._tgttyp = tgttyp
         self._exp = exp
 
@@ -2358,63 +1750,39 @@ class ASTCastE(ASTExpr):
         return True
 
     @property
-    def tgttyp(self) -> str:
+    def cast_tgt_type(self) -> str:
         return self._tgttyp
 
     @property
-    def exp(self) -> "ASTExpr":
+    def cast_expr(self) -> "ASTExpr":
         return self._exp
 
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_cast_expression(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_cast_expression(self)
+
     def address_taken(self) -> Set[str]:
-        return self.exp.address_taken()
+        return self.cast_expr.address_taken()
 
     def variables_used(self) -> Set[str]:
-        return self.exp.variables_used()
+        return self.cast_expr.variables_used()
 
     def use(self) -> List[str]:
-        return self.exp.use()
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [self.exp.id]
-        result["type"] = self.tgttyp
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.exp.serialize())
-        return result
-
-    def transform_subx(self, usedefs_e: UseDef) -> "ASTCastE":
-        xform_exp = self.exp.transform_subx(usedefs_e)
-        return ASTCastE(self.id, self.tgttyp, xform_exp)
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTCastE":
-        return ASTCastE(
-            self.id, self.tgttyp, self.exp.reduce(mapping, live_x, macronames))
+        return self.cast_expr.use()
 
     def to_c_like(self, sp: int = 0) -> str:
-        return "(" + str(self.tgttyp) + ")" + self.exp.to_c_like()
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append(self.exp.to_string(sp + 2))
-        return "\n".join(lines)
+        return "(" + str(self.cast_tgt_type) + ")" + self.cast_expr.to_c_like()
 
     def __str__(self) -> str:
-        return "((" + str(self.tgttyp) + ")" + str(self.exp) + ")"
+        return "((" + str(self.cast_tgt_type) + ")" + str(self.cast_expr) + ")"
 
 
 class ASTUnaryOp(ASTExpr):
 
-    def __init__(self, id: int, op: str,  exp: "ASTExpr") -> None:
-        ASTExpr.__init__(self, id, "unary-op")
+    def __init__(self, op: str,  exp: "ASTExpr") -> None:
+        ASTExpr.__init__(self, "unary-op")
         self._op = op
         self._exp = exp
 
@@ -2427,60 +1795,39 @@ class ASTUnaryOp(ASTExpr):
         return self._op
 
     @property
-    def exp(self) -> "ASTExpr":
+    def exp1(self) -> "ASTExpr":
         return self._exp
 
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_unary_expression(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_unary_expression(self)
+
     def address_taken(self) -> Set[str]:
-        return self.exp.address_taken()
+        return self.exp1.address_taken()
 
     def variables_used(self) -> Set[str]:
-        return self.exp.variables_used()
+        return self.exp1.variables_used()
 
     def use(self) -> List[str]:
-        return self.exp.use()
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["op"] = self.op
-        result["args"] = [self.exp.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.exp.serialize())
-        return result
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTUnaryOp":
-        return ASTUnaryOp(
-            self.id, self.op, self.exp.reduce(mapping, live_x, macronames))
+        return self.exp1.use()
 
     def to_c_like(self, sp: int = 0) -> str:
-        return operators[self.op] + self.exp.to_c_like()
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append(self.exp.to_string(sp + 2))
-        return "\n".join(lines)
+        return operators[self.op] + self.exp1.to_c_like()
 
     def __str__(self) -> str:
-        return "(" + operators[self.op] + str(self.exp) + ")"
+        return "(" + operators[self.op] + str(self.exp1) + ")"
 
 
 class ASTBinaryOp(ASTExpr):
 
     def __init__(
             self,
-            id: int,
             op: str,
             exp1: "ASTExpr",
             exp2: "ASTExpr") -> None:
-        ASTExpr.__init__(self, id, "binary-op")
+        ASTExpr.__init__(self, "binary-op")
         self._op = op
         self._exp1 = exp1
         self._exp2 = exp2
@@ -2500,6 +1847,12 @@ class ASTBinaryOp(ASTExpr):
     @property
     def exp2(self) -> "ASTExpr":
         return self._exp2
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_binary_expression(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_binary_expression(self)
 
     @property
     def is_integer_constant(self) -> bool:
@@ -2527,44 +1880,6 @@ class ASTBinaryOp(ASTExpr):
     def use(self) -> List[str]:
         return self.exp1.use() + self.exp2.use()
 
-    def transform_subx(self, usedefs_e: UseDef) -> "ASTBinaryOp":
-        xform_exp1 = self.exp1.transform_subx(usedefs_e)
-        xform_exp2 = self.exp2.transform_subx(usedefs_e)
-        return ASTBinaryOp(self.id, self.op, xform_exp1, xform_exp2)
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTExpr":
-        r_exp1 = self.exp1.reduce(mapping, live_x, macronames)
-        r_exp2 = self.exp2.reduce(mapping, live_x, macronames)
-        if (
-                r_exp1.is_integer_constant
-                and r_exp2.is_integer_constant
-                and self.op in ["plus", "minus"]):
-            if self.op == "plus":
-                result = r_exp1.cvalue + r_exp2.cvalue
-                return ASTIntegerConstant(
-                    self.id, result).reduce(mapping, live_x, macronames)
-            else:
-                return ASTBinaryOp(self.id, self.op, r_exp1, r_exp2)
-        else:
-            return ASTBinaryOp(self.id, self.op, r_exp1, r_exp2)
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["op"] = self.op
-        result["args"] = [self.exp1.id, self.exp2.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.exp1.serialize())
-        result.extend(self.exp2.serialize())
-        return result
-
     def to_c_like(self, sp: int = 0) -> str:
         return (
             "("
@@ -2588,11 +1903,10 @@ class ASTQuestion(ASTExpr):
 
     def __init__(
             self,
-            id: int,
             exp1: "ASTExpr",
             exp2: "ASTExpr",
             exp3: "ASTExpr") -> None:
-        ASTExpr.__init__(self, id, "question")
+        ASTExpr.__init__(self, "question")
         self._exp1 = exp1
         self._exp2 = exp2
         self._exp3 = exp3
@@ -2613,40 +1927,19 @@ class ASTQuestion(ASTExpr):
     def exp3(self) -> "ASTExpr":
         return self._exp3
 
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_question_expression(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_question_expression(self)
+
     def address_taken(self) -> Set[str]:
-        return self.exp1.address_taken().union(self.exp2.address_taken()).union(self.exp3.address_taken())
+        return self.exp1.address_taken().union(
+            self.exp2.address_taken()).union(self.exp3.address_taken())
 
     def variables_used(self) -> Set[str]:
-        return self.exp1.variables_used().union(self.exp2.variables_used()).union(self.exp3.variables_used())
-
-    def transform_subx(self, usedefs_e: UseDef) -> "ASTQuestion":
-        xform_exp1 = self.exp1.transform_subx(usedefs_e)
-        xform_exp2 = self.exp2.transform_subx(usedefs_e)
-        xform_exp3 = self.exp3.transform_subx(usedefs_e)
-        return ASTQuestion(self.id, xform_exp1, xform_exp2, xform_exp3)
-
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTExpr":
-        r_exp1 = self.exp1.reduce(mapping, live_x, macronames)
-        r_exp2 = self.exp2.reduce(mapping, live_x, macronames)
-        r_exp3 = self.exp3.reduce(mapping, live_x, macronames)
-        return ASTQuestion(self.id, r_exp1, r_exp2, r_exp3)
-
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [self.exp1.id, self.exp2.id, self.exp3.id]
-        return result
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.exp1.serialize())
-        result.extend(self.exp2.serialize())
-        result.extend(self.exp3.serialize())
-        return result
+        return self.exp1.variables_used().union(
+            self.exp2.variables_used()).union(self.exp3.variables_used())
 
     def to_c_like(self, sp: int = 0) -> str:
         return (
@@ -2671,13 +1964,44 @@ class ASTQuestion(ASTExpr):
 
 class ASTAddressOf(ASTExpr):
 
-    def __init__(self, id: int, lval: "ASTLval") -> None:
-        ASTExpr.__init__(self, id, "address-of")
+    def __init__(self, lval: "ASTLval") -> None:
+        ASTExpr.__init__(self, "address-of")
         self._lval = lval
+
+    @property
+    def is_ast_addressof(self) -> bool:
+        return True
 
     @property
     def lval(self) -> "ASTLval":
         return self._lval
+
+    @property
+    def address_tgt_type(self) -> Optional["BCTyp"]:
+        return self.lval.ctype
+
+    @property
+    def ctype(self) -> Optional["BCTyp"]:
+        if self.lval.lhost.is_variable:
+            if self.lval.lhost.ctype is not None:
+                if self.lval.lhost.ctype.is_array:
+                    if self.lval.offset.is_index_offset:
+                        indexoffset = cast(
+                            "ASTIndexOffset", self.lval.offset)
+                        if indexoffset.index.is_integer_constant:
+                            index = cast(
+                                "ASTIntegerConstant", indexoffset.index)
+                            if index.cvalue == 0:
+                                return self.lval.lhost.ctype
+                            
+
+        return None
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_address_of_expression(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_address_of_expression(self)
 
     def address_taken(self) -> Set[str]:
         return set([str(self.lval)])
@@ -2688,32 +2012,14 @@ class ASTAddressOf(ASTExpr):
     def use(self) -> List[str]:
         return [str(self.lval)]
 
-    def reduce(
-            self,
-            mapping: Dict[int, int],
-            live_x: Mapping[int, Set[str]] = {},
-            macronames: Mapping[int, str] = {}) -> "ASTAddressOf":
-        return self
-
     def to_string(self, sp: int = 0) -> str:
         lines: List[str] = []
         lines.append(ASTNode.to_string(self, sp))
         lines.append(self.lval.to_string(sp + 2))
         return "\n".join(lines)
 
-    def noderecord(self) -> ASTNodeRecord:
-        result = ASTNode.noderecord(self)
-        result["args"] = [self.lval.id]
-        return result
-
     def to_c_like(self, sp: int = 0) -> str:
         return "&" + self.lval.to_c_like()
-
-    def serialize(self) -> List[ASTNodeRecord]:
-        result: List[ASTNodeRecord] = []
-        result.append(self.noderecord())
-        result.extend(self.lval.serialize())
-        return result
 
     def __str__(self) -> str:
         return "&(" + str(self.lval) + ")"

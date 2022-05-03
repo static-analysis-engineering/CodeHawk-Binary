@@ -32,7 +32,8 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from chb.app.ASTNode import ASTExpr, ASTLval, ASTVarInfo
+    from chb.app.ASTNode import ASTExpr, ASTLval
+    from chb.app.ASTVarInfo import ASTVarInfo
 
 import chb.util.fileutil as UF
 
@@ -109,7 +110,7 @@ def storage_records(vinfos: Sequence["ASTVarInfo"]) -> List[Dict[str, str]]:
         elif vinfo.is_parameter:
             rec["type"] = "parameter"
             rec["index"] = str(vinfo.parameter)
-        elif vinfo.is_global:
+        elif vinfo.global_address:
             rec["type"] = "global"
             rec["va"] = hex(vinfo.global_address)
         else:
@@ -119,10 +120,14 @@ def storage_records(vinfos: Sequence["ASTVarInfo"]) -> List[Dict[str, str]]:
 
 
 def has_global_denotation(
-        varinfos: List["ASTVarInfo"], gaddr: str) -> Optional["ASTVarInfo"]:
+        varinfos: Sequence["ASTVarInfo"], gaddr: str) -> Optional["ASTVarInfo"]:
     addr = int(gaddr, 16)
     for vinfo in varinfos:
-        if vinfo.global_address > 0 and vinfo.vtype is not None:
+        if (
+                vinfo.global_address
+                and vinfo.global_address > 0
+                and vinfo.vtype
+                and len(vinfo.conflicting_types) == 0):
             if addr == vinfo.global_address:
                 return vinfo
             elif vinfo.vtype.is_struct:
@@ -139,6 +144,8 @@ class UseDef:
 
     These definitions are used for replacement, hence only one definition is
     allowed.
+
+    This object is immutable.
     """
 
     def __init__(

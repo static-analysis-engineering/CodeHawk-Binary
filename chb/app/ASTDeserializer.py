@@ -43,6 +43,7 @@ operators = {
     "eq": " == ",
     "ge": " >= ",
     "gt": " > ",
+    "land": " & ",   # logical and
     "le": " <= ",
     "lnot": " ! ",
     "lor": " || ",   # logical or
@@ -60,6 +61,7 @@ operators = {
     }
 
 nodecache: Dict[int, "ASTNode"] = {}
+symboltable: Dict[str, "ASTVarInfo"] = {}
 
 
 duplicate_nodes: Dict[int, List["ASTNode"]] = {}
@@ -101,7 +103,9 @@ class ASTNode:
     def args(self) -> List[int]:
         return self._args
 
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
+    def to_c_like(
+            self, sp: int = 0,
+            spanmap: Dict[int, str] = {}) -> str:
         return (
             (" " * sp)
             + str(self.id)
@@ -118,11 +122,31 @@ class ASTStmt(ASTNode):
     def __init__(self, id: int, tag: str, args: List[int]) -> None:
         ASTNode.__init__(self, id, tag, args)
 
+    @property
+    def stmtid(self) -> int:
+        return self.args[0]
+
 
 class ASTReturn(ASTStmt):
 
     def __init__(self, id: int, tag: str, args: List[int]) -> None:
         ASTStmt.__init__(self, id, tag, args)
+
+    def returnexpr(self) -> Optional["ASTExpr"]:
+        if len(self.args) > 1:
+            return cast("ASTExpr", nodecache[self.args[1]])
+        else:
+            return None
+
+    def to_c_like(
+            self,
+            sp: int = 0,
+            spanmap: Dict[int, str] = {}) -> str:
+        if self.returnexpr is not None:
+            preturn = " " + str(self.returnexpr) + ";"
+        else:
+            preturn = ";"
+        return (" " * sp) + "return " + preturn
 
 
 class ASTBlock(ASTStmt):
@@ -130,10 +154,14 @@ class ASTBlock(ASTStmt):
     def __init__(self, id: int, tag: str, args: List[int]) -> None:
         ASTStmt.__init__(self, id, tag, args)
 
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
+    def to_c_like(
+            self,
+            sp: int = 0,
+            spanmap: Dict[int, str] = {}) -> str:
         lines: List[str] = []
-        for a in self.args:
-            lines.append(nodecache[a].to_c_like(sp, spanmap=spanmap))
+        for a in self.args[1:]:
+            lines.append(nodecache[a].to_c_like(
+                sp, spanmap=spanmap))
         return "\n".join(lines)
 
 
@@ -142,9 +170,12 @@ class ASTInstrSequence(ASTStmt):
     def __init__(self, id: int, tag: str, args: List[int]) -> None:
         ASTStmt.__init__(self, id, tag, args)
 
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
+    def to_c_like(
+            self,
+            sp: int = 0,
+            spanmap: Dict[int, str] = {}) -> str:
         lines: List[str] = []
-        for a in self.args:
+        for a in self.args[1:]:
             lines.append(nodecache[a].to_c_like(sp, spanmap=spanmap))
         return "\n".join(lines)
 
@@ -156,27 +187,36 @@ class ASTBranch(ASTStmt):
 
     @property
     def condition(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[0]])
+        return cast("ASTExpr", nodecache[self.args[1]])
 
     @property
     def ifstmt(self) -> "ASTStmt":
-        return cast("ASTStmt", nodecache[self.args[1]])
+        return cast("ASTStmt", nodecache[self.args[2]])
 
     @property
     def elsestmt(self) -> "ASTStmt":
-        return cast("ASTStmt", nodecache[self.args[2]])
+        return cast("ASTStmt", nodecache[self.args[3]])
 
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
+    def to_c_like(
+            self,
+            sp: int = 0,
+            spanmap: Dict[int, str] = {}) -> str:
         lines: List[str] = []
         indent = " " * sp
+        span = spanmap[self.stmtid] if self.stmtid in spanmap else "no span found"
         lines.append(
             indent
             + "if ("
             + self.condition.to_c_like()
-            + "){")
-        lines.append(self.ifstmt.to_c_like(sp + c_indent, spanmap=spanmap))
+            + "){"
+            + "  // ("
+            + span
+            + ")")
+        lines.append(self.ifstmt.to_c_like(
+            sp + c_indent, spanmap=spanmap))
         lines.append(indent + "} else {")
-        lines.append(self.elsestmt.to_c_like(sp + c_indent, spanmap=spanmap))
+        lines.append(self.elsestmt.to_c_like(
+            sp + c_indent, spanmap=spanmap))
         lines.append(indent + "}")
         return "\n".join(lines)                     
     
@@ -186,6 +226,10 @@ class ASTInstruction(ASTNode):
     def __init__(self, id: int, tag: str, args: List[int]) -> None:
         ASTNode.__init__(self, id, tag, args)
     
+    @property
+    def instrid(self) -> int:
+        return self.args[0]
+
 
 class ASTAssign(ASTInstruction):
 
@@ -194,14 +238,17 @@ class ASTAssign(ASTInstruction):
 
     @property
     def lhs(self) -> "ASTLval":
-        return cast("ASTLval", nodecache[self.args[0]])
+        return cast("ASTLval", nodecache[self.args[1]])
 
     @property
     def rhs(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[1]])
+        return cast("ASTExpr", nodecache[self.args[2]])
     
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        span = spanmap[self.id] if self.id in spanmap else "no span found"
+    def to_c_like(
+            self,
+            sp: int = 0,
+            spanmap: Dict[int, str] = {}) -> str:
+        span = spanmap[self.instrid] if self.instrid in spanmap else "no span found"
         return (
             (" " * sp)
             + self.lhs.to_c_like()
@@ -221,20 +268,23 @@ class ASTCall(ASTInstruction):
 
     @property
     def lhs(self) -> Optional["ASTLval"]:
-        if self.args[0] == -1:
+        if self.args[1] == -1:
             return None
         else:
-            return cast("ASTLval", nodecache[self.args[0]])
+            return cast("ASTLval", nodecache[self.args[1]])
 
     @property
     def tgt(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[1]])
+        return cast("ASTExpr", nodecache[self.args[2]])
 
     @property
     def arguments(self) -> List["ASTExpr"]:
-        return [cast("ASTExpr", nodecache[a]) for a in self.args[2:]]
+        return [cast("ASTExpr", nodecache[a]) for a in self.args[3:]]
 
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
+    def to_c_like(
+            self,
+            sp: int = 0,
+            spanmap: Dict[int, str] = {}) -> str:
         indent = " " * sp
         calltgt = (
             self.tgt.to_c_like()
@@ -243,7 +293,7 @@ class ASTCall(ASTInstruction):
             + "); // "
             + str(self.id)
             + " ("
-            + spanmap[self.id]
+            + spanmap[self.instrid]
             + ")")
         if self.lhs:
             return indent + self.lhs.to_c_like() + " = " + calltgt
@@ -271,7 +321,10 @@ class ASTLval(ASTNode):
         else:
             return cast("ASTOffset", nodecache[self.args[1]])
 
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
+    def to_c_like(
+            self,
+            sp: int = 0,
+            spanmap: Dict[int, str] = {}) -> str:
         if self.lhost.is_memref:
             memref = cast("ASTMemRef", self.lhost)
             memexp = memref.memexp
@@ -309,38 +362,34 @@ class ASTVarInfo(ASTNode):
 
     def __init__(
             self,
-            id: int,
-            tag: str,
-            args: List[int],
             vname: str,
-            altname: Optional[str]) -> None:
-        ASTNode.__init__(self, id, tag, args)
+            vtype: str,
+            parameter: Optional[int],
+            size: Optional[int],
+            globaladdress: Optional[int],
+            conflictingtypes: List[str]) -> None:
         self._vname = vname
-        self._altname = altname
 
     @property
     def vname(self) -> str:
         return self._vname
 
-    @property
-    def altname(self) -> Optional[str]:
-        return self._altname
-
-    @property
-    def displayname(self) -> str:
-        if self.altname:
-            return self.altname
-        else:
-            return self.vname
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return self.displayname
+    def to_c_like(
+            self,
+            sp: int = 0,
+            spanmap: Dict[int, str] = {}) -> str:
+        return self.vname
 
 
 class ASTVariable(ASTLHost):
 
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTLHost.__init__(self, id, tag, args)
+    def __init__(self, id: int, tag: str, vname: str) -> None:
+        ASTLHost.__init__(self, id, tag, [])
+        self._vname = vname
+
+    @property
+    def vname(self) -> str:
+        return self._vname
 
     @property
     def is_variable(self) -> bool:
@@ -348,10 +397,10 @@ class ASTVariable(ASTLHost):
 
     @property
     def varinfo(self) -> "ASTVarInfo":
-        return cast("ASTVarInfo", nodecache[self.args[0]])
+        return cast("ASTVarInfo", symboltable[self.vname])
 
     def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return self.varinfo.displayname
+        return self.varinfo.vname
         
 
 
@@ -616,24 +665,52 @@ class ASTAddressOf(ASTExpr):
     
     
     
-class AbstractSyntaxTree:
+class ASTDeserializer:
 
     def __init__(
             self,
             nodes: List[Dict[str, Any]],
             startnode: int,
+            livecode: List[int],
+            globalsymboltable: Dict[str, Any],
+            localsymboltable: Dict[str, Any],
             available_expressions: Dict[str, List[Tuple[int, str, str]]],
-            spans: List["ASTSpanRecord"]) -> None:
+            spans: List["ASTSpanRecord"],
+            c_indent: int = 3) -> None:
         self._nodes = nodes
+        self._nodemap: Dict[int, Any] = {}
         self._startnode = startnode
+        self._livecode = livecode
+        self._globalsymboltable = globalsymboltable
+        self._localsymboltable = localsymboltable
         self._available_expressions = available_expressions
         self._spans = spans
         self._spanmap: Dict[int, str] = {}
+        self._c_indent = c_indent
         self._initialize()
 
     @property
     def nodes(self) -> List[Dict[str, Any]]:
         return self._nodes
+
+    @property
+    def nodemap(self) -> Dict[int, Dict[str, Any]]:
+        return self._nodemap
+
+    @property
+    def livecode(self) -> List[int]:
+        return self._livecode
+
+    def is_live(self, id: int) -> bool:
+        return id in self.livecode
+
+    @property
+    def localsymboltable(self) -> Dict[str, Any]:
+        return self._localsymboltable
+
+    @property
+    def globalsymboltable(self) -> Dict[str, Any]:
+        return self._globalsymboltable
 
     @property
     def available_expressions(self) -> Dict[str, List[Tuple[int, str, str]]]:
@@ -648,14 +725,30 @@ class AbstractSyntaxTree:
         return self._spans
 
     @property
+    def c_indent(self) -> int:
+        return self._c_indent
+
+    @property
     def spanmap(self) -> Dict[int, str]:
         if len(self._spanmap) == 0:
             for spanrec in self.spans:
                 spanid = cast(int, spanrec["id"])
                 spans_at_id = cast(List[Dict[str, Any]], spanrec["spans"])
                 self._spanmap[spanid] = spans_at_id[0]["base_va"]
-        return self._spanmap                                           
+        return self._spanmap
 
+    def _initialize(self) -> None:
+        for n in self.nodes:
+            self._nodemap[n["id"]] = n
+
+    def node(self, id: int) -> Dict[str, Any]:
+        if id in self.nodemap:
+            return self.nodemap[id]
+        else:
+            raise Exception(
+                "No node with id " + str(id) + " found in nodemap")
+
+    '''
     def _initialize(self) -> None:
         for n in self.nodes:
             id: int = n["id"]
@@ -676,12 +769,9 @@ class AbstractSyntaxTree:
                 node = ASTCall(id, tag, args)
             elif tag == "lval":
                 node = ASTLval(id, tag, args)
-            elif tag == "varinfo":
-                vname: str = n["vname"]
-                altname: Optional[str] = n["altname"] if "altname" in n else None
-                node = ASTVarInfo(id, tag, args, vname, altname)
             elif tag == "var":
-                node = ASTVariable(id, tag, args)
+                vname: str = n["name"]
+                node = ASTVariable(id, tag, vname)
             elif tag == "memref":
                 node = ASTMemRef(id, tag, args)
             elif tag == "no-offset":
@@ -720,8 +810,29 @@ class AbstractSyntaxTree:
                 node = ASTNode(id, tag, args)
             add_to_node_cache(id, node)
 
-    def to_c_like(self):
-        return nodecache[self.startnode].to_c_like(spanmap = self.spanmap)
+        for (name, d) in (
+                list(self.localsymboltable.items()) +
+                list(self.globalsymboltable.items())):
+            symboltable[name] = ASTVarInfo(
+                d["name"],
+                d["type"] if "type" in d else None,
+                d["parameter"] if "parameter" in d else None,
+                d["size"] if "size" in d else None,
+                d["global-address"] if "global-address" in d else None,
+                d["conflicting-types"] if "conflicting-types" in d else [])
+
+
+    def to_c_like(self, sp: int = 0) -> str:
+        lines: List[str] = []
+        for (name, d) in sorted(self.localsymboltable.items()):
+            if "type" in d:
+                lines.append(d["type"] + " " + d["name"] + ";")
+        lines.append("")
+        lines.append(self.stmt_to_c_like(sp))
+        # lines.append(nodecache[self.startnode].to_c_like(
+        #    livecode = self.livecode, spanmap = self.spanmap))
+        return "\n".join(lines)
+    '''
 
     def var_available_expressions(self, names: List[str]) -> str:
         lines: List[str] = []

@@ -42,8 +42,14 @@ from typing import (
     TYPE_CHECKING,
     Union)
 
+from chb.app.ASTFormalVarInfo import ASTFormalVarInfo
+
 import chb.app.ASTNode as AST
+
+from chb.app.ASTSymbolTable import ASTSymbolTable, ASTLocalSymbolTable
+
 import chb.app.ASTUtil as AU
+from chb.app.ASTVarInfo import ASTVarInfo
 
 if TYPE_CHECKING:
     from chb.bctypes.BCFieldInfo import BCFieldInfo
@@ -61,11 +67,10 @@ VariableNamesRec = NewType(
     "VariableNamesRec",
     Dict[str, Dict[str, Dict[str, List[Dict[str, Union[Tuple[str, str], str]]]]]])
 
-
-ignoredvariable = AST.ASTVarInfo(-1, "ignored", None, None, None, None)
-nooffset = AST.ASTNoOffset(-1)
+nooffset = AST.ASTNoOffset()
 
 
+'''
 class VariableNames:
 
     def __init__(self, namerecords: VariableNamesRec) -> None:
@@ -135,6 +140,7 @@ class VariableNames:
             return cast(str, vrec[0]["altname"])
         else:
             return None
+'''
 
 
 class AbstractSyntaxTree:
@@ -143,27 +149,14 @@ class AbstractSyntaxTree:
             self,
             faddr: str,
             fname: str,
-            variablenames: VariableNamesRec = cast(VariableNamesRec, {}),
-            symbolicaddrs: Dict[str, str] = {},
-            ignore_return_value: List[str] = [],
-            callingconvention: str = "arm") -> None:
+            localsymboltable: ASTLocalSymbolTable) -> None:
         self._faddr = faddr
         self._fname = fname  # same as faddr if no name provided
         self._counter = 0
-        self._vcounter = 0
         self._tmpcounter = 0
         self._spans: List[ASTSpanRecord] = []
-        self._variablenames = VariableNames(variablenames)
-        self._ignore_return_value = ignore_return_value
-        self._symbolicaddrs = symbolicaddrs
-        self._callingconvention = callingconvention
-        self._currentaddr: Optional[str] = None
-        self._symboltable: Dict[Tuple[str, str], AST.ASTVarInfo] = {}
-        self._symboltable[("ignored", "__none__")] = ignoredvariable
+        self._symboltable = localsymboltable
         self._unsupported: Dict[str, List[str]] = {}
-        self._fprototype: Optional["BCVarInfo"] = None
-        self._functiondef: Optional["BCFunctionDefinition"] = None
-        self._formals: List[AST.ASTFormalVarInfo] = []
         self._notes: List[str] = []
 
     def add_note(self, note: str) -> None:
@@ -178,57 +171,28 @@ class AbstractSyntaxTree:
         return self._fname
 
     @property
-    def spans(self) -> List[ASTSpanRecord]:
-        return self._spans
-
-    @property
-    def symboltable(self) -> Dict[Tuple[str, str], AST.ASTVarInfo]:
+    def symboltable(self) -> ASTLocalSymbolTable:
         return self._symboltable
 
     @property
-    def symbolicaddrs(self) -> Dict[str, str]:
-        return self._symbolicaddrs
+    def spans(self) -> List[ASTSpanRecord]:
+        return self._spans
 
-    @property
-    def formals(self) -> List[AST.ASTFormalVarInfo]:
-        return self._formals
-
-    @property
-    def callingconvention(self) -> str:
-        """Return  a string that indicates where arguments are located.
-
-        For now we use the architecture (that is, arm, mips, x86, powerpc)
-        as an indicator of calling convention. Eventually we can add conventions
-        like fastcall, cdecl, etc.
-        """
-        return self._callingconvention
-
-    def ignore_return_value(self, name: str) -> bool:
-        return name in self._ignore_return_value
-
-    def global_variable_name(self, gaddr: str) -> Optional[str]:
-        if gaddr in self.symbolicaddrs:
-            return self.symbolicaddrs[gaddr]
-        else:
-            return None
+    def diagnostics(self) -> List[str]:
+        return self.notes + self.symboltable.diagnostics
 
     def storage_records(self) -> List[Dict[str, str]]:
-        return AU.storage_records(list(self.symboltable.values()))
+        return AU.storage_records(list(self.symboltable.symbols()))
 
-    def global_symbols(self) -> List[AST.ASTVarInfo]:
-        return [vinfo for vinfo in self.symboltable.values() if vinfo.is_global]
+    def global_symbols(self) -> Sequence[AST.ASTVarInfo]:
+        return self.symboltable.global_symbols()
 
     def set_functiondef(self, d: "BCFunctionDefinition") -> None:
         self._functiondef = d
 
     def set_function_prototype(self, p: "BCVarInfo") -> None:
-        self._fprototype = p
-        ftype = cast("BCTypFun", p.vtype)
-        if ftype.argtypes:
-            nextindex = 0
-            for (argindex, arg) in enumerate(ftype.argtypes.funargs):
-                nextindex = self.add_formal(
-                    arg.name, arg.typ, argindex, nextindex)
+        self._fprotoype = p
+        self.symboltable.set_function_prototype(p)
 
     def has_functiondef(self) -> bool:
         return self._functiondef is not None
@@ -240,127 +204,42 @@ class AbstractSyntaxTree:
         else:
             raise Exception("Function has no functiondef")
 
-    def has_function_prototype(self) -> bool:
-        return self._fprototype is not None
-
-    def function_prototype(self) -> "BCVarInfo":
-        if self._fprototype is not None:
-            return self._fprototype
-        else:
-            raise Exception("Function has no known prototype")
-
     def get_formal_locindices(
-            self, argindex: int) -> Tuple[AST.ASTFormalVarInfo, List[int]]:
-        """Return the indices of the arg location(s) for argindex.
-
-        There may be more than one location in case of a packed array.
-        """
-
-        for formal in reversed(self.formals):
-            if argindex >= formal.argindex:
-                if (argindex - formal.argindex) < formal.numargs:
-                    return (formal, formal.arglocs_for_argindex(argindex))
-                else:
-                    raise Exception(
-                        "get_formal_locindex: "
-                        + str(argindex)
-                        + " is too large. Formals:  "
-                        + ", ".join(str(f) for f in self.formals))
-
-        else:
-            raise Exception("No formal found for argindex: " + str(argindex))
+            self, argindex: int) -> Tuple[ASTFormalVarInfo, List[int]]:
+        return self.symboltable.get_formal_locindices(argindex)
 
     def function_argument(self, index: int) -> List[AST.ASTLval]:
         """Return the argument(s) with the given index (zero-based).
 
         There may be more than one argument, in case of a packed array.
         """
+        return self.symboltable.function_argument(index)
 
-        if len(self.formals) > 0:
-            (formal, locindices) = self.get_formal_locindices(index)
-            id = self.new_id()
-            regvar = AST.ASTVariable(id, formal)
-            id = self.new_id()
-            lvals: List[AST.ASTLval] = []
-            for locindex in locindices:
-                (loc, offset, size) = formal.argloc(locindex)
-                lvals.append(AST.ASTLval(id, regvar, offset))
-            return lvals
-        else:
-            return []
+    def has_symbol(self, name: str) -> bool:
+        return self.symboltable.has_symbol(name)
 
-    def has_symbol(self, name: str, altname: Optional[str] = None) -> bool:
-        index = (name, altname) if altname else (name, "__none__")
-        return index in self.symboltable
-
-    def symbol(self, name: str, altname: Optional[str] = None) -> AST.ASTVarInfo:
-        index = (name, altname) if altname else (name, "__none__")
-        if self.has_symbol(name, altname=altname):
-            return self.symboltable[index]
-        else:
-            print("Internal error: symbol not found: " + str(index))
-            exit(1)
+    def get_symbol(self, name: str) -> AST.ASTVarInfo:
+        return self.symboltable.get_symbol(name)
 
     def add_symbol(
             self,
-            vname: str,
-            vtype: Optional["BCTyp"],
-            altname: Optional[str],
-            parameter: Optional[int],
-            globaladdress: Optional[int],
-            arrayindex: Optional[int] = None) -> None:
-        id = self.new_id()
-        varinfo = AST.ASTVarInfo(
-            id,
-            vname,
-            vtype,
-            altname,
-            parameter,
-            globaladdress,
-            arrayindex=arrayindex)
-        index = (vname, altname) if altname else (vname, "__none__")
-        self._symboltable[index] = varinfo
-
-    def add_formal(
-            self,
-            vname: str,
-            vtype: "BCTyp",
-            parameter: int,
-            nextindex: int) -> int:
-        """Return the next starting index for the argument in the binary."""
-
-        id = self.new_id()
-        formal = AST.ASTFormalVarInfo(id, vname, vtype, parameter, nextindex)
-        nextindex = formal.initialize(self.new_id, self.callingconvention)
-        self._symboltable[(vname, "__none__")] = formal
-        self._formals.append(formal)
-        return nextindex
-
-    def get_symbol(
-            self,
             name: str,
-            vtype: Optional["BCTyp"],
-            altname: Optional[str],
-            parameter: Optional[int],
-            globaladdress: Optional[int],
-            arrayindex: Optional[int] = None) -> AST.ASTVarInfo:
-        if not self.has_symbol(name, altname):
-            self.add_symbol(
-                name,
-                vtype,
-                altname,
-                parameter,
-                globaladdress,
-                arrayindex=arrayindex)
-        return self.symbol(name, altname=altname)
-
-    def serialize_symboltable(self) -> List[AST.ASTNodeRecord]:
-        result: List[AST.ASTNodeRecord] = []
-        for vinfo in self.symboltable.values():
-            result.extend(vinfo.serialize())
-        return result
+            vtype: Optional["BCTyp"] = None,
+            size: Optional[int] = None,
+            parameter: Optional[int] = None,
+            globaladdress: Optional[int] = None) -> AST.ASTVarInfo:
+        return self.symboltable.add_symbol(
+            name,
+            vtype=vtype,
+            size=size,
+            parameter=parameter,
+            globaladdress=globaladdress)
 
     def new_id(self) -> int:
+        """A single sequence of id's is used for statement and instruction id.
+
+        That is, the set of instruction id's is disjoint from the set of stmt id's.
+        """
         id = self._counter
         self._counter += 1
         return id
@@ -390,55 +269,23 @@ class AbstractSyntaxTree:
     def unsupported_instructions(self) -> Dict[str, List[str]]:
         return self._unsupported
 
-    def set_current_addr(self, addr: str) -> None:
-        """Set address of current instruction.
-
-        Only used if incorporating user-provided alternate variable names,
-        otherwise unused.
-        """
-        self._currentaddr = addr
-
-    def register_variable_name(self, r: str) -> Optional[str]:
-        """Retrieve the alternate name of a register at a given address.
-
-        Only used if incorporating user-provided alternate variable names,
-        otherwise not relevant.
-        """
-        if self._currentaddr:
-            return self._variablenames.register_variable(
-                self.fname, r, self._currentaddr)
-        else:
-            return None
-
-    def stack_variable_name(self, offset: int) -> Optional[str]:
-        """Retrieve the altnernate name of a stack variable given offset."""
-
-        if self._currentaddr:
-            return self._variablenames.stack_variable(
-                self.fname, offset, self._currentaddr)
-        else:
-            return None
-
-    def other_variable_name(self, name: str) -> Optional[str]:
-        return self._variablenames.other_variable(self.fname, name)
-
     def function_returntype(self, name: str) -> Optional["BCTyp"]:
-        if self.has_symbol(name):
-            vinfo = self.symbol(name)
-            if vinfo.is_function:
-                if vinfo.vtype:
-                    vtype = cast("BCTypFun", vinfo.vtype)
-                    return vtype.returntype
-                else:
-                    return None
-            else:
-                return None
-        else:
-            return None
+        return self.symboltable.function_returntype(name)
+
+    def is_variable_address(self, gaddr: int) -> Optional[str]:
+        return self.symboltable.is_variable_address(gaddr)
+
+    def is_struct_field_address(self, gaddr: int) -> bool:
+        return self.symboltable.is_struct_field_address(gaddr)
+
+    def get_struct_field_address(self, gaddr: int) -> AST.ASTExpr:
+        return self.symboltable.get_struct_field_address(gaddr)
+
+    # ------------------------------------------------------ make statements ---
 
     def mk_block(self, stmts: List[AST.ASTStmt]) -> AST.ASTBlock:
-        id = self.new_id()
-        return AST.ASTBlock(id, stmts)
+        stmtid = self.new_id()
+        return AST.ASTBlock(stmtid, stmts)
 
     def mk_return_stmt(self, expr: Optional[AST.ASTExpr]) -> AST.ASTReturn:
         id = self.new_id()
@@ -450,86 +297,136 @@ class AbstractSyntaxTree:
             ifbranch: AST.ASTStmt,
             elsebranch: AST.ASTStmt,
             relative_offset: int) -> AST.ASTStmt:
-        id = self.new_id()
+        stmtid = self.new_id()
         if condition is None:
             # create a new unknown (unitialized) variable
             condvar = self.mk_temp_lval()
             condition = self.mk_lval_expr(condvar)
-        return AST.ASTBranch(id, condition, ifbranch, elsebranch, relative_offset)
+        return AST.ASTBranch(
+            stmtid, condition, ifbranch, elsebranch, relative_offset)
 
-    def mk_instr_sequence(self, instrs: List[AST.ASTInstruction]) -> AST.ASTInstrSequence:
-        id = self.new_id()
-        return AST.ASTInstrSequence(id, instrs)
+    def mk_instr_sequence(
+            self, instrs: List[AST.ASTInstruction]) -> AST.ASTInstrSequence:
+        instrid = self.new_id()
+        return AST.ASTInstrSequence(instrid, instrs)
+
+    # ---------------------------------------------------- make instructions ---
+
+    def mk_assign(
+            self,
+            lval: AST.ASTLval,
+            rhs: AST.ASTExpr,
+            annotations: List[str] = []) -> AST.ASTAssign:
+        instrid = self.new_id()
+        return AST.ASTAssign(instrid, lval, rhs, annotations=annotations)
+
+    def mk_call(
+            self,
+            lval: AST.ASTLval,
+            tgt: AST.ASTExpr,
+            args: List[AST.ASTExpr]) -> AST.ASTCall:
+        instrid = self.new_id()
+        return AST.ASTCall(instrid, lval, tgt, args)    
+
+    # ----------------------------------------------------- make lvals/exprs ---
+
+    def mk_vinfo_variable(self, varinfo: ASTVarInfo) -> AST.ASTVariable:
+        return AST.ASTVariable(varinfo)
 
     def mk_variable(self, name: str) -> AST.ASTVariable:
-        id = self.new_id()
-        altname = self.other_variable_name(name)
-        varinfo = self.get_symbol(name, None, altname, None, None)
-        return AST.ASTVariable(id, varinfo)
+        if self.has_symbol(name):
+            varinfo = self.get_symbol(name)
+        else:
+            varinfo = self.add_symbol(name)
+        return self.mk_vinfo_variable(varinfo)
+
+    def mk_lval(
+            self,
+            lhost: AST.ASTLHost,
+            offset: AST.ASTOffset) -> AST.ASTLval:
+        return AST.ASTLval(lhost, offset)
+
+    def mk_lval_expr(self, lval: AST.ASTLval) -> AST.ASTExpr:
+        return AST.ASTLvalExpr(lval)
+
+    def mk_vinfo_variable_lval(self, varinfo: ASTVarInfo) -> AST.ASTLval:
+        var = self.mk_vinfo_variable(varinfo)
+        return AST.ASTLval(var, nooffset)
+
+    def mk_variable_lval(self, name: str) -> AST.ASTLval:
+        var = self.mk_variable(name)
+        return AST.ASTLval(var, nooffset)    
+
+    def mk_named_lval(self, name: str) -> AST.ASTLval:
+        var = self.mk_variable(name)
+        return AST.ASTLval(var, nooffset)
+
+    def mk_ignored_lval(self) -> AST.ASTLval:
+        return self.mk_named_lval("ignored_xxx")
 
     def mk_global_variable(
             self,
             name: str,
             vtype: Optional["BCTyp"] = None,
             globaladdress: Optional[int] = None) -> AST.ASTVariable:
-        id = self.new_id()
-        varinfo = self.get_symbol(name, vtype, None, None, globaladdress)
-        return AST.ASTVariable(id, varinfo)
+        varinfo = self.add_symbol(name, vtype=vtype, globaladdress=globaladdress)
+        return AST.ASTVariable(varinfo)
 
     def mk_global_variable_lval(
             self,
             name: str,
             vtype: Optional["BCTyp"] = None,
             globaladdress: Optional[int] = None) -> AST.ASTLval:
-        id = self.new_id()
-        var = self.mk_global_variable(name, vtype, globaladdress)
-        return AST.ASTLval(id, var, nooffset)
+        var = self.mk_global_variable(
+            name, vtype=vtype, globaladdress=globaladdress)
+        return AST.ASTLval(var, nooffset)
 
     def mk_global_variable_expr(
             self,
             name: str,
             vtype: Optional["BCTyp"] = None,
             globaladdress: Optional[int] = None) -> AST.ASTExpr:
-        id = self.new_id()
-        lval = self.mk_global_variable_lval(name, vtype, globaladdress)
-        return AST.ASTLvalExpr(id, lval)
+        lval = self.mk_global_variable_lval(
+            name, vtype=vtype, globaladdress=globaladdress)
+        return AST.ASTLvalExpr(lval)
 
     def mk_returnval_variable(
             self,
             iaddr: str,
             vtype: Optional["BCTyp"]) -> AST.ASTVariable:
-        id = self.new_id()
         name = "rtn_" + iaddr
-        altname = self.other_variable_name(name)
-        if (
-                altname
-                and self.has_functiondef()
-                and self.functiondef.has_localvar(altname)):
-            localvinfo = self.functiondef.localvar(altname)
-            varinfo = self.get_symbol(
-                name, localvinfo.vtype, altname, None, None)
-        else:
-            varinfo = self.get_symbol(name, vtype, altname, None, None)
-        return AST.ASTVariable(id, varinfo)
+        varinfo = self.add_symbol(name, vtype=vtype, size=4)
+        return AST.ASTVariable(varinfo)
+
+    def mk_returnval_variable_lval(
+            self,
+            iaddr: str,
+            vtype: Optional["BCTyp"]) -> AST.ASTLval:
+        var = self.mk_returnval_variable(iaddr, vtype)
+        return AST.ASTLval(var, nooffset)    
 
     def mk_register_variable(
             self,
             name: str,
             vtype: Optional["BCTyp"] = None,
             parameter: Optional[int] = None) -> AST.ASTVariable:
-        id = self.new_id()
-        altname = self.register_variable_name(name)
-        if (
-                altname
-                and self.has_functiondef()
-                and self.functiondef.has_localvar(altname)):
-            localvinfo = self.functiondef.localvar(altname)
-            varinfo = self.get_symbol(
-                name, localvinfo.vtype, altname, parameter, None)
-        else:
-            varinfo = self.get_symbol(
-                name, vtype, altname, parameter, None)
-        return AST.ASTVariable(id, varinfo)
+        varinfo = self.add_symbol(name, vtype=vtype, parameter=parameter)
+        return AST.ASTVariable(varinfo)
+
+    def mk_register_variable_lval(
+            self,
+            name: str,
+            vtype: Optional["BCTyp"] = None,
+            parameter: Optional[int] = None) -> AST.ASTLval:
+        var = self.mk_register_variable(name, vtype, parameter)
+        return AST.ASTLval(var, nooffset)
+
+    def mk_register_variable_expr(
+            self, name: str,
+            vtype: Optional["BCTyp"] = None,
+            parameter: Optional[int] = None) -> AST.ASTExpr:
+        lval = self.mk_register_variable_lval(name, vtype, parameter)
+        return AST.ASTLvalExpr(lval)    
 
     def mk_stack_variable(
             self,
@@ -537,7 +434,6 @@ class AbstractSyntaxTree:
             name: Optional[str] = None,
             vtype: Optional["BCTyp"] = None,
             parameter: Optional[int] = None) -> AST.ASTVariable:
-        id = self.new_id()
         if name is None:
             if offset < 0:
                 name = "localvar_" + str(-offset)
@@ -545,184 +441,8 @@ class AbstractSyntaxTree:
                 name = "localvar_0"
             else:
                 name = "argvar_" + str(offset)
-        altname = self.stack_variable_name(offset)
-        if (
-                altname
-                and self.has_functiondef()
-                and self.functiondef.has_localvar(altname)):
-            localvinfo = self.functiondef.localvar(altname)
-            varinfo = self.get_symbol(
-                name, localvinfo.vtype, altname, parameter, None)
-        else:
-            varinfo = self.get_symbol(
-                name, vtype, altname, parameter, None)
-        return AST.ASTVariable(id, varinfo)
-
-    def is_variable_address(self, gaddr: int) -> Optional[str]:
-        for ((name, _), vinfo) in self.symboltable.items():
-            if vinfo.has_global_address():
-                if vinfo.global_address == gaddr:
-                    return name
-        else:
-            return None
-
-    def mk_ignored_lval(self) -> AST.ASTLval:
-        varinfo = ignoredvariable
-        var = AST.ASTVariable(-1, varinfo)
-        return AST.ASTLval(-1, var, AST.ASTNoOffset(-1))
-
-    def mk_temp_lval(self) -> AST.ASTLval:
-        tmpname = "temp" + str(self.new_tmp_id())
-        varinfo = self.get_symbol(tmpname, None, None, None, None)
-        id = self.new_id()
-        var = AST.ASTVariable(id, varinfo)
-        id = self.new_id()
-        return AST.ASTLval(id, var, AST.ASTNoOffset(-1))
-
-    def mk_lval(
-            self,
-            lhost: AST.ASTLHost,
-            offset: AST.ASTOffset) -> AST.ASTLval:
-        id = self.new_id()
-        return AST.ASTLval(id, lhost, offset)
-
-    def is_struct_field_address(self, gaddr: int) -> bool:
-        for gvinfo in self.symboltable.values():
-            if gvinfo.is_struct and gvinfo.is_global:
-                compinfo = (cast("BCTypComp", gvinfo.vtype)).compinfo
-                gvaddr = gvinfo.global_address
-                gvextent = gvaddr + compinfo.byte_size()
-                if gaddr >= gvaddr and gaddr < gvextent:
-                    return True
-                else:
-                    return False
-            else:
-                return False
-        else:
-            return False
-
-    def get_struct_field_address(self, gaddr: int) -> AST.ASTExpr:
-        gvname: Optional[str] = None
-        gvinfo: Optional[AST.ASTVarInfo] = None
-
-        for ((name, _), vinfo) in self.symboltable.items():
-            if vinfo.is_struct and vinfo.is_global:
-                compinfo = (cast("BCTypComp", vinfo.vtype)).compinfo
-                gvaddr = vinfo.global_address
-                gvextent = gvaddr + compinfo.byte_size()
-                if gaddr >= gvaddr and gaddr < gvextent:
-                    gvname = name
-                    gvinfo = vinfo
-                    break
-
-        if gvname and gvinfo:
-            compinfo = (cast("BCTypComp", gvinfo.vtype)).compinfo
-            ioffset = gaddr - gvinfo.global_address
-            fieldoffsets = compinfo.fieldoffsets()
-            prevfinfo: Optional["BCFieldInfo"] = None
-            prevoffset = -1
-            if ioffset == 0:
-                id = self.new_id()
-                var = AST.ASTVariable(id, gvinfo)
-                lval = self.mk_lval(var, AST.ASTNoOffset(-1))
-                return self.mk_address_of(lval)
-
-            for (foffset, finfo) in fieldoffsets:
-                if ioffset == foffset:
-                    id = self.new_id()
-                    var = AST.ASTVariable(id, gvinfo)
-                    offset = self.mk_field_offset(
-                        finfo.fieldname, finfo.fieldtype, AST.ASTNoOffset(-1))
-                    lval = self.mk_lval(var, offset)
-                    if finfo.fieldtype.is_array:
-                        return self.mk_lval_expr(lval)
-                    else:
-                        return self.mk_address_of(lval)
-
-        raise Exception("Struct field not found for address " + hex(gaddr))
-
-    def get_global_denotation(
-            self,
-            gvinfo: AST.ASTVarInfo,
-            gaddr: str,
-            offset: AST.ASTOffset) -> Tuple[AST.ASTVariable, AST.ASTOffset]:
-        addr = int(gaddr, 16)
-        if gvinfo.is_struct:
-            compinfo = (cast("BCTypComp", gvinfo.vtype)).compinfo
-            ioffset = addr - gvinfo.global_address
-            fieldoffsets = compinfo.fieldoffsets()
-            prevfinfo: Optional["BCFieldInfo"] = None
-            prevoffset = -1
-            for (foffset, finfo) in fieldoffsets:
-                if ioffset == foffset:
-                    id = self.new_id()
-                    var = AST.ASTVariable(id, gvinfo)
-                    if finfo.fieldtype.is_array:
-                        offset = self.mk_scalar_index_offset(0, offset)
-                    offset = self.mk_field_offset(
-                        finfo.fieldname, finfo.fieldtype, offset)
-                    return (var, offset)
-                elif ioffset > foffset:
-                    prevfinfo = finfo
-                    prevoffset = foffset
-                else:
-                    if prevfinfo is None:
-                        raise Exception("Offset mismatch")
-                    if prevfinfo.fieldtype.is_array:
-                        ftype = cast("BCTypArray", prevfinfo.fieldtype)
-                        eltsize = ftype.tgttyp.byte_size()
-                        aoffset = ioffset - prevoffset
-                        if aoffset % eltsize == 0:
-                            aindex = aoffset // eltsize
-                            offset = self.mk_scalar_index_offset(aindex, offset)
-                        else:
-                            raise Exception("Offset mismatch")
-                        id = self.new_id()
-                        var = AST.ASTVariable(id, gvinfo)
-                        offset = self.mk_field_offset(
-                            prevfinfo.fieldname, prevfinfo.fieldtype, offset)
-                        return (var, offset)
-                    else:
-                        name = "gv_" + gaddr
-                        return (self.mk_global_variable(
-                            name, globaladdress=int(gaddr, 16)), offset)
-            else:
-                name = "gv_" + gaddr
-                return (self.mk_global_variable(
-                    name, globaladdress=int(gaddr, 16)), offset)
-
-        else:
-            id = self.new_id()
-            var = AST.ASTVariable(id, gvinfo)
-            return (var, offset)
-
-    def mk_variable_lval(self, name: str) -> AST.ASTLval:
-        var = self.mk_variable(name)
-        id = self.new_id()
-        return AST.ASTLval(id, var, nooffset)
-
-    def mk_formal_lval(self, formal: AST.ASTFormalVarInfo) -> AST.ASTLval:
-        id = self.new_id()
-        var = AST.ASTVariable(id, formal)
-        id = self.new_id()
-        return AST.ASTLval(id, var, nooffset)
-
-    def mk_register_variable_lval(
-            self,
-            name: str,
-            vtype: Optional["BCTyp"] = None,
-            parameter: Optional[int] = None) -> AST.ASTLval:
-        id = self.new_id()
-        var = self.mk_register_variable(name, vtype, parameter)
-        return AST.ASTLval(id, var, nooffset)
-
-    def mk_register_variable_expr(
-            self, name: str,
-            vtype: Optional["BCTyp"] = None,
-            parameter: Optional[int] = None) -> AST.ASTExpr:
-        id = self.new_id()
-        lval = self.mk_register_variable_lval(name, vtype, parameter)
-        return AST.ASTLvalExpr(id, lval)
+        varinfo = self.add_symbol(name, vtype=vtype, parameter=parameter)
+        return AST.ASTVariable(varinfo)
 
     def mk_stack_variable_lval(
             self,
@@ -730,90 +450,64 @@ class AbstractSyntaxTree:
             name: Optional[str] = None,
             vtype: Optional["BCTyp"] = None,
             parameter: Optional[int] = None) -> AST.ASTLval:
-        id = self.new_id()
         var = self.mk_stack_variable(offset, name, vtype, parameter)
-        return AST.ASTLval(id, var, nooffset)
+        return AST.ASTLval(var, nooffset)    
 
-    def mk_returnval_variable_lval(
-            self,
-            iaddr: str,
-            vtype: Optional["BCTyp"]) -> AST.ASTLval:
-        othername = self.other_variable_name("rtn_" + iaddr)
-        if othername is not None and othername.startswith("ignore-"):
-            return self.mk_ignored_lval()
-        else:
-            id = self.new_id()
-            var = self.mk_returnval_variable(iaddr, vtype)
-            return AST.ASTLval(id, var, nooffset)
+    def mk_temp_lval(self) -> AST.ASTLval:
+        tmpname = "temp" + str(self.new_tmp_id())
+        return self.mk_named_lval(tmpname)
+
+    def mk_formal_lval(self, formal: ASTFormalVarInfo) -> AST.ASTLval:
+        var = AST.ASTVariable(formal)
+        return AST.ASTLval(var, nooffset)
 
     def mk_memref(self, memexp: AST.ASTExpr) -> AST.ASTMemRef:
-        id = self.new_id()
-        return AST.ASTMemRef(id, memexp)
+        return AST.ASTMemRef(memexp)
 
     def mk_memref_lval(
             self,
             memexp: AST.ASTExpr,
-            offset: AST.ASTOffset = AST.ASTNoOffset(-1)) -> AST.ASTLval:
+            offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
         memref = self.mk_memref(memexp)
-        id = self.new_id()
-        return AST.ASTLval(id, memref, offset)
+        return AST.ASTLval(memref, offset)
 
     def mk_memref_expr(
             self,
             memexp: AST.ASTExpr,
-            offset: AST.ASTOffset = AST.ASTNoOffset(-1)) -> AST.ASTExpr:
+            offset: AST.ASTOffset = nooffset) -> AST.ASTExpr:
         memreflval = self.mk_memref_lval(memexp, offset)
-        id = self.new_id()
-        return AST.ASTLvalExpr(id, memreflval)
+        return AST.ASTLvalExpr(memreflval)
 
     def mk_scalar_index_offset(
             self,
             index: int,
-            offset: AST.ASTOffset = AST.ASTNoOffset(-1)) -> AST.ASTIndexOffset:
+            offset: AST.ASTOffset = nooffset) -> AST.ASTIndexOffset:
         indexexpr = self.mk_integer_constant(index)
-        id = self.new_id()
-        return AST.ASTIndexOffset(id, indexexpr, offset)
+        return AST.ASTIndexOffset(indexexpr, offset)
 
     def mk_expr_index_offset(
             self,
             indexexpr: AST.ASTExpr,
-            offset: AST.ASTOffset = AST.ASTNoOffset(-1)) -> AST.ASTIndexOffset:
-        id = self.new_id()
-        return AST.ASTIndexOffset(id, indexexpr, offset)
+            offset: AST.ASTOffset = nooffset) -> AST.ASTIndexOffset:
+        return AST.ASTIndexOffset(indexexpr, offset)
 
     def mk_field_offset(
             self,
             fieldname: str,
             fieldtype: "BCTyp",
-            offset: AST.ASTOffset = AST.ASTNoOffset(-1)) -> AST.ASTFieldOffset:
-        id = self.new_id()
-        return AST.ASTFieldOffset(id, fieldname, fieldtype, offset)
-
-    def mk_lval_expr(self, lval: AST.ASTLval) -> AST.ASTExpr:
-        id = self.new_id()
-        return AST.ASTLvalExpr(id, lval)
+            offset: AST.ASTOffset = nooffset) -> AST.ASTFieldOffset:
+        return AST.ASTFieldOffset(fieldname, fieldtype, offset)
 
     def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
         gvinfo = AU.has_global_denotation(self.global_symbols(), hex(cvalue))
-        id = self.new_id()
-        return AST.ASTIntegerConstant(id, cvalue)
+        return AST.ASTIntegerConstant(cvalue)
 
     def mk_string_constant(
             self, expr: AST.ASTExpr, cstr: str, saddr: str) -> AST.ASTStringConstant:
-        id = self.new_id()
-        return AST.ASTStringConstant(id, expr, cstr, saddr)
-
-    def mk_assign(
-            self,
-            lval: AST.ASTLval,
-            rhs: AST.ASTExpr,
-            annotations: List[str] = []) -> AST.ASTAssign:
-        id = self.new_id()
-        return AST.ASTAssign(id, lval, rhs, annotations=annotations)
+        return AST.ASTStringConstant(expr, cstr, saddr)
 
     def mk_address_of(self, lval: AST.ASTLval) -> AST.ASTAddressOf:
-        id = self.new_id()
-        return AST.ASTAddressOf(id, lval)
+        return AST.ASTAddressOf(lval)
 
     def mk_byte_expr(self, index: int, x: AST.ASTExpr) -> AST.ASTExpr:
         if index == 0:
@@ -906,16 +600,14 @@ class AbstractSyntaxTree:
             if exp2value == 0 and exp1.op in ["ne", "neq"]:
                 return self.mk_binary_op("eq", exp1.exp1, exp1.exp2)
 
-        id = self.new_id()
-        return AST.ASTBinaryOp(id, op, exp1, exp2)
+        return AST.ASTBinaryOp(op, exp1, exp2)
 
     def mk_question(
             self,
             exp1: AST.ASTExpr,
             exp2: AST.ASTExpr,
             exp3: AST.ASTExpr) -> AST.ASTExpr:
-        id = self.new_id()
-        return AST.ASTQuestion(id, exp1, exp2, exp3)
+        return AST.ASTQuestion(exp1, exp2, exp3)
 
     def mk_unary_op(self, op: str, exp: AST.ASTExpr) -> AST.ASTExpr:
         if exp.is_ast_binary_op and op == "lnot":
@@ -943,25 +635,12 @@ class AbstractSyntaxTree:
                     newexp2 = self.mk_binary_op(newop2, exp2.exp1, exp2.exp2)
                     return self.mk_binary_op("land", newexp1, newexp2)
 
-        id = self.new_id()
-        return AST.ASTUnaryOp(id, op, exp)
+        return AST.ASTUnaryOp(op, exp)
 
     def mk_cast_expr(self, tgttyp: str, exp: AST.ASTExpr) -> AST.ASTExpr:
-        id = self.new_id()
-        return AST.ASTCastE(id, tgttyp, exp)
+        return AST.ASTCastE(tgttyp, exp)
 
-    def mk_call(
-            self,
-            lval: Optional[AST.ASTLval],
-            tgt: AST.ASTExpr,
-            args: List[AST.ASTExpr]) -> AST.ASTCall:
-        id = self.new_id()
-        if not lval:
-            lval = self.mk_ignored_lval()
-        returntype = self.function_returntype(str(tgt))
-        if returntype and returntype in ["void", "VOID"]:
-            lval = self.mk_ignored_lval()
-        return AST.ASTCall(id, lval, tgt, args)
+    # ---------------------------------------------------- AST rewriting ---
 
     def rewrite(self, node: AST.ASTNode) -> AST.ASTNode:
         if node.is_ast_stmt:
@@ -986,11 +665,12 @@ class AbstractSyntaxTree:
         return retstmt
 
     def rewrite_block(self, block: AST.ASTBlock) -> AST.ASTStmt:
-        return AST.ASTBlock(block.id, [self.rewrite_stmt(s) for s in block.stmts])
+        return AST.ASTBlock(
+            block.stmtid, [self.rewrite_stmt(s) for s in block.stmts])
 
     def rewrite_branch(self, branch: AST.ASTBranch) -> AST.ASTStmt:
         return AST.ASTBranch(
-            branch.id,
+            branch.stmtid,
             self.rewrite_expr(branch.condition),
             self.rewrite_stmt(branch.ifstmt),
             self.rewrite_stmt(branch.elsestmt),
@@ -999,7 +679,7 @@ class AbstractSyntaxTree:
     def rewrite_instruction_sequence(
             self, instrseq: AST.ASTInstrSequence) -> AST.ASTStmt:
         return AST.ASTInstrSequence(
-            instrseq.id,
+            instrseq.stmtid,
             [self.rewrite_instruction(i) for i in instrseq.instructions])
 
     def rewrite_instruction(self, instr: AST.ASTInstruction) -> AST.ASTInstruction:
@@ -1012,7 +692,7 @@ class AbstractSyntaxTree:
 
     def rewrite_assign(self, assign: AST.ASTAssign) -> AST.ASTInstruction:
         return AST.ASTAssign(
-            assign.id,
+            assign.instrid,
             self.rewrite_lval(assign.lhs),
             self.rewrite_expr(assign.rhs),
             annotations=assign.annotations)
@@ -1020,9 +700,9 @@ class AbstractSyntaxTree:
     def rewrite_call(self, call: AST.ASTCall) -> AST.ASTInstruction:
         return call
 
+    '''
     def rewrite_array_lval_to_indexed_array_lval(
             self,
-            lvalid: int,
             memexp: AST.ASTBinaryOp,
             default: Callable[[], AST.ASTLval]) -> AST.ASTLval:
         base = cast(AST.ASTLvalExpr, memexp.exp1)
@@ -1038,8 +718,7 @@ class AbstractSyntaxTree:
             if elsize == 1:
                 indexexp = memexp.exp2
                 indexoffset = self.mk_expr_index_offset(indexexp)
-                lvalnewid = self.new_id()
-                return AST.ASTLval(lvalnewid, base.lval.lhost, indexoffset)
+                return AST.ASTLval(base.lval.lhost, indexoffset)
             else:
                 self.add_note("rewrite-array-to-array: 1")
                 return default()
@@ -1054,7 +733,6 @@ class AbstractSyntaxTree:
 
     def rewrite_base_lval_to_indexed_array_lval(
             self,
-            lvalid: int,
             memexp: AST.ASTBinaryOp,
             default: Callable[[], AST.ASTLval]) -> AST.ASTLval:
         base = cast(AST.ASTIntegerConstant, memexp.exp1)
@@ -1137,12 +815,12 @@ class AbstractSyntaxTree:
         else:
             self.add_note("rewrite-to_fieldoffset-4")
             return default()
+    '''
 
     def rewrite_lval(self, lval: AST.ASTLval) -> AST.ASTLval:
 
         def default() -> AST.ASTLval:
             return AST.ASTLval(
-                lval.id,
                 self.rewrite_lhost(lval.lhost),
                 self.rewrite_offset(lval.offset))
 
@@ -1153,22 +831,28 @@ class AbstractSyntaxTree:
             if lhost.memexp.is_ast_binary_op:
                 memexp = cast(AST.ASTBinaryOp, lhost.memexp)
                 if memexp.op == "plus" and memexp.exp1.is_integer_constant:
-                    return self.rewrite_base_lval_to_indexed_array_lval(
-                        lval.id, memexp, default)
+                    # return self.rewrite_base_lval_to_indexed_array_lval(
+                    #    lval.id, memexp, default)
+                    self.add_note("rewrite_base_lval_to_indexed_array_lval")
+                    return default()
 
                 elif (
                         memexp.op == "plus"
                         and memexp.exp1.is_ast_lval_expr
                         and memexp.exp2.is_integer_constant):
-                    return self.rewrite_lval_to_fieldoffset_lval(
-                        lval.id, memexp, default)
+                    # return self.rewrite_lval_to_fieldoffset_lval(
+                    #    lval.id, memexp, default)
+                    self.add_note("rewrite_lval_to_fieldoffset_lval")
+                    return default()
 
                 elif (
                         memexp.op == "plus"
                         and memexp.exp1.is_ast_lval_expr
                         and memexp.exp1.is_ast_substituted_expr):
-                    return self.rewrite_array_lval_to_indexed_array_lval(
-                        lval.id, memexp, default)
+                    # return self.rewrite_array_lval_to_indexed_array_lval(
+                    #    lval.id, memexp, default)
+                    self.add_note("rewrite_array_lval_to_indexed_array_lval")
+                    return default()
 
                 else:
                     self.add_note(
@@ -1213,7 +897,7 @@ class AbstractSyntaxTree:
         return lhost
 
     def rewrite_memref(self, memref: AST.ASTMemRef) -> AST.ASTLHost:
-        return AST.ASTMemRef(memref.id, self.rewrite_expr(memref.memexp))
+        return AST.ASTMemRef(self.rewrite_expr(memref.memexp))
 
     def rewrite_offset(self, offset: AST.ASTOffset) -> AST.ASTOffset:
         if offset.is_no_offset:
@@ -1248,23 +932,21 @@ class AbstractSyntaxTree:
 
     def rewrite_substituted_expr(self, expr: AST.ASTSubstitutedExpr) -> AST.ASTExpr:
         return AST.ASTSubstitutedExpr(
-            expr.id,
             self.rewrite_lval(expr.lval),
             expr.assign_id,
             self.rewrite_expr(expr.substituted_expr))
 
     def rewrite_lval_expr(self, expr: AST.ASTLvalExpr) -> AST.ASTExpr:
-        return AST.ASTLvalExpr(expr.id, self.rewrite_lval(expr.lval))
+        return AST.ASTLvalExpr(self.rewrite_lval(expr.lval))
 
     def rewrite_cast_expr(self, expr: AST.ASTCastE) -> AST.ASTExpr:
         return expr
 
     def rewrite_unary_op(self, expr: AST.ASTUnaryOp) -> AST.ASTExpr:
-        return AST.ASTUnaryOp(expr.id, expr.op, self.rewrite_expr(expr.exp))
+        return AST.ASTUnaryOp(expr.op, self.rewrite_expr(expr.exp1))
 
     def rewrite_binary_op(self, expr: AST.ASTBinaryOp) -> AST.ASTExpr:
         return AST.ASTBinaryOp(
-            expr.id,
             expr.op,
             self.rewrite_expr(expr.exp1),
             self.rewrite_expr(expr.exp2))
