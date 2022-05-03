@@ -139,7 +139,6 @@ class MIPSInstruction(Instruction):
         return self.opcode.operand_values(self.xdata)
 
     def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
-        astree.set_current_addr(self.iaddr)
         return self.opcode.assembly_ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
@@ -151,7 +150,6 @@ class MIPSInstruction(Instruction):
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
-        astree.set_current_addr(self.iaddr)
         return self.opcode.ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
