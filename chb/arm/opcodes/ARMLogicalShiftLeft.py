@@ -108,5 +108,5 @@ class ARMLogicalShiftLeft(ARMOpcode):
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         binop = astree.mk_binary_op("lsl", rhs1, rhs2)
         assign = astree.mk_assign(lhs, binop)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        astree.add_instruction_span(assign.instrid, iaddr, bytestring)
         return preinstrs1 + preinstrs2 + [assign] + postinstrs1 + postinstrs2

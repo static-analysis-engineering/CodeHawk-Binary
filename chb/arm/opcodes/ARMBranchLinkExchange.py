@@ -147,8 +147,8 @@ class ARMBranchLinkExchange(ARMOpcode):
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
         models = ModelsAccess()
-        if astree.has_symbol(tgtname) and astree.symbol(tgtname).vtype:
-            fnsymbol = astree.symbol(tgtname)
+        if astree.has_symbol(tgtname) and astree.get_symbol(tgtname).vtype:
+            fnsymbol = astree.get_symbol(tgtname)
             if fnsymbol.returns_void:
                 return (astree.mk_ignored_lval(), [])
             else:
@@ -188,7 +188,7 @@ class ARMBranchLinkExchange(ARMOpcode):
         else:
             (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
         call = astree.mk_call(lhs, tgtxpr, [])
-        astree.add_instruction_span(call.id, iaddr, bytestring)
+        astree.add_instruction_span(call.instrid, iaddr, bytestring)
         return [call]
 
     def ast(self,
@@ -228,15 +228,10 @@ class ARMBranchLinkExchange(ARMOpcode):
             if len(args) > 4:
                 for a in args[4:]:
                     argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
-            if lhs.is_ignored:
-                call: ASTInstruction = astree.mk_call(lhs, tgtxpr, argxprs)
-                astree.add_instruction_span(call.id, iaddr, bytestring)
-                return [call]
-            else:
-                call = cast(ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
-                astree.add_instruction_span(call.id, iaddr, bytestring)
-                for assign in assigns:
-                    astree.add_instruction_span(assign.id, iaddr, bytestring)
-                return [call] + assigns
+            call = cast(ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
+            astree.add_instruction_span(call.instrid, iaddr, bytestring)
+            for assign in assigns:
+                astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+            return [call] + assigns
         else:
             return self.assembly_ast(astree, iaddr, bytestring, xdata)

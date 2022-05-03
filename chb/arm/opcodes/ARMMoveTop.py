@@ -103,9 +103,9 @@ class ARMMoveTop(ARMOpcode):
         xpr1 = astree.mk_binary_op("lsl", op2, i16)
         xpr2 = astree.mk_binary_op("mod", op1, e16)
         xpr = astree.mk_binary_op("plus", xpr1, xpr2)
-        result = astree.mk_assign(lhs, xpr, annotations=annotations)
-        astree.add_instruction_span(result.id, iaddr, bytestring)
-        return [result]
+        assign = astree.mk_assign(lhs, xpr, annotations=annotations)
+        astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+        return [assign]
 
     def ast(self,
             astree:AbstractSyntaxTree,
@@ -120,9 +120,9 @@ class ARMMoveTop(ARMOpcode):
         if len(lhss) == 1 and len(rhss) == 1:
             lhs = lhss[0]
             rhs = rhss[0]        
-            result = astree.mk_assign(lhs, rhs, annotations=annotations)
-            astree.add_instruction_span(result.id, iaddr, bytestring)
-            return [result]
+            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
+            astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+            return [assign]
         else:
             raise UF.CHBError(
                 "ARMMoveTop: multiple expressions/lvals in ast")

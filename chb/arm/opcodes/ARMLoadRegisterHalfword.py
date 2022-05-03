@@ -101,7 +101,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
         (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        astree.add_instruction_span(assign.instrid, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs
 
     def ast(self,
@@ -119,7 +119,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
             rhslval = rhslvals[0]
             rhs = astree.mk_lval_expr(rhslval)
             assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            astree.add_instruction_span(assign.instrid, iaddr, bytestring)
             return [assign]
 
         if len(rhslvals) == 2:
@@ -127,7 +127,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
             b1 = astree.mk_lval_expr(rhslvals[1])
             rhs = astree.mk_byte_sum([b0, b1])
             assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            astree.add_instruction_span(assign.instrid, iaddr, bytestring)
             return [assign]
 
         else:

@@ -122,7 +122,8 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             reg_decr_c = astree.mk_integer_constant(reg_decr)
             reg_rhs = astree.mk_binary_op("minus", regrval, reg_decr_c)
             instrs.append(astree.mk_assign(reglval, reg_rhs, annotations=annotations))
-        astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
+        for assign in instrs:
+            astree.add_instruction_span(assign.instrid, iaddr, bytestring)
         return instrs
 
     def ast(self,
@@ -194,5 +195,5 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                         "ARMStoreMultipleDecrementBefore: multiple expressions/lvals in ast")
 
         for instr in instrs:
-            astree.add_instruction_span(instr.id, iaddr, bytestring)
+            astree.add_instruction_span(instr.instrid, iaddr, bytestring)
         return instrs

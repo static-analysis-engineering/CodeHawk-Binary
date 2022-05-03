@@ -1,6 +1,6 @@
 {
     "legend": {
-	"A": "annotation",
+	"AST": "ast support",
 	"D": "disassembled",
 	"DA": "destination abstracted",
 	"E": "encoding in bits",
@@ -50,7 +50,6 @@
 		    }
 		]
 	    },
-	    "A": "Y",
 	    "TC": "DA"
 	},
 	"ADD": {

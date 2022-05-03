@@ -124,9 +124,9 @@ class ARMSubtract(ARMOpcode):
         (op1, _, _) = self.operands[1].ast_rvalue(astree)
         (op2, _, _) = self.operands[2].ast_rvalue(astree)
         binop = astree.mk_binary_op("minus", op1, op2)
-        result = astree.mk_assign(lhs, binop, annotations=annotations)
-        astree.add_instruction_span(result.id, iaddr, bytestring)
-        return [result]
+        assign = astree.mk_assign(lhs, binop, annotations=annotations)
+        astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+        return [assign]
 
     def ast(self,
             astree: AbstractSyntaxTree,

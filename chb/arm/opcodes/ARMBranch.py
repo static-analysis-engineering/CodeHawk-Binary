@@ -151,7 +151,7 @@ class ARMBranch(ARMOpcode):
         tgtname = calltarget.name
         models = ModelsAccess()
         if astree.has_symbol(tgtname):
-            fnsymbol = astree.symbol(tgtname)
+            fnsymbol = astree.get_symbol(tgtname)
             if fnsymbol.returns_void:
                 return (astree.mk_ignored_lval(), [])
             else:
@@ -192,7 +192,7 @@ class ARMBranch(ARMOpcode):
             else:
                 (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
             call = astree.mk_call(lhs, tgtxpr, [])
-            astree.add_instruction_span(call.id, iaddr, bytestring)
+            astree.add_instruction_span(call.instrid, iaddr, bytestring)
             return [call]
         else:
             return []
@@ -234,16 +234,11 @@ class ARMBranch(ARMOpcode):
             if len(args) > 4:
                 for a in args[4:]:
                     argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
-            if lhs.is_ignored:
-                call: ASTInstruction = astree.mk_call(lhs, tgtxpr, argxprs)
-                astree.add_instruction_span(call.id, iaddr, bytestring)
-                return [call]
-            else:
-                call = cast(ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
-                astree.add_instruction_span(call.id, iaddr, bytestring)
-                for assign in assigns:
-                    astree.add_instruction_span(assign.id, iaddr, bytestring)
-                return [call] + assigns
+            call = cast(ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
+            astree.add_instruction_span(call.instrid, iaddr, bytestring)
+            for assign in assigns:
+                astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+            return [call] + assigns
         else:
             return []
 
@@ -268,12 +263,14 @@ class ARMBranch(ARMOpcode):
                     cbytestr = xdata.get_condition_setter_bytestring()
                     if int(csetter, 16) + (len(cbytestr) // 2) == int(iaddr, 16):
                         newaddr = hex(int(iaddr, 16) - (len(cbytestr) // 2))
-                        astree.add_instruction_span(
-                            astcond.id, newaddr, cbytestr + bytestring)
+                        # astree.add_instruction_span(
+                        #    astcond.instrid, newaddr, cbytestr + bytestring)
                     else:
-                        astree.add_instruction_span(astcond.id, iaddr, bytestring)
+                        # astree.add_instruction_span(astcond.id, iaddr, bytestring)
+                        pass
                 else:
-                    astree.add_instruction_span(astcond.id, iaddr, bytestring)
+                    # astree.add_instruction_span(astcond.id, iaddr, bytestring)
+                    pass
                 return astcond
             else:
                 raise UF.CHBError(

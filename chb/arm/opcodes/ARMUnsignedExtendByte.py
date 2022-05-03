@@ -113,5 +113,5 @@ class ARMUnsignedExtendByte(ARMOpcode):
                 + ", ".join((str(rhs) for rhs in rhss)))
 
         assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
+        astree.add_instruction_span(assign.instrid, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs

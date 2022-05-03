@@ -104,6 +104,6 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
         zero = astree.mk_integer_constant(0)
         assign1 = astree.mk_assign(lhs1, binop, annotations=(annotations + ["low"]))
         assign2 = astree.mk_assign(lhs2, zero, annotations=annotations)
-        astree.add_instruction_span(assign1.id, iaddr, bytestring)
-        astree.add_instruction_span(assign2.id, iaddr, bytestring)
+        astree.add_instruction_span(assign1.instrid, iaddr, bytestring)
+        astree.add_instruction_span(assign2.instrid, iaddr, bytestring)
         return preinstrs1 + preinstrs2 + [assign1, assign2] + postinstrs1 + postinstrs2

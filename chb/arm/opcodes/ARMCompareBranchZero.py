@@ -92,7 +92,7 @@ class ARMCompareBranchZero(ARMOpcode):
             condition = astree.mk_binary_op("neq", regvar, zero)
         else:
             condition = astree.mk_binary_op("eq", regvar, zero)
-        astree.add_instruction_span(condition.id, iaddr, bytestring)
+        # astree.add_instruction_span(condition.id, iaddr, bytestring)
         return condition
 
     def assembly_ast(

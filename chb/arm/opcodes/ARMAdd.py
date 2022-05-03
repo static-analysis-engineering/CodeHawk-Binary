@@ -105,48 +105,90 @@ class ARMAdd(ARMOpcode):
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return lhs + " := " + xresult
 
+    # --------------------------------------------------------------------------
+    # AddWithCarry()
+    #
+    # (bits(N), bit, bit) AddWithCarry(bitsN) x, bits(N), bit carry_in)
+    #   unsigned_sum = UInt(x) + UInt(y) + UInt(carry_in);
+    #   signed_sum = SInt(x) + SInt(y) + UInt(carry_in);
+    #   result = unsigned_sum<N-1:0>;
+    #   carry_out = if UInt(result) == unsigned_sum then '0' else '1';
+    #   overflow = if SInt(result) == signed_sum then '0' else '1';
+    #   return (result, carry_out, overflow);
+    #
+    # if ConditionPassed() then
+    #   (result, carry, overflow) = AddWithCarry(R[n], op2, '0');
+    #   if d == 15 then
+    #     ALUWritePC(result);
+    #   else
+    #     R[d] = result;
+    #     if setflags then
+    #       APSR.N = result<31>;
+    #       APSR.Z = IsZeroBit(result);
+    #       APSR.C = carry;
+    #       APSR.V = overflow;
+    # 
+    # where op2 can be imm32 (immediate) or shifted (shifted register value)
+    # --------------------------------------------------------------------------
+
     def assembly_ast(
             self,
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
+        """Create one register-to-register assignment."""
 
         annotations: List[str] = [iaddr, "ADD"]
 
+        # there are no versions of ADD with write-back arguments
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (op1, _, _) = self.operands[1].ast_rvalue(astree)
         (op2, _, _) = self.operands[2].ast_rvalue(astree)
+
         binop = astree.mk_binary_op("plus", op1, op2)
-        result = astree.mk_assign(lhs, binop, annotations=annotations)
-        astree.add_instruction_span(result.id, iaddr, bytestring)
-        return [result]
+        assign = astree.mk_assign(lhs, binop, annotations=annotations)
+        astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+        return [assign]
 
     def ast(self,
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[ASTInstruction]:
+        """Create one or more register-to-register assignments.
+
+        There may be more than one assignment if the source expression
+        and/or the destination register has a type smaller than 4.
+        """
         lhs = xdata.vars[0]
         rhs1 = str(xdata.xprs[0])
         rhs2 = xdata.xprs[1]
         rhs3 = xdata.xprs[3]
 
-        if lhs == "SP" and rhs1 == "SP" and rhs2.is_constant:
-            return []
+        # if lhs == "SP" and rhs1 == "SP" and rhs2.is_constant:
+        #    return []
 
         annotations: List[str] = [iaddr, "ADD"]
 
         lhsasts = XU.xvariable_to_ast_lvals(lhs, astree)
         if len(lhsasts) != 1:
             raise UF.CHBError("ARMAdd: multiple lvals in ast")
+
         lhsast = lhsasts[0]
+
+        if str(lhs) == "PC":
+            astree.add_note(iaddr + ": ADD instruction sets PC")
+
+        # resulting expression is a stack address
         if rhs1 == "SP" and rhs3.is_stack_address:
+            annotations.append("stack address")
             rhs3 = cast("XprCompound", rhs3)
             stackoffset = rhs3.stack_address_offset()
             rhslval = astree.mk_stack_variable_lval(stackoffset)
             rhsast: ASTExpr = astree.mk_address_of(rhslval)
 
+        # resulting expression is a pc-relative address
         elif rhs1 == "PC" or str(rhs2) == "PC":
             annotations.append("PC-relative")
             if rhs3.is_int_constant:
@@ -163,6 +205,6 @@ class ARMAdd(ARMOpcode):
         else:
             return self.assembly_ast(astree, iaddr, bytestring, xdata)
 
-        result = astree.mk_assign(lhsast, rhsast, annotations=annotations)
-        astree.add_instruction_span(result.id, iaddr, bytestring)
-        return [result]
+        assign = astree.mk_assign(lhsast, rhsast, annotations=annotations)
+        astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+        return [assign]
