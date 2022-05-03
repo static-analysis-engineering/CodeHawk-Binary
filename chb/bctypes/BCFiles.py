@@ -103,6 +103,17 @@ class BCFiles:
         else:
             return name in self.functions
 
+    def has_vardecl(self, name: str) -> bool:
+        return any([vinfo.vname == name for vinfo in self.gvardecls])
+
+    def vardecl(self, name: str) -> BCVarInfo:
+        for vinfo in self.gvardecls:
+            if vinfo.vname == name:
+                return vinfo
+        else:
+            raise UF.CHBError(
+                "Variable declaration for " + name + " not found")
+
     def initialize(self, xnode: ET.Element) -> None:
         self.initialize_compinfos(xnode.find("compinfos"))
         self.initialize_typeinfos(xnode.find("typeinfos"))

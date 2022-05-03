@@ -57,6 +57,12 @@ class BCFieldInfo(BCDictionaryRecord):
     def fieldtype(self) -> "BCTyp":
         return self.bcd.typ(self.args[1])
 
+    def is_leq(self, other: "BCFieldInfo") -> bool:
+        if self.fieldname == other.fieldname:
+            return self.fieldtype.is_leq(other.fieldtype)
+        else:
+            return False
+
     def byte_size(self) -> int:
         return self.fieldtype.byte_size()
 

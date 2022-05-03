@@ -53,6 +53,9 @@ class BCFunArg(BCDictionaryRecord):
     def typ(self) -> "BCTyp":
         return self.bcd.typ(self.args[0])
 
+    def is_leq(self, other: "BCFunArg") -> bool:
+        return self.typ.is_leq(other.typ)
+
     def __str__(self) -> str:
         return str(self.typ) + " " + self.name
 
@@ -101,6 +104,9 @@ class BCFunArgs(BCDictionaryRecord):
                 return False
         else:
             return True
+
+    def is_leq(self, other: "BCFunArgs") -> bool:
+        return all(a.is_leq(o) for (a, o) in zip(self.funargs, other.funargs))
 
     def __str__(self) -> str:
         return "(" + ", ".join(str(a) for a in self.funargs) + ")"

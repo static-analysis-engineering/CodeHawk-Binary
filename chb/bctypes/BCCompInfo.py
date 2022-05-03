@@ -96,8 +96,25 @@ class BCCompInfo(BCDictionaryRecord):
     def fieldinfos(self) -> List["BCFieldInfo"]:
         return [self.bcd.fieldinfo(i) for i in self.args[3:]]
 
+    def is_leq(self, other: "BCCompInfo") -> bool:
+
+        def foffset_leq(
+                foffset1: Tuple[int, "BCFieldInfo"],
+                foffset2: Tuple[int, "BCFieldInfo"]) -> bool:
+            if foffset1[0] == foffset2[0]:
+                return foffset1[1].is_leq(foffset2[1])
+            else:
+                return False
+
+        return all(foffset_leq(foffset1, foffset2)
+                   for (foffset1, foffset2)
+                   in zip(self.fieldoffsets(), other.fieldoffsets()))
+
     def byte_size(self) -> int:
         """Return size in bytes."""
+
+        if len(self.fieldinfos) == 0:
+            return 4
 
         def addt(size: int, roundto: int) -> int:
             return ((((size + roundto) - 1) // roundto) * roundto)
@@ -117,7 +134,10 @@ class BCCompInfo(BCDictionaryRecord):
     def alignment(self) -> int:
         """Return size of largest field."""
 
-        return max(finfo.alignment() for finfo in self.fieldinfos)
+        if len(self.fieldinfos) == 0:
+            return 0
+        else:
+            return max(finfo.alignment() for finfo in self.fieldinfos)
 
     def fieldoffsets(self) -> List[Tuple[int, "BCFieldInfo"]]:
         """Return a list of pairs with offset in bytes and fieldinfo."""

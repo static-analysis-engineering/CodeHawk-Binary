@@ -141,6 +141,10 @@ class BCTyp(BCDictionaryRecord):
         return False
 
     @property
+    def is_float(self) -> bool:
+        return False
+
+    @property
     def is_pointer(self) -> bool:
         return False
 
@@ -150,6 +154,9 @@ class BCTyp(BCDictionaryRecord):
 
     @property
     def is_array(self) -> bool:
+        return False
+
+    def has_constant_size(self) -> bool:
         return False
 
     @property
@@ -164,6 +171,15 @@ class BCTyp(BCDictionaryRecord):
     def is_function(self) -> bool:
         return False
 
+    @property
+    def is_vararg(self) -> bool:
+        return False
+
+    def is_leq(self, other: "BCTyp") -> bool:
+        """Return true if this type is more precise or equal."""
+
+        return False
+
     def alignment(self) -> int:
         """Return alignment boundary in bytes."""
         return self.byte_size()
@@ -171,6 +187,34 @@ class BCTyp(BCDictionaryRecord):
     def byte_size(self) -> int:
         """Return size in bytes."""
         return 0
+
+    @property
+    def ikind(self) -> str:
+        raise UF.CHBError("Type is not an integer: " + str(self))
+
+    @property
+    def fkind(self) -> str:
+        raise UF.CHBError("Type is not a float: " + str(self))
+
+    @property
+    def tgttyp(self) -> "BCTyp":
+        raise UF.CHBError("Type does not have a target type: " + str(self))
+
+    @property
+    def size_expr(self) -> Optional["BCExp"]:
+        raise UF.CHBError("Type does not have a size expression: " + str(self))
+
+    @property
+    def sizevalue(self) -> int:
+        raise UF.CHBError("Type does not have a size value: " + str(self))
+
+    @property
+    def returntype(self) -> "BCTyp":
+        raise UF.CHBError("Type does not have a return type: " + str(self))
+
+    @property
+    def argtypes(self) -> Optional["BCFunArgs"]:
+        raise UF.CHBError("Type is not a function: " + str(self))
 
     def serialize(self) -> Dict[str, Any]:
         result = BCDictionaryRecord.serialize(self)
@@ -193,6 +237,9 @@ class BCTypVoid(BCTyp):
     @property
     def is_void(self) -> bool:
         return True
+
+    def is_leq(self, other: "BCTyp") -> bool:
+        return other.is_void
 
     def serialize(self) -> Dict[str, Any]:
         return BCTyp.serialize(self)
@@ -222,6 +269,13 @@ class BCTypInt(BCTyp):
     def is_scalar(self) -> bool:
         return True
 
+    def is_leq(self, other: "BCTyp") -> bool:
+        if other.is_integer:
+            other = cast("BCTypInt", other)
+            return other.ikind == self.ikind
+        else:
+            return False
+
     def byte_size(self) -> int:
         return size_of_integer_type(self.ikind)
 
@@ -248,8 +302,19 @@ class BCTypFloat(BCTyp):
         return self.tags[1]
 
     @property
+    def is_float(self) -> bool:
+        return True
+
+    @property
     def is_scalar(self) -> bool:
         return True
+
+    def is_leq(self, other: "BCTyp") -> bool:
+        if other.is_float:
+            other = cast("BCTypFloat", other)
+            return other.fkind == self.fkind
+        else:
+            return False
 
     def byte_size(self) -> int:
         return size_of_float_type(self.fkind)
@@ -284,6 +349,14 @@ class BCTypPtr(BCTyp):
     def is_scalar(self) -> bool:
         return True
 
+    def is_leq(self, other) -> bool:
+        if other.is_pointer:
+            other = cast("BCTypPtr", other)
+            return (
+                other.tgttyp.is_void or other.tgttyp.is_leq(self.tgttyp))
+        else:
+            return False
+
     def byte_size(self) -> int:
         """We assume 32-bit systems."""
 
@@ -312,7 +385,7 @@ class BCTypArray(BCTyp):
         return self.bcd.typ(self.args[0])
 
     @property
-    def size(self) -> Optional["BCExp"]:
+    def size_expr(self) -> Optional["BCExp"]:
         if self.args[1] == -1:
             return None
         else:
@@ -321,11 +394,26 @@ class BCTypArray(BCTyp):
     @property
     def sizevalue(self) -> int:
         if self.has_constant_size():
-            size = cast("BCExp", self.size)
+            size = cast("BCExp", self.size_expr)
             isize = cast("BCExpConst", size).constant
             return cast("BCCInt64", isize).value
         else:
             raise UF.CHBError("Array type does not have constant size")
+
+    def is_leq(self, other: "BCTyp") -> bool:
+        if other.is_array:
+            other = cast("BCTypArray", other)
+            if other.has_constant_size() and self.has_constant_size():
+                return (
+                    other.sizevalue == self.sizevalue
+                    and other.tgttyp.is_leq(self.tgttyp))
+            elif self.has_constant_size():
+                return (
+                    other.tgttyp.is_leq(self.tgttyp))
+            else:
+                return False
+        else:
+            return False
 
     # Alignment is ignored
     def byte_size(self) -> int:
@@ -343,9 +431,9 @@ class BCTypArray(BCTyp):
         return True
 
     def has_constant_size(self) -> bool:
-        if self.size is not None:
-            if self.size.is_constant:
-                size = cast("BCExpConst", self.size)
+        if self.size_expr is not None:
+            if self.size_expr.is_constant:
+                size = cast("BCExpConst", self.size_expr)
                 return size.is_integer_constant
         return False
 
@@ -357,7 +445,7 @@ class BCTypArray(BCTyp):
         return result
 
     def __str__(self) -> str:
-        return str(self.tgttyp) + "[" + str(self.size) + "]"
+        return str(self.tgttyp) + "[" + str(self.size_expr) + "]"
 
 
 @bcregistry.register_tag("tfun", BCTyp)
@@ -387,6 +475,21 @@ class BCTypFun(BCTyp):
     @property
     def is_function(self) -> bool:
         return True
+
+    def is_leq(self, other: "BCTyp") -> bool:
+        if other.is_function:
+            other = cast("BCTypFun", other)
+            if self.returntype.is_leq(other.returntype):
+                if self.argtypes and other.argtypes:
+                    return self.argtypes.is_leq(other.argtypes)
+                elif self.argtypes:
+                    return True
+                else:
+                    return False
+            else:
+                return False
+        else:
+            return False
 
     def serialize(self) -> Dict[str, Any]:
         result = BCTyp.serialize(self)
@@ -424,6 +527,60 @@ class BCTypNamed(BCTyp):
     @property
     def is_integer(self) -> bool:
         return self.typedef.ttype.is_integer
+
+    @property
+    def is_float(self) -> bool:
+        return self.typedef.ttype.is_float
+
+    @property
+    def is_pointer(self) -> bool:
+        return self.typedef.ttype.is_pointer
+
+    @property
+    def is_array(self) -> bool:
+        return self.typedef.ttype.is_array
+
+    def has_constant_size(self) -> bool:
+        return self.typedef.ttype.has_constant_size()
+
+    @property
+    def is_function(self) -> bool:
+        return self.typedef.ttype.is_function
+
+    @property
+    def is_vararg(self) -> bool:
+        return self.typedef.ttype.is_vararg
+
+    @property
+    def ikind(self) -> str:
+        return self.typedef.ttype.ikind
+
+    @property
+    def fkind(self) -> str:
+        return self.typedef.ttype.fkind
+
+    @property
+    def tgttyp(self) -> "BCTyp":
+        return self.typedef.ttype.tgttyp
+
+    @property
+    def size_expr(self) -> Optional["BCExp"]:
+        return self.typedef.ttype.size_expr
+
+    @property
+    def sizevalue(self) -> int:
+        return self.typedef.ttype.sizevalue
+
+    @property
+    def returntype(self) -> "BCTyp":
+        return self.typedef.ttype.returntype
+
+    @property
+    def argtypes(self) -> Optional["BCFunArgs"]:
+        return self.typedef.ttype.argtypes
+
+    def is_leq(self, other: "BCTyp") -> bool:
+        return self.typedef.ttype.is_leq(other)
 
     def byte_size(self) -> int:
         return self.typedef.ttype.byte_size()
@@ -467,6 +624,13 @@ class BCTypComp(BCTyp):
     def is_union(self) -> bool:
         return self.compinfo.is_union
 
+    def is_leq(self, other: "BCTyp"):
+        if other.is_struct:
+            other = cast("BCTypComp", other)
+            return self.compinfo.is_leq(other.compinfo)
+        else:
+            return False
+
     def byte_size(self) -> int:
         return self.compinfo.byte_size()
 
@@ -509,3 +673,16 @@ class BCTypEnum(BCTyp):
 
     def __str__(self) -> str:
         return self.ename
+
+
+@bcregistry.register_tag("tbuiltin-va-list", BCTyp)
+class BCTypBuiltinVaList(BCTyp):
+
+    def __init__(
+            self,
+            cd: "BCDictionary",
+            ixval: IT.IndexedTableValue) -> None:
+        BCTyp.__init__(self, cd, ixval)
+
+    def __str__(self) -> str:
+        return "builtin-va-list"
