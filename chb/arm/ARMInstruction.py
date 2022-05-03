@@ -172,7 +172,6 @@ class ARMInstruction(Instruction):
         return self.opcode.annotation(self.xdata).ljust(40)
 
     def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
-        astree.set_current_addr(self.iaddr)
         return self.opcode.assembly_ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
@@ -182,7 +181,6 @@ class ARMInstruction(Instruction):
             astree, self.iaddr, self.bytestring, self.xdata, reverse)
 
     def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
-        astree.set_current_addr(self.iaddr)
         return self.opcode.ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
