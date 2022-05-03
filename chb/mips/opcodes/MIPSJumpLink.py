@@ -151,8 +151,8 @@ class MIPSJumpLink(MIPSOpcode):
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
         models = ModelsAccess()
-        if astree.has_symbol(tgtname) and astree.symbol(tgtname).vtype:
-            fnsymbol = astree.symbol(tgtname)
+        if astree.has_symbol(tgtname) and astree.get_symbol(tgtname).vtype:
+            fnsymbol = astree.get_symbol(tgtname)
             if fnsymbol.returns_void:
                 return (astree.mk_ignored_lval(), [])
             else:
@@ -213,16 +213,11 @@ class MIPSJumpLink(MIPSOpcode):
                 else:
                     astxprs = XU.xxpr_to_ast_exprs(arg, astree)
                     argxprs.extend(astxprs)
-            if lhs.is_ignored:
-                call: ASTInstruction = astree.mk_call(lhs, tgtxpr, argxprs)
-                astree.add_instruction_span(call.id, iaddr, bytestring)
-                return [call]
-            else:
-                call = cast(ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
-                astree.add_instruction_span(call.id, iaddr, bytestring)
-                for assign in assigns:
-                    astree.add_instruction_span(assign.id, iaddr, bytestring)
-                return [call] + assigns
+            call = cast(ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
+            astree.add_instruction_span(call.instrid, iaddr, bytestring)
+            for assign in assigns:
+                astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+            return [call] + assigns
         else:
             return []
 

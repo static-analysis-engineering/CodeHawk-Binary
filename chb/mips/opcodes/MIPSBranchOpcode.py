@@ -88,7 +88,7 @@ class MIPSBranchOpcode(MIPSOpcode):
                     "Multiple expressions for MIPS condition")
             else:
                 astcond = astconds[0]
-                astree.add_instruction_span(astcond.id, iaddr, bytestring)
+                # astree.add_instruction_span(astcond.id, iaddr, bytestring)
                 return astcond
         else:
             return None

@@ -116,7 +116,7 @@ class MIPSMoveConditionalZero(MIPSOpcode):
             rhs1 = rhs1s[0]
             rhs = astree.mk_question(cond, rhs1, rhs2)
             assign = astree.mk_assign(lhs, rhs)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            astree.add_instruction_span(assign.instrid, iaddr, bytestring)
             return [assign]
         else:
             raise UF.CHBError(

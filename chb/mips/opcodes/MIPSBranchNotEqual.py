@@ -58,8 +58,8 @@ if TYPE_CHECKING:
     from chb.simulation.SimulationState import SimulationState
 
 
-@mipsregistry.register_tag("bne", MIPSBranchOpcode)
-class MIPSBranchNotEqual(MIPSOpcode):
+@mipsregistry.register_tag("bne", MIPSOpcode)
+class MIPSBranchNotEqual(MIPSBranchOpcode):
     """BNE rs, rt, offset
 
     Branch on Not Equal.

@@ -103,7 +103,7 @@ class MIPSLoadHalfWordUnsigned(MIPSOpcode):
             rhs = rhss[0]
             lhs = lhss[0]
             assign = astree.mk_assign(lhs, rhs)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            astree.add_instruction_span(assign.instrid, iaddr, bytestring)
             return [assign]
         else:
             raise UF.CHBError(
