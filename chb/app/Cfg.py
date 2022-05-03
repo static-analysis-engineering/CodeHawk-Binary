@@ -186,6 +186,9 @@ class Cfg:
                     else:
                         bstmt = astree.mk_branch(
                             condition, ifbranch, elsebranch, pcoffset)
+                branchinstr = fn.blocks[n].last_instruction
+                astree.add_instruction_span(
+                    bstmt.stmtid, branchinstr.iaddr, branchinstr.bytestring)
                 if follownode:
                     return construct(
                         follownode, follow, result + [blockstmts[n], bstmt])
