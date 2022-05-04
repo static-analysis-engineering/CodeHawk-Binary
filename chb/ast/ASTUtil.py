@@ -32,8 +32,8 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from chb.app.ASTNode import ASTExpr, ASTLval
-    from chb.app.ASTVarInfo import ASTVarInfo
+    from chb.ast.ASTNode import ASTExpr, ASTLval
+    from chb.ast.ASTVarInfo import ASTVarInfo
 
 import chb.util.fileutil as UF
 
