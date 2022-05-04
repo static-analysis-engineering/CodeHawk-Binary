@@ -29,11 +29,11 @@
 from typing import (
     cast, Dict,  List, Mapping, Optional, Sequence, Set, Tuple, TYPE_CHECKING, Union)
 
-from chb.app.ASTFormalVarInfo import ASTFormalVarInfo
+from chb.ast.ASTFormalVarInfo import ASTFormalVarInfo
 
-import chb.app.ASTNode as AST
+import chb.ast.ASTNode as AST
 
-from chb.app.ASTVarInfo import ASTVarInfo
+from chb.ast.ASTVarInfo import ASTVarInfo
 
 import chb.util.fileutil as UF
 
