@@ -128,17 +128,17 @@ from typing import (
     TYPE_CHECKING,
     Union)
 
-from chb.app.ASTUtil import InstrUseDef, UseDef, get_arg_loc
-from chb.app.ASTVarInfo import ASTVarInfo
+from chb.ast.ASTUtil import InstrUseDef, UseDef, get_arg_loc
+from chb.ast.ASTVarInfo import ASTVarInfo
 
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.bctypes.BCTyp import (
         BCTyp, BCTypPtr, BCTypFun, BCTypArray, BCTypComp)
-    from chb.app.ASTTransformer import ASTTransformer
-    from chb.app.ASTVarInfo import ASTVarInfo
-    from chb.app.ASTVisitor import ASTVisitor
+    from chb.ast.ASTTransformer import ASTTransformer
+    from chb.ast.ASTVarInfo import ASTVarInfo
+    from chb.ast.ASTVisitor import ASTVisitor
 
 
 c_indent = 3
