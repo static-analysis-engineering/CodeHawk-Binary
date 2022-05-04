@@ -28,9 +28,9 @@
 
 from typing import cast, Dict, List, Mapping, Sequence, Set, Tuple, TYPE_CHECKING
 
-import chb.app.ASTNode as AST
-from chb.app.ASTNOPVisitor import ASTNOPVisitor
-from chb.app.ASTTransformer import ASTTransformer
+import chb.ast.ASTNode as AST
+from chb.ast.ASTNOPVisitor import ASTNOPVisitor
+from chb.ast.ASTTransformer import ASTTransformer
 
 import chb.util.fileutil as UF
 
