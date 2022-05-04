@@ -28,10 +28,10 @@
 
 from typing import cast, List, Optional, Tuple, TYPE_CHECKING
 
-import chb.app.ASTNode as AST
+import chb.ast.ASTNode as AST
 
-from chb.app.ASTUtil import get_arg_loc
-from chb.app.ASTVarInfo import ASTVarInfo
+from chb.ast.ASTUtil import get_arg_loc
+from chb.ast.ASTVarInfo import ASTVarInfo
 
 
 if TYPE_CHECKING:
