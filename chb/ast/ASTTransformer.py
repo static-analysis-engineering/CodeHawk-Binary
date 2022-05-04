@@ -28,7 +28,7 @@
 
 from abc import ABC, abstractmethod
 
-import chb.app.ASTNode as AST
+import chb.ast.ASTNode as AST
 
 
 class ASTTransformer(ABC):
