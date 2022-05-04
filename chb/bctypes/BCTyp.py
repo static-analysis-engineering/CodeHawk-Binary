@@ -47,9 +47,6 @@ the args.
 
 from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-import chb.app.ASTNode as AST
-
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord, bcregistry
 
 import chb.util.fileutil as UF

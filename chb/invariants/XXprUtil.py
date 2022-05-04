@@ -27,9 +27,8 @@
 
 from typing import cast, List, Optional, Set, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 import chb.invariants.XXpr as X
 

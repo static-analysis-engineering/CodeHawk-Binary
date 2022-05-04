@@ -53,20 +53,10 @@ from typing import (
 
 import xml.etree.ElementTree as ET
 
-from chb.app.AbstractSyntaxTree import VariableNamesRec
-
-from chb.app.ASTUtil import InstrUseDef, UseDef
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.app.AppAccess import AppAccess
 from chb.app.Assembly import Assembly
-from chb.app.ASTNode import ASTStmt, ASTExpr, ASTVariable
-from chb.app.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 
 from chb.app.Callgraph import CallgraphNode
-
-import chb.app.ASTDeserializer as D
-from chb.app.ASTSerializer import ASTSerializer
 
 from chb.arm.ARMAccess import ARMAccess
 from chb.arm.ARMAssembly import ARMAssembly

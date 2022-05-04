@@ -32,17 +32,18 @@ import os
 
 from typing import Any, cast, Dict, List, NoReturn, Set, Tuple, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.app.AppAccess import AppAccess
-from chb.app.ASTDeserializer import ASTDeserializer
-from chb.app.ASTLiveCode import ASTLiveCode
-from chb.app.ASTNode import ASTStmt, ASTExpr, ASTVariable
-from chb.app.ASTCPrettyPrinter import ASTCPrettyPrinter
-from chb.app.ASTRewriter import ASTRewriter
-from chb.app.ASTSerializer import ASTSerializer
-from chb.app.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
-from chb.app.ASTExprPropagator import ASTExprPropagator
-from chb.app.ASTUtil import InstrUseDef, UseDef
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.ast.ASTDeserializer import ASTDeserializer
+from chb.ast.ASTLiveCode import ASTLiveCode
+from chb.ast.ASTNode import ASTStmt, ASTExpr, ASTVariable
+from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
+from chb.ast.ASTRewriter import ASTRewriter
+from chb.ast.ASTSerializer import ASTSerializer
+from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
+from chb.ast.ASTExprPropagator import ASTExprPropagator
+from chb.ast.ASTUtil import InstrUseDef, UseDef
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI

@@ -30,8 +30,6 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 import xml.etree.ElementTree as ET
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
 from chb.bctypes.BCCompInfo import BCCompInfo
 from chb.bctypes.BCDictionary import BCDictionary
 from chb.bctypes.BCFunctionDefinition import BCFunctionDefinition
