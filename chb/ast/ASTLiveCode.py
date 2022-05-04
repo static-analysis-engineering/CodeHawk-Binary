@@ -28,8 +28,8 @@
 
 from typing import cast, Dict, Mapping, Set
 
-import chb.app.ASTNode as AST
-from chb.app.ASTNOPVisitor import ASTNOPVisitor
+import chb.ast.ASTNode as AST
+from chb.ast.ASTNOPVisitor import ASTNOPVisitor
 
 import chb.util.fileutil as UF
 
