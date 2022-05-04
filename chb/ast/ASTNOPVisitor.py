@@ -26,8 +26,8 @@
 # ------------------------------------------------------------------------------
 """Full implementation of ASTVisitor without any operations."""
 
-import chb.app.ASTNode as AST
-from chb.app.ASTVisitor import ASTVisitor
+import chb.ast.ASTNode as AST
+from chb.ast.ASTVisitor import ASTVisitor
 
 
 class ASTNOPVisitor(ASTVisitor):
