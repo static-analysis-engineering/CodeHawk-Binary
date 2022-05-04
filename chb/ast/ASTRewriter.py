@@ -28,9 +28,9 @@
 
 from typing import cast, Dict, List, TYPE_CHECKING
 
-import chb.app.ASTNode as AST
-from chb.app.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
-from chb.app.ASTTransformer import ASTTransformer
+import chb.ast.ASTNode as AST
+from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
+from chb.ast.ASTTransformer import ASTTransformer
 
 import chb.util.fileutil as UF
 
