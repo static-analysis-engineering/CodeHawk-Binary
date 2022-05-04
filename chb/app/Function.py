@@ -42,14 +42,15 @@ from typing import (
 
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree, VariableNamesRec
-from chb.app.ASTNode import ASTNode
 from chb.app.BasicBlock import BasicBlock
 from chb.app.BDictionary import BDictionary
 from chb.app.Cfg import Cfg
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.Instruction import Instruction
 from chb.app.StringXRefs import StringsXRefs
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnVarDictionary import FnVarDictionary
@@ -215,10 +216,10 @@ class Function(ABC):
     def cfg(self) -> Cfg:
         raise UF.CHBError("Property cfg not implemented for Function")
 
-    def ast(self, astree: AbstractSyntaxTree) -> ASTNode:
+    def ast(self, astree: AbstractSyntaxTree) -> AST.ASTNode:
         return self.cfg.ast(self, astree)
 
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> ASTNode:
+    def assembly_ast(self, astree: AbstractSyntaxTree) -> AST.ASTNode:
         return self.cfg.assembly_ast(self, astree)
 
     @abstractmethod

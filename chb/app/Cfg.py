@@ -36,12 +36,11 @@ import xml.etree.ElementTree as ET
 from typing import (
     Any, cast, Dict, List, Mapping, NewType, Optional, Sequence, Set, Tuple, TYPE_CHECKING, Union)
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree, VariableNamesRec
-
-import chb.app.ASTNode as AST
-
 from chb.app.CfgBlock import CfgBlock
 from chb.app.DerivedGraphSequence import DerivedGraphSequence
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 import chb.invariants.XXprUtil as XU
 

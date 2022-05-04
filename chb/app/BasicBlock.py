@@ -38,9 +38,10 @@ import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTNode, ASTBlock, ASTInstruction, ASTStmt, ASTExpr
 from chb.app.Instruction import Instruction
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.invariants.XXpr import XXpr
 
@@ -124,17 +125,17 @@ class BasicBlock(ABC):
     def assembly_ast_condition(
             self,
             astree: AbstractSyntaxTree,
-            reverse: bool = False) -> Optional[ASTExpr]:
+            reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.last_instruction.assembly_ast_condition(astree, reverse=reverse)
 
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> ASTStmt:
-        instrs: List[ASTInstruction] = []
+    def assembly_ast(self, astree: AbstractSyntaxTree) -> AST.ASTStmt:
+        instrs: List[AST.ASTInstruction] = []
         for (a, i) in sorted(self.instructions.items(), key=lambda p: int(p[0], 16)):
             instrs.extend(i.assembly_ast(astree))
         return astree.mk_instr_sequence(instrs)
 
-    def ast(self, astree: AbstractSyntaxTree) -> ASTStmt:
-        instrs: List[ASTInstruction] = []
+    def ast(self, astree: AbstractSyntaxTree) -> AST.ASTStmt:
+        instrs: List[AST.ASTInstruction] = []
         for (a, i) in sorted(self.instructions.items(), key=lambda p: int(p[0], 16)):
             instrs.extend(i.ast(astree))
         return astree.mk_instr_sequence(instrs)
