@@ -32,9 +32,10 @@ from typing import (
 
 import chb.api.MIPSLinuxSyscalls as SC
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTNode, ASTInstruction, ASTExpr
 from chb.app.InstrXData import InstrXData
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr, XprCompound
@@ -166,7 +167,7 @@ class MIPSOpcode(MIPSDictionaryRecord):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         msg = (
             iaddr + ": "
             + bytestring
@@ -184,7 +185,7 @@ class MIPSOpcode(MIPSDictionaryRecord):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Optional[ASTExpr]:
+            xdata: InstrXData) -> Optional[AST.ASTExpr]:
         msg = (
             bytestring
             + "  "
@@ -199,7 +200,7 @@ class MIPSOpcode(MIPSDictionaryRecord):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         return self.assembly_ast(astree, iaddr, bytestring, xdata)
 
     def ast_condition(
@@ -207,7 +208,7 @@ class MIPSOpcode(MIPSDictionaryRecord):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Optional[ASTExpr]:
+            xdata: InstrXData) -> Optional[AST.ASTExpr]:
         return self.assembly_ast_condition(astree, iaddr, bytestring, xdata)
 
     @property

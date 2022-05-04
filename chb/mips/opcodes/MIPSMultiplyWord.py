@@ -29,10 +29,10 @@
 
 from typing import cast, List, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTExpr, ASTInstruction
-
 from chb.app.InstrXData import InstrXData
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -100,7 +100,7 @@ class MIPSMultiplyWord(MIPSOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         lhslos = XU.xvariable_to_ast_lvals(xdata.vars[1], astree)
         rhss = XU.xxpr_to_ast_exprs(xdata.xprs[3], astree)
         if len(lhslos) == 1 and len(rhss) == 0:

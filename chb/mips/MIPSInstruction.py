@@ -35,13 +35,13 @@ from typing import (
 
 from chb.api.CallTarget import CallTarget
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTNode, ASTInstruction, ASTExpr
-
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.Instruction import Instruction
 from chb.app.InstrXData import InstrXData
 from chb.app.StackPointerOffset import StackPointerOffset
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -138,25 +138,26 @@ class MIPSInstruction(Instruction):
     def operand_values(self) -> Sequence[XXpr]:
         return self.opcode.operand_values(self.xdata)
 
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+    def assembly_ast(
+            self, astree: AbstractSyntaxTree) -> List[AST.ASTInstruction]:
         return self.opcode.assembly_ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def assembly_ast_condition(
             self,
             astree: AbstractSyntaxTree,
-            reverse: bool = False) -> Optional[ASTExpr]:
+            reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.opcode.assembly_ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata)
 
-    def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+    def ast(self, astree: AbstractSyntaxTree) -> List[AST.ASTInstruction]:
         return self.opcode.ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def ast_condition(
             self,
             astree: AbstractSyntaxTree,
-            reverse: bool = False) -> Optional[ASTExpr]:
+            reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.opcode.ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata)
 

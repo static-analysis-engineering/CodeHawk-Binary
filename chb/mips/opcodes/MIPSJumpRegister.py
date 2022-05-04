@@ -30,12 +30,12 @@
 from typing import (
     Any, cast, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING)
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval, ASTNoOffset
-
 from chb.bctypes.BCTyp import BCTyp
 
 from chb.app.InstrXData import InstrXData
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -139,7 +139,7 @@ class MIPSJumpRegister(MIPSOpcode):
     def target_expr_ast(
             self,
             astree: AbstractSyntaxTree,
-            xdata: InstrXData) -> ASTExpr:
+            xdata: InstrXData) -> AST.ASTExpr:
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
         if calltarget.is_app_target:
@@ -153,10 +153,10 @@ class MIPSJumpRegister(MIPSOpcode):
             self,
             astree: AbstractSyntaxTree,
             iaddr: str,
-            xdata: InstrXData) -> Tuple[ASTLval, List[ASTInstruction]]:
+            xdata: InstrXData) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
 
         def indirect_lhs(
-                rtype: Optional[BCTyp]) -> Tuple[ASTLval, List[ASTInstruction]]:
+                rtype: Optional[BCTyp]) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
             tmplval = astree.mk_returnval_variable_lval(iaddr, rtype)
             tmprhs = astree.mk_lval_expr(tmplval)
             reglval = astree.mk_register_variable_lval("v0")
@@ -190,7 +190,7 @@ class MIPSJumpRegister(MIPSOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         tgtx = str(xdata.xprs[0])
         if tgtx == "$ra_in":
             return []
@@ -200,7 +200,7 @@ class MIPSJumpRegister(MIPSOpcode):
             tgtxpr = self.target_expr_ast(astree, xdata)
             (lhs, assigns) = self.lhs_ast(astree, iaddr, xdata)
             args = self.arguments(xdata)
-            argxprs: List[ASTExpr] = []
+            argxprs: List[AST.ASTExpr] = []
             for arg in args:
                 if XU.is_struct_field_address(arg, astree):
                     addr = XU.xxpr_to_struct_field_address_expr(arg, astree)
@@ -230,7 +230,7 @@ class MIPSJumpRegister(MIPSOpcode):
                 else:
                     astxprs = XU.xxpr_to_ast_exprs(arg, astree)
                     argxprs.extend(astxprs)
-            call = cast(ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
+            call = cast(AST.ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
             astree.add_instruction_span(call.instrid, iaddr, bytestring)
             for assign in assigns:
                 astree.add_instruction_span(assign.instrid, iaddr, bytestring)

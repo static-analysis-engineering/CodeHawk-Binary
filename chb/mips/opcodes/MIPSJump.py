@@ -29,10 +29,10 @@
 
 from typing import Any, cast, Dict, List, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
-
 from chb.app.InstrXData import InstrXData
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.invariants.XXpr import XXpr
 
@@ -117,7 +117,7 @@ class MIPSJump(MIPSOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         return []
 
     # --------------------------------------------------------------------------

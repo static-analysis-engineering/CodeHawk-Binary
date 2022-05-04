@@ -30,10 +30,10 @@
 
 from typing import cast, List, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
-
 from chb.app.InstrXData import InstrXData
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
@@ -71,7 +71,7 @@ class MIPSBranch(MIPSOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         return []
 
     def annotation(self, xdata: InstrXData) -> str:

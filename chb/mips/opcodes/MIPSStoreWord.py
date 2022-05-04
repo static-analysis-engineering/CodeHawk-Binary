@@ -27,14 +27,12 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-
 from typing import cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
-
 from chb.app.InstrXData import InstrXData
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr

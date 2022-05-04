@@ -29,10 +29,10 @@
 
 from typing import cast, List, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
-
 from chb.app.InstrXData import InstrXData
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.invariants.XXpr import XXpr
 
@@ -71,7 +71,7 @@ class MIPSNoOperation(MIPSOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         return []
 
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
