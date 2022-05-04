@@ -28,7 +28,7 @@
 
 from typing import Any, cast, Dict, List, Tuple
 
-import chb.app.ASTNode as AST
+import chb.ast.ASTNode as AST
 
 
 def get_key(tags: List[str], args: List[int]) -> Tuple[str, str]:
