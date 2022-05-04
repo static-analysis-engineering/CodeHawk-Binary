@@ -42,14 +42,14 @@ from typing import (
     TYPE_CHECKING,
     Union)
 
-from chb.app.ASTFormalVarInfo import ASTFormalVarInfo
+from chb.ast.ASTFormalVarInfo import ASTFormalVarInfo
 
-import chb.app.ASTNode as AST
+import chb.ast.ASTNode as AST
 
-from chb.app.ASTSymbolTable import ASTSymbolTable, ASTLocalSymbolTable
+from chb.ast.ASTSymbolTable import ASTSymbolTable, ASTLocalSymbolTable
 
-import chb.app.ASTUtil as AU
-from chb.app.ASTVarInfo import ASTVarInfo
+import chb.ast.ASTUtil as AU
+from chb.ast.ASTVarInfo import ASTVarInfo
 
 if TYPE_CHECKING:
     from chb.bctypes.BCFieldInfo import BCFieldInfo
