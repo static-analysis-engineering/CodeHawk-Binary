@@ -28,15 +28,15 @@
 
 from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING
 
-import chb.app.ASTNode as AST
-from chb.app.ASTVisitor import ASTVisitor
+import chb.ast.ASTNode as AST
+from chb.ast.ASTVisitor import ASTVisitor
 
 from chb.bctypes.BCVarInfo import BCVarInfo
 
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    from chb.app.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
+    from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 
 
 operators = {
