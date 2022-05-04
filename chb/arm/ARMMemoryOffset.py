@@ -40,10 +40,10 @@ type arm_memory_offset_t =
 
 from typing import cast, List, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-import chb.app.ASTNode as AST
-
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord, armregistry
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 import chb.util.fileutil as UF
 

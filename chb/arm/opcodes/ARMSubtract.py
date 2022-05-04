@@ -29,12 +29,12 @@ from typing import List, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction
-
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 import chb.util.fileutil as UF
 
@@ -116,7 +116,7 @@ class ARMSubtract(ARMOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
 
         annotations: List[str] = [iaddr, "SUB"]
 
@@ -132,7 +132,7 @@ class ARMSubtract(ARMOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         lhs = str(xdata.vars[0])
         rhs1 = str(xdata.xprs[0])
         rhs2 = str(xdata.xprs[1])

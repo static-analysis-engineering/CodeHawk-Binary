@@ -29,12 +29,12 @@ from typing import cast, List, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTExpr, ASTInstruction
-
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 import chb.invariants.XXprUtil as XU
 
@@ -136,7 +136,7 @@ class ARMAdd(ARMOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         """Create one register-to-register assignment."""
 
         annotations: List[str] = [iaddr, "ADD"]
@@ -155,7 +155,7 @@ class ARMAdd(ARMOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         """Create one or more register-to-register assignments.
 
         There may be more than one assignment if the source expression
@@ -186,7 +186,7 @@ class ARMAdd(ARMOpcode):
             rhs3 = cast("XprCompound", rhs3)
             stackoffset = rhs3.stack_address_offset()
             rhslval = astree.mk_stack_variable_lval(stackoffset)
-            rhsast: ASTExpr = astree.mk_address_of(rhslval)
+            rhsast: AST.ASTExpr = astree.mk_address_of(rhslval)
 
         # resulting expression is a pc-relative address
         elif rhs1 == "PC" or str(rhs2) == "PC":

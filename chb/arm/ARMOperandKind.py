@@ -67,11 +67,10 @@ type arm_operand_kind_t =
 
 from typing import cast, List, Optional, Tuple, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
-
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord, armregistry
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 import chb.util.fileutil as UF
 

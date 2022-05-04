@@ -28,15 +28,15 @@
 from typing import (
     Any, cast, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING)
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
-
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 from chb.arm.ARMOperandKind import ARMOperandKind, ARMAbsoluteOp
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.bctypes.BCTyp import BCTyp
 
@@ -124,7 +124,7 @@ class ARMBranch(ARMOpcode):
     def target_expr_ast(
             self,
             astree: AbstractSyntaxTree,
-            xdata: InstrXData) -> ASTExpr:
+            xdata: InstrXData) -> AST.ASTExpr:
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
         if calltarget.is_app_target:
@@ -138,10 +138,11 @@ class ARMBranch(ARMOpcode):
             self,
             astree: AbstractSyntaxTree,
             iaddr: str,
-            xdata: InstrXData) -> Tuple[ASTLval, List[ASTInstruction]]:
+            xdata: InstrXData) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
 
         def indirect_lhs(
-                rtype: Optional[BCTyp]) -> Tuple[ASTLval, List[ASTInstruction]]:
+                rtype: Optional[BCTyp]) -> Tuple[
+                    AST.ASTLval, List[AST.ASTInstruction]]:
             tmplval = astree.mk_returnval_variable_lval(iaddr, rtype)
             tmprhs = astree.mk_lval_expr(tmplval)
             reglval = astree.mk_register_variable_lval("R0")
@@ -176,7 +177,7 @@ class ARMBranch(ARMOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         if self.is_call_instruction(xdata) and xdata.has_call_target():
             lhs = astree.mk_register_variable_lval("R0")
             tgt = self.operands[0]
@@ -185,7 +186,7 @@ class ARMBranch(ARMOpcode):
                 if self.app.has_function_name(tgtaddr.address.get_hex()):
                     faddr = tgtaddr.address.get_hex()
                     fnsymbol = self.app.function_name(faddr)
-                    tgtxpr: ASTExpr = astree.mk_global_variable_expr(
+                    tgtxpr: AST.ASTExpr = astree.mk_global_variable_expr(
                         fnsymbol, globaladdress=tgtaddr.address.get_int())
                 else:
                     (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
@@ -201,14 +202,14 @@ class ARMBranch(ARMOpcode):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         if self.is_call_instruction(xdata) and xdata.has_call_target():
             tgtxpr = self.target_expr_ast(astree, xdata)
             (lhs, assigns) = self.lhs_ast(astree, iaddr, xdata)
             args = self.arguments(xdata)
             argregs = ["R0", "R1", "R2", "R3"]
             callargs = argregs[:len(args)]
-            argxprs: List[ASTExpr] = []
+            argxprs: List[AST.ASTExpr] = []
             for (reg, arg) in zip(callargs, args):
                 if XU.is_struct_field_address(arg, astree):
                     addr = XU.xxpr_to_struct_field_address_expr(arg, astree)
@@ -234,7 +235,7 @@ class ARMBranch(ARMOpcode):
             if len(args) > 4:
                 for a in args[4:]:
                     argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
-            call = cast(ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
+            call = cast(AST.ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
             astree.add_instruction_span(call.instrid, iaddr, bytestring)
             for assign in assigns:
                 astree.add_instruction_span(assign.instrid, iaddr, bytestring)
@@ -248,7 +249,7 @@ class ARMBranch(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
-            reverse: bool) -> Optional[ASTExpr]:
+            reverse: bool) -> Optional[AST.ASTExpr]:
         ftconds = self.ft_conditions(xdata)
         if len(ftconds) == 2:
             if reverse:

@@ -30,12 +30,13 @@ from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
 from chb.arm.ARMOperand import ARMOperand
+
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -113,7 +114,7 @@ class ARMOpcode(ARMDictionaryRecord):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         msg = (
             iaddr + ": "
             + bytestring
@@ -132,7 +133,7 @@ class ARMOpcode(ARMDictionaryRecord):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
-            reverse: bool) -> Optional[ASTExpr]:
+            reverse: bool) -> Optional[AST.ASTExpr]:
         msg = (
             bytestring
             + "  "
@@ -147,7 +148,7 @@ class ARMOpcode(ARMDictionaryRecord):
             astree: AbstractSyntaxTree,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         return self.assembly_ast(astree, iaddr, bytestring, xdata)
 
     def ast_condition(
@@ -156,7 +157,7 @@ class ARMOpcode(ARMDictionaryRecord):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
-            reverse: bool) -> Optional[ASTExpr]:
+            reverse: bool) -> Optional[AST.ASTExpr]:
         return self.assembly_ast_condition(
             astree, iaddr, bytestring, xdata, reverse)
 
