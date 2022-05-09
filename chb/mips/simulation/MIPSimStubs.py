@@ -661,6 +661,8 @@ class MIPStub_atoi(MIPSimStub):
         a0 = self.get_arg_val(iaddr, simstate, 'a0')
         try:
             a0str = self.get_arg_string(iaddr, simstate, "a0")
+        except SU.CHBSimAddressError as e:
+            raise e
         except Exception as e:
             raise SU.CHBSimError(
                 simstate,

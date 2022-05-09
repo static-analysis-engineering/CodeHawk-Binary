@@ -51,7 +51,8 @@ class MIPSimProgramCounter(SimProgramCounter):
 
     def __init__(self, pc: SSV.SimGlobalAddress) -> None:
         self._programcounter = pc
-        self._delayed_programcounter: Optional[Union[SSV.SimGlobalAddress, SSV.SimDynamicLinkSymbol]] = None
+        self._delayed_programcounter: Optional[
+            Union[SSV.SimGlobalAddress, SSV.SimDynamicLinkSymbol]] = None
         self._functionaddr = hex(pc.offsetvalue)
 
     @property
