@@ -33,8 +33,8 @@ from chb.app.Operand import Operand
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
 from chb.arm.ARMOperandKind import ARMOperandKind
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.util.IndexedTable import IndexedTableValue
 
@@ -107,13 +107,13 @@ class ARMOperand(ARMDictionaryRecord, Operand):
 
     def ast_lvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return self.opkind.ast_lvalue(astree)
 
     def ast_rvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return self.opkind.ast_rvalue(astree)
 

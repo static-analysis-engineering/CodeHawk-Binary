@@ -38,8 +38,8 @@ from chb.app.InstrXData import InstrXData
 from chb.app.Operand import Operand
 from chb.app.StackPointerOffset import StackPointerOffset
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTNode import ASTNode, ASTInstruction, ASTExpr
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.arm.ARMDictionary import ARMDictionary
 from chb.arm.ARMOpcode import ARMOpcode
@@ -172,21 +172,21 @@ class ARMInstruction(Instruction):
     def annotation(self) -> str:
         return self.opcode.annotation(self.xdata).ljust(40)
 
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+    def assembly_ast(self, astree: ASTInterface) -> List[ASTInstruction]:
         return self.opcode.assembly_ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def assembly_ast_condition(
-            self, astree: AbstractSyntaxTree, reverse=False) -> Optional[ASTExpr]:
+            self, astree: ASTInterface, reverse=False) -> Optional[ASTExpr]:
         return self.opcode.assembly_ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata, reverse)
 
-    def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+    def ast(self, astree: ASTInterface) -> List[ASTInstruction]:
         return self.opcode.ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def ast_condition(
-            self, astree: AbstractSyntaxTree, reverse=False) -> Optional[ASTExpr]:
+            self, astree: ASTInterface, reverse=False) -> Optional[ASTExpr]:
         return self.opcode.ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata, reverse)
 

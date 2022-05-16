@@ -35,8 +35,8 @@ from chb.app.InstrXData import InstrXData
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -111,7 +111,7 @@ class ARMOpcode(ARMDictionaryRecord):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -129,7 +129,7 @@ class ARMOpcode(ARMDictionaryRecord):
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
@@ -145,7 +145,7 @@ class ARMOpcode(ARMDictionaryRecord):
         raise UF.CHBError("No assembly-ast-condition defined for " + msg)
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -153,7 +153,7 @@ class ARMOpcode(ARMDictionaryRecord):
 
     def ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,

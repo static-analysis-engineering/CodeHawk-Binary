@@ -42,8 +42,8 @@ from typing import cast, List, TYPE_CHECKING
 
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord, armregistry
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.util.fileutil as UF
 
@@ -74,7 +74,7 @@ class ARMMemoryOffset(ARMDictionaryRecord):
     def is_shifted_index(self) -> bool:
         return False
 
-    def ast_rvalue(self, astree: AbstractSyntaxTree) -> AST.ASTExpr:
+    def ast_rvalue(self, astree: ASTInterface) -> AST.ASTExpr:
         raise UF.CHBError("AST value not defined for " + str(self))
 
     def __str(self) -> str:
@@ -98,7 +98,7 @@ class ARMImmOffset(ARMMemoryOffset):
     def is_immediate(self) -> bool:
         return True
 
-    def ast_rvalue(self, astree: AbstractSyntaxTree) -> AST.ASTExpr:
+    def ast_rvalue(self, astree: ASTInterface) -> AST.ASTExpr:
         return astree.mk_integer_constant(self.immediate)
 
     def __str__(self) -> str:
@@ -126,7 +126,7 @@ class ARMIndexOffset(ARMMemoryOffset):
     def is_index(self) -> bool:
         return True
 
-    def ast_rvalue(self, astree: AbstractSyntaxTree) -> AST.ASTExpr:
+    def ast_rvalue(self, astree: ASTInterface) -> AST.ASTExpr:
         return astree.mk_register_variable_expr(self.register)
 
     def __str(self) -> str:
@@ -158,7 +158,7 @@ class ARMShiftedIndexOffset(ARMMemoryOffset):
     def is_shifted_index(self) -> bool:
         return True
 
-    def ast_rvalue(self, astree: AbstractSyntaxTree) -> AST.ASTExpr:
+    def ast_rvalue(self, astree: ASTInterface) -> AST.ASTExpr:
         srt = self.shift_rotate
         if srt.is_imm_srt and srt.is_shift_left:
             srt = cast("ARMImmSRT", srt)
