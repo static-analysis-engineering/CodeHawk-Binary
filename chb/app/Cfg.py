@@ -34,13 +34,24 @@ Subclasses:
 import xml.etree.ElementTree as ET
 
 from typing import (
-    Any, cast, Dict, List, Mapping, NewType, Optional, Sequence, Set, Tuple, TYPE_CHECKING, Union)
+    Any,
+    cast,
+    Dict,
+    List,
+    Mapping,
+    NewType,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    TYPE_CHECKING, Union)
 
 from chb.app.CfgBlock import CfgBlock
 from chb.app.DerivedGraphSequence import DerivedGraphSequence
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
 
 import chb.invariants.XXprUtil as XU
 
@@ -136,7 +147,7 @@ class Cfg:
     def stmt_ast(
             self,
             fn: "Function",
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             blockstmts: Dict[str, AST.ASTStmt]) -> AST.ASTNode:
         twowayconds = self.derived_graph_sequence.two_way_conditionals()
 
@@ -175,7 +186,7 @@ class Cfg:
                             and condition.is_ast_binary_op):
                         cond = cast(AST.ASTBinaryOp, condition)
                         if cond.op in ["neq", "ne"]:
-                            condition = astree.mk_binary_op(
+                            condition = astree.mk_binary_expression(
                                 "eq", cond.exp1, cond.exp2)
                             bstmt = astree.mk_branch(
                                 condition, elsebranch, ifbranch, pcoffset)
@@ -201,7 +212,7 @@ class Cfg:
     def assembly_ast(
             self,
             fn: "Function",
-            astree: AbstractSyntaxTree) -> AST.ASTNode:
+            astree: ASTInterface) -> AST.ASTNode:
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
             blocknode = fn.blocks[n].assembly_ast(astree)
@@ -211,7 +222,7 @@ class Cfg:
 
     def ast(self,
             fn: "Function",
-            astree: AbstractSyntaxTree) -> AST.ASTNode:
+            astree: ASTInterface) -> AST.ASTNode:
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
             blocknode = fn.blocks[n].ast(astree)

@@ -43,8 +43,8 @@ from chb.api.CallTarget import CallTarget
 
 from chb.app.FunctionDictionary import FunctionDictionary
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -198,14 +198,14 @@ class Instruction(ABC):
     def return_value(self) -> Optional[XXpr]:
         return None
 
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> List[AST.ASTInstruction]:
+    def assembly_ast(self, astree: ASTInterface) -> List[AST.ASTInstruction]:
         raise UF.CHBError("assembly-ast not defined")
 
-    def ast(self, astree: AbstractSyntaxTree) -> List[AST.ASTInstruction]:
+    def ast(self, astree: ASTInterface) -> List[AST.ASTInstruction]:
         raise UF.CHBError("ast (abstract-syntax-tree) not defined")
 
     def assembly_ast_condition(
-            self, astree: AbstractSyntaxTree,
+            self, astree: ASTInterface,
             reverse: bool = False) -> Optional[AST.ASTExpr]:
         raise UF.CHBError("assembly-ast-condition not defined")
 

@@ -38,7 +38,17 @@ import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
 from typing import (
-    Any, Callable, cast, Dict, List, Mapping, NewType, Optional, Sequence, Tuple, Union)
+    Any,
+    Callable,
+    cast,
+    Dict,
+    List,
+    Mapping,
+    NewType,
+    Optional,
+    Sequence,
+    Tuple,
+    Union)
 
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
@@ -49,8 +59,8 @@ from chb.app.FunctionInfo import FunctionInfo
 from chb.app.Instruction import Instruction
 from chb.app.StringXRefs import StringsXRefs
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnVarDictionary import FnVarDictionary
@@ -216,10 +226,10 @@ class Function(ABC):
     def cfg(self) -> Cfg:
         raise UF.CHBError("Property cfg not implemented for Function")
 
-    def ast(self, astree: AbstractSyntaxTree) -> AST.ASTNode:
+    def ast(self, astree: ASTInterface) -> AST.ASTNode:
         return self.cfg.ast(self, astree)
 
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> AST.ASTNode:
+    def assembly_ast(self, astree: ASTInterface) -> AST.ASTNode:
         return self.cfg.assembly_ast(self, astree)
 
     @abstractmethod

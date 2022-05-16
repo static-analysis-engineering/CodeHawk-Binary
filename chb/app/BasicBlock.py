@@ -40,8 +40,8 @@ from typing import Callable, Dict, List, Mapping, Optional, Sequence, TYPE_CHECK
 
 from chb.app.Instruction import Instruction
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 
@@ -124,17 +124,17 @@ class BasicBlock(ABC):
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.last_instruction.assembly_ast_condition(astree, reverse=reverse)
 
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> AST.ASTStmt:
+    def assembly_ast(self, astree: ASTInterface) -> AST.ASTStmt:
         instrs: List[AST.ASTInstruction] = []
         for (a, i) in sorted(self.instructions.items(), key=lambda p: int(p[0], 16)):
             instrs.extend(i.assembly_ast(astree))
         return astree.mk_instr_sequence(instrs)
 
-    def ast(self, astree: AbstractSyntaxTree) -> AST.ASTStmt:
+    def ast(self, astree: ASTInterface) -> AST.ASTStmt:
         instrs: List[AST.ASTInstruction] = []
         for (a, i) in sorted(self.instructions.items(), key=lambda p: int(p[0], 16)):
             instrs.extend(i.ast(astree))
