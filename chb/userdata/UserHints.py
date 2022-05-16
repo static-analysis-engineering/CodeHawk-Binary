@@ -95,13 +95,16 @@ from abc import ABC, abstractmethod
 from typing import (
     Any, cast, Dict, List, Mapping, NewType, Optional, Sequence, Tuple, Union)
 
-from chb.ast.AbstractSyntaxTree import VariableNamesRec
-
 import chb.userdata.btypeutil as UT
 from chb.userdata.UserBType import UserStructBType
 
 import chb.util.fileutil as UF
 import chb.util.xmlutil as UX
+
+
+VariableNamesRec = NewType(
+    "VariableNamesRec",
+    Dict[str, Dict[str, Dict[str, List[Dict[str, Union[Tuple[str, str], str]]]]]])
 
 
 class HintsEntry(ABC):
