@@ -141,6 +141,10 @@ class VConstantValueVariable(FnVarDictionaryRecord):
         return False
 
     @property
+    def is_heap_base_address(self) -> bool:
+        return False
+
+    @property
     def is_argument_value(self) -> bool:
         return False
 
@@ -218,6 +222,10 @@ class VInitialRegisterValue(VConstantValueVariable):
     def is_x86_stack_base_address(self) -> bool:
         r = self.register
         return r.is_x86_register and r.is_x86_stack_pointer
+
+    @property
+    def is_heap_base_address(self) -> bool:
+        return False
 
     @property
     def is_argument_value(self) -> bool:
@@ -400,6 +408,12 @@ class VFunctionReturnValue(VConstantValueVariable):
     @property
     def is_function_return_value(self) -> bool:
         return True
+
+    @property
+    def is_heap_base_address(self) -> bool:
+        return (
+            self.has_call_target()
+            and str(self.call_target()) == "malloc")
 
     def call_instruction(self) -> "Instruction":
         return self.function.instruction(self.callsite)

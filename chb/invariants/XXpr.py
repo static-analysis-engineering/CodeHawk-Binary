@@ -134,6 +134,10 @@ class XXpr(FnXprDictionaryRecord):
         return False
 
     @property
+    def is_heap_base_address(self) -> bool:
+        return False
+
+    @property
     def is_argument_value(self) -> bool:
         return False
 
@@ -169,6 +173,10 @@ class XXpr(FnXprDictionaryRecord):
     def is_stack_address(self) -> bool:
         """Returns true if this expression involves the stack pointer."""
         return False
+
+    @property
+    def is_heap_address(self) -> bool:
+        return self.is_heap_base_address
 
     @property
     def is_function_return_value(self) -> bool:
@@ -313,6 +321,13 @@ class XprVariable(XXpr):
     def is_stack_base_address(self) -> bool:
         if self.variable.has_denotation():
             return self.variable.denotation.is_stack_base_address
+        else:
+            return False
+
+    @property
+    def is_heap_base_address(self) -> bool:
+        if self.variable.has_denotation():
+            return self.variable.denotation.is_heap_base_address
         else:
             return False
 
@@ -568,6 +583,13 @@ class XprCompound(XXpr):
         else:
             raise UF.CHBError("Expression is not a stack address: "
                               + str(self))
+
+    def is_heap_address(self) -> bool:
+        args = self.operands
+        if len(args) == 2:
+            return (args[0].is_heap_base_address and args[1].is_constant)
+        else:
+            return False
 
     @property
     def is_string_manipulation_condition(self) -> bool:

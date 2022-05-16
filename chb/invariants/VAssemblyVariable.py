@@ -103,6 +103,10 @@ class VAssemblyVariable(FnVarDictionaryRecord):
         return False
 
     @property
+    def is_heap_base_address(self) -> bool:
+        return False
+
+    @property
     def is_stack_argument(self) -> bool:
         return False
 
@@ -351,6 +355,10 @@ class VAuxiliaryVariable(VAssemblyVariable):
     @property
     def is_stack_base_address(self) -> bool:
         return self.auxvar.is_stack_base_address
+
+    @property
+    def is_heap_base_address(self) -> bool:
+        return self.auxvar.is_heap_base_address
 
     @property
     def is_argument_value(self) -> bool:
