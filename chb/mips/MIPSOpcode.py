@@ -34,8 +34,8 @@ import chb.api.MIPSLinuxSyscalls as SC
 
 from chb.app.InstrXData import InstrXData
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr, XprCompound
@@ -164,7 +164,7 @@ class MIPSOpcode(MIPSDictionaryRecord):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -182,7 +182,7 @@ class MIPSOpcode(MIPSDictionaryRecord):
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> Optional[AST.ASTExpr]:
@@ -197,7 +197,7 @@ class MIPSOpcode(MIPSDictionaryRecord):
         raise UF.CHBError("No assembly-ast-condition defined for " + msg)
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -205,7 +205,7 @@ class MIPSOpcode(MIPSDictionaryRecord):
 
     def ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> Optional[AST.ASTExpr]:

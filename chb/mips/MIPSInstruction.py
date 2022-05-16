@@ -40,8 +40,8 @@ from chb.app.Instruction import Instruction
 from chb.app.InstrXData import InstrXData
 from chb.app.StackPointerOffset import StackPointerOffset
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -139,24 +139,24 @@ class MIPSInstruction(Instruction):
         return self.opcode.operand_values(self.xdata)
 
     def assembly_ast(
-            self, astree: AbstractSyntaxTree) -> List[AST.ASTInstruction]:
+            self, astree: ASTInterface) -> List[AST.ASTInstruction]:
         return self.opcode.assembly_ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.opcode.assembly_ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata)
 
-    def ast(self, astree: AbstractSyntaxTree) -> List[AST.ASTInstruction]:
+    def ast(self, astree: ASTInterface) -> List[AST.ASTInstruction]:
         return self.opcode.ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.opcode.ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata)

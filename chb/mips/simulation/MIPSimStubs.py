@@ -4956,6 +4956,7 @@ class MIPStub_strlcpy(MIPSimStub):
         simstate.set_register(iaddr, "v0", a1_len)
         return self.add_logmsg(iaddr, simstate, pargs)
 
+
 class MIPStub_strlen(MIPSimStub):
 
     def __init__(self) -> None:
