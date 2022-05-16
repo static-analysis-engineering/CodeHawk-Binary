@@ -47,7 +47,11 @@ the args.
 
 from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord, bcregistry
+from chb.bctypes.BCVisitor import BCVisitor
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -213,10 +217,8 @@ class BCTyp(BCDictionaryRecord):
     def argtypes(self) -> Optional["BCFunArgs"]:
         raise UF.CHBError("Type is not a function: " + str(self))
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCDictionaryRecord.serialize(self)
-        result["tag"] = self.tags[0]
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTyp:
+        raise NotImplementedError("BCTyp.convert")
 
     def __str__(self) -> str:
         return "cil-typ:" + self.tags[0]
@@ -238,8 +240,8 @@ class BCTypVoid(BCTyp):
     def is_leq(self, other: "BCTyp") -> bool:
         return other.is_void
 
-    def serialize(self) -> Dict[str, Any]:
-        return BCTyp.serialize(self)
+    def convert(self, converter: "BCConverter") -> AST.ASTTypVoid:
+        return converter.convert_void_typ(self)
 
     def __str__(self) -> str:
         return "void"
@@ -276,10 +278,8 @@ class BCTypInt(BCTyp):
     def byte_size(self) -> int:
         return size_of_integer_type(self.ikind)
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["ikind"] = self.ikind
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypInt:
+        return converter.convert_integer_typ(self)
 
     def __str__(self) -> str:
         return inttypes[self.ikind]
@@ -316,10 +316,8 @@ class BCTypFloat(BCTyp):
     def byte_size(self) -> int:
         return size_of_float_type(self.fkind)
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["fkind"] = self.fkind
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypFloat:
+        return converter.convert_float_typ(self)
 
     def __str__(self) -> str:
         return floattypes[self.fkind]
@@ -359,10 +357,8 @@ class BCTypPtr(BCTyp):
 
         return 4
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["args"] = self.tgttyp.index
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypPtr:
+        return converter.convert_pointer_typ(self)
 
     def __str__(self) -> str:
         return str(self.tgttyp) + " *"
@@ -434,12 +430,8 @@ class BCTypArray(BCTyp):
                 return size.is_integer_constant
         return False
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["args"] = [self.tgttyp.index]
-        if self.has_constant_size():
-            result["size"] = self.sizevalue
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypArray:
+        return converter.convert_array_typ(self)
 
     def __str__(self) -> str:
         return str(self.tgttyp) + "[" + str(self.size_expr) + "]"
@@ -488,13 +480,8 @@ class BCTypFun(BCTyp):
         else:
             return False
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["args"] = [self.returntype.index]
-        if self.argtypes is not None:
-            argtypes = [t.index for t in self.argtypes.argtypes]
-            result["args"].extend(argtypes)
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypFun:
+        return converter.convert_fun_typ(self)
 
     def __str__(self) -> str:
         return str(self.returntype) + "__" + str(self.argtypes)
@@ -582,10 +569,8 @@ class BCTypNamed(BCTyp):
     def byte_size(self) -> int:
         return self.typedef.ttype.byte_size()
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["name"] = self.tname
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypNamed:
+        return converter.convert_named_typ(self)
 
     def __str__(self) -> str:
         return str(self.typedef.ttype)
@@ -634,10 +619,8 @@ class BCTypComp(BCTyp):
     def alignment(self) -> int:
         return self.compinfo.alignment()
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["key"] = self.compkey
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypComp:
+        return converter.convert_comp_typ(self)
 
     def __str__(self) -> str:
         return "struct " + self.compname
@@ -662,11 +645,6 @@ class BCTypEnum(BCTyp):
 
     def byte_size(self) -> int:
         return 4
-
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["name"] = self.ename
-        return result
 
     def __str__(self) -> str:
         return self.ename

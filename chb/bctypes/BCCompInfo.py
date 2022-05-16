@@ -202,14 +202,6 @@ class BCCompInfo(BCDictionaryRecord):
                     + str(self.alignment())
                     + ")")
 
-    def serialize(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        result["name"] = self.cname
-        result["key"] = self.ckey
-        result["is-struct"] = self.is_struct
-        result["args"] = [f.index for f in self.fieldinfos]
-        return result
-
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append("struct " + self.cname + "{")

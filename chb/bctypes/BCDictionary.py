@@ -175,15 +175,6 @@ class BCDictionary:
         index = self.typ_table.add(key, f)
         return self.typ(index)
 
-    # -------------------------------------- serialization ---------------------
-
-    def serialize(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        result["types"] = []
-        for ix in self.typ_table.keys():
-            result["types"].append(self.typ(ix).serialize())
-        return result
-
     # -------------------------- initialize dictionary from file ---------------
 
     def initialize(self, xnode: ET.Element) -> None:

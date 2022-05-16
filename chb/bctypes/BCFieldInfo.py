@@ -69,14 +69,6 @@ class BCFieldInfo(BCDictionaryRecord):
     def alignment(self) -> int:
         return self.fieldtype.alignment()
 
-    def serialize(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        result["id"] = self.index
-        result["key"] = self.ckey
-        result["name"] = self.fieldname
-        result["args"] = [self.fieldtype.index]
-        return result
-
     def __str__(self) -> str:
         if self.fieldtype.is_array:
             ftype = cast("BCTypArray", self.fieldtype)

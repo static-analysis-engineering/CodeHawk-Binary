@@ -53,11 +53,5 @@ class BCTypeInfo(BCDictionaryRecord):
     def ttype(self) -> "BCTyp":
         return self.bcd.typ(self.args[0])
 
-    def serialize(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        result["name"] = self.tname
-        result["args"] = [self.ttype.index]
-        return result
-
     def __str__(self) -> str:
         return "typeinfo: " + self.tname + ": " + str(self.ttype)

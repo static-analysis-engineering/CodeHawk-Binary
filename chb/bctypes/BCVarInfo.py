@@ -27,7 +27,11 @@
 
 from typing import Any, cast, Dict, List, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
+from chb.bctypes.BCVisitor import BCVisitor
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -61,11 +65,8 @@ class BCVarInfo(BCDictionaryRecord):
     def vparam(self) -> int:
         return self.args[7]
 
-    def serialize(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        result["name"] = self.vname
-        result["args"] = [self.vtype.index]
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTVarInfo:
+        return converter.convert_varinfo(self)
 
     def __str__(self) -> str:
         if self.vtype.is_array:

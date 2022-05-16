@@ -36,7 +36,11 @@ type lhost
 
 from typing import List, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord, bcregistry
+from chb.bctypes.BCVisitor import BCVisitor
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -53,6 +57,9 @@ class BCLHost(BCDictionaryRecord):
             cd: "BCDictionary",
             ixval: IT.IndexedTableValue) -> None:
         BCDictionaryRecord.__init__(self, cd, ixval)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTLHost:
+        raise NotImplementedError("BCLHost.convert")
 
     def __str__(self) -> str:
         return "bc-lhost:" + self.tags[0]
@@ -75,6 +82,12 @@ class BCHostVar(BCLHost):
     def varvid(self) -> int:
         return self.args[0]
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        return visitor.visit_variable(self)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTVariable:
+        return converter.convert_variable(self)
+
     def __str__(self) -> str:
         return self.varname
 
@@ -91,6 +104,12 @@ class BCHostMem(BCLHost):
     @property
     def memexp(self) -> "BCExp":
         return self.bcd.exp(self.args[0])
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        return visitor.visit_memref(self)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTMemRef:
+        return converter.convert_memref(self)
 
     def __str__(self) -> str:
         return "*" + str(self.memexp)

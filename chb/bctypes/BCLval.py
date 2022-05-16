@@ -28,7 +28,11 @@
 
 from typing import List, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
+from chb.bctypes.BCVisitor import BCVisitor
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -54,6 +58,9 @@ class BCLval(BCDictionaryRecord):
     @property
     def offset(self) -> "BCOffset":
         return self.bcd.offset(self.args[1])
+
+    def convert(self, converter: "BCConverter") -> AST.ASTLval:
+        return converter.convert_lval(self)
 
     def __str__(self) -> str:
         return str(self.lhost) + str(self.offset)

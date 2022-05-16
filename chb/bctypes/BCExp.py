@@ -49,7 +49,11 @@ type exp
 
 from typing import List, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord, bcregistry
+from chb.bctypes.BCVisitor import BCVisitor
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -76,6 +80,9 @@ class BCExp(BCDictionaryRecord):
     @property
     def is_integer_constant(self) -> bool:
         return False
+
+    def convert(self, converter: "BCConverter") -> AST.ASTExpr:
+        raise NotImplementedError("BCExp.convert")
 
     def __str__(self) -> str:
         return "bc-exp:" + self.tags[0]
@@ -120,6 +127,9 @@ class BCExpLval(BCExp):
     @property
     def lval(self) -> "BCLval":
         return self.bcd.lval(self.args[0])
+
+    def convert(self, converter: "BCConverter") -> AST.ASTLvalExpr:
+        return converter.convert_lval_expression(self)
 
     def __str__(self) -> str:
         return "lval(" + str(self.lval) + ")"
@@ -324,6 +334,9 @@ class BCExpCastE(BCExp):
     def exp(self) -> "BCExp":
         return self.bcd.exp(self.args[1])
 
+    def convert(self, converter: "BCConverter") -> AST.ASTCastExpr:
+        return converter.convert_cast_expression(self)
+
     def __str__(self) -> str:
         return "(" + str(self.typ) + ")" + str(self.exp)
 
@@ -341,6 +354,9 @@ class BCExpAddressOf(BCExp):
     @property
     def lval(self) -> "BCLval":
         return self.bcd.lval(self.args[0])
+
+    def convert(self, converter: "BCConverter") -> AST.ASTAddressOf:
+        return converter.convert_address_of_expression(self)
 
     def __str__(self) -> str:
         return "&" + str(self.lval)
