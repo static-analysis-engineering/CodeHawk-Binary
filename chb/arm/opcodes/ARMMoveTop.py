@@ -33,8 +33,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.invariants.XXprUtil as XU
 
@@ -87,7 +87,7 @@ class ARMMoveTop(ARMOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -107,7 +107,7 @@ class ARMMoveTop(ARMOpcode):
         return [assign]
 
     def ast(self,
-            astree:AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -118,7 +118,7 @@ class ARMMoveTop(ARMOpcode):
         rhss = XU.xxpr_to_ast_exprs(xdata.xprs[4], astree)
         if len(lhss) == 1 and len(rhss) == 1:
             lhs = lhss[0]
-            rhs = rhss[0]        
+            rhs = rhss[0]
             assign = astree.mk_assign(lhs, rhs, annotations=annotations)
             astree.add_instruction_span(assign.instrid, iaddr, bytestring)
             return [assign]

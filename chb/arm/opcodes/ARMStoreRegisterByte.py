@@ -33,8 +33,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.invariants.XXprUtil as XU
 
@@ -88,7 +88,7 @@ class ARMStoreRegisterByte(ARMOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -102,7 +102,7 @@ class ARMStoreRegisterByte(ARMOpcode):
         return preinstrs + [assign] + postinstrs
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -112,11 +112,13 @@ class ARMStoreRegisterByte(ARMOpcode):
         rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], astree)
         if len(rhss) == 1:
             rhs = rhss[0]
+            '''
             if rhs.ctype and rhs.ctype.byte_size() == 1:
                 pass
             else:
                 mask = astree.mk_integer_constant(255)
                 rhs = astree.mk_binary_op("band", rhs, mask)
+            '''
         elif len(rhss) == 4:
             rhs = rhss[1]
         else:

@@ -33,8 +33,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.util.fileutil as UF
 
@@ -100,7 +100,7 @@ class ARMReverseSubtract(ARMOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -116,19 +116,20 @@ class ARMReverseSubtract(ARMOpcode):
                 and self.operands[2].is_shifted_register):
             operand2 = self.operands[2]
             if operand2.opkind.scale_factor:
-                scale = astree.mk_integer_constant(operand2.opkind.scale_factor - 1)
+                scale = astree.mk_integer_constant(
+                    operand2.opkind.scale_factor - 1)
                 binop = astree.mk_binary_op("mult", op1, scale)
                 assign = astree.mk_assign(lhs, binop, annotations=annotations)
                 astree.add_instruction_span(assign.instrid, iaddr, bytestring)
                 return [assign]
-            
+
         binop = astree.mk_binary_op("minus", op2, op1)
         assign = astree.mk_assign(lhs, binop)
         astree.add_instruction_span(assign.instrid, iaddr, bytestring)
         return [assign]
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:

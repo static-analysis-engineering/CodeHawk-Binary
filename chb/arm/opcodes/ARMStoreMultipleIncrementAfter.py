@@ -33,8 +33,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.invariants.XXprUtil as XU
 
@@ -105,7 +105,7 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
     # --------------------------------------------------------------------------
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -138,7 +138,7 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         return instrs
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:

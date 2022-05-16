@@ -35,8 +35,8 @@ from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 from chb.arm.ARMOperandKind import ARMOperandKind, ARMAbsoluteOp
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.bctypes.BCTyp import BCTyp
 
@@ -123,7 +123,7 @@ class ARMBranch(ARMOpcode):
 
     def target_expr_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             xdata: InstrXData) -> AST.ASTExpr:
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
@@ -136,7 +136,7 @@ class ARMBranch(ARMOpcode):
 
     def lhs_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             xdata: InstrXData) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
 
@@ -148,6 +148,7 @@ class ARMBranch(ARMOpcode):
             reglval = astree.mk_register_variable_lval("R0")
             return (tmplval, [astree.mk_assign(reglval, tmprhs)])
 
+        '''
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
         models = ModelsAccess()
@@ -171,10 +172,12 @@ class ARMBranch(ARMOpcode):
                 return indirect_lhs(None)
         else:
             return indirect_lhs(None)
+        '''
+        return indirect_lhs(None)
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -199,7 +202,7 @@ class ARMBranch(ARMOpcode):
             return []
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -245,7 +248,7 @@ class ARMBranch(ARMOpcode):
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,

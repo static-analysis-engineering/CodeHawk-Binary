@@ -33,8 +33,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -93,7 +93,7 @@ class ARMLoadRegisterByte(ARMOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -107,7 +107,7 @@ class ARMLoadRegisterByte(ARMOpcode):
         return preinstrs + [assign] + postinstrs
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -117,7 +117,7 @@ class ARMLoadRegisterByte(ARMOpcode):
         preinstrs: List[AST.ASTInstruction] = []
         postinstrs: List[AST.ASTInstruction] = []
         rhsrvals = XU.xxpr_to_ast_exprs(xdata.xprs[1], astree)
-        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)        
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
         if len(rhsrvals) == 1 and len(lhss) == 1:
             rhsrval = rhsrvals[0]
             lhs = lhss[0]

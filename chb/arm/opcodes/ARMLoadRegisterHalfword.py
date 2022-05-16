@@ -33,8 +33,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -90,7 +90,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -104,7 +104,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
         return preinstrs + [assign] + postinstrs
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -112,7 +112,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
         annotations: List[str] = [iaddr, "LDRH"]
 
         rhslvals = XU.xvariable_to_ast_lvals(xdata.vars[1], astree, size=2)
-        lhsvar = str(xdata.vars[0])        
+        lhsvar = str(xdata.vars[0])
         lhs = astree.mk_variable_lval(lhsvar)
         if len(rhslvals) == 1:
             rhslval = rhslvals[0]

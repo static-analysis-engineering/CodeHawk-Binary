@@ -33,8 +33,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -92,7 +92,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -106,7 +106,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
         return preinstrs + [assign] + postinstrs
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -118,7 +118,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
         if len(rhslvals) == 1 and len(lhss) == 1:
             rhslval = rhslvals[0]
             lhs = lhss[0]
-            rhs = astree.mk_lval_expr(rhslval)        
+            rhs = astree.mk_lval_expr(rhslval)
             assign = astree.mk_assign(lhs, rhs, annotations=annotations)
             astree.add_instruction_span(assign.instrid, iaddr, bytestring)
             return [assign]

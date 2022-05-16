@@ -33,8 +33,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -116,7 +116,7 @@ class ARMLoadRegister(ARMOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -130,7 +130,7 @@ class ARMLoadRegister(ARMOpcode):
         return preinstrs + [assign] + postinstrs
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -146,7 +146,7 @@ class ARMLoadRegister(ARMOpcode):
             rhs = astree.mk_lval_expr(rhslval)
             if str(rhs).startswith("temp"):
                 (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
-                
+
             assign = astree.mk_assign(lhs, rhs, annotations=annotations)
             astree.add_instruction_span(assign.instrid, iaddr, bytestring)
             return [assign]

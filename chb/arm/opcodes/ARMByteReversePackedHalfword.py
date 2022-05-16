@@ -33,8 +33,8 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.util.fileutil as UF
 
@@ -79,7 +79,6 @@ class ARMByteReversePackedHalfword(ARMOpcode):
         rhs = str(xdata.xprs[1])
         return lhs + " := byte-reverse_halfwords(" + str(rhs) + ")"
 
-
     # --------------------------------------------------------------------------
     # Operation
     #   bits(32) result;
@@ -89,9 +88,10 @@ class ARMByteReversePackedHalfword(ARMOpcode):
     #   result<7:0> = R[m]<15:8>
     #   R[d] = result;
     # --------------------------------------------------------------------------
+
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
