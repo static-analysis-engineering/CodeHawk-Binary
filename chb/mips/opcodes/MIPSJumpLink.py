@@ -32,8 +32,8 @@ from typing import (
 
 from chb.app.InstrXData import InstrXData
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.bctypes.BCTyp import BCTyp
 
@@ -124,7 +124,7 @@ class MIPSJumpLink(MIPSOpcode):
 
     def target_expr_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             xdata: InstrXData) -> AST.ASTExpr:
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
@@ -137,17 +137,19 @@ class MIPSJumpLink(MIPSOpcode):
 
     def lhs_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             xdata: InstrXData) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
 
         def indirect_lhs(
-                rtype: Optional[BCTyp]) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
+                rtype: Optional[BCTyp]) -> Tuple[
+                    AST.ASTLval, List[AST.ASTInstruction]]:
             tmplval = astree.mk_returnval_variable_lval(iaddr, rtype)
             tmprhs = astree.mk_lval_expr(tmplval)
             reglval = astree.mk_register_variable_lval("v0")
             return (tmplval, [astree.mk_assign(reglval, tmprhs)])
 
+        '''
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
         models = ModelsAccess()
@@ -171,9 +173,11 @@ class MIPSJumpLink(MIPSOpcode):
                 return indirect_lhs(None)
         else:
             return indirect_lhs(None)
+        '''
+        return indirect_lhs(None)
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:

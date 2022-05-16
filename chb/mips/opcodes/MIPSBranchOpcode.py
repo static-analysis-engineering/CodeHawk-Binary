@@ -31,8 +31,8 @@ from typing import cast, List, Optional, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -67,7 +67,7 @@ class MIPSBranchOpcode(MIPSOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -75,7 +75,7 @@ class MIPSBranchOpcode(MIPSOpcode):
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> Optional[AST.ASTExpr]:

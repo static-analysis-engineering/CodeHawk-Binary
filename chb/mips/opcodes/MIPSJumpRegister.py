@@ -34,8 +34,8 @@ from chb.bctypes.BCTyp import BCTyp
 
 from chb.app.InstrXData import InstrXData
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -138,7 +138,7 @@ class MIPSJumpRegister(MIPSOpcode):
 
     def target_expr_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             xdata: InstrXData) -> AST.ASTExpr:
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
@@ -151,7 +151,7 @@ class MIPSJumpRegister(MIPSOpcode):
 
     def lhs_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             xdata: InstrXData) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
 
@@ -162,6 +162,7 @@ class MIPSJumpRegister(MIPSOpcode):
             reglval = astree.mk_register_variable_lval("v0")
             return (tmplval, [astree.mk_assign(reglval, tmprhs)])
 
+        '''
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
         models = ModelsAccess()
@@ -185,9 +186,11 @@ class MIPSJumpRegister(MIPSOpcode):
                 return indirect_lhs(None)
         else:
             return indirect_lhs(None)
+        '''
+        return indirect_lhs(None)
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
