@@ -184,7 +184,7 @@ class SimModule:
         return int(self.max_addr, 16)
 
     @property
-    def loadaddr(self) -> str:
+    def loadaddr(self) -> Optional[str]:
         """Return address where module is loaded."""
 
         return self._loadaddr
@@ -194,7 +194,7 @@ class SimModule:
 
     @property
     def loadaddr_i(self) -> int:
-        if self.has_load_address():
+        if self.loadaddr is not None:
             return int(self.loadaddr, 16)
         else:
             return 0
