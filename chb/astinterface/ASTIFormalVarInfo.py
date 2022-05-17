@@ -30,15 +30,11 @@ from typing import cast, List, Optional, Tuple, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
 
-from chb.ast.ASTUtil import get_arg_loc
-from chb.ast.ASTVarInfo import ASTVarInfo
+from chb.astinterface.ASTIUtil import get_arg_loc
+from chb.astinterface.ASTIVarInfo import ASTIVarInfo
 
 
-if TYPE_CHECKING:
-    from chb.bctypes.BCTyp import BCTyp, BCTypComp, BCTypArray
-
-
-class ASTFormalVarInfo(ASTVarInfo):
+class ASTIFormalVarInfo(ASTIVarInfo):
     """Represents a formal parameter of a function in C source view.
 
     The parameter index refers to the source view index (zero-based).
@@ -64,10 +60,10 @@ class ASTFormalVarInfo(ASTVarInfo):
             self,
             vname: str,
             parameter: int,
-            argindex: int,            
-            vtype: Optional["BCTyp"] = None,
+            argindex: int,
+            vtype: Optional[AST.ASTTyp] = None,
             size: Optional[int] = None) -> None:
-        ASTVarInfo.__init__(
+        ASTIVarInfo.__init__(
             self,
             vname,
             vtype,
@@ -135,19 +131,21 @@ class ASTFormalVarInfo(ASTVarInfo):
             raise Exception(
                 "Formal parameter has no type")
 
-    def _initialize_arm_arguments(self, argtype: "BCTyp") -> int:
+    def _initialize_arm_arguments(self, argtype: AST.ASTTyp) -> int:
         """Set up arguments according to the standard ARM ABI.
 
         The default calling convention for ARM:
         - the first four arguments are passed in R0, R1, R2, R3
         - subsequent arguments are passed on the stack starting at offset 0
         """
+        return 0
+    '''
         if argtype.is_scalar:
             argloc = get_arg_loc("arm", self.argindex * 4, 4)
             self._arglocs.append((argloc, AST.ASTNoOffset(), 4))
             return self.argindex + 1
-        elif argtype.is_struct:
-            structtyp = cast("BCTypComp", argtype)
+        elif argtype.is_compound:
+            structtyp = cast(AST.ASTTypComp, argtype)
             fieldoffsets = structtyp.compinfo.fieldoffsets()
             argbytecounter = 4 * self.argindex
             for (offset, finfo) in fieldoffsets:
@@ -183,8 +181,9 @@ class ASTFormalVarInfo(ASTVarInfo):
             return argbytecounter // 4
         else:
             return 0
+    '''
 
-    def _initialize_mips_arguments(self, argtype: "BCTyp") -> int:
+    def _initialize_mips_arguments(self, argtype: AST.ASTTyp) -> int:
         if argtype.is_scalar or argtype.is_pointer:
             argloc = get_arg_loc("mips", self.argindex * 4, 4)
             self._arglocs.append((argloc, AST.ASTNoOffset(), 4))
@@ -199,4 +198,4 @@ class ASTFormalVarInfo(ASTVarInfo):
         else:
             p_arglocs = ", ".join(
                 str(loc) + ": " + str(offset) for (loc, offset, _) in self.arglocs)
-        return ASTVarInfo.__str__(self) + " (" + p_arglocs + ")"
+        return ASTIVarInfo.__str__(self) + " (" + p_arglocs + ")"
