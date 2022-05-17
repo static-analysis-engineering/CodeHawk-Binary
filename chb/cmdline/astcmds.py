@@ -34,7 +34,6 @@ from typing import Any, cast, Dict, List, NoReturn, Set, Tuple, TYPE_CHECKING
 
 from chb.app.AppAccess import AppAccess
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTDeserializer import ASTDeserializer
 from chb.ast.ASTLiveCode import ASTLiveCode
 from chb.ast.ASTNode import ASTStmt, ASTExpr, ASTVariable
@@ -43,7 +42,9 @@ from chb.ast.ASTRewriter import ASTRewriter
 from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.ASTExprPropagator import ASTExprPropagator
-from chb.ast.ASTUtil import InstrUseDef, UseDef
+# from chb.ast.ASTUtil import InstrUseDef, UseDef
+
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
@@ -140,8 +141,9 @@ def showast(args: argparse.Namespace) -> NoReturn:
     revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
     revfunctionnames = userhints.rev_function_names()
 
-    globalsymboltable = ASTGlobalSymbolTable(xinfo.architecture)
+    globalsymboltable = ASTGlobalSymbolTable()
 
+    '''
     for vinfo in app.bcfiles.globalvars:
         vname = vinfo.vname
         if vname in revsymbolicaddrs:
@@ -155,6 +157,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
             vtype=vinfo.vtype,
             globaladdress=gaddr,
             size=vinfo.vtype.byte_size())
+    '''
 
     # ------------------------------------------- initialize json ast output ---
 
@@ -164,7 +167,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
         astfunctions = ast_output["functions"]
 
     # ------------------------------------ generate ast / decompile functions ---
-        
+
     for faddr in functions:
         print("========= Function " + faddr + " ================")
         if app.has_function(faddr):
@@ -177,10 +180,10 @@ def showast(args: argparse.Namespace) -> NoReturn:
             fnadedges: List[Tuple[str, str]] = []
             if faddr in rmedges:
                 fnrmedges = rmedges[faddr]
-                print("Remove " + str(len(fnrmedges)) + " edge(s) from cfg")                
+                print("Remove " + str(len(fnrmedges)) + " edge(s) from cfg")
             if faddr in adedges:
                 fnadedges = adedges[faddr]
-                print("Add " + str(len(fnadedges)) + " edge(s) to cfg")                
+                print("Add " + str(len(fnadedges)) + " edge(s) to cfg")
             if len(fnrmedges) + len(fnadedges) > 0:
                 f.cfg.modify_edges(fnrmedges, fnadedges)
 
@@ -191,27 +194,29 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 fname = "sub_" + faddr[2:]
 
             localsymboltable = ASTLocalSymbolTable(
-                globalsymboltable, xinfo.architecture)
+                globalsymboltable)
 
-            if app.bcfiles.has_functiondef(fname):
-                fdef = app.bcfiles.functiondef(fname)
-                localsymboltable.set_functiondef(fdef)
-                localsymboltable.set_function_prototype(fdef.svinfo)            
+            # if app.bcfiles.has_functiondef(fname):
+            #    fdef = app.bcfiles.functiondef(fname)
+            #    localsymboltable.set_functiondef(fdef)
+            #    localsymboltable.set_function_prototype(fdef.svinfo)
 
-            astree = AbstractSyntaxTree(
+            astree = ASTInterface(
                 faddr,
                 fname,
                 localsymboltable)
             gvars: List[ASTVariable] = []
 
+            '''
             if app.bcfiles.has_functiondef(fname):
                 fdef = app.bcfiles.functiondef(fname)
                 astree.set_functiondef(fdef)
                 astree.set_function_prototype(fdef.svinfo)
+
             elif app.bcfiles.has_vardecl(fname):
                 fdecl = app.bcfiles.vardecl(fname)
                 astree.set_function_prototype(fdecl)
-
+            '''
             try:
                 ast = f.ast(astree)
             except UF.CHBError as e:
@@ -268,14 +273,14 @@ def showast(args: argparse.Namespace) -> NoReturn:
 
             addresstaken = ast.address_taken()
             callees = ast.callees()
-            storagerecords = astree.storage_records()
+            # storagerecords = astree.storage_records()
 
             for i in range(0, 5):
                 propagator = ASTExprPropagator()
                 ast = propagator.propagate(ast)
 
             instr_usedefs_e = propagator.instrusedefs
-            
+
             spans = astree.spans
 
             if verbose:
@@ -284,9 +289,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 for span in spans:
                     print(str(span))
                 print("=" * 80)
-
-            if verbose:
-                print(ast.to_c_like(sp=3))
 
             spanmap: Dict[int, str] = {}
             for spanrec in spans:
@@ -303,8 +305,8 @@ def showast(args: argparse.Namespace) -> NoReturn:
                         lvaltype = d[1].ctype
                         if lvaltype is None:
                             lvaltype = d[2].ctype
-                        availablexprs[addr].append(
-                            (d[0], v, d[2].to_c_like(), str(lvaltype)))
+                        # availablexprs[addr].append(
+                        #    (d[0], v, d[2].to_c_like(), str(lvaltype)))
 
             if verbose:
                 print("\nAvailable expressions")
@@ -330,7 +332,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
                     globalsymboltable,
                     livecode=list(livestmts),
                     livesymbols=livesymbols,
-                    livevars_on_exit = livecode.live_on_exit)
+                    livevars_on_exit=livecode.live_on_exit)
                 print(prettyprinter.to_c(ast))
                 print("~" * 80)
 
@@ -347,10 +349,10 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 globalsymboltable,
                 livecode=list(livestmts),
                 livesymbols=livesymbols,
-                livevars_on_exit = livecode.live_on_exit)
+                livevars_on_exit=livecode.live_on_exit)
             print(prettyprinter.to_c(ast))
             print("~" * 80)
-            
+
             functioncount += 1
 
             '''
@@ -373,14 +375,14 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 if app.has_function_name(faddr):
                     astfunction["name"] = app.function_name(faddr)
                 astfunction["va"] = faddr
-                astfunction["local-symbol-table"] = localsymboltable.serialize()
+                # astfunction["local-symbol-table"] = localsymboltable.serialize()
                 astfunction["ast"] = {}
                 astfunction["ast"]["nodes"] = astnodes
                 astfunction["ast"]["startnode"] = startnode
                 astfunction["ast"]["livecode"] = sorted(list(livestmts))
                 astfunction["spans"] = astree.spans
                 astfunction["available-expressions"] = availablexprs
-                astfunction["storage"] = storagerecords
+                # astfunction["storage"] = storagerecords
                 astfunctions.append(astfunction)
 
                 if verbose and len(astree.notes) > 0:
@@ -396,6 +398,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
     print("\nGlobal symboltable")
     print(str(globalsymboltable))
 
+    '''
     print("\nTypes used")
     for ix in globalsymboltable.types_used:
         t = app.bcdictionary.typ(ix)
@@ -422,9 +425,10 @@ def showast(args: argparse.Namespace) -> NoReturn:
         print("\n" + ("-" * 80))
         print("AST(s) were saved in: " + outputfilename)
         print("-" * 80)
+    '''
 
     if outputfile is not None and args.verbose:
-        print_deserialization(ast_output)              
+        print_deserialization(ast_output)
 
     if decompile:
         print("\nStatistics:")
@@ -465,11 +469,9 @@ def print_deserialized_symboltable(table: Dict[str, Any]) -> None:
         else:
             print("? " + vname)
 
+
 def print_types_used(table: Dict[str, str]) -> None:
     for (name, ty) in table.items():
         print(name)
         print(ty)
         print("")
-        
-    
-    
