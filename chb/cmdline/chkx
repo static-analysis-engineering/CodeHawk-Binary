@@ -741,6 +741,18 @@ def parse() -> argparse.Namespace:
     # -- report calls
     report_calls = reportparsers.add_parser("calls")
     report_calls.add_argument("xname", help="name of executable")
+    report_calls.add_argument(
+        "outputfile",
+        help="name of json output file (without extension")
+    report_calls.add_argument(
+        "--callees",
+        nargs="*",
+        default=["all"],
+        help="target functions to be included (default: all)")
+    report_calls.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="print out a list of calls")
     report_calls.set_defaults(func=REP.report_calls)
 
     '''
