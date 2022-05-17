@@ -28,17 +28,16 @@
 
 from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING, Union
 
-if TYPE_CHECKING:
-    from chb.bctypes.BCTyp import BCTyp, BCTypFun
+import chb.ast.ASTNode as AST
 
 
-class ASTVarInfo:
+class ASTIVarInfo:
     """Represents a name bound to a unique location.
 
     The location may be a register or a memory location, or possibly a flag.
 
     It may or may not have a unique type. Typically registers can have many
-    different types within the span of a function. 
+    different types within the span of a function.
     Types are updated as more precise types become available (meet of the
     new type with the old type), or multiple types are entered if updates
     with incompatible types are encountered (in this case the type could be
@@ -58,11 +57,11 @@ class ASTVarInfo:
     def __init__(
             self,
             vname: str,
-            vtype: Optional["BCTyp"] = None,
+            vtype: Optional[AST.ASTTyp] = None,
             size: Optional[int] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
-            conflicting_types: List["BCTyp"] = [],
+            conflicting_types: List[AST.ASTTyp] = [],
             notes: Set[str] = set()) -> None:
         self._vname = vname
         self._size = size
@@ -77,7 +76,7 @@ class ASTVarInfo:
         return self._vname
 
     @property
-    def vtype(self) -> Optional["BCTyp"]:
+    def vtype(self) -> Optional[AST.ASTTyp]:
         return self._vtype
 
     @property
@@ -85,7 +84,7 @@ class ASTVarInfo:
         return self._size
 
     @property
-    def conflicting_types(self) -> List["BCTyp"]:
+    def conflicting_types(self) -> List[AST.ASTTyp]:
         return self._conflicting_types
 
     @property
@@ -122,15 +121,15 @@ class ASTVarInfo:
     @property
     def returns_void(self) -> bool:
         if self.is_function:
-            vtype = cast("BCTypFun", self.vtype)
-            return vtype.returntype.is_void
+            vtype = cast(AST.ASTTypFun, self.vtype)
+            return vtype.returntyp.is_void
         else:
             return False
 
     @property
     def is_struct(self) -> bool:
         if self.vtype:
-            return self.vtype.is_struct
+            return self.vtype.is_compound
         else:
             return False
 
@@ -158,9 +157,9 @@ class ASTVarInfo:
 
     def to_c_like(self, sp: int = 0) -> str:
         if self.is_function:
-            vty = cast("BCTypFun", self.vtype)
+            vty = cast(AST.ASTTypFun, self.vtype)
             return (
-                str(vty.returntype)
+                str(vty.returntyp)
                 + " "
                 + self.vname
                 + str(vty.argtypes))
