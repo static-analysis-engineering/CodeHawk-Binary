@@ -32,17 +32,12 @@ import chb.ast.ASTNode as AST
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.ASTTransformer import ASTTransformer
 
-import chb.util.fileutil as UF
-
-if TYPE_CHECKING:
-    from chb.bctypes.BCTyp import BCTypArray
-
 
 class ASTRewriter(ASTTransformer):
 
     def __init__(self, symboltable: ASTLocalSymbolTable) -> None:
         self._symboltable = symboltable
-        self._currentid: int = 0  #  id of the current stmt/instr
+        self._currentid: int = 0  # id of the current stmt/instr
         self._notes: Dict[int, List[str]] = {}
 
     @property
@@ -86,7 +81,7 @@ class ASTRewriter(ASTTransformer):
             return self.transform_branch_stmt(cast(AST.ASTBranch, stmt))
 
         else:
-            raise UF.CHBError("Statement type not recognize: " + stmt.tag)
+            raise Exception("Statement type not recognized: " + stmt.tag)
 
     def transform_return_stmt(self, stmt: AST.ASTReturn) -> AST.ASTStmt:
         self.set_currentid(stmt.stmtid)
@@ -96,18 +91,18 @@ class ASTRewriter(ASTTransformer):
             return stmt
 
     def transform_block_stmt(self, stmt: AST.ASTBlock) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)        
+        self.set_currentid(stmt.stmtid)
         return AST.ASTBlock(
             stmt.stmtid, [s.transform(self) for s in stmt.stmts])
 
     def transform_instruction_sequence_stmt(
             self, stmt: AST.ASTInstrSequence) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)        
+        self.set_currentid(stmt.stmtid)
         return AST.ASTInstrSequence(
             stmt.stmtid, [i.transform(self) for i in stmt.instructions])
 
     def transform_branch_stmt(self, stmt: AST.ASTBranch) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)        
+        self.set_currentid(stmt.stmtid)
         return AST.ASTBranch(
             stmt.stmtid,
             stmt.condition.transform(self),
@@ -120,11 +115,12 @@ class ASTRewriter(ASTTransformer):
         return AST.ASTAssign(
             instr.instrid, instr.lhs.transform(self), instr.rhs.transform(self))
 
-    def transform_call_instr(self, instr: AST.ASTCall) -> AST.ASTInstruction: 
-        self.set_currentid(instr.instrid)       
+    def transform_call_instr(self, instr: AST.ASTCall) -> AST.ASTInstruction:
+        self.set_currentid(instr.instrid)
+        lhsxform = None if instr.lhs is None else instr.lhs.transform(self)
         return AST.ASTCall(
             instr.instrid,
-            instr.lhs.transform(self),
+            lhsxform,
             instr.tgt.transform(self),
             [a.transform(self) for a in instr.arguments])
 
@@ -151,6 +147,9 @@ class ASTRewriter(ASTTransformer):
         else:
             return default()
 
+    def transform_varinfo(self, vinfo: AST.ASTVarInfo) -> AST.ASTVarInfo:
+        return vinfo
+
     def transform_variable(self, var: AST.ASTVariable) -> AST.ASTLHost:
         return var
 
@@ -163,12 +162,12 @@ class ASTRewriter(ASTTransformer):
     def transform_field_offset(
             self, offset: AST.ASTFieldOffset) -> AST.ASTOffset:
         return AST.ASTFieldOffset(
-            offset.fieldname, offset.fieldtype, offset.offset.transform(self))
+            offset.fieldname, offset.compkey, offset.offset.transform(self))
 
     def transform_index_offset(
             self, offset: AST.ASTIndexOffset) -> AST.ASTOffset:
         return AST.ASTIndexOffset(
-            offset.index.transform(self), offset.offset.transform(self))
+            offset.index_expr.transform(self), offset.offset.transform(self))
 
     def transform_integer_constant(
             self, expr: AST.ASTIntegerConstant) -> AST.ASTExpr:
@@ -185,11 +184,11 @@ class ASTRewriter(ASTTransformer):
                 indexoffset = AST.ASTIndexOffset(offset, AST.ASTNoOffset())
                 baselval = AST.ASTLval(basevar, indexoffset)
             else:
-                baselval = AST.ASTLval(basevar, AST.ASTNoOffset())            
+                baselval = AST.ASTLval(basevar, AST.ASTNoOffset())
             lvalexpr = AST.ASTAddressOf(baselval)
             return AST.ASTGlobalAddressConstant(expr.cvalue, lvalexpr)
         else:
-            return expr            
+            return expr
 
     def transform_global_address(
             self, expr: AST.ASTGlobalAddressConstant) -> AST.ASTExpr:
@@ -202,8 +201,8 @@ class ASTRewriter(ASTTransformer):
     def transform_lval_expression(self, expr: AST.ASTLvalExpr) -> AST.ASTExpr:
         return AST.ASTLvalExpr(expr.lval.transform(self))
 
-    def transform_cast_expression(self, expr: AST.ASTCastE) -> AST.ASTExpr:
-        return AST.ASTCastE(expr.cast_tgt_type, expr.cast_expr.transform(self))
+    def transform_cast_expression(self, expr: AST.ASTCastExpr) -> AST.ASTExpr:
+        return AST.ASTCastExpr(expr.cast_tgt_type, expr.cast_expr.transform(self))
 
     def transform_unary_expression(self, expr: AST.ASTUnaryOp) -> AST.ASTExpr:
         return AST.ASTUnaryOp(expr.op, expr.exp1.transform(self))
@@ -231,6 +230,9 @@ class ASTRewriter(ASTTransformer):
         def default() -> AST.ASTLval:
             return AST.ASTLval(AST.ASTMemRef(memexp), offset)
 
+        return default()
+
+    '''
         instrid = self.currentid
         base = memexp.exp1
         offsetexp = memexp.exp2
@@ -256,7 +258,7 @@ class ASTRewriter(ASTTransformer):
                     + str(indexexp)
                     + " and baselhost "
                     + str(baselhost))
-                return AST.ASTLval(baselhost, newoffset)                
+                return AST.ASTLval(baselhost, newoffset)
 
             else:
                 self.add_note(
@@ -266,7 +268,7 @@ class ASTRewriter(ASTTransformer):
                     + " with type "
                     + str(base.ctype))
                 return default()
-            
+
             if base.is_global_address:
                 basexpr = base.address_expr
                 tgttyp = basexpr.address_tgt_type
@@ -284,7 +286,7 @@ class ASTRewriter(ASTTransformer):
                         instrid,
                         "rewrite-compound-memref-to-lval: global-address: "
                         + str(base) + " " + str(tgttyp))
-                    
+
             self.add_note(
                 instrid,
                 "rewrite-compound-memref-to-lval: "
@@ -295,7 +297,7 @@ class ASTRewriter(ASTTransformer):
         else:
             return default()
 
-    '''
+
     def rewrite_lhost(self, instrid: int, lhost: AST.ASTLHost) -> AST.ASTLHost:
         if lhost.is_variable:
             return lhost
@@ -307,7 +309,7 @@ class ASTRewriter(ASTTransformer):
     def rewrite_memref(
             self, instrid: int, memref: AST.ASTMemRef) -> AST.ASTLHost:
         return AST.ASTMemRef(self.rewrite_expr(instrid, memref.memexp))
-                             
+
     def rewrite_offset(
             self, instrid: int, offset: AST.ASTOffset) -> AST.ASTOffset:
         return offset
@@ -326,7 +328,7 @@ class ASTRewriter(ASTTransformer):
         elif expr.is_ast_lval_expr:
             return self.rewrite_lval_expr(instrid, cast(AST.ASTLvalExpr, expr))
 
-        else:                                         
+        else:
             return expr
 
     def rewrite_constant(self, instrid: int, c: AST.ASTConstant) -> AST.ASTExpr:
@@ -343,7 +345,7 @@ class ASTRewriter(ASTTransformer):
                 basevar = AST.ASTVariable(basevarinfo)
                 baselval = AST.ASTLval(basevar, AST.ASTNoOffset())
                 addrexpr = AST.ASTAddressOf(baselval)
-                result = AST.ASTGlobalAddressConstant(c.cvalue, addrexpr)                
+                result = AST.ASTGlobalAddressConstant(c.cvalue, addrexpr)
                 self.add_note(
                     instrid,
                     "rewrite-constant: "
@@ -411,3 +413,38 @@ class ASTRewriter(ASTTransformer):
                 print("  " + n)
         return "\n".join(lines)
 
+    def transform_void_typ(self, t: AST.ASTTypVoid) -> AST.ASTTyp:
+        return t
+
+    def transform_integer_typ(self, t: AST.ASTTypInt) -> AST.ASTTyp:
+        return t
+
+    def transform_float_typ(self, t: AST.ASTTypFloat) -> AST.ASTTyp:
+        return t
+
+    def transform_pointer_typ(self, t: AST.ASTTypPtr) -> AST.ASTTyp:
+        return t
+
+    def transform_array_typ(self, t: AST.ASTTypArray) -> AST.ASTTyp:
+        return t
+
+    def transform_fun_typ(self, t: AST.ASTTypFun) -> AST.ASTTyp:
+        return t
+
+    def transform_funargs(self, a: AST.ASTFunArgs) -> AST.ASTFunArgs:
+        return a
+
+    def transform_funarg(self, a: AST.ASTFunArg) -> AST.ASTFunArg:
+        return a
+
+    def transform_named_typ(self, t: AST.ASTTypNamed) -> AST.ASTTyp:
+        return t
+
+    def transform_comp_typ(self, t: AST.ASTTypComp) -> AST.ASTTyp:
+        return t
+
+    def transform_compinfo(self, cinfo: AST.ASTCompInfo) -> AST.ASTCompInfo:
+        return cinfo
+
+    def transform_fieldinfo(self, finfo: AST.ASTFieldInfo) -> AST.ASTFieldInfo:
+        return finfo
