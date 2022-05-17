@@ -30,12 +30,12 @@ import copy
 
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING
 
+import chb.util.fileutil as UF
+
 
 if TYPE_CHECKING:
     from chb.ast.ASTNode import ASTExpr, ASTLval
-    from chb.ast.ASTVarInfo import ASTVarInfo
-
-import chb.util.fileutil as UF
+    from chb.astinterface.ASTIVarInfo import ASTIVarInfo
 
 
 arm_registers = [
@@ -55,7 +55,7 @@ def get_arm_arg_loc(bytecounter: int, size: int) -> str:
                     "Unexpected alignment in arm argument location")
         else:
             return "R" + str(index) + ":" + str(rem)
-    
+
     else:
         return "stack:" + str(bytecounter - 16)
 
@@ -91,7 +91,8 @@ def get_arg_loc(callingconvention: str, bytecounter: int, size: int) -> str:
         return "?"
 
 
-def storage_records(vinfos: Sequence["ASTVarInfo"]) -> List[Dict[str, str]]:
+'''
+def storage_records(vinfos: Sequence["ASTIVarInfo"]) -> List[Dict[str, str]]:
     result: List[Dict[str, str]] = []
     for vinfo in vinfos:
         rec: Dict[str, str] = {}
@@ -117,10 +118,15 @@ def storage_records(vinfos: Sequence["ASTVarInfo"]) -> List[Dict[str, str]]:
             rec["type"] = "unknown"
         result.append(rec)
     return result
+'''
 
 
 def has_global_denotation(
-        varinfos: Sequence["ASTVarInfo"], gaddr: str) -> Optional["ASTVarInfo"]:
+        varinfos: Sequence["ASTIVarInfo"], gaddr: str) -> Optional["ASTIVarInfo"]:
+    return None
+
+
+'''
     addr = int(gaddr, 16)
     for vinfo in varinfos:
         if (
@@ -130,13 +136,14 @@ def has_global_denotation(
                 and len(vinfo.conflicting_types) == 0):
             if addr == vinfo.global_address:
                 return vinfo
-            elif vinfo.vtype.is_struct:
+            elif vinfo.vtype.is_compound:
                 bytesize = vinfo.vtype.byte_size()
                 structextent = vinfo.global_address + bytesize
                 if addr > vinfo.global_address and addr < structextent:
                     return vinfo
     else:
         return None
+'''
 
 
 class UseDef:
