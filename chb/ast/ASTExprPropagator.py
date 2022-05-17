@@ -35,7 +35,6 @@ from chb.ast.ASTTransformer import ASTTransformer
 import chb.util.fileutil as UF
 
 
-
 class UseDef:
     """Holds a mapping from variables to (label * expr) tuples on node entry.
 
@@ -75,8 +74,6 @@ class UseDef:
             instrid: int,
             lval: AST.ASTLval,
             gendef: AST.ASTExpr) -> "UseDef":
-
-        # print("Apply assign: " + str(lval) + " := " + str(gendef))
 
         kill = str(lval)
 
@@ -171,7 +168,7 @@ class ASTUseDefs(ASTNOPVisitor):
         self._addresstaken = stmt.address_taken()
         self.stmt_usedefs(stmt)
         return self.instrdefs
-    
+
     def stmt_usedefs(self, stmt: AST.ASTStmt) -> None:
         if stmt.is_ast_return:
             pass
@@ -194,12 +191,12 @@ class ASTUseDefs(ASTNOPVisitor):
             s.accept(self)
 
     def visit_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> None:
-        self.set_instr_usedefs(stmt.stmtid, self.usedefs)        
+        self.set_instr_usedefs(stmt.stmtid, self.usedefs)
         for i in stmt.instructions:
             i.accept(self)
 
     def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
-        self.set_instr_usedefs(stmt.stmtid, self.usedefs)        
+        self.set_instr_usedefs(stmt.stmtid, self.usedefs)
         stmt.ifstmt.accept(self)
         ifusedefs = self.usedefs
         stmt.elsestmt.accept(self)
@@ -208,15 +205,16 @@ class ASTUseDefs(ASTNOPVisitor):
 
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         self.set_instr_usedefs(instr.instrid, self.usedefs)
-        usedefs_x = self.usedefs.apply_assign(instr.instrid, instr.define(), instr.rhs)
+        usedefs_x = self.usedefs.apply_assign(
+            instr.instrid, instr.define(), instr.rhs)
         self.set_usedefs(usedefs_x)
 
     def visit_call_instr(self, instr: AST.ASTCall) -> None:
-        self.set_instr_usedefs(instr.instrid, self.usedefs)        
+        self.set_instr_usedefs(instr.instrid, self.usedefs)
         kill = [str(k) for k in instr.kill()] + list(self.addresstaken)
         usedefs_x = self.usedefs.apply_call(kill)
         self.set_usedefs(usedefs_x)
-                                  
+
 
 class ASTExprPropagator(ASTTransformer):
 
@@ -277,13 +275,13 @@ class ASTExprPropagator(ASTTransformer):
             return stmt
 
     def transform_block_stmt(self, stmt: AST.ASTBlock) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)        
+        self.set_currentid(stmt.stmtid)
         return AST.ASTBlock(
             stmt.stmtid, [s.transform(self) for s in stmt.stmts])
 
     def transform_instruction_sequence_stmt(
             self, stmt: AST.ASTInstrSequence) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)        
+        self.set_currentid(stmt.stmtid)
         return AST.ASTInstrSequence(
             stmt.stmtid, [i.transform(self) for i in stmt.instructions])
 
@@ -307,9 +305,10 @@ class ASTExprPropagator(ASTTransformer):
 
     def transform_call_instr(self, instr: AST.ASTCall) -> AST.ASTInstruction:
         self.set_currentid(instr.instrid)
+        lhsxform = None if instr.lhs is None else instr.lhs.transform(self)
         return AST.ASTCall(
             instr.instrid,
-            instr.lhs.transform(self),
+            lhsxform,
             instr.tgt.transform(self),
             [a.transform(self) for a in instr.arguments])
 
@@ -317,6 +316,9 @@ class ASTExprPropagator(ASTTransformer):
         return AST.ASTLval(
             cast(AST.ASTLHost, lval.lhost.transform(self)),
             cast(AST.ASTOffset, lval.offset.transform(self)))
+
+    def transform_varinfo(self, vinfo: AST.ASTVarInfo) -> AST.ASTVarInfo:
+        return vinfo
 
     def transform_variable(self, var: AST.ASTVariable) -> AST.ASTLHost:
         return var
@@ -330,12 +332,12 @@ class ASTExprPropagator(ASTTransformer):
     def transform_field_offset(
             self, offset: AST.ASTFieldOffset) -> AST.ASTOffset:
         return AST.ASTFieldOffset(
-            offset.fieldname, offset.fieldtype, offset.offset.transform(self))
+            offset.fieldname, offset.compkey, offset.offset.transform(self))
 
     def transform_index_offset(
             self, offset: AST.ASTIndexOffset) -> AST.ASTOffset:
         return AST.ASTIndexOffset(
-            offset.index.transform(self), offset.offset.transform(self))
+            offset.index_expr.transform(self), offset.offset.transform(self))
 
     def transform_integer_constant(
             self, expr: AST.ASTIntegerConstant) -> AST.ASTExpr:
@@ -366,8 +368,8 @@ class ASTExprPropagator(ASTTransformer):
         else:
             return AST.ASTLvalExpr(expr.lval.transform(self))
 
-    def transform_cast_expression(self, expr: AST.ASTCastE) -> AST.ASTExpr:
-        return AST.ASTCastE(expr.cast_tgt_type, expr.cast_expr.transform(self))
+    def transform_cast_expression(self, expr: AST.ASTCastExpr) -> AST.ASTExpr:
+        return AST.ASTCastExpr(expr.cast_tgt_type, expr.cast_expr.transform(self))
 
     def transform_unary_expression(self, expr: AST.ASTUnaryOp) -> AST.ASTExpr:
         return AST.ASTUnaryOp(expr.op, expr.exp1.transform(self))
@@ -386,3 +388,39 @@ class ASTExprPropagator(ASTTransformer):
     def transform_address_of_expression(
             self, expr: AST.ASTAddressOf) -> AST.ASTExpr:
         return AST.ASTAddressOf(expr.lval.transform(self))
+
+    def transform_void_typ(self, t: AST.ASTTypVoid) -> AST.ASTTyp:
+        return t
+
+    def transform_integer_typ(self, t: AST.ASTTypInt) -> AST.ASTTyp:
+        return t
+
+    def transform_float_typ(self, t: AST.ASTTypFloat) -> AST.ASTTyp:
+        return t
+
+    def transform_pointer_typ(self, t: AST.ASTTypPtr) -> AST.ASTTyp:
+        return t
+
+    def transform_array_typ(self, t: AST.ASTTypArray) -> AST.ASTTyp:
+        return t
+
+    def transform_fun_typ(self, t: AST.ASTTypFun) -> AST.ASTTyp:
+        return t
+
+    def transform_funargs(self, a: AST.ASTFunArgs) -> AST.ASTFunArgs:
+        return a
+
+    def transform_funarg(self, a: AST.ASTFunArg) -> AST.ASTFunArg:
+        return a
+
+    def transform_named_typ(self, t: AST.ASTTypNamed) -> AST.ASTTyp:
+        return t
+
+    def transform_comp_typ(self, t: AST.ASTTypComp) -> AST.ASTTyp:
+        return t
+
+    def transform_fieldinfo(self, finfo: AST.ASTFieldInfo) -> AST.ASTFieldInfo:
+        return finfo
+
+    def transform_compinfo(self, cinfo: AST.ASTCompInfo) -> AST.ASTCompInfo:
+        return cinfo

@@ -75,7 +75,7 @@ class ASTLiveCode(ASTNOPVisitor):
 
     def live_variables_on_entry(self, stmt: AST.ASTStmt) -> None:
         """Compute the live variables at node entry given live variables at node exit.
-        
+
         Record live_on_exit along the way.
         """
         self.live_stmt_variables(stmt)
@@ -165,4 +165,4 @@ class ASTLiveCode(ASTNOPVisitor):
                 live_e.add(v)
         self.set_live_x(live_e)
         self._liveinstrs.add(instr.instrid)
-        self._livesymbols = self._livesymbols | instr.variables_used()        
+        self._livesymbols = self._livesymbols | instr.variables_used()

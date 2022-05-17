@@ -128,16 +128,11 @@ from typing import (
     TYPE_CHECKING,
     Union)
 
-from chb.ast.ASTUtil import InstrUseDef, UseDef, get_arg_loc
-from chb.ast.ASTVarInfo import ASTVarInfo
-
-import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    from chb.bctypes.BCTyp import (
-        BCTyp, BCTypPtr, BCTypFun, BCTypArray, BCTypComp)
+    from chb.ast.ASTCTyper import ASTCTyper
+    from chb.ast.ASTIndexer import ASTIndexer
     from chb.ast.ASTTransformer import ASTTransformer
-    from chb.ast.ASTVarInfo import ASTVarInfo
     from chb.ast.ASTVisitor import ASTVisitor
 
 
@@ -151,7 +146,7 @@ Unary operators:
  BNot: "bnot"
  LNot: "lnot"
 
-Binary operators:    
+Binary operators:
  PlusA: "plusa"
  PlusPI: "pluspi"
  IndexPI: "indexpi"
@@ -179,29 +174,27 @@ Binary operators:
 
 operators = {
     "and": " && ",   # logical and
+    "bnot": "~",     # bitwise not
     "bor": " | ",    # bitwise or
     "bxor": " ^ ",   # bitwise xor
     "asr": " >> ",   # arithmetic shift right; need to infer type as signed
     "band": " & ",   # bitwise and
     "div": " / ",    # integer division
-    "eq": " == ",
-    "ge": " >= ",
-    "gt": " > ",
-    "land": " && ",
-    "le": " <= ",
-    "lnot": " ! ",
+    "eq": " == ",    # equal
+    "ge": " >= ",    # greater than or equal to
+    "gt": " > ",     # greater than
+    "land": " && ",  # logical and
+    "le": " <= ",    # less than or equal to
+    "lnot": " ! ",   # logical not
     "lor": " || ",   # logical or
     "lsl": " << ",   # logical shift left
     "lsr": " >> ",   # logical shift right; need to infer type as unsigned
-    "lt": " < ",
+    "lt": " < ",     # less than
     "minus": " - ",
-    "mod": " % ",     
+    "mod": " % ",    # modulo
     "mult": " * ",   # multiplication
-    "ne": " != ",
-    "neq": " != ",
-    "plus": " + ",
-    "shiftlt": " << ",
-    "shiftrt": " >> "
+    "ne": " != ",    # not equal
+    "plus": " + "
     }
 
 
@@ -245,6 +238,14 @@ class ASTNode:
     def transform(self, transformer: "ASTTransformer") -> "ASTNode":
         ...
 
+    @abstractmethod
+    def index(self, indexer: "ASTIndexer") -> int:
+        ...
+
+    @abstractmethod
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        ...
+
     @property
     def is_ast_stmt(self) -> bool:
         return False
@@ -274,15 +275,6 @@ class ASTNode:
 
     def callees(self) -> Set[str]:
         return set([])
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return (" " * sp) + self.tag
-
-    def to_string(self, sp: int = 0) -> str:
-        return (" " * sp) + self.tag
-
-    def structure_to_string(self, sp: int = 0) -> str:
-        return (" " * sp) + self.tag
 
     def __str__(self) -> str:
         return self.tag
@@ -334,9 +326,6 @@ class ASTStmt(ASTNode):
     def callees(self) -> Set[str]:
         return set([])
 
-    def structure_to_string(self, sp: int = 0) -> str:
-        return (" " * sp) + self.tag
-
 
 class ASTReturn(ASTStmt):
 
@@ -361,6 +350,12 @@ class ASTReturn(ASTStmt):
     def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
         return transformer.transform_return_stmt(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_return_stmt(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_return_stmt(self)
+
     def has_return_value(self) -> bool:
         return self._expr is not None
 
@@ -375,19 +370,6 @@ class ASTReturn(ASTStmt):
             return self.expr.variables_used()
         else:
             return set([])
-
-    def to_c_like(self, sp: int = 0) -> str:
-        indent = " " * sp
-        if self.has_return_value():
-            return (indent + "return " + self.expr.to_c_like() + ";")
-        else:
-            return (indent + "return;")
-
-    def structure_to_string(self, sp: int = 0) -> str:
-        return (" " * sp) + "Return"
-
-    def to_string(self, sp: int = 0) -> str:
-        return self.to_c_like(sp)
 
 
 class ASTBlock(ASTStmt):
@@ -409,6 +391,12 @@ class ASTBlock(ASTStmt):
 
     def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
         return transformer.transform_block_stmt(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_block_stmt(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_block_stmt(self)
 
     def is_empty(self) -> bool:
         return all(s.is_empty() for s in self.stmts)
@@ -433,27 +421,6 @@ class ASTBlock(ASTStmt):
         else:
             return self.stmts[0].callees().union(
                 *(s.callees() for s in self.stmts[1:]))
-
-    def to_c_like(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        for s in self.stmts:
-            lines.append(s.to_c_like(sp))
-        return "\n".join(lines)
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append("\n".join(s.to_string(sp + 2) for s in self.stmts))
-        return "\n".join(lines)
-
-    def structure_to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append("  Block-" + str(sp) + ":")
-        lines.append((" " * sp) + str(sp) + "{")
-        for s in self.stmts:
-            lines.append(s.structure_to_string(sp + 2))
-        lines.append((" " * sp) + str(sp) + "}")
-        return "\n".join(lines)
 
     def __str__(self) -> str:
         lines: List[str] = []
@@ -483,6 +450,12 @@ class ASTInstrSequence(ASTStmt):
     def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
         return transformer.transform_instruction_sequence_stmt(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_instruction_sequence_stmt(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_instruction_sequence_stmt(self)
+
     def is_empty(self) -> bool:
         return len(self.instructions) == 0
 
@@ -506,21 +479,6 @@ class ASTInstrSequence(ASTStmt):
         else:
             return self.instructions[0].callees().union(
                 *(i.callees() for i in self.instructions))
-
-    def to_c_like(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        for i in self.instructions:
-            cinstr = i.to_c_like(sp)
-            if len(cinstr) > 0:
-                lines.append(cinstr)
-        return "\n".join(lines)
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append(
-            "\n".join((i.to_string(sp)) for i in self.instructions))
-        return "\n".join(lines)
 
     def __str__(self) -> str:
         return "\n".join(str(i) for i in self.instructions)
@@ -567,6 +525,12 @@ class ASTBranch(ASTStmt):
     def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
         return transformer.transform_branch_stmt(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_branch_stmt(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_branch_stmt(self)
+
     def is_empty(self) -> bool:
         return self.ifstmt.is_empty() and self.elsestmt.is_empty()
 
@@ -580,49 +544,6 @@ class ASTBranch(ASTStmt):
 
     def callees(self) -> Set[str]:
         return self.ifstmt.callees().union(self.elsestmt.callees())
-
-    def to_c_like(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        indent = " " * sp
-        lines.append(
-            indent
-            + "if ("
-            + self.condition.to_c_like()
-            + "){")
-        lines.append(self.ifstmt.to_c_like(sp + c_indent))
-        if not self.elsestmt.is_empty():
-            lines.append(indent + "} else {")
-            lines.append(self.elsestmt.to_c_like(sp + c_indent))
-        lines.append(indent + "}")
-        return "\n".join(lines)
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append(self.condition.to_string(sp + 2))
-        lines.append(self.ifstmt.to_string(sp + 2))
-        lines.append(self.elsestmt.to_string(sp + 2))
-        return "\n".join(lines)
-
-    def structure_to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        indent = " " * sp
-        lines.append(indent + "then-" + str(sp))
-        lines.append(indent + ("-" * 40))
-        lines.append(indent + self.ifstmt.structure_to_string(sp + 4))
-        lines.append(indent + "else-" + str(sp))
-        lines.append(indent + ("~" * 40) + str(sp))
-        lines.append(indent + self.elsestmt.structure_to_string(sp + 4))
-        lines.append(indent + ("=" * 40) + str(sp))
-        return "\n".join(lines)
-
-    def __str__(self) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self))
-        lines.append("Condition: " + str(self.condition))
-        lines.append("  Then   : " + str(self.ifstmt.stmtid))
-        lines.append("  Else   : " + str(self.elsestmt.stmtid))
-        return "\n".join(lines)
 
 
 class ASTInstruction(ASTNode, ABC):
@@ -648,10 +569,6 @@ class ASTInstruction(ASTNode, ABC):
         return False
 
     @abstractmethod
-    def define(self) -> "ASTLval":
-        ...
-
-    @abstractmethod
     def transform(self, transformer: "ASTTransformer") -> "ASTInstruction":
         ...
 
@@ -674,12 +591,10 @@ class ASTAssign(ASTInstruction):
             self,
             instrid: int,
             lhs: "ASTLval",
-            rhs: "ASTExpr",
-            annotations: List[str] = []) -> None:
+            rhs: "ASTExpr") -> None:
         ASTInstruction.__init__(self, instrid, "assign")
         self._lhs = lhs
         self._rhs = rhs
-        self._annotations = annotations
 
     @property
     def is_ast_assign(self) -> bool:
@@ -693,15 +608,17 @@ class ASTAssign(ASTInstruction):
     def rhs(self) -> "ASTExpr":
         return self._rhs
 
-    @property
-    def annotations(self) -> List[str]:
-        return self._annotations
-
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_assign_instr(self)
 
     def transform(self, transformer: "ASTTransformer") -> "ASTInstruction":
         return transformer.transform_assign_instr(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_assign_instr(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_assign_instr(self)
 
     def address_taken(self) -> Set[str]:
         return self.lhs.address_taken().union(self.rhs.address_taken())
@@ -721,41 +638,13 @@ class ASTAssign(ASTInstruction):
     def kill(self) -> List["ASTLval"]:
         return [self.define()]
 
-    def to_c_like(self, sp: int = 0) -> str:
-        annotations = str(self.instrid)
-        if len(self.annotations) > 0:
-            annotations = " " + ", ".join(self.annotations)
-        default = (
-            (" " * sp)
-            + self.lhs.to_c_like()
-            + " = "
-            + self.rhs.to_c_like()
-            + ";"
-            + " // "
-            + annotations)
-        return default
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append(self.lhs.to_string(sp + 2))
-        lines.append(self.rhs.to_string(sp + 2))
-        return "\n".join(lines)
-
-    def __str__(self) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.__str__(self))
-        lines.append("  " + str(self.lhs))
-        lines.append("  " + str(self.rhs))
-        return "\n".join(lines)
-
 
 class ASTCall(ASTInstruction):
 
     def __init__(
             self,
             instrid: int,
-            lhs: "ASTLval",
+            lhs: Optional["ASTLval"],
             tgt: "ASTExpr",
             args: List["ASTExpr"]) -> None:
         ASTInstruction.__init__(self, instrid, "call")
@@ -768,7 +657,7 @@ class ASTCall(ASTInstruction):
         return True
 
     @property
-    def lhs(self) -> "ASTLval":
+    def lhs(self) -> Optional["ASTLval"]:
         return self._lhs
 
     @property
@@ -785,20 +674,27 @@ class ASTCall(ASTInstruction):
     def transform(self, transformer: "ASTTransformer") -> "ASTInstruction":
         return transformer.transform_call_instr(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_call_instr(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_call_instr(self)
+
     def address_taken(self) -> Set[str]:
         return self.tgt.address_taken().union(
             *(a.address_taken() for a in self.arguments))
 
     def variables_used(self) -> Set[str]:
-        return self.lhs.variables_used().union(
+        if self.lhs is not None:
+            lhsvars: Set[str] = self.lhs.variables_used()
+        else:
+            lhsvars = set([])
+        return lhsvars.union(
             self.tgt.variables_used()).union(
                 *(a.variables_used() for a in self.arguments))
 
     def callees(self) -> Set[str]:
         return set([str(self.tgt)])
-
-    def define(self) -> "ASTLval":
-        return self.lhs
 
     def use(self) -> List[str]:
         result = []
@@ -809,33 +705,6 @@ class ASTCall(ASTInstruction):
 
     def kill(self) -> List[str]:
         return ["R0", "R1", "R2", "R3", "$v0", "$v1", str(self.lhs)]
-
-    def to_c_like(self, sp: int = 0) -> str:
-        indent = " " * sp
-        calltgt = (
-            self.tgt.to_c_like()
-            + "("
-            + ", ".join(str(a.to_c_like()) for a in self.arguments)
-            + ");  // " + str(self.instrid))
-        return indent + self.lhs.to_c_like() + " = " + calltgt
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append(self.lhs.to_string(sp + 2))
-        lines.append(self.tgt.to_string(sp + 2))
-        for a in self.arguments:
-            lines.append(a.to_string(sp + 2))
-        return "\n".join(lines)
-
-    def __str__(self) -> str:
-        lines: List[str] = []
-        lhs = str(self.lhs)
-        lines.append(ASTNode.__str__(self))
-        lines.append(lhs)
-        lines.append("  " + str(self.tgt))
-        lines.append("  " + "\n  ".join(str(a) for a in self.arguments))
-        return "\n".join(lines)
 
 
 class ASTLval(ASTNode):
@@ -863,12 +732,11 @@ class ASTLval(ASTNode):
     def transform(self, transformer: "ASTTransformer") -> "ASTLval":
         return transformer.transform_lval(self)
 
-    @property
-    def ctype(self) -> Optional["BCTyp"]:
-        if self.offset.is_no_offset:
-            return self.lhost.ctype
-        else:
-            return self.offset.offset_ctype(self.lhost.ctype)
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_lval(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_lval(self)
 
     @property
     def is_memref(self) -> bool:
@@ -888,36 +756,8 @@ class ASTLval(ASTNode):
     def variables_used(self) -> Set[str]:
         return self.lhost.variables_used().union(self.offset.variables_used())
 
-    def offset_to_string(self, sp: int = 0) -> str:
-        if self.offset.is_no_offset:
-            return ""
-        else:
-            return self.offset.to_string(sp)
-
     def use(self) -> List[str]:
         return self.lhost.use() + self.offset.use()
-
-    def to_c_like(self, sp: int = 0) -> str:
-        if self.lhost.is_memref:
-            memexp = cast("ASTMemRef", self.lhost).memexp
-            if self.offset.is_field_offset:
-                fieldname = cast("ASTFieldOffset", self.offset).fieldname
-                return memexp.to_c_like() + "->" + str(self.offset)[1:]
-            elif self.offset.is_index_offset:
-                indexoffset = cast("ASTIndexOffset", self.offset)
-                return memexp.to_c_like() + " + " + indexoffset.index.to_c_like()
-            else:
-                return self.lhost.to_c_like() + self.offset.to_c_like()
-        else:
-            return self.lhost.to_c_like() + self.offset.to_c_like()
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append(self.lhost.to_string(sp + 2))
-        if not self.offset.is_no_offset:
-            lines.append(self.offset_to_string(sp + 2))
-        return "\n".join(lines)
 
     def __str__(self) -> str:
         return str(self.lhost) + str(self.offset)
@@ -944,10 +784,6 @@ class ASTLHost(ASTNode):
     def is_global(self) -> bool:
         return False
 
-    @property
-    def ctype(self) -> Optional["BCTyp"]:
-        return None
-
     @abstractmethod
     def transform(self, transformer: "ASTTransformer") -> "ASTLHost":
         ...
@@ -962,37 +798,87 @@ class ASTLHost(ASTNode):
         return set([])
 
 
+class ASTVarInfo(ASTNode):
+
+    def __init__(
+            self,
+            vname: str,
+            vtype: Optional["ASTTyp"],
+            parameter: Optional[int] = None,
+            globaladdress: Optional[int] = None,
+            vdescr: Optional[str] = None) -> None:
+        ASTNode.__init__(self, "varinfo")
+        self._vname = vname
+        self._vtype = vtype
+        self._parameter = parameter
+        self._globaladdress = globaladdress
+        self._vdescr = vdescr  # describes what the variable holds
+
+    @property
+    def vname(self) -> str:
+        return self._vname
+
+    @property
+    def vtype(self) -> Optional["ASTTyp"]:
+        return self._vtype
+
+    @property
+    def parameter(self) -> Optional[int]:
+        return self._parameter
+
+    @property
+    def globaladdress(self) -> Optional[int]:
+        return self._globaladdress
+
+    @property
+    def vdescr(self) -> Optional[str]:
+        return self._vdescr
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_varinfo(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTVarInfo":
+        return transformer.transform_varinfo(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_varinfo(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_varinfo(self)
+
+    def __str__(self) -> str:
+        return self.vname
+
+
 class ASTVariable(ASTLHost):
 
-    def __init__(self, varinfo: ASTVarInfo) -> None:
+    def __init__(self, vinfo: "ASTVarInfo") -> None:
         ASTLHost.__init__(self, "var")
-        self._varinfo = varinfo
+        self._vinfo = vinfo
 
     @property
     def is_variable(self) -> bool:
         return True
-        
+
     @property
-    def varinfo(self) -> ASTVarInfo:
-        return self._varinfo
+    def varinfo(self) -> "ASTVarInfo":
+        return self._vinfo
 
     @property
     def vname(self) -> str:
         return self.varinfo.vname
-
-    @property
-    def ctype(self) -> Optional["BCTyp"]:
-        return self.varinfo.vtype
-
-    @property
-    def is_global(self) -> bool:
-        return self.varinfo.is_global
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_variable(self)
 
     def transform(self, transformer: "ASTTransformer") -> "ASTLHost":
         return transformer.transform_variable(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_variable(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_variable(self)
 
     def address_taken(self) -> Set[str]:
         return set([])
@@ -1006,13 +892,7 @@ class ASTVariable(ASTLHost):
         else:
             return [self.vname]
 
-    def to_c_like(self, sp: int = 0) -> str:
-        return self.vname
-
-    def to_string(self, sp: int = 0) -> str:
-        return ASTNode.to_string(self, sp) + "(" + self.vname + ")"
-
-    def __str__(self):
+    def __str__(self) -> str:
         return self.vname
 
 
@@ -1027,7 +907,7 @@ class ASTMemRef(ASTLHost):
     @property
     def is_memref(self) -> bool:
         return True
-        
+
     @property
     def memexp(self) -> "ASTExpr":
         return self._memexp
@@ -1036,15 +916,13 @@ class ASTMemRef(ASTLHost):
         visitor.visit_memref(self)
 
     def transform(self, transformer: "ASTTransformer") -> "ASTLHost":
-        return transformer.transform_memref(self)        
+        return transformer.transform_memref(self)
 
-    @property
-    def ctype(self) -> Optional["BCTyp"]:
-        exptype = self.memexp.ctype
-        if exptype is not None:
-            return exptype.bcd.ptr_to(exptype)
-        else:
-            return None
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_memref(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_memref(self)
 
     def address_taken(self) -> Set[str]:
         return self.memexp.address_taken()
@@ -1054,15 +932,6 @@ class ASTMemRef(ASTLHost):
 
     def use(self) -> List[str]:
         return self.memexp.use()
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return "(*(" + self.memexp.to_c_like() + "))"
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append(self.memexp.to_string(sp + 2))
-        return "\n".join(lines)
 
     def __str__(self) -> str:
         return str(self.memexp)
@@ -1093,9 +962,6 @@ class ASTOffset(ASTNode):
     def transform(self, transformer: "ASTTransformer") -> "ASTOffset":
         ...
 
-    def offset_ctype(self, basetype: Optional["BCTyp"]) -> Optional["BCTyp"]:
-        return None
-
     def use(self) -> List[str]:
         return []
 
@@ -1121,6 +987,12 @@ class ASTNoOffset(ASTOffset):
     def transform(self, transformer: "ASTTransformer") -> "ASTOffset":
         return transformer.transform_no_offset(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_no_offset(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_no_offset(self)
+
     def use(self) -> List[str]:
         return []
 
@@ -1129,9 +1001,6 @@ class ASTNoOffset(ASTOffset):
 
     def variables_used(self) -> Set[str]:
         return set([])
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return ""
 
     def __str__(self) -> str:
         return ""
@@ -1142,24 +1011,24 @@ class ASTFieldOffset(ASTOffset):
     def __init__(
             self,
             fieldname: str,
-            fieldtype: "BCTyp",
+            compkey: int,
             offset: "ASTOffset") -> None:
         ASTOffset.__init__(self, "field-offset")
         self._fieldname = fieldname
-        self._fieldtype = fieldtype
+        self._compkey = compkey
         self._offset = offset
 
     @property
     def is_field_offset(self) -> bool:
         return True
-        
+
     @property
     def fieldname(self) -> str:
         return self._fieldname
 
     @property
-    def fieldtype(self) -> "BCTyp":
-        return self._fieldtype
+    def compkey(self) -> int:
+        return self._compkey
 
     @property
     def offset(self) -> "ASTOffset":
@@ -1171,11 +1040,11 @@ class ASTFieldOffset(ASTOffset):
     def transform(self, transformer: "ASTTransformer") -> "ASTOffset":
         return transformer.transform_field_offset(self)
 
-    def offset_ctype(self, basetype: Optional["BCTyp"]) -> Optional["BCTyp"]:
-        if self.offset.is_no_offset:
-            return self.fieldtype
-        else:
-            return self.offset.offset_ctype(self.fieldtype)
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_field_offset(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_field_offset(self)
 
     def address_taken(self) -> Set[str]:
         return self.offset.address_taken()
@@ -1185,9 +1054,6 @@ class ASTFieldOffset(ASTOffset):
 
     def use(self) -> List[str]:
         return self.offset.use()
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return "." + self.fieldname + self.offset.to_c_like()
 
     def __str__(self) -> str:
         return "." + self.fieldname + str(self.offset)
@@ -1203,9 +1069,9 @@ class ASTIndexOffset(ASTOffset):
     @property
     def is_index_offset(self) -> bool:
         return True
-        
+
     @property
-    def index(self) -> "ASTExpr":
+    def index_expr(self) -> "ASTExpr":
         return self._index
 
     @property
@@ -1218,6 +1084,13 @@ class ASTIndexOffset(ASTOffset):
     def transform(self, transformer: "ASTTransformer") -> "ASTOffset":
         return transformer.transform_index_offset(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_index_offset(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_index_offset(self)
+
+    '''
     def offset_ctype(self, basetype: Optional["BCTyp"]) -> Optional["BCTyp"]:
         if basetype is None:
             return None
@@ -1235,28 +1108,26 @@ class ASTIndexOffset(ASTOffset):
                 return self.offset.offset_ctype(btptr.tgttyp)
         else:
             return None
+    '''
 
     def address_taken(self) -> Set[str]:
-        return self.index.address_taken().union(self.offset.address_taken())
+        return self.index_expr.address_taken().union(self.offset.address_taken())
 
     def variables_used(self) -> Set[str]:
-        return self.index.variables_used().union(self.offset.variables_used())
+        return self.index_expr.variables_used().union(self.offset.variables_used())
 
     def use(self) -> List[str]:
-        return self.index.use() + self.offset.use()
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return "[" + self.index.to_c_like() + "]" + self.offset.to_c_like()
+        return self.index_expr.use() + self.offset.use()
 
     def __str__(self) -> str:
-        return "[" + str(self.index) + "]" + str(self.offset)
+        return "[" + str(self.index_expr) + "]" + str(self.offset)
 
 
 class ASTExpr(ASTNode):
     """Universal interface to all expression types.
 
     This class presents the union of properties and methods for all subclasses,
-    but calls will fail (or return None in case of an optional returntype) on 
+    but calls will fail (or return None in case of an optional returntype) on
     those properties and methods not supported for the subclass they are called
     on.
 
@@ -1282,7 +1153,7 @@ class ASTExpr(ASTNode):
     @property
     def is_global_address(self) -> bool:
         return False
-   
+
     @property
     def is_string_constant(self) -> bool:
         return False
@@ -1314,109 +1185,6 @@ class ASTExpr(ASTNode):
     @property
     def is_ast_addressof(self) -> bool:
         return False
-
-    @property
-    def cvalue(self) -> int:
-        """Applicable only if is_integer_constant."""
-
-        raise UF.CHBError(
-            "Property cvalue not supported on expr type: " + self.tag)
-
-    @property
-    def ctype(self) -> Optional["BCTyp"]:        
-        return None
-
-    @property
-    def address_expr(self) -> "ASTExpr":
-        """Applicable only if is_global_address or is_string_address."""
-
-        raise UF.CHBError(
-            "Property address_expr not supported on expr type: " + self.tag)
-        
-
-    @property
-    def address_tgt_type(self) -> Optional["BCTyp"]:
-        """Applicable only if is_global_address or is_ast_addressof."""
-
-        raise UF.CHBError(
-            "Property address_tgt_type not supported on expr type: " + self.tag)
-
-    @property
-    def cstr(self) -> str:
-        """Applicable only if is_string_address."""
-
-        raise UF.CHBError(
-            "Property cstr not supported on expr type: " + self.tag)
-
-    @property
-    def string_address(self) -> str:
-        """Applicable only if is_string_address."""
-
-        raise UF.CHBError(
-            "Property string_address not supported on expr type: " + self.tag)
-
-    @property
-    def lval(self) -> "ASTLval":
-        """Applicable only if is_ast_lval_expr or is_ast_addressof."""
-
-        raise UF.CHBError(
-            "Property lval not supported on expr type: " + self.tag)
-
-    @property
-    def assign_id(self) -> int:
-        """Applicable only if is_ast_substituted_expr."""
-
-        raise UF.CHBError(
-            "Property assign_id not supported on expr type: " + self.tag)
-
-    @property
-    def substituted_expr(self) -> "ASTExpr":
-        """Applicable only if is_ast_substituted_expr."""
-
-        raise UF.CHBError(
-            "Property substituted_expr not supported on expr type: " + self.tag)
-
-    @property
-    def cast_tgt_type(self) -> str:
-        """Applicable only if is_ast_cast_expr."""
-
-        raise UF.CHBError(
-            "Property cast_tgt_type not supported on expr type: " + self.tag)
-
-    @property
-    def cast_expr(self) -> "ASTExpr":
-        """Applicable only if is_cast_expr."""
-
-        raise UF.CHBError(
-            "Property cast_expr not supported on expr type: " + self.tag)
-
-    @property
-    def op(self) -> str:
-        """Applicable only if is_ast_unary_op or is_ast_binary_op."""
-
-        raise UF.CHBError(
-            "Property op not supported on expr type: " + self.tag)
-
-    @property
-    def exp1(self) -> "ASTExpr":
-        """Applicable only if is_ast_unary_op, is_ast_binary_op, or is_ast_question."""
-
-        raise UF.CHBError(
-            "Property exp1 not supported on expr type: " + self.tag)
-
-    @property
-    def exp2(self) -> "ASTExpr":
-        """Applicable only if is_ast_binary_op or is_ast_question."""
-
-        raise UF.CHBError(
-            "Property exp2 not supported on expr type: " + self.tag)
-
-    @property
-    def exp3(self) -> "ASTExpr":
-        """Applicable only if is_ast_question."""
-
-        raise UF.CHBError(
-            "Property exp3 not supported on expr type: " + self.tag)
 
     @abstractmethod
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
@@ -1453,9 +1221,14 @@ class ASTConstant(ASTExpr):
 
 class ASTIntegerConstant(ASTConstant):
 
-    def __init__(self, cvalue: int, tag: str = "integer-constant") -> None:
+    def __init__(
+            self,
+            cvalue: int,
+            ikind: str = "iint",
+            tag: str = "integer-constant") -> None:
         ASTConstant.__init__(self, tag)
         self._cvalue = cvalue
+        self._ikind = ikind
 
     @property
     def is_integer_constant(self) -> bool:
@@ -1465,23 +1238,24 @@ class ASTIntegerConstant(ASTConstant):
     def cvalue(self) -> int:
         return self._cvalue
 
+    @property
+    def ikind(self) -> str:
+        return self._ikind
+
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_integer_constant(self)
 
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         return transformer.transform_integer_constant(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_integer_constant(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_integer_constant(self)
+
     def use(self) -> List[str]:
         return []
-
-    def to_c_like(self, sp: int = 0) -> str:
-        if self.cvalue > 100000:
-            return hex(self.cvalue)
-        else:
-            return str(self.cvalue)
-
-    def to_string(self, sp: int = 0) -> str:
-        return ASTNode.to_string(self, sp) + "(" + str(self.cvalue) + ")"
 
     def __str__(self) -> str:
         return str(self.cvalue)
@@ -1506,16 +1280,19 @@ class ASTGlobalAddressConstant(ASTIntegerConstant):
     def is_ast_lval_expr(self) -> bool:
         return self.address_expr.is_ast_lval_expr
 
-    @property
-    def lval(self) -> "ASTLval":
-        return self.address_expr.lval
-
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_global_address(self)
 
     def transformer(self, transformer: "ASTTransformer") -> "ASTExpr":
         return transformer.transform_global_address(self)
 
+    def indexer(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_global_address(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_global_address(self)
+
+    '''
     @property
     def address_tgt_type(self) -> Optional["BCTyp"]:
         if self.address_expr.is_ast_addressof:
@@ -1531,9 +1308,7 @@ class ASTGlobalAddressConstant(ASTIntegerConstant):
     @property
     def ctype(self) -> Optional["BCTyp"]:
         return self.address_expr.ctype
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return self.address_expr.to_c_like()
+    '''
 
     def __str__(self) -> str:
         return str(self.address_expr)
@@ -1541,7 +1316,11 @@ class ASTGlobalAddressConstant(ASTIntegerConstant):
 
 class ASTStringConstant(ASTConstant):
 
-    def __init__(self, expr: "ASTExpr", cstr: str, saddr: str) -> None:
+    def __init__(
+            self,
+            expr: Optional["ASTExpr"],
+            cstr: str,
+            saddr: Optional[str]) -> None:
         ASTConstant.__init__(self, "string-constant")
         self._expr = expr    # expression that produced the string
         self._cstr = cstr
@@ -1550,9 +1329,9 @@ class ASTStringConstant(ASTConstant):
     @property
     def is_string_constant(self) -> bool:
         return True
-        
+
     @property
-    def address_expr(self) -> "ASTExpr":
+    def address_expr(self) -> Optional["ASTExpr"]:
         return self._expr
 
     @property
@@ -1560,7 +1339,7 @@ class ASTStringConstant(ASTConstant):
         return self._cstr
 
     @property
-    def string_address(self) -> str:
+    def string_address(self) -> Optional[str]:
         return self._saddr
 
     def accept(self, visitor: "ASTVisitor") -> None:
@@ -1569,14 +1348,14 @@ class ASTStringConstant(ASTConstant):
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         return transformer.transform_string_constant(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_string_constant(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_string_constant(self)
+
     def use(self) -> List[str]:
         return []
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return '"' + self.cstr + '"'
-
-    def to_string(self, sp: int = 0) -> str:
-        return ASTNode.to_string(self, sp) + "(" + self.cstr + ")"
 
     def __str__(self) -> str:
         return '"' + self.cstr + '"'
@@ -1602,9 +1381,11 @@ class ASTLvalExpr(ASTExpr):
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         return transformer.transform_lval_expression(self)
 
-    @property
-    def ctype(self) -> Optional["BCTyp"]:
-        return self.lval.ctype
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_lval_expression(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_lval_expression(self)
 
     def address_taken(self) -> Set[str]:
         return self.lval.address_taken()
@@ -1614,15 +1395,6 @@ class ASTLvalExpr(ASTExpr):
 
     def use(self) -> List[str]:
         return self.lval.use()
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return self.lval.to_c_like()
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append(self.lval.to_string(sp + 2))
-        return "\n".join(lines)
 
     def __str__(self) -> str:
         return str(self.lval)
@@ -1635,7 +1407,7 @@ class ASTSubstitutedExpr(ASTLvalExpr):
     is mostly transparent w.r.t. to other properties, in the sense that all
     properties and methods are directly delegated to the substituted expression.
 
-    In particular, the visitor and transformer are delegated to the substituted 
+    In particular, the visitor and transformer are delegated to the substituted
     expression. The transformer re-assembles the substituted expression.
     """
 
@@ -1663,7 +1435,7 @@ class ASTSubstitutedExpr(ASTLvalExpr):
         Note: requires type:ignore because of a bug in mypy.
         """
 
-        return ASTLvalExpr.lval.fget(self) # type:ignore
+        return ASTLvalExpr.lval.fget(self)  # type:ignore
 
     def accept(self, visitor: "ASTVisitor") -> None:
         self.substituted_expr.accept(visitor)
@@ -1671,9 +1443,15 @@ class ASTSubstitutedExpr(ASTLvalExpr):
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         return ASTSubstitutedExpr(
             # get the lval from the super class (but in mypy requires ignore)
-            ASTLvalExpr.lval.fget(self), # type:ignore
+            ASTLvalExpr.lval.fget(self),  # type:ignore
             self.assign_id,
             cast("ASTExpr", self.substituted_expr.transform(transformer)))
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_substituted_expression(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return self.substituted_expr.ctype(ctyper)
 
     @property
     def is_ast_constant(self) -> bool:
@@ -1688,35 +1466,14 @@ class ASTSubstitutedExpr(ASTLvalExpr):
         return self.substituted_expr.is_global_address
 
     @property
-    def address_expr(self) -> "ASTExpr":
-        return self.substituted_expr.address_expr
-
-    @property
     def is_string_constant(self) -> bool:
         return self.substituted_expr.is_string_constant
 
     @property
     def is_ast_lval_expr(self) -> bool:
         """Note: this property is overridden from its super class."""
-        
+
         return self.substituted_expr.is_ast_lval_expr
-
-    @property
-    def lval(self) -> "ASTLval":
-        """Note: this property is overridden from its super class."""
-        
-        return self.substituted_expr.lval
-
-    @property
-    def cvalue(self) -> int:
-        if self.is_integer_constant:
-            return self.substituted_expr.cvalue
-        else:
-            raise Exception("Internal error in substituted expression")
-
-    @property
-    def ctype(self) -> Optional["BCTyp"]:
-        return self.substituted_expr.ctype
 
     @property
     def is_ast_addressof(self) -> bool:
@@ -1731,16 +1488,13 @@ class ASTSubstitutedExpr(ASTLvalExpr):
     def use(self) -> List[str]:
         return self.substituted_expr.use()
 
-    def to_c_like(self, sp: int = 0) -> str:
-        return self.substituted_expr.to_c_like()
-
     def __str__(self) -> str:
         return str(self.substituted_expr)
 
 
-class ASTCastE(ASTExpr):
+class ASTCastExpr(ASTExpr):
 
-    def __init__(self, tgttyp: str, exp: "ASTExpr") -> None:
+    def __init__(self, tgttyp: "ASTTyp", exp: "ASTExpr") -> None:
         ASTExpr.__init__(self, "cast-expr")
         self._tgttyp = tgttyp
         self._exp = exp
@@ -1750,7 +1504,7 @@ class ASTCastE(ASTExpr):
         return True
 
     @property
-    def cast_tgt_type(self) -> str:
+    def cast_tgt_type(self) -> "ASTTyp":
         return self._tgttyp
 
     @property
@@ -1763,6 +1517,12 @@ class ASTCastE(ASTExpr):
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         return transformer.transform_cast_expression(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_cast_expression(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_cast_expression(self)
+
     def address_taken(self) -> Set[str]:
         return self.cast_expr.address_taken()
 
@@ -1771,9 +1531,6 @@ class ASTCastE(ASTExpr):
 
     def use(self) -> List[str]:
         return self.cast_expr.use()
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return "(" + str(self.cast_tgt_type) + ")" + self.cast_expr.to_c_like()
 
     def __str__(self) -> str:
         return "((" + str(self.cast_tgt_type) + ")" + str(self.cast_expr) + ")"
@@ -1804,6 +1561,12 @@ class ASTUnaryOp(ASTExpr):
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         return transformer.transform_unary_expression(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_unary_expression(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_unary_expression(self)
+
     def address_taken(self) -> Set[str]:
         return self.exp1.address_taken()
 
@@ -1812,9 +1575,6 @@ class ASTUnaryOp(ASTExpr):
 
     def use(self) -> List[str]:
         return self.exp1.use()
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return operators[self.op] + self.exp1.to_c_like()
 
     def __str__(self) -> str:
         return "(" + operators[self.op] + str(self.exp1) + ")"
@@ -1854,22 +1614,18 @@ class ASTBinaryOp(ASTExpr):
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         return transformer.transform_binary_expression(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_binary_expression(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_binary_expression(self)
+
     @property
     def is_integer_constant(self) -> bool:
         return (
             self.exp1.is_integer_constant
             and self.exp2.is_integer_constant
             and self.op in ["plus", "minus"])
-
-    @property
-    def cvalue(self) -> int:
-        if self.op in ["plus", "minus"]:
-            if self.exp1.is_integer_constant and self.exp2.is_integer_constant:
-                return self.exp1.cvalue + self.exp2.cvalue
-            else:
-                raise Exception("Internal error in binary op: " + str(self))
-        else:
-            raise Exception("Internal error in binary op: " + str(self))
 
     def address_taken(self) -> Set[str]:
         return self.exp1.address_taken().union(self.exp2.address_taken())
@@ -1879,21 +1635,6 @@ class ASTBinaryOp(ASTExpr):
 
     def use(self) -> List[str]:
         return self.exp1.use() + self.exp2.use()
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return (
-            "("
-            + self.exp1.to_c_like()
-            + operators[self.op]
-            + self.exp2.to_c_like()
-            + ")")
-
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp) + ":" + self.op)
-        lines.append(self.exp1.to_string(sp + 2))
-        lines.append(self.exp2.to_string(sp + 2))
-        return "\n".join(lines)
 
     def __str__(self) -> str:
         return "(" + str(self.exp1) + operators[self.op] + str(self.exp2) + ")"
@@ -1933,6 +1674,12 @@ class ASTQuestion(ASTExpr):
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         return transformer.transform_question_expression(self)
 
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_question_expression(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_question_expression(self)
+
     def address_taken(self) -> Set[str]:
         return self.exp1.address_taken().union(
             self.exp2.address_taken()).union(self.exp3.address_taken())
@@ -1940,16 +1687,6 @@ class ASTQuestion(ASTExpr):
     def variables_used(self) -> Set[str]:
         return self.exp1.variables_used().union(
             self.exp2.variables_used()).union(self.exp3.variables_used())
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return (
-            "("
-            + self.exp1.to_c_like()
-            + " ? "
-            + self.exp2.to_c_like()
-            + " : "
-            + self.exp3.to_c_like()
-            + ")")
 
     def __str_(self) -> str:
         return (
@@ -1976,10 +1713,7 @@ class ASTAddressOf(ASTExpr):
     def lval(self) -> "ASTLval":
         return self._lval
 
-    @property
-    def address_tgt_type(self) -> Optional["BCTyp"]:
-        return self.lval.ctype
-
+    '''
     @property
     def ctype(self) -> Optional["BCTyp"]:
         if self.lval.lhost.is_variable:
@@ -1988,20 +1722,26 @@ class ASTAddressOf(ASTExpr):
                     if self.lval.offset.is_index_offset:
                         indexoffset = cast(
                             "ASTIndexOffset", self.lval.offset)
-                        if indexoffset.index.is_integer_constant:
+                        if indexoffset.index_expr.is_integer_constant:
                             index = cast(
                                 "ASTIntegerConstant", indexoffset.index)
                             if index.cvalue == 0:
                                 return self.lval.lhost.ctype
-                            
 
         return None
+    '''
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_address_of_expression(self)
 
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         return transformer.transform_address_of_expression(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_address_of_expression(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_address_of_expression(self)
 
     def address_taken(self) -> Set[str]:
         return set([str(self.lval)])
@@ -2012,14 +1752,521 @@ class ASTAddressOf(ASTExpr):
     def use(self) -> List[str]:
         return [str(self.lval)]
 
-    def to_string(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        lines.append(ASTNode.to_string(self, sp))
-        lines.append(self.lval.to_string(sp + 2))
-        return "\n".join(lines)
-
-    def to_c_like(self, sp: int = 0) -> str:
-        return "&" + self.lval.to_c_like()
-
     def __str__(self) -> str:
         return "&(" + str(self.lval) + ")"
+
+
+class ASTTyp(ASTNode):
+
+    def __init__(self, tag: str) -> None:
+        ASTNode.__init__(self, tag)
+
+    @property
+    def is_void(self) -> bool:
+        return False
+
+    @property
+    def is_integer(self) -> bool:
+        return False
+
+    @property
+    def is_float(self) -> bool:
+        return False
+
+    @property
+    def is_pointer(self) -> bool:
+        return False
+
+    @property
+    def is_scalar(self) -> bool:
+        return self.is_integer or self.is_float or self.is_pointer
+
+    @property
+    def is_function(self) -> bool:
+        return False
+
+    @property
+    def is_array(self) -> bool:
+        return False
+
+    @property
+    def is_compound(self) -> bool:
+        return False
+
+    def size_in_bytes(self) -> int:
+        return 0
+
+
+class ASTTypVoid(ASTTyp):
+
+    def __init__(self) -> None:
+        ASTTyp.__init__(self, "void")
+
+    @property
+    def is_void(self) -> bool:
+        return True
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_void_typ(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
+        return transformer.transform_void_typ(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_void_typ(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_void_typ(self)
+
+    def __str__(self) -> str:
+        return "void"
+
+
+inttypes = {
+    "ichar": "char",
+    "ischar": "signed char",
+    "iuchar": "unsigned char",
+    "ibool": "bool",
+    "iint": "int",
+    "iuint": "unsigned int",
+    "ishort": "short",
+    "iushort": "unsigned short",
+    "ilong": "long",
+    "iulong": "unsigned long",
+    "ilonglong": "long long",
+    "iulonglong": "unsigned long long"
+}
+
+
+intsizes = {
+    "ichar": 1,
+    "ischar": 1,
+    "iuchar": 1,
+    "ibool": 1,
+    "iint": 4,
+    "iuint": 4,
+    "ishort": 2,
+    "iushort": 2,
+    "ilong": 4,
+    "iulong": 4,
+    "ilonglong": 8,
+    "iulonglong": 8
+}
+
+
+class ASTTypInt(ASTTyp):
+
+    def __init__(self, ikind: str) -> None:
+        ASTTyp.__init__(self, "int")
+        if ikind in inttypes:
+            self._ikind = ikind
+        else:
+            raise Exception(ikind + " is not a recognized integer type")
+
+    @property
+    def ikind(self) -> str:
+        return self._ikind
+
+    @property
+    def is_integer(self) -> bool:
+        return True
+
+    def size_in_bytes(self) -> int:
+        return intsizes[self.ikind]
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_integer_typ
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
+        return transformer.transform_integer_typ(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_integer_typ(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_integer_typ(self)
+
+    def __str__(self) -> str:
+        return inttypes[self.ikind]
+
+
+floattypes = {
+    "float": "float",
+    "fdouble": "double",
+    "flongdouble": "long double"
+}
+
+
+floatsizes = {
+    "float": 4,
+    "fdouble": 8,
+    "flongdouble": 8    # ??
+}
+
+
+class ASTTypFloat(ASTTyp):
+
+    def __init__(self, fkind: str) -> None:
+        ASTTyp.__init__(self, "float")
+        if fkind in floattypes:
+            self._fkind = fkind
+        else:
+            raise Exception(fkind + " is not a recognized float type")
+
+    @property
+    def fkind(self) -> str:
+        return self._fkind
+
+    @property
+    def is_float(self) -> bool:
+        return True
+
+    def size_in_bytes(self) -> int:
+        return floatsizes[self.fkind]
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_float_typ(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
+        return transformer.transform_float_typ(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_float_typ(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_float_typ(self)
+
+    def __str_(self) -> str:
+        return floattypes[self.fkind]
+
+
+class ASTTypPtr(ASTTyp):
+
+    def __init__(self, tgttyp: "ASTTyp") -> None:
+        ASTTyp.__init__(self, "ptr")
+        self._tgttyp = tgttyp
+
+    @property
+    def tgttyp(self) -> "ASTTyp":
+        return self._tgttyp
+
+    @property
+    def is_pointer(self) -> bool:
+        return True
+
+    def size_in_bytes(self) -> int:
+        """We assume 32-bit systems."""
+
+        return 4
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_pointer_typ(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
+        return transformer.transform_pointer_typ(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_pointer_typ(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_pointer_typ(self)
+
+    def __str__(self) -> str:
+        return str(self.tgttyp) + " *"
+
+
+class ASTTypArray(ASTTyp):
+
+    def __init__(self, tgttyp: "ASTTyp", sizexpr: Optional["ASTExpr"]) -> None:
+        ASTTyp.__init__(self, "array")
+        self._tgttyp = tgttyp
+        self._sizexpr = sizexpr
+
+    @property
+    def tgttyp(self) -> "ASTTyp":
+        return self._tgttyp
+
+    @property
+    def size_expr(self) -> Optional["ASTExpr"]:
+        return self._sizexpr
+
+    @property
+    def is_array(self) -> bool:
+        return True
+
+    def has_size_expr(self) -> bool:
+        return self.size_expr is not None
+
+    def has_constant_size(self) -> bool:
+        return (self.size_expr is not None) and self.size_expr.is_integer_constant
+
+    def size_value(self) -> int:
+        if self.size_expr is not None:
+            if self.size_expr.is_integer_constant:
+                c = cast("ASTIntegerConstant", self.size_expr)
+                return c.cvalue
+        raise Exception("ASTTypArray does not have constant size: " + str(self))
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_array_typ(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
+        return transformer.transform_array_typ(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_array_typ(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_array_typ(self)
+
+    def __str__(self) -> str:
+        if self.size_expr is not None:
+            return str(self.tgttyp) + "[" + str(self.size_expr) + "]"
+        else:
+            return str(self.tgttyp) + "[]"
+
+
+class ASTTypFun(ASTTyp):
+
+    def __init__(
+            self,
+            returntyp: "ASTTyp",
+            argtypes: Optional["ASTFunArgs"],
+            varargs: bool = False) -> None:
+        ASTTyp.__init__(self, "funtype")
+        self._returntyp = returntyp
+        self._argtypes = argtypes
+        self._varargs = varargs
+
+    @property
+    def returntyp(self) -> "ASTTyp":
+        return self._returntyp
+
+    @property
+    def argtypes(self) -> Optional["ASTFunArgs"]:
+        return self._argtypes
+
+    @property
+    def is_function(self) -> bool:
+        return True
+
+    @property
+    def is_varargs(self) -> bool:
+        return self._varargs
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_fun_typ(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
+        return transformer.transform_fun_typ(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_fun_typ(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_fun_typ(self)
+
+
+class ASTFunArgs(ASTNode):
+
+    def __init__(self, funargs: List["ASTFunArg"]) -> None:
+        ASTNode.__init__(self, "funargs")
+        self._funargs = funargs
+
+    @property
+    def funargs(self) -> List["ASTFunArg"]:
+        return self._funargs
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_funargs(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTFunArgs":
+        return transformer.transform_funargs(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_funargs(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_funargs(self)
+
+
+class ASTFunArg(ASTNode):
+
+    def __init__(self, argname: str, argtyp: "ASTTyp") -> None:
+        ASTNode.__init__(self, "funarg")
+        self._argname = argname
+        self._argtyp = argtyp
+
+    @property
+    def argname(self) -> str:
+        return self._argname
+
+    @property
+    def argtyp(self) -> "ASTTyp":
+        return self._argtyp
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_funarg(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTFunArg":
+        return transformer.transform_funarg(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_funarg(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_funarg(self)
+
+    def __str__(self) -> str:
+        return str(self.argtyp) + " " + self.argname
+
+
+class ASTTypNamed(ASTTyp):
+
+    def __init__(self, typname: str, typdef: "ASTTyp") -> None:
+        ASTTyp.__init__(self, "typdef")
+        self._typname = typname
+        self._typdef = typdef
+
+    @property
+    def typname(self) -> str:
+        return self._typname
+
+    @property
+    def typdef(self) -> "ASTTyp":
+        return self._typdef
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_named_typ(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
+        return transformer.transform_named_typ(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_named_typ(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_named_typ(self)
+
+    def __str__(self) -> str:
+        return str(self.typdef) + " " + self.typname
+
+
+class ASTFieldInfo(ASTNode):
+
+    def __init__(
+            self,
+            fieldname: str,
+            fieldtype: "ASTTyp",
+            compkey: int) -> None:
+        self._fieldname = fieldname
+        self._fieldtype = fieldtype
+        self._compkey = compkey
+
+    @property
+    def fieldname(self) -> str:
+        return self._fieldname
+
+    @property
+    def fieldtype(self) -> "ASTTyp":
+        return self._fieldtype
+
+    @property
+    def compkey(self) -> int:
+        return self._compkey
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_fieldinfo(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTFieldInfo":
+        return transformer.transform_fieldinfo(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_fieldinfo(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_fieldinfo(self)
+
+
+class ASTCompInfo(ASTNode):
+
+    def __init__(
+            self,
+            cname: str,
+            ckey: int,
+            fieldinfos: List["ASTFieldInfo"],
+            is_union: bool = False) -> None:
+        ASTNode.__init__(self, "compinfo")
+        self._cname = cname
+        self._ckey = ckey
+        self._fieldinfos = fieldinfos
+        self._is_union = is_union
+
+    @property
+    def cname(self) -> str:
+        return self._cname
+
+    @property
+    def ckey(self) -> int:
+        return self._ckey
+
+    @property
+    def fieldinfos(self) -> List["ASTFieldInfo"]:
+        return self._fieldinfos
+
+    @property
+    def is_union(self) -> bool:
+        return self._is_union
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_compinfo(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTCompInfo":
+        return transformer.transform_compinfo(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_compinfo(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_compinfo(self)
+
+
+class ASTTypComp(ASTTyp):
+
+    def __init__(
+            self,
+            compkey: int,
+            compname: str,
+            is_union: bool = False) -> None:
+        ASTTyp.__init__(self, "comptyp")
+        self._compkey = compkey
+        self._compname = compname
+        self._is_union = is_union
+
+    @property
+    def compkey(self) -> int:
+        return self._compkey
+
+    @property
+    def compname(self) -> str:
+        return self._compname
+
+    @property
+    def is_compound(self) -> bool:
+        return True
+
+    @property
+    def is_union(self) -> bool:
+        return self._is_union
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_comp_typ(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
+        return transformer.transform_comp_typ(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_comp_typ(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_comp_typ(self)

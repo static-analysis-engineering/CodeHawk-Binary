@@ -24,155 +24,154 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Abstract super class for visitors on ASTNodes. """
-
+"""Abstract class for AST serializers that assign some index to ast nodes."""
 
 from abc import ABC, abstractmethod
 
 import chb.ast.ASTNode as AST
 
 
-class ASTVisitor(ABC):
+class ASTIndexer(ABC):
 
     def __init__(self) -> None:
         pass
 
     @abstractmethod
-    def visit_return_stmt(self, stmt: AST.ASTReturn) -> None:
+    def index_return_stmt(self, stmt: AST.ASTReturn) -> int:
         ...
 
     @abstractmethod
-    def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
+    def index_block_stmt(self, stmt: AST.ASTBlock) -> int:
         ...
 
     @abstractmethod
-    def visit_instruction_sequence_stmt(
-            self, stmt: AST.ASTInstrSequence) -> None:
+    def index_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> int:
         ...
 
     @abstractmethod
-    def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
+    def index_branch_stmt(self, stmt: AST.ASTBranch) -> int:
         ...
 
     @abstractmethod
-    def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
+    def index_assign_instr(self, instr: AST.ASTAssign) -> int:
         ...
 
     @abstractmethod
-    def visit_call_instr(self, instr: AST.ASTCall) -> None:
+    def index_call_instr(self, instr: AST.ASTCall) -> int:
         ...
 
     @abstractmethod
-    def visit_lval(self, lval: AST.ASTLval) -> None:
+    def index_lval(self, lval: AST.ASTLval) -> int:
         ...
 
     @abstractmethod
-    def visit_varinfo(self, vinfo: AST.ASTVarInfo) -> None:
+    def index_varinfo(self, vinfo: AST.ASTVarInfo) -> int:
         ...
 
     @abstractmethod
-    def visit_variable(self, var: AST.ASTVariable) -> None:
+    def index_variable(self, var: AST.ASTVariable) -> int:
         ...
 
     @abstractmethod
-    def visit_memref(self, memref: AST.ASTMemRef) -> None:
+    def index_memref(self, memref: AST.ASTMemRef) -> int:
         ...
 
     @abstractmethod
-    def visit_no_offset(self, offset: AST.ASTNoOffset) -> None:
+    def index_no_offset(self, offset: AST.ASTNoOffset) -> int:
         ...
 
     @abstractmethod
-    def visit_field_offset(self, offset: AST.ASTFieldOffset) -> None:
+    def index_field_offset(self, offset: AST.ASTFieldOffset) -> int:
         ...
 
     @abstractmethod
-    def visit_index_offset(self, offset: AST.ASTIndexOffset) -> None:
+    def index_index_offset(self, offset: AST.ASTIndexOffset) -> int:
         ...
 
     @abstractmethod
-    def visit_integer_constant(
-            self, intconstant: AST.ASTIntegerConstant) -> None:
+    def index_integer_constant(self, const: AST.ASTIntegerConstant) -> int:
         ...
 
     @abstractmethod
-    def visit_global_address(
-            self, globalddress: AST.ASTGlobalAddressConstant) -> None:
+    def index_global_address(self, addr: AST.ASTGlobalAddressConstant) -> int:
         ...
 
     @abstractmethod
-    def visit_string_constant(
-            self, stringconstant: AST.ASTStringConstant) -> None:
+    def index_string_constant(self, strc: AST.ASTStringConstant) -> int:
         ...
 
     @abstractmethod
-    def visit_lval_expression(self, expr: AST.ASTLvalExpr) -> None:
+    def index_lval_expression(self, expr: AST.ASTLvalExpr) -> int:
         ...
 
     @abstractmethod
-    def visit_cast_expression(self, expr: AST.ASTCastExpr) -> None:
+    def index_substituted_expression(self, expr: AST.ASTSubstitutedExpr) -> int:
         ...
 
     @abstractmethod
-    def visit_unary_expression(self, expr: AST.ASTUnaryOp) -> None:
+    def index_cast_expression(self, expr: AST.ASTCastExpr) -> int:
         ...
 
     @abstractmethod
-    def visit_binary_expression(self, expr: AST.ASTBinaryOp) -> None:
+    def index_unary_expression(self, expr: AST.ASTUnaryOp) -> int:
         ...
 
     @abstractmethod
-    def visit_question_expression(self, expr: AST.ASTQuestion) -> None:
+    def index_binary_expression(self, expr: AST.ASTBinaryOp) -> int:
         ...
 
     @abstractmethod
-    def visit_address_of_expression(self, expr: AST.ASTAddressOf) -> None:
+    def index_question_expression(self, expr: AST.ASTQuestion) -> int:
         ...
 
     @abstractmethod
-    def visit_void_typ(self, typ: AST.ASTTypVoid) -> None:
+    def index_address_of_expression(self, expr: AST.ASTAddressOf) -> int:
         ...
 
     @abstractmethod
-    def visit_integer_typ(self, typ: AST.ASTTypInt) -> None:
+    def index_void_typ(self, typ: AST.ASTTypVoid) -> int:
         ...
 
     @abstractmethod
-    def visit_float_typ(self, typ: AST.ASTTypFloat) -> None:
+    def index_integer_typ(self, typ: AST.ASTTypInt) -> int:
         ...
 
     @abstractmethod
-    def visit_pointer_typ(self, typ: AST.ASTTypPtr) -> None:
+    def index_float_typ(self, typ: AST.ASTTypFloat) -> int:
         ...
 
     @abstractmethod
-    def visit_array_typ(self, typ: AST.ASTTypArray) -> None:
+    def index_pointer_typ(self, typ: AST.ASTTypPtr) -> int:
         ...
 
     @abstractmethod
-    def visit_fun_typ(self, typ: AST.ASTTypFun) -> None:
+    def index_array_typ(self, typ: AST.ASTTypArray) -> int:
         ...
 
     @abstractmethod
-    def visit_funargs(self, funargs: AST.ASTFunArgs) -> None:
+    def index_fun_typ(self, typ: AST.ASTTypFun) -> int:
         ...
 
     @abstractmethod
-    def visit_funarg(self, funarg: AST.ASTFunArg) -> None:
+    def index_funargs(self, funargs: AST.ASTFunArgs) -> int:
         ...
 
     @abstractmethod
-    def visit_named_typ(self, typ: AST.ASTTypNamed) -> None:
+    def index_funarg(self, funarg: AST.ASTFunArg) -> int:
         ...
 
     @abstractmethod
-    def visit_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
+    def index_named_typ(self, typ: AST.ASTTypNamed) -> int:
         ...
 
     @abstractmethod
-    def visit_fieldinfo(self, finfo: AST.ASTFieldInfo) -> None:
+    def index_fieldinfo(self, finfo: AST.ASTFieldInfo) -> int:
         ...
 
     @abstractmethod
-    def visit_comp_typ(self, typ: AST.ASTTypComp) -> None:
+    def index_compinfo(self, cinfo: AST.ASTCompInfo) -> int:
+        ...
+
+    @abstractmethod
+    def index_comp_typ(self, typ: AST.ASTTypComp) -> int:
         ...

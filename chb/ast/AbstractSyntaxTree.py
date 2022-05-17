@@ -42,105 +42,17 @@ from typing import (
     TYPE_CHECKING,
     Union)
 
-from chb.ast.ASTFormalVarInfo import ASTFormalVarInfo
-
 import chb.ast.ASTNode as AST
 
 from chb.ast.ASTSymbolTable import ASTSymbolTable, ASTLocalSymbolTable
-
-import chb.ast.ASTUtil as AU
-from chb.ast.ASTVarInfo import ASTVarInfo
-
-if TYPE_CHECKING:
-    from chb.bctypes.BCFieldInfo import BCFieldInfo
-    from chb.bctypes.BCFunArgs import BCFunArg
-    from chb.bctypes.BCFunctionDefinition import BCFunctionDefinition
-    from chb.bctypes.BCTyp import BCTyp, BCTypFun, BCTypComp, BCTypArray, BCTypPtr
-    from chb.bctypes.BCVarInfo import BCVarInfo
 
 
 ASTSpanRecord = NewType(
     "ASTSpanRecord", Dict[str, Union[int, List[Dict[str, Union[str, int]]]]])
 
-"""fname -> registers/stack -> name/offset -> [span/altname -> (low, high), name]."""
-VariableNamesRec = NewType(
-    "VariableNamesRec",
-    Dict[str, Dict[str, Dict[str, List[Dict[str, Union[Tuple[str, str], str]]]]]])
 
 nooffset = AST.ASTNoOffset()
-
-
-'''
-class VariableNames:
-
-    def __init__(self, namerecords: VariableNamesRec) -> None:
-        self._namerecords = namerecords
-
-    @property
-    def namerecords(self) -> VariableNamesRec:
-        return self._namerecords
-
-    def has_register_variable(self, fname: str, v: str) -> bool:
-        return (
-            fname in self.namerecords
-            and "registers" in self.namerecords[fname]
-            and v in self.namerecords[fname]["registers"])
-
-    def has_stack_variable(self, fname: str, offset: int) -> bool:
-        return (
-            fname in self.namerecords
-            and "stack" in self.namerecords[fname]
-            and str(offset) in self.namerecords[fname]["stack"])
-
-    def has_other_variable(self, fname: str, name: str) -> bool:
-        return (
-            fname in self.namerecords
-            and "other" in self.namerecords[fname]
-            and name in self.namerecords[fname]["other"])
-
-    def register_variable(self, fname: str, v: str, addr: str) -> Optional[str]:
-        if self.has_register_variable(fname, v):
-            vrec = self.namerecords[fname]["registers"][v]
-            addri = int(addr, 16)
-            for span in vrec:
-                if "span" in span:
-                    vlow = int(span["span"][0], 16)
-                    vhigh = int(span["span"][1], 16)
-                    if vlow <= addri and addri <= vhigh:
-                        return cast(str, span["altname"])
-                else:
-                    # variable name applies throughout the function
-                    return cast(str, span["altname"])
-            else:
-                return None
-        else:
-            return None
-
-    def stack_variable(self, fname: str, offset: int, addr: str) -> Optional[str]:
-        if self.has_stack_variable(fname, offset):
-            vrec = self.namerecords[fname]["stack"][str(offset)]
-            addri = int(addr, 16)
-            for span in vrec:
-                if "span" in span:
-                    vlow = int(span["span"][0], 16)
-                    vhigh = int(span["span"][1], 16)
-                    if vlow <= addri and addri <= vhigh:
-                        return cast(str, span["altname"])
-                else:
-                    # variable name applies throughout the function
-                    return cast(str, span["altname"])
-            else:
-                return None
-        else:
-            return None
-
-    def other_variable(self, fname: str, name: str) -> Optional[str]:
-        if self.has_other_variable(fname, name):
-            vrec = self.namerecords[fname]["other"][name]
-            return cast(str, vrec[0]["altname"])
-        else:
-            return None
-'''
+voidtype = AST.ASTTypVoid()
 
 
 class AbstractSyntaxTree:
@@ -156,15 +68,25 @@ class AbstractSyntaxTree:
         self._tmpcounter = 0
         self._spans: List[ASTSpanRecord] = []
         self._symboltable = localsymboltable
-        self._unsupported: Dict[str, List[str]] = {}
-        self._notes: List[str] = []
 
-    def add_note(self, note: str) -> None:
-        self._notes.append(note)
+        # integer types
+        self._char_type = self.mk_integer_ikind_type("ichar")
+        self._signed_char_type = self.mk_integer_ikind_type("ischar")
+        self._unsigned_char_type = self.mk_integer_ikind_type("iuchar")
+        self._bool_type = self.mk_integer_ikind_type("ibool")
+        self._int_type = self.mk_integer_ikind_type("iint")
+        self._unsigned_int_type = self.mk_integer_ikind_type("iuint")
+        self._short_type = self.mk_integer_ikind_type("ishort")
+        self._unsigned_short_type = self.mk_integer_ikind_type("iushort")
+        self._long_type = self.mk_integer_ikind_type("ilong")
+        self._unsigned_long_type = self.mk_integer_ikind_type("iulong")
+        self._long_long_type = self.mk_integer_ikind_type("ilonglong")
+        self._unsigned_long_long_type = self.mk_integer_ikind_type("iulonglong")
 
-    @property
-    def notes(self) -> List[str]:
-        return self._notes
+        # float types
+        self._float_type = self.mk_float_fkind_type("float")
+        self._double_type = self.mk_float_fkind_type("fdouble")
+        self._long_double_type = self.mk_float_fkind_type("flongdouble")
 
     @property
     def fname(self) -> str:
@@ -178,42 +100,8 @@ class AbstractSyntaxTree:
     def spans(self) -> List[ASTSpanRecord]:
         return self._spans
 
-    def diagnostics(self) -> List[str]:
-        return self.notes + self.symboltable.diagnostics
-
-    def storage_records(self) -> List[Dict[str, str]]:
-        return AU.storage_records(list(self.symboltable.symbols()))
-
-    def global_symbols(self) -> Sequence[AST.ASTVarInfo]:
-        return self.symboltable.global_symbols()
-
-    def set_functiondef(self, d: "BCFunctionDefinition") -> None:
-        self._functiondef = d
-
-    def set_function_prototype(self, p: "BCVarInfo") -> None:
-        self._fprotoype = p
+    def set_function_prototype(self, p: AST.ASTVarInfo) -> None:
         self.symboltable.set_function_prototype(p)
-
-    def has_functiondef(self) -> bool:
-        return self._functiondef is not None
-
-    @property
-    def functiondef(self) -> "BCFunctionDefinition":
-        if self._functiondef:
-            return self._functiondef
-        else:
-            raise Exception("Function has no functiondef")
-
-    def get_formal_locindices(
-            self, argindex: int) -> Tuple[ASTFormalVarInfo, List[int]]:
-        return self.symboltable.get_formal_locindices(argindex)
-
-    def function_argument(self, index: int) -> List[AST.ASTLval]:
-        """Return the argument(s) with the given index (zero-based).
-
-        There may be more than one argument, in case of a packed array.
-        """
-        return self.symboltable.function_argument(index)
 
     def has_symbol(self, name: str) -> bool:
         return self.symboltable.has_symbol(name)
@@ -224,16 +112,16 @@ class AbstractSyntaxTree:
     def add_symbol(
             self,
             name: str,
-            vtype: Optional["BCTyp"] = None,
-            size: Optional[int] = None,
+            vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
-            globaladdress: Optional[int] = None) -> AST.ASTVarInfo:
+            globaladdress: Optional[int] = None,
+            vdescr: Optional[str] = None) -> AST.ASTVarInfo:
         return self.symboltable.add_symbol(
             name,
             vtype=vtype,
-            size=size,
             parameter=parameter,
-            globaladdress=globaladdress)
+            globaladdress=globaladdress,
+            vdescr=vdescr)
 
     def new_id(self) -> int:
         """A single sequence of id's is used for statement and instruction id.
@@ -243,11 +131,6 @@ class AbstractSyntaxTree:
         id = self._counter
         self._counter += 1
         return id
-
-    def new_tmp_id(self) -> int:
-        tmpid = self._tmpcounter
-        self._tmpcounter += 1
-        return tmpid
 
     def add_span(self, span: ASTSpanRecord) -> None:
         self._spans.append(span)
@@ -260,26 +143,6 @@ class AbstractSyntaxTree:
         spanrec["id"] = id
         spanrec["spans"] = [span]
         self.add_span(cast(ASTSpanRecord, spanrec))
-
-    def add_instruction_unsupported(self, mnem: str, instr: str) -> None:
-        self._unsupported.setdefault(mnem, [])
-        self._unsupported[mnem].append(instr)
-
-    @property
-    def unsupported_instructions(self) -> Dict[str, List[str]]:
-        return self._unsupported
-
-    def function_returntype(self, name: str) -> Optional["BCTyp"]:
-        return self.symboltable.function_returntype(name)
-
-    def is_variable_address(self, gaddr: int) -> Optional[str]:
-        return self.symboltable.is_variable_address(gaddr)
-
-    def is_struct_field_address(self, gaddr: int) -> bool:
-        return self.symboltable.is_struct_field_address(gaddr)
-
-    def get_struct_field_address(self, gaddr: int) -> AST.ASTExpr:
-        return self.symboltable.get_struct_field_address(gaddr)
 
     # ------------------------------------------------------ make statements ---
 
@@ -300,8 +163,7 @@ class AbstractSyntaxTree:
         stmtid = self.new_id()
         if condition is None:
             # create a new unknown (unitialized) variable
-            condvar = self.mk_temp_lval()
-            condition = self.mk_lval_expr(condvar)
+            condition = self.mk_tmp_lval_expression()
         return AST.ASTBranch(
             stmtid, condition, ifbranch, elsebranch, relative_offset)
 
@@ -310,173 +172,308 @@ class AbstractSyntaxTree:
         instrid = self.new_id()
         return AST.ASTInstrSequence(instrid, instrs)
 
-    # ---------------------------------------------------- make instructions ---
+    """Instructions
+    There are two types of instructions: an assignment and a call. An
+    assignment consists of a lhs (lval) and a rhs (expression). A call consists
+    of an optional lhs (lval) to which the return value from the call is
+    assigned, an expression that is the target of the call (an lval expression
+    of a variable of type function in case of a direct call, or any other
+    expression in case of an indirect call), and a list of expressions that
+    represent the arguments to the call (preferably in conformance with the
+    arity of the function type, but this is not checked).
+
+    Instructions are assigned a unique instruction id. This instruction id can
+    then be used to create a link with the instruction address (via the span)
+    if desired.
+
+    The set of instruction id's is disjoint from the set of statement id's (that
+    is, if x is an instruction id, it is not also a statement id).
+
+    Construction methods provided:
+    ------------------------------
+    - mk_assign: creates an assignment from a lhs (lval) and rhs (expression)
+    - mk_call: creates a call from an optional lhs (lval), a target (expression),
+        and a list of arguments (expressions)
+
+    - mk_var_assign: creates an assignment from a variable name and rhs
+        (expression); an lval with the given name is created (as described
+        below under Variables)
+    - mk_var_var_assign: creates an assignment from one variable name to another
+        variable name; an lval and lval-expression for the two variables is
+        created (as described below under Variables)
+
+    - mk_var_call: creates a call instruction with a variable name as lhs argument
+    - mk_tgt_call: creates a call instruction with a function name as tgt expression
+
+    - mk_default_call: creates a call instruction with only a function name and
+         arguments, and optionally a type for the function name; this method tries
+         to determine if the function has a return value (i.e., does not return
+         void). If so it will create a tmp variable with a description that
+         indicates this variable holds a return value from the named function,
+         if the function has void return type, the lval is set to None.
+
+    Note: if function prototypes are available before creating call instructions
+      it is preferable that they be entered in the symbol table up front.
+    """
 
     def mk_assign(
             self,
             lval: AST.ASTLval,
-            rhs: AST.ASTExpr,
-            annotations: List[str] = []) -> AST.ASTAssign:
+            rhs: AST.ASTExpr) -> AST.ASTAssign:
         instrid = self.new_id()
-        return AST.ASTAssign(instrid, lval, rhs, annotations=annotations)
+        return AST.ASTAssign(instrid, lval, rhs)
+
+    def mk_var_assign(
+            self,
+            vname: str,
+            rhs: AST.ASTExpr) -> AST.ASTAssign:
+        lval = self.mk_named_lval(vname)
+        return self.mk_assign(lval, rhs)
+
+    def mk_var_var_assign(
+            self,
+            vname: str,
+            rhsname: str) -> AST.ASTAssign:
+        rhs = self.mk_named_lval_expression(vname)
+        return self.mk_var_assign(vname, rhs)
 
     def mk_call(
             self,
-            lval: AST.ASTLval,
+            lval: Optional[AST.ASTLval],
             tgt: AST.ASTExpr,
             args: List[AST.ASTExpr]) -> AST.ASTCall:
         instrid = self.new_id()
-        return AST.ASTCall(instrid, lval, tgt, args)    
+        return AST.ASTCall(instrid, lval, tgt, args)
 
-    # ----------------------------------------------------- make lvals/exprs ---
-
-    def mk_vinfo_variable(self, varinfo: ASTVarInfo) -> AST.ASTVariable:
-        return AST.ASTVariable(varinfo)
-
-    def mk_variable(self, name: str) -> AST.ASTVariable:
-        if self.has_symbol(name):
-            varinfo = self.get_symbol(name)
-        else:
-            varinfo = self.add_symbol(name)
-        return self.mk_vinfo_variable(varinfo)
-
-    def mk_lval(
+    def mk_var_call(
             self,
-            lhost: AST.ASTLHost,
-            offset: AST.ASTOffset) -> AST.ASTLval:
-        return AST.ASTLval(lhost, offset)
+            vname: str,
+            tgt: AST.ASTExpr,
+            args: List[AST.ASTExpr]) -> AST.ASTCall:
+        lval = self.mk_named_lval(vname)
+        return self.mk_call(lval, tgt, args)
 
-    def mk_lval_expr(self, lval: AST.ASTLval) -> AST.ASTExpr:
-        return AST.ASTLvalExpr(lval)
-
-    def mk_vinfo_variable_lval(self, varinfo: ASTVarInfo) -> AST.ASTLval:
-        var = self.mk_vinfo_variable(varinfo)
-        return AST.ASTLval(var, nooffset)
-
-    def mk_variable_lval(self, name: str) -> AST.ASTLval:
-        var = self.mk_variable(name)
-        return AST.ASTLval(var, nooffset)    
-
-    def mk_named_lval(self, name: str) -> AST.ASTLval:
-        var = self.mk_variable(name)
-        return AST.ASTLval(var, nooffset)
-
-    def mk_ignored_lval(self) -> AST.ASTLval:
-        return self.mk_named_lval("ignored_xxx")
-
-    def mk_global_variable(
+    def mk_tgt_call(
             self,
-            name: str,
-            vtype: Optional["BCTyp"] = None,
-            globaladdress: Optional[int] = None) -> AST.ASTVariable:
-        varinfo = self.add_symbol(name, vtype=vtype, globaladdress=globaladdress)
-        return AST.ASTVariable(varinfo)
+            lval: Optional[AST.ASTLval],
+            tgtname: str,
+            args: List[AST.ASTExpr]) -> AST.ASTCall:
+        tgtexpr = self.mk_named_lval_expression(tgtname)
+        return self.mk_call(lval, tgtexpr, args)
 
-    def mk_global_variable_lval(
+    def mk_default_call(
             self,
-            name: str,
-            vtype: Optional["BCTyp"] = None,
-            globaladdress: Optional[int] = None) -> AST.ASTLval:
-        var = self.mk_global_variable(
-            name, vtype=vtype, globaladdress=globaladdress)
-        return AST.ASTLval(var, nooffset)
-
-    def mk_global_variable_expr(
-            self,
-            name: str,
-            vtype: Optional["BCTyp"] = None,
-            globaladdress: Optional[int] = None) -> AST.ASTExpr:
-        lval = self.mk_global_variable_lval(
-            name, vtype=vtype, globaladdress=globaladdress)
-        return AST.ASTLvalExpr(lval)
-
-    def mk_returnval_variable(
-            self,
-            iaddr: str,
-            vtype: Optional["BCTyp"]) -> AST.ASTVariable:
-        name = "rtn_" + iaddr
-        varinfo = self.add_symbol(name, vtype=vtype, size=4)
-        return AST.ASTVariable(varinfo)
-
-    def mk_returnval_variable_lval(
-            self,
-            iaddr: str,
-            vtype: Optional["BCTyp"]) -> AST.ASTLval:
-        var = self.mk_returnval_variable(iaddr, vtype)
-        return AST.ASTLval(var, nooffset)    
-
-    def mk_register_variable(
-            self,
-            name: str,
-            vtype: Optional["BCTyp"] = None,
-            parameter: Optional[int] = None) -> AST.ASTVariable:
-        varinfo = self.add_symbol(name, vtype=vtype, parameter=parameter)
-        return AST.ASTVariable(varinfo)
-
-    def mk_register_variable_lval(
-            self,
-            name: str,
-            vtype: Optional["BCTyp"] = None,
-            parameter: Optional[int] = None) -> AST.ASTLval:
-        var = self.mk_register_variable(name, vtype, parameter)
-        return AST.ASTLval(var, nooffset)
-
-    def mk_register_variable_expr(
-            self, name: str,
-            vtype: Optional["BCTyp"] = None,
-            parameter: Optional[int] = None) -> AST.ASTExpr:
-        lval = self.mk_register_variable_lval(name, vtype, parameter)
-        return AST.ASTLvalExpr(lval)    
-
-    def mk_stack_variable(
-            self,
-            offset: int,
-            name: Optional[str] = None,
-            vtype: Optional["BCTyp"] = None,
-            parameter: Optional[int] = None) -> AST.ASTVariable:
-        if name is None:
-            if offset < 0:
-                name = "localvar_" + str(-offset)
-            elif offset == 0:
-                name = "localvar_0"
+            tgtvname: str,
+            args: List[AST.ASTExpr],
+            tgtvtype: Optional[AST.ASTTyp] = None) -> AST.ASTCall:
+        tgtvinfo = self.mk_vinfo(tgtvname, vtype=tgtvtype)
+        lval: Optional[AST.ASTLval] = None
+        if (
+                tgtvinfo.vtype is not None
+                and tgtvinfo.vtype.is_function):
+            tgttyp = cast(AST.ASTTypFun, tgtvinfo.vtype)
+            if tgttyp.is_void:
+                lval = None
             else:
-                name = "argvar_" + str(offset)
-        varinfo = self.add_symbol(name, vtype=vtype, parameter=parameter)
-        return AST.ASTVariable(varinfo)
+                lval = self.mk_tmp_lval(vdescr="return value from " + tgtvname)
+        tgtexpr = self.mk_vinfo_lval_expression(tgtvinfo)
+        return self.mk_call(lval, tgtexpr, args)
 
-    def mk_stack_variable_lval(
+    """Variables
+
+    Variables have a name. For named variables it is the user's responsibility
+    to ensure that distinct variables (i.e. distinct storage locations) have
+    distinct names (within a function) and that distinct global variables have
+    distinct names (across all functions). Local variables in different\
+    functions may have the same name (functions have different name spaces).
+
+    The basic data structure for a variable is the ASTVarInfo, which holds the
+    name, type (optional), the parameter index (zero-based) if the variable is
+    a formal parameter to a function, the global address (optional) if the
+    address is known, and an optional description of what the variable holds.
+    The varinfo is stored in the local or global symbol table on first creation.
+
+    The first creation of the varinfo determines the associate data. Once a
+    variable exists (either in the global symbol or local symbol table)
+    subsequent calls to create a variable with the same name (in the same name
+    space result in retrieval of the existing varinfo rather than creating a
+    new one, thereby ignoring the associate data provided.
+
+    Only one instance exists of the ASTVarInfo data structure, held in the
+    symboltable for each name. Multiple instances of related ASTVariable,
+    ASTLval, and ASTLvalExpr may exist within the abstract syntax tree structure
+    (these will all be collapsed into one by the serializer).
+
+    Temporary variables are automatically given unique names.
+
+    Construction methods provided:
+    ------------------------------
+    - mk_vinfo : creates/returns a varinfo data structure from the symboltable
+    - mk_vinfo_variable: creates/returns a variable from a vinfo
+    - mk_vinfo_lval: creates/return an lval (lhs) (with optional offset) from
+         a vinfo
+    - mk_vinfo_lval_expression: creates/returns an lval-expression (rhs) (with
+         optional offset) from a vinfo
+
+    - mk_named_variable: creates a variable with the given a name (and will
+         implicitly create a varinfo, if necessary)
+    - mk_named_lval: creates an lval (lhs) (with optional offset) with the given
+         name
+    - mk_named_lval_expression: creates an lval expression (rhs) (with optional
+         offset) with the given name
+
+    - mk_tmp_variable: creates a new varinfo/variable with a unique name
+    - mk_tmp_lval: creates a new varinfo/lval (lhs) with a unique name
+    - mk_tmp_lval_expression: creates new varinfo/lval-expression (rhs) with a
+         unique name
+    """
+
+    def mk_vinfo(
             self,
-            offset: int,
-            name: Optional[str] = None,
-            vtype: Optional["BCTyp"] = None,
-            parameter: Optional[int] = None) -> AST.ASTLval:
-        var = self.mk_stack_variable(offset, name, vtype, parameter)
-        return AST.ASTLval(var, nooffset)    
+            vname: str,
+            vtype: Optional[AST.ASTTyp] = None,
+            parameter: Optional[int] = None,
+            globaladdress: Optional[int] = None,
+            vdescr: Optional[str] = None) -> AST.ASTVarInfo:
+        if globaladdress is not None:
+            vinfo = self.symboltable.add_global_symbol(
+                vname,
+                vtype=vtype,
+                globaladdress=globaladdress,
+                vdescr=vdescr)
+        else:
+            vinfo = self.symboltable.add_symbol(
+                vname,
+                vtype=vtype,
+                parameter=parameter,
+                vdescr=vdescr)
+        return vinfo
 
-    def mk_temp_lval(self) -> AST.ASTLval:
-        tmpname = "temp" + str(self.new_tmp_id())
-        return self.mk_named_lval(tmpname)
+    def mk_vinfo_variable(self, vinfo: AST.ASTVarInfo) -> AST.ASTVariable:
+        return AST.ASTVariable(vinfo)
 
-    def mk_formal_lval(self, formal: ASTFormalVarInfo) -> AST.ASTLval:
-        var = AST.ASTVariable(formal)
-        return AST.ASTLval(var, nooffset)
-
-    def mk_memref(self, memexp: AST.ASTExpr) -> AST.ASTMemRef:
-        return AST.ASTMemRef(memexp)
-
-    def mk_memref_lval(
+    def mk_vinfo_lval(
             self,
-            memexp: AST.ASTExpr,
+            vinfo: AST.ASTVarInfo,
             offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
-        memref = self.mk_memref(memexp)
-        return AST.ASTLval(memref, offset)
+        var = self.mk_vinfo_variable(vinfo)
+        return AST.ASTLval(var, offset)
 
-    def mk_memref_expr(
+    def mk_vinfo_lval_expression(
             self,
-            memexp: AST.ASTExpr,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTExpr:
-        memreflval = self.mk_memref_lval(memexp, offset)
-        return AST.ASTLvalExpr(memreflval)
+            vinfo: AST.ASTVarInfo,
+            offset: AST.ASTOffset = nooffset) -> AST.ASTLvalExpr:
+        lval = self.mk_vinfo_lval(vinfo, offset)
+        return AST.ASTLvalExpr(lval)
+
+    def mk_named_variable(
+            self,
+            vname: str,
+            vtype: Optional[AST.ASTTyp] = None,
+            parameter: Optional[int] = None,
+            globaladdress: Optional[int] = None,
+            vdescr: Optional[str] = None) -> AST.ASTVariable:
+        vinfo = self.mk_vinfo(
+            vname,
+            vtype=vtype,
+            parameter=parameter,
+            globaladdress=globaladdress,
+            vdescr=vdescr)
+        return self.mk_vinfo_variable(vinfo)
+
+    def mk_named_lval(
+            self,
+            vname: str,
+            vtype: Optional[AST.ASTTyp] = None,
+            parameter: Optional[int] = None,
+            globaladdress: Optional[int] = None,
+            vdescr: Optional[str] = None,
+            offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
+        var = self.mk_named_variable(
+            vname,
+            vtype=vtype,
+            parameter=parameter,
+            globaladdress=globaladdress,
+            vdescr=vdescr)
+        return AST.ASTLval(var, offset)
+
+    def mk_named_lval_expression(
+            self,
+            vname: str,
+            vtype: Optional[AST.ASTTyp] = None,
+            parameter: Optional[int] = None,
+            globaladdress: Optional[int] = None,
+            vdescr: Optional[str] = None,
+            offset: AST.ASTOffset = nooffset) -> AST.ASTLvalExpr:
+        lval = self.mk_named_lval(
+            vname,
+            vtype=vtype,
+            parameter=parameter,
+            globaladdress=globaladdress,
+            vdescr=vdescr,
+            offset=offset)
+        return AST.ASTLvalExpr(lval)
+
+    def new_tmp_name(self) -> str:
+        tmpid = self._tmpcounter
+        self._tmpcounter += 1
+        return "__asttmp_" + str(tmpid) + "__"
+
+    def mk_tmp_variable(
+            self,
+            vtype: Optional[AST.ASTTyp] = None,
+            vdescr: Optional[str] = None) -> AST.ASTVariable:
+        vname = self.new_tmp_name()
+        return self.mk_named_variable(vname, vtype=vtype, vdescr=vdescr)
+
+    def mk_tmp_lval(
+            self,
+            vtype: Optional[AST.ASTTyp] = None,
+            vdescr: Optional[str] = None) -> AST.ASTLval:
+        vname = self.new_tmp_name()
+        return self.mk_named_lval(vname, vtype=vtype, vdescr=vdescr)
+
+    def mk_tmp_lval_expression(
+            self,
+            vtype: Optional[AST.ASTTyp] = None,
+            vdescr: Optional[str] = None) -> AST.ASTLvalExpr:
+        vname = self.new_tmp_name()
+        return self.mk_named_lval_expression(
+            vname, vtype=vtype, vdescr=vdescr)
+
+    """Offsets
+
+    The default offset in lval creation is NoOffset, provided as constant
+    value nooffset.
+
+    The other two options are a field offset (to access struct fields) and
+    an index offset (to access array elements).
+
+    To create a field offset, create a the compinfo data structure first to
+    obtain the compkey value of the struct. The type of the field can then
+    be obtained from the compinfo data structure.
+
+    An index offset can be created either with an integer or with an expression;
+    note that by C semantics the index offset must be scaled by the size of
+    the array element.
+
+    The field offset and index offset can have sub-offsets. Default for these
+    sub-offsets is nooffset.
+
+    Construction methods provided:
+    - mk_field_offset: create a field offset from the name of the field and
+         the key of corresponding struct (compinfo)
+
+    - mk_scalar_index_offset: create an index offset from an integer value
+    - mk_expr_index_offset: create an index offset from an expression
+    """
+
+    def mk_field_offset(
+            self,
+            fieldname: str,
+            compkey: int,
+            offset: AST.ASTOffset = nooffset) -> AST.ASTFieldOffset:
+        return AST.ASTFieldOffset(fieldname, compkey, offset)
 
     def mk_scalar_index_offset(
             self,
@@ -491,471 +488,235 @@ class AbstractSyntaxTree:
             offset: AST.ASTOffset = nooffset) -> AST.ASTIndexOffset:
         return AST.ASTIndexOffset(indexexpr, offset)
 
-    def mk_field_offset(
+    """Other lvals and expressions
+
+    Lvals (lhs) can also be made from dereferenced pointer expressions
+    (memory reference, or memref expressions).
+
+    Several kinds of other expressions can be created.
+
+    Construction methods provided:
+    - mk_lval: create an lval from a generic lhost and offset
+    - mk_lval_expression: create an lval expression for a generic lhost and offset
+
+    - mk_memref: create an lhs base value (lhost) from an expression
+    - mk_memref_lval: create an lval (lhs) from a memref and an offset
+    - mk_memref_expression: create an val expression (rhs) from a a memref
+        and an offset
+
+    - mk_integer_constant: create an integer constant from an integer
+    - mk_string_constant: create a string constant from a string and the
+        expression that produced the string address, and the string address
+        itself (in hex) (to ensure proper identification)
+
+    - mk_unary_expression: create an expression that applies a unary operator
+        to an expression
+    - mk_binary_expression: create an expression that applies a binary operator
+        to two expressions
+    - mk_question_expression: create an expression that applies the question
+        operator to three expressions
+    - mk_address_of_expression: create an expression that applies the address-of
+        operator an lval
+    - mk_cast_expression: create an expression that casts another expression to
+        a given type
+
+    Some special-purpose expression
+    - mk_plus_expression: create a sum binary expression
+    - mk_minus_expression: create a difference binary expression
+    - mk_multiplication_expression: create a product binary expression
+
+    - mk_negation_expression: create a negation unary expression
+    - mk_bitwise_not_expression: create a bitwise not unary expression
+    - mk_logical_not_expression: create a logical not unary expression
+
+    """
+
+    def mk_lval(self, lhost: AST.ASTLHost, offset: AST.ASTOffset) -> AST.ASTLval:
+        return AST.ASTLval(lhost, offset)
+
+    def mk_lval_expression(self, lval: AST.ASTLval) -> AST.ASTLvalExpr:
+        return AST.ASTLvalExpr(lval)
+
+    def mk_memref(self, memexp: AST.ASTExpr) -> AST.ASTMemRef:
+        return AST.ASTMemRef(memexp)
+
+    def mk_memref_lval(
             self,
-            fieldname: str,
-            fieldtype: "BCTyp",
-            offset: AST.ASTOffset = nooffset) -> AST.ASTFieldOffset:
-        return AST.ASTFieldOffset(fieldname, fieldtype, offset)
+            memexp: AST.ASTExpr,
+            offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
+        memref = self.mk_memref(memexp)
+        return AST.ASTLval(memref, offset)
+
+    def mk_memref_expression(
+            self,
+            memexp: AST.ASTExpr,
+            offset: AST.ASTOffset = nooffset) -> AST.ASTExpr:
+        memreflval = self.mk_memref_lval(memexp, offset)
+        return AST.ASTLvalExpr(memreflval)
 
     def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
-        gvinfo = AU.has_global_denotation(self.global_symbols(), hex(cvalue))
         return AST.ASTIntegerConstant(cvalue)
 
     def mk_string_constant(
-            self, expr: AST.ASTExpr, cstr: str, saddr: str) -> AST.ASTStringConstant:
-        return AST.ASTStringConstant(expr, cstr, saddr)
+            self,
+            expr: AST.ASTExpr,
+            cstr: str,
+            string_address: str) -> AST.ASTStringConstant:
+        return AST.ASTStringConstant(expr, cstr, string_address)
 
-    def mk_address_of(self, lval: AST.ASTLval) -> AST.ASTAddressOf:
+    def mk_address_of_expression(self, lval: AST.ASTLval) -> AST.ASTAddressOf:
         return AST.ASTAddressOf(lval)
 
-    def mk_byte_expr(self, index: int, x: AST.ASTExpr) -> AST.ASTExpr:
-        if index == 0:
-            mask = self.mk_integer_constant(255)
-            return self.mk_binary_op("band", x, mask)
-        elif index == 1:
-            mask = self.mk_integer_constant(255)
-            shift = self.mk_integer_constant(8)
-            shiftop = self.mk_binary_op("lsr", x, shift)
-            return self.mk_binary_op("band", x, mask)
-        elif index == 2:
-            mask = self.mk_integer_constant(255)
-            shift = self.mk_integer_constant(16)
-            shiftop = self.mk_binary_op("lsr", x, shift)
-            return self.mk_binary_op("band", x, mask)
-        elif index == 3:
-            shift = self.mk_integer_constant(24)
-            return self.mk_binary_op("lsr", x, shift)
-        else:
-            raise Exception("Byte extraction limited to 32 bit operands")
-
-    def mk_byte_sum(self, bytes: List[AST.ASTExpr]) -> AST.ASTExpr:
-        """Return expression for the sum of the bytes, least significant first."""
-
-        result: AST.ASTExpr = self.mk_integer_constant(0)
-        shift = 0
-        for b in bytes:
-            addend = self.mk_binary_op(
-                "shiftlt", b, self.mk_integer_constant(shift))
-            result = self.mk_binary_op("plus", result, addend)
-            shift += 8
-        return result
-
-    def mk_binary_op(
-            self, op: str,
+    def mk_binary_expression(
+            self,
+            op: str,
             exp1: AST.ASTExpr,
             exp2: AST.ASTExpr) -> AST.ASTExpr:
-        if exp2.is_integer_constant and op in ["lsl", "shiftlt"]:
-            expvalue = cast(AST.ASTIntegerConstant, exp2).cvalue
-            if expvalue == 0:
-                return exp1
-
-        if exp1.is_integer_constant and op in ["plus"]:
-            expvalue = cast(AST.ASTIntegerConstant, exp1).cvalue
-            if expvalue == 0:
-                return exp2
-
-        if exp1.is_integer_constant and exp2.is_integer_constant and op == "band":
-            exp1value = cast(AST.ASTIntegerConstant, exp1).cvalue
-            exp2value = cast(AST.ASTIntegerConstant, exp2).cvalue
-
-            # 0 & x = x & 0 = 0
-            if exp1value == 0:
-                return exp1
-            elif exp2value == 0:
-                return exp2
-
-            # x & 255 = x  if x <= 255
-            if exp1value <= 255 and exp2value == 255:
-                return exp1
-
-        if exp1.is_ast_lval_expr and exp2.is_integer_constant and op == "band":
-            exp1lval = cast(AST.ASTLvalExpr, exp1).lval
-            if exp1lval.ctype:
-                exp2value = cast(AST.ASTIntegerConstant, exp2).cvalue
-                typesize = exp1lval.ctype.byte_size()
-
-                # if the type is smaller than the mask, ignore the mask
-                if exp2value in [255, (256 * 256) - 1] and typesize == 1:
-                    return exp1
-
-        if exp1.is_ast_binary_op and exp2.is_integer_constant and op == "band":
-            exp1 = cast(AST.ASTBinaryOp, exp1)
-            exp2value = cast(AST.ASTIntegerConstant, exp2).cvalue
-
-            # (x & y) & z = x & y  if y <= z
-            if exp1.exp2.is_integer_constant and exp1.op == "band":
-                exp12value = cast(AST.ASTIntegerConstant, exp1.exp2).cvalue
-                if exp12value <= exp2value:
-                    return exp1
-
-        if (
-                exp1.is_ast_binary_op
-                and exp2.is_integer_constant
-                and op == "eq"):
-            exp1 = cast(AST.ASTBinaryOp, exp1)
-            exp2value = cast(AST.ASTIntegerConstant, exp2).cvalue
-
-            # (x != y) == 0  ==> x == y
-            if exp2value == 0 and exp1.op in ["ne", "neq"]:
-                return self.mk_binary_op("eq", exp1.exp1, exp1.exp2)
-
         return AST.ASTBinaryOp(op, exp1, exp2)
 
-    def mk_question(
+    def mk_plus_expression(
+            self, exp1: AST.ASTExpr, exp2: AST.ASTExpr) -> AST.ASTExpr:
+        return self.mk_binary_expression("plus", exp1, exp2)
+
+    def mk_minus_expression(
+            self, exp1: AST.ASTExpr, exp2: AST.ASTExpr) -> AST.ASTExpr:
+        return self.mk_binary_expression("minus", exp1, exp2)
+
+    def mk_multiplication_expression(
+            self, exp1: AST.ASTExpr, exp2: AST.ASTExpr) -> AST.ASTExpr:
+        return self.mk_binary_expression("mult", exp1, exp2)
+
+    def mk_question_expression(
             self,
             exp1: AST.ASTExpr,
             exp2: AST.ASTExpr,
             exp3: AST.ASTExpr) -> AST.ASTExpr:
         return AST.ASTQuestion(exp1, exp2, exp3)
 
-    def mk_unary_op(self, op: str, exp: AST.ASTExpr) -> AST.ASTExpr:
-        if exp.is_ast_binary_op and op == "lnot":
-            exp = cast(AST.ASTBinaryOp, exp)
-            reversals: Dict[str, str] = {
-                "ne": "eq",
-                "eq": "ne",
-                "gt": "le",
-                "ge": "lt",
-                "lt": "ge",
-                "le": "gt"}
-            if exp.op in reversals:
-                newop = reversals[exp.op]
-                return self.mk_binary_op(newop, exp.exp1, exp.exp2)
-            if (
-                    exp.op == "lor"
-                    and exp.exp1.is_ast_binary_op
-                    and exp.exp2.is_ast_binary_op):
-                exp1 = cast(AST.ASTBinaryOp, exp.exp1)
-                exp2 = cast(AST.ASTBinaryOp, exp.exp2)
-                if exp1.op in reversals and exp2.op in reversals:
-                    newop1 = reversals[exp1.op]
-                    newop2 = reversals[exp2.op]
-                    newexp1 = self.mk_binary_op(newop1, exp1.exp1, exp1.exp2)
-                    newexp2 = self.mk_binary_op(newop2, exp2.exp1, exp2.exp2)
-                    return self.mk_binary_op("land", newexp1, newexp2)
-
+    def mk_unary_expression(self, op: str, exp: AST.ASTExpr) -> AST.ASTExpr:
         return AST.ASTUnaryOp(op, exp)
 
-    def mk_cast_expr(self, tgttyp: str, exp: AST.ASTExpr) -> AST.ASTExpr:
-        return AST.ASTCastE(tgttyp, exp)
+    def mk_negation_expression(self, exp: AST.ASTExpr) -> AST.ASTExpr:
+        return self.mk_unary_expression("neg", exp)
 
-    # ---------------------------------------------------- AST rewriting ---
+    def mk_bitwise_not_expression(self, exp: AST.ASTExpr) -> AST.ASTExpr:
+        return self.mk_unary_expression("bnot", exp)
 
-    def rewrite(self, node: AST.ASTNode) -> AST.ASTNode:
-        if node.is_ast_stmt:
-            return self.rewrite_stmt(cast(AST.ASTStmt, node))
+    def mk_logical_not_expression(self, exp: AST.ASTExpr) -> AST.ASTExpr:
+        return self.mk_unary_expression("lnot", exp)
 
-        return node
-
-    def rewrite_stmt(self, stmt: AST.ASTStmt) -> AST.ASTStmt:
-        if stmt.is_ast_return:
-            return self.rewrite_return(cast(AST.ASTReturn, stmt))
-        if stmt.is_ast_block:
-            return self.rewrite_block(cast(AST.ASTBlock, stmt))
-        if stmt.is_ast_branch:
-            return self.rewrite_branch(cast(AST.ASTBranch, stmt))
-        if stmt.is_ast_instruction_sequence:
-            return self.rewrite_instruction_sequence(
-                cast(AST.ASTInstrSequence, stmt))
-
-        return stmt
-
-    def rewrite_return(self, retstmt: AST.ASTReturn) -> AST.ASTStmt:
-        return retstmt
-
-    def rewrite_block(self, block: AST.ASTBlock) -> AST.ASTStmt:
-        return AST.ASTBlock(
-            block.stmtid, [self.rewrite_stmt(s) for s in block.stmts])
-
-    def rewrite_branch(self, branch: AST.ASTBranch) -> AST.ASTStmt:
-        return AST.ASTBranch(
-            branch.stmtid,
-            self.rewrite_expr(branch.condition),
-            self.rewrite_stmt(branch.ifstmt),
-            self.rewrite_stmt(branch.elsestmt),
-            branch.relative_offset)
-
-    def rewrite_instruction_sequence(
-            self, instrseq: AST.ASTInstrSequence) -> AST.ASTStmt:
-        return AST.ASTInstrSequence(
-            instrseq.stmtid,
-            [self.rewrite_instruction(i) for i in instrseq.instructions])
-
-    def rewrite_instruction(self, instr: AST.ASTInstruction) -> AST.ASTInstruction:
-        if instr.is_ast_assign:
-            return self.rewrite_assign(cast(AST.ASTAssign, instr))
-        if instr.is_ast_call:
-            return self.rewrite_call(cast(AST.ASTCall, instr))
-
-        return instr
-
-    def rewrite_assign(self, assign: AST.ASTAssign) -> AST.ASTInstruction:
-        return AST.ASTAssign(
-            assign.instrid,
-            self.rewrite_lval(assign.lhs),
-            self.rewrite_expr(assign.rhs),
-            annotations=assign.annotations)
-
-    def rewrite_call(self, call: AST.ASTCall) -> AST.ASTInstruction:
-        return call
-
-    '''
-    def rewrite_array_lval_to_indexed_array_lval(
-            self,
-            memexp: AST.ASTBinaryOp,
-            default: Callable[[], AST.ASTLval]) -> AST.ASTLval:
-        base = cast(AST.ASTLvalExpr, memexp.exp1)
-        if base.is_ast_substituted_expr:
-            base = cast(AST.ASTSubstitutedExpr, base)
-            basexpr = base.substituted_expr
-            if basexpr.is_ast_lval_expr:
-                base = cast(AST.ASTLvalExpr, basexpr)
-        basetype = base.ctype
-        if basetype and basetype.is_array:
-            basetype = cast("BCTypArray", basetype)
-            elsize = basetype.tgttyp.byte_size()
-            if elsize == 1:
-                indexexp = memexp.exp2
-                indexoffset = self.mk_expr_index_offset(indexexp)
-                return AST.ASTLval(base.lval.lhost, indexoffset)
-            else:
-                self.add_note("rewrite-array-to-array: 1")
-                return default()
-        else:
-            self.add_note(
-                "rewrite-array-to-array: 2"
-                + "; base: "
-                + str(base)
-                + ": "
-                + str(basetype))
-            return default()
-
-    def rewrite_base_lval_to_indexed_array_lval(
-            self,
-            memexp: AST.ASTBinaryOp,
-            default: Callable[[], AST.ASTLval]) -> AST.ASTLval:
-        base = cast(AST.ASTIntegerConstant, memexp.exp1)
-        if base.macroname and (base.macroname, "__none__") in self.symboltable:
-            basevar = self.symboltable[(base.macroname, "__none__")]
-            basetype = basevar.vtype
-            if basetype and basetype.is_array:
-                basetype = cast("BCTypArray", basetype)
-                elsize = basetype.tgttyp.byte_size()
-                if memexp.exp2.is_ast_binary_op:
-                    indexexp = cast(AST.ASTBinaryOp, memexp.exp2)
-                    if indexexp.op in ["lsl", "shiftlt"]:
-                        if indexexp.exp2.is_integer_constant:
-                            shiftamount = cast(
-                                AST.ASTIntegerConstant, indexexp.exp2)
-                            if elsize == 4 and shiftamount.cvalue == 2:
-                                newindexexp = self.mk_expr_index_offset(
-                                    indexexp.exp1)
-                                bvar = self.mk_variable(base.macroname)
-                                lvalnewid = self.new_id()
-                                return AST.ASTLval(lvalnewid, bvar, newindexexp)
-                            else:
-                                self.add_note("rewrite-to-array: 1")
-                                return default()
-                        else:
-                            self.add_note("rewrite-to-array: 2")
-                            return default()
-                    else:
-                        self.add_note("rewrite-to-array: 3")
-                        return default()
-                else:
-                    self.add_note("rewrite-to-array: 4")
-                    return default()
-            else:
-                self.add_note("rewrite-to-array: 5")
-                return default()
-        else:
-            self.add_note("rewrite-to_array: 6")
-            return default()
-
-
-    def rewrite_lval_to_fieldoffset_lval(
-            self,
-            lvalid: int,
-            memexp: AST.ASTBinaryOp,
-            default: Callable[[], AST.ASTLval]) -> AST.ASTLval:
-        intoffset = cast(AST.ASTIntegerConstant, memexp.exp2)
-        base = cast(AST.ASTLvalExpr, memexp.exp1)
-        if base.is_ast_substituted_expr:
-            base = cast(AST.ASTSubstitutedExpr, base)
-            basexpr = base.substituted_expr
-            if basexpr.is_ast_lval_expr:
-                base = cast(AST.ASTLvalExpr, basexpr)
-        if base.lval.offset.is_index_offset:
-            if base.lval.lhost.ctype and base.lval.lhost.ctype.is_array:
-                basetype = cast("BCTypArray", base.lval.lhost.ctype)
-                if basetype.tgttyp.is_pointer:
-                    basetgttype = cast("BCTypPtr", basetype.tgttyp)
-                    if basetgttype.tgttyp.is_struct:
-                        structtyp = cast("BCTypComp", basetgttype.tgttyp)
-                        compinfo = structtyp.compinfo
-                        finfo = compinfo.field_at_offset(intoffset.cvalue)[0]
-                        fieldoffset = self.mk_field_offset(
-                            finfo.fieldname, finfo.fieldtype, AST.ASTNoOffset(-1))
-                        newhostid = self.new_id()
-                        newmemref = AST.ASTMemRef(newhostid, memexp.exp1)
-                        newlvalid = self.new_id()
-                        newlval = AST.ASTLval(
-                            newlvalid, newmemref, fieldoffset)
-                        return newlval
-                    else:
-                        self.add_note("rewrite-to-fieldoffset-1")
-                        return default()
-                else:
-                    self.add_note("rewrite-to-fieldoffset-2")
-                    return default()
-            else:
-                self.add_note("rewrite-to-fieldoffset-3")
-                return default()
-        else:
-            self.add_note("rewrite-to_fieldoffset-4")
-            return default()
-    '''
-
-    def rewrite_lval(self, lval: AST.ASTLval) -> AST.ASTLval:
-
-        def default() -> AST.ASTLval:
-            return AST.ASTLval(
-                self.rewrite_lhost(lval.lhost),
-                self.rewrite_offset(lval.offset))
-
-        lhost = self.rewrite_lhost(lval.lhost)
-        offset = self.rewrite_offset(lval.offset)
-        if lhost.is_memref and offset.is_no_offset:
-            lhost = cast(AST.ASTMemRef, lhost)
-            if lhost.memexp.is_ast_binary_op:
-                memexp = cast(AST.ASTBinaryOp, lhost.memexp)
-                if memexp.op == "plus" and memexp.exp1.is_integer_constant:
-                    # return self.rewrite_base_lval_to_indexed_array_lval(
-                    #    lval.id, memexp, default)
-                    self.add_note("rewrite_base_lval_to_indexed_array_lval")
-                    return default()
-
-                elif (
-                        memexp.op == "plus"
-                        and memexp.exp1.is_ast_lval_expr
-                        and memexp.exp2.is_integer_constant):
-                    # return self.rewrite_lval_to_fieldoffset_lval(
-                    #    lval.id, memexp, default)
-                    self.add_note("rewrite_lval_to_fieldoffset_lval")
-                    return default()
-
-                elif (
-                        memexp.op == "plus"
-                        and memexp.exp1.is_ast_lval_expr
-                        and memexp.exp1.is_ast_substituted_expr):
-                    # return self.rewrite_array_lval_to_indexed_array_lval(
-                    #    lval.id, memexp, default)
-                    self.add_note("rewrite_array_lval_to_indexed_array_lval")
-                    return default()
-
-                else:
-                    self.add_note(
-                        "rewrite-lval-1 memxp: "
-                        + str(memexp.exp1)
-                        + " "
-                        + str(memexp.op)
-                        + " "
-                        + str(memexp.exp2)
-                        + ": "
-                        + str(memexp.exp1.ctype)
-                        + "  "
-                        + str(offset))
-                    return default()
-            else:
-                self.add_note("rewrite-lval-2 lhost: " + str(lhost)) 
-                return default()
-        else:
-            if offset.is_no_offset and (not lhost.ctype):
-                return default()
-            elif lval.ctype and lval.ctype.is_integer:
-                return default()
-            else:
-                self.add_note(
-                    "rewrite-lval-3: lhost: "
-                    + str(lval)
-                    + ": "
-                    + str(lval.ctype))
-                return default()
-
-        return AST.ASTLval(
-            lval.id,
-            self.rewrite_lhost(lval.lhost),
-            self.rewrite_offset(lval.offset))
-
-    def rewrite_lhost(self, lhost: AST.ASTLHost) -> AST.ASTLHost:
-        if lhost.is_variable:
-            return lhost
-        if lhost.is_memref:
-            return self.rewrite_memref(cast(AST.ASTMemRef, lhost))
-
-        return lhost
-
-    def rewrite_memref(self, memref: AST.ASTMemRef) -> AST.ASTLHost:
-        return AST.ASTMemRef(self.rewrite_expr(memref.memexp))
-
-    def rewrite_offset(self, offset: AST.ASTOffset) -> AST.ASTOffset:
-        if offset.is_no_offset:
-            return offset
-        if offset.is_field_offset:
-            return offset
-        if offset.is_index_offset:
-            return offset
-
-        return offset
-
-    def rewrite_expr(self, expr: AST.ASTExpr) -> AST.ASTExpr:
-        if expr.is_ast_constant:
-            return self.rewrite_constant(cast(AST.ASTConstant, expr))
-        if expr.is_ast_substituted_expr:
-            return self.rewrite_substituted_expr(cast(AST.ASTSubstitutedExpr, expr))
-        if expr.is_ast_lval_expr:
-            return self.rewrite_lval_expr(cast(AST.ASTLvalExpr, expr))
-        if expr.is_ast_cast_expr:
-            return self.rewrite_cast_expr(cast(AST.ASTCastE, expr))
-        if expr.is_ast_unary_op:
-            return self.rewrite_unary_op(cast(AST.ASTUnaryOp, expr))
-        if expr.is_ast_binary_op:
-            return self.rewrite_binary_op(cast(AST.ASTBinaryOp, expr))
-        if expr.is_ast_question:
-            return self.rewrite_question(cast(AST.ASTQuestion, expr))
-
-        return expr
-
-    def rewrite_constant(self, expr: AST.ASTConstant) -> AST.ASTExpr:
-        return expr
-
-    def rewrite_substituted_expr(self, expr: AST.ASTSubstitutedExpr) -> AST.ASTExpr:
-        return AST.ASTSubstitutedExpr(
-            self.rewrite_lval(expr.lval),
-            expr.assign_id,
-            self.rewrite_expr(expr.substituted_expr))
-
-    def rewrite_lval_expr(self, expr: AST.ASTLvalExpr) -> AST.ASTExpr:
-        return AST.ASTLvalExpr(self.rewrite_lval(expr.lval))
-
-    def rewrite_cast_expr(self, expr: AST.ASTCastE) -> AST.ASTExpr:
-        return expr
-
-    def rewrite_unary_op(self, expr: AST.ASTUnaryOp) -> AST.ASTExpr:
-        return AST.ASTUnaryOp(expr.op, self.rewrite_expr(expr.exp1))
-
-    def rewrite_binary_op(self, expr: AST.ASTBinaryOp) -> AST.ASTExpr:
-        return AST.ASTBinaryOp(
-            expr.op,
-            self.rewrite_expr(expr.exp1),
-            self.rewrite_expr(expr.exp2))
-
-    def rewrite_question(self, expr: AST.ASTQuestion) -> AST.ASTExpr:
-        return expr
+    def mk_cast_expression(
+            self, tgttyp: AST.ASTTyp, exp: AST.ASTExpr) -> AST.ASTExpr:
+        return AST.ASTCastExpr(tgttyp, exp)
 
     def __str__(self) -> str:
         lines: List[str] = []
         for r in self._spans:
             lines.append(str(r))
         return "\n".join(lines)
+
+    """Types
+
+    """
+
+    def mk_integer_ikind_type(self, ikind: str) -> AST.ASTTypInt:
+        return AST.ASTTypInt(ikind)
+
+    @property
+    def char_type(self) -> AST.ASTTypInt:
+        return self._char_type
+
+    @property
+    def signed_char_type(self) -> AST.ASTTypInt:
+        return self._signed_char_type
+
+    @property
+    def unsigned_char_type(self) -> AST.ASTTypInt:
+        return self._unsigned_char_type
+
+    @property
+    def bool_type(self) -> AST.ASTTypInt:
+        return self._bool_type
+
+    @property
+    def int_type(self) -> AST.ASTTypInt:
+        return self._int_type
+
+    @property
+    def unsigned_int_type(self) -> AST.ASTTypInt:
+        return self._unsigned_int_type
+
+    @property
+    def short_type(self) -> AST.ASTTypInt:
+        return self._short_type
+
+    @property
+    def unsigned_short_type(self) -> AST.ASTTypInt:
+        return self._unsigned_short_type
+
+    @property
+    def long_type(self) -> AST.ASTTypInt:
+        return self._long_type
+
+    @property
+    def unsigned_long_type(self) -> AST.ASTTypInt:
+        return self._unsigned_long_type
+
+    @property
+    def long_long_type(self) -> AST.ASTTypInt:
+        return self._long_long_type
+
+    @property
+    def unsigned_long_long_type(self) -> AST.ASTTypInt:
+        return self._unsigned_long_type
+
+    def mk_float_fkind_type(self, fkind: str) -> AST.ASTTypFloat:
+        return AST.ASTTypFloat(fkind)
+
+    @property
+    def float_type(self) -> AST.ASTTypFloat:
+        return self._float_type
+
+    @property
+    def double_type(self) -> AST.ASTTypFloat:
+        return self._double_type
+
+    @property
+    def long_double_type(self) -> AST.ASTTypFloat:
+        return self._long_double_type
+
+    def mk_pointer_type(self, tgttype: AST.ASTTyp) -> AST.ASTTypPtr:
+        return AST.ASTTypPtr(tgttype)
+
+    def mk_array_type(
+            self,
+            tgttype: AST.ASTTyp,
+            size: Optional[AST.ASTExpr]) -> AST.ASTTyp:
+        return AST.ASTTypArray(tgttype, size)
+
+    def mk_function_type_argument(
+            self, argname: str, argtype: AST.ASTTyp) -> AST.ASTFunArg:
+        return AST.ASTFunArg(argname, argtype)
+
+    def mk_function_type_arguments(
+            self, args: List[AST.ASTFunArg]) -> AST.ASTFunArgs:
+        return AST.ASTFunArgs(args)
+
+    def mk_function_type(
+            self,
+            returntype: AST.ASTTyp,
+            arguments: Optional[AST.ASTFunArgs],
+            varargs: bool = False) -> AST.ASTTypFun:
+        return AST.ASTTypFun(returntype, arguments, varargs=varargs)
+
+    def mk_function_with_arguments_type(
+            self,
+            returntype: AST.ASTTyp,
+            arguments: List[Tuple[str, AST.ASTTyp]],
+            varargs: bool = False) -> AST.ASTTypFun:
+        funargs = AST.ASTFunArgs(
+            [AST.ASTFunArg(name, typ) for (name, typ) in arguments])
+        return AST.ASTTypFun(returntype, funargs, varargs=varargs)
+
+    def mk_typedef(self, name: str, typ: AST.ASTTyp) -> AST.ASTTypNamed:
+        return AST.ASTTypNamed(name, typ)

@@ -31,15 +31,14 @@ from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING
 import chb.ast.ASTNode as AST
 from chb.ast.ASTVisitor import ASTVisitor
 
-from chb.bctypes.BCVarInfo import BCVarInfo
-
-import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 
 
-operators = {
+operators = AST.operators
+
+'''
     "and": " && ",   # logical and
     "bor": " | ",    # bitwise or
     "bxor": " ^ ",   # bitwise xor
@@ -57,7 +56,7 @@ operators = {
     "lsr": " >> ",   # logical shift right; need to infer type as unsigned
     "lt": " < ",
     "minus": " - ",
-    "mod": " % ",     
+    "mod": " % ",
     "mult": " * ",   # multiplication
     "ne": " != ",
     "neq": " != ",
@@ -65,6 +64,7 @@ operators = {
     "shiftlt": " << ",
     "shiftrt": " >> "
     }
+'''
 
 
 class ASTCCode:
@@ -92,7 +92,7 @@ class ASTCPrettyPrinter(ASTVisitor):
             self,
             localsymboltable: "ASTLocalSymbolTable",
             globalsymboltable: "ASTGlobalSymbolTable",
-            indentation: int = 2,            
+            indentation: int = 2,
             livecode: List[int] = [],
             livesymbols: Set[str] = set([]),
             annotations: Dict[int, List[str]] = {},
@@ -120,7 +120,7 @@ class ASTCPrettyPrinter(ASTVisitor):
         return self._globalsymboltable
 
     @property
-    def signature(self) -> Optional[BCVarInfo]:
+    def signature(self) -> Optional[AST.ASTVarInfo]:
         if self.localsymboltable.has_function_prototype():
             return self.localsymboltable.function_prototype
         else:
@@ -173,7 +173,7 @@ class ASTCPrettyPrinter(ASTVisitor):
             return ""
 
     def write_local_declarations(self) -> None:
-        for vinfo in self.localsymboltable.symbols():
+        for vinfo in self.localsymboltable.symbols:
             if (
                     vinfo.vname in self.livesymbols
                     and not self.localsymboltable.is_formal(vinfo.vname)):
@@ -209,7 +209,7 @@ class ASTCPrettyPrinter(ASTVisitor):
         elif stmt.is_ast_branch:
             self.visit_branch_stmt(cast(AST.ASTBranch, stmt))
         else:
-            raise UF.CHBError("Statement type not recognized: " + stmt.tag)
+            raise Exception("Statement type not recognized: " + stmt.tag)
 
     def visit_return_stmt(self, stmt: AST.ASTReturn) -> None:
         self.ccode.newline(indent=self.indent)
@@ -246,7 +246,7 @@ class ASTCPrettyPrinter(ASTVisitor):
             self.decrease_indent()
         self.ccode.newline(indent=self.indent)
         self.ccode.write("}")
-            
+
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         self.ccode.newline(indent=self.indent)
         instr.lhs.accept(self)
@@ -258,10 +258,11 @@ class ASTCPrettyPrinter(ASTVisitor):
 
     def visit_call_instr(self, instr: AST.ASTCall) -> None:
         self.ccode.newline(indent=self.indent)
-        lhslive = self.is_returnval_live(instr.instrid, str(instr.lhs))
-        if lhslive:
-            instr.lhs.accept(self)
-            self.ccode.write(" = ")
+        if instr.lhs is not None:
+            lhslive = self.is_returnval_live(instr.instrid, str(instr.lhs))
+            if lhslive:
+                instr.lhs.accept(self)
+                self.ccode.write(" = ")
         instr.tgt.accept(self)
         self.ccode.write("(")
         if len(instr.arguments) > 0:
@@ -294,6 +295,14 @@ class ASTCPrettyPrinter(ASTVisitor):
             lval.lhost.accept(self)
             lval.offset.accept(self)
 
+    def visit_varinfo(self, vinfo: AST.ASTVarInfo) -> None:
+        if vinfo.vtype is not None:
+            vinfo.vtype.accept(self)
+        else:
+            self.ccode.write("?")
+        self.ccode.write(" ")
+        self.ccode.write(vinfo.vname)
+
     def visit_variable(self, var: AST.ASTVariable) -> None:
         self.ccode.write(var.vname)
 
@@ -304,14 +313,14 @@ class ASTCPrettyPrinter(ASTVisitor):
 
     def visit_no_offset(self, offset: AST.ASTNoOffset) -> None:
         pass
-        
+
     def visit_field_offset(self, offset: AST.ASTFieldOffset) -> None:
         self.ccode.write("." + offset.fieldname)
         offset.offset.accept(self)
 
     def visit_index_offset(self, offset: AST.ASTIndexOffset) -> None:
         self.ccode.write("[")
-        offset.index.accept(self)
+        offset.index_expr.accept(self)
         self.ccode.write("]")
         offset.offset.accept(self)
 
@@ -326,12 +335,14 @@ class ASTCPrettyPrinter(ASTVisitor):
 
     def visit_string_constant(self, s: AST.ASTStringConstant) -> None:
         self.ccode.write('"' + s.cstr + '"')
-        
+
     def visit_lval_expression(self, lvalexpr: AST.ASTLvalExpr) -> None:
         lvalexpr.lval.accept(self)
 
-    def visit_cast_expression(self, castexpr: AST.ASTCastE) -> None:
-        self.ccode.write("(" + castexpr.cast_tgt_type + ")")
+    def visit_cast_expression(self, castexpr: AST.ASTCastExpr) -> None:
+        self.ccode.write("(")
+        castexpr.cast_tgt_type.accept(self)
+        self.ccode.write(")")
         castexpr.cast_expr.accept(self)
 
     def visit_unary_expression(self, unop: AST.ASTUnaryOp) -> None:
@@ -358,7 +369,61 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write("&")
         addressof.lval.accept(self)
 
-            
-                             
-                             
-        
+    def visit_void_typ(self, t: AST.ASTTypVoid) -> None:
+        self.ccode.write("void")
+
+    def visit_integer_typ(self, t: AST.ASTTypInt) -> None:
+        self.ccode.write(str(t))
+
+    def visit_float_typ(self, t: AST.ASTTypFloat) -> None:
+        self.ccode.write(str(t))
+
+    def visit_pointer_typ(self, t: AST.ASTTypPtr) -> None:
+        t.tgttyp.accept(self)
+        self.ccode.write(" * ")
+
+    def visit_array_typ(self, t: AST.ASTTypArray) -> None:
+        t.tgttyp.accept(self)
+        self.ccode.write("[")
+        if t.size_expr is not None:
+            t.size_expr.accept(self)
+        self.ccode.write("]")
+
+    def visit_fun_typ(self, t: AST.ASTTypFun) -> None:
+        """Emits a function type without name."""
+
+        t.returntyp.accept(self)
+        self.ccode.write(" (")
+        if t.argtypes is not None:
+            t.argtypes.accept(self)
+        self.ccode.write(")")
+
+    def visit_funargs(self, funargs: AST.ASTFunArgs) -> None:
+        args = funargs.funargs
+        if len(args) == 0:
+            pass
+        else:
+            for arg in args[:-1]:
+                args[0].accept(self)
+                self.ccode.write(", ")
+            args[-1].accept(self)
+
+    def visit_funarg(self, funarg: AST.ASTFunArg) -> None:
+        funarg.argtyp.accept(self)
+        self.ccode.write(" ")
+        self.ccode.write(funarg.argname)
+
+    def visit_named_typ(self, t: AST.ASTTypNamed) -> None:
+        self.ccode.write("typedef ")
+        t.typdef.accept(self)
+        self.ccode.write(" ")
+        self.ccode.write(t.typname)
+
+    def visit_comp_typ(self, t: AST.ASTTypComp) -> None:
+        self.ccode.write("struct " + t.compname)
+
+    def visit_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
+        self.ccode.write("compinfo")
+
+    def visit_fieldinfo(self, finfo: AST.ASTFieldInfo) -> None:
+        pass

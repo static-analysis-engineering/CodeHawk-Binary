@@ -37,28 +37,28 @@ class ASTTransformer(ABC):
         pass
 
     @abstractmethod
-    def transform_return_stmt(self, returnstmt: AST.ASTReturn) -> AST.ASTStmt:
+    def transform_return_stmt(self, stmt: AST.ASTReturn) -> AST.ASTStmt:
         ...
 
     @abstractmethod
-    def transform_block_stmt(self, blockstmt: AST.ASTBlock) -> AST.ASTStmt:
+    def transform_block_stmt(self, stmt: AST.ASTBlock) -> AST.ASTStmt:
         ...
 
     @abstractmethod
     def transform_instruction_sequence_stmt(
-            self, instrseqstmt: AST.ASTInstrSequence) -> AST.ASTStmt:
+            self, stmt: AST.ASTInstrSequence) -> AST.ASTStmt:
         ...
 
     @abstractmethod
-    def transform_branch_stmt(self, branchstmt: AST.ASTBranch) -> AST.ASTStmt:
+    def transform_branch_stmt(self, stmt: AST.ASTBranch) -> AST.ASTStmt:
         ...
 
     @abstractmethod
-    def transform_assign_instr(self, assigninstr: AST.ASTAssign) -> AST.ASTInstruction:
+    def transform_assign_instr(self, instr: AST.ASTAssign) -> AST.ASTInstruction:
         ...
 
     @abstractmethod
-    def transform_call_instr(self, callinstr: AST.ASTCall) -> AST.ASTInstruction:
+    def transform_call_instr(self, instr: AST.ASTCall) -> AST.ASTInstruction:
         ...
 
     @abstractmethod
@@ -66,11 +66,15 @@ class ASTTransformer(ABC):
         ...
 
     @abstractmethod
-    def transform_variable(self, var: AST.ASTVariable) -> AST.ASTLHost:
+    def transform_varinfo(self, vinfo: AST.ASTVarInfo) -> AST.ASTVarInfo:
         ...
 
     @abstractmethod
-    def transform_memref(self, var: AST.ASTMemRef) -> AST.ASTLHost:
+    def transform_variable(self, lhost: AST.ASTVariable) -> AST.ASTLHost:
+        ...
+
+    @abstractmethod
+    def transform_memref(self, lhost: AST.ASTMemRef) -> AST.ASTLHost:
         ...
 
     @abstractmethod
@@ -103,27 +107,73 @@ class ASTTransformer(ABC):
         ...
 
     @abstractmethod
-    def transform_lval_expression(
-            self, lvalexpr: AST.ASTLvalExpr) -> AST.ASTExpr:
+    def transform_lval_expression(self, expr: AST.ASTLvalExpr) -> AST.ASTExpr:
         ...
 
     @abstractmethod
-    def transform_cast_expression(self, castexpr: AST.ASTCastE) -> AST.ASTExpr:
+    def transform_cast_expression(self, expr: AST.ASTCastExpr) -> AST.ASTExpr:
         ...
 
     @abstractmethod
-    def transform_unary_expression(self, unop: AST.ASTUnaryOp) -> AST.ASTExpr:
+    def transform_unary_expression(self, expr: AST.ASTUnaryOp) -> AST.ASTExpr:
         ...
 
     @abstractmethod
-    def transform_binary_expression(self, binop: AST.ASTBinaryOp) -> AST.ASTExpr:
+    def transform_binary_expression(self, expr: AST.ASTBinaryOp) -> AST.ASTExpr:
         ...
 
     @abstractmethod
-    def transform_question_expression(self, qexpr: AST.ASTQuestion) -> AST.ASTExpr:
+    def transform_question_expression(self, expr: AST.ASTQuestion) -> AST.ASTExpr:
         ...
 
     @abstractmethod
-    def transform_address_of_expression(
-            self, addressof: AST.ASTAddressOf) -> AST.ASTExpr:
+    def transform_address_of_expression(self, expr: AST.ASTAddressOf) -> AST.ASTExpr:
+        ...
+
+    @abstractmethod
+    def transform_void_typ(self, typ: AST.ASTTypVoid) -> AST.ASTTyp:
+        ...
+
+    @abstractmethod
+    def transform_integer_typ(self, typ: AST.ASTTypInt) -> AST.ASTTyp:
+        ...
+
+    @abstractmethod
+    def transform_float_typ(self, typ: AST.ASTTypFloat) -> AST.ASTTyp:
+        ...
+
+    @abstractmethod
+    def transform_pointer_typ(self, typ: AST.ASTTypPtr) -> AST.ASTTyp:
+        ...
+
+    @abstractmethod
+    def transform_array_typ(self, typ: AST.ASTTypArray) -> AST.ASTTyp:
+        ...
+
+    @abstractmethod
+    def transform_fun_typ(self, typ: AST.ASTTypFun) -> AST.ASTTyp:
+        ...
+
+    @abstractmethod
+    def transform_funargs(self, funargs: AST.ASTFunArgs) -> AST.ASTFunArgs:
+        ...
+
+    @abstractmethod
+    def transform_funarg(self, funarg: AST.ASTFunArg) -> AST.ASTFunArg:
+        ...
+
+    @abstractmethod
+    def transform_named_typ(self, typ: AST.ASTTypNamed) -> AST.ASTTyp:
+        ...
+
+    @abstractmethod
+    def transform_fieldinfo(self, finfo: AST.ASTFieldInfo) -> AST.ASTFieldInfo:
+        ...
+
+    @abstractmethod
+    def transform_compinfo(self, cinfo: AST.ASTCompInfo) -> AST.ASTCompInfo:
+        ...
+
+    @abstractmethod
+    def transform_comp_typ(self, typ: AST.ASTTypComp) -> AST.ASTTyp:
         ...
