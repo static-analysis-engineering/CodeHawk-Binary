@@ -109,6 +109,10 @@ class ASTIndexer(ABC):
         ...
 
     @abstractmethod
+    def index_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> int:
+        ...
+
+    @abstractmethod
     def index_cast_expression(self, expr: AST.ASTCastExpr) -> int:
         ...
 
@@ -162,6 +166,10 @@ class ASTIndexer(ABC):
 
     @abstractmethod
     def index_named_typ(self, typ: AST.ASTTypNamed) -> int:
+        ...
+
+    @abstractmethod
+    def index_builtin_va_list(self, typ: AST.ASTTypBuiltinVAList) -> int:
         ...
 
     @abstractmethod

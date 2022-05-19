@@ -110,6 +110,10 @@ class ASTVisitor(ABC):
         ...
 
     @abstractmethod
+    def visit_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> None:
+        ...
+
+    @abstractmethod
     def visit_cast_expression(self, expr: AST.ASTCastExpr) -> None:
         ...
 
@@ -163,6 +167,10 @@ class ASTVisitor(ABC):
 
     @abstractmethod
     def visit_named_typ(self, typ: AST.ASTTypNamed) -> None:
+        ...
+
+    @abstractmethod
+    def visit_builtin_va_list(self, typ: AST.ASTTypBuiltinVAList) -> None:
         ...
 
     @abstractmethod

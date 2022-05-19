@@ -87,40 +87,43 @@ class ASTNOPVisitor(ASTVisitor):
             self, stringconstant: AST.ASTStringConstant) -> None:
         pass
 
-    def visit_lval_expression(self, lvalexpr: AST.ASTLvalExpr) -> None:
+    def visit_lval_expression(self, expr: AST.ASTLvalExpr) -> None:
         pass
 
-    def visit_cast_expression(self, castexpr: AST.ASTCastExpr) -> None:
+    def visit_cast_expression(self, expr: AST.ASTCastExpr) -> None:
         pass
 
-    def visit_unary_expression(self, unopexpr: AST.ASTUnaryOp) -> None:
+    def visit_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> None:
+        pass
+    
+    def visit_unary_expression(self, expr: AST.ASTUnaryOp) -> None:
         pass
 
-    def visit_binary_expression(self, binopexpr: AST.ASTBinaryOp) -> None:
+    def visit_binary_expression(self, expr: AST.ASTBinaryOp) -> None:
         pass
 
-    def visit_question_expression(self, questexpr: AST.ASTQuestion) -> None:
+    def visit_question_expression(self, expr: AST.ASTQuestion) -> None:
         pass
 
-    def visit_address_of_expression(self, addressof: AST.ASTAddressOf) -> None:
+    def visit_address_of_expression(self, expr: AST.ASTAddressOf) -> None:
         pass
 
-    def visit_void_typ(self, voidtyp: AST.ASTTypVoid) -> None:
+    def visit_void_typ(self, typ: AST.ASTTypVoid) -> None:
         pass
 
-    def visit_integer_typ(self, inttyp: AST.ASTTypInt) -> None:
+    def visit_integer_typ(self, typ: AST.ASTTypInt) -> None:
         pass
 
-    def visit_float_typ(self, floattyp: AST.ASTTypFloat) -> None:
+    def visit_float_typ(self, typ: AST.ASTTypFloat) -> None:
         pass
 
-    def visit_pointer_typ(self, ptrtyp: AST.ASTTypPtr) -> None:
+    def visit_pointer_typ(self, typ: AST.ASTTypPtr) -> None:
         pass
 
-    def visit_array_typ(self, arraytyp: AST.ASTTypArray) -> None:
+    def visit_array_typ(self, typ: AST.ASTTypArray) -> None:
         pass
 
-    def visit_fun_typ(self, funtyp: AST.ASTTypFun) -> None:
+    def visit_fun_typ(self, typ: AST.ASTTypFun) -> None:
         pass
 
     def visit_funargs(self, funargs: AST.ASTFunArgs) -> None:
@@ -129,7 +132,10 @@ class ASTNOPVisitor(ASTVisitor):
     def visit_funarg(self, funarg: AST.ASTFunArg) -> None:
         pass
 
-    def visit_named_typ(self, namedtyp: AST.ASTTypNamed) -> None:
+    def visit_named_typ(self, typ: AST.ASTTypNamed) -> None:
+        pass
+
+    def visit_builtin_va_list(self, typ: AST.ASTTypBuiltinVAList) -> None:
         pass
 
     def visit_compinfo(self, cinfo: AST.ASTCompInfo) -> None:

@@ -27,6 +27,9 @@
 
 from typing import Any, cast, Dict, List, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
 
 import chb.util.fileutil as UF
@@ -68,6 +71,9 @@ class BCFieldInfo(BCDictionaryRecord):
 
     def alignment(self) -> int:
         return self.fieldtype.alignment()
+
+    def convert(self, converter: BCConverter) -> AST.ASTFieldInfo:
+        return converter.convert_fieldinfo(self)
 
     def __str__(self) -> str:
         if self.fieldtype.is_array:

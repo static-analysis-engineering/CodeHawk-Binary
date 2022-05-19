@@ -107,6 +107,11 @@ class ASTCTyper(ABC):
         ...
 
     @abstractmethod
+    def ctype_sizeof_expression(
+            self, expr: AST.ASTSizeOfExpr) -> Optional[AST.ASTTyp]:
+        ...
+
+    @abstractmethod
     def ctype_cast_expression(
             self, expr: AST.ASTCastExpr) -> Optional[AST.ASTTyp]:
         ...
@@ -157,6 +162,10 @@ class ASTCTyper(ABC):
 
     def ctype_named_typ(self, typ: AST.ASTTypNamed) -> Optional[AST.ASTTyp]:
         return typ.typdef
+
+    def ctype_builtin_va_list(
+            self, typ: AST.ASTTypBuiltinVAList) -> Optional[AST.ASTTyp]:
+        return typ
 
     @abstractmethod
     def ctype_fieldinfo(self, finfo: AST.ASTFieldInfo) -> Optional[AST.ASTTyp]:

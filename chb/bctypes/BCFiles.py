@@ -112,6 +112,17 @@ class BCFiles:
             raise UF.CHBError(
                 "Variable declaration for " + name + " not found")
 
+    def has_compinfo(self, ckey: int) -> bool:
+        return any([cinfo.ckey == ckey for cinfo in self.gcomptags])
+
+    def compinfo(self, ckey: int) -> BCCompInfo:
+        for cinfo in self.gcomptags:
+            if cinfo.ckey == ckey:
+                return cinfo
+        else:
+            raise UF.CHBError(
+                "Compinfo with key " + str(ckey) + " not found")
+
     def initialize(self, xnode: ET.Element) -> None:
         self.initialize_compinfos(xnode.find("compinfos"))
         self.initialize_typeinfos(xnode.find("typeinfos"))

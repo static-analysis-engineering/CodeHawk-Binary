@@ -26,9 +26,11 @@
 # ------------------------------------------------------------------------------
 """Symbol table with a one-to-one mapping from names to locations."""
 
-from typing import Dict, List, Mapping, Optional, Sequence, Set
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Set
 
+from chb.ast.ASTIndexer import ASTIndexer
 import chb.ast.ASTNode as AST
+from chb.ast.ASTNodeDictionary import ASTNodeDictionary, get_key
 
 
 class ASTSymbolTable:
@@ -72,6 +74,10 @@ class ASTSymbolTable:
             self._table[vname] = varinfo
             return varinfo
 
+    def serialize(self, serializer: ASTIndexer) -> None:
+        for (name, vinfo) in sorted(self.table.items()):
+            vinfo.index(serializer)
+
 
 class ASTGlobalSymbolTable(ASTSymbolTable):
 
@@ -80,10 +86,21 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         self._symbolicaddrs: Dict[str, AST.ASTVarInfo] = {}
         self._referenced: Set[str] = set([])
         self._typesused: Set[int] = set([])
+        self._compinfos: Dict[int, AST.ASTCompInfo] = {}
 
     @property
     def symbolic_addresses(self) -> Mapping[str, AST.ASTVarInfo]:
         return self._symbolicaddrs
+
+    @property
+    def compinfos(self) -> Mapping[int, AST.ASTCompInfo]:
+        return self._compinfos
+
+    def compinfo(self, ckey: int) -> AST.ASTCompInfo:
+        if ckey in self.compinfos:
+            return self.compinfos[ckey]
+        else:
+            raise Exception("No compinfo found for ckey: " + str(ckey))
 
     @property
     def referenced(self) -> Set[str]:
@@ -115,6 +132,22 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         if globaladdress is not None and globaladdress > 0:
             self._symbolicaddrs[vinfo.vname] = vinfo
         return vinfo
+
+    def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
+        if cinfo.ckey not in self.compinfos:
+            self._compinfos[cinfo.ckey] = cinfo
+        else:
+            raise Exception(
+                "Compinfo key " + str(cinfo.ckey) + " already exists")
+
+    def has_compinfo(self, ckey: int) -> bool:
+        return ckey in self.compinfos
+
+    def serialize(self, indexer: ASTIndexer) -> None:
+        ASTSymbolTable.serialize(self, indexer)
+        for cinfo in self.compinfos.values():
+            cinfo.index(indexer)
+        
 
 
 class ASTLocalSymbolTable(ASTSymbolTable):
@@ -151,6 +184,10 @@ class ASTLocalSymbolTable(ASTSymbolTable):
     def function_prototype(self) -> Optional[AST.ASTVarInfo]:
         return self._fprototype
 
+    @property
+    def compinfos(self) -> Mapping[int, AST.ASTCompInfo]:
+        return self.globaltable.compinfos
+
     def is_formal(self, vname: str) -> bool:
         return any([vinfo.vname == vname for vinfo in self.formals])
 
@@ -162,3 +199,6 @@ class ASTLocalSymbolTable(ASTSymbolTable):
             self._fprototype = vinfo
         else:
             raise Exception("Function prototype is not a function")
+
+    def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
+        self.globaltable.add_compinfo(cinfo)

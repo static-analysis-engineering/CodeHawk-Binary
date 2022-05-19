@@ -226,7 +226,7 @@ class ARMBranchLink(ARMOpcode):
                     argindex = arg.argument_index()
                     funargs = astree.function_argument(argindex)
                     if len(funargs) == 0:
-                        astree.add_note(
+                        astree.add_diagnostic(
                             "No function argument extracted for "
                             + str(arg)
                             + " in function call to "

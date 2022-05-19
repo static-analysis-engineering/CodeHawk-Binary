@@ -27,6 +27,9 @@
 
 from typing import Any, cast, Dict, List, Optional, Tuple, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
 
 import chb.util.fileutil as UF
@@ -201,6 +204,9 @@ class BCCompInfo(BCDictionaryRecord):
                     + " (Alignment: "
                     + str(self.alignment())
                     + ")")
+
+    def convert(self, converter: BCConverter) -> AST.ASTCompInfo:
+        return converter.convert_compinfo(self)
 
     def __str__(self) -> str:
         lines: List[str] = []

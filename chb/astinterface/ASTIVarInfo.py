@@ -31,7 +31,7 @@ from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING, Union
 import chb.ast.ASTNode as AST
 
 
-class ASTIVarInfo:
+class ASTIVarInfo(AST.ASTVarInfo):
     """Represents a name bound to a unique location.
 
     The location may be a register or a memory location, or possibly a flag.
@@ -61,8 +61,17 @@ class ASTIVarInfo:
             size: Optional[int] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            vdescr: Optional[str] = None,
             conflicting_types: List[AST.ASTTyp] = [],
             notes: Set[str] = set()) -> None:
+        AST.ASTVarInfo.__init__(
+            self,
+            vname,
+            vtype,
+            parameter=parameter,
+            globaladdress=globaladdress,
+            vdescr=vdescr)
+
         self._vname = vname
         self._size = size
         self._vtype = vtype

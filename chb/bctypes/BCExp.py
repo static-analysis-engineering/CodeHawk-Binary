@@ -82,7 +82,7 @@ class BCExp(BCDictionaryRecord):
         return False
 
     def convert(self, converter: "BCConverter") -> AST.ASTExpr:
-        raise NotImplementedError("BCExp.convert")
+        raise NotImplementedError("BCExp.convert: " + self.tags[0])
 
     def __str__(self) -> str:
         return "bc-exp:" + self.tags[0]
@@ -109,6 +109,9 @@ class BCExpConst(BCExp):
     @property
     def is_integer_constant(self) -> bool:
         return self.constant.is_integer_constant
+
+    def convert(self, converter: "BCConverter") -> AST.ASTExpr:
+        return self.constant.convert(converter)
 
     def __str__(self) -> str:
         return str(self.constant)
@@ -148,6 +151,9 @@ class BCExpSizeOf(BCExp):
     @property
     def typ(self) -> "BCTyp":
         return self.bcd.typ(self.args[0])
+
+    def convert(self, converter: "BCConverter") -> AST.ASTSizeOfExpr:
+        return converter.convert_sizeof_expression(self)
 
     def __str__(self) -> str:
         return "sizeof(" + str(self.typ) + ")"
@@ -276,6 +282,9 @@ class BCExpBinOp(BCExp):
     @property
     def typ(self) -> "BCTyp":
         return self.bcd.typ(self.args[2])
+
+    def convert(self, converter: "BCConverter") -> AST.ASTExpr:
+        return converter.convert_binary_expression(self)
 
     def __str__(self) -> str:
         return str(self.exp1) + " " + self.operator + " " + str(self.exp2)

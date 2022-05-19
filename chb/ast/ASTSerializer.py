@@ -30,42 +30,14 @@ from typing import Any, cast, Dict, List, Tuple
 
 from chb.ast.ASTIndexer import ASTIndexer
 import chb.ast.ASTNode as AST
-
-
-def get_key(tags: List[str], args: List[int]) -> Tuple[str, str]:
-    return (",".join(tags), ",".join(str(i) for i in args))
-
-
-class ASTNodeDictionary:
-
-    def __init__(self) -> None:
-        self.keytable: Dict[Tuple[str, str], int] = {}  # key -> index
-        self.indextable: Dict[int, Dict[str, Any]] = {}  # index -> record
-        self.next = 1
-
-    def add(self, key: Tuple[str, str], node: Dict[str, Any]) -> int:
-        if key in self.keytable:
-            return self.keytable[key]
-        else:
-            index = self.next
-            self.keytable[key] = index
-            self.indextable[index] = node
-            self.next += 1
-            return index
-
-    def records(self) -> List[Dict[str, Any]]:
-        result: List[Dict[str, Any]] = []
-        for (id, record) in sorted(self.indextable.items()):
-            record["id"] = id
-            result.append(record)
-        return result
+from chb.ast.ASTNodeDictionary import ASTNodeDictionary, get_key
 
 
 class ASTSerializer(ASTIndexer):
 
     def __init__(self) -> None:
         ASTIndexer.__init__(self)
-        self._table: ASTNodeDictionary = ASTNodeDictionary()
+        self._table = ASTNodeDictionary()
 
     @property
     def table(self) -> ASTNodeDictionary:
@@ -166,7 +138,7 @@ class ASTSerializer(ASTIndexer):
 
     def index_variable(self, var: AST.ASTVariable) -> int:
         tags: List[str] = [var.tag, var.vname]
-        args: List[int] = []
+        args: List[int] = [var.varinfo.index(self)]
         node: Dict[str, Any] = {"tag": var.tag, "name": var.vname}
         return self.add(tags, args, node)
 
@@ -229,6 +201,12 @@ class ASTSerializer(ASTIndexer):
         args: List[int] = [
             expr.super_lval.index(self), expr.substituted_expr.index(self)]
         node: Dict[str, Any] = {"tag": expr.tag, "assigned": str(expr.assign_id)}
+        return self.add(tags, args, node)
+
+    def index_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> int:
+        tags: List[str] = [expr.tag]
+        args: List[int] = [expr.tgt_type.index(self)]
+        node: Dict[str, Any] = {"tag": expr.tag}
         return self.add(tags, args, node)
 
     def index_cast_expression(self, expr: AST.ASTCastExpr) -> int:
@@ -319,6 +297,12 @@ class ASTSerializer(ASTIndexer):
         tags: List[str] = [typ.tag, typ.typname]
         args: List[int] = [typ.typdef.index(self)]
         node: Dict[str, Any] = {"tag": typ.tag, "name": typ.typname}
+        return self.add(tags, args, node)
+
+    def index_builtin_va_list(self, typ: AST.ASTTypBuiltinVAList) -> int:
+        tags: List[str] = [typ.tag]
+        args: List[int] = []
+        node: Dict[str, Any] = {"tag": typ.tag}
         return self.add(tags, args, node)
 
     def index_fieldinfo(self, finfo: AST.ASTFieldInfo) -> int:

@@ -97,6 +97,10 @@ class AbstractSyntaxTree:
         return self._symboltable
 
     @property
+    def compinfos(self) -> Mapping[int, AST.ASTCompInfo]:
+        return self.symboltable.compinfos
+
+    @property
     def spans(self) -> List[ASTSpanRecord]:
         return self._spans
 
@@ -122,6 +126,9 @@ class AbstractSyntaxTree:
             parameter=parameter,
             globaladdress=globaladdress,
             vdescr=vdescr)
+
+    def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
+        self.symboltable.add_compinfo(cinfo)
 
     def new_id(self) -> int:
         """A single sequence of id's is used for statement and instruction id.
@@ -617,6 +624,83 @@ class AbstractSyntaxTree:
 
     """Types
 
+    Integer and Float types
+    ------------------------
+    Integer and Float types can be created directly with their ikind/fkind
+    specifier with:
+
+    - mk_integer_ikind_type()
+    - mk_integer_fkind_type()
+
+    or can be obtained as properties for the individual ikind/fkind specifiers:
+
+    - char_type
+    - signed_char_type
+    - unsigned_char_type
+    - bool_type
+    - int_type
+    - unsigned_int_type
+    - short_type
+    - unsigned_short_type
+    - long_type
+    - unsigned_long_type
+    - long_long_type
+    - unsigned_long_long_type
+
+    - float_type
+    - double_type
+    - long_double_type
+
+    Creators of other types:
+
+    - mk_pointer_type
+        specify the type of the data pointed at
+
+    - mk_array_type
+        specify the element type and, optionally, an expression for the 
+        number of elements
+    - mk_int_sized_array_type
+        specify the element type and a numerical value for the number of
+        elements
+
+    - mk_function_type
+        specify the return type and the arguments (as a ASTFunArgs)
+    - mk_function_with_arguments_type
+        specify the return type and the arguments (as a list of name, type
+        pairs)
+
+    - mk_typedef
+        associate a name with a type
+
+    Struct types
+    ------------
+    Struct types are specified by the compinfo data structure. Compinfo data
+    structures are uniquely identified by an integer key (ckey) to be provided
+    by the user. When a new compinfo is created it is registered in the global
+    symbol table; subsequent attempts to create a compinfo with the same ckey 
+    value will just return the one created earlier. It is also possible to
+    pre-populate the global symbol table with compinfo data structures, if they
+    are available up front. Struct types are thus global and shared by different
+    functions. Field offsets also include the ckey of the compinfo that they
+    belong to.
+
+    Related methods:
+
+    - mk_comp_info
+        specify the fields as FieldInfos
+    - mk_compinfo_with_fields
+        specify the fields as a list of (name, type) tuples
+
+    - mk_fieldinfo
+        specify name and type for a single field, with the key of the
+        compinfo to which it belongs
+
+    - mk_comp_type
+        specify a compinfo to get a struct type
+    - mk_comp_type_by_key
+        specify a compinfo ckey value to get a struct type from a previously
+        registered compinfo
+
     """
 
     def mk_integer_ikind_type(self, ikind: str) -> AST.ASTTypInt:
@@ -694,6 +778,13 @@ class AbstractSyntaxTree:
             size: Optional[AST.ASTExpr]) -> AST.ASTTyp:
         return AST.ASTTypArray(tgttype, size)
 
+    def mk_int_sized_array_type(
+            self,
+            tgttype: AST.ASTTyp,
+            nelements: int) -> AST.ASTTyp:
+        size = self.mk_integer_constant(nelements)
+        return self.mk_array_type(tgttype, size)
+
     def mk_function_type_argument(
             self, argname: str, argtype: AST.ASTTyp) -> AST.ASTFunArg:
         return AST.ASTFunArg(argname, argtype)
@@ -720,3 +811,54 @@ class AbstractSyntaxTree:
 
     def mk_typedef(self, name: str, typ: AST.ASTTyp) -> AST.ASTTypNamed:
         return AST.ASTTypNamed(name, typ)
+
+    def mk_compinfo(
+            self,
+            cname: str,
+            ckey: int,
+            fieldinfos: List[AST.ASTFieldInfo],
+            is_union: bool = False) -> AST.ASTCompInfo:
+        if ckey in self.compinfos:
+            return self.compinfos[ckey]
+        else:
+            # check that all fields share the same ckey value
+            if any(ckey != finfo.compkey for finfo in fieldinfos):
+                raise Exception(
+                    "Field infos do not all share the same ckey value")
+
+            cinfo = AST.ASTCompInfo(cname, ckey, fieldinfos, is_union=is_union)
+            self.add_compinfo(cinfo)
+            return cinfo
+
+    def mk_compinfo_with_fields(
+            self,
+            cname: str,
+            ckey: int,
+            fields: List[Tuple[str, AST.ASTTyp]],
+            is_union: bool = False) -> AST.ASTCompInfo:
+        if ckey in self.compinfos:
+            return self.compinfos[ckey]
+        else:
+            fieldinfos: List[AST.ASTFieldInfo] = []
+            for (fname, ftyp) in fields:
+                fieldinfos.append(AST.ASTFieldInfo(fname, ftyp, ckey))
+            return self.mk_compinfo(cname, ckey, fieldinfos, is_union=is_union)
+
+    def mk_fieldinfo(
+            self, fname: str, ftype: AST.ASTTyp, ckey: int) -> AST.ASTFieldInfo:
+        return AST.ASTFieldInfo(fname, ftype, ckey)
+
+    def mk_comp_type(self, cinfo: AST.ASTCompInfo) -> AST.ASTTypComp:
+        if cinfo.ckey in self.compinfos:
+            cinfo = self.compinfos[cinfo.ckey]
+            return AST.ASTTypComp(cinfo.cname, cinfo.ckey)
+        else:
+            self.add_compinfo(cinfo)
+            return AST.ASTTypComp(cinfo.cname, cinfo.ckey)
+
+    def mk_comp_type_by_key(self, ckey: int) -> AST.ASTTypComp:
+        if ckey in self.compinfos:
+            cinfo = self.compinfos[ckey]
+            return AST.ASTTypComp(cinfo.cname, ckey)
+        else:
+            raise Exception("No compinfo found for key " + str(ckey))

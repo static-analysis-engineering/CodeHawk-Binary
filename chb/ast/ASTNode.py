@@ -638,6 +638,9 @@ class ASTAssign(ASTInstruction):
     def kill(self) -> List["ASTLval"]:
         return [self.define()]
 
+    def __str__(self) -> str:
+        return str(self.lhs) + " := " + str(self.rhs)
+
 
 class ASTCall(ASTInstruction):
 
@@ -1492,6 +1495,32 @@ class ASTSubstitutedExpr(ASTLvalExpr):
         return str(self.substituted_expr)
 
 
+class ASTSizeOfExpr(ASTExpr):
+
+    def __init__(self, tgttyp: "ASTTyp") -> None:
+        ASTExpr.__init__(self, "sizeof-expr")
+        self._tgttyp = tgttyp
+
+    @property
+    def tgt_type(self) -> "ASTTyp":
+        return self._tgttyp
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_sizeof_expression(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_sizeof_expression(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_sizeof_expression(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_sizeof_expression(self)
+
+    def __str__(self) -> str:
+        return "sizeof(" + str(self.tgt_type) + ")"
+
+
 class ASTCastExpr(ASTExpr):
 
     def __init__(self, tgttyp: "ASTTyp", exp: "ASTExpr") -> None:
@@ -2152,6 +2181,27 @@ class ASTTypNamed(ASTTyp):
         return str(self.typdef) + " " + self.typname
 
 
+class ASTTypBuiltinVAList(ASTTyp):
+
+    def __init__(self) -> None:
+        ASTTyp.__init__(self, "builtin-va-list")
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_builtin_va_list(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
+        return transformer.transform_builtin_va_list(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_builtin_va_list(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_builtin_va_list(self)
+
+    def __str__(self) -> str:
+        return "builtin-va-list"
+
+
 class ASTFieldInfo(ASTNode):
 
     def __init__(
@@ -2159,6 +2209,7 @@ class ASTFieldInfo(ASTNode):
             fieldname: str,
             fieldtype: "ASTTyp",
             compkey: int) -> None:
+        ASTNode.__init__(self, "fieldinfo")
         self._fieldname = fieldname
         self._fieldtype = fieldtype
         self._compkey = compkey
@@ -2235,13 +2286,11 @@ class ASTTypComp(ASTTyp):
 
     def __init__(
             self,
-            compkey: int,
             compname: str,
-            is_union: bool = False) -> None:
+            compkey: int) -> None:
         ASTTyp.__init__(self, "comptyp")
-        self._compkey = compkey
         self._compname = compname
-        self._is_union = is_union
+        self._compkey = compkey
 
     @property
     def compkey(self) -> int:
@@ -2254,10 +2303,6 @@ class ASTTypComp(ASTTyp):
     @property
     def is_compound(self) -> bool:
         return True
-
-    @property
-    def is_union(self) -> bool:
-        return self._is_union
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_comp_typ(self)

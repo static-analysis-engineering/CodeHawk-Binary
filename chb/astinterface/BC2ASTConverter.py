@@ -26,11 +26,15 @@
 # ------------------------------------------------------------------------------
 """Converter from the BC types (CIL) to the AST types."""
 
+from typing import Dict, List
+
+from chb.ast.ASTIndexer import ASTIndexer
 import chb.ast.ASTNode as AST
-from chb.bctypes.BCConverter import BCConverter
+from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable
 
 from chb.bctypes.BCCompInfo import BCCompInfo
 import chb.bctypes.BCConstant as BCC
+from chb.bctypes.BCConverter import BCConverter
 import chb.bctypes.BCExp as BCE
 from chb.bctypes.BCFieldInfo import BCFieldInfo
 from chb.bctypes.BCFiles import BCFiles
@@ -46,13 +50,34 @@ import chb.util.fileutil as UF
 
 class BC2ASTConverter(BCConverter):
 
-    def __init__(self, globalstore: BCFiles) -> None:
+    def __init__(
+            self,
+            globalstore: BCFiles,
+            symboltable: ASTGlobalSymbolTable) -> None:
         BCConverter.__init__(self)
         self._globalstore = globalstore
+        self._symboltable = symboltable
+        self._compinfos_referenced: Dict[int, BCCompInfo] = {}
+        # self._initialize_compinfos()
 
     @property
     def globalstore(self) -> BCFiles:
         return self._globalstore
+
+    @property
+    def symboltable(self) -> ASTGlobalSymbolTable:
+        return self._symboltable
+
+    @property
+    def compinfos_referenced(self) -> Dict[int, BCCompInfo]:
+        return self._compinfos_referenced
+
+    def add_compinfo_reference(self, cinfo: BCCompInfo) -> None:
+        self.compinfos_referenced.setdefault(cinfo.ckey, cinfo)
+
+    def _initialize_compinfos(self) -> None:
+        for cinfo in self.globalstore.gcomptags:
+            cinfo.convert(self)
 
     def convert_lval(self, lval: BCLval) -> AST.ASTLval:
         lhost = lval.lhost.convert(self)
@@ -94,6 +119,9 @@ class BC2ASTConverter(BCConverter):
 
     def convert_lval_expression(self, x: BCE.BCExpLval) -> AST.ASTLvalExpr:
         return AST.ASTLvalExpr(x.lval.convert(self))
+
+    def convert_sizeof_expression(self, x: BCE.BCExpSizeOf) -> AST.ASTSizeOfExpr:
+        return AST.ASTSizeOfExpr(x.typ.convert(self))
 
     def convert_cast_expression(self, x: BCE.BCExpCastE) -> AST.ASTCastExpr:
         asttyp = x.typ.convert(self)
@@ -142,5 +170,27 @@ class BC2ASTConverter(BCConverter):
     def convert_funarg(self, arg: BCFunArg) -> AST.ASTFunArg:
         return AST.ASTFunArg(arg.name, arg.typ.convert(self))
 
-    def convert_named_type(self, t: BCT.BCTypNamed) -> AST.ASTTypNamed:
+    def convert_named_typ(self, t: BCT.BCTypNamed) -> AST.ASTTypNamed:
         return AST.ASTTypNamed(t.tname, t.typedef.ttype.convert(self))
+
+    def convert_builtin_va_list(
+            self, t: BCT.BCTypBuiltinVaList) -> AST.ASTTypBuiltinVAList:
+        return AST.ASTTypBuiltinVAList()
+
+    def convert_comp_typ(self, t: BCT.BCTypComp) -> AST.ASTTypComp:
+        self.add_compinfo_reference(t.compinfo)
+        return AST.ASTTypComp(t.compname, t.compkey)
+
+    def convert_compinfo(self, cinfo: BCCompInfo) -> AST.ASTCompInfo:
+        if self.symboltable.has_compinfo(cinfo.ckey):
+            return self.symboltable.compinfo(cinfo.ckey)
+        else:
+            finfos = [f.convert(self) for f in cinfo.fieldinfos]
+            astcinfo = AST.ASTCompInfo(
+                cinfo.cname, cinfo.ckey, finfos, is_union=cinfo.is_union)
+            self.symboltable.add_compinfo(astcinfo)
+            return astcinfo
+
+    def convert_fieldinfo(self, finfo: BCFieldInfo) -> AST.ASTFieldInfo:
+        return AST.ASTFieldInfo(
+            finfo.fieldname, finfo.fieldtype.convert(self), finfo.ckey)

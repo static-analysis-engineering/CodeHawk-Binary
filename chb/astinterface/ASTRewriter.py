@@ -201,6 +201,9 @@ class ASTRewriter(ASTTransformer):
     def transform_lval_expression(self, expr: AST.ASTLvalExpr) -> AST.ASTExpr:
         return AST.ASTLvalExpr(expr.lval.transform(self))
 
+    def transform_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> AST.ASTExpr:
+        return expr
+
     def transform_cast_expression(self, expr: AST.ASTCastExpr) -> AST.ASTExpr:
         return AST.ASTCastExpr(expr.cast_tgt_type, expr.cast_expr.transform(self))
 
@@ -438,6 +441,10 @@ class ASTRewriter(ASTTransformer):
         return a
 
     def transform_named_typ(self, t: AST.ASTTypNamed) -> AST.ASTTyp:
+        return t
+
+    def transform_builtin_va_list(
+            self, t: AST.ASTTypBuiltinVAList) -> AST.ASTTypBuiltinVAList:
         return t
 
     def transform_comp_typ(self, t: AST.ASTTypComp) -> AST.ASTTyp:

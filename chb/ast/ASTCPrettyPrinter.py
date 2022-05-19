@@ -339,6 +339,11 @@ class ASTCPrettyPrinter(ASTVisitor):
     def visit_lval_expression(self, lvalexpr: AST.ASTLvalExpr) -> None:
         lvalexpr.lval.accept(self)
 
+    def visit_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> None:
+        self.ccode.write("sizeof(")
+        expr.tgt_type.accept(self)
+        self.ccode.write(")")
+
     def visit_cast_expression(self, castexpr: AST.ASTCastExpr) -> None:
         self.ccode.write("(")
         castexpr.cast_tgt_type.accept(self)
@@ -418,6 +423,9 @@ class ASTCPrettyPrinter(ASTVisitor):
         t.typdef.accept(self)
         self.ccode.write(" ")
         self.ccode.write(t.typname)
+
+    def visit_builtin_va_list(sef, t: AST.ASTTypBuiltinVAList) -> None:
+        pass
 
     def visit_comp_typ(self, t: AST.ASTTypComp) -> None:
         self.ccode.write("struct " + t.compname)

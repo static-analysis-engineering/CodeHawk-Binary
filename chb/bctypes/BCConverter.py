@@ -94,6 +94,11 @@ class BCConverter(ABC):
         ...
 
     @abstractmethod
+    def convert_sizeof_expression(
+            self, expr: "BCE.BCExpSizeOf") -> AST.ASTSizeOfExpr:
+        ...
+
+    @abstractmethod
     def convert_cast_expression(self, expr: "BCE.BCExpCastE") -> AST.ASTCastExpr:
         ...
 
@@ -153,5 +158,18 @@ class BCConverter(ABC):
         ...
 
     @abstractmethod
+    def convert_builtin_va_list(
+            self, t: "BCT.BCTypBuiltinVaList") -> AST.ASTTypBuiltinVAList:
+        ...
+
+    @abstractmethod
     def convert_comp_typ(self, t: "BCT.BCTypComp") -> AST.ASTTypComp:
+        ...
+
+    @abstractmethod
+    def convert_compinfo(self, cinfo: "BCCompInfo") -> AST.ASTCompInfo:
+        ...
+
+    @abstractmethod
+    def convert_fieldinfo(self, finfo: "BCFieldInfo") -> AST.ASTFieldInfo:
         ...

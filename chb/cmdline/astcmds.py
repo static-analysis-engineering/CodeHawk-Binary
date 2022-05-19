@@ -38,13 +38,13 @@ from chb.ast.ASTDeserializer import ASTDeserializer
 from chb.ast.ASTLiveCode import ASTLiveCode
 from chb.ast.ASTNode import ASTStmt, ASTExpr, ASTVariable
 from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
-from chb.ast.ASTRewriter import ASTRewriter
 from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.ASTExprPropagator import ASTExprPropagator
-# from chb.ast.ASTUtil import InstrUseDef, UseDef
 
 from chb.astinterface.ASTInterface import ASTInterface
+from chb.astinterface.ASTRewriter import ASTRewriter
+from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
@@ -54,7 +54,9 @@ from chb.userdata.UserHints import UserHints
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
+    from chb.bctypes.BCCompInfo import BCCompInfo    
     from chb.bctypes.BCTyp import BCTypComp
+
 
 
 def showast(args: argparse.Namespace) -> NoReturn:
@@ -141,9 +143,9 @@ def showast(args: argparse.Namespace) -> NoReturn:
     revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
     revfunctionnames = userhints.rev_function_names()
 
-    globalsymboltable = ASTGlobalSymbolTable()
+    globalsymboltable = ASTGlobalSymbolTable()    
+    typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
 
-    '''
     for vinfo in app.bcfiles.globalvars:
         vname = vinfo.vname
         if vname in revsymbolicaddrs:
@@ -152,12 +154,12 @@ def showast(args: argparse.Namespace) -> NoReturn:
             gaddr = int(revfunctionnames[vname], 16)
         else:
             gaddr = 0
-        globalsymboltable.add_global_symbol(
-            vname,
-            vtype=vinfo.vtype,
-            globaladdress=gaddr,
-            size=vinfo.vtype.byte_size())
-    '''
+        if gaddr > 0:
+            globalsymboltable.add_symbol(
+                vname,
+                vtype=vinfo.vtype.convert(typconverter),
+                globaladdress=gaddr)
+            # size=vinfo.vtype.byte_size())
 
     # ------------------------------------------- initialize json ast output ---
 
@@ -196,16 +198,26 @@ def showast(args: argparse.Namespace) -> NoReturn:
             localsymboltable = ASTLocalSymbolTable(
                 globalsymboltable)
 
-            # if app.bcfiles.has_functiondef(fname):
-            #    fdef = app.bcfiles.functiondef(fname)
-            #    localsymboltable.set_functiondef(fdef)
-            #    localsymboltable.set_function_prototype(fdef.svinfo)
-
             astree = ASTInterface(
                 faddr,
                 fname,
-                localsymboltable)
+                localsymboltable,
+                typconverter,
+                xinfo.architecture)
             gvars: List[ASTVariable] = []
+
+            if app.bcfiles.has_functiondef(fname):
+                fdef = app.bcfiles.functiondef(fname)
+                astree.set_fprototype(fdef.svinfo)
+                fproto = fdef.svinfo.convert(typconverter)
+                localsymboltable.set_function_prototype(fproto)
+
+            elif app.bcfiles.has_vardecl(fname):
+                vardecl = app.bcfiles.vardecl(fname)
+                astree.set_fprototype(vardecl)
+                fproto = vardecl.convert(typconverter)
+                localsymboltable.set_function_prototype(fproto)
+            
 
             '''
             if app.bcfiles.has_functiondef(fname):
@@ -231,9 +243,9 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 print(" -- " + str(e))
                 print('-' * 80)
                 failedfunctions += 1
-                if len(astree.diagnostics()) > 0:
+                if len(astree.diagnostics) > 0:
                     print("Diagnostics: ")
-                    print("\n".join(astree.diagnostics()))
+                    print("\n".join(astree.diagnostics))
                 continue
             except Exception as e:
                 print("*" * 80)
@@ -270,6 +282,15 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 continue
 
             ast = cast(ASTStmt, ast)
+
+            if verbose:
+                print("Low level AST")
+                print("~" * 40)
+                prettyprinter = ASTCPrettyPrinter(
+                    localsymboltable,
+                    globalsymboltable)
+                print(prettyprinter.to_c(ast))
+                print("~" * 80)
 
             addresstaken = ast.address_taken()
             callees = ast.callees()
@@ -322,6 +343,12 @@ def showast(args: argparse.Namespace) -> NoReturn:
             livestmts = livecode.livecode
             livesymbols = livecode.livesymbols
 
+            if verbose:
+                print("Live statements:")
+                print(", ".join(str(i) for i in livestmts))
+                print("\nLive symbols:")
+                print(", ".join(str(s) for s in livesymbols))
+
             astreduced = ast
 
             if verbose:
@@ -368,6 +395,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
             if outputfile is not None:
 
                 serializer = ASTSerializer()
+                localsymboltable.serialize(serializer)
                 startnode = serializer.index_stmt(ast)
                 astnodes = serializer.records()
 
@@ -375,7 +403,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 if app.has_function_name(faddr):
                     astfunction["name"] = app.function_name(faddr)
                 astfunction["va"] = faddr
-                # astfunction["local-symbol-table"] = localsymboltable.serialize()
                 astfunction["ast"] = {}
                 astfunction["ast"]["nodes"] = astnodes
                 astfunction["ast"]["startnode"] = startnode
@@ -385,39 +412,26 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 # astfunction["storage"] = storagerecords
                 astfunctions.append(astfunction)
 
-                if verbose and len(astree.notes) > 0:
+                if verbose and len(astree.diagnostics) > 0:
                     print("\nNotes")
                     print("=" * 80)
-                    print("\n".join(astree.notes))
+                    print("\n".join(astree.diagnostics))
                     print("=" * 80)
 
         else:
             UC.print_error("Function " + faddr + " not found")
             exit(1)
 
-    print("\nGlobal symboltable")
-    print(str(globalsymboltable))
-
-    '''
-    print("\nTypes used")
-    for ix in globalsymboltable.types_used:
-        t = app.bcdictionary.typ(ix)
-        if t.is_struct:
-            t = cast("BCTypComp", t)
-            compinfo = t.compinfo
-            print(str(compinfo))
-        else:
-            print(str(app.bcdictionary.typ(ix)) + " (" + str(ix) + ")")
+    globalserializer = ASTSerializer()
+    bccinfos: List["BCCompInfo"] = list(typconverter.compinfos_referenced.values())
+    for bccinfo in bccinfos:
+        if not globalsymboltable.has_compinfo(bccinfo.ckey):
+            bccinfo.convert(typconverter)
+    globalsymboltable.serialize(globalserializer)
 
     if outputfile is not None:
-        ast_output["global-symbol-table"] = globalsymboltable.serialize()
-        ast_output["struct-types"] = {}
-        for ix in globalsymboltable.types_used:
-            t = app.bcdictionary.typ(ix)
-            if t.is_struct:
-                t = cast("BCTypComp", t)
-                compinfo = t.compinfo
-                ast_output["struct-types"][compinfo.cname] = str(compinfo)
+        serializer = ASTSerializer()
+        ast_output["global-symbol-table"] = globalserializer.records()
 
         outputfilename: str = outputfile + ".json"
         with open(outputfilename, "w") as fp:
@@ -425,10 +439,10 @@ def showast(args: argparse.Namespace) -> NoReturn:
         print("\n" + ("-" * 80))
         print("AST(s) were saved in: " + outputfilename)
         print("-" * 80)
-    '''
 
     if outputfile is not None and args.verbose:
-        print_deserialization(ast_output)
+        # print_deserialization(ast_output)
+        pass
 
     if decompile:
         print("\nStatistics:")

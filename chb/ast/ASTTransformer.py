@@ -111,6 +111,10 @@ class ASTTransformer(ABC):
         ...
 
     @abstractmethod
+    def transform_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> AST.ASTExpr:
+        ...
+
+    @abstractmethod
     def transform_cast_expression(self, expr: AST.ASTCastExpr) -> AST.ASTExpr:
         ...
 
@@ -164,6 +168,11 @@ class ASTTransformer(ABC):
 
     @abstractmethod
     def transform_named_typ(self, typ: AST.ASTTypNamed) -> AST.ASTTyp:
+        ...
+
+    @abstractmethod
+    def transform_builtin_va_list(
+            self, typ: AST.ASTTypBuiltinVAList) -> AST.ASTTypBuiltinVAList:
         ...
 
     @abstractmethod

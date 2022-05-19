@@ -178,7 +178,7 @@ class ARMAdd(ARMOpcode):
         lhsast = lhsasts[0]
 
         if str(lhs) == "PC":
-            astree.add_note(iaddr + ": ADD instruction sets PC")
+            astree.add_diagnostic(iaddr + ": ADD instruction sets PC")
 
         # resulting expression is a stack address
         if rhs1 == "SP" and rhs3.is_stack_address:

@@ -218,7 +218,7 @@ class BCTyp(BCDictionaryRecord):
         raise UF.CHBError("Type is not a function: " + str(self))
 
     def convert(self, converter: "BCConverter") -> AST.ASTTyp:
-        raise NotImplementedError("BCTyp.convert")
+        raise NotImplementedError("BCTyp.convert: " + self.tags[0])
 
     def __str__(self) -> str:
         return "cil-typ:" + self.tags[0]
@@ -658,6 +658,9 @@ class BCTypBuiltinVaList(BCTyp):
             cd: "BCDictionary",
             ixval: IT.IndexedTableValue) -> None:
         BCTyp.__init__(self, cd, ixval)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTTypBuiltinVAList:
+        return converter.convert_builtin_va_list(self)
 
     def __str__(self) -> str:
         return "builtin-va-list"

@@ -24,7 +24,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Construction of abstract syntax tree."""
+"""Construction of abstract syntax tree for an individual function."""
 
 import json
 
@@ -47,7 +47,7 @@ from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree, ASTSpanRecord, nooffs
 import chb.ast.ASTNode as AST
 from chb.ast.ASTSymbolTable import ASTSymbolTable, ASTLocalSymbolTable
 
-
+from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 from chb.astinterface.ASTIFormalVarInfo import ASTIFormalVarInfo
 
 import chb.astinterface.ASTIUtil as AU
@@ -146,26 +146,44 @@ class ASTInterface:
             self,
             faddr: str,
             fname: str,
-            localsymboltable: ASTLocalSymbolTable) -> None:
+            localsymboltable: ASTLocalSymbolTable,
+            typconverter: BC2ASTConverter,
+            parameter_abi: str) -> None:
         self._astree = AbstractSyntaxTree(faddr, fname, localsymboltable)
+        self._typconverter = typconverter
+        self._parameter_abi = parameter_abi
+        self._formals: List[ASTIFormalVarInfo] = []
+        self._fprototype: Optional["BCVarInfo"] = None
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
-        self._notes: List[str] = []
-
-    def add_note(self, note: str) -> None:
-        self._notes.append(note)
+        self._diagnostics: List[str] = []
 
     @property
     def astree(self) -> AbstractSyntaxTree:
         return self._astree
 
     @property
-    def notes(self) -> List[str]:
-        return self._notes
+    def typconverter(self) -> BC2ASTConverter:
+        return self._typconverter
+
+    @property
+    def parameter_abi(self) -> str:
+        return self._parameter_abi
+
+    @property
+    def formals(self) -> List[ASTIFormalVarInfo]:
+        return self._formals
 
     @property
     def annotations(self) -> Dict[int, List[str]]:
         return self._annotations
+
+    @property
+    def diagnostics(self) -> List[str]:
+        return self._diagnostics
+
+    def add_diagnostic(self, msg: str) -> None:
+        self._diagnostics.append(msg)
 
     @property
     def fname(self) -> str:
@@ -179,8 +197,21 @@ class ASTInterface:
     def spans(self) -> List[ASTSpanRecord]:
         return self.astree.spans
 
-    def diagnostics(self) -> List[str]:
-        return self.notes
+    @property
+    def function_prototype(self) -> Optional["BCVarInfo"]:
+        return self._fprototype
+
+    def set_fprototype(self, p: "BCVarInfo") -> None:
+        self._fprototype = p
+        ftype = cast("BCTypFun", p.vtype)
+        if ftype.argtypes:
+            nextindex = 0
+            for (argindex, arg) in enumerate(ftype.argtypes.funargs):
+                nextindex = self.add_formal(
+                    arg.name, arg.typ, argindex, nextindex)        
+
+    def has_function_prototype(self) -> bool:
+        return self.function_prototype is not None
 
     def global_symbols(self) -> Sequence[AST.ASTVarInfo]:
         return []
@@ -196,13 +227,50 @@ class ASTInterface:
         # return self.symboltable.get_formal_locindices(argindex)
     '''
 
+    def get_formal_locindices(
+            self, argindex: int) -> Tuple[ASTIFormalVarInfo, List[int]]:
+        """Return the indices of the arg location(s) for argindex.
+
+        There may be more than one location in case of a packed array.
+        """
+
+        for formal in reversed(self.formals):
+            if argindex >= formal.argindex:
+                if (argindex - formal.argindex) < formal.numargs:
+                    return (formal, formal.arglocs_for_argindex(argindex))
+                else:
+                    raise Exception(
+                        "get_formal_locindex: "
+                        + str(argindex)
+                        + " is too large. Formals:  "
+                        + ", ".join(str(f) for f in self.formals))
+
+        else:
+            raise Exception("No formal found for argindex: " + str(argindex))
+
     def function_argument(self, index: int) -> List[AST.ASTLval]:
         """Return the argument(s) with the given index (zero-based).
 
         There may be more than one argument, in case of a packed array.
         """
-        raise NotImplementedError("ASTInterface.function_argument")
-        # return self.symboltable.function_argument(index)
+
+        if len(self.formals) > 0:
+            (formal, locindices) = self.get_formal_locindices(index)
+            regvar = AST.ASTVariable(formal)
+            lvals: List[AST.ASTLval] = []
+            for locindex in locindices:
+                (loc, offset, size) = formal.argloc(locindex)
+                lvals.append(AST.ASTLval(regvar, offset))
+            return lvals
+        else:
+            if self.has_function_prototype():
+                self.add_diagnostic(
+                    str(self.function_prototype)
+                    + " has no parameters")
+            else:
+                self.add_diagnostic(
+                    "No function prototype present to extract parameters")
+            return []
 
     def has_symbol(self, name: str) -> bool:
         return self.symboltable.has_symbol(name)
@@ -221,6 +289,21 @@ class ASTInterface:
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress)
+
+    def add_formal(
+            self,
+            vname: str,
+            vtype: "BCTyp",
+            parameter: int,
+            nextindex: int) -> int:
+        """Return the next starting index for the argument in the binary."""
+
+        formal = ASTIFormalVarInfo(vname, parameter, nextindex, bctyp=vtype)
+        nextindex = formal.initialize(self.parameter_abi)
+        self.add_symbol(
+            vname, vtype=vtype.convert(self.typconverter), parameter=parameter)
+        self._formals.append(formal)
+        return nextindex
 
     def add_span(self, span: ASTSpanRecord) -> None:
         self.astree.add_span
@@ -257,13 +340,10 @@ class ASTInterface:
         raise NotImplementedError("ASTInterface.mk_global_variable_expr")
 
     def mk_lval_expr(self, lval: AST.ASTLval) -> AST.ASTExpr:
-        raise NotImplementedError("ASTInterface.mk_lval_expr")
-
-    def mk_ignored_lval(self) -> AST.ASTLval:
-        raise NotImplementedError("ASTInterface.mk_ignored_lval")
+        return self.mk_lval_expression(lval)
 
     def mk_variable_lval(self, name: str) -> AST.ASTLval:
-        raise NotImplementedError("ASTInterface.mk_variable_lval")
+        return self.mk_named_lval(name)
 
     # ------------------------------------------------------ make statements ---
 
@@ -431,8 +511,10 @@ class ASTInterface:
             name: Optional[str] = None,
             vtype: Optional["BCTyp"] = None,
             parameter: Optional[int] = None) -> AST.ASTVariable:
-        raise NotImplementedError("ASTInterface.mk_stack_variable")
-    '''
+        if vtype is not None:
+            asttype: Optional[AST.ASTTyp] = vtype.convert(self.typconverter)
+        else:
+            asttype = None
         if name is None:
             if offset < 0:
                 name = "localvar_" + str(-offset)
@@ -440,9 +522,7 @@ class ASTInterface:
                 name = "localvar_0"
             else:
                 name = "argvar_" + str(offset)
-        varinfo = self.add_symbol(name, vtype=vtype, parameter=parameter)
-        return AST.ASTVariable(varinfo)
-    '''
+        return self.mk_named_variable(name, vtype=asttype, parameter=parameter)
 
     def mk_stack_variable_lval(
             self,
@@ -451,9 +531,7 @@ class ASTInterface:
             vtype: Optional["BCTyp"] = None,
             parameter: Optional[int] = None) -> AST.ASTLval:
         var = self.mk_stack_variable(offset, name, vtype, parameter)
-        raise NotImplementedError("ASTInterface.mk_stack_variable_lval")
-
-    #    return AST.ASTLval(var, nooffset)
+        return self.mk_lval(var, nooffset)
 
     def mk_temp_lval(self) -> AST.ASTLval:
         return self.astree.mk_tmp_lval()
