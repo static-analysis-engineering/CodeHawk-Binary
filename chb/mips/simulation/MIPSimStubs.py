@@ -6006,7 +6006,7 @@ class MIPStub_config_match(MIPSimStub):
                 configmsg = "no match for " + a0str + " with " + a1str
                 resultval = SV.simZero
         else:
-            resultval = SV.simOne
+            resultval = SV.simZero
             configmsg = "config key " + a0str + " not found"
         pargs = str(a0) + ":" + a0str + ", " + str(a1) + ":" + a1str
         simstate.set_register(iaddr, "v0", resultval)
