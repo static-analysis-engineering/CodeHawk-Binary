@@ -311,6 +311,10 @@ class ASTStmt(ASTNode):
         return False
 
     @abstractmethod
+    def accept(self, visitor: "ASTVisitor") -> None:
+        ...
+
+    @abstractmethod
     def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
         ...
 
@@ -960,6 +964,10 @@ class ASTOffset(ASTNode):
     @property
     def is_no_offset(self) -> bool:
         return False
+
+    @property
+    def offset(self) -> "ASTOffset":
+        raise Exception("offset property not supported for " + str(self))
 
     @abstractmethod
     def transform(self, transformer: "ASTTransformer") -> "ASTOffset":
@@ -1822,9 +1830,6 @@ class ASTTyp(ASTNode):
     def is_compound(self) -> bool:
         return False
 
-    def size_in_bytes(self) -> int:
-        return 0
-
 
 class ASTTypVoid(ASTTyp):
 
@@ -1867,22 +1872,6 @@ inttypes = {
 }
 
 
-intsizes = {
-    "ichar": 1,
-    "ischar": 1,
-    "iuchar": 1,
-    "ibool": 1,
-    "iint": 4,
-    "iuint": 4,
-    "ishort": 2,
-    "iushort": 2,
-    "ilong": 4,
-    "iulong": 4,
-    "ilonglong": 8,
-    "iulonglong": 8
-}
-
-
 class ASTTypInt(ASTTyp):
 
     def __init__(self, ikind: str) -> None:
@@ -1900,11 +1889,8 @@ class ASTTypInt(ASTTyp):
     def is_integer(self) -> bool:
         return True
 
-    def size_in_bytes(self) -> int:
-        return intsizes[self.ikind]
-
     def accept(self, visitor: "ASTVisitor") -> None:
-        visitor.visit_integer_typ
+        visitor.visit_integer_typ(self)
 
     def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
         return transformer.transform_integer_typ(self)
@@ -1926,13 +1912,6 @@ floattypes = {
 }
 
 
-floatsizes = {
-    "float": 4,
-    "fdouble": 8,
-    "flongdouble": 8    # ??
-}
-
-
 class ASTTypFloat(ASTTyp):
 
     def __init__(self, fkind: str) -> None:
@@ -1949,9 +1928,6 @@ class ASTTypFloat(ASTTyp):
     @property
     def is_float(self) -> bool:
         return True
-
-    def size_in_bytes(self) -> int:
-        return floatsizes[self.fkind]
 
     def accept(self, visitor: "ASTVisitor") -> None:
         return visitor.visit_float_typ(self)
@@ -1982,11 +1958,6 @@ class ASTTypPtr(ASTTyp):
     @property
     def is_pointer(self) -> bool:
         return True
-
-    def size_in_bytes(self) -> int:
-        """We assume 32-bit systems."""
-
-        return 4
 
     def accept(self, visitor: "ASTVisitor") -> None:
         return visitor.visit_pointer_typ(self)
@@ -2246,12 +2217,14 @@ class ASTCompInfo(ASTNode):
             cname: str,
             ckey: int,
             fieldinfos: List["ASTFieldInfo"],
-            is_union: bool = False) -> None:
+            is_union: bool = False,
+            fieldoffsets: Optional[Dict[int, str]] = None) -> None:
         ASTNode.__init__(self, "compinfo")
         self._cname = cname
         self._ckey = ckey
         self._fieldinfos = fieldinfos
         self._is_union = is_union
+        self._fieldoffsets = fieldoffsets
 
     @property
     def cname(self) -> str:
@@ -2268,6 +2241,51 @@ class ASTCompInfo(ASTNode):
     @property
     def is_union(self) -> bool:
         return self._is_union
+
+    def has_field_offsets(self) -> bool:
+        return self._fieldoffsets is not None
+
+    @property
+    def field_offsets(self) -> Dict[int, str]:
+        if self._fieldoffsets is not None:
+            return self._fieldoffsets
+        else:
+            raise Exception(
+                "No field offsets are specified for compinfo " + self.cname)
+
+    def field_at_offset(self, offset: int) -> Tuple["ASTFieldInfo", int]:
+        """Return the field at the max offset less than or equal to offset.
+
+        If the field is not at offset, also return the remaining offset.
+        """
+
+        if offset < 0:
+            raise Exception(
+                "Negative offset in field_at_offset: " + str(offset))
+
+        if not self.has_field_offsets():
+            raise Exception(
+                "No field offsets are specified for compinfo " + self.cname)
+
+        prev: Optional[Tuple[int, str]] = None
+        for (i, fname) in self.field_offsets.items():
+            if i == offset:
+                return (self.fieldinfo(fname), 0)
+            elif i > offset:
+                prev = cast(Tuple[int, str], prev)
+                return (self.fieldinfo(prev[1]), offset - prev[0])
+            else:
+                prev = (i, fname)
+        else:
+            prev = cast(Tuple[int, str], prev)
+            return (self.fieldinfo(prev[1]), offset - prev[0])
+
+    def fieldinfo(self, fname: str) -> "ASTFieldInfo":
+        for finfo in self.fieldinfos:
+            if finfo.fieldname == fname:
+                return finfo
+        else:
+            raise Exception("No fieldinfo found with fieldname " + fname)
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_compinfo(self)

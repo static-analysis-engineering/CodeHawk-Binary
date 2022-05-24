@@ -91,7 +91,6 @@ class ASTCPrettyPrinter(ASTVisitor):
     def __init__(
             self,
             localsymboltable: "ASTLocalSymbolTable",
-            globalsymboltable: "ASTGlobalSymbolTable",
             indentation: int = 2,
             livecode: List[int] = [],
             livesymbols: Set[str] = set([]),
@@ -100,7 +99,7 @@ class ASTCPrettyPrinter(ASTVisitor):
         self._indentation = indentation    # indentation amount
         self._indent = 0                   # current indentation
         self._localsymboltable = localsymboltable
-        self._globalsymboltable = globalsymboltable
+        self._globalsymboltable = localsymboltable.globaltable
         self._livecode = livecode
         self._livesymbols = livesymbols
         self._annotations = annotations
@@ -183,10 +182,29 @@ class ASTCPrettyPrinter(ASTVisitor):
                 else:
                     self.ccode.write("? " + vinfo.vname)
 
+    def write_signature(self) -> None:
+        if self.signature is not None:
+            vtype = self.signature.vtype
+            if vtype is not None and vtype.is_function:
+                ftype = cast(AST.ASTTypFun, vtype)
+                ftype.returntyp.accept(self)
+                self.ccode.write(" ")
+                self.ccode.write(self.signature.vname)
+                self.ccode.write("(")
+                if ftype.argtypes is not None:
+                    ftype.argtypes.accept(self)
+                self.ccode.write(")")
+                return None
+            else:
+                self.ccode.write("? ")
+                self.ccode.write(self.signature.vname)
+                self.ccode.write("(?)")
+
     def to_c(self, stmt: AST.ASTStmt, sp: int = 0) -> str:
-        if self.has_signature():
+        if self.signature is not None:
             self.ccode.newline()
-            self.ccode.write(str(self.signature) + "{")
+            self.write_signature()
+            self.ccode.write("{")
             self.increase_indent()
             self.ccode.newline()
             self.write_local_declarations()
@@ -210,6 +228,11 @@ class ASTCPrettyPrinter(ASTVisitor):
             self.visit_branch_stmt(cast(AST.ASTBranch, stmt))
         else:
             raise Exception("Statement type not recognized: " + stmt.tag)
+
+    def expr_to_c(self, expr: AST.ASTExpr) -> str:
+        self.ccode.newline()
+        expr.accept(self)
+        return str(self.ccode)
 
     def visit_return_stmt(self, stmt: AST.ASTReturn) -> None:
         self.ccode.newline(indent=self.indent)

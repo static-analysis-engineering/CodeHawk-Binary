@@ -33,6 +33,29 @@ from chb.ast.ASTIndexer import ASTIndexer
 import chb.ast.ASTNode as AST
 
 
+intsizes: Dict[str, int] = {
+    "ichar": 1,
+    "ischar": 1,
+    "iuchar": 1,
+    "ibool": 1,
+    "iint": 4,
+    "iuint": 4,
+    "ishort": 2,
+    "iushort": 2,
+    "ilong": 4,
+    "iulong": 4,
+    "ilonglong": 8,
+    "iulonglong": 8
+}
+
+
+floatsizes: Dict[str, int]  = {
+    "float": 4,
+    "fdouble": 8,
+    "flongdouble": 8
+}
+
+
 class ASTByteSizeCalculationException(Exception):
 
     def __init__(self, nodetype: str, msg: str) -> None:
@@ -52,8 +75,8 @@ class ASTByteSizeCalculator(ASTIndexer):
     def __init__(
             self,
             ctyper: ASTCTyper,
-            intsizes: Dict[str, int],
-            floatsizes: Dict[str, int] = {},
+            intsizes: Dict[str, int] = intsizes,
+            floatsizes: Dict[str, int] = floatsizes,
             address_size: int = 4,
             structsizes: Dict[int, int] = {}) -> None:
         ASTIndexer.__init__(self)
@@ -154,6 +177,9 @@ class ASTByteSizeCalculator(ASTIndexer):
     def index_integer_constant(self, expr: AST.ASTIntegerConstant) -> int:
         return self.intsize(expr.ikind)
 
+    def index_global_address(self, expr: AST.ASTIntegerConstant) -> int:
+        return self.address_size
+
     def index_string_constant(self, expr: AST.ASTStringConstant) -> int:
         """Return the size of the string address, rather than the string itself."""
 
@@ -161,6 +187,12 @@ class ASTByteSizeCalculator(ASTIndexer):
 
     def index_lval_expression(self, expr: AST.ASTLvalExpr) -> int:
         return expr.lval.index(self)
+
+    def index_substituted_expression(self, expr: AST.ASTSubstitutedExpr) -> int:
+        return expr.super_lval.index(self)
+
+    def index_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> int:
+        return self.intsize("iuint")
 
     def index_cast_expression(self, expr: AST.ASTCastExpr) -> int:
         return expr.cast_tgt_type.index(self)
@@ -219,7 +251,7 @@ class ASTByteSizeCalculator(ASTIndexer):
     def index_funarg(self, funarg: AST.ASTFunArg) -> int:
         return funarg.argtyp.index(self)
 
-    def index_typ_named(self, typ: AST.ASTTypNamed) -> int:
+    def index_named_typ(self, typ: AST.ASTTypNamed) -> int:
         return typ.typdef.index(self)
 
     def index_fieldinfo(self, finfo: AST.ASTFieldInfo) -> int:
@@ -230,3 +262,6 @@ class ASTByteSizeCalculator(ASTIndexer):
 
     def index_comp_typ(self, typ: AST.ASTTypComp) -> int:
         return self.structsize(typ.compkey)
+
+    def index_builtin_va_list(self, typ: AST.ASTTypBuiltinVAList) -> int:
+        return self.address_size

@@ -78,23 +78,7 @@ class ASTLiveCode(ASTNOPVisitor):
 
         Record live_on_exit along the way.
         """
-        self.live_stmt_variables(stmt)
-
-    def live_stmt_variables(self, stmt: AST.ASTStmt) -> None:
-        if stmt.is_ast_return:
-            self.visit_return_stmt(cast(AST.ASTReturn, stmt))
-
-        elif stmt.is_ast_block:
-            self.visit_block_stmt(cast(AST.ASTBlock, stmt))
-
-        elif stmt.is_ast_instruction_sequence:
-            self.visit_instruction_sequence_stmt(cast(AST.ASTInstrSequence, stmt))
-
-        elif stmt.is_ast_branch:
-            self.visit_branch_stmt(cast(AST.ASTBranch, stmt))
-
-        else:
-            raise UF.CHBError("Statement type not recognized: " + stmt.tag)
+        stmt.accept(self)
 
     def visit_return_stmt(self, stmt: AST.ASTReturn) -> None:
         self.set_live_on_exit(stmt.stmtid, set([]))
@@ -140,6 +124,7 @@ class ASTLiveCode(ASTNOPVisitor):
                 live_e.add(v)
         if (
                 instr.lhs.is_memref
+                or (not instr.lhs.offset.is_no_offset)
                 or instr.lhs.is_global
                 or str(instr.lhs) in self.live_x):
             for v in instr.use():
@@ -147,6 +132,7 @@ class ASTLiveCode(ASTNOPVisitor):
         self.set_live_x(live_e)
         if (
                 instr.lhs.is_memref
+                or (not instr.lhs.offset.is_no_offset)
                 or instr.lhs.is_global
                 or (instr.instrid in self.live_on_exit
                     and str(instr.lhs) in self.live_on_exit[instr.instrid])):
