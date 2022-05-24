@@ -44,8 +44,11 @@ from typing import (
 
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree, ASTSpanRecord, nooffset
+from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
+from chb.ast.ASTCTyper import ASTCTyper
 import chb.ast.ASTNode as AST
-from chb.ast.ASTSymbolTable import ASTSymbolTable, ASTLocalSymbolTable
+from chb.ast.ASTSymbolTable import (
+    ASTSymbolTable, ASTLocalSymbolTable, ASTGlobalSymbolTable)
 
 from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 from chb.astinterface.ASTIFormalVarInfo import ASTIFormalVarInfo
@@ -148,9 +151,13 @@ class ASTInterface:
             fname: str,
             localsymboltable: ASTLocalSymbolTable,
             typconverter: BC2ASTConverter,
+            bytesizecalculator: ASTByteSizeCalculator,
+            ctyper: ASTCTyper,
             parameter_abi: str) -> None:
         self._astree = AbstractSyntaxTree(faddr, fname, localsymboltable)
         self._typconverter = typconverter
+        self._ctyper = ctyper
+        self._bytesizecalculator = bytesizecalculator
         self._parameter_abi = parameter_abi
         self._formals: List[ASTIFormalVarInfo] = []
         self._fprototype: Optional["BCVarInfo"] = None
@@ -165,6 +172,14 @@ class ASTInterface:
     @property
     def typconverter(self) -> BC2ASTConverter:
         return self._typconverter
+
+    @property
+    def ctyper(self) -> ASTCTyper:
+        return self._ctyper
+
+    @property
+    def bytesize_calculator(self) -> ASTByteSizeCalculator:
+        return self._bytesizecalculator
 
     @property
     def parameter_abi(self) -> str:
@@ -192,6 +207,16 @@ class ASTInterface:
     @property
     def symboltable(self) -> ASTLocalSymbolTable:
         return self.astree.symboltable
+
+    @property
+    def globalsymboltable(self) -> ASTGlobalSymbolTable:
+        return self.symboltable.globaltable
+
+    def compinfo(self, ckey: int) -> AST.ASTCompInfo:
+        return self.globalsymboltable.compinfo(ckey)
+
+    def type_size_in_bytes(self, typ: AST.ASTTyp) -> int:
+        return typ.index(self.bytesize_calculator)
 
     @property
     def spans(self) -> List[ASTSpanRecord]:
@@ -469,18 +494,16 @@ class ASTInterface:
     def mk_returnval_variable(
             self,
             iaddr: str,
-            vtype: Optional["BCTyp"]) -> AST.ASTVariable:
-        raise NotImplementedError("ASTInterface.mk_returnval_variable")
-    # name = "rtn_" + iaddr
-    # return self.mk_named_variable(name, vtype=vtype)
+            vtype: Optional[AST.ASTTyp]) -> AST.ASTVariable:
+        name = "rtn_" + iaddr
+        return self.mk_named_variable(name, vtype=vtype)
 
     def mk_returnval_variable_lval(
             self,
             iaddr: str,
-            vtype: Optional["BCTyp"]) -> AST.ASTLval:
-        raise NotImplementedError("ASTInterface.mk_returnval_variable_lval")
-    # var = self.mk_returnval_variable(iaddr, vtype)
-    # return AST.ASTLval(var, nooffset)
+            vtype: Optional[AST.ASTTyp]) -> AST.ASTLval:
+        var = self.mk_returnval_variable(iaddr, vtype)
+        return AST.ASTLval(var, nooffset)
 
     def mk_register_variable(
             self,
@@ -509,12 +532,8 @@ class ASTInterface:
             self,
             offset: int,
             name: Optional[str] = None,
-            vtype: Optional["BCTyp"] = None,
+            vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None) -> AST.ASTVariable:
-        if vtype is not None:
-            asttype: Optional[AST.ASTTyp] = vtype.convert(self.typconverter)
-        else:
-            asttype = None
         if name is None:
             if offset < 0:
                 name = "localvar_" + str(-offset)
@@ -522,13 +541,13 @@ class ASTInterface:
                 name = "localvar_0"
             else:
                 name = "argvar_" + str(offset)
-        return self.mk_named_variable(name, vtype=asttype, parameter=parameter)
+        return self.mk_named_variable(name, vtype=vtype, parameter=parameter)
 
     def mk_stack_variable_lval(
             self,
             offset: int,
             name: Optional[str] = None,
-            vtype: Optional["BCTyp"] = None,
+            vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None) -> AST.ASTLval:
         var = self.mk_stack_variable(offset, name, vtype, parameter)
         return self.mk_lval(var, nooffset)
@@ -536,11 +555,9 @@ class ASTInterface:
     def mk_temp_lval(self) -> AST.ASTLval:
         return self.astree.mk_tmp_lval()
 
-    '''
-    def mk_formal_lval(self, formal: ASTFormalVarInfo) -> AST.ASTLval:
+    def mk_formal_lval(self, formal: ASTIFormalVarInfo) -> AST.ASTLval:
         var = AST.ASTVariable(formal)
         return AST.ASTLval(var, nooffset)
-    '''
 
     def mk_memref(self, memexp: AST.ASTExpr) -> AST.ASTMemRef:
         return AST.ASTMemRef(memexp)
@@ -575,9 +592,9 @@ class ASTInterface:
     def mk_field_offset(
             self,
             fieldname: str,
-            fieldtype: "BCTyp",
+            compkey: int,
             offset: AST.ASTOffset = nooffset) -> AST.ASTFieldOffset:
-        raise NotImplementedError("ASTInterface.mk_field_offset")
+        return self.astree.mk_field_offset(fieldname, compkey, offset=offset)
 
     '''
     def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
@@ -589,7 +606,10 @@ class ASTInterface:
         return self.astree.mk_integer_constant(cvalue)
 
     def mk_string_constant(
-            self, expr: AST.ASTExpr, cstr: str, saddr: str) -> AST.ASTStringConstant:
+            self,
+            expr: AST.ASTExpr,
+            cstr: str,
+            saddr: str) -> AST.ASTStringConstant:
         return AST.ASTStringConstant(expr, cstr, saddr)
 
     def mk_address_of(self, lval: AST.ASTLval) -> AST.ASTAddressOf:

@@ -58,7 +58,6 @@ class BC2ASTConverter(BCConverter):
         self._globalstore = globalstore
         self._symboltable = symboltable
         self._compinfos_referenced: Dict[int, BCCompInfo] = {}
-        # self._initialize_compinfos()
 
     @property
     def globalstore(self) -> BCFiles:
@@ -75,9 +74,9 @@ class BC2ASTConverter(BCConverter):
     def add_compinfo_reference(self, cinfo: BCCompInfo) -> None:
         self.compinfos_referenced.setdefault(cinfo.ckey, cinfo)
 
-    def _initialize_compinfos(self) -> None:
-        for cinfo in self.globalstore.gcomptags:
-            cinfo.convert(self)
+    def initialize_compinfos(self) -> None:
+        for cinfo in self.compinfos_referenced.values():
+            self.symboltable.add_compinfo(cinfo.convert(self))
 
     def convert_lval(self, lval: BCLval) -> AST.ASTLval:
         lhost = lval.lhost.convert(self)
@@ -188,7 +187,6 @@ class BC2ASTConverter(BCConverter):
             finfos = [f.convert(self) for f in cinfo.fieldinfos]
             astcinfo = AST.ASTCompInfo(
                 cinfo.cname, cinfo.ckey, finfos, is_union=cinfo.is_union)
-            self.symboltable.add_compinfo(astcinfo)
             return astcinfo
 
     def convert_fieldinfo(self, finfo: BCFieldInfo) -> AST.ASTFieldInfo:
