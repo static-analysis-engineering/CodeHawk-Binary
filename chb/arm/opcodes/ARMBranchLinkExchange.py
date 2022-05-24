@@ -135,38 +135,20 @@ class ARMBranchLinkExchange(ARMOpcode):
             xdata: InstrXData) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
 
         def indirect_lhs(
-                rtype: Optional[BCTyp]) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
+                rtype: Optional[AST.ASTTyp]) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
             tmplval = astree.mk_returnval_variable_lval(iaddr, rtype)
             tmprhs = astree.mk_lval_expr(tmplval)
             reglval = astree.mk_register_variable_lval("R0")
             return (tmplval, [astree.mk_assign(reglval, tmprhs)])
 
-        '''
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
         models = ModelsAccess()
         if astree.has_symbol(tgtname) and astree.get_symbol(tgtname).vtype:
             fnsymbol = astree.get_symbol(tgtname)
-            if fnsymbol.returns_void:
-                return (astree.mk_ignored_lval(), [])
-            else:
-                return indirect_lhs(fnsymbol.vtype)
-        elif models.has_so_function_summary(tgtname):
-            summary = models.so_function_summary(tgtname)
-            returntype = summary.signature.returntype
-            if returntype.is_named_type:
-                returntype = cast(MNamedType, returntype)
-                typename = returntype.typename
-                if typename == "void" or typename == "VOID":
-                    return (astree.mk_ignored_lval(), [])
-                else:
-                    return indirect_lhs(None)
-            else:
-                return indirect_lhs(None)
+            return indirect_lhs(fnsymbol.vtype)
         else:
             return indirect_lhs(None)
-        '''
-        return indirect_lhs(None)
 
     def assembly_ast(
             self,
