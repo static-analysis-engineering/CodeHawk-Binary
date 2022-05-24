@@ -117,7 +117,7 @@ class ConfigurationValues:
 
     def config_match(self, key: str, value: str) -> bool:
         if key in self.values:
-            return self.values[key] <= value
+            return self.values[key] == value
         else:
             raise UF.CHBError("No configuration value found for " + key)
 
