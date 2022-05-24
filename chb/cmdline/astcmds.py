@@ -34,6 +34,8 @@ from typing import Any, cast, Dict, List, NoReturn, Set, Tuple, TYPE_CHECKING
 
 from chb.app.AppAccess import AppAccess
 
+from chb.ast.ASTBasicCTyper import ASTBasicCTyper
+from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
 from chb.ast.ASTDeserializer import ASTDeserializer
 from chb.ast.ASTLiveCode import ASTLiveCode
 from chb.ast.ASTNode import ASTStmt, ASTExpr, ASTVariable
@@ -56,7 +58,6 @@ import chb.util.fileutil as UF
 if TYPE_CHECKING:
     from chb.bctypes.BCCompInfo import BCCompInfo    
     from chb.bctypes.BCTyp import BCTypComp
-
 
 
 def showast(args: argparse.Namespace) -> NoReturn:
@@ -160,6 +161,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 vtype=vinfo.vtype.convert(typconverter),
                 globaladdress=gaddr)
             # size=vinfo.vtype.byte_size())
+    typconverter.initialize_compinfos()
 
     # ------------------------------------------- initialize json ast output ---
 
@@ -197,12 +199,16 @@ def showast(args: argparse.Namespace) -> NoReturn:
 
             localsymboltable = ASTLocalSymbolTable(
                 globalsymboltable)
+            ctyper = ASTBasicCTyper(globalsymboltable)
+            typesizer = ASTByteSizeCalculator(ctyper)
 
             astree = ASTInterface(
                 faddr,
                 fname,
                 localsymboltable,
                 typconverter,
+                typesizer,
+                ctyper,
                 xinfo.architecture)
             gvars: List[ASTVariable] = []
 
@@ -286,9 +292,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
             if verbose:
                 print("Low level AST")
                 print("~" * 40)
-                prettyprinter = ASTCPrettyPrinter(
-                    localsymboltable,
-                    globalsymboltable)
+                prettyprinter = ASTCPrettyPrinter(localsymboltable)
                 print(prettyprinter.to_c(ast))
                 print("~" * 80)
 
@@ -323,11 +327,15 @@ def showast(args: argparse.Namespace) -> NoReturn:
                     addr = spanmap[instrlabel]
                     availablexprs[addr] = cast(List[Tuple[int, str, str, str]], [])
                     for (v, d) in instr_usedefs_e[instrlabel].defs.items():
-                        lvaltype = d[1].ctype
+                        pp = ASTCPrettyPrinter(localsymboltable)
+                        lvaltype = d[1].ctype(ctyper)
                         if lvaltype is None:
-                            lvaltype = d[2].ctype
-                        # availablexprs[addr].append(
-                        #    (d[0], v, d[2].to_c_like(), str(lvaltype)))
+                            lvaltype = d[2].ctype(ctyper)
+                        availablexprs[addr].append(
+                            (d[0],
+                             v,
+                             pp.expr_to_c(d[2]),
+                             str(lvaltype)))
 
             if verbose:
                 print("\nAvailable expressions")
@@ -356,7 +364,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 print("=" * 80)
                 prettyprinter = ASTCPrettyPrinter(
                     localsymboltable,
-                    globalsymboltable,
                     livecode=list(livestmts),
                     livesymbols=livesymbols,
                     livevars_on_exit=livecode.live_on_exit)
@@ -373,7 +380,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
 
             prettyprinter = ASTCPrettyPrinter(
                 localsymboltable,
-                globalsymboltable,
                 livecode=list(livestmts),
                 livesymbols=livesymbols,
                 livevars_on_exit=livecode.live_on_exit)
