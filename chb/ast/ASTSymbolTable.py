@@ -78,6 +78,14 @@ class ASTSymbolTable:
         for (name, vinfo) in sorted(self.table.items()):
             vinfo.index(serializer)
 
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Variables:")
+        lines.append("-" * 80)
+        for vinfo in self.table.values():
+            lines.append(" - " + vinfo.vname)
+        return "\n".join(lines)
+
 
 class ASTGlobalSymbolTable(ASTSymbolTable):
 
@@ -133,12 +141,19 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
             self._symbolicaddrs[vinfo.vname] = vinfo
         return vinfo
 
+    def add_varinfo(self, vinfo: AST.ASTVarInfo) -> None:
+        if vinfo.vname not in self.symbolic_addresses:
+            self._symbolicaddrs[vinfo.vname] = vinfo
+
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
         if cinfo.ckey not in self.compinfos:
             self._compinfos[cinfo.ckey] = cinfo
         else:
             raise Exception(
-                "Compinfo key " + str(cinfo.ckey) + " already exists")
+                "Compinfo key "
+                + str(cinfo.ckey)
+                + " already exists: "
+                + cinfo.cname)
 
     def has_compinfo(self, ckey: int) -> bool:
         return ckey in self.compinfos
@@ -147,7 +162,15 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         ASTSymbolTable.serialize(self, indexer)
         for cinfo in self.compinfos.values():
             cinfo.index(indexer)
-        
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append(ASTSymbolTable.__str__(self))
+        lines.append("\nStruct definitions")
+        lines.append("-" * 80)
+        for cinfo in self.compinfos.values():
+            lines.append(str(cinfo.ckey).rjust(4) + "  " + cinfo.cname)
+        return "\n".join(lines)
 
 
 class ASTLocalSymbolTable(ASTSymbolTable):
