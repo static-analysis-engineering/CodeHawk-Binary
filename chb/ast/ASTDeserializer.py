@@ -28,6 +28,11 @@
 
 from typing import Any, cast, Dict, List, NewType, Optional, Tuple, Union
 
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree, nooffset, voidtype
+import chb.ast.ASTNode as AST
+from chb.ast.ASTSymbolTable import ASTLocalSymbolTable, ASTGlobalSymbolTable
+
+
 ASTSpanRecord = NewType(
     "ASTSpanRecord", Dict[str, Union[int, List[Dict[str, Union[str, int]]]]])
 
@@ -60,792 +65,259 @@ operators = {
     "plus": " + "
     }
 
-nodecache: Dict[int, "ASTNode"] = {}
-symboltable: Dict[str, "ASTVarInfo"] = {}
 
 
-duplicate_nodes: Dict[int, List["ASTNode"]] = {}
-
-
-def add_to_node_cache(id: int, node: "ASTNode") -> None:
-    if id in nodecache:
-        duplicate_nodes.setdefault(id, [nodecache[id]])
-        duplicate_nodes[id].append(node)
-    nodecache[id] = node
-
-
-def duplicates_to_string() -> str:
-    lines: List[str] = []
-    for (id, nodes) in sorted(duplicate_nodes.items()):
-        lines.append("\n" + str(id))
-        for n in nodes:
-            lines.append(
-                "  " + n.tag + " [" + ", ".join(str(a) for a in n.args) + "]")
-    return "\n".join(lines)
-
-
-class ASTNode:
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        self._id = id
-        self._tag = tag
-        self._args = args
-
-    @property
-    def id(self) -> int:
-        return self._id
-
-    @property
-    def tag(self) -> str:
-        return self._tag
-
-    @property
-    def args(self) -> List[int]:
-        return self._args
-
-    def to_c_like(
-            self, sp: int = 0,
-            spanmap: Dict[int, str] = {}) -> str:
-        return (
-            (" " * sp)
-            + str(self.id)
-            + ": "
-            + self.tag
-            + "[" + ", ".join(str(a) for a in self.args) + "]")
-
-    def __str__(self) -> str:
-        return self.to_c_like()
-
-
-class ASTStmt(ASTNode):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTNode.__init__(self, id, tag, args)
-
-    @property
-    def stmtid(self) -> int:
-        return self.args[0]
-
-
-class ASTReturn(ASTStmt):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTStmt.__init__(self, id, tag, args)
-
-    def returnexpr(self) -> Optional["ASTExpr"]:
-        if len(self.args) > 1:
-            return cast("ASTExpr", nodecache[self.args[1]])
-        else:
-            return None
-
-    def to_c_like(
-            self,
-            sp: int = 0,
-            spanmap: Dict[int, str] = {}) -> str:
-        if self.returnexpr is not None:
-            preturn = " " + str(self.returnexpr) + ";"
-        else:
-            preturn = ";"
-        return (" " * sp) + "return " + preturn
-
-
-class ASTBlock(ASTStmt):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTStmt.__init__(self, id, tag, args)
-
-    def to_c_like(
-            self,
-            sp: int = 0,
-            spanmap: Dict[int, str] = {}) -> str:
-        lines: List[str] = []
-        for a in self.args[1:]:
-            lines.append(nodecache[a].to_c_like(
-                sp, spanmap=spanmap))
-        return "\n".join(lines)
-
-
-class ASTInstrSequence(ASTStmt):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTStmt.__init__(self, id, tag, args)
-
-    def to_c_like(
-            self,
-            sp: int = 0,
-            spanmap: Dict[int, str] = {}) -> str:
-        lines: List[str] = []
-        for a in self.args[1:]:
-            lines.append(nodecache[a].to_c_like(sp, spanmap=spanmap))
-        return "\n".join(lines)
-
-
-class ASTBranch(ASTStmt):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTStmt.__init__(self, id, tag, args)
-
-    @property
-    def condition(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[1]])
-
-    @property
-    def ifstmt(self) -> "ASTStmt":
-        return cast("ASTStmt", nodecache[self.args[2]])
-
-    @property
-    def elsestmt(self) -> "ASTStmt":
-        return cast("ASTStmt", nodecache[self.args[3]])
-
-    def to_c_like(
-            self,
-            sp: int = 0,
-            spanmap: Dict[int, str] = {}) -> str:
-        lines: List[str] = []
-        indent = " " * sp
-        span = spanmap[self.stmtid] if self.stmtid in spanmap else "no span found"
-        lines.append(
-            indent
-            + "if ("
-            + self.condition.to_c_like()
-            + "){"
-            + "  // ("
-            + span
-            + ")")
-        lines.append(self.ifstmt.to_c_like(
-            sp + c_indent, spanmap=spanmap))
-        lines.append(indent + "} else {")
-        lines.append(self.elsestmt.to_c_like(
-            sp + c_indent, spanmap=spanmap))
-        lines.append(indent + "}")
-        return "\n".join(lines)                     
-    
-    
-class ASTInstruction(ASTNode):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTNode.__init__(self, id, tag, args)
-    
-    @property
-    def instrid(self) -> int:
-        return self.args[0]
-
-
-class ASTAssign(ASTInstruction):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTInstruction.__init__(self, id, tag, args)
-
-    @property
-    def lhs(self) -> "ASTLval":
-        return cast("ASTLval", nodecache[self.args[1]])
-
-    @property
-    def rhs(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[2]])
-    
-    def to_c_like(
-            self,
-            sp: int = 0,
-            spanmap: Dict[int, str] = {}) -> str:
-        span = spanmap[self.instrid] if self.instrid in spanmap else "no span found"
-        return (
-            (" " * sp)
-            + self.lhs.to_c_like()
-            + " = "
-            + self.rhs.to_c_like()
-            + ";"
-            + " // " + str(self.id)
-            + " ("
-            + span
-            + ")")
-        
-
-class ASTCall(ASTInstruction):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTInstruction.__init__(self, id, tag, args)
-
-    @property
-    def lhs(self) -> Optional["ASTLval"]:
-        if self.args[1] == -1:
-            return None
-        else:
-            return cast("ASTLval", nodecache[self.args[1]])
-
-    @property
-    def tgt(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[2]])
-
-    @property
-    def arguments(self) -> List["ASTExpr"]:
-        return [cast("ASTExpr", nodecache[a]) for a in self.args[3:]]
-
-    def to_c_like(
-            self,
-            sp: int = 0,
-            spanmap: Dict[int, str] = {}) -> str:
-        indent = " " * sp
-        calltgt = (
-            self.tgt.to_c_like()
-            + "("
-            + ", ".join(str(a.to_c_like()) for a in self.arguments)
-            + "); // "
-            + str(self.id)
-            + " ("
-            + spanmap[self.instrid]
-            + ")")
-        if self.lhs:
-            return indent + self.lhs.to_c_like() + " = " + calltgt
-        else:
-            return indent + calltgt
-
-
-class ASTLval(ASTNode):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTNode.__init__(self, id, tag, args)
-
-    @property
-    def lhost(self) -> "ASTLHost":
-        return cast("ASTLHost", nodecache[self.args[0]])
-
-    @property
-    def is_memref(self) -> bool:
-        return self.lhost.is_memref
-
-    @property
-    def offset(self) -> "ASTOffset":
-        if self.args[1] == -1:
-            return ASTNoOffset(-1, "no-offset", [])
-        else:
-            return cast("ASTOffset", nodecache[self.args[1]])
-
-    def to_c_like(
-            self,
-            sp: int = 0,
-            spanmap: Dict[int, str] = {}) -> str:
-        if self.lhost.is_memref:
-            memref = cast("ASTMemRef", self.lhost)
-            memexp = memref.memexp
-            if self.offset.is_field_offset:
-                fieldoffset = cast("ASTFieldOffset", self.offset)
-                fieldname = fieldoffset.fieldname
-                return memexp.to_c_like() + "->" + str(self.offset)[1:]
-            elif self.offset.is_index_offset:
-                indexoffset = cast("ASTIndexOffset", self.offset)
-                return (
-                    memexp.to_c_like()
-                    + " + "
-                    + indexoffset.index_expr.to_c_like())
-            else:
-                return self.lhost.to_c_like() + self.offset.to_c_like()
-        else:
-            return self.lhost.to_c_like() + self.offset.to_c_like()            
-
-
-class ASTLHost(ASTNode):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTNode.__init__(self, id, tag, args)
-
-    @property
-    def is_memref(self) -> bool:
-        return False
-
-    @property
-    def is_variable(self) -> bool:
-        return False
-
-
-class ASTVarInfo(ASTNode):
-
-    def __init__(
-            self,
-            vname: str,
-            vtype: str,
-            parameter: Optional[int],
-            size: Optional[int],
-            globaladdress: Optional[int],
-            conflictingtypes: List[str]) -> None:
-        self._vname = vname
-
-    @property
-    def vname(self) -> str:
-        return self._vname
-
-    def to_c_like(
-            self,
-            sp: int = 0,
-            spanmap: Dict[int, str] = {}) -> str:
-        return self.vname
-
-
-class ASTVariable(ASTLHost):
-
-    def __init__(self, id: int, tag: str, vname: str) -> None:
-        ASTLHost.__init__(self, id, tag, [])
-        self._vname = vname
-
-    @property
-    def vname(self) -> str:
-        return self._vname
-
-    @property
-    def is_variable(self) -> bool:
-        return True
-
-    @property
-    def varinfo(self) -> "ASTVarInfo":
-        return cast("ASTVarInfo", symboltable[self.vname])
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return self.varinfo.vname
-        
-
-
-class ASTMemRef(ASTLHost):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTLHost.__init__(self, id, tag, args)
-
-    @property
-    def is_memref(self) -> bool:
-        return True
-
-    @property
-    def memexp(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[0]])
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return "(*(" + self.memexp.to_c_like() + ")"
-
-
-class ASTOffset(ASTNode):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTNode.__init__(self, id, tag, args)
-
-    @property
-    def is_field_offset(self) -> bool:
-        return False
-
-    @property
-    def is_index_offset(self) -> bool:
-        return False
-
-
-class ASTNoOffset(ASTOffset):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTOffset.__init__(self, id, tag, args)
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return ""
-    
-
-no_offset = ASTNoOffset(-1, "no-offset", [])
-
-
-class ASTFieldOffset(ASTOffset):
-
-    def __init__(self, id: int, tag: str, args: List[int], fname: str) -> None:
-        ASTOffset.__init__(self, id, tag, args)
-        self._fieldname = fname
-
-    @property
-    def is_field_offset(self) -> bool:
-        return True
-
-    @property
-    def fieldname(self) -> str:
-        return self._fieldname
-
-    @property
-    def offset(self) -> "ASTOffset":
-        if self.args[0] == -1:
-            return no_offset
-        else:
-            return cast("ASTOffset", nodecache[self.args[0]])
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return "." + self.fieldname + self.offset.to_c_like()
-
-
-class ASTIndexOffset(ASTOffset):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTOffset.__init__(self, id, tag, args)
-
-    @property
-    def is_index_offset(self) -> bool:
-        return True
-
-    @property
-    def index_expr(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[0]])
-
-    @property
-    def offset(self) -> "ASTOffset":
-        if self.args[1] == -1:
-            return no_offset
-        else:
-            return cast("ASTOffset", nodecache[self.args[1]])
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return "[" + self.index_expr.to_c_like() + "]"
-
-
-class ASTExpr(ASTNode):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTNode.__init__(self, id, tag, args)
-
-
-class ASTConstant(ASTExpr):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTExpr.__init__(self, id, tag, args)
-
-    
-class ASTIntegerConstant(ASTConstant):
-
-    def __init__(
-            self,
-            id: int,
-            tag: str,
-            args: List[int],
-            cvalue: int,
-            macroname: Optional[str]) -> None:
-        ASTConstant.__init__(self, id, tag, args)
-        self._cvalue = cvalue
-        self._macroname = macroname
-
-    @property
-    def cvalue(self) -> int:
-        return self._cvalue
-
-    @property
-    def macroname(self) -> Optional[str]:
-        return self._macroname
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        if self.macroname:
-            return self.macroname
-        elif self.cvalue > 1000:
-            return hex(self.cvalue)
-        else:
-            return str(self.cvalue)
-
-
-class ASTStringConstant(ASTConstant):
-
-    def __init__(
-            self,
-            id: int,
-            tag: str,
-            args: List[int],
-            cstr: str,
-            va: str) -> None:
-        ASTConstant.__init__(self, id, tag, args)
-        self._cstr = cstr
-        self._va = va
-
-    @property
-    def cstr(self) -> str:
-        return self._cstr
-
-    @property
-    def string_address(self) -> str:
-        return self._va
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return '"' + self.cstr + '"'
-
-
-class ASTLvalExpr(ASTExpr):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTExpr.__init__(self, id, tag, args)
-
-    @property
-    def lval(self) -> "ASTLval":
-        return cast("ASTLval", nodecache[self.args[0]])
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return self.lval.to_c_like(sp)
-
-
-class ASTSubstitutedExpr(ASTLvalExpr):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTLvalExpr.__init__(self, id, tag, args)
-
-    @property
-    def expr(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[1]])
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return self.expr.to_c_like(sp)
-
-
-class ASTCastE(ASTExpr):
-
-    def __init__(self, id: int, tag: str, args: List[int], tgttype: str) -> None:
-        ASTExpr.__init__(self, id, tag, args)
-        self._tgttype = tgttype
-
-    @property
-    def tgttype(self) -> str:
-        return self._tgttype
-
-    @property
-    def expr(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[0]])
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return "(" + self.tgttype + ")" + self.expr.to_c_like()
-    
-    
-class ASTUnaryOp(ASTExpr):
-
-    def __init__(self, id: int, tag: str, args: List[int], op: str) -> None:
-        ASTExpr.__init__(self, id, tag, args)
-        self._op = op
-
-    @property
-    def op(self) -> str:
-        return self._op
-
-    @property
-    def expr(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[0]])
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return operators[self.op] + self.expr.to_c_like(sp)
-    
-
-class ASTBinaryOp(ASTExpr):
-
-    def __init__(self, id: int, tag: str, args: List[int], op: str) -> None:
-        ASTExpr.__init__(self, id, tag, args)
-        self._op = op
-
-    @property
-    def op(self) -> str:
-        return self._op
-
-    @property
-    def exp1(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[0]])
-
-    @property
-    def exp2(self) -> "ASTExpr":
-        return cast("ASTExpr", nodecache[self.args[1]])
-
-    def to_c_like(self, sp: int = 0, spanmap: Dict[int, str] = {}) -> str:
-        return (
-            "("
-            + self.exp1.to_c_like()
-            + operators[self.op]
-            + self.exp2.to_c_like()
-            + ")")
-
-
-class ASTQuestion(ASTExpr):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTExpr.__init__(self, id, tag, args)
-
-
-class ASTAddressOf(ASTExpr):
-
-    def __init__(self, id: int, tag: str, args: List[int]) -> None:
-        ASTExpr.__init__(self, id, tag, args)
-    
-    
-    
 class ASTDeserializer:
 
     def __init__(
             self,
-            nodes: List[Dict[str, Any]],
-            startnode: int,
-            livecode: List[int],
-            globalsymboltable: Dict[str, Any],
-            localsymboltable: Dict[str, Any],
-            available_expressions: Dict[str, List[Tuple[int, str, str]]],
-            spans: List["ASTSpanRecord"],
-            c_indent: int = 3) -> None:
-        self._nodes = nodes
-        self._nodemap: Dict[int, Any] = {}
-        self._startnode = startnode
-        self._livecode = livecode
-        self._globalsymboltable = globalsymboltable
-        self._localsymboltable = localsymboltable
-        self._available_expressions = available_expressions
-        self._spans = spans
-        self._spanmap: Dict[int, str] = {}
-        self._c_indent = c_indent
-        self._initialize()
+            serialization: Dict[str, Any]) -> None:
+        self._serialization = serialization
+        self._globalsymboltable: ASTGlobalSymbolTable = ASTGlobalSymbolTable()
+        self._initialize_global_symboltable()
+        self._functions: Dict[str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]] = {}
+        self._lifted_functions: Dict[
+            str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]] = {}
+        self._initialize_functions()
+        self._initialize_lifted_functions()
 
     @property
-    def nodes(self) -> List[Dict[str, Any]]:
-        return self._nodes
+    def serialization(self) -> Dict[str, Any]:
+        return self._serialization
 
     @property
-    def nodemap(self) -> Dict[int, Dict[str, Any]]:
-        return self._nodemap
-
-    @property
-    def livecode(self) -> List[int]:
-        return self._livecode
-
-    def is_live(self, id: int) -> bool:
-        return id in self.livecode
-
-    @property
-    def localsymboltable(self) -> Dict[str, Any]:
-        return self._localsymboltable
-
-    @property
-    def globalsymboltable(self) -> Dict[str, Any]:
+    def global_symboltable(self) -> ASTGlobalSymbolTable:
         return self._globalsymboltable
 
     @property
-    def available_expressions(self) -> Dict[str, List[Tuple[int, str, str]]]:
-        return self._available_expressions
+    def functions(self) -> Dict[str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]]:
+        return self._functions
 
     @property
-    def startnode(self) -> int:
-        return self._startnode
+    def lifted_functions(self) -> Dict[
+            str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]]:
+        return self._lifted_functions
 
-    @property
-    def spans(self) -> List["ASTSpanRecord"]:
-        return self._spans
+    def _initialize_global_symboltable(self) -> None:
+        globaltable = self.serialization["global-symbol-table"]
+        astree = AbstractSyntaxTree(
+            "none", "none", ASTLocalSymbolTable(self.global_symboltable))
+        self.mk_ast_nodes(astree, globaltable)
 
-    @property
-    def c_indent(self) -> int:
-        return self._c_indent
+    def _initialize_functions(self) -> None:
+        for fdata in self.serialization["functions"]:
+            self._initialize_function(fdata)
 
-    @property
-    def spanmap(self) -> Dict[int, str]:
-        if len(self._spanmap) == 0:
-            for spanrec in self.spans:
-                spanid = cast(int, spanrec["id"])
-                spans_at_id = cast(List[Dict[str, Any]], spanrec["spans"])
-                self._spanmap[spanid] = spans_at_id[0]["base_va"]
-        return self._spanmap
+    def _initialize_function(self, fdata: Dict[str, Any]) -> None:
+        fname = fdata["name"]
+        faddr = fdata["va"]
+        localsymboltable = ASTLocalSymbolTable(self.global_symboltable)
+        astree = AbstractSyntaxTree(faddr, fname, localsymboltable)
+        nodes = self.mk_ast_nodes(astree, fdata["ast"]["nodes"])
+        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["startnode"])])
+        self._functions[faddr] = (localsymboltable, astnode)
 
-    def _initialize(self) -> None:
-        for n in self.nodes:
-            self._nodemap[n["id"]] = n
+    def _initialize_lifted_functions(self) -> None:
+        for fdata in self.serialization["functions"]:
+            self._initialize_lifted_function(fdata)
 
-    def node(self, id: int) -> Dict[str, Any]:
-        if id in self.nodemap:
-            return self.nodemap[id]
-        else:
-            raise Exception(
-                "No node with id " + str(id) + " found in nodemap")
+    def _initialize_lifted_function(self, fdata: Dict[str, Any]) -> None:
+        fname = fdata["name"]
+        faddr = fdata["va"]
+        localsymboltable = ASTLocalSymbolTable(self.global_symboltable)
+        astree = AbstractSyntaxTree(faddr, fname, localsymboltable)
+        nodes = self.mk_ast_nodes(astree, fdata["ast"]["lifted-nodes"])
+        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["startnode"])])
+        self._lifted_functions[faddr] = (localsymboltable, astnode)
 
-    '''
-    def _initialize(self) -> None:
-        for n in self.nodes:
-            id: int = n["id"]
-            tag: str = n["tag"]
-            args: List[int] = n["args"] if "args" in n else []
-            node: ASTNode = ASTNode(-1, "?", [])
-            if tag == "return":
-                node = ASTReturn(id, tag, args)
-            elif tag == "block":
-                node = ASTBlock(id, tag, args)
-            elif tag == "instrs":
-                node = ASTInstrSequence(id, tag, args)
-            elif tag == "if":
-                node = ASTBranch(id, tag, args)
-            elif tag == "assign":
-                node = ASTAssign(id, tag, args)
-            elif tag == "call":
-                node = ASTCall(id, tag, args)
-            elif tag == "lval":
-                node = ASTLval(id, tag, args)
+    def mk_ast_nodes(
+            self,
+            astree: AbstractSyntaxTree,
+            recordlist: List[Dict[str, Any]]) -> Dict[int, AST.ASTNode]:
+
+        records: Dict[int, Dict[str, Any]] = {}
+        for r in recordlist:
+            if not "id" in r:
+                print(str(r))
+            records[r["id"]] = r
+
+        nodes: Dict[int, AST.ASTNode] = {}
+
+        def mk_node(r: Dict[str, Any]) -> AST.ASTNode:
+            id = r["id"]
+            if id in nodes:
+                return nodes[id]
+
+            def arg(ix: int) -> Dict[str, Any]:
+                return records[r["args"][ix]]
+
+            tag = r["tag"]
+            if tag == "void":
+                nodes[id] = voidtype
+            elif tag == "int":
+                nodes[id] = astree.mk_integer_ikind_type(r["ikind"])
+            elif tag == "ptr":
+                tgttyp = cast(AST.ASTTyp, mk_node(arg(0)))
+                nodes[id] = astree.mk_pointer_type(tgttyp)
+            elif tag == "comptyp":
+                ckey = r["args"][0]
+                cname = r["cname"]
+                nodes[id] = astree.mk_comp_type_by_key(ckey, cname)
+            elif tag == "typdef":
+                name = r["name"]
+                typ = cast(AST.ASTTyp, mk_node(arg(0)))
+                nodes[id] = astree.mk_typedef(name, typ)
+            elif tag == "funarg":
+                name = r["name"]
+                typ = cast(AST.ASTTyp, mk_node(arg(0)))
+                nodes[id] = astree.mk_function_type_argument(name, typ)
+            elif tag == "funargs":
+                funargs: List[AST.ASTFunArg] = [
+                    cast(AST.ASTFunArg, mk_node(records[i])) for i in r["args"]]
+                nodes[id] = astree.mk_function_type_arguments(funargs)
+
+            elif tag == "funtype":
+                returntype = cast(AST.ASTTyp, mk_node(arg(0)))
+                xfunargs = r["args"][1]
+                if xfunargs == -1:
+                    ffunargs: Optional[AST.ASTFunArgs] = None
+                else:
+                    ffunargs = cast(AST.ASTFunArgs, mk_node(records[xfunargs]))
+                varargs = r["args"][2] == 1
+                nodes[id] = astree.mk_function_type(
+                    returntype, ffunargs, varargs=varargs)
+
+            elif tag == "fieldinfo":
+                fname = r["name"]
+                ftype = cast(AST.ASTTyp, mk_node(arg(0)))
+                ckey = r["args"][1]
+                byteoffset = None if r["args"][2] == -1 else r["args"][2]
+                nodes[id] = astree.mk_fieldinfo(
+                    fname, ftype, ckey, byteoffset=byteoffset)
+
+            elif tag == "compinfo":
+                cname = r["name"]
+                ckey = r["args"][0]
+                is_union = r["args"][1] == 1
+                finfos = [
+                    cast(AST.ASTFieldInfo, mk_node(records[i]))
+                         for i in r["args"][2:]]
+                nodes[id] = astree.mk_compinfo(
+                    cname, ckey, finfos, is_union=is_union)
+
+            elif tag == "varinfo":
+                name = r["name"]
+                xtyp = r["args"][0]
+                xpar = r["args"][1]
+                xgaddr = r["args"][2]
+                if xtyp == -1:
+                    vtype: Optional[AST.ASTTyp] = None
+                else:
+                    vtype = cast(AST.ASTTyp, mk_node(arg(0)))
+                if xpar == -1:
+                    parindex: Optional[int] = None
+                else:
+                    parindex = xpar
+                if xgaddr == -1:
+                    gaddr: Optional[int] = None
+                else:
+                    gaddr = xgaddr
+                if "descr" in r:
+                    vdescr: Optional[str] = r["descr"]
+                else:
+                    vdescr = None
+                nodes[id] = astree.mk_vinfo(
+                    name,
+                    vtype=vtype,
+                    parameter=parindex,
+                    globaladdress=gaddr,
+                    vdescr=vdescr)
+
             elif tag == "var":
-                vname: str = n["name"]
-                node = ASTVariable(id, tag, vname)
-            elif tag == "memref":
-                node = ASTMemRef(id, tag, args)
+                vinfo = cast(AST.ASTVarInfo, mk_node(arg(0)))
+                nodes[id] = astree.mk_vinfo_variable(vinfo)
+
             elif tag == "no-offset":
-                node = ASTNoOffset(id, tag, args)
-            elif tag == "field-offset":
-                fname: str = n["fname"]
-                node = ASTFieldOffset(id, tag, args, fname)
+                nodes[id] = nooffset
+
             elif tag == "index-offset":
-                node = ASTIndexOffset(id, tag, args)
+                expr = cast(AST.ASTExpr, mk_node(arg(0)))
+                offset = cast(AST.ASTOffset, mk_node(arg(1)))
+                nodes[id] = astree.mk_expr_index_offset(expr, offset)
+
+            elif tag == "lval":
+                host = cast(AST.ASTLHost, mk_node(arg(0)))
+                offset = cast(AST.ASTOffset, mk_node(arg(1)))
+                nodes[id] = astree.mk_lval(host, offset)
+
             elif tag == "integer-constant":
-                cvalue: int = int(n["value"])
-                name: Optional[str] = n["macroname"] if "macroname" in n else None
-                node = ASTIntegerConstant(id, tag, args, cvalue, name)
-            elif tag == "string-constant":
-                cstr: str = n["cstr"]
-                va: str = n["va"]
-                node = ASTStringConstant(id, tag, args, cstr, va)
+                cvalue = int(r["value"])
+                nodes[id] = astree.mk_integer_constant(cvalue)
+
             elif tag == "lval-expr":
-                node = ASTLvalExpr(id, tag, args)
+                lval = cast(AST.ASTLval, mk_node(arg(0)))
+                nodes[id] = astree.mk_lval_expression(lval)
+
             elif tag == "substituted-expr":
-                node = ASTSubstitutedExpr(id, tag, args)
-            elif tag == "cast-expr":
-                tgttype: str = n["type"]
-                node = ASTCastE(id, tag, args, tgttype)
-            elif tag == "unary-op":
-                unop: str = n["op"]
-                node = ASTUnaryOp(id, tag, args, unop)
-            elif tag == "binary-op":
-                binop: str = n["op"]
-                node = ASTBinaryOp(id, tag, args, binop)
-            elif tag == "question":
-                node = ASTQuestion(id, tag, args)
+                assign_id = int(r["assigned"])
+                lval = cast(AST.ASTLval, mk_node(arg(0)))
+                expr = cast(AST.ASTExpr, mk_node(arg(1)))
+                nodes[id] = astree.mk_substituted_expression(
+                    lval, assign_id, expr)
+
             elif tag == "address-of":
-                node = ASTAddressOf(id, tag, args)
+                lval = cast(AST.ASTLval, mk_node(arg(0)))
+                nodes[id] = astree.mk_address_of_expression(lval)
+
+            elif tag == "unary-op":
+                exp1 = cast(AST.ASTExpr, mk_node(arg(0)))
+                op = r["op"]
+                nodes[id] = astree.mk_unary_expression(op, exp1)
+
+            elif tag == "binary-op":
+                exp1 = cast(AST.ASTExpr, mk_node(arg(0)))
+                exp2 = cast(AST.ASTExpr, mk_node(arg(1)))
+                op = r["op"]
+                nodes[id] = astree.mk_binary_expression(op, exp1, exp2)
+
+            elif tag == "assign":
+                instrid = r["args"][0]
+                lhs = cast(AST.ASTLval, mk_node(arg(1)))
+                rhs = cast(AST.ASTExpr, mk_node(arg(2)))
+                nodes[id] = astree.mk_assign(lhs, rhs, instrid)
+
+            elif tag == "instrs":
+                stmtid = r["args"][0]
+                instrs = [
+                    cast(AST.ASTInstruction, mk_node(records[i]))
+                    for i in r["args"][1:]]
+                nodes[id] = astree.mk_instr_sequence(instrs, stmtid)
+
+            elif tag == "if":
+                stmtid = r["args"][0]
+                condition = cast(AST.ASTExpr, mk_node(arg(1)))
+                thenbranch = cast(AST.ASTStmt, mk_node(arg(2)))
+                elsebranch = cast(AST.ASTStmt, mk_node(arg(3)))
+                pcoffset = int(r["pc-offset"])
+                nodes[id] = astree.mk_branch(
+                    condition, thenbranch, elsebranch, pcoffset, stmtid)
+
+            elif tag == "block":
+                stmtid = r["args"][0]
+                stmts = [
+                    cast(AST.ASTStmt, mk_node(records[i]))
+                    for i in r["args"][1:]]
+                nodes[id] = astree.mk_block(stmts, stmtid)
+
             else:
-                node = ASTNode(id, tag, args)
-            add_to_node_cache(id, node)
+                raise Exception("Deserializer: tag " + tag + " not handled")
 
-        for (name, d) in (
-                list(self.localsymboltable.items()) +
-                list(self.globalsymboltable.items())):
-            symboltable[name] = ASTVarInfo(
-                d["name"],
-                d["type"] if "type" in d else None,
-                d["parameter"] if "parameter" in d else None,
-                d["size"] if "size" in d else None,
-                d["global-address"] if "global-address" in d else None,
-                d["conflicting-types"] if "conflicting-types" in d else [])
+            if id in nodes:
+                return nodes[id]
+            else:
+                raise Exception("Deserializer: No node created for " + str(id))
 
+        for r in records.values():
+            mk_node(r)
 
-    def to_c_like(self, sp: int = 0) -> str:
-        lines: List[str] = []
-        for (name, d) in sorted(self.localsymboltable.items()):
-            if "type" in d:
-                lines.append(d["type"] + " " + d["name"] + ";")
-        lines.append("")
-        lines.append(self.stmt_to_c_like(sp))
-        # lines.append(nodecache[self.startnode].to_c_like(
-        #    livecode = self.livecode, spanmap = self.spanmap))
-        return "\n".join(lines)
-    '''
-
-    def var_available_expressions(self, names: List[str]) -> str:
-        lines: List[str] = []
-        for (addr, xlist) in sorted(self.available_expressions.items()):
-            lines.append(addr)
-            for (id, vname, vexpr) in xlist:
-                if vname in names:
-                    lines.append("  " + vname + ": " + vexpr + " (" + str(id) + ")")
-        return "\n".join(lines)
-
-    def __str__(self) -> str:
-        lines: List[str] = []
-        for (n, node) in sorted(nodecache.items()):
-            lines.append(str(node))
-        return "\n".join(lines)
-            
+        return nodes
