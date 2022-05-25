@@ -153,12 +153,18 @@ class AbstractSyntaxTree:
 
     # ------------------------------------------------------ make statements ---
 
-    def mk_block(self, stmts: List[AST.ASTStmt]) -> AST.ASTBlock:
-        stmtid = self.new_id()
+    def mk_block(
+            self,
+            stmts: List[AST.ASTStmt],
+            optstmtid: Optional[int] = None) -> AST.ASTBlock:
+        stmtid = self.new_id() if optstmtid is None else optstmtid
         return AST.ASTBlock(stmtid, stmts)
 
-    def mk_return_stmt(self, expr: Optional[AST.ASTExpr]) -> AST.ASTReturn:
-        id = self.new_id()
+    def mk_return_stmt(
+            self,
+            expr: Optional[AST.ASTExpr],
+            optstmtid: Optional[int] = None) -> AST.ASTReturn:
+        id = self.new_id() if optstmtid is None else optstmtid
         return AST.ASTReturn(id, expr)
 
     def mk_branch(
@@ -166,8 +172,9 @@ class AbstractSyntaxTree:
             condition: Optional[AST.ASTExpr],
             ifbranch: AST.ASTStmt,
             elsebranch: AST.ASTStmt,
-            relative_offset: int) -> AST.ASTStmt:
-        stmtid = self.new_id()
+            relative_offset: int,
+            optstmtid: Optional[int] = None) -> AST.ASTStmt:
+        stmtid = self.new_id() if optstmtid is None else optstmtid
         if condition is None:
             # create a new unknown (unitialized) variable
             condition = self.mk_tmp_lval_expression()
@@ -175,9 +182,11 @@ class AbstractSyntaxTree:
             stmtid, condition, ifbranch, elsebranch, relative_offset)
 
     def mk_instr_sequence(
-            self, instrs: List[AST.ASTInstruction]) -> AST.ASTInstrSequence:
-        instrid = self.new_id()
-        return AST.ASTInstrSequence(instrid, instrs)
+            self,
+            instrs: List[AST.ASTInstruction],
+            optstmtid: Optional[int] = None) -> AST.ASTInstrSequence:
+        stmtid = self.new_id() if optstmtid is None else optstmtid
+        return AST.ASTInstrSequence(stmtid, instrs)
 
     """Instructions
     There are two types of instructions: an assignment and a call. An
@@ -191,7 +200,8 @@ class AbstractSyntaxTree:
 
     Instructions are assigned a unique instruction id. This instruction id can
     then be used to create a link with the instruction address (via the span)
-    if desired.
+    if desired. If an instrid was assigned earlier (e.g., when constructing an
+    ast from an existing ast json file) it can be given as an optional argument.
 
     The set of instruction id's is disjoint from the set of statement id's (that
     is, if x is an instruction id, it is not also a statement id).
@@ -226,8 +236,9 @@ class AbstractSyntaxTree:
     def mk_assign(
             self,
             lval: AST.ASTLval,
-            rhs: AST.ASTExpr) -> AST.ASTAssign:
-        instrid = self.new_id()
+            rhs: AST.ASTExpr,
+            optinstrid: Optional[int] = None) -> AST.ASTAssign:
+        instrid = optinstrid if optinstrid is not None else self.new_id()
         return AST.ASTAssign(instrid, lval, rhs)
 
     def mk_var_assign(
@@ -317,7 +328,10 @@ class AbstractSyntaxTree:
     ------------------------------
     - mk_vinfo : creates/returns a varinfo data structure from the symboltable
     - mk_vinfo_variable: creates/returns a variable from a vinfo
-    - mk_vinfo_lval: creates/return an lval (lhs) (with optional offset) from
+
+    - mk_lval: creates/returns an lval from an lhost and an offset
+
+    - mk_vinfo_lval: creates/returns an lval (lhs) (with optional offset) from
          a vinfo
     - mk_vinfo_lval_expression: creates/returns an lval-expression (rhs) (with
          optional offset) from a vinfo
@@ -358,6 +372,9 @@ class AbstractSyntaxTree:
 
     def mk_vinfo_variable(self, vinfo: AST.ASTVarInfo) -> AST.ASTVariable:
         return AST.ASTVariable(vinfo)
+
+    def mk_lval(self, lhost: AST.ASTLHost, offset: AST.ASTOffset) -> AST.ASTLval:
+        return AST.ASTLval(lhost, offset)
 
     def mk_vinfo_lval(
             self,
@@ -503,7 +520,6 @@ class AbstractSyntaxTree:
     Several kinds of other expressions can be created.
 
     Construction methods provided:
-    - mk_lval: create an lval from a generic lhost and offset
     - mk_lval_expression: create an lval expression for a generic lhost and offset
 
     - mk_memref: create an lhs base value (lhost) from an expression
@@ -538,11 +554,15 @@ class AbstractSyntaxTree:
 
     """
 
-    def mk_lval(self, lhost: AST.ASTLHost, offset: AST.ASTOffset) -> AST.ASTLval:
-        return AST.ASTLval(lhost, offset)
-
     def mk_lval_expression(self, lval: AST.ASTLval) -> AST.ASTLvalExpr:
         return AST.ASTLvalExpr(lval)
+
+    def mk_substituted_expression(
+            self,
+            lval: AST.ASTLval,
+            assign_id: int,
+            expr: AST.ASTExpr) -> AST.ASTSubstitutedExpr:
+        return AST.ASTSubstitutedExpr(lval, assign_id, expr)
 
     def mk_memref(self, memexp: AST.ASTExpr) -> AST.ASTMemRef:
         return AST.ASTMemRef(memexp)
@@ -693,13 +713,16 @@ class AbstractSyntaxTree:
 
     - mk_fieldinfo
         specify name and type for a single field, with the key of the
-        compinfo to which it belongs
+        compinfo to which it belongs; optionally the byte offset at which
+        the field is located within the struct can be specified as well
 
     - mk_comp_type
         specify a compinfo to get a struct type
     - mk_comp_type_by_key
-        specify a compinfo ckey value to get a struct type from a previously
-        registered compinfo
+        specify a compinfo ckey value and name to get a struct type
+
+    - mk_named_type
+        specify a type definition with a name and type
 
     """
 
@@ -845,8 +868,12 @@ class AbstractSyntaxTree:
             return self.mk_compinfo(cname, ckey, fieldinfos, is_union=is_union)
 
     def mk_fieldinfo(
-            self, fname: str, ftype: AST.ASTTyp, ckey: int) -> AST.ASTFieldInfo:
-        return AST.ASTFieldInfo(fname, ftype, ckey)
+            self,
+            fname: str,
+            ftype: AST.ASTTyp,
+            ckey: int,
+            byteoffset: Optional[int] = None) -> AST.ASTFieldInfo:
+        return AST.ASTFieldInfo(fname, ftype, ckey, byteoffset=byteoffset)
 
     def mk_comp_type(self, cinfo: AST.ASTCompInfo) -> AST.ASTTypComp:
         if cinfo.ckey in self.compinfos:
@@ -856,9 +883,5 @@ class AbstractSyntaxTree:
             self.add_compinfo(cinfo)
             return AST.ASTTypComp(cinfo.cname, cinfo.ckey)
 
-    def mk_comp_type_by_key(self, ckey: int) -> AST.ASTTypComp:
-        if ckey in self.compinfos:
-            cinfo = self.compinfos[ckey]
-            return AST.ASTTypComp(cinfo.cname, ckey)
-        else:
-            raise Exception("No compinfo found for key " + str(ckey))
+    def mk_comp_type_by_key(self, ckey: int, cname: str) -> AST.ASTTypComp:
+        return AST.ASTTypComp(cname, ckey)
