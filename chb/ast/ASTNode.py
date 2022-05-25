@@ -147,17 +147,17 @@ Unary operators:
  LNot: "lnot"
 
 Binary operators:
- PlusA: "plusa"
- PlusPI: "pluspi"
- IndexPI: "indexpi"
- MinusA: "minusa"
- MinusPI: "minuspi"
- MinusPP: "minuspp"
+ PlusA: "plus"
+ PlusPI: "plus"
+ IndexPI: "plus"
+ MinusA: "minus"
+ MinusPI: "minus"
+ MinusPP: "minus"
  Mult: "mult"
  Div: "div"
  Mod: "mod"
- Shiftlt: "shiftlt"
- Shiftrt: "shiftrt"
+ Shiftlt: "lsl", "shiftlt"
+ Shiftrt: "lsr", "shiftrt", "asr"
  Lt: "lt"
  Gt: "gt"
  Le: "le"
@@ -268,6 +268,14 @@ class ASTNode:
 
     @property
     def is_ast_instruction(self) -> bool:
+        return False
+
+    @property
+    def is_varinfo(self) -> bool:
+        return False
+
+    @property
+    def is_compinfo(self) -> bool:
         return False
 
     def variables_used(self) -> Set[str]:
@@ -841,6 +849,10 @@ class ASTVarInfo(ASTNode):
     def vdescr(self) -> Optional[str]:
         return self._vdescr
 
+    @property
+    def is_varinfo(self) -> bool:
+        return True
+
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_varinfo(self)
 
@@ -1023,11 +1035,11 @@ class ASTFieldOffset(ASTOffset):
             self,
             fieldname: str,
             compkey: int,
-            offset: "ASTOffset") -> None:
+            byteoffset: "ASTOffset") -> None:
         ASTOffset.__init__(self, "field-offset")
         self._fieldname = fieldname
         self._compkey = compkey
-        self._offset = offset
+        self._byteoffset = byteoffset
 
     @property
     def is_field_offset(self) -> bool:
@@ -1043,7 +1055,7 @@ class ASTFieldOffset(ASTOffset):
 
     @property
     def offset(self) -> "ASTOffset":
-        return self._offset
+        return self._byteoffset
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_field_offset(self)
@@ -1856,22 +1868,6 @@ class ASTTypVoid(ASTTyp):
         return "void"
 
 
-inttypes = {
-    "ichar": "char",
-    "ischar": "signed char",
-    "iuchar": "unsigned char",
-    "ibool": "bool",
-    "iint": "int",
-    "iuint": "unsigned int",
-    "ishort": "short",
-    "iushort": "unsigned short",
-    "ilong": "long",
-    "iulong": "unsigned long",
-    "ilonglong": "long long",
-    "iulonglong": "unsigned long long"
-}
-
-
 class ASTTypInt(ASTTyp):
 
     def __init__(self, ikind: str) -> None:
@@ -1903,13 +1899,6 @@ class ASTTypInt(ASTTyp):
 
     def __str__(self) -> str:
         return inttypes[self.ikind]
-
-
-floattypes = {
-    "float": "float",
-    "fdouble": "double",
-    "flongdouble": "long double"
-}
 
 
 class ASTTypFloat(ASTTyp):
@@ -2179,11 +2168,13 @@ class ASTFieldInfo(ASTNode):
             self,
             fieldname: str,
             fieldtype: "ASTTyp",
-            compkey: int) -> None:
+            compkey: int,
+            byteoffset: Optional[int] = None) -> None:
         ASTNode.__init__(self, "fieldinfo")
         self._fieldname = fieldname
         self._fieldtype = fieldtype
         self._compkey = compkey
+        self._byteoffset = byteoffset
 
     @property
     def fieldname(self) -> str:
@@ -2196,6 +2187,13 @@ class ASTFieldInfo(ASTNode):
     @property
     def compkey(self) -> int:
         return self._compkey
+
+    @property
+    def byteoffset(self) -> Optional[int]:
+        return self._byteoffset
+
+    def has_byteoffset(self) -> bool:
+        return self.byteoffset is not None
 
     def accept(self, visitor: "ASTVisitor") -> None:
         return visitor.visit_fieldinfo(self)
@@ -2217,14 +2215,12 @@ class ASTCompInfo(ASTNode):
             cname: str,
             ckey: int,
             fieldinfos: List["ASTFieldInfo"],
-            is_union: bool = False,
-            fieldoffsets: Optional[Dict[int, str]] = None) -> None:
+            is_union: bool = False) -> None:
         ASTNode.__init__(self, "compinfo")
         self._cname = cname
         self._ckey = ckey
         self._fieldinfos = fieldinfos
         self._is_union = is_union
-        self._fieldoffsets = fieldoffsets
 
     @property
     def cname(self) -> str:
@@ -2242,13 +2238,21 @@ class ASTCompInfo(ASTNode):
     def is_union(self) -> bool:
         return self._is_union
 
+    @property
+    def is_compinfo(self) -> bool:
+        return True
+
     def has_field_offsets(self) -> bool:
-        return self._fieldoffsets is not None
+        return all(finfo.has_byteoffset for finfo in self.fieldinfos)
 
     @property
     def field_offsets(self) -> Dict[int, str]:
-        if self._fieldoffsets is not None:
-            return self._fieldoffsets
+        result: Dict[int, str] = {}
+        if self.has_field_offsets:
+            for finfo in self.fieldinfos:
+                byteoffset = cast(int, finfo.byteoffset)
+                result[byteoffset] = finfo.fieldname
+            return result
         else:
             raise Exception(
                 "No field offsets are specified for compinfo " + self.cname)
