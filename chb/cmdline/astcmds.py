@@ -60,6 +60,54 @@ if TYPE_CHECKING:
     from chb.bctypes.BCTyp import BCTypComp
 
 
+def reduce_ast_nodes(
+        records: List[Dict[str, Any]],
+        livestmts: Set[int]) -> List[Dict[str, Any]]:
+    result: List[Dict[str, Any]] = []
+
+    index: Dict[int, Dict[str, Any]] = {}
+    for r in records:
+        index[r["id"]] = r
+
+    def stmt_is_live(id: int) -> bool:
+        return index[id]["args"][0] in livestmts
+
+    for r in records:
+        if r["tag"] in ["block", "instrs"]:
+            if r["args"][0] in livestmts:
+                newrecord: Dict[str, Any] = {}
+                newargs: List[int] = []
+                newargs.append(r["args"][0])    # stmtid
+                for id in r["args"][1:]:
+                    if stmt_is_live(id):
+                        newargs.append(id)
+                newrecord["tag"] = r["tag"]
+                newrecord["args"] = newargs
+                newrecord["id"] = r["id"]
+                result.append(newrecord)
+            else:
+                continue
+        elif r["tag"] == "if":
+            if r["args"][0] in livestmts:
+                newrecord = {}
+                newargs = []
+                newargs.append(r["args"][0])   # stmtid
+                newargs.append(r["args"][1])   # condition expr id
+                newargs.append(r["args"][2])   # then branch
+                newargs.append(r["args"][3])   # else branch
+                newrecord["tag"] = r["tag"]
+                newrecord["args"] = newargs
+                newrecord["id"] = r["id"]
+                newrecord["pc-offset"] = r["pc-offset"]
+                result.append(newrecord)
+            else:
+                continue
+        else:
+            result.append(r)
+
+    return result
+
+
 def showast(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -224,17 +272,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 fproto = vardecl.convert(typconverter)
                 localsymboltable.set_function_prototype(fproto)
             
-
-            '''
-            if app.bcfiles.has_functiondef(fname):
-                fdef = app.bcfiles.functiondef(fname)
-                astree.set_functiondef(fdef)
-                astree.set_function_prototype(fdef.svinfo)
-
-            elif app.bcfiles.has_vardecl(fname):
-                fdecl = app.bcfiles.vardecl(fname)
-                astree.set_function_prototype(fdecl)
-            '''
             try:
                 ast = f.ast(astree)
             except UF.CHBError as e:
@@ -388,16 +425,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
 
             functioncount += 1
 
-            '''
-            print("")
-            if astree.symboltable.has_function_prototype():
-                print(str(astree.symboltable.function_prototype) + "{")
-            else:
-                print("int " + fname + "(?)")
-            print(astreduced.to_c_like(sp=3))
-            print("}\n")
-            '''
-
             if outputfile is not None:
 
                 serializer = ASTSerializer()
@@ -411,6 +438,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 astfunction["va"] = faddr
                 astfunction["ast"] = {}
                 astfunction["ast"]["nodes"] = astnodes
+                astfunction["ast"]["lifted-nodes"] = reduce_ast_nodes(astnodes, livestmts)
                 astfunction["ast"]["startnode"] = startnode
                 astfunction["ast"]["livecode"] = sorted(list(livestmts))
                 astfunction["spans"] = astree.spans
@@ -447,8 +475,21 @@ def showast(args: argparse.Namespace) -> NoReturn:
         print("-" * 80)
 
     if outputfile is not None and args.verbose:
-        # print_deserialization(ast_output)
-        pass
+        deserializer = ASTDeserializer(ast_output)
+        for (symboltable, astnode) in deserializer.functions.values():
+            pp = ASTCPrettyPrinter(symboltable)
+            print("Deserialized form:")
+            print("=" * 80)
+            print(pp.to_c(astnode))
+            print("=" * 80)
+
+        print("\nLifted deserialized functions")
+        for (symboltable, astnode) in deserializer.lifted_functions.values():
+            pp = ASTCPrettyPrinter(symboltable)
+            print("Deserialized form:")
+            print("=" * 80)
+            print(pp.to_c(astnode))
+            print("=" * 80)
 
     if decompile:
         print("\nStatistics:")
@@ -461,37 +502,3 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 print("  " + opc.ljust(10) + str(count).rjust(5))
 
     exit(0)
-
-
-def print_deserialization(ast_output: Dict[str, Any]) -> None:
-
-    globaltable = ast_output["global-symbol-table"]
-    print_deserialized_symboltable(globaltable)
-    print_types_used(ast_output["struct-types"])
-    print("")
-    for f in ast_output["functions"]:
-        deserializer = ASTDeserializer(
-            f["ast"]["nodes"],
-            f["ast"]["startnode"],
-            f["ast"]["livecode"],
-            globaltable,
-            f["local-symbol-table"],
-            f["available-expressions"],
-            f["spans"])
-        print("\nDeserialized lifted ast")
-        # print(str(deserializer.to_c_like()))
-
-
-def print_deserialized_symboltable(table: Dict[str, Any]) -> None:
-    for (vname, vinfo) in sorted(table.items()):
-        if "type" in vinfo:
-            print(vinfo["type"] + " " + vname + ";")
-        else:
-            print("? " + vname)
-
-
-def print_types_used(table: Dict[str, str]) -> None:
-    for (name, ty) in table.items():
-        print(name)
-        print(ty)
-        print("")
