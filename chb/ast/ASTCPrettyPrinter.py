@@ -261,7 +261,17 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.increase_indent()
         stmt.ifstmt.accept(self)
         self.decrease_indent()
-        if self.is_live(stmt.elsestmt.stmtid):
+        if stmt.elsestmt.is_ast_block:
+            elsestmt = cast(AST.ASTBlock, stmt.elsestmt)
+            if len(elsestmt.stmts) == 0:
+                pass
+            else:
+                self.ccode.newline(indent=self.indent)
+                self.ccode.write("} else {")
+                self.increase_indent()
+                stmt.elsestmt.accept(self)
+                self.decrease_indent()
+        else:
             self.ccode.newline(indent=self.indent)
             self.ccode.write("} else {")
             self.increase_indent()
