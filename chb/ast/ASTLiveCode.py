@@ -92,8 +92,7 @@ class ASTLiveCode(ASTNOPVisitor):
         self.set_live_on_exit(stmt.stmtid, self.live_x)
         for s in reversed(stmt.stmts):
             s.accept(self)
-        if any(s.stmtid in self.livestmts for s in stmt.stmts):
-            self._livestmts.add(stmt.stmtid)
+        self._livestmts.add(stmt.stmtid)
 
     def visit_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> None:
         self.set_live_on_exit(stmt.stmtid, self.live_x)
