@@ -291,13 +291,13 @@ class ASTNode:
 
 class ASTStmt(ASTNode):
 
-    def __init__(self, stmtid: int, tag: str) -> None:
+    def __init__(self, assembly_xref: int, tag: str) -> None:
         ASTNode.__init__(self, tag)
-        self._stmtid = stmtid
+        self._assembly_xref = assembly_xref
 
     @property
-    def stmtid(self) -> int:
-        return self._stmtid
+    def assembly_xref(self) -> int:
+        return self._assembly_xref
 
     @property
     def is_ast_stmt(self) -> bool:
@@ -342,8 +342,8 @@ class ASTStmt(ASTNode):
 
 class ASTReturn(ASTStmt):
 
-    def __init__(self, stmtid: int, expr: Optional["ASTExpr"]) -> None:
-        ASTStmt.__init__(self, stmtid, "return")
+    def __init__(self, assembly_xref: int, expr: Optional["ASTExpr"]) -> None:
+        ASTStmt.__init__(self, assembly_xref, "return")
         self._expr = expr
 
     @property
@@ -387,8 +387,8 @@ class ASTReturn(ASTStmt):
 
 class ASTBlock(ASTStmt):
 
-    def __init__(self, stmtid: int, stmts: List["ASTStmt"]) -> None:
-        ASTStmt.__init__(self, stmtid, "block")
+    def __init__(self, assembly_xref: int, stmts: List["ASTStmt"]) -> None:
+        ASTStmt.__init__(self, assembly_xref, "block")
         self._stmts = stmts
 
     @property
@@ -444,8 +444,8 @@ class ASTBlock(ASTStmt):
 
 class ASTInstrSequence(ASTStmt):
 
-    def __init__(self, stmtid: int, instrs: List["ASTInstruction"]) -> None:
-        ASTStmt.__init__(self, stmtid, "instrs")
+    def __init__(self, assembly_xref: int, instrs: List["ASTInstruction"]) -> None:
+        ASTStmt.__init__(self, assembly_xref, "instrs")
         self._instrs: List["ASTInstruction"] = instrs
         self._aexp: Dict[int, List["ASTExpr"]] = {}
 
@@ -501,12 +501,12 @@ class ASTBranch(ASTStmt):
 
     def __init__(
             self,
-            stmtid: int,
+            assembly_xref: int,
             cond: "ASTExpr",
             ifstmt: "ASTStmt",
             elsestmt: "ASTStmt",
             relative_offset: int) -> None:
-        ASTStmt.__init__(self, stmtid, "if")
+        ASTStmt.__init__(self, assembly_xref, "if")
         self._cond = cond
         self._ifstmt = ifstmt
         self._elsestmt = elsestmt
@@ -561,13 +561,13 @@ class ASTBranch(ASTStmt):
 
 class ASTInstruction(ASTNode, ABC):
 
-    def __init__(self, instrid: int, tag: str) -> None:
+    def __init__(self, assembly_xref: int, tag: str) -> None:
         ASTNode.__init__(self, tag)
-        self._instrid = instrid
+        self._assembly_xref = assembly_xref
 
     @property
-    def instrid(self) -> int:
-        return self._instrid
+    def assembly_xref(self) -> int:
+        return self._assembly_xref
 
     @property
     def is_ast_instruction(self) -> bool:
@@ -602,10 +602,10 @@ class ASTAssign(ASTInstruction):
 
     def __init__(
             self,
-            instrid: int,
+            assembly_xref: int,
             lhs: "ASTLval",
             rhs: "ASTExpr") -> None:
-        ASTInstruction.__init__(self, instrid, "assign")
+        ASTInstruction.__init__(self, assembly_xref, "assign")
         self._lhs = lhs
         self._rhs = rhs
 
@@ -659,11 +659,11 @@ class ASTCall(ASTInstruction):
 
     def __init__(
             self,
-            instrid: int,
+            assembly_xref: int,
             lhs: Optional["ASTLval"],
             tgt: "ASTExpr",
             args: List["ASTExpr"]) -> None:
-        ASTInstruction.__init__(self, instrid, "call")
+        ASTInstruction.__init__(self, assembly_xref, "call")
         self._lhs = lhs
         self._tgt = tgt
         self._args = args
@@ -2217,23 +2217,23 @@ class ASTCompInfo(ASTNode):
 
     def __init__(
             self,
-            cname: str,
-            ckey: int,
+            compname: str,
+            compkey: int,
             fieldinfos: List["ASTFieldInfo"],
             is_union: bool = False) -> None:
         ASTNode.__init__(self, "compinfo")
-        self._cname = cname
-        self._ckey = ckey
+        self._compname = compname
+        self._compkey = compkey
         self._fieldinfos = fieldinfos
         self._is_union = is_union
 
     @property
-    def cname(self) -> str:
-        return self._cname
+    def compname(self) -> str:
+        return self._compname
 
     @property
-    def ckey(self) -> int:
-        return self._ckey
+    def compkey(self) -> int:
+        return self._compkey
 
     @property
     def fieldinfos(self) -> List["ASTFieldInfo"]:
@@ -2274,7 +2274,7 @@ class ASTCompInfo(ASTNode):
 
         if not self.has_field_offsets():
             raise Exception(
-                "No field offsets are specified for compinfo " + self.cname)
+                "No field offsets are specified for compinfo " + self.compname)
 
         prev: Optional[Tuple[int, str]] = None
         for (i, fname) in self.field_offsets.items():

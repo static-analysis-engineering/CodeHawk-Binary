@@ -269,7 +269,7 @@ def field_at_offset(
             "No field found at offset: "
             + str(offsetvalue)
             + " in struct "
-            + compinfo.cname
+            + compinfo.compname
             + " (Offsets found: "
             + ", ".join(
                 (str(f[0])

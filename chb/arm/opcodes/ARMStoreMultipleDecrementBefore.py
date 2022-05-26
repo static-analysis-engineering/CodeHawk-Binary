@@ -123,7 +123,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             instrs.append(astree.mk_assign(
                 reglval, reg_rhs, annotations=annotations))
         for assign in instrs:
-            astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+            astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
         return instrs
 
     def ast(self,
@@ -197,5 +197,5 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         '''
 
         for instr in instrs:
-            astree.add_instruction_span(instr.instrid, iaddr, bytestring)
+            astree.add_instruction_span(instr.assembly_xref, iaddr, bytestring)
         return instrs

@@ -217,12 +217,12 @@ class ASTCPrettyPrinter(ASTVisitor):
 
     def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
         for s in stmt.stmts:
-            if self.is_live(s.stmtid):
+            if self.is_live(s.assembly_xref):
                 s.accept(self)
 
     def visit_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> None:
         for i in stmt.instructions:
-            if self.is_live(i.instrid):
+            if self.is_live(i.assembly_xref):
                 i.accept(self)
 
     def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
@@ -258,13 +258,13 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write(" = ")
         instr.rhs.accept(self)
         self.ccode.write(";")
-        if len(self.annotation(instr.instrid)) > 0:
-            self.ccode.write(" // " + self.annotation(instr.instrid))
+        if len(self.annotation(instr.assembly_xref)) > 0:
+            self.ccode.write(" // " + self.annotation(instr.assembly_xref))
 
     def visit_call_instr(self, instr: AST.ASTCall) -> None:
         self.ccode.newline(indent=self.indent)
         if instr.lhs is not None:
-            lhslive = self.is_returnval_live(instr.instrid, str(instr.lhs))
+            lhslive = self.is_returnval_live(instr.assembly_xref, str(instr.lhs))
             if lhslive:
                 instr.lhs.accept(self)
                 self.ccode.write(" = ")
@@ -276,8 +276,8 @@ class ASTCPrettyPrinter(ASTVisitor):
                 self.ccode.write(", ")
             instr.arguments[-1].accept(self)
         self.ccode.write(");")
-        if len(self.annotation(instr.instrid)) > 0:
-            self.ccode.write(" // " + self.annotation(instr.instrid))
+        if len(self.annotation(instr.assembly_xref)) > 0:
+            self.ccode.write(" // " + self.annotation(instr.assembly_xref))
 
     def visit_lval(self, lval: AST.ASTLval) -> None:
         if lval.lhost.is_memref:

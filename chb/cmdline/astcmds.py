@@ -70,17 +70,17 @@ def reduce_ast_nodes(
         index[r["id"]] = r
 
     def stmt_is_live(id: int) -> bool:
-        return index[id]["args"][0] in livestmts
+        return (index[id]["assembly-xref"] in livestmts)
 
     for r in records:
         if r["tag"] in ["block", "instrs"]:
-            if r["args"][0] in livestmts:
+            if stmt_is_live(r["id"]):
                 newrecord: Dict[str, Any] = {}
                 newargs: List[int] = []
-                newargs.append(r["args"][0])    # stmtid
-                for id in r["args"][1:]:
+                for id in r["args"]:
                     if stmt_is_live(id):
                         newargs.append(id)
+                newrecord["assembly-xref"] = r["assembly-xref"]
                 newrecord["tag"] = r["tag"]
                 newrecord["args"] = newargs
                 newrecord["id"] = r["id"]
@@ -88,14 +88,14 @@ def reduce_ast_nodes(
             else:
                 continue
         elif r["tag"] == "if":
-            if r["args"][0] in livestmts:
+            if stmt_is_live(r["id"]):
                 newrecord = {}
                 newargs = []
-                newargs.append(r["args"][0])   # stmtid
-                newargs.append(r["args"][1])   # condition expr id
-                newargs.append(r["args"][2])   # then branch
-                newargs.append(r["args"][3])   # else branch
+                newargs.append(r["args"][0])   # condition expr id
+                newargs.append(r["args"][1])   # then branch
+                newargs.append(r["args"][2])   # else branch
                 newrecord["tag"] = r["tag"]
+                newrecord["assembly-xref"] = r["assembly-xref"]
                 newrecord["args"] = newargs
                 newrecord["id"] = r["id"]
                 newrecord["pc-offset"] = r["pc-offset"]
@@ -356,9 +356,9 @@ def showast(args: argparse.Namespace) -> NoReturn:
 
             spanmap: Dict[int, str] = {}
             for spanrec in spans:
-                spanid = cast(int, (spanrec["id"]))
-                spans_at_id = cast(List[Dict[str, Any]], spanrec["spans"])
-                spanmap[spanid] = spans_at_id[0]["base_va"]
+                spanxref = cast(int, (spanrec["xref"]))
+                spans_at_xref = cast(List[Dict[str, Any]], spanrec["spans"])
+                spanmap[spanxref] = spans_at_xref[0]["base_va"]
 
             availablexprs: Dict[str, List[Tuple[int, str, str, str]]] = {}
             for instrlabel in instr_usedefs_e:

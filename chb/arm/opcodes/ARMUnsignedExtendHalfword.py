@@ -92,5 +92,5 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
         (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-        astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+        astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
         return preinstrs + [assign] + postinstrs

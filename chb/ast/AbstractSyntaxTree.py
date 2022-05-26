@@ -130,24 +130,22 @@ class AbstractSyntaxTree:
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
         self.symboltable.add_compinfo(cinfo)
 
-    def new_id(self) -> int:
-        """A single sequence of id's is used for statement and instruction id.
+    def new_xref(self) -> int:
+        """Return a new id for cross reference with the assembly-code."""
 
-        That is, the set of instruction id's is disjoint from the set of stmt id's.
-        """
-        id = self._counter
+        xref = self._counter
         self._counter += 1
-        return id
+        return xref
 
     def add_span(self, span: ASTSpanRecord) -> None:
         self._spans.append(span)
 
-    def add_instruction_span(self, id: int, base: str, bytestring: str) -> None:
+    def add_instruction_span(self, xref: int, base: str, bytestring: str) -> None:
         span: Dict[str, Union[str, int]] = {}
         span["base_va"] = base
         span["size"] = len(bytestring) // 2
         spanrec: Dict[str, Any] = {}
-        spanrec["id"] = id
+        spanrec["xref"] = xref
         spanrec["spans"] = [span]
         self.add_span(cast(ASTSpanRecord, spanrec))
 
@@ -156,16 +154,18 @@ class AbstractSyntaxTree:
     def mk_block(
             self,
             stmts: List[AST.ASTStmt],
-            optstmtid: Optional[int] = None) -> AST.ASTBlock:
-        stmtid = self.new_id() if optstmtid is None else optstmtid
-        return AST.ASTBlock(stmtid, stmts)
+            opt_assembly_xref: Optional[int] = None) -> AST.ASTBlock:
+        assembly_xref = (
+            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
+        return AST.ASTBlock(assembly_xref, stmts)
 
     def mk_return_stmt(
             self,
             expr: Optional[AST.ASTExpr],
-            optstmtid: Optional[int] = None) -> AST.ASTReturn:
-        id = self.new_id() if optstmtid is None else optstmtid
-        return AST.ASTReturn(id, expr)
+            opt_assembly_xref: Optional[int] = None) -> AST.ASTReturn:
+        assembly_xref = (
+            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
+        return AST.ASTReturn(assembly_xref, expr)
 
     def mk_branch(
             self,
@@ -173,20 +173,22 @@ class AbstractSyntaxTree:
             ifbranch: AST.ASTStmt,
             elsebranch: AST.ASTStmt,
             relative_offset: int,
-            optstmtid: Optional[int] = None) -> AST.ASTStmt:
-        stmtid = self.new_id() if optstmtid is None else optstmtid
+            opt_assembly_xref: Optional[int] = None) -> AST.ASTStmt:
+        assembly_xref = (
+            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
         if condition is None:
             # create a new unknown (unitialized) variable
             condition = self.mk_tmp_lval_expression()
         return AST.ASTBranch(
-            stmtid, condition, ifbranch, elsebranch, relative_offset)
+            assembly_xref, condition, ifbranch, elsebranch, relative_offset)
 
     def mk_instr_sequence(
             self,
             instrs: List[AST.ASTInstruction],
-            optstmtid: Optional[int] = None) -> AST.ASTInstrSequence:
-        stmtid = self.new_id() if optstmtid is None else optstmtid
-        return AST.ASTInstrSequence(stmtid, instrs)
+            opt_assembly_xref: Optional[int] = None) -> AST.ASTInstrSequence:
+        assembly_xref = (
+            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
+        return AST.ASTInstrSequence(assembly_xref, instrs)
 
     """Instructions
     There are two types of instructions: an assignment and a call. An
@@ -198,13 +200,11 @@ class AbstractSyntaxTree:
     represent the arguments to the call (preferably in conformance with the
     arity of the function type, but this is not checked).
 
-    Instructions are assigned a unique instruction id. This instruction id can
-    then be used to create a link with the instruction address (via the span)
-    if desired. If an instrid was assigned earlier (e.g., when constructing an
-    ast from an existing ast json file) it can be given as an optional argument.
-
-    The set of instruction id's is disjoint from the set of statement id's (that
-    is, if x is an instruction id, it is not also a statement id).
+    Instructions are assigned a unique assembly cross reference, assembly_xref. 
+    This cross reference can then be used to create a link with the instruction 
+    address (via the span) if desired. If an assembly_xref was assigned earlier 
+    (e.g., when constructing an ast from an existing ast json file) it can be 
+    given as an optional argument.
 
     Construction methods provided:
     ------------------------------
@@ -237,9 +237,10 @@ class AbstractSyntaxTree:
             self,
             lval: AST.ASTLval,
             rhs: AST.ASTExpr,
-            optinstrid: Optional[int] = None) -> AST.ASTAssign:
-        instrid = self.new_id() if optinstrid is None else optinstrid
-        return AST.ASTAssign(instrid, lval, rhs)
+            opt_assembly_xref: Optional[int] = None) -> AST.ASTAssign:
+        assembly_xref = (
+            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
+        return AST.ASTAssign(assembly_xref, lval, rhs)
 
     def mk_var_assign(
             self,
@@ -260,9 +261,10 @@ class AbstractSyntaxTree:
             lval: Optional[AST.ASTLval],
             tgt: AST.ASTExpr,
             args: List[AST.ASTExpr],
-            optinstrid: Optional[int] = None) -> AST.ASTCall:
-        instrid = self.new_id() if optinstrid is None else optinstrid
-        return AST.ASTCall(instrid, lval, tgt, args)
+            opt_assembly_xref: Optional[int] = None) -> AST.ASTCall:
+        assembly_xref = (
+            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
+        return AST.ASTCall(assembly_xref, lval, tgt, args)
 
     def mk_var_call(
             self,
@@ -877,12 +879,12 @@ class AbstractSyntaxTree:
         return AST.ASTFieldInfo(fname, ftype, ckey, byteoffset=byteoffset)
 
     def mk_comp_type(self, cinfo: AST.ASTCompInfo) -> AST.ASTTypComp:
-        if cinfo.ckey in self.compinfos:
-            cinfo = self.compinfos[cinfo.ckey]
-            return AST.ASTTypComp(cinfo.cname, cinfo.ckey)
+        if cinfo.compkey in self.compinfos:
+            cinfo = self.compinfos[cinfo.compkey]
+            return AST.ASTTypComp(cinfo.compname, cinfo.compkey)
         else:
             self.add_compinfo(cinfo)
-            return AST.ASTTypComp(cinfo.cname, cinfo.ckey)
+            return AST.ASTTypComp(cinfo.compname, cinfo.compkey)
 
     def mk_comp_type_by_key(self, ckey: int, cname: str) -> AST.ASTTypComp:
         return AST.ASTTypComp(cname, ckey)

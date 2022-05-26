@@ -200,9 +200,9 @@ class MIPSJumpLink(MIPSOpcode):
                     astxprs = XU.xxpr_to_ast_exprs(arg, astree)
                     argxprs.extend(astxprs)
             call = cast(AST.ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
-            astree.add_instruction_span(call.instrid, iaddr, bytestring)
+            astree.add_instruction_span(call.assembly_xref, iaddr, bytestring)
             for assign in assigns:
-                astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+                astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
             return [call] + assigns
         else:
             return []

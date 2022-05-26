@@ -134,7 +134,7 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
             instrs.append(astree.mk_assign(reglval, reg_rhs))
 
         for instr in instrs:
-            astree.add_instruction_span(instr.instrid, iaddr, bytestring)
+            astree.add_instruction_span(instr.assembly_xref, iaddr, bytestring)
         return instrs
 
     def ast(self,
@@ -160,5 +160,5 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
                     "ARMStoreMulipleIncrementAfter: multiple expressions/lvals in ast")
 
         for instr in instrs:
-            astree.add_instruction_span(instr.instrid, iaddr, bytestring)
+            astree.add_instruction_span(instr.assembly_xref, iaddr, bytestring)
         return instrs

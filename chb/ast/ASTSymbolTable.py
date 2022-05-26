@@ -146,14 +146,14 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
             self._symbolicaddrs[vinfo.vname] = vinfo
 
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
-        if cinfo.ckey not in self.compinfos:
-            self._compinfos[cinfo.ckey] = cinfo
+        if cinfo.compkey not in self.compinfos:
+            self._compinfos[cinfo.compkey] = cinfo
         else:
             raise Exception(
                 "Compinfo key "
-                + str(cinfo.ckey)
+                + str(cinfo.compkey)
                 + " already exists: "
-                + cinfo.cname)
+                + cinfo.compname)
 
     def has_compinfo(self, ckey: int) -> bool:
         return ckey in self.compinfos
@@ -169,7 +169,7 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         lines.append("\nStruct definitions")
         lines.append("-" * 80)
         for cinfo in self.compinfos.values():
-            lines.append(str(cinfo.ckey).rjust(4) + "  " + cinfo.cname)
+            lines.append(str(cinfo.compkey).rjust(4) + "  " + cinfo.compname)
         return "\n".join(lines)
 
 

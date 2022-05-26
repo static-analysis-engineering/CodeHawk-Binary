@@ -71,7 +71,7 @@ class UseDef:
 
     def apply_assign(
             self,
-            instrid: int,
+            assembly_xref: int,
             lval: AST.ASTLval,
             gendef: AST.ASTExpr) -> "UseDef":
 
@@ -86,13 +86,13 @@ class UseDef:
 
         usedefs: Dict[str, Tuple[int, AST.ASTLval, AST.ASTExpr]] = {}
         if kill not in self.defs:
-            usedefs[kill] = (instrid, lval, gendef)
+            usedefs[kill] = (assembly_xref, lval, gendef)
 
         for v in self.defs:
             if v == kill and v in gendef.use():
                 pass    # remove from usedefs
             elif v == kill:
-                usedefs[v] = (instrid, lval, gendef)    # replace
+                usedefs[v] = (assembly_xref, lval, gendef)    # replace
             elif (
                     kill not in self.defs[v][1].use()
                     and kill not in self.defs[v][2].use()):
@@ -186,17 +186,17 @@ class ASTUseDefs(ASTNOPVisitor):
             raise UF.CHBError("Statement type not recognized: " + stmt.tag)
 
     def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
-        self.set_instr_usedefs(stmt.stmtid, self.usedefs)
+        self.set_instr_usedefs(stmt.assembly_xref, self.usedefs)
         for s in stmt.stmts:
             s.accept(self)
 
     def visit_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> None:
-        self.set_instr_usedefs(stmt.stmtid, self.usedefs)
+        self.set_instr_usedefs(stmt.assembly_xref, self.usedefs)
         for i in stmt.instructions:
             i.accept(self)
 
     def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
-        self.set_instr_usedefs(stmt.stmtid, self.usedefs)
+        self.set_instr_usedefs(stmt.assembly_xref, self.usedefs)
         stmt.ifstmt.accept(self)
         ifusedefs = self.usedefs
         stmt.elsestmt.accept(self)
@@ -204,13 +204,13 @@ class ASTUseDefs(ASTNOPVisitor):
         self.set_usedefs(ifusedefs.join(elseusedefs))
 
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
-        self.set_instr_usedefs(instr.instrid, self.usedefs)
+        self.set_instr_usedefs(instr.assembly_xref, self.usedefs)
         usedefs_x = self.usedefs.apply_assign(
-            instr.instrid, instr.define(), instr.rhs)
+            instr.assembly_xref, instr.define(), instr.rhs)
         self.set_usedefs(usedefs_x)
 
     def visit_call_instr(self, instr: AST.ASTCall) -> None:
-        self.set_instr_usedefs(instr.instrid, self.usedefs)
+        self.set_instr_usedefs(instr.assembly_xref, self.usedefs)
         kill = [str(k) for k in instr.kill()] + list(self.addresstaken)
         usedefs_x = self.usedefs.apply_call(kill)
         self.set_usedefs(usedefs_x)
@@ -268,46 +268,46 @@ class ASTExprPropagator(ASTTransformer):
             raise UF.CHBError("Statement type not recognized: " + stmt.tag)
 
     def transform_return_stmt(self, stmt: AST.ASTReturn) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)
+        self.set_currentid(stmt.assembly_xref)
         if stmt.has_return_value():
-            return AST.ASTReturn(stmt.stmtid, stmt.expr.transform(self))
+            return AST.ASTReturn(stmt.assembly_xref, stmt.expr.transform(self))
         else:
             return stmt
 
     def transform_block_stmt(self, stmt: AST.ASTBlock) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)
+        self.set_currentid(stmt.assembly_xref)
         return AST.ASTBlock(
-            stmt.stmtid, [s.transform(self) for s in stmt.stmts])
+            stmt.assembly_xref, [s.transform(self) for s in stmt.stmts])
 
     def transform_instruction_sequence_stmt(
             self, stmt: AST.ASTInstrSequence) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)
+        self.set_currentid(stmt.assembly_xref)
         return AST.ASTInstrSequence(
-            stmt.stmtid, [i.transform(self) for i in stmt.instructions])
+            stmt.assembly_xref, [i.transform(self) for i in stmt.instructions])
 
     def transform_branch_stmt(self, stmt: AST.ASTBranch) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)
+        self.set_currentid(stmt.assembly_xref)
         newcondition = stmt.condition.transform(self)
         newifstmt = stmt.ifstmt.transform(self)
-        self.set_currentid(stmt.stmtid)
+        self.set_currentid(stmt.assembly_xref)
         newelsestmt = stmt.elsestmt.transform(self)
         return AST.ASTBranch(
-            stmt.stmtid,
+            stmt.assembly_xref,
             newcondition,
             newifstmt,
             newelsestmt,
             stmt.relative_offset)
 
     def transform_assign_instr(self, instr: AST.ASTAssign) -> AST.ASTInstruction:
-        self.set_currentid(instr.instrid)
+        self.set_currentid(instr.assembly_xref)
         return AST.ASTAssign(
-            instr.instrid, instr.lhs.transform(self), instr.rhs.transform(self))
+            instr.assembly_xref, instr.lhs.transform(self), instr.rhs.transform(self))
 
     def transform_call_instr(self, instr: AST.ASTCall) -> AST.ASTInstruction:
-        self.set_currentid(instr.instrid)
+        self.set_currentid(instr.assembly_xref)
         lhsxform = None if instr.lhs is None else instr.lhs.transform(self)
         return AST.ASTCall(
-            instr.instrid,
+            instr.assembly_xref,
             lhsxform,
             instr.tgt.transform(self),
             [a.transform(self) for a in instr.arguments])

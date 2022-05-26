@@ -258,7 +258,7 @@ class ASTByteSizeCalculator(ASTIndexer):
         return finfo.fieldtype.index(self)
 
     def index_compinfo(self, cinfo: AST.ASTCompInfo) -> int:
-        return self.structsize(cinfo.ckey)
+        return self.structsize(cinfo.compkey)
 
     def index_comp_typ(self, typ: AST.ASTTypComp) -> int:
         return self.structsize(typ.compkey)

@@ -148,7 +148,7 @@ class ARMAdd(ARMOpcode):
 
         binop = astree.mk_binary_op("plus", op1, op2)
         assign = astree.mk_assign(lhs, binop, annotations=annotations)
-        astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+        astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
         return [assign]
 
     def ast(self,
@@ -206,5 +206,5 @@ class ARMAdd(ARMOpcode):
             return self.assembly_ast(astree, iaddr, bytestring, xdata)
 
         assign = astree.mk_assign(lhsast, rhsast, annotations=annotations)
-        astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+        astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
         return [assign]

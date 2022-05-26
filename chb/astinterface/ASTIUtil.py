@@ -182,7 +182,7 @@ class UseDef:
 
     def apply_assign(
             self,
-            instrid: int,
+            assembly_xref: int,
             lval: "ASTLval",
             gendef: "ASTExpr") -> "UseDef":
 
@@ -199,13 +199,13 @@ class UseDef:
 
         usedefs: Dict[str, Tuple[int, "ASTLval", "ASTExpr"]] = {}
         if kill not in self.defs:
-            usedefs[kill] = (instrid, lval, gendef)
+            usedefs[kill] = (assembly_xref, lval, gendef)
 
         for v in self.defs:
             if v == kill and v in gendef.use():
                 pass    # remove from usedefs
             elif v == kill:
-                usedefs[v] = (instrid, lval, gendef)    # replace
+                usedefs[v] = (assembly_xref, lval, gendef)    # replace
             elif (
                     kill not in self.defs[v][1].use()
                     and kill not in self.defs[v][2].use()):
@@ -260,14 +260,15 @@ class InstrUseDef:
     def instrdefs(self) -> Dict[int, UseDef]:
         return self._instrdefs
 
-    def has(self, instrid: int) -> bool:
-        return instrid in self.instrdefs
+    def has(self, assembly_xref: int) -> bool:
+        return assembly_xref in self.instrdefs
 
-    def set(self, instrid: int, usedef: UseDef) -> None:
-        self._instrdefs[instrid] = usedef
+    def set(self, assembly_xref: int, usedef: UseDef) -> None:
+        self._instrdefs[assembly_xref] = usedef
 
-    def get(self, instrid: int) -> UseDef:
-        if instrid in self.instrdefs:
-            return self.instrdefs[instrid]
+    def get(self, assembly_xref: int) -> UseDef:
+        if assembly_xref in self.instrdefs:
+            return self.instrdefs[assembly_xref]
         else:
-            raise Exception("Instruction id: " + str(instrid) + " not in usedef")
+            raise Exception(
+                "Assembly-xref: " + str(assembly_xref) + " not in usedef")

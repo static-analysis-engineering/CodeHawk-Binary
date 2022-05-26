@@ -84,42 +84,42 @@ class ASTRewriter(ASTTransformer):
             raise Exception("Statement type not recognized: " + stmt.tag)
 
     def transform_return_stmt(self, stmt: AST.ASTReturn) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)
+        self.set_currentid(stmt.assembly_xref)
         if stmt.has_return_value():
-            return AST.ASTReturn(stmt.stmtid, stmt.expr.transform(self))
+            return AST.ASTReturn(stmt.assembly_xref, stmt.expr.transform(self))
         else:
             return stmt
 
     def transform_block_stmt(self, stmt: AST.ASTBlock) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)
+        self.set_currentid(stmt.assembly_xref)
         return AST.ASTBlock(
-            stmt.stmtid, [s.transform(self) for s in stmt.stmts])
+            stmt.assembly_xref, [s.transform(self) for s in stmt.stmts])
 
     def transform_instruction_sequence_stmt(
             self, stmt: AST.ASTInstrSequence) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)
+        self.set_currentid(stmt.assembly_xref)
         return AST.ASTInstrSequence(
-            stmt.stmtid, [i.transform(self) for i in stmt.instructions])
+            stmt.assembly_xref, [i.transform(self) for i in stmt.instructions])
 
     def transform_branch_stmt(self, stmt: AST.ASTBranch) -> AST.ASTStmt:
-        self.set_currentid(stmt.stmtid)
+        self.set_currentid(stmt.assembly_xref)
         return AST.ASTBranch(
-            stmt.stmtid,
+            stmt.assembly_xref,
             stmt.condition.transform(self),
             stmt.ifstmt.transform(self),
             stmt.elsestmt.transform(self),
             stmt.relative_offset)
 
     def transform_assign_instr(self, instr: AST.ASTAssign) -> AST.ASTInstruction:
-        self.set_currentid(instr.instrid)
+        self.set_currentid(instr.assembly_xref)
         return AST.ASTAssign(
-            instr.instrid, instr.lhs.transform(self), instr.rhs.transform(self))
+            instr.assembly_xref, instr.lhs.transform(self), instr.rhs.transform(self))
 
     def transform_call_instr(self, instr: AST.ASTCall) -> AST.ASTInstruction:
-        self.set_currentid(instr.instrid)
+        self.set_currentid(instr.assembly_xref)
         lhsxform = None if instr.lhs is None else instr.lhs.transform(self)
         return AST.ASTCall(
-            instr.instrid,
+            instr.assembly_xref,
             lhsxform,
             instr.tgt.transform(self),
             [a.transform(self) for a in instr.arguments])
@@ -236,7 +236,7 @@ class ASTRewriter(ASTTransformer):
         return default()
 
     '''
-        instrid = self.currentid
+        assembly_xref = self.currentid
         base = memexp.exp1
         offsetexp = memexp.exp2
         if memexp.op == "plus":
@@ -250,7 +250,7 @@ class ASTRewriter(ASTTransformer):
                 newoffset = AST.ASTIndexOffset(indexexp, offset)
                 baselhost = cast(AST.ASTLvalExpr, base).lval.lhost
                 self.add_note(
-                    instrid,
+                    assembly_xref,
                     "rewrite-compound-memref-to-lval: array: "
                     + str(base)
                     + " with type "
@@ -265,7 +265,7 @@ class ASTRewriter(ASTTransformer):
 
             else:
                 self.add_note(
-                    instrid,
+                    assembly_xref,
                     "rewrite-compound-memref-to-lval: "
                     + str(base)
                     + " with type "
@@ -280,18 +280,18 @@ class ASTRewriter(ASTTransformer):
                         tgttyp = cast("BCTypArray", tgttyp)
                         eltsize = tgttyp.tgttyp.byte_size()
                         self.add_note(
-                            instrid,
+                            assembly_xref,
                             "rewrite-compound-memref-to-lval: global array: "
                             + str(tgttyp)
                             + " with element size "
                             + str(eltsize))
                     self.add_note(
-                        instrid,
+                        assembly_xref,
                         "rewrite-compound-memref-to-lval: global-address: "
                         + str(base) + " " + str(tgttyp))
 
             self.add_note(
-                instrid,
+                assembly_xref,
                 "rewrite-compound-memref-to-lval: "
                 + str(base)
                 + ", "
@@ -301,40 +301,40 @@ class ASTRewriter(ASTTransformer):
             return default()
 
 
-    def rewrite_lhost(self, instrid: int, lhost: AST.ASTLHost) -> AST.ASTLHost:
+    def rewrite_lhost(self, assembly_xref: int, lhost: AST.ASTLHost) -> AST.ASTLHost:
         if lhost.is_variable:
             return lhost
         elif lhost.is_memref:
-            return self.rewrite_memref(instrid, cast(AST.ASTMemRef, lhost))
+            return self.rewrite_memref(assembly_xref, cast(AST.ASTMemRef, lhost))
         else:
             raise UF.CHBError("Unexpected lhost type: " + lhost.tag)
 
     def rewrite_memref(
-            self, instrid: int, memref: AST.ASTMemRef) -> AST.ASTLHost:
-        return AST.ASTMemRef(self.rewrite_expr(instrid, memref.memexp))
+            self, assembly_xref: int, memref: AST.ASTMemRef) -> AST.ASTLHost:
+        return AST.ASTMemRef(self.rewrite_expr(assembly_xref, memref.memexp))
 
     def rewrite_offset(
-            self, instrid: int, offset: AST.ASTOffset) -> AST.ASTOffset:
+            self, assembly_xref: int, offset: AST.ASTOffset) -> AST.ASTOffset:
         return offset
 
-    def rewrite_expr(self, instrid: int, expr: AST.ASTExpr) -> AST.ASTExpr:
+    def rewrite_expr(self, assembly_xref: int, expr: AST.ASTExpr) -> AST.ASTExpr:
         if expr.is_ast_constant:
-            return self.rewrite_constant(instrid, cast(AST.ASTConstant, expr))
+            return self.rewrite_constant(assembly_xref, cast(AST.ASTConstant, expr))
 
         elif expr.is_ast_binary_op:
-            return self.rewrite_binary_op(instrid, cast(AST.ASTBinaryOp, expr))
+            return self.rewrite_binary_op(assembly_xref, cast(AST.ASTBinaryOp, expr))
 
         elif expr.is_ast_substituted_expr:
             expr = cast(AST.ASTSubstitutedExpr, expr)
-            return self.rewrite_substituted_expr(instrid, expr)
+            return self.rewrite_substituted_expr(assembly_xref, expr)
 
         elif expr.is_ast_lval_expr:
-            return self.rewrite_lval_expr(instrid, cast(AST.ASTLvalExpr, expr))
+            return self.rewrite_lval_expr(assembly_xref, cast(AST.ASTLvalExpr, expr))
 
         else:
             return expr
 
-    def rewrite_constant(self, instrid: int, c: AST.ASTConstant) -> AST.ASTExpr:
+    def rewrite_constant(self, assembly_xref: int, c: AST.ASTConstant) -> AST.ASTExpr:
         if c.is_string_constant:
             return c
         elif c.is_integer_constant and c.cvalue == 0:
@@ -350,7 +350,7 @@ class ASTRewriter(ASTTransformer):
                 addrexpr = AST.ASTAddressOf(baselval)
                 result = AST.ASTGlobalAddressConstant(c.cvalue, addrexpr)
                 self.add_note(
-                    instrid,
+                    assembly_xref,
                     "rewrite-constant: "
                     + hex(c.cvalue)
                     + " -> "
@@ -361,43 +361,43 @@ class ASTRewriter(ASTTransformer):
                 return result
             else:
                 self.add_note(
-                    instrid,
+                    assembly_xref,
                     "rewrite-constant: " + str(c) + " (" + hex(c.cvalue) + ")")
                 return c
         else:
             return c
 
     def rewrite_substituted_expr(
-            self, instrid: int, expr: AST.ASTSubstitutedExpr) -> AST.ASTExpr:
+            self, assembly_xref: int, expr: AST.ASTSubstitutedExpr) -> AST.ASTExpr:
         return AST.ASTSubstitutedExpr(
             expr.lval,
             expr.assign_id,
-            self.rewrite_expr(instrid, expr.substituted_expr))
+            self.rewrite_expr(assembly_xref, expr.substituted_expr))
 
     def rewrite_lval_expr(
-            self, instrid: int, expr: AST.ASTLvalExpr) -> AST.ASTExpr:
-        return AST.ASTLvalExpr(self.rewrite_lval(instrid, expr.lval))
+            self, assembly_xref: int, expr: AST.ASTLvalExpr) -> AST.ASTExpr:
+        return AST.ASTLvalExpr(self.rewrite_lval(assembly_xref, expr.lval))
 
     def rewrite_binary_op(
-            self, instrid: int, binop: AST.ASTBinaryOp) -> AST.ASTExpr:
+            self, assembly_xref: int, binop: AST.ASTBinaryOp) -> AST.ASTExpr:
         return AST.ASTBinaryOp(
             binop.op,
-            self.rewrite_expr(instrid, binop.exp1),
-            self.rewrite_expr(instrid, binop.exp2))
+            self.rewrite_expr(assembly_xref, binop.exp1),
+            self.rewrite_expr(assembly_xref, binop.exp2))
     '''
 
     def scale_expr(self, expr: AST.ASTExpr, scale: int) -> AST.ASTExpr:
-        instrid = self.currentid
+        assembly_xref = self.currentid
         if expr.is_ast_binary_op:
             expr = cast(AST.ASTBinaryOp, expr)
             if expr.op == "lsl" and expr.exp2.is_integer_constant:
                 shiftamount = cast(AST.ASTIntegerConstant, expr.exp2).cvalue
                 if (2 ** shiftamount) == scale:
                     self.add_note(
-                        instrid, "scale " + str(expr) + " to " + str(expr.exp1))
+                        assembly_xref, "scale " + str(expr) + " to " + str(expr.exp1))
                     return expr.exp1
                 self.add_note(
-                    instrid,
+                    assembly_xref,
                     "scale-expression: with operator "
                     + expr.op
                     + " and operands "

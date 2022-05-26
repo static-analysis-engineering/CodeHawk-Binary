@@ -81,28 +81,28 @@ class ASTLiveCode(ASTNOPVisitor):
         stmt.accept(self)
 
     def visit_return_stmt(self, stmt: AST.ASTReturn) -> None:
-        self.set_live_on_exit(stmt.stmtid, set([]))
+        self.set_live_on_exit(stmt.assembly_xref, set([]))
         if stmt.has_return_value():
             self.set_live_x(set(stmt.expr.use()))
         else:
             self.set_live_x(set([]))
-        self._livestmts.add(stmt.stmtid)
+        self._livestmts.add(stmt.assembly_xref)
 
     def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
-        self.set_live_on_exit(stmt.stmtid, self.live_x)
+        self.set_live_on_exit(stmt.assembly_xref, self.live_x)
         for s in reversed(stmt.stmts):
             s.accept(self)
-        self._livestmts.add(stmt.stmtid)
+        self._livestmts.add(stmt.assembly_xref)
 
     def visit_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> None:
-        self.set_live_on_exit(stmt.stmtid, self.live_x)
+        self.set_live_on_exit(stmt.assembly_xref, self.live_x)
         for i in reversed(stmt.instructions):
             i.accept(self)
-        if any(i.instrid in self.liveinstrs for i in stmt.instructions):
-            self._livestmts.add(stmt.stmtid)
+        if any(i.assembly_xref in self.liveinstrs for i in stmt.instructions):
+            self._livestmts.add(stmt.assembly_xref)
 
     def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
-        self.set_live_on_exit(stmt.stmtid, self.live_x)
+        self.set_live_on_exit(stmt.assembly_xref, self.live_x)
         condlive_e = set(stmt.condition.use())
         stmt.ifstmt.accept(self)
         iflive_e = self.live_x
@@ -110,12 +110,12 @@ class ASTLiveCode(ASTNOPVisitor):
         elselive_e = self.live_x
         self.set_live_x((condlive_e | iflive_e) | elselive_e)
         if (
-                stmt.ifstmt.stmtid in self.livestmts
-                or stmt.elsestmt.stmtid in self.livestmts):
-            self._livestmts.add(stmt.stmtid)
+                stmt.ifstmt.assembly_xref in self.livestmts
+                or stmt.elsestmt.assembly_xref in self.livestmts):
+            self._livestmts.add(stmt.assembly_xref)
 
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
-        self.set_live_on_exit(instr.instrid, self.live_x)
+        self.set_live_on_exit(instr.assembly_xref, self.live_x)
         kill = [str(s) for s in instr.kill()]
         live_e: Set[str] = set([])
         for v in self.live_x:
@@ -133,13 +133,13 @@ class ASTLiveCode(ASTNOPVisitor):
                 instr.lhs.is_memref
                 or (not instr.lhs.offset.is_no_offset)
                 or instr.lhs.is_global
-                or (instr.instrid in self.live_on_exit
-                    and str(instr.lhs) in self.live_on_exit[instr.instrid])):
-            self._liveinstrs.add(instr.instrid)
+                or (instr.assembly_xref in self.live_on_exit
+                    and str(instr.lhs) in self.live_on_exit[instr.assembly_xref])):
+            self._liveinstrs.add(instr.assembly_xref)
             self._livesymbols = self._livesymbols | instr.variables_used()
 
     def visit_call_instr(self, instr: AST.ASTCall) -> None:
-        self.set_live_on_exit(instr.instrid, self.live_x)
+        self.set_live_on_exit(instr.assembly_xref, self.live_x)
         kill = instr.kill()
         live_e: Set[str] = set([])
         for v in self.live_x:
@@ -149,5 +149,5 @@ class ASTLiveCode(ASTNOPVisitor):
             for v in a.use():
                 live_e.add(v)
         self.set_live_x(live_e)
-        self._liveinstrs.add(instr.instrid)
+        self._liveinstrs.add(instr.assembly_xref)
         self._livesymbols = self._livesymbols | instr.variables_used()

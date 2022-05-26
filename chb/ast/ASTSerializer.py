@@ -34,31 +34,31 @@ Statements
 
 - return_stmt:
   tag: "return"
+  assembly-xref: cross-reference to assembly instruction
   args:
-     0: stmtid
-     1: return expr, or -1 if returning void
+     0: id of return expr, or -1 if returning void
 
 - block-stmt:
   tag: "block"
+  assembly-xref: cross-reference to assembly instruction
   args:
-    0: stmtid
-    1..: id's of statements contained in the block
+    0..: id's of statements contained in the block
 
 - branch-stmt:
   tag: "if"
+  assembly-xref: cross-reference to assembly instruction
   pc-offset: integer that gives the distance between this statement and the
              target statement
   args:
-    0: stmtid
-    1: id of condition expr
-    2: id of then-branch statement
-    3: id of else-branch statement
+    0: id of condition expr
+    1: id of then-branch statement
+    2: id of else-branch statement
 
 - instruction-sequence:
   tag: "instrs"
+  assembly-xref: cross-reference to assembly instruction
   args:
-    0: stmtid
-    1..: id's of instructions contained in the statement
+    0..: id's of instructions contained in the statement
 
 
 Instructions
@@ -66,18 +66,18 @@ Instructions
 
 - call-instr:
   tag: "call"
+  assembly-xref: cross-reference to assembly instruction
   args:
-    0: instrid
-    1: id of left-hand-side (lval) or -1 if there is no left-hand-side
-    2: id of expression that represents the target of the call
-    3..: id's of the argument expressions
+    0: id of left-hand-side (lval) or -1 if there is no left-hand-side
+    1: id of expression that represents the target of the call
+    2..: id's of the argument expressions
 
 - assign-instr
   tag: "assign"
+  assembly-xref: cross-reference to assembly instruction
   args:
-    0: instrid
-    1: id of left-hand-side (lval)
-    2: id of right-hand-side (expr)
+    0: id of left-hand-side (lval)
+    1: id of right-hand-side (expr)
 
 
 Lval-related nodes
@@ -86,12 +86,14 @@ Lval-related nodes
 - varinfo:
   tag: "varinfo"
   name: name of the variable
+  parameter: index of parameter (zero-based) if this is a formal parameter
+       or -1 otherwise
+  globaladdress: (integer) virtual address if this variable is global and its
+       address is known, 0 if this variable is global, but its address
+       is not known, -1 otherwise
   (optional)descr: description of the variable, free-form string
   args:
     0: id of the type of the variable of -1 if not known
-    1: index of parameter (zero-based) if this is a formal or -1 otherwise
-    2: global address (integer) if this variable is a global and its address
-       is known, -1 otherwise
 
 - variable
   tag: "var"
@@ -110,10 +112,10 @@ Lval-related nodes
 
 - field-offset
   tag: "field-offset"
-  fname: name of the field (string)
+  name: name of the field (string)
+  compkey: compinfo compkey
   args:
-    0: compinfo compkey
-    1: id of sub-offset
+    0: id of sub-offset
 
 - index-offset
   tag: "index-offset"
@@ -150,7 +152,7 @@ Expressions
 
 - substituted-expression
   tag: "substituted-expression"
-  assigned: instrid of the assign instruction that provides the expression
+  assigned: assembly_xref of the assign instruction that provides the expression
   args:
     0: id of the lval of the original lval-expression
     1: id of the substituted expression
@@ -221,10 +223,10 @@ Types
 
 - function type
   tag: "funtype"
+  varargs: "yes"/"no"
   args:
     0: id of the return type
     1: id of the function arguments (funargs), or -1 if not available
-    2: 1 if this function is a varargs function, 0 otherwise
 
 - function-arguments
   tag: "funargs"
@@ -245,9 +247,9 @@ Types
 
 - struct/union type
   tag: "comptyp"
-  cname: name of the struct/union
-  args:
-    0: compkey
+  name: name of the struct/union
+  compkey: compkey of the compinfo
+  args: -
 
 - builtin-va-list
   tag: "builtin-va-list"
@@ -256,17 +258,17 @@ Types
 - fieldinfo (struct/union field)
   tag: "fieldinfo"
   name: name of the field
+  compkey: compkey of compinfo
+  (optional)byte-offset: byte offset of the field in the struct if available
   args:
     0: id of the type of the field
-    1: compkey of the struct to which this field belongs
-    2: byteoffset of the field in the struct if available, -1 otherwise
 
 - compinfo (struct/union)
   tag: "compinfo"
   name: name of the struct/union
+  union: "yes" if this is a union, "no" if this is a struct
   args:
-    0: 1 if this compinfo represents a union, 0 otherwise
-    1..: id's of fieldinfo's that make up the struct or union
+    0..: id's of fieldinfo's that make up the struct or union
 
 """
 
@@ -312,9 +314,10 @@ class ASTSerializer(ASTIndexer):
             raise Exception("Statement type not recognized: " + stmt.tag)
 
     def index_return_stmt(self, stmt: AST.ASTReturn) -> int:
-        tags: List[str] = [stmt.tag]
-        args: List[int] = [stmt.stmtid]
+        tags: List[str] = [stmt.tag, str(stmt.assembly_xref)]
+        args: List[int] = []
         node: Dict[str, Any] = {"tag": stmt.tag}
+        node["assembly-xref"] = stmt.assembly_xref
         if stmt.has_return_value():
             args.append(stmt.expr.index(self))
         else:
@@ -322,16 +325,17 @@ class ASTSerializer(ASTIndexer):
         return self.add(tags, args, node)
 
     def index_block_stmt(self, stmt: AST.ASTBlock) -> int:
-        tags: List[str] = [stmt.tag]
-        args: List[int] = [stmt.stmtid]
+        tags: List[str] = [stmt.tag, str(stmt.assembly_xref)]
+        args: List[int] = [s.index(self) for s in stmt.stmts]
         node: Dict[str, Any] = {"tag": stmt.tag}
-        args.extend([s.index(self) for s in stmt.stmts])
+        node["assembly-xref"] = stmt.assembly_xref
         return self.add(tags, args, node)
 
     def index_branch_stmt(self, stmt: AST.ASTBranch) -> int:
-        tags: List[str] = [stmt.tag, str(stmt.relative_offset)]
-        args: List[int] = [stmt.stmtid]
+        tags: List[str] = [stmt.tag, str(stmt.assembly_xref), str(stmt.relative_offset)]
+        args: List[int] = []
         node: Dict[str, Any] = {"tag": stmt.tag}
+        node["assembly-xref"] = stmt.assembly_xref
         args.extend([
             stmt.condition.index(self),
             stmt.ifstmt.index(self),
@@ -340,23 +344,24 @@ class ASTSerializer(ASTIndexer):
         return self.add(tags, args, node)
 
     def index_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> int:
-        tags: List[str] = [stmt.tag]
-        args: List[int] = [stmt.stmtid]
+        tags: List[str] = [stmt.tag, str(stmt.assembly_xref)]
+        args: List[int] = [instr.index(self) for instr in stmt.instructions]
         node: Dict[str, Any] = {"tag": stmt.tag}
-        args.extend([instr.index(self) for instr in stmt.instructions])
+        node["assembly-xref"] = stmt.assembly_xref
         return self.add(tags, args, node)
 
     def index_assign_instr(self, instr: AST.ASTAssign) -> int:
-        tags: List[str] = [instr.tag]
-        args: List[int] = [instr.instrid]
+        tags: List[str] = [instr.tag, str(instr.assembly_xref)]
+        args: List[int] = [instr.lhs.index(self), instr.rhs.index(self)]
         node: Dict[str, Any] = {"tag": instr.tag}
-        args.extend([instr.lhs.index(self), instr.rhs.index(self)])
+        node["assembly-xref"] = instr.assembly_xref
         return self.add(tags, args, node)
 
     def index_call_instr(self, instr: AST.ASTCall) -> int:
-        tags: List[str] = [instr.tag]
-        args: List[int] = [instr.instrid]
+        tags: List[str] = [instr.tag, str(instr.assembly_xref)]
+        args: List[int] = []
         node: Dict[str, Any] = {"tag": instr.tag}
+        node["assembly-xref"] = instr.assembly_xref
         lvalindex = -1 if instr.lhs is None else instr.lhs.index(self)
         args.append(lvalindex)
         args.append(instr.tgt.index(self))
@@ -365,19 +370,22 @@ class ASTSerializer(ASTIndexer):
 
     def index_lval(self, lval: AST.ASTLval) -> int:
         tags: List[str] = [lval.tag]
-        args: List[int] = []
+        args: List[int] = [lval.lhost.index(self), lval.offset.index(self)]
         node: Dict[str, Any] = {"tag": lval.tag}
-        args.extend([lval.lhost.index(self), lval.offset.index(self)])
         return self.add(tags, args, node)
 
     def index_varinfo(self, vinfo: AST.ASTVarInfo) -> int:
         tags: List[str] = [vinfo.tag, vinfo.vname]
         args: List[int] = []
-        node: Dict[str, Any] = {"tag": vinfo.tag, "name": vinfo.vname}
+        node: Dict[str, Any] = {"tag": vinfo.tag}
         typindex = vinfo.vtype.index(self) if vinfo.vtype is not None else -1
         parindex = vinfo.parameter if vinfo.parameter is not None else -1
         gaddr = vinfo.globaladdress if vinfo.globaladdress is not None else -1
-        args.extend([typindex, parindex, gaddr])
+        args.append(typindex)
+        tags.extend([str(parindex), str(gaddr)])
+        node["name"] = vinfo.vname
+        node["parameter"] = parindex
+        node["globaladdress"] = gaddr
         if vinfo.vdescr is not None:
             node["descr"] = vinfo.vdescr
         return self.add(tags, args, node)
@@ -401,9 +409,11 @@ class ASTSerializer(ASTIndexer):
         return self.add(tags, args, node)
 
     def index_field_offset(self, offset: AST.ASTFieldOffset) -> int:
-        tags: List[str] = [offset.tag, offset.fieldname]
-        args: List[int] = [offset.compkey, offset.offset.index(self)]
-        node: Dict[str, Any] = {"tag": offset.tag, "fname": offset.fieldname}
+        tags: List[str] = [offset.tag, offset.fieldname, str(offset.compkey)]
+        args: List[int] = [offset.offset.index(self)]
+        node: Dict[str, Any] = {"tag": offset.tag}
+        node["name"] = offset.fieldname
+        node["compkey"] = offset.compkey
         return self.add(tags, args, node)
 
     def index_index_offset(self, offset: AST.ASTIndexOffset) -> int:
@@ -448,7 +458,7 @@ class ASTSerializer(ASTIndexer):
         tags: List[str] = [expr.tag, str(expr.assign_id)]
         args: List[int] = [
             expr.super_lval.index(self), expr.substituted_expr.index(self)]
-        node: Dict[str, Any] = {"tag": expr.tag, "assigned": str(expr.assign_id)}
+        node: Dict[str, Any] = {"tag": expr.tag, "assigned": expr.assign_id}
         return self.add(tags, args, node)
 
     def index_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> int:
@@ -528,7 +538,7 @@ class ASTSerializer(ASTIndexer):
         args: List[int] = [typ.returntyp.index(self)]
         node: Dict[str, Any] = {"tag": typ.tag}
         args.append(-1 if typ.argtypes is None else typ.argtypes.index(self))
-        args.append(1 if typ.is_varargs else 0)
+        node["varargs"] = "yes" if typ.is_varargs else "no"
         return self.add(tags, args, node)
 
     def index_funargs(self, funargs: AST.ASTFunArgs) -> int:
@@ -558,19 +568,26 @@ class ASTSerializer(ASTIndexer):
     def index_fieldinfo(self, finfo: AST.ASTFieldInfo) -> int:
         tags: List[str] = [finfo.tag, finfo.fieldname]
         args: List[int] = [finfo.fieldtype.index(self), finfo.compkey]
-        node: Dict[str, Any] = {"tag": finfo.tag, "name": finfo.fieldname}
-        args.append(-1 if finfo.byteoffset is None else finfo.byteoffset)
+        node: Dict[str, Any] = {"tag": finfo.tag}
+        node["name"] = finfo.fieldname
+        node["compkey"] = finfo.compkey
+        if finfo.byteoffset is not None:
+            node["byte-offset"] = finfo.byteoffset
         return self.add(tags, args, node)
 
     def index_compinfo(self, cinfo: AST.ASTCompInfo) -> int:
-        tags: List[str] = [cinfo.tag, cinfo.cname]
-        args: List[int] = [cinfo.ckey, 1 if cinfo.is_union else 0]
-        node: Dict[str, Any] = {"tag": cinfo.tag, "name": cinfo.cname}
-        args.extend([finfo.index(self) for finfo in cinfo.fieldinfos])
+        tags: List[str] = [cinfo.tag, cinfo.compname, str(cinfo.compkey)]
+        args: List[int] = [finfo.index(self) for finfo in cinfo.fieldinfos]
+        node: Dict[str, Any] = {"tag": cinfo.tag}
+        node["name"] = cinfo.compname
+        node["compkey"] = cinfo.compkey
+        node["union"] = "yes" if cinfo.is_union else "no"
         return self.add(tags, args, node)
 
     def index_comp_typ(self, typ: AST.ASTTypComp) -> int:
-        tags: List[str] = [typ.tag, typ.compname]
-        args: List[int] = [typ.compkey]
-        node: Dict[str, Any] = {"tag": typ.tag, "cname": typ.compname}
+        tags: List[str] = [typ.tag, typ.compname, str(typ.compkey)]
+        args: List[int] = []
+        node: Dict[str, Any] = {"tag": typ.tag}
+        node["name"] = typ.compname
+        node["compkey"] = typ.compkey
         return self.add(tags, args, node)

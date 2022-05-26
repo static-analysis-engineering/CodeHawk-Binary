@@ -393,7 +393,7 @@ class ASTInterface:
             rhs: AST.ASTExpr,
             annotations: List[str] = []) -> AST.ASTAssign:
         assign = self.astree.mk_assign(lval, rhs)
-        self._annotations[assign.instrid] = annotations
+        self._annotations[assign.assembly_xref] = annotations
         return assign
 
     def mk_call(
@@ -786,11 +786,11 @@ class ASTInterface:
 
     def rewrite_block(self, block: AST.ASTBlock) -> AST.ASTStmt:
         return AST.ASTBlock(
-            block.stmtid, [self.rewrite_stmt(s) for s in block.stmts])
+            block.assembly_xref, [self.rewrite_stmt(s) for s in block.stmts])
 
     def rewrite_branch(self, branch: AST.ASTBranch) -> AST.ASTStmt:
         return AST.ASTBranch(
-            branch.stmtid,
+            branch.assembly_xref,
             self.rewrite_expr(branch.condition),
             self.rewrite_stmt(branch.ifstmt),
             self.rewrite_stmt(branch.elsestmt),
@@ -799,7 +799,7 @@ class ASTInterface:
     def rewrite_instruction_sequence(
             self, instrseq: AST.ASTInstrSequence) -> AST.ASTStmt:
         return AST.ASTInstrSequence(
-            instrseq.stmtid,
+            instrseq.assembly_xref,
             [self.rewrite_instruction(i) for i in instrseq.instructions])
 
     def rewrite_instruction(self, instr: AST.ASTInstruction) -> AST.ASTInstruction:
@@ -812,7 +812,7 @@ class ASTInterface:
 
     def rewrite_assign(self, assign: AST.ASTAssign) -> AST.ASTInstruction:
         return AST.ASTAssign(
-            assign.instrid,
+            assign.assembly_xref,
             self.rewrite_lval(assign.lhs),
             self.rewrite_expr(assign.rhs),
             annotations=assign.annotations)

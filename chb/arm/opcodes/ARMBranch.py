@@ -178,7 +178,7 @@ class ARMBranch(ARMOpcode):
             else:
                 (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
             call = astree.mk_call(lhs, tgtxpr, [])
-            astree.add_instruction_span(call.instrid, iaddr, bytestring)
+            astree.add_instruction_span(call.assembly_xref, iaddr, bytestring)
             return [call]
         else:
             return []
@@ -221,9 +221,9 @@ class ARMBranch(ARMOpcode):
                 for a in args[4:]:
                     argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
             call = cast(AST.ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
-            astree.add_instruction_span(call.instrid, iaddr, bytestring)
+            astree.add_instruction_span(call.assembly_xref, iaddr, bytestring)
             for assign in assigns:
-                astree.add_instruction_span(assign.instrid, iaddr, bytestring)
+                astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
             return [call] + assigns
         else:
             return []
@@ -250,7 +250,7 @@ class ARMBranch(ARMOpcode):
                     if int(csetter, 16) + (len(cbytestr) // 2) == int(iaddr, 16):
                         newaddr = hex(int(iaddr, 16) - (len(cbytestr) // 2))
                         # astree.add_instruction_span(
-                        #    astcond.instrid, newaddr, cbytestr + bytestring)
+                        #    astcond.assembly_xref, newaddr, cbytestr + bytestring)
                     else:
                         # astree.add_instruction_span(astcond.id, iaddr, bytestring)
                         pass
