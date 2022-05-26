@@ -178,7 +178,7 @@ def xcompound_to_ast_exprs(
             if len(op1s) == 1 and len(op2s) == 1:
                 op1 = op1s[0]
                 op2 = op2s[0]
-                if op1.ctype is not None and op in ["plus", "minus"]:
+                if op1.ctype(astree.ctyper) is not None and op in ["plus", "minus"]:
                     return xtyped_expr_to_ast_exprs(op, op1, op2, astree)
                 else:
                     return [astree.mk_binary_op(op, op1, op2)]

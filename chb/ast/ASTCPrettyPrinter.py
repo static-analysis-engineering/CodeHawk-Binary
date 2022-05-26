@@ -38,34 +38,6 @@ if TYPE_CHECKING:
 
 operators = AST.operators
 
-'''
-    "and": " && ",   # logical and
-    "bor": " | ",    # bitwise or
-    "bxor": " ^ ",   # bitwise xor
-    "asr": " >> ",   # arithmetic shift right; need to infer type as signed
-    "band": " & ",   # bitwise and
-    "div": " / ",    # integer division
-    "eq": " == ",
-    "ge": " >= ",
-    "gt": " > ",
-    "land": " && ",
-    "le": " <= ",
-    "lnot": " ! ",
-    "lor": " || ",   # logical or
-    "lsl": " << ",   # logical shift left
-    "lsr": " >> ",   # logical shift right; need to infer type as unsigned
-    "lt": " < ",
-    "minus": " - ",
-    "mod": " % ",
-    "mult": " * ",   # multiplication
-    "ne": " != ",
-    "neq": " != ",
-    "plus": " + ",
-    "shiftlt": " << ",
-    "shiftrt": " >> "
-    }
-'''
-
 
 class ASTCCode:
 
@@ -418,7 +390,7 @@ class ASTCPrettyPrinter(ASTVisitor):
 
     def visit_pointer_typ(self, t: AST.ASTTypPtr) -> None:
         t.tgttyp.accept(self)
-        self.ccode.write(" * ")
+        self.ccode.write(" *")
 
     def visit_array_typ(self, t: AST.ASTTypArray) -> None:
         t.tgttyp.accept(self)
@@ -442,7 +414,7 @@ class ASTCPrettyPrinter(ASTVisitor):
             pass
         else:
             for arg in args[:-1]:
-                args[0].accept(self)
+                arg.accept(self)
                 self.ccode.write(", ")
             args[-1].accept(self)
 

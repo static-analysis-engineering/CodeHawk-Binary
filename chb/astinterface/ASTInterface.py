@@ -245,13 +245,6 @@ class ASTInterface:
     def set_function_prototype(self, p: AST.ASTVarInfo) -> None:
         self.astree.set_function_prototype(p)
 
-    '''
-    def get_formal_locindices(
-            self, argindex: int) -> Tuple[ASTFormalVarInfo, List[int]]:
-        raise NotImplementedError("ASTInterface.get_formal_locindices")
-        # return self.symboltable.get_formal_locindices(argindex)
-    '''
-
     def get_formal_locindices(
             self, argindex: int) -> Tuple[ASTIFormalVarInfo, List[int]]:
         """Return the indices of the arg location(s) for argindex.
@@ -362,7 +355,8 @@ class ASTInterface:
 
     def mk_global_variable_expr(
             self, name: str, globaladdress: int = 0) -> AST.ASTExpr:
-        raise NotImplementedError("ASTInterface.mk_global_variable_expr")
+        return self.astree.mk_named_lval_expression(
+            name, globaladdress=globaladdress)
 
     def mk_lval_expr(self, lval: AST.ASTLval) -> AST.ASTExpr:
         return self.mk_lval_expression(lval)
@@ -642,7 +636,7 @@ class ASTInterface:
         shift = 0
         for b in bytes:
             addend = self.mk_binary_op(
-                "shiftlt", b, self.mk_integer_constant(shift))
+                "lsl", b, self.mk_integer_constant(shift))
             result = self.mk_binary_op("plus", result, addend)
             shift += 8
         return result

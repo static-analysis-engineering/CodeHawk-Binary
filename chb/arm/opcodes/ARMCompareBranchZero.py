@@ -87,7 +87,7 @@ class ARMCompareBranchZero(ARMOpcode):
         regvar = astree.mk_register_variable_expr(reg)
         zero = astree.mk_integer_constant(0)
         if reverse:
-            condition = astree.mk_binary_op("neq", regvar, zero)
+            condition = astree.mk_binary_op("ne", regvar, zero)
         else:
             condition = astree.mk_binary_op("eq", regvar, zero)
         # astree.add_instruction_span(condition.id, iaddr, bytestring)

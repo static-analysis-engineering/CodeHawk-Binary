@@ -156,8 +156,8 @@ Binary operators:
  Mult: "mult"
  Div: "div"
  Mod: "mod"
- Shiftlt: "lsl", "shiftlt"
- Shiftrt: "lsr", "shiftrt", "asr"
+ Shiftlt: "lsl",
+ Shiftrt: "lsr", "asr"
  Lt: "lt"
  Gt: "gt"
  Le: "le"
@@ -174,6 +174,7 @@ Binary operators:
 
 operators = {
     "and": " && ",   # logical and
+    "asr": " >> ",   # arithmetic shift right
     "bnot": "~",     # bitwise not
     "bor": " | ",    # bitwise or
     "bxor": " ^ ",   # bitwise xor
@@ -1589,6 +1590,8 @@ class ASTUnaryOp(ASTExpr):
 
     def __init__(self, op: str,  exp: "ASTExpr") -> None:
         ASTExpr.__init__(self, "unary-op")
+        if not op in operators:
+            raise Exception("Unary operator " + op + " not recognized")
         self._op = op
         self._exp = exp
 
@@ -1637,6 +1640,8 @@ class ASTBinaryOp(ASTExpr):
             exp1: "ASTExpr",
             exp2: "ASTExpr") -> None:
         ASTExpr.__init__(self, "binary-op")
+        if not op in operators:
+            raise Exception("Binary operator " + op + " not recognized")
         self._op = op
         self._exp1 = exp1
         self._exp2 = exp2

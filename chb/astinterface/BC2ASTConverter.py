@@ -47,6 +47,18 @@ from chb.bctypes.BCVarInfo import BCVarInfo
 
 import chb.util.fileutil as UF
 
+bc2ast_operators: Dict[str, str] = {
+    "minusa": "minus",
+    "mult": "mult"
+    }
+
+
+def convert_bc_operator(op: str) -> str:
+    if op in bc2ast_operators:
+        return bc2ast_operators[op]
+    else:
+        raise UF.CHBError("BC operator " + op + " not found")
+
 
 class BC2ASTConverter(BCConverter):
 
@@ -76,7 +88,7 @@ class BC2ASTConverter(BCConverter):
 
     def initialize_compinfos(self) -> None:
         for cinfo in self.compinfos_referenced.values():
-            self.symboltable.add_compinfo(cinfo.convert(self))
+            cinfo.convert(self)
 
     def convert_lval(self, lval: BCLval) -> AST.ASTLval:
         lhost = lval.lhost.convert(self)
@@ -128,11 +140,13 @@ class BC2ASTConverter(BCConverter):
         return AST.ASTCastExpr(asttyp, astexp)
 
     def convert_unary_expression(self, x: BCE.BCExpUnOp) -> AST.ASTUnaryOp:
-        return AST.ASTUnaryOp(x.operator, x.exp.convert(self))
+        op = convert_bc_operator(x.operator)
+        return AST.ASTUnaryOp(op, x.exp.convert(self))
 
     def convert_binary_expression(self, x: BCE.BCExpBinOp) -> AST.ASTBinaryOp:
+        op = convert_bc_operator(x.operator)
         return AST.ASTBinaryOp(
-            x.operator, x.exp1.convert(self), x.exp2.convert(self))
+            op, x.exp1.convert(self), x.exp2.convert(self))
 
     def convert_question_expression(self, x: BCE.BCExpQuestion) -> AST.ASTQuestion:
         return AST.ASTQuestion(
@@ -177,7 +191,7 @@ class BC2ASTConverter(BCConverter):
         return AST.ASTTypBuiltinVAList()
 
     def convert_comp_typ(self, t: BCT.BCTypComp) -> AST.ASTTypComp:
-        self.add_compinfo_reference(t.compinfo)
+        # self.add_compinfo_reference(t.compinfo)
         return AST.ASTTypComp(t.compname, t.compkey)
 
     def convert_compinfo(self, cinfo: BCCompInfo) -> AST.ASTCompInfo:

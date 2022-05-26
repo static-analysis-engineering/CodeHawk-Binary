@@ -238,7 +238,7 @@ class AbstractSyntaxTree:
             lval: AST.ASTLval,
             rhs: AST.ASTExpr,
             optinstrid: Optional[int] = None) -> AST.ASTAssign:
-        instrid = optinstrid if optinstrid is not None else self.new_id()
+        instrid = self.new_id() if optinstrid is None else optinstrid
         return AST.ASTAssign(instrid, lval, rhs)
 
     def mk_var_assign(
@@ -259,8 +259,9 @@ class AbstractSyntaxTree:
             self,
             lval: Optional[AST.ASTLval],
             tgt: AST.ASTExpr,
-            args: List[AST.ASTExpr]) -> AST.ASTCall:
-        instrid = self.new_id()
+            args: List[AST.ASTExpr],
+            optinstrid: Optional[int] = None) -> AST.ASTCall:
+        instrid = self.new_id() if optinstrid is None else optinstrid
         return AST.ASTCall(instrid, lval, tgt, args)
 
     def mk_var_call(
@@ -586,9 +587,9 @@ class AbstractSyntaxTree:
 
     def mk_string_constant(
             self,
-            expr: AST.ASTExpr,
+            expr: Optional[AST.ASTExpr],
             cstr: str,
-            string_address: str) -> AST.ASTStringConstant:
+            string_address: Optional[str] = None) -> AST.ASTStringConstant:
         return AST.ASTStringConstant(expr, cstr, string_address)
 
     def mk_address_of_expression(self, lval: AST.ASTLval) -> AST.ASTAddressOf:

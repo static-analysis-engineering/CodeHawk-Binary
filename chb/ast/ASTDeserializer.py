@@ -154,23 +154,37 @@ class ASTDeserializer:
             tag = r["tag"]
             if tag == "void":
                 nodes[id] = voidtype
+
             elif tag == "int":
                 nodes[id] = astree.mk_integer_ikind_type(r["ikind"])
+
             elif tag == "ptr":
                 tgttyp = cast(AST.ASTTyp, mk_node(arg(0)))
                 nodes[id] = astree.mk_pointer_type(tgttyp)
+
+            elif tag == "array":
+                tgttyp = cast(AST.ASTTyp, mk_node(arg(0)))
+                if r["args"][1] == -1:
+                    sizexpr: Optional[AST.ASTExpr] = None
+                else:
+                    sizexpr = cast(AST.ASTExpr, mk_node(arg(1)))
+                nodes[id] = astree.mk_array_type(tgttyp, sizexpr)
+
             elif tag == "comptyp":
                 ckey = r["args"][0]
                 cname = r["cname"]
                 nodes[id] = astree.mk_comp_type_by_key(ckey, cname)
+
             elif tag == "typdef":
                 name = r["name"]
                 typ = cast(AST.ASTTyp, mk_node(arg(0)))
                 nodes[id] = astree.mk_typedef(name, typ)
+
             elif tag == "funarg":
                 name = r["name"]
                 typ = cast(AST.ASTTyp, mk_node(arg(0)))
                 nodes[id] = astree.mk_function_type_argument(name, typ)
+
             elif tag == "funargs":
                 funargs: List[AST.ASTFunArg] = [
                     cast(AST.ASTFunArg, mk_node(records[i])) for i in r["args"]]
@@ -237,8 +251,18 @@ class ASTDeserializer:
                 vinfo = cast(AST.ASTVarInfo, mk_node(arg(0)))
                 nodes[id] = astree.mk_vinfo_variable(vinfo)
 
+            elif tag == "memref":
+                expr = cast(AST.ASTExpr, mk_node(arg(0)))
+                nodes[id] = astree.mk_memref(expr)
+
             elif tag == "no-offset":
                 nodes[id] = nooffset
+
+            elif tag == "field-offset":
+                fname = r["fname"]
+                compkey = r["args"][0]
+                offset = cast(AST.ASTOffset, mk_node(arg(1)))
+                nodes[id] = astree.mk_field_offset(fname, compkey, offset)
 
             elif tag == "index-offset":
                 expr = cast(AST.ASTExpr, mk_node(arg(0)))
@@ -253,6 +277,15 @@ class ASTDeserializer:
             elif tag == "integer-constant":
                 cvalue = int(r["value"])
                 nodes[id] = astree.mk_integer_constant(cvalue)
+
+            elif tag == "string-constant":
+                cstr = r["cstr"]
+                va = r["va"] if "va" in r else None
+                if r["args"][0] == -1:
+                    addrexpr: Optional[AST.ASTExpr] = None
+                else:
+                    addrexpr = cast(AST.ASTExpr, mk_node(arg(0)))
+                nodes[id] = astree.mk_string_constant(addrexpr, cstr, va)
 
             elif tag == "lval-expr":
                 lval = cast(AST.ASTLval, mk_node(arg(0)))
@@ -285,6 +318,26 @@ class ASTDeserializer:
                 lhs = cast(AST.ASTLval, mk_node(arg(1)))
                 rhs = cast(AST.ASTExpr, mk_node(arg(2)))
                 nodes[id] = astree.mk_assign(lhs, rhs, instrid)
+
+            elif tag == "call":
+                instrid = r["args"][0]
+                if r["args"][1] == -1:
+                    optlhs: Optional[AST.ASTLval] = None
+                else:
+                    optlhs = cast(AST.ASTLval, mk_node(arg(1)))
+                tgtxpr = cast(AST.ASTExpr, mk_node(arg(2)))
+                callargs = [
+                    cast(AST.ASTExpr, mk_node(records[i]))
+                    for i in r["args"][3:]]
+                nodes[id] = astree.mk_call(optlhs, tgtxpr, callargs, instrid)
+
+            elif tag == "return":
+                stmtid = r["args"][0]
+                if r["args"][1] == -1:
+                    returnexpr: Optional[AST.ASTExpr] = None
+                else:
+                    returnexpr = cast(AST.ASTExpr, mk_node(arg(1)))
+                nodes[id] = astree.mk_return_stmt(returnexpr, stmtid)
 
             elif tag == "instrs":
                 stmtid = r["args"][0]

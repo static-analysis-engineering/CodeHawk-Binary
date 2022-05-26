@@ -290,6 +290,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
                     print("Diagnostics: ")
                     print("\n".join(astree.diagnostics))
                 continue
+            '''
             except Exception as e:
                 print("*" * 80)
                 print(
@@ -302,6 +303,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 print("*" * 80)
                 failedfunctions += 1
                 continue
+            '''
 
             unsupported = astree.unsupported_instructions
             if len(unsupported) > 0:
