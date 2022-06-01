@@ -131,10 +131,12 @@ class MIPSimProgramCounter(SimProgramCounter):
         if self.delayed_programcounter.is_dynamic_link_symbol:
             linksymbol = cast(SSV.SimDynamicLinkSymbol, self.delayed_programcounter)
             tgtaddr = linksymbol.address
-            self.transfer_to_linked_function(simstate, iaddr, tgtaddr, linksymbol.name)
+            self.transfer_to_linked_function(
+                simstate, iaddr, tgtaddr, linksymbol.name)
 
         else:
-            delayed_programcounter = cast(SSV.SimGlobalAddress, self.delayed_programcounter)
+            delayed_programcounter = cast(
+                SSV.SimGlobalAddress, self.delayed_programcounter)
             addrval = delayed_programcounter.offsetvalue
 
             if simstate.modulename == "external":

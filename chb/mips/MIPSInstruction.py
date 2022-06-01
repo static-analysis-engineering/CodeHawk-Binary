@@ -229,7 +229,7 @@ class MIPSInstruction(Instruction):
                 "Instruction is not a return instruction: " + str(self))
 
     def is_call_to_app_function(self, tgtaddr: str) -> bool:
-        if self.is_call_instruction:
+        if self.is_call_instruction and self.opcode.has_call_target(self.xdata):
             opc = cast(MIPSJumpLinkRegister, self.opcode)
             ctgtaddr = opc.call_target(self.xdata)
             return ctgtaddr == tgtaddr

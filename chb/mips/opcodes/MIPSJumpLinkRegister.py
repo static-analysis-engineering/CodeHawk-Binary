@@ -83,6 +83,9 @@ class MIPSJumpLinkRegister(MIPSOpcode):
     def operands(self) -> Sequence[MIPSOperand]:
         return [self.mipsd.mips_operand(i) for i in self.args]
 
+    def has_call_target(self, xdata: InstrXData) -> bool:
+        return xdata.has_call_target()
+
     def has_string_arguments(self, xdata: InstrXData) -> bool:
         return any([x.is_string_reference for x in self.arguments(xdata)])
 

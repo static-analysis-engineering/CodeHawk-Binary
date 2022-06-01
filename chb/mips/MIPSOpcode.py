@@ -235,8 +235,11 @@ class MIPSOpcode(MIPSDictionaryRecord):
     def is_restore_register(self) -> bool:
         return False
 
+    def has_call_target(self, xdata: InstrXData) -> bool:
+        return xdata.has_call_target()
+
     def is_call_instruction(self, xdata: InstrXData) -> bool:
-        if self.tags[0] in call_opcodes:
+        if self.tags[0] in call_opcodes and self.has_call_target(xdata):
             return True
         elif len(xdata.tags) == 2 and xdata.tags[-1] == "call":
             return True
