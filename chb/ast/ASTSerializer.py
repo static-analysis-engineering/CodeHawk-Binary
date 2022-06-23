@@ -202,7 +202,7 @@ Types
   tag: "int"
   ikind: indication of the signedness/width of the integer
          ("ichar", "ischar", "iuchar", "ibool", "iint", "iuint", "ishort",
-          "iushort", "ilong", "iulong", "ilonglong")
+          "iushort", "ilong", "iulong", "ilonglong", "iulonglong")
   args: -
 
 - float-type

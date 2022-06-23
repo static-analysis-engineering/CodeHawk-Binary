@@ -83,7 +83,7 @@ class ASTSymbolTable:
         lines.append("Variables:")
         lines.append("-" * 80)
         for vinfo in self.table.values():
-            lines.append(" - " + vinfo.vname)
+            lines.append(" - " + str(vinfo.vtype) + " " + vinfo.vname)
         return "\n".join(lines)
 
 
@@ -222,6 +222,12 @@ class ASTLocalSymbolTable(ASTSymbolTable):
             self._fprototype = vinfo
         else:
             raise Exception("Function prototype is not a function")
+
+    def serialize_function_prototype(self, serializer: ASTIndexer) -> int:
+        if self.function_prototype is not None:
+            return self.function_prototype.index(serializer)
+        else:
+            return -1
 
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
         self.globaltable.add_compinfo(cinfo)

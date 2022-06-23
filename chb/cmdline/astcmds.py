@@ -429,12 +429,15 @@ def showast(args: argparse.Namespace) -> NoReturn:
 
             if outputfile is not None:
 
+                astfunction: Dict[str, Any] = {}
                 serializer = ASTSerializer()
+
                 localsymboltable.serialize(serializer)
+                astfunction["prototype"] = localsymboltable.serialize_function_prototype(
+                    serializer)
                 startnode = serializer.index_stmt(ast)
                 astnodes = serializer.records()
 
-                astfunction: Dict[str, Any] = {}
                 if app.has_function_name(faddr):
                     astfunction["name"] = app.function_name(faddr)
                 astfunction["va"] = faddr
@@ -445,7 +448,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 astfunction["ast"]["livecode"] = sorted(list(livestmts))
                 astfunction["spans"] = astree.spans
                 astfunction["available-expressions"] = availablexprs
-                # astfunction["storage"] = storagerecords
                 astfunctions.append(astfunction)
 
                 if verbose and len(astree.diagnostics) > 0:
@@ -479,19 +481,11 @@ def showast(args: argparse.Namespace) -> NoReturn:
     if outputfile is not None and args.verbose:
         deserializer = ASTDeserializer(ast_output)
         for (symboltable, astnode) in deserializer.functions.values():
-            pp = ASTCPrettyPrinter(symboltable)
-            print("Deserialized form:")
-            print("=" * 80)
-            print(pp.to_c(astnode))
-            print("=" * 80)
+            print(deserialize_function(symboltable, astnode))
 
         print("\nLifted deserialized functions")
         for (symboltable, astnode) in deserializer.lifted_functions.values():
-            pp = ASTCPrettyPrinter(symboltable)
-            print("Deserialized form:")
-            print("=" * 80)
-            print(pp.to_c(astnode))
-            print("=" * 80)
+            print(deserialize_function(symboltable, astnode))
 
     if decompile:
         print("\nStatistics:")
@@ -502,5 +496,44 @@ def showast(args: argparse.Namespace) -> NoReturn:
             print("Unsupported opcodes: ")
             for (opc, count) in sorted(opc_unsupported.items()):
                 print("  " + opc.ljust(10) + str(count).rjust(5))
+
+    exit(0)
+
+
+def deserialize_function(symboltable: ASTLocalSymbolTable, ast: ASTStmt) -> str:
+    lines: List[str] = []
+
+    livecode = ASTLiveCode()
+    livecode.live_variables_on_entry(ast)
+    livesymbols = livecode.livesymbols
+
+    pp = ASTCPrettyPrinter(symboltable, livesymbols=livesymbols)
+    lines.append("Deserialized form:")
+    lines.append("=" * 80)
+    lines.append(pp.to_c(ast))
+    lines.append("=" * 80)
+    return "\n".join(lines)
+
+
+def deserialize(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    filename: str = args.filename
+
+    if not os.path.isfile(filename):
+        UC.print_error(
+            "File " + filename + " not found.")
+        exit(1)
+
+    with open(filename, "r") as fp:
+        astdata = json.load(fp)
+
+    deserializer = ASTDeserializer(astdata)
+    for (symboltable, astnode) in deserializer.functions.values():
+        print(deserialize_function(symboltable, astnode))
+
+    print("\nLifted deserialized functions")
+    for (symboltable, astnode) in deserializer.lifted_functions.values():
+        print(deserialize_function(symboltable, astnode))
 
     exit(0)

@@ -330,6 +330,11 @@ class AbstractSyntaxTree:
     Construction methods provided:
     ------------------------------
     - mk_vinfo : creates/returns a varinfo data structure from the symboltable
+        a vinfo is considered global if (1) it has a global address, or (2) its
+        type is a function type.
+        A vinfo can be forced global by giving it a global address of 0, if the
+        actual address is not known.
+
     - mk_vinfo_variable: creates/returns a variable from a vinfo
 
     - mk_lval: creates/returns an lval from an lhost and an offset
@@ -359,7 +364,9 @@ class AbstractSyntaxTree:
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None) -> AST.ASTVarInfo:
-        if globaladdress is not None:
+        if (
+                (globaladdress is not None)
+                or (vtype and vtype.is_function)):
             vinfo = self.symboltable.add_global_symbol(
                 vname,
                 vtype=vtype,

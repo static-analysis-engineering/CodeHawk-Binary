@@ -108,12 +108,30 @@ class ASTDeserializer:
         for fdata in self.serialization["functions"]:
             self._initialize_function(fdata)
 
+    def _initialize_function_prototype(
+            self,
+            index: int,
+            astree: AbstractSyntaxTree,
+            nodes: Dict[int, AST.ASTNode]) -> None:
+        if index >= 0:
+            if index in nodes:
+                fprototype = cast(AST.ASTVarInfo, nodes[index])
+                astree.set_function_prototype(fprototype)
+            else:
+                raise Exception(
+                    "Index for prototype "
+                    + str(index)
+                    + " not found in nodes deserialized")
+
     def _initialize_function(self, fdata: Dict[str, Any]) -> None:
         fname = fdata["name"]
         faddr = fdata["va"]
         localsymboltable = ASTLocalSymbolTable(self.global_symboltable)
         astree = AbstractSyntaxTree(faddr, fname, localsymboltable)
         nodes = self.mk_ast_nodes(astree, fdata["ast"]["nodes"])
+        if "prototype" in fdata:
+            fprototypeix = fdata["prototype"]
+            self._initialize_function_prototype(fprototypeix, astree, nodes)
         astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["startnode"])])
         self._functions[faddr] = (localsymboltable, astnode)
 
@@ -127,6 +145,9 @@ class ASTDeserializer:
         localsymboltable = ASTLocalSymbolTable(self.global_symboltable)
         astree = AbstractSyntaxTree(faddr, fname, localsymboltable)
         nodes = self.mk_ast_nodes(astree, fdata["ast"]["lifted-nodes"])
+        if "prototype" in fdata:
+            fprototypeix = fdata["prototype"]
+            self._initialize_function_prototype(fprototypeix, astree, nodes)
         astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["startnode"])])
         self._lifted_functions[faddr] = (localsymboltable, astnode)
 
@@ -297,6 +318,11 @@ class ASTDeserializer:
                 expr = cast(AST.ASTExpr, mk_node(arg(1)))
                 nodes[id] = astree.mk_substituted_expression(
                     lval, assign_id, expr)
+
+            elif tag == "cast-expr":
+                tgttyp = cast(AST.ASTTyp, mk_node(arg(0)))
+                expr = cast(AST.ASTExpr, mk_node(arg(1)))
+                nodes[id] = astree.mk_cast_expression(tgttyp, expr)
 
             elif tag == "address-of":
                 lval = cast(AST.ASTLval, mk_node(arg(0)))

@@ -150,7 +150,8 @@ class ASTCPrettyPrinter(ASTVisitor):
                     and not self.localsymboltable.is_formal(vinfo.vname)):
                 self.ccode.newline()
                 if vinfo.vtype is not None:
-                    self.ccode.write(str(vinfo.vtype) + " " + vinfo.vname + ";")
+                    vinfo.vtype.accept(self)
+                    self.ccode.write(" " + vinfo.vname + ";")
                 else:
                     self.ccode.write("? " + vinfo.vname)
 
@@ -186,7 +187,11 @@ class ASTCPrettyPrinter(ASTVisitor):
             self.ccode.newline()
             self.ccode.write("}")
         else:
+            self.ccode.newline()
+            self.write_local_declarations()
+            self.ccode.newline()
             self.stmt_to_c(stmt)
+            self.ccode.newline()
         return str(self.ccode)
 
     def stmt_to_c(self, stmt: AST.ASTStmt) -> None:
@@ -226,6 +231,22 @@ class ASTCPrettyPrinter(ASTVisitor):
                 i.accept(self)
 
     def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
+
+        def empty_else_branch(s: AST.ASTStmt) -> bool:
+            if s.is_ast_block:
+                s = cast(AST.ASTBlock, s)
+                if len(s.stmts) == 0:
+                    return True
+                elif len(s.stmts) == 1:
+                    s1 = s.stmts[0]
+                    if s1.is_ast_instruction_sequence:
+                        s1 = cast(AST.ASTInstrSequence, s1)
+                        return (len(s1.instructions) == 0)
+            elif s.is_ast_instruction_sequence:
+                s = cast(AST.ASTInstrSequence, s)
+                return (len(s.instructions) == 0)
+            return False
+
         self.ccode.newline(indent=self.indent)
         self.ccode.write("if (")
         stmt.condition.accept(self)
@@ -233,16 +254,8 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.increase_indent()
         stmt.ifstmt.accept(self)
         self.decrease_indent()
-        if stmt.elsestmt.is_ast_block:
-            elsestmt = cast(AST.ASTBlock, stmt.elsestmt)
-            if len(elsestmt.stmts) == 0:
-                pass
-            else:
-                self.ccode.newline(indent=self.indent)
-                self.ccode.write("} else {")
-                self.increase_indent()
-                stmt.elsestmt.accept(self)
-                self.decrease_indent()
+        if empty_else_branch(stmt.elsestmt):
+            pass
         else:
             self.ccode.newline(indent=self.indent)
             self.ccode.write("} else {")
