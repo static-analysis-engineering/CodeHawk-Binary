@@ -53,6 +53,13 @@ class CallbackTableRecord:
         return self._fields
 
     @property
+    def structure(self) -> Mapping[int, str]:
+        result: Dict[int, str] = {}
+        for (offset, (tag, value)) in self.fields.items():
+            result[offset] = tag
+        return result
+
+    @property
     def function_pointers(self) -> List[str]:
         result: List[str] = []
         for (tag, value) in self.fields.values():
@@ -83,6 +90,12 @@ class CallbackTableRecord:
         else:
             return "0x0"
 
+    def serialize(self) -> Dict[int, str]:
+        result: Dict[int, str] = {}
+        for f in self.fields:
+            result[f] = self.fields[f][1]
+        return result
+
     def __str__(self) -> str:
         lines: List[str] = []
         for (offset, (tag, value)) in sorted(self.fields.items()):
@@ -105,6 +118,13 @@ class CallbackTable:
                     self._records.append(CallbackTableRecord(x))
         return self._records
 
+    @property
+    def structure(self) -> Mapping[int, str]:
+        if len(self.records) > 0:
+            return self.records[0].structure
+        else:
+            return {}
+
     def tagged_fields_at_offset(self, offset: int) -> Dict[str, str]:
         result: Dict[str, str] = {}
         counter = 0
@@ -115,6 +135,18 @@ class CallbackTable:
                 tag = "unknown_" + str(counter)
             result[tag] = r.value_at_offset(offset)
         return result
+
+    def tags(self) -> List[str]:
+        result: List[str] = []
+        if len(self.records) > 0:
+            tagoffset = self.records[0].tag_offset
+            if tagoffset >= 0:
+                for r in self.records:
+                    result.append(r.value_at_offset(tagoffset))
+        return result
+
+    def serialize(self) -> List[Dict[int, str]]:
+        return [r.serialize() for r in self.records]
 
     def __str__(self) -> str:
         lines: List[str] = []
