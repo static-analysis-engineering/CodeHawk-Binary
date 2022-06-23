@@ -180,7 +180,6 @@ class ASTLocalSymbolTable(ASTSymbolTable):
             globaltable: ASTGlobalSymbolTable) -> None:
         ASTSymbolTable.__init__(self)
         self._globaltable = globaltable
-        self._formals: List[AST.ASTVarInfo] = []
         self._fprototype: Optional[AST.ASTVarInfo] = None
 
     @property
@@ -201,7 +200,11 @@ class ASTLocalSymbolTable(ASTSymbolTable):
 
     @property
     def formals(self) -> Sequence[AST.ASTVarInfo]:
-        return self._formals
+        result: List[AST.ASTVarInfo] = []
+        for vinfo in self.symbols:
+            if vinfo.parameter is not None:
+                result.append(vinfo)
+        return result
 
     @property
     def function_prototype(self) -> Optional[AST.ASTVarInfo]:
