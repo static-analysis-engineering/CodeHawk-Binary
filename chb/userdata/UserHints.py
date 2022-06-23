@@ -335,7 +335,7 @@ class CallTargetsHints(HintsEntry):
                            | dll:name
                            | so:name
                            | jni:index
-                           | cbt:addr:offset}]}
+                           | cba:addr:offset}]}
         """
 
         HintsEntry.__init__(self, "call-targets")
