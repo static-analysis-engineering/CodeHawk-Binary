@@ -5999,15 +5999,17 @@ class MIPStub_config_match(MIPSimStub):
         configvalues = simstate.simsupport.configvalues
         if configvalues.config_has(a0str):
             result = configvalues.config_match(a0str, a1str)
-            if result:
-                configmsg = "matched value for " + a0str + " with " + a1str
-                resultval = SV.simOne
-            else:
-                configmsg = "no match for " + a0str + " with " + a1str
-                resultval = SV.simZero
         else:
+            # config_get produces the empty string if key is not present
+            result = a1str == ""
+
+        if result:
+            configmsg = "matched value for " + a0str + " with " + a1str
+            resultval = SV.simOne
+        else:
+            configmsg = "no match for " + a0str + " with " + a1str
             resultval = SV.simZero
-            configmsg = "config key " + a0str + " not found"
+
         pargs = str(a0) + ":" + a0str + ", " + str(a1) + ":" + a1str
         simstate.set_register(iaddr, "v0", resultval)
         simstate.add_logmsg("config", configmsg)
