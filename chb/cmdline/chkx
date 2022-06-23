@@ -443,6 +443,16 @@ def parse() -> argparse.Namespace:
         '--nocallees',
         action='store_true',
         help='indicate if a function has no callees')
+    resultsstats.add_argument(
+        "--sortby",
+        help="sort by function-address (default), function-size, or function analysis time",
+        choices=["faddr", "instrs", "basicblocks", "time", "loopdepth"],
+        default="faddr")
+    resultsstats.add_argument(
+        "--timeshare",
+        type=int,
+        help="list percentage of time used by <n> most expensive functions",
+        default=0)
     resultsstats.set_defaults(func=UCC.results_stats)
 
     # -- results callgraph --
@@ -635,6 +645,25 @@ def parse() -> argparse.Namespace:
         help="number of characters for opcode text")
     resultsfunction.set_defaults(func=UCC.results_function)
 
+    # --- results callback tables ---
+    resultscallbacktables = resultsparsers.add_parser("callbacktables")
+    resultscallbacktables.add_argument("xname", help="name of executable")
+    resultscallbacktables.add_argument(
+        "--showall",
+        action="store_true",
+        help="print the addresses and contents of all callback tables")
+    resultscallbacktables.add_argument(
+        "--list",
+        action="store_true",
+        help="list the addresses and structure of callback tables present")
+    resultscallbacktables.add_argument(
+        "--output", "-o",
+        help="filename to save callbacktable(s) to json format (no extension)")
+    resultscallbacktables.add_argument(
+        "--device",
+        help="name of device to store in outputfile")
+    resultscallbacktables.set_defaults(func=UCC.results_callbacktables)
+
     # --- results invariants ---
     resultsinvariants = resultsparsers.add_parser("invariants")
     resultsinvariants.add_argument("xname", help="name of executable")
@@ -673,6 +702,18 @@ def parse() -> argparse.Namespace:
         "--structtable",
         action="store_true",
         help="extract structtable at the given address")
+    resultsextract.add_argument(
+        "--callbacktable",
+        action="store_true",
+        help="extract callback table at the given address")
+    resultsextract.add_argument(
+        "--callbacktables",
+        action="store_true",
+        help="extract all callback tables")
+    resultsextract.add_argument(
+        "--showtags",
+        action="store_true",
+        help="if structure has a field called tags, print all tags")
     resultsextract.add_argument(
         "--stringtables",
         nargs="*",
@@ -933,6 +974,13 @@ def parse() -> argparse.Namespace:
     table_invs.add_argument('xname', help='name of executable')
     table_invs.add_argument('faddr', help='hex address of executbale')
     table_invs.set_defaults(func=UCC.show_invariant_table)
+
+    # ----------------------------------------------------------- deserialize
+    parser_deserialize = subparsers.add_parser("deserialize")
+    parser_deserialize.add_argument(
+        "filename",
+        help="name of json ast file to be deserialized")
+    parser_deserialize.set_defaults(func=AST.deserialize)
 
     # ---------------------------------------------------------- run commands
     parser_runcmds = subparsers.add_parser("runcmds")
