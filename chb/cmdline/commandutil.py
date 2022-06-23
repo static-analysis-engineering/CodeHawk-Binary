@@ -469,6 +469,8 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     # arguments
     xname: str = str(args.xname)
     nocallees: bool = args.nocallees
+    sortby: str = args.sortby
+    timeshare: int = args.timeshare
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -484,11 +486,30 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
 
     stats = app.result_metrics
     print(stats.header_to_string())
-    for f in sorted(stats.get_function_results(),
-                    key=lambda f: (f.espp, f.faddr)):
+    if sortby == "instrs":
+        sortkey = lambda f: f.instruction_count
+    elif sortby == "basicblocks":
+        sortkey = lambda f: f.block_count
+    elif sortby == "loopdepth":
+        sortkey = lambda f: f.loop_depth
+    elif sortby == "time":
+        sortkey = lambda f: f.time
+    else:
+        sortkey = lambda f: f.faddr
+    for f in sorted(stats.get_function_results(), key=sortkey):
         print(f.metrics_to_string(shownocallees=nocallees))
     print(stats.disassembly_to_string())
     print(stats.analysis_to_string())
+    if timeshare > 0:
+        topanalysistimes = stats.time_share(timeshare)
+        toptotal = sum(topanalysistimes.values())
+        print("\nFunctions taking up most analysis time:")
+        print("\nAddress     share (%)")
+        print("-----------------------")
+        for (s, t) in topanalysistimes.items():
+            print(s.ljust(14) + "{:4.2f}".format(100.0 * t).rjust(6))
+        print("-----------------------")
+        print("Total".ljust(14) + "{:4.2f}".format(100.0 * toptotal).rjust(6))
     exit(0)
 
 
@@ -739,6 +760,57 @@ def results_function(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def results_callbacktables(args: argparse.Namespace) -> NoReturn:
+    """Prints or saves information regarding callback tables."""
+
+    # arguments
+    xname: str = str(args.xname)
+    xshowall: bool = args.showall
+    xlist: bool = args.list
+    xoutput: Optional[str] = args.output
+    xdevice: Optional[str] = args.device
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+    app = get_app(path, xfile, xinfo)
+
+    if xshowall:
+        for (addr, cbtable) in app.callbacktables.callbacktables.items():
+            print("\nAddress: " + addr + " (" + str(len(cbtable.records)) + " records)")
+            print(str(cbtable))
+
+    elif xlist:
+        for (addr, cbtable) in app.callbacktables.callbacktables.items():
+            print("\nAddress  : " + addr)
+            print("Size     : " + str(len(cbtable.records)) + " records")
+            print("Structure:")
+            for (offset, tag) in sorted(cbtable.structure.items()):
+                print(str(offset).rjust(4) + "  " + tag)
+
+    if xoutput is not None:
+        filename = xoutput + ".json"
+        cbdata: Dict[str, Any] = {}
+        cbdata["name"] = xfile
+        if xdevice is not None:
+            cbdata["device"] = xdevice
+        cbdata["tables"] = {}
+        for (addr, cbtable) in app.callbacktables.callbacktables.items():
+            cbdata["tables"][addr] = {}
+            cbdata["tables"][addr]["structure"] = cbtable.structure
+            cbdata["tables"][addr]["records"] = cbtable.serialize()
+        with open(filename, "w") as fp:
+            json.dump(cbdata, fp, indent=2)
+
+    exit(0)
+
+
 def results_invariants(args: argparse.Namespace) -> NoReturn:
     """Prints out a list of invariants for a function per location."""
 
@@ -858,6 +930,9 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
     structure: List[str] = args.structure
     stringtables: List[str] = args.stringtables
     structtable: bool = args.structtable
+    callbacktable: bool = args.callbacktable
+    callbacktables: bool = args.callbacktables
+    showtags: bool = args.showtags
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -895,6 +970,24 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
             exit(0)
         else:
             print_error("Structtable address not found: " + addr)
+            exit(1)
+
+    elif callbacktable:
+        if addr in app.callbacktables.callbacktables:
+            cbtable = app.callbacktables.callbacktable(addr)
+            outfilename = xout + ".json"
+            with open(outfilename, "w") as fp:
+                json.dump(cbtable.serialize(), fp, indent=2)
+            if showtags:
+                cbtags = cbtable.tags()
+                if len(cbtags) > 0:
+                    print("Call-back table tags (" + str(len(cbtags)) + ")")
+                    print("------------------------------")
+                    for t in sorted(cbtags):
+                        print("  " + t)
+            exit(0)
+        else:
+            print_error("Callback table address not found: " + addr)
             exit(1)
 
     if stringtables:

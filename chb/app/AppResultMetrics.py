@@ -297,6 +297,16 @@ class AppResultMetrics:
     def pcoverage(self) -> float:
         return float(self.disassembly.get('pcoverage', "0.0"))
 
+    def time_share(self, count: int) -> Dict[str, float]:
+        """Return a list of the most time-intensive functions with %time."""
+
+        topfns = sorted(self.functions().values(), key=lambda f: f.time)[-count:]
+        totaltime = float(self.analysis_time)
+        result: Dict[str, float] = {}
+        for f in topfns:
+            result[f.faddr] = f.time / totaltime
+        return result
+
     def get_fn_instr_counts(self) -> List[int]:
         result: List[int] = []
         for fn in self.functions():
