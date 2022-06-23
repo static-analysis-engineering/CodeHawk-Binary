@@ -404,7 +404,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 prettyprinter = ASTCPrettyPrinter(
                     localsymboltable,
                     livecode=list(livestmts),
-                    livesymbols=livesymbols,
                     livevars_on_exit=livecode.live_on_exit)
                 print(prettyprinter.to_c(ast))
                 print("~" * 80)
@@ -420,7 +419,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
             prettyprinter = ASTCPrettyPrinter(
                 localsymboltable,
                 livecode=list(livestmts),
-                livesymbols=livesymbols,
                 livevars_on_exit=livecode.live_on_exit)
             print(prettyprinter.to_c(ast))
             print("~" * 80)
@@ -503,11 +501,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
 def deserialize_function(symboltable: ASTLocalSymbolTable, ast: ASTStmt) -> str:
     lines: List[str] = []
 
-    livecode = ASTLiveCode()
-    livecode.live_variables_on_entry(ast)
-    livesymbols = livecode.livesymbols
-
-    pp = ASTCPrettyPrinter(symboltable, livesymbols=livesymbols)
+    pp = ASTCPrettyPrinter(symboltable)
     lines.append("Deserialized form:")
     lines.append("=" * 80)
     lines.append(pp.to_c(ast))

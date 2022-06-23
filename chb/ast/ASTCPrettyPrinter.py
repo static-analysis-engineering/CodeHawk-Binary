@@ -29,6 +29,7 @@
 from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
+from chb.ast.ASTVariablesReferenced import ASTVariablesReferenced
 from chb.ast.ASTVisitor import ASTVisitor
 
 
@@ -65,7 +66,6 @@ class ASTCPrettyPrinter(ASTVisitor):
             localsymboltable: "ASTLocalSymbolTable",
             indentation: int = 2,
             livecode: List[int] = [],
-            livesymbols: Set[str] = set([]),
             annotations: Dict[int, List[str]] = {},
             livevars_on_exit: Dict[int, Set[str]] = {}) -> None:
         self._indentation = indentation    # indentation amount
@@ -73,7 +73,6 @@ class ASTCPrettyPrinter(ASTVisitor):
         self._localsymboltable = localsymboltable
         self._globalsymboltable = localsymboltable.globaltable
         self._livecode = livecode
-        self._livesymbols = livesymbols
         self._annotations = annotations
         self._livevars_on_exit = livevars_on_exit
         self._ccode = ASTCCode()
@@ -109,10 +108,6 @@ class ASTCPrettyPrinter(ASTVisitor):
         return self._livecode
 
     @property
-    def livesymbols(self) -> Set[str]:
-        return self._livesymbols
-
-    @property
     def annotations(self) -> Dict[int, List[str]]:
         return self._annotations
 
@@ -143,10 +138,10 @@ class ASTCPrettyPrinter(ASTVisitor):
         else:
             return ""
 
-    def write_local_declarations(self) -> None:
+    def write_local_declarations(self, referenced: Set[str]) -> None:
         for vinfo in self.localsymboltable.symbols:
             if (
-                    vinfo.vname in self.livesymbols
+                    vinfo.vname in referenced
                     and not self.localsymboltable.is_formal(vinfo.vname)):
                 self.ccode.newline()
                 if vinfo.vtype is not None:
@@ -174,13 +169,14 @@ class ASTCPrettyPrinter(ASTVisitor):
                 self.ccode.write("(?)")
 
     def to_c(self, stmt: AST.ASTStmt, sp: int = 0) -> str:
+        varsreferenced = ASTVariablesReferenced().variables_referenced(stmt)
         if self.signature is not None:
             self.ccode.newline()
             self.write_signature()
             self.ccode.write("{")
             self.increase_indent()
             self.ccode.newline()
-            self.write_local_declarations()
+            self.write_local_declarations(varsreferenced)
             self.ccode.newline()
             self.stmt_to_c(stmt)
             self.decrease_indent()
@@ -188,7 +184,7 @@ class ASTCPrettyPrinter(ASTVisitor):
             self.ccode.write("}")
         else:
             self.ccode.newline()
-            self.write_local_declarations()
+            self.write_local_declarations(varsreferenced)
             self.ccode.newline()
             self.stmt_to_c(stmt)
             self.ccode.newline()
