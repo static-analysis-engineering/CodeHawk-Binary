@@ -44,7 +44,8 @@ from typing import (
 
 import chb.ast.ASTNode as AST
 
-from chb.ast.ASTSymbolTable import ASTSymbolTable, ASTLocalSymbolTable
+from chb.ast.ASTSymbolTable import (
+    ASTGlobalSymbolTable, ASTSymbolTable, ASTLocalSymbolTable)
 
 
 ASTSpanRecord = NewType(
@@ -95,6 +96,10 @@ class AbstractSyntaxTree:
     @property
     def symboltable(self) -> ASTLocalSymbolTable:
         return self._symboltable
+
+    @property
+    def globalsymboltable(self) -> ASTGlobalSymbolTable:
+        return self.symboltable.globaltable
 
     @property
     def compinfos(self) -> Mapping[int, AST.ASTCompInfo]:
@@ -148,6 +153,16 @@ class AbstractSyntaxTree:
         spanrec["xref"] = xref
         spanrec["spans"] = [span]
         self.add_span(cast(ASTSpanRecord, spanrec))
+
+    def spanmap(self) -> Dict[int, str]:
+        """Return mapping from assembly-xref to instruction base address."""
+
+        result: Dict[int, str] = {}
+        for spanrec in self.spans:
+            spanxref = cast(int, spanrec["xref"])
+            spans_at_xref = cast(List[Dict[str, Any]], spanrec["spans"])
+            result[spanxref] = spans_at_xref[0]["base_va"]
+        return result
 
     # ------------------------------------------------------ make statements ---
 
@@ -660,7 +675,7 @@ class AbstractSyntaxTree:
     specifier with:
 
     - mk_integer_ikind_type()
-    - mk_integer_fkind_type()
+    - mk_float_fkind_type()
 
     or can be obtained as properties for the individual ikind/fkind specifiers:
 
