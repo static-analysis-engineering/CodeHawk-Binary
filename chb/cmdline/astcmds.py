@@ -34,6 +34,7 @@ from typing import Any, cast, Dict, List, NoReturn, Set, Tuple, TYPE_CHECKING
 
 from chb.app.AppAccess import AppAccess
 
+from chb.ast.ASTApplicationInterface import ASTApplicationInterface
 from chb.ast.ASTBasicCTyper import ASTBasicCTyper
 from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
 from chb.ast.ASTDeserializer import ASTDeserializer
@@ -45,6 +46,7 @@ from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.ASTExprPropagator import ASTExprPropagator
 
 from chb.astinterface.ASTInterface import ASTInterface
+from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
 from chb.astinterface.ASTRewriter import ASTRewriter
 from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 
@@ -108,7 +110,60 @@ def reduce_ast_nodes(
     return result
 
 
+def buildast(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    outputfile: str = args.outputfile
+    functions: List[str] = args.functions
+    verbose: bool = args.verbose
+
+    try:
+        (path, xfile) = UC.get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+    app = UC.get_app(path, xfile, xinfo)
+
+    astapi = ASTApplicationInterface()
+
+    for faddr in functions:
+        if app.has_function(faddr):
+            f = app.function(faddr)
+            if f is None:
+                UC.print_error("Unable to find function " + faddr)
+                continue
+
+            if app.has_function_name(faddr):
+                fname = app.function_name(faddr)
+            else:
+                fname = "sub_" + faddr[2:]
+
+            astfunction = ASTInterfaceFunction(faddr, fname, f)
+            astapi.add_function(astfunction, verbose=verbose)
+
+        else:
+            UC.print_error("Unable to find function " + faddr)
+            continue
+
+    astdata = astapi.serialize(verbose)
+
+    filename = outputfile + ".json"
+    with open(filename, "w") as fp:
+        json.dump(astdata, fp, indent=2)
+
+    exit(0)
+
+
 def showast(args: argparse.Namespace) -> NoReturn:
+
+    exit(1)
+
+    '''
 
     # arguments
     xname: str = args.xname
@@ -290,20 +345,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
                     print("Diagnostics: ")
                     print("\n".join(astree.diagnostics))
                 continue
-            '''
-            except Exception as e:
-                print("*" * 80)
-                print(
-                    "Error in AST generation in function: "
-                    + fname
-                    + " ("
-                    + faddr
-                    + ")")
-                print(str(e))
-                print("*" * 80)
-                failedfunctions += 1
-                continue
-            '''
 
             unsupported = astree.unsupported_instructions
             if len(unsupported) > 0:
@@ -496,7 +537,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 print("  " + opc.ljust(10) + str(count).rjust(5))
 
     exit(0)
-
+    '''
 
 def deserialize_function(symboltable: ASTLocalSymbolTable, ast: ASTStmt) -> str:
     lines: List[str] = []
