@@ -36,36 +36,6 @@ from chb.ast.ASTSymbolTable import ASTLocalSymbolTable, ASTGlobalSymbolTable
 ASTSpanRecord = NewType(
     "ASTSpanRecord", Dict[str, Union[int, List[Dict[str, Union[str, int]]]]])
 
-c_indent = 3
-
-operators = {
-    "and": " && ",   # logical and
-    "bor": " | ",    # bitwise or
-    "bxor": " ^ ",   # bitwise xor
-    "asr": " >> ",   # arithmetic shift right; need to infer type as signed
-    "band": " & ",   # bitwise and
-    "div": " / ",    # integer division
-    "eq": " == ",
-    "ge": " >= ",
-    "gt": " > ",
-    "land": " & ",   # logical and
-    "le": " <= ",
-    "lnot": " ! ",
-    "lor": " || ",   # logical or
-    "lsl": " << ",   # logical shift left
-    "lsr": " >> ",   # logical shift right; need to infer type as unsigned
-    "lt": " < ",
-    "mod": " % ", 
-    "shiftlt": " << ",
-    "shiftrt": " >> ",
-    "minus": " - ",
-    "mult": " * ",   # multiplication
-    "ne": " != ",
-    "neq": " != ",
-    "plus": " + "
-    }
-
-
 
 class ASTDeserializer:
 

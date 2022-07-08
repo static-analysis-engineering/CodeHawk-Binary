@@ -26,91 +26,8 @@
 # ------------------------------------------------------------------------------
 """Node in abstract syntax tree.
 
-Grammar (based on CIL (ref https://people.eecs.berkeley.edu/~necula/cil/))
-
-file: global list
-
-global: GVarDecl varinfo
-      | GVar varinfo
-      | GFun fundec
-      | GType typeinfo
-
-fundec: varinfo (varinfo list) (varinfo list) block
-
-typeinfo: string typ
-
-block: stmt list
-
-stmt: Instr instr list
-    | Return expr
-    | If exp block block
-    | Block block
-
-instr: Set lval exp
-     | Call lval expr exp list
-
-lval: lhost offset
-
-lhost: Var varinfo
-     | Mem exp
-
-offset: NoOffset
-      | Field <fieldinfo> offset
-      | Index exp offset
-
-exp: IntConstant <int>
-    | StringConstant <int>
-    | Lval lval
-    | UnOp unop exp
-    | BinOp binop exp exp
-    | AddOf lval
-
-unop: Neg | BNot | LNot
-
-binop: Plus | Minus
-
-typ: TVoid
-   | TInt <ikind>
-   | TFloat <fkind>
-   | TPtr typ
-   | TArray typ exp option
-   | TFun typ (string * typ) list
-   | TNamed string
-   | TCompInfo compinfo
-   | TEnum enuminfo
-
-ikind: IChar
-       ISChar
-       IUChar
-       IBool
-       IInt
-       IUInt
-       IShort
-       IUShort
-       ILong
-       IULong
-       ILongLong
-       IULongLong
-
-fkind: FFloat
-       FDouble
-       FLongDouble
-
-compinfo: bool string (fieldinfo list)
-
-fieldinfo: name typ
-
-enuminfo: name (string * exp) list ikind
-
-varinfo: string typ storage
-
-storage: NoStorage
-       | Static
-       | Register
-       | Extern
-
+The structure is based on CIL (ref https://people.eecs.berkeley.edu/~necula/cil/).
 """
-import copy
 
 from abc import ABC, abstractmethod
 from typing import (
@@ -175,11 +92,10 @@ Binary operators:
 operators = {
     "and": " && ",   # logical and
     "asr": " >> ",   # arithmetic shift right
+    "band": " & ",   # bitwise and
     "bnot": "~",     # bitwise not
     "bor": " | ",    # bitwise or
     "bxor": " ^ ",   # bitwise xor
-    "asr": " >> ",   # arithmetic shift right; need to infer type as signed
-    "band": " & ",   # bitwise and
     "div": " / ",    # integer division
     "eq": " == ",    # equal
     "ge": " >= ",    # greater than or equal to
@@ -195,6 +111,7 @@ operators = {
     "mod": " % ",    # modulo
     "mult": " * ",   # multiplication
     "ne": " != ",    # not equal
+    "neg": " -" ,    # unary minus
     "plus": " + "
     }
 
