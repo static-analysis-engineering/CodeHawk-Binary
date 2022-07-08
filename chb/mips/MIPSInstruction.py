@@ -202,6 +202,10 @@ class MIPSInstruction(Instruction):
         return self.opcode.is_call_instruction(self.xdata)
 
     @property
+    def is_jump_instruction(self) -> bool:               # TBD
+        return False
+
+    @property
     def is_load_instruction(self) -> bool:
         return False
 

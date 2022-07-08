@@ -76,6 +76,9 @@ class MIPSSyscall(MIPSOpcode):
         else:
             return []
 
+    def has_stack_arguments(self, xdata: InstrXData) -> bool:
+        return False
+
     def call_target(self, xdata: InstrXData) -> "CallTarget":
         if xdata.has_call_target():
             return xdata.call_target(self.ixd)
