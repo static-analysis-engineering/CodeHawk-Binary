@@ -142,6 +142,13 @@ class ARMInstruction(Instruction):
         return self.opcode.is_call_instruction(self.xdata)
 
     @property
+    def is_jump_instruction(self) -> bool:
+        return self.is_branch_instruction
+
+    def has_call_target(self) -> bool:
+        return self.xdata.has_call_target()
+
+    @property
     def is_load_instruction(self) -> bool:
         return self.opcode.is_load_instruction(self.xdata)
 
@@ -156,6 +163,14 @@ class ARMInstruction(Instruction):
     @property
     def is_branch_instruction(self) -> bool:
         return self.opcode.is_branch_instruction
+
+    @property
+    def is_unresolved(self) -> bool:
+        if self.is_call_instruction:
+            return not self.xdata.has_call_target()
+        elif self.mnemonic == "BX":
+            return str(self.xdata.xprs[0]) != "LR"
+        return False
 
     def return_expr(self) -> XXpr:
         raise UF.CHBError("get-return-expr: not implemented")

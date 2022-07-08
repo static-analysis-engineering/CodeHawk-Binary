@@ -66,6 +66,10 @@ branch_opcodes = [
     "B", "BX"
 ]
 
+call_opcodes = [
+    "BLX", "BL"
+]
+
 
 extensions = {
     "eq": "EQ",
@@ -193,7 +197,7 @@ class ARMOpcode(ARMDictionaryRecord):
         return False
 
     def is_call_instruction(self, xdata: InstrXData) -> bool:
-        return xdata.has_call_target()
+        return self.mnemonic in call_opcodes or xdata.has_call_target()
 
     def call_target(self, xdata: InstrXData) -> CallTarget:
         raise UF.CHBError("Instruction is not a call: " + str(self))

@@ -91,7 +91,7 @@ class ARMBranchLinkExchange(ARMOpcode):
         return xdata.has_call_target()
 
     def is_call_instruction(self, xdata: InstrXData) -> bool:
-        return xdata.has_call_target()
+        return True
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:x .
