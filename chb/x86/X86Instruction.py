@@ -234,6 +234,10 @@ class X86Instruction(Instruction):
         return self.opcode.is_call
 
     @property
+    def is_jump_instruction(self) -> bool:                #  TBD
+        return False
+
+    @property
     def call_target(self) -> CallTarget:
         if self.opcode.is_call:
             opc = cast(X86Call, self.opcode)
