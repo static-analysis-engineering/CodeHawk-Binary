@@ -80,9 +80,20 @@ class BasicBlock(ABC):
         ...
 
     @property
-    @abstractmethod
     def call_instructions(self) -> Sequence[Instruction]:
-        ...
+        result: List[Instruction] = []
+        for (ia, instr) in sorted(self.instructions.items()):
+            if instr.is_call_instruction:
+                result.append(instr)
+        return result
+
+    @property
+    def jump_instructions(self) -> Sequence[Instruction]:
+        result: List[Instruction] = []
+        for (ia, instr) in sorted(self.instructions.items()):
+            if instr.is_jump_instruction:
+                result.append(instr)
+        return result
 
     @property
     def store_instructions(self) -> Sequence[Instruction]:

@@ -148,7 +148,7 @@ class Cfg:
             self,
             fn: "Function",
             astree: ASTInterface,
-            blockstmts: Dict[str, AST.ASTStmt]) -> AST.ASTNode:
+            blockstmts: Dict[str, AST.ASTStmt]) -> AST.ASTStmt:
         twowayconds = self.derived_graph_sequence.two_way_conditionals()
 
         def construct(
@@ -212,7 +212,7 @@ class Cfg:
     def assembly_ast(
             self,
             fn: "Function",
-            astree: ASTInterface) -> AST.ASTNode:
+            astree: ASTInterface) -> AST.ASTStmt:
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
             blocknode = fn.blocks[n].assembly_ast(astree)
@@ -222,7 +222,7 @@ class Cfg:
 
     def ast(self,
             fn: "Function",
-            astree: ASTInterface) -> AST.ASTNode:
+            astree: ASTInterface) -> AST.ASTStmt:
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
             blocknode = fn.blocks[n].ast(astree)

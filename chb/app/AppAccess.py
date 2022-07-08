@@ -326,6 +326,15 @@ class AppAccess(ABC, Generic[HeaderTy]):
                 result[faddr] = fn.call_instructions()
         return result
 
+    def jump_instructions(self) -> Mapping[str, Mapping[str, Sequence["Instruction"]]]:
+        """Return a mapping from function address to block address to instructions."""
+
+        result: Dict[str, Mapping[str, Sequence["Instruction"]]] = {}
+        for (faddr, fn) in self.functions.items():
+            if len(fn.jump_instructions()) > 0:
+                result[faddr] = fn.jump_instructions()
+        return result
+
     # Callgraph ----------------------------------------------------------------
 
     def callgraph(self) -> Callgraph:

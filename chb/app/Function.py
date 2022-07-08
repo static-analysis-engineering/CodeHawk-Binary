@@ -226,10 +226,10 @@ class Function(ABC):
     def cfg(self) -> Cfg:
         raise UF.CHBError("Property cfg not implemented for Function")
 
-    def ast(self, astree: ASTInterface) -> AST.ASTNode:
+    def ast(self, astree: ASTInterface) -> AST.ASTStmt:
         return self.cfg.ast(self, astree)
 
-    def assembly_ast(self, astree: ASTInterface) -> AST.ASTNode:
+    def assembly_ast(self, astree: ASTInterface) -> AST.ASTStmt:
         return self.cfg.assembly_ast(self, astree)
 
     @abstractmethod
@@ -283,6 +283,15 @@ class Function(ABC):
         for (baddr, b) in self.blocks.items():
             if len(b.call_instructions) > 0:
                 result[baddr] = b.call_instructions
+        return result
+
+    def jump_instructions(self) -> Mapping[str, Sequence[Instruction]]:
+        """Return a mapping of block address to instructions that perform a jump."""
+
+        result: Dict[str, Sequence[Instruction]] = {}
+        for (baddr, b) in self.blocks.items():
+            if len(b.jump_instructions) > 0:
+                result[baddr] = b.jump_instructions
         return result
 
     def has_instruction(self, iaddr: str) -> bool:

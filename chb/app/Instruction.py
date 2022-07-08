@@ -150,6 +150,11 @@ class Instruction(ABC):
 
     @property
     @abstractmethod
+    def is_jump_instruction(self) -> bool:
+        ...
+
+    @property
+    @abstractmethod
     def is_load_instruction(self) -> bool:
         """Return true if this instruction loads data from memory."""
         ...
@@ -179,6 +184,12 @@ class Instruction(ABC):
     @abstractmethod
     def is_branch_instruction(self) -> bool:
         ...
+
+    @property
+    def is_unresolved(self) -> bool:
+        """Return true if something about this instruction is unresolved."""
+
+        return False
 
     @property
     @abstractmethod
