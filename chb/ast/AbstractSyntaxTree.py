@@ -884,8 +884,9 @@ class AbstractSyntaxTree:
             ckey: int,
             fields: List[Tuple[str, AST.ASTTyp]],
             is_union: bool = False) -> AST.ASTCompInfo:
-        if ckey in self.compinfos:
-            return self.compinfos[ckey]
+        known_cinfo = self.get_comp_info(ckey)
+        if known_cinfo is not None:
+            return known_cinfo
         else:
             fieldinfos: List[AST.ASTFieldInfo] = []
             for (fname, ftyp) in fields:
@@ -901,12 +902,19 @@ class AbstractSyntaxTree:
         return AST.ASTFieldInfo(fname, ftype, ckey, byteoffset=byteoffset)
 
     def mk_comp_type(self, cinfo: AST.ASTCompInfo) -> AST.ASTTypComp:
-        if cinfo.compkey in self.compinfos:
-            cinfo = self.compinfos[cinfo.compkey]
-            return AST.ASTTypComp(cinfo.compname, cinfo.compkey)
+        known_cinfo = self.get_comp_info(cinfo.compkey)
+        if known_cinfo is not None:
+            return AST.ASTTypComp(known_cinfo.compname, known_cinfo.compkey)
         else:
             self.add_compinfo(cinfo)
             return AST.ASTTypComp(cinfo.compname, cinfo.compkey)
 
     def mk_comp_type_by_key(self, ckey: int, cname: str) -> AST.ASTTypComp:
         return AST.ASTTypComp(cname, ckey)
+
+    def get_comp_info(self, compkey: int) -> Optional[AST.ASTCompInfo]:
+        """Returns the compound type associated with the passed key
+
+        If the compkey is not known, None is returned.
+        """
+        return self.compinfos.get(compkey, None)
