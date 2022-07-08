@@ -44,6 +44,7 @@ from typing import (
 
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree, ASTSpanRecord, nooffset
+from chb.ast.ASTBasicCTyper import ASTBasicCTyper
 from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
 from chb.ast.ASTCTyper import ASTCTyper
 import chb.ast.ASTNode as AST
@@ -147,18 +148,14 @@ class ASTInterface:
 
     def __init__(
             self,
-            faddr: str,
-            fname: str,
-            localsymboltable: ASTLocalSymbolTable,
-            typconverter: BC2ASTConverter,
-            bytesizecalculator: ASTByteSizeCalculator,
-            ctyper: ASTCTyper,
-            parameter_abi: str) -> None:
-        self._astree = AbstractSyntaxTree(faddr, fname, localsymboltable)
-        self._typconverter = typconverter
-        self._ctyper = ctyper
-        self._bytesizecalculator = bytesizecalculator
-        self._parameter_abi = parameter_abi
+            astree: AbstractSyntaxTree) -> None:
+            # typconverter: BC2ASTConverter,
+            # parameter_abi: str) -> None:
+        self._astree = astree
+        # self._typconverter = typconverter
+        self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
+        self._bytesizecalculator = ASTByteSizeCalculator(self._ctyper)
+        # self._parameter_abi = parameter_abi
         self._formals: List[ASTIFormalVarInfo] = []
         self._fprototype: Optional["BCVarInfo"] = None
         self._unsupported: Dict[str, List[str]] = {}
@@ -169,9 +166,11 @@ class ASTInterface:
     def astree(self) -> AbstractSyntaxTree:
         return self._astree
 
+    '''
     @property
     def typconverter(self) -> BC2ASTConverter:
         return self._typconverter
+    '''
 
     @property
     def ctyper(self) -> ASTCTyper:
@@ -181,9 +180,11 @@ class ASTInterface:
     def bytesize_calculator(self) -> ASTByteSizeCalculator:
         return self._bytesizecalculator
 
+    '''
     @property
     def parameter_abi(self) -> str:
         return self._parameter_abi
+    '''
 
     @property
     def formals(self) -> List[ASTIFormalVarInfo]:
@@ -314,14 +315,18 @@ class ASTInterface:
             vtype: "BCTyp",
             parameter: int,
             nextindex: int) -> int:
-        """Return the next starting index for the argument in the binary."""
 
+        return 0
+
+        """Returns the next starting index for the argument in the binary."""
+        '''
         formal = ASTIFormalVarInfo(vname, parameter, nextindex, bctyp=vtype)
         nextindex = formal.initialize(self.parameter_abi)
         self.add_symbol(
             vname, vtype=vtype.convert(self.typconverter), parameter=parameter)
         self._formals.append(formal)
         return nextindex
+        '''
 
     def add_span(self, span: ASTSpanRecord) -> None:
         self.astree.add_span
