@@ -31,9 +31,11 @@ import argparse
 import json
 
 from typing import (
-    Any, Callable, cast, Dict, List, NoReturn, Optional, Sequence, Tuple)
+    Any, Callable, cast, Dict, List, Mapping, NoReturn, Optional, Sequence, Tuple)
 
 from chb.app.Instruction import Instruction
+
+from chb.arm.ARMInstruction import ARMInstruction
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
@@ -194,6 +196,10 @@ def report_calls(args: argparse.Namespace) -> NoReturn:
                     calllist.append(callrec)
                     if verbose:
                         print("     " + str(instr))
+                else:
+                    if "all" in callees:
+                        callrec = CallRecord(faddr, instr, fname=fname)
+                        calllist.append(callrec)
 
     results: Dict[str, Any] = {}
     results["application"] = {}
@@ -368,4 +374,134 @@ def report_memops(args: argparse.Namespace) -> NoReturn:
         + " ("
         + fperc
         + "%)")
+    exit(0)
+
+
+def report_unresolved(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    xoutput: str = args.outputfile
+    xverbose: bool = args.verbose
+
+    try:
+        (path, xfile) = UC.get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    results: Dict[str, Any] = {}
+    results["memory-operations"] = {}
+
+    app = UC.get_app(path, xfile, xinfo)
+
+    calls = app.call_instructions()
+    jumps = app.jump_instructions()
+
+    memloads = app.load_instructions()
+    memstores = app.store_instructions()
+
+    unknownloads: Dict[str, List[str]] = {}
+    unknownstores: Dict[str, List[str]] = {}
+    unknowncalls: Dict[str, List[str]] = {}
+    unknownjumps: Dict[str, List[str]]  = {}
+
+    def vprint(faddr: str, instr: Instruction) -> None:
+        if xverbose:
+            print(faddr + ":" + instr.iaddr + "  " + str(instr))
+
+    def add_unknown_load(faddr: str, instr: Instruction) -> None:
+        vprint(faddr, instr)
+        unknownloads.setdefault(faddr, [])
+        unknownloads[faddr].append(instr.iaddr)
+
+    def add_unknown_store(faddr: str, instr: Instruction) -> None:
+        vprint(faddr, instr)
+        unknownstores.setdefault(faddr, [])
+        unknownstores[faddr].append(instr.iaddr)
+
+    def add_unknown_call(faddr: str, instr: Instruction) -> None:
+        vprint(faddr, instr)
+        unknowncalls.setdefault(faddr, [])
+        unknowncalls[faddr].append(instr.iaddr)
+
+    def add_unknown_jump(faddr: str, instr: Instruction) -> None:
+        vprint(faddr, instr)
+        unknownjumps.setdefault(faddr, [])
+        unknownjumps[faddr].append(instr.iaddr)
+
+    for faddr in sorted(memloads):
+        for baddr in memloads[faddr]:
+            for instr in memloads[faddr][baddr]:
+                for rhs in instr.rhs:
+                    if "?" in str(rhs):
+                        add_unknown_load(faddr, instr)
+
+    for faddr in sorted(memstores):
+        for baddr in memstores[faddr]:
+            for instr in memstores[faddr][baddr]:
+                for lhs in instr.lhs:
+                    if "?" in str(lhs):    # in ["?", "??operand??"]:
+                        add_unknown_store(faddr, instr)
+
+    for faddr in sorted(calls):
+        for baddr in calls[faddr]:
+            for instr in calls[faddr][baddr]:
+                if instr.mnemonic == "BLX":
+                    instr = cast("ARMInstruction", instr)
+                    if not instr.xdata.has_call_target():
+                        add_unknown_call(faddr, instr)
+
+    for faddr in sorted(jumps):
+        for baddr in jumps[faddr]:
+            for instr in jumps[faddr][baddr]:
+                if instr.mnemonic == "BX":
+                    instr = cast("ARMInstruction", instr)
+                    if str(instr.xdata.xprs[0]) not in  ["LR", "PC"]:
+                        add_unknown_jump(faddr, instr)
+
+    results["calls"] = unknowncalls
+    results["jumps"] = unknownjumps
+    results["memory-operations"]["loads"] = unknownloads
+    results["memory-operations"]["stores"] = unknownstores
+
+    data: Dict[str, Any] = {}
+    data["program"] = xinfo.file
+    data["md5"] = xinfo.md5
+    data["unresolved"] = results
+
+    numcalls = sum(len(unknowncalls[f]) for f in unknowncalls)
+    numjumps = sum(len(unknownjumps[f]) for f in unknownjumps)
+    numloads = sum(len(unknownloads[f]) for f in unknownloads)
+    numstores = sum(len(unknownstores[f]) for f in unknownstores)
+
+    def count_instrs(d: Mapping[str, Mapping[str, Sequence[Instruction]]]) -> int:
+        result: int = 0
+        for faddr in d:
+            for baddr in d[faddr]:
+                result += len(d[faddr][baddr])
+        return result
+
+    perccalls = float(numcalls) / float(count_instrs(calls))
+    percjumps = float(numjumps) / float(count_instrs(jumps))
+    percloads = float(numloads) / float(count_instrs(memloads))
+    percstores = float(numstores) / float(count_instrs(memstores))
+
+    def perc(v: float) -> str:
+        return (" (" + "{:.1f}".format(100.0 * v) + "%)").rjust(8)
+
+    print("\nResults:")
+    print("Unresolved calls : " + str(numcalls).rjust(5) + perc(perccalls))
+    print("Unresolved jumps : " + str(numjumps).rjust(5) + perc(percjumps))
+    print("Unresolved loads : " + str(numloads).rjust(5) + perc(percloads))
+    print("Unresolved stores: " + str(numstores).rjust(5) + perc(percstores))
+
+    filename = xoutput + ".json"
+    with open(filename, "w") as fp:
+        json.dump(data, fp, indent=2)
+
     exit(0)
