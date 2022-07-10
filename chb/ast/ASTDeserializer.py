@@ -49,7 +49,7 @@ class ASTDeserializer:
         self._lifted_functions: Dict[
             str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]] = {}
         self._initialize_functions()
-        self._initialize_lifted_functions()
+        # self._initialize_lifted_functions()
 
     @property
     def serialization(self) -> Dict[str, Any]:
@@ -282,13 +282,6 @@ class ASTDeserializer:
                 lval = cast(AST.ASTLval, mk_node(arg(0)))
                 nodes[id] = astree.mk_lval_expression(lval)
 
-            elif tag == "substituted-expr":
-                assign_id = int(r["assigned"])
-                lval = cast(AST.ASTLval, mk_node(arg(0)))
-                expr = cast(AST.ASTExpr, mk_node(arg(1)))
-                nodes[id] = astree.mk_substituted_expression(
-                    lval, assign_id, expr)
-
             elif tag == "cast-expr":
                 tgttyp = cast(AST.ASTTyp, mk_node(arg(0)))
                 expr = cast(AST.ASTExpr, mk_node(arg(1)))
@@ -310,13 +303,16 @@ class ASTDeserializer:
                 nodes[id] = astree.mk_binary_expression(op, exp1, exp2)
 
             elif tag == "assign":
-                assembly_xref = r["assembly-xref"]
+                instrid = r["instrid"]
+                locationid = r["locationid"]
                 lhs = cast(AST.ASTLval, mk_node(arg(0)))
                 rhs = cast(AST.ASTExpr, mk_node(arg(1)))
-                nodes[id] = astree.mk_assign(lhs, rhs, assembly_xref)
+                nodes[id] = astree.mk_assign(
+                    lhs, rhs, optinstrid=instrid, optlocationid=locationid)
 
             elif tag == "call":
-                assembly_xref = r["assembly-xref"]
+                instrid = r["instrid"]
+                locationid = r["locationid"]
                 if r["args"][0] == -1:
                     optlhs: Optional[AST.ASTLval] = None
                 else:
@@ -325,38 +321,55 @@ class ASTDeserializer:
                 callargs = [
                     cast(AST.ASTExpr, mk_node(records[i]))
                     for i in r["args"][2:]]
-                nodes[id] = astree.mk_call(optlhs, tgtxpr, callargs, assembly_xref)
+                nodes[id] = astree.mk_call(
+                    optlhs,
+                    tgtxpr,
+                    callargs,
+                    optinstrid=instrid,
+                    optlocationid=locationid)
 
             elif tag == "return":
-                assembly_xref = r["assembly-xref"]
+                stmtid = r["stmtid"]
+                locationid = r["locationid"]
                 if r["args"][0] == -1:
                     returnexpr: Optional[AST.ASTExpr] = None
                 else:
                     returnexpr = cast(AST.ASTExpr, mk_node(arg(0)))
-                nodes[id] = astree.mk_return_stmt(returnexpr, assembly_xref)
+                nodes[id] = astree.mk_return_stmt(
+                    returnexpr, optstmtid=stmtid, optlocationid=locationid)
 
             elif tag == "instrs":
-                assembly_xref = r["assembly-xref"]
+                stmtid = r["stmtid"]
+                locationid = r["locationid"]
                 instrs = [
                     cast(AST.ASTInstruction, mk_node(records[i]))
                     for i in r["args"]]
-                nodes[id] = astree.mk_instr_sequence(instrs, assembly_xref)
+                nodes[id] = astree.mk_instr_sequence(
+                    instrs, optstmtid=stmtid, optlocationid=locationid)
 
             elif tag == "if":
-                assembly_xref = r["assembly-xref"]
+                stmtid = r["stmtid"]
+                locationid = r["locationid"]
                 condition = cast(AST.ASTExpr, mk_node(arg(0)))
                 thenbranch = cast(AST.ASTStmt, mk_node(arg(1)))
                 elsebranch = cast(AST.ASTStmt, mk_node(arg(2)))
                 pcoffset = int(r["pc-offset"])
                 nodes[id] = astree.mk_branch(
-                    condition, thenbranch, elsebranch, pcoffset, assembly_xref)
+                    condition,
+                    thenbranch,
+                    elsebranch,
+                    pcoffset,
+                    optstmtid=stmtid,
+                    optlocationid=locationid)
 
             elif tag == "block":
-                assembly_xref = r["assembly-xref"]
+                stmtid = r["stmtid"]
+                locationid = r["locationid"]
                 stmts = [
                     cast(AST.ASTStmt, mk_node(records[i]))
                     for i in r["args"]]
-                nodes[id] = astree.mk_block(stmts, assembly_xref)
+                nodes[id] = astree.mk_block(
+                    stmts, optstmtid=stmtid, optlocationid=locationid)
 
             else:
                 raise Exception("Deserializer: tag " + tag + " not handled")

@@ -136,6 +136,24 @@ class ASTByteSizeCalculator(ASTIndexer):
     def index_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> int:
         return 0
 
+    def index_goto_stmt(self, stmt: AST.ASTGoto) -> int:
+        return 0
+
+    def index_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> int:
+        return 0
+
+    def index_label(self, label: AST.ASTLabel) -> int:
+        return 0
+
+    def index_case_label(self, label: AST.ASTCaseLabel) -> int:
+        return 0
+
+    def index_case_range_label(self, label: AST.ASTCaseRangeLabel) -> int:
+        return 0
+
+    def index_default_label(self, label: AST.ASTDefaultLabel) -> int:
+        return 0
+
     def index_assign_instr(self, instr: AST.ASTAssign) -> int:
         return 0
 
@@ -187,9 +205,6 @@ class ASTByteSizeCalculator(ASTIndexer):
 
     def index_lval_expression(self, expr: AST.ASTLvalExpr) -> int:
         return expr.lval.index(self)
-
-    def index_substituted_expression(self, expr: AST.ASTSubstitutedExpr) -> int:
-        return expr.super_lval.index(self)
 
     def index_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> int:
         return self.intsize("iuint")

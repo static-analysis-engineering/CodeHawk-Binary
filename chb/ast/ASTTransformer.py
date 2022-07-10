@@ -54,6 +54,32 @@ class ASTTransformer(ABC):
         ...
 
     @abstractmethod
+    def transform_goto_stmt(self, stmt: AST.ASTGoto) -> AST.ASTStmt:
+        ...
+
+    @abstractmethod
+    def transform_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> AST.ASTStmt:
+        ...
+
+    @abstractmethod
+    def transform_label(self, label: AST.ASTLabel) -> AST.ASTStmtLabel:
+        ...
+
+    @abstractmethod
+    def transform_case_label(self, label: AST.ASTCaseLabel) -> AST.ASTStmtLabel:
+        ...
+
+    @abstractmethod
+    def transform_case_range_label(
+            self, label: AST.ASTCaseRangeLabel) -> AST.ASTStmtLabel:
+        ...
+
+    @abstractmethod
+    def transform_default_label(
+            self, label: AST.ASTDefaultLabel) -> AST.ASTStmtLabel:
+        ...
+
+    @abstractmethod
     def transform_assign_instr(self, instr: AST.ASTAssign) -> AST.ASTInstruction:
         ...
 

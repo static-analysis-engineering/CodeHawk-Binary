@@ -48,6 +48,24 @@ class ASTNOPVisitor(ASTVisitor):
     def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
         pass
 
+    def visit_goto_stmt(self, stmt: AST.ASTGoto) -> None:
+        pass
+
+    def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
+        pass
+
+    def visit_label(self, label: AST.ASTLabel) -> None:
+        pass
+
+    def visit_case_label(self, label: AST.ASTCaseLabel) -> None:
+        pass
+
+    def visit_case_range_label(self, label: AST.ASTCaseRangeLabel) -> None:
+        pass
+
+    def visit_default_label(self, label: AST.ASTDefaultLabel) -> None:
+        pass
+
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         pass
 

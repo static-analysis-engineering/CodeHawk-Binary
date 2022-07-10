@@ -53,6 +53,30 @@ class ASTIndexer(ABC):
         ...
 
     @abstractmethod
+    def index_goto_stmt(self, stmt: AST.ASTGoto) -> int:
+        ...
+
+    @abstractmethod
+    def index_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> int:
+        ...
+
+    @abstractmethod
+    def index_label(self, label: AST.ASTLabel) -> int:
+        ...
+
+    @abstractmethod
+    def index_case_label(self, label: AST.ASTCaseLabel) -> int:
+        ...
+
+    @abstractmethod
+    def index_case_range_label(self, label: AST.ASTCaseRangeLabel) -> int:
+        ...
+
+    @abstractmethod
+    def index_default_label(self, label: AST.ASTDefaultLabel) -> int:
+        ...
+
+    @abstractmethod
     def index_assign_instr(self, instr: AST.ASTAssign) -> int:
         ...
 
@@ -102,10 +126,6 @@ class ASTIndexer(ABC):
 
     @abstractmethod
     def index_lval_expression(self, expr: AST.ASTLvalExpr) -> int:
-        ...
-
-    @abstractmethod
-    def index_substituted_expression(self, expr: AST.ASTSubstitutedExpr) -> int:
         ...
 
     @abstractmethod

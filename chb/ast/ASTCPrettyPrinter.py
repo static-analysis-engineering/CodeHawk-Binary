@@ -65,14 +65,12 @@ class ASTCPrettyPrinter(ASTVisitor):
             self,
             localsymboltable: "ASTLocalSymbolTable",
             indentation: int = 2,
-            livecode: List[int] = [],
             annotations: Dict[int, List[str]] = {},
             livevars_on_exit: Dict[int, Set[str]] = {}) -> None:
         self._indentation = indentation    # indentation amount
         self._indent = 0                   # current indentation
         self._localsymboltable = localsymboltable
         self._globalsymboltable = localsymboltable.globaltable
-        self._livecode = livecode
         self._annotations = annotations
         self._livevars_on_exit = livevars_on_exit
         self._ccode = ASTCCode()
@@ -104,10 +102,6 @@ class ASTCPrettyPrinter(ASTVisitor):
         return self._indent
 
     @property
-    def livecode(self) -> List[int]:
-        return self._livecode
-
-    @property
     def annotations(self) -> Dict[int, List[str]]:
         return self._annotations
 
@@ -124,9 +118,6 @@ class ASTCPrettyPrinter(ASTVisitor):
 
     def decrease_indent(self) -> None:
         self._indent -= self.indentation
-
-    def is_live(self, id: int) -> bool:
-        return len(self.livecode) == 0 or id in self.livecode
 
     def is_returnval_live(self, id: int, name: str) -> bool:
         return (
@@ -218,13 +209,11 @@ class ASTCPrettyPrinter(ASTVisitor):
 
     def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
         for s in stmt.stmts:
-            if self.is_live(s.assembly_xref):
-                s.accept(self)
+            s.accept(self)
 
     def visit_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> None:
         for i in stmt.instructions:
-            if self.is_live(i.assembly_xref):
-                i.accept(self)
+            i.accept(self)
 
     def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
 
@@ -261,19 +250,57 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.newline(indent=self.indent)
         self.ccode.write("}")
 
+    def visit_goto_stmt(self, stmt: AST.ASTGoto) -> None:
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("goto ?")
+
+    def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("switch(")
+        stmt.switchexpr.accept(self)
+        self.ccode.write(") {")
+        self.increase_indent()
+        for c in stmt.cases:
+            c.accept(self)
+        self.decrease_indent()
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("}")
+
+    def visit_label(self, label: AST.ASTLabel) -> None:
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write(" " + label.name)
+
+    def visit_case_label(self, label: AST.ASTCaseLabel) -> None:
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("case ")
+        label.case_expr.accept(self)
+        self.ccode.write(":")
+
+    def visit_case_range_label(self, label: AST.ASTCaseRangeLabel) -> None:
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("case ")
+        label.lowexpr.accept(self)
+        self.ccode.write(" ... ")
+        label.highexpr.accept(self)
+        self.ccode.write(":")
+
+    def visit_default_label(self, label: AST.ASTDefaultLabel) -> None:
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("default:")
+
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         self.ccode.newline(indent=self.indent)
         instr.lhs.accept(self)
         self.ccode.write(" = ")
         instr.rhs.accept(self)
         self.ccode.write(";")
-        if len(self.annotation(instr.assembly_xref)) > 0:
-            self.ccode.write(" // " + self.annotation(instr.assembly_xref))
+        if len(self.annotation(instr.instrid)) > 0:
+            self.ccode.write(" // " + self.annotation(instr.instrid))
 
     def visit_call_instr(self, instr: AST.ASTCall) -> None:
         self.ccode.newline(indent=self.indent)
         if instr.lhs is not None:
-            lhslive = self.is_returnval_live(instr.assembly_xref, str(instr.lhs))
+            lhslive = self.is_returnval_live(instr.instrid, str(instr.lhs))
             if lhslive:
                 instr.lhs.accept(self)
                 self.ccode.write(" = ")
@@ -285,8 +312,8 @@ class ASTCPrettyPrinter(ASTVisitor):
                 self.ccode.write(", ")
             instr.arguments[-1].accept(self)
         self.ccode.write(");")
-        if len(self.annotation(instr.assembly_xref)) > 0:
-            self.ccode.write(" // " + self.annotation(instr.assembly_xref))
+        if len(self.annotation(instr.instrid)) > 0:
+            self.ccode.write(" // " + self.annotation(instr.instrid))
 
     def visit_lval(self, lval: AST.ASTLval) -> None:
         if lval.lhost.is_memref:

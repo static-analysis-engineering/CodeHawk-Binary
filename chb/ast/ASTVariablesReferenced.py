@@ -63,6 +63,27 @@ class ASTVariablesReferenced(ASTVisitor):
         stmt.ifstmt.accept(self)
         stmt.elsestmt.accept(self)
 
+    def visit_goto_stmt(self, stmt: AST.ASTGoto) -> None:
+        pass
+
+    def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
+        stmt.switchexpr.accept(self)
+        for s in stmt.cases:
+            s.accept(self)
+
+    def visit_label(self, label: AST.ASTLabel) -> None:
+        pass
+
+    def visit_case_label(self, label: AST.ASTCaseLabel) -> None:
+        label.case_expr.accept(self)
+
+    def visit_case_range_label(self, label: AST.ASTCaseRangeLabel) -> None:
+        label.lowexpr.accept(self)
+        label.highexpr.accept(self)
+
+    def visit_default_label(self, label: AST.ASTDefaultLabel) -> None:
+        pass
+
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         instr.lhs.accept(self)
         instr.rhs.accept(self)

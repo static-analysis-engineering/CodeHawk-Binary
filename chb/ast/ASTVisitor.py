@@ -55,6 +55,30 @@ class ASTVisitor(ABC):
         ...
 
     @abstractmethod
+    def visit_goto_stmt(self, stmt: AST.ASTGoto) -> None:
+        ...
+
+    @abstractmethod
+    def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
+        ...
+
+    @abstractmethod
+    def visit_label(self, label: AST.ASTLabel) -> None:
+        ...
+
+    @abstractmethod
+    def visit_case_label(self, label: AST.ASTCaseLabel) -> None:
+        ...
+
+    @abstractmethod
+    def visit_case_range_label(self, label: AST.ASTCaseRangeLabel) -> None:
+        ...
+
+    @abstractmethod
+    def visit_default_label(self, label: AST.ASTDefaultLabel) -> None:
+        ...
+
+    @abstractmethod
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         ...
 

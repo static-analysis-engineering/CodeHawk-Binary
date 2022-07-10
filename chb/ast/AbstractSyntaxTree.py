@@ -65,7 +65,9 @@ class AbstractSyntaxTree:
             localsymboltable: ASTLocalSymbolTable) -> None:
         self._faddr = faddr
         self._fname = fname  # same as faddr if no name provided
-        self._counter = 0
+        self._stmtid_counter = 1
+        self._instrid_counter =  1
+        self._locationid_counter = 1
         self._tmpcounter = 0
         self._spans: List[ASTSpanRecord] = []
         self._symboltable = localsymboltable
@@ -135,33 +137,57 @@ class AbstractSyntaxTree:
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
         self.symboltable.add_compinfo(cinfo)
 
-    def new_xref(self) -> int:
-        """Return a new id for cross reference with the assembly-code."""
+    def new_stmtid(self) -> int:
+        """Return a new id for statements."""
 
-        xref = self._counter
-        self._counter += 1
-        return xref
+        stmtid = self._stmtid_counter
+        self._stmtid_counter += 1
+        return stmtid
+
+    def get_stmtid(self, stmtid: Optional[int]) -> int:
+        return self.new_stmtid() if stmtid is None else stmtid
+
+    def new_instrid(self) -> int:
+        """Return a new id for instructions."""
+
+        instrid = self._instrid_counter
+        self._instrid_counter += 1
+        return instrid
+
+    def get_instrid(self, instrid: Optional[int]) -> int:
+        return self.new_instrid() if instrid is None else instrid
+
+    def new_locationid(self) -> int:
+        """Return a new location id for statements/labels/instructions."""
+
+        locationid = self._locationid_counter
+        self._locationid_counter += 1
+        return locationid
+
+    def get_locationid(self, locationid: Optional[int]) -> int:
+        return self.new_locationid() if locationid is None else locationid
 
     def add_span(self, span: ASTSpanRecord) -> None:
         self._spans.append(span)
 
-    def add_instruction_span(self, xref: int, base: str, bytestring: str) -> None:
+    def add_instruction_span(
+            self, locationid: int, base: str, bytestring: str) -> None:
         span: Dict[str, Union[str, int]] = {}
         span["base_va"] = base
         span["size"] = len(bytestring) // 2
         spanrec: Dict[str, Any] = {}
-        spanrec["xref"] = xref
+        spanrec["locationid"] = locationid
         spanrec["spans"] = [span]
         self.add_span(cast(ASTSpanRecord, spanrec))
 
     def spanmap(self) -> Dict[int, str]:
-        """Return mapping from assembly-xref to instruction base address."""
+        """Return mapping from locationid to instruction base address."""
 
         result: Dict[int, str] = {}
         for spanrec in self.spans:
-            spanxref = cast(int, spanrec["xref"])
+            spanlocationid = cast(int, spanrec["locationid"])
             spans_at_xref = cast(List[Dict[str, Any]], spanrec["spans"])
-            result[spanxref] = spans_at_xref[0]["base_va"]
+            result[spanlocationid] = spans_at_xref[0]["base_va"]
         return result
 
     # ------------------------------------------------------ make statements ---
@@ -169,18 +195,20 @@ class AbstractSyntaxTree:
     def mk_block(
             self,
             stmts: List[AST.ASTStmt],
-            opt_assembly_xref: Optional[int] = None) -> AST.ASTBlock:
-        assembly_xref = (
-            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
-        return AST.ASTBlock(assembly_xref, stmts)
+            optstmtid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTBlock:
+        stmtid = self.get_stmtid(optstmtid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTBlock(stmtid, locationid, stmts)
 
     def mk_return_stmt(
             self,
             expr: Optional[AST.ASTExpr],
-            opt_assembly_xref: Optional[int] = None) -> AST.ASTReturn:
-        assembly_xref = (
-            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
-        return AST.ASTReturn(assembly_xref, expr)
+            optstmtid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTReturn:
+        stmtid = self.get_stmtid(optstmtid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTReturn(stmtid, locationid, expr)
 
     def mk_branch(
             self,
@@ -188,22 +216,24 @@ class AbstractSyntaxTree:
             ifbranch: AST.ASTStmt,
             elsebranch: AST.ASTStmt,
             relative_offset: int,
-            opt_assembly_xref: Optional[int] = None) -> AST.ASTStmt:
-        assembly_xref = (
-            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
+            optstmtid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTStmt:
+        stmtid = self.get_stmtid(optstmtid)
+        locationid = self.get_locationid(optlocationid)
         if condition is None:
             # create a new unknown (unitialized) variable
             condition = self.mk_tmp_lval_expression()
         return AST.ASTBranch(
-            assembly_xref, condition, ifbranch, elsebranch, relative_offset)
+            stmtid, locationid, condition, ifbranch, elsebranch, relative_offset)
 
     def mk_instr_sequence(
             self,
             instrs: List[AST.ASTInstruction],
-            opt_assembly_xref: Optional[int] = None) -> AST.ASTInstrSequence:
-        assembly_xref = (
-            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
-        return AST.ASTInstrSequence(assembly_xref, instrs)
+            optstmtid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTInstrSequence:
+        stmtid = self.get_stmtid(optstmtid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTInstrSequence(stmtid, locationid, instrs)
 
     """Instructions
     There are two types of instructions: an assignment and a call. An
@@ -252,42 +282,50 @@ class AbstractSyntaxTree:
             self,
             lval: AST.ASTLval,
             rhs: AST.ASTExpr,
-            opt_assembly_xref: Optional[int] = None) -> AST.ASTAssign:
-        assembly_xref = (
-            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
-        return AST.ASTAssign(assembly_xref, lval, rhs)
+            optinstrid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTAssign:
+        instrid = self.get_instrid(optinstrid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTAssign(instrid, locationid, lval, rhs)
 
     def mk_var_assign(
             self,
             vname: str,
-            rhs: AST.ASTExpr) -> AST.ASTAssign:
+            rhs: AST.ASTExpr,
+            optinstrid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTAssign:
         lval = self.mk_named_lval(vname)
-        return self.mk_assign(lval, rhs)
+        return self.mk_assign(lval, rhs, optinstrid, optlocationid)
 
     def mk_var_var_assign(
             self,
             vname: str,
-            rhsname: str) -> AST.ASTAssign:
+            rhsname: str,
+            optinstrid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTAssign:
         rhs = self.mk_named_lval_expression(vname)
-        return self.mk_var_assign(vname, rhs)
+        return self.mk_var_assign(vname, rhs, optinstrid, optlocationid)
 
     def mk_call(
             self,
             lval: Optional[AST.ASTLval],
             tgt: AST.ASTExpr,
             args: List[AST.ASTExpr],
-            opt_assembly_xref: Optional[int] = None) -> AST.ASTCall:
-        assembly_xref = (
-            self.new_xref() if opt_assembly_xref is None else opt_assembly_xref)
-        return AST.ASTCall(assembly_xref, lval, tgt, args)
+            optinstrid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTCall:
+        instrid = self.get_instrid(optinstrid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTCall(instrid, locationid, lval, tgt, args)
 
     def mk_var_call(
             self,
             vname: str,
             tgt: AST.ASTExpr,
-            args: List[AST.ASTExpr]) -> AST.ASTCall:
+            args: List[AST.ASTExpr],
+            optinstrid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTCall:
         lval = self.mk_named_lval(vname)
-        return self.mk_call(lval, tgt, args)
+        return self.mk_call(lval, tgt, args, optinstrid, optlocationid)
 
     def mk_tgt_call(
             self,
@@ -301,7 +339,9 @@ class AbstractSyntaxTree:
             self,
             tgtvname: str,
             args: List[AST.ASTExpr],
-            tgtvtype: Optional[AST.ASTTyp] = None) -> AST.ASTCall:
+            tgtvtype: Optional[AST.ASTTyp] = None,
+            optinstrid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTCall:
         tgtvinfo = self.mk_vinfo(tgtvname, vtype=tgtvtype)
         lval: Optional[AST.ASTLval] = None
         if (
@@ -313,7 +353,7 @@ class AbstractSyntaxTree:
             else:
                 lval = self.mk_tmp_lval(vdescr="return value from " + tgtvname)
         tgtexpr = self.mk_vinfo_lval_expression(tgtvinfo)
-        return self.mk_call(lval, tgtexpr, args)
+        return self.mk_call(lval, tgtexpr, args, optinstrid, optlocationid)
 
     """Variables
 
@@ -581,13 +621,6 @@ class AbstractSyntaxTree:
 
     def mk_lval_expression(self, lval: AST.ASTLval) -> AST.ASTLvalExpr:
         return AST.ASTLvalExpr(lval)
-
-    def mk_substituted_expression(
-            self,
-            lval: AST.ASTLval,
-            assign_id: int,
-            expr: AST.ASTExpr) -> AST.ASTSubstitutedExpr:
-        return AST.ASTSubstitutedExpr(lval, assign_id, expr)
 
     def mk_memref(self, memexp: AST.ASTExpr) -> AST.ASTMemRef:
         return AST.ASTMemRef(memexp)

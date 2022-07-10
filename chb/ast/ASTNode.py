@@ -208,13 +208,28 @@ class ASTNode:
 
 class ASTStmt(ASTNode):
 
-    def __init__(self, assembly_xref: int, tag: str) -> None:
+    def __init__(
+            self,
+            stmtid: int,
+            locationid: int,
+            labels: List["ASTStmtLabel"],
+            tag: str) -> None:
         ASTNode.__init__(self, tag)
-        self._assembly_xref = assembly_xref
+        self._stmtid = stmtid
+        self._locationid = locationid
+        self._labels = labels
 
     @property
-    def assembly_xref(self) -> int:
-        return self._assembly_xref
+    def stmtid(self) -> int:
+        return self._stmtid
+
+    @property
+    def locationid(self) -> int:
+        return self._locationid
+
+    @property
+    def labels(self) -> List["ASTStmtLabel"]:
+        return self._labels
 
     @property
     def is_ast_stmt(self) -> bool:
@@ -259,8 +274,13 @@ class ASTStmt(ASTNode):
 
 class ASTReturn(ASTStmt):
 
-    def __init__(self, assembly_xref: int, expr: Optional["ASTExpr"]) -> None:
-        ASTStmt.__init__(self, assembly_xref, "return")
+    def __init__(
+            self,
+            stmtid: int,
+            locationid: int,
+            expr: Optional["ASTExpr"],
+            labels: List["ASTStmtLabel"] = []) -> None:
+        ASTStmt.__init__(self, stmtid, locationid, labels, "return")
         self._expr = expr
 
     @property
@@ -304,8 +324,13 @@ class ASTReturn(ASTStmt):
 
 class ASTBlock(ASTStmt):
 
-    def __init__(self, assembly_xref: int, stmts: List["ASTStmt"]) -> None:
-        ASTStmt.__init__(self, assembly_xref, "block")
+    def __init__(
+            self,
+            stmtid: int,
+            locationid: int,
+            stmts: List["ASTStmt"],
+            labels: List["ASTStmtLabel"] = []) -> None:
+        ASTStmt.__init__(self, stmtid, locationid, labels, "block")
         self._stmts = stmts
 
     @property
@@ -361,8 +386,13 @@ class ASTBlock(ASTStmt):
 
 class ASTInstrSequence(ASTStmt):
 
-    def __init__(self, assembly_xref: int, instrs: List["ASTInstruction"]) -> None:
-        ASTStmt.__init__(self, assembly_xref, "instrs")
+    def __init__(
+            self,
+            stmtid: int,
+            locationid: int,
+            instrs: List["ASTInstruction"],
+            labels: List["ASTStmtLabel"] = []) -> None:
+        ASTStmt.__init__(self, stmtid, locationid, labels, "instrs")
         self._instrs: List["ASTInstruction"] = instrs
         self._aexp: Dict[int, List["ASTExpr"]] = {}
 
@@ -418,12 +448,14 @@ class ASTBranch(ASTStmt):
 
     def __init__(
             self,
-            assembly_xref: int,
+            stmtid: int,
+            locationid: int,
             cond: "ASTExpr",
             ifstmt: "ASTStmt",
             elsestmt: "ASTStmt",
-            relative_offset: int) -> None:
-        ASTStmt.__init__(self, assembly_xref, "if")
+            relative_offset: int,
+            labels: List["ASTStmtLabel"] = []) -> None:
+        ASTStmt.__init__(self, stmtid, locationid, labels, "if")
         self._cond = cond
         self._ifstmt = ifstmt
         self._elsestmt = elsestmt
@@ -476,15 +508,189 @@ class ASTBranch(ASTStmt):
         return self.ifstmt.callees().union(self.elsestmt.callees())
 
 
-class ASTInstruction(ASTNode, ABC):
+class ASTGoto(ASTStmt):
 
-    def __init__(self, assembly_xref: int, tag: str) -> None:
-        ASTNode.__init__(self, tag)
-        self._assembly_xref = assembly_xref
+    def __init__(
+            self,
+            stmtid: int,
+            locationid: int,
+            destinationid: int,
+            labels: List["ASTStmtLabel"] = []) -> None:
+        ASTStmt.__init__(self, stmtid, locationid, labels, "goto")
+        self._destinationid = destinationid
 
     @property
-    def assembly_xref(self) -> int:
-        return self._assembly_xref
+    def destinationid(self) -> int:
+        return self._destinationid
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_goto_stmt(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
+        return transformer.transform_goto_stmt(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_goto_stmt(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_goto_stmt(self)
+
+
+class ASTSwitchStmt(ASTStmt):
+
+    def __init__(
+            self,
+            stmtid: int,
+            locationid: int,
+            switchexpr: "ASTExpr",
+            cases: List["ASTStmt"],
+            labels: List["ASTStmtLabel"] = []) -> None:
+        ASTStmt.__init__(self, stmtid, locationid, labels, "switch")
+        self._switchexpr = switchexpr
+        self._cases = cases
+
+    @property
+    def switchexpr(self) -> "ASTExpr":
+        return self._switchexpr
+
+    @property
+    def cases(self) -> List["ASTStmt"]:
+        return self._cases
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_switch_stmt(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
+        return transformer.transform_switch_stmt(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_switch_stmt(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_switch_stmt(self)
+
+
+class ASTStmtLabel(ASTNode, ABC):
+
+    def __init__(self, locationid: int, tag: str) -> None:
+        ASTNode.__init__(self, tag)
+        self._locationid = locationid
+
+    @property
+    def locationid(self) -> int:
+        return self._locationid
+
+
+class ASTLabel(ASTStmtLabel):
+
+    def __init__(self, locationid: int, name: str) -> None:
+        ASTStmtLabel.__init__(self, locationid, "label")
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_label(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmtLabel":
+        return transformer.transform_label(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_label(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_label(self)
+
+
+class ASTCaseLabel(ASTStmtLabel):
+
+    def __init__(self, locationid: int, expr: "ASTExpr") -> None:
+        ASTStmtLabel.__init__(self, locationid, "case")
+        self._expr = expr
+
+    @property
+    def case_expr(self) -> "ASTExpr":
+        return self._expr
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_case_label(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmtLabel":
+        return transformer.transform_case_label(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_case_label(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_case_label(self)
+
+
+class ASTCaseRangeLabel(ASTStmtLabel):
+
+    def __init__(
+            self,
+            locationid: int,
+            lowexpr: "ASTExpr",
+            highexpr: "ASTExpr") -> None:
+        ASTStmtLabel.__init__(self, locationid, "caserange")
+        self._lowexpr = lowexpr
+        self._highexpr = highexpr
+
+    @property
+    def lowexpr(self) -> "ASTExpr":
+        return self._lowexpr
+
+    @property
+    def highexpr(self) -> "ASTExpr":
+        return self._highexpr
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_case_range_label(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmtLabel":
+        return transformer.transform_case_range_label(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_case_range_label(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_case_range_label(self)
+
+
+class ASTDefaultLabel(ASTStmtLabel):
+
+    def __init__(self, locationid: int) -> None:
+        ASTStmtLabel.__init__(self, locationid, "default")
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_default_label(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmtLabel":
+        return transformer.transform_default_label(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_default_label(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_default_label(self)
+
+
+class ASTInstruction(ASTNode, ABC):
+
+    def __init__(self, instrid: int, locationid: int, tag: str) -> None:
+        ASTNode.__init__(self, tag)
+        self._instrid = instrid
+        self._locationid = locationid
+
+    @property
+    def instrid(self) -> int:
+        return self._instrid
+
+    @property
+    def locationid(self) -> int:
+        return self._locationid
 
     @property
     def is_ast_instruction(self) -> bool:
@@ -519,10 +725,11 @@ class ASTAssign(ASTInstruction):
 
     def __init__(
             self,
-            assembly_xref: int,
+            instrid: int,
+            locationid: int,
             lhs: "ASTLval",
             rhs: "ASTExpr") -> None:
-        ASTInstruction.__init__(self, assembly_xref, "assign")
+        ASTInstruction.__init__(self, instrid, locationid, "assign")
         self._lhs = lhs
         self._rhs = rhs
 
@@ -576,11 +783,12 @@ class ASTCall(ASTInstruction):
 
     def __init__(
             self,
-            assembly_xref: int,
+            instrid: int,
+            locationid: int,
             lhs: Optional["ASTLval"],
             tgt: "ASTExpr",
             args: List["ASTExpr"]) -> None:
-        ASTInstruction.__init__(self, assembly_xref, "call")
+        ASTInstruction.__init__(self, instrid, locationid, "call")
         self._lhs = lhs
         self._tgt = tgt
         self._args = args
@@ -1339,98 +1547,6 @@ class ASTLvalExpr(ASTExpr):
 
     def __str__(self) -> str:
         return str(self.lval)
-
-
-class ASTSubstitutedExpr(ASTLvalExpr):
-    """An expression that was substituted for an lvalue-expression (rhs).
-
-    This expression subtype is introduced to keep track of provenance. Its use
-    is mostly transparent w.r.t. to other properties, in the sense that all
-    properties and methods are directly delegated to the substituted expression.
-
-    In particular, the visitor and transformer are delegated to the substituted
-    expression. The transformer re-assembles the substituted expression.
-    """
-
-    def __init__(self, lval: "ASTLval", assign_id: int, expr: "ASTExpr") -> None:
-        ASTLvalExpr.__init__(self, lval, tag="substituted-expr")
-        self._assign_id = assign_id
-        self._expr = expr
-
-    @property
-    def is_ast_substituted_expr(self) -> bool:
-        return True
-
-    @property
-    def assign_id(self) -> int:
-        return self._assign_id
-
-    @property
-    def substituted_expr(self) -> "ASTExpr":
-        return self._expr
-
-    @property
-    def super_lval(self) -> "ASTLval":
-        """Return the lval from the original instruction.
-
-        Note: requires type:ignore because of a bug in mypy.
-        """
-
-        return ASTLvalExpr.lval.fget(self)  # type:ignore
-
-    def accept(self, visitor: "ASTVisitor") -> None:
-        self.substituted_expr.accept(visitor)
-
-    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
-        return ASTSubstitutedExpr(
-            # get the lval from the super class (but in mypy requires ignore)
-            ASTLvalExpr.lval.fget(self),  # type:ignore
-            self.assign_id,
-            cast("ASTExpr", self.substituted_expr.transform(transformer)))
-
-    def index(self, indexer: "ASTIndexer") -> int:
-        return indexer.index_substituted_expression(self)
-
-    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
-        return self.substituted_expr.ctype(ctyper)
-
-    @property
-    def is_ast_constant(self) -> bool:
-        return self.substituted_expr.is_ast_constant
-
-    @property
-    def is_integer_constant(self) -> bool:
-        return self.substituted_expr.is_integer_constant
-
-    @property
-    def is_global_address(self) -> bool:
-        return self.substituted_expr.is_global_address
-
-    @property
-    def is_string_constant(self) -> bool:
-        return self.substituted_expr.is_string_constant
-
-    @property
-    def is_ast_lval_expr(self) -> bool:
-        """Note: this property is overridden from its super class."""
-
-        return self.substituted_expr.is_ast_lval_expr
-
-    @property
-    def is_ast_addressof(self) -> bool:
-        return self.substituted_expr.is_ast_addressof
-
-    def variables_used(self) -> Set[str]:
-        return self.substituted_expr.variables_used()
-
-    def address_taken(self) -> Set[str]:
-        return self.substituted_expr.address_taken()
-
-    def use(self) -> List[str]:
-        return self.substituted_expr.use()
-
-    def __str__(self) -> str:
-        return str(self.substituted_expr)
 
 
 class ASTSizeOfExpr(ASTExpr):

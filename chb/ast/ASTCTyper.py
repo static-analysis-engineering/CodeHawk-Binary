@@ -51,6 +51,26 @@ class ASTCTyper(ABC):
     def ctype_branch_stmt(self, stmt: AST.ASTBranch) -> Optional[AST.ASTTyp]:
         return None
 
+    def ctype_goto_stmt(self, stmt: AST.ASTGoto) -> Optional[AST.ASTTyp]:
+        return None
+
+    def ctype_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> Optional[AST.ASTTyp]:
+        return None
+
+    def ctype_label(self, label: AST.ASTLabel) -> Optional[AST.ASTTyp]:
+        return None
+
+    def ctype_case_label(self, label: AST.ASTCaseLabel) -> Optional[AST.ASTTyp]:
+        return None
+
+    def ctype_case_range_label(
+            self, label: AST.ASTCaseRangeLabel) -> Optional[AST.ASTTyp]:
+        return None
+
+    def ctype_default_label(
+            self, label: AST.ASTDefaultLabel) -> Optional[AST.ASTTyp]:
+        return None
+
     def ctype_assign_instr(self, instr: AST.ASTAssign) -> Optional[AST.ASTTyp]:
         return None
 

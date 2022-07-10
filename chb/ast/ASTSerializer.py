@@ -314,10 +314,11 @@ class ASTSerializer(ASTIndexer):
             raise Exception("Statement type not recognized: " + stmt.tag)
 
     def index_return_stmt(self, stmt: AST.ASTReturn) -> int:
-        tags: List[str] = [stmt.tag, str(stmt.assembly_xref)]
+        tags: List[str] = [stmt.tag, str(stmt.stmtid), str(stmt.locationid)]
         args: List[int] = []
         node: Dict[str, Any] = {"tag": stmt.tag}
-        node["assembly-xref"] = stmt.assembly_xref
+        node["stmtid"] = stmt.stmtid
+        node["locationid"] =  stmt.locationid
         if stmt.has_return_value():
             args.append(stmt.expr.index(self))
         else:
@@ -325,17 +326,22 @@ class ASTSerializer(ASTIndexer):
         return self.add(tags, args, node)
 
     def index_block_stmt(self, stmt: AST.ASTBlock) -> int:
-        tags: List[str] = [stmt.tag, str(stmt.assembly_xref)]
+        tags: List[str] = [stmt.tag, str(stmt.stmtid), str(stmt.locationid)]
         args: List[int] = [s.index(self) for s in stmt.stmts]
         node: Dict[str, Any] = {"tag": stmt.tag}
-        node["assembly-xref"] = stmt.assembly_xref
+        node["stmtid"] = stmt.stmtid
+        node["locationid"] =  stmt.locationid
         return self.add(tags, args, node)
 
     def index_branch_stmt(self, stmt: AST.ASTBranch) -> int:
-        tags: List[str] = [stmt.tag, str(stmt.assembly_xref), str(stmt.relative_offset)]
+        tags: List[str] = [
+            stmt.tag, str(stmt.stmtid),
+            str(stmt.locationid),
+            str(stmt.relative_offset)]
         args: List[int] = []
         node: Dict[str, Any] = {"tag": stmt.tag}
-        node["assembly-xref"] = stmt.assembly_xref
+        node["stmtid"] = stmt.stmtid
+        node["locationid"] = stmt.locationid
         args.extend([
             stmt.condition.index(self),
             stmt.ifstmt.index(self),
@@ -344,24 +350,75 @@ class ASTSerializer(ASTIndexer):
         return self.add(tags, args, node)
 
     def index_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> int:
-        tags: List[str] = [stmt.tag, str(stmt.assembly_xref)]
+        tags: List[str] = [stmt.tag, str(stmt.stmtid), str(stmt.locationid)]
         args: List[int] = [instr.index(self) for instr in stmt.instructions]
         node: Dict[str, Any] = {"tag": stmt.tag}
-        node["assembly-xref"] = stmt.assembly_xref
+        node["stmtid"] = stmt.stmtid
+        node["locationid"] = stmt.locationid
+        return self.add(tags, args, node)
+
+    def index_goto_stmt(self, stmt: AST.ASTGoto) -> int:
+        tags: List[str] = [
+            stmt.tag, str(stmt.stmtid), str(stmt.locationid), str(stmt.locationid)]
+        args: List[int] = []
+        node: Dict[str, Any] = {"tag": stmt.tag}
+        node["stmtid"] = stmt.stmtid
+        node["locationid"] = stmt.locationid
+        node["destinationid"] = stmt.destinationid
+        return self.add(tags, args, node)
+
+    def index_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> int:
+        tags: List[str] = [stmt.tag, str(stmt.stmtid), str(stmt.locationid)]
+        args: List[int] = [stmt.switchexpr.index(self)]
+        args.extend([c.index(self) for c in stmt.cases])
+        node: Dict[str, Any] = {"tag": stmt.tag}
+        node["stmtid"] = stmt.stmtid
+        node["locationid"] = stmt.locationid
+        return self.add(tags, args, node)
+
+    def index_label(self, label: AST.ASTLabel) -> int:
+        tags: List[str] = [label.tag, label.name, str(label.locationid)]
+        args: List[int] = []
+        node: Dict[str, Any] = {"tag": label.tag}
+        node["locationid"] = label.locationid
+        node["name"] = label.name
+        return self.add(tags, args, node)
+
+    def index_case_label(self, label: AST.ASTCaseLabel) -> int:
+        tags: List[str] = [label.tag, str(label.locationid)]
+        args: List[int] = [label.case_expr.index(self)]
+        node: Dict[str, Any] = {"tag": label.tag}
+        node["locationid"] = label.locationid
+        return self.add(tags, args, node)
+
+    def index_case_range_label(self, label: AST.ASTCaseRangeLabel) -> int:
+        tags: List[str] = [label.tag, str(label.locationid)]
+        args: List[int] = [label.lowexpr.index(self), label.highexpr.index(self)]
+        node: Dict[str, Any] = {"tag": label.tag}
+        node["locationid"] = label.locationid
+        return self.add(tags, args, node)
+
+    def index_default_label(self, label: AST.ASTDefaultLabel) -> int:
+        tags: List[str] = [label.tag, str(label.locationid)]
+        args: List[int] = []
+        node: Dict[str, Any] = {"tag": label.tag}
+        node["locationid"] = label.locationid
         return self.add(tags, args, node)
 
     def index_assign_instr(self, instr: AST.ASTAssign) -> int:
-        tags: List[str] = [instr.tag, str(instr.assembly_xref)]
+        tags: List[str] = [instr.tag, str(instr.instrid), str(instr.locationid)]
         args: List[int] = [instr.lhs.index(self), instr.rhs.index(self)]
         node: Dict[str, Any] = {"tag": instr.tag}
-        node["assembly-xref"] = instr.assembly_xref
+        node["instrid"] = instr.instrid
+        node["locationid"] = instr.locationid
         return self.add(tags, args, node)
 
     def index_call_instr(self, instr: AST.ASTCall) -> int:
-        tags: List[str] = [instr.tag, str(instr.assembly_xref)]
+        tags: List[str] = [instr.tag, str(instr.instrid), str(instr.locationid)]
         args: List[int] = []
         node: Dict[str, Any] = {"tag": instr.tag}
-        node["assembly-xref"] = instr.assembly_xref
+        node["instrid"] = instr.instrid
+        node["locationid"] = instr.locationid
         lvalindex = -1 if instr.lhs is None else instr.lhs.index(self)
         args.append(lvalindex)
         args.append(instr.tgt.index(self))
@@ -452,13 +509,6 @@ class ASTSerializer(ASTIndexer):
         tags: List[str] = [expr.tag]
         args: List[int] = [expr.lval.index(self)]
         node: Dict[str, Any] = {"tag": expr.tag}
-        return self.add(tags, args, node)
-
-    def index_substituted_expression(self, expr: AST.ASTSubstitutedExpr) -> int:
-        tags: List[str] = [expr.tag, str(expr.assign_id)]
-        args: List[int] = [
-            expr.super_lval.index(self), expr.substituted_expr.index(self)]
-        node: Dict[str, Any] = {"tag": expr.tag, "assigned": expr.assign_id}
         return self.add(tags, args, node)
 
     def index_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> int:
