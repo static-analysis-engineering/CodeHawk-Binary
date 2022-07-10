@@ -197,9 +197,9 @@ class MIPSJumpLinkRegister(MIPSOpcode):
                     astxpr = XU.xxpr_to_ast_exprs(arg, astree)
                     argxprs.extend(astxpr)
             call = cast(AST.ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
-            astree.add_instruction_span(call.assembly_xref, iaddr, bytestring)
+            astree.add_instruction_span(call.locationid, iaddr, bytestring)
             for assign in assigns:
-                astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+                astree.add_instruction_span(assign.locationid, iaddr, bytestring)
             return [call] + assigns
         else:
             return []

@@ -104,7 +104,6 @@ class MIPSAnd(MIPSOpcode):
             lhs = lhss[0]
             rhs = rhss[0]
             assign = astree.mk_assign(lhs, rhs)
-            astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
             return [assign]
         else:
             raise UF.CHBError(
