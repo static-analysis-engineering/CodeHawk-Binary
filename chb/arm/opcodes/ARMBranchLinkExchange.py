@@ -132,6 +132,7 @@ class ARMBranchLinkExchange(ARMOpcode):
             self,
             astree: ASTInterface,
             iaddr: str,
+            bytestring: str,
             xdata: InstrXData) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
 
         def indirect_lhs(
@@ -139,7 +140,9 @@ class ARMBranchLinkExchange(ARMOpcode):
             tmplval = astree.mk_returnval_variable_lval(iaddr, rtype)
             tmprhs = astree.mk_lval_expr(tmplval)
             reglval = astree.mk_register_variable_lval("R0")
-            return (tmplval, [astree.mk_assign(reglval, tmprhs)])
+            assign = astree.mk_assign(
+                reglval, tmprhs, iaddr=iaddr, bytestring=bytestring)
+            return (tmplval, [assign])
 
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
@@ -169,8 +172,7 @@ class ARMBranchLinkExchange(ARMOpcode):
                 (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
         else:
             (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
-        call = astree.mk_call(lhs, tgtxpr, [])
-        astree.add_instruction_span(call.assembly_xref, iaddr, bytestring)
+        call = astree.mk_call(lhs, tgtxpr, [], iaddr=iaddr, bytestring=bytestring)
         return [call]
 
     def ast(self,
@@ -180,7 +182,7 @@ class ARMBranchLinkExchange(ARMOpcode):
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         if self.is_call(xdata) and xdata.has_call_target():
             tgtxpr = self.target_expr_ast(astree, xdata)
-            (lhs, assigns) = self.lhs_ast(astree, iaddr, xdata)
+            (lhs, assigns) = self.lhs_ast(astree, iaddr, bytestring, xdata)
             args = self.arguments(xdata)
             argregs = ["R0", "R1", "R2", "R3"]
             callargs = argregs[:len(args)]
@@ -210,10 +212,8 @@ class ARMBranchLinkExchange(ARMOpcode):
             if len(args) > 4:
                 for a in args[4:]:
                     argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
-            call = cast(AST.ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
-            astree.add_instruction_span(call.assembly_xref, iaddr, bytestring)
-            for assign in assigns:
-                astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+            call = cast(AST.ASTInstruction, astree.mk_call(
+                lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
             return [call] + assigns
         else:
             return self.assembly_ast(astree, iaddr, bytestring, xdata)

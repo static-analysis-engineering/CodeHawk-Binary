@@ -100,8 +100,12 @@ class ARMStoreRegisterHalfword(ARMOpcode):
         mask = astree.mk_integer_constant((256 * 256) - 1)
         (rhs, _, _) = self.operands[0].ast_rvalue(astree)
         rhs = astree.mk_binary_op("band", rhs, mask)
-        assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-        astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+        assign = astree.mk_assign(
+            lhs,
+            rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
         return preinstrs + [assign] + postinstrs
 
     def ast(self,
@@ -120,8 +124,12 @@ class ARMStoreRegisterHalfword(ARMOpcode):
         lvals = XU.xvariable_to_ast_lvals(lhs, astree)
         if len(lvals) == 1:
             lval = lvals[0]
-            assign = astree.mk_assign(lval, rhs, annotations=annotations)
-            astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+            assign = astree.mk_assign(
+                lval,
+                rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
             return [assign]
         else:
             raise UF.CHBError(

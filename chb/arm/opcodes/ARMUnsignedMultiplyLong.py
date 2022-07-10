@@ -102,8 +102,16 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
         (lhs2, _, _) = self.operands[1].ast_lvalue(astree)
         binop = astree.mk_binary_op("mult", rhs1, rhs2)
         zero = astree.mk_integer_constant(0)
-        assign1 = astree.mk_assign(lhs1, binop, annotations=(annotations + ["low"]))
-        assign2 = astree.mk_assign(lhs2, zero, annotations=annotations)
-        astree.add_instruction_span(assign1.assembly_xref, iaddr, bytestring)
-        astree.add_instruction_span(assign2.assembly_xref, iaddr, bytestring)
+        assign1 = astree.mk_assign(
+            lhs1,
+            binop,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=(annotations + ["low"]))
+        assign2 = astree.mk_assign(
+            lhs2,
+            zero,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
         return preinstrs1 + preinstrs2 + [assign1, assign2] + postinstrs1 + postinstrs2

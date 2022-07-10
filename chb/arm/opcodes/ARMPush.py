@@ -110,9 +110,8 @@ class ARMPush(ARMOpcode):
             sp_offset -= 4
         sp_decr_c = astree.mk_integer_constant(sp_decr)
         sp_rhs = astree.mk_binary_op("minus", sprval, sp_decr_c)
-        instrs.append(astree.mk_assign(splval, sp_rhs))
-        for assign in instrs:
-            astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+        instrs.append(astree.mk_assign(
+            splval, sp_rhs, iaddr=iaddr, bytestring=bytestring))
         return instrs
 
     def ast(self,

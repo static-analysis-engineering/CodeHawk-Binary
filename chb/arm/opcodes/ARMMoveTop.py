@@ -102,8 +102,8 @@ class ARMMoveTop(ARMOpcode):
         xpr1 = astree.mk_binary_op("lsl", op2, i16)
         xpr2 = astree.mk_binary_op("mod", op1, e16)
         xpr = astree.mk_binary_op("plus", xpr1, xpr2)
-        assign = astree.mk_assign(lhs, xpr, annotations=annotations)
-        astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+        assign = astree.mk_assign(
+            lhs, xpr, iaddr=iaddr, bytestring=bytestring, annotations=annotations)
         return [assign]
 
     def ast(self,
@@ -119,8 +119,12 @@ class ARMMoveTop(ARMOpcode):
         if len(lhss) == 1 and len(rhss) == 1:
             lhs = lhss[0]
             rhs = rhss[0]
-            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-            astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+            assign = astree.mk_assign(
+                lhs,
+                rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
             return [assign]
         else:
             raise UF.CHBError(

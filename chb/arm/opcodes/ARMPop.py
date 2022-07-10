@@ -133,9 +133,8 @@ class ARMPop(ARMOpcode):
             sp_offset += 4
         sp_incr_c = astree.mk_integer_constant(sp_incr)
         sp_rhs = astree.mk_binary_op("plus", sprval, sp_incr_c)
-        instrs.append(astree.mk_assign(splval, sp_rhs))
-        for assign in instrs:
-            astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+        instrs.append(astree.mk_assign(
+            splval, sp_rhs, iaddr=iaddr, bytestring=bytestring))
         return instrs
 
     def ast(self,

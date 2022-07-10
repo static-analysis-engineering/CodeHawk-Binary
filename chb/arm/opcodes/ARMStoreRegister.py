@@ -111,8 +111,12 @@ class ARMStoreRegister(ARMOpcode):
 
         (lhs, preinstrs, postinstrs) = self.operands[1].ast_lvalue(astree)
         (rhs, _, _) = self.operands[0].ast_rvalue(astree)
-        assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-        astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+        assign = astree.mk_assign(
+            lhs,
+            rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
         return preinstrs + [assign] + postinstrs
 
     def ast(self,
@@ -132,8 +136,12 @@ class ARMStoreRegister(ARMOpcode):
         if len(lvals) == 1 and len(rhss) == 1:
             lval = lvals[0]
             rhs = rhss[0]
-            assign = astree.mk_assign(lval, rhs, annotations=annotations)
-            astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+            assign = astree.mk_assign(
+                lval,
+                rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
             return [assign]
         else:
             raise UF.CHBError(

@@ -125,13 +125,12 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
             addr = astree.mk_binary_op("plus", regrval, reg_offset_c)
             rhs = astree.mk_memref_expr(addr)
             lhs = astree.mk_register_variable_lval(r)
-            instrs.append(astree.mk_assign(lhs, rhs))
+            instrs.append(astree.mk_assign(
+                lhs, rhs, iaddr=iaddr, bytestring=bytestring))
             reg_offset += 4
         if self.args[0] == 1:
             reg_incr_c = astree.mk_integer_constant(reg_incr)
             reg_rhs = astree.mk_binary_op("plus", regrval, reg_incr_c)
             instrs.append(astree.mk_assign(reglval, reg_rhs))
 
-        for instr in instrs:
-            astree.add_instruction_span(instr.assembly_xref, iaddr, bytestring)
         return instrs

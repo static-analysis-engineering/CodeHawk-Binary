@@ -115,15 +115,22 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             addr = astree.mk_binary_op("minus", regrval, reg_offset_c)
             lhs = astree.mk_memref_lval(addr)
             rhs = astree.mk_register_variable_expr(r)
-            instrs.append(astree.mk_assign(lhs, rhs, annotations=annotations))
+            instrs.append(astree.mk_assign(
+                lhs,
+                rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations))
             reg_offset -= 4
         if self.args[0] == 1:
             reg_decr_c = astree.mk_integer_constant(reg_decr)
             reg_rhs = astree.mk_binary_op("minus", regrval, reg_decr_c)
             instrs.append(astree.mk_assign(
-                reglval, reg_rhs, annotations=annotations))
-        for assign in instrs:
-            astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+                reglval,
+                reg_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations))
         return instrs
 
     def ast(self,
@@ -196,6 +203,4 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                         "ARMStoreMultipleDecrementBefore: multiple expressions/lvals in ast")
         '''
 
-        for instr in instrs:
-            astree.add_instruction_span(instr.assembly_xref, iaddr, bytestring)
         return instrs

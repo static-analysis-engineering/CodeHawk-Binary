@@ -105,6 +105,10 @@ class ARMByteReversePackedHalfword(ARMOpcode):
         b2 = astree.mk_byte_expr(3, rhs)
         b3 = astree.mk_byte_expr(2, rhs)
         result = astree.mk_byte_sum([b0, b1, b2, b3])
-        assign = astree.mk_assign(lhs, result, annotations=annotations)
-        astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+        assign = astree.mk_assign(
+            lhs,
+            result,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
         return [assign]

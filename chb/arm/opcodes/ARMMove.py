@@ -115,8 +115,12 @@ class ARMMove(ARMOpcode):
             annotations: List[str] = [iaddr, "MOV"]
             (lhs, _, _) = self.operands[0].ast_lvalue(astree)
             (rhs, _, _) = self.operands[1].ast_rvalue(astree)
-            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-            astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+            assign = astree.mk_assign(
+                lhs,
+                rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
             return [assign]
 
     def ast(
@@ -134,8 +138,12 @@ class ARMMove(ARMOpcode):
             if len(lhss) == 1 and len(rhss) == 1:
                 lhs = lhss[0]
                 rhs = rhss[0]
-                assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-                astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+                assign = astree.mk_assign(
+                    lhs,
+                    rhs,
+                    iaddr=iaddr,
+                    bytestring=bytestring,
+                    annotations=annotations)
                 return [assign]
             else:
                 raise UF.CHBError(

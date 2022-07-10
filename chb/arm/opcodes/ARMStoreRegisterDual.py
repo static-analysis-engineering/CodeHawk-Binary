@@ -100,10 +100,8 @@ class ARMStoreRegisterDual(ARMOpcode):
         (lhs2, preinstrs2, postinstrs2) = self.operands[5].ast_lvalue(astree)
         (rhs1, _, _) = self.operands[0].ast_rvalue(astree)
         (rhs2, _, _) = self.operands[1].ast_rvalue(astree)
-        assign1 = astree.mk_assign(lhs1, rhs1)
-        assign2 = astree.mk_assign(lhs2, rhs2)
-        astree.add_instruction_span(assign1.assembly_xref, iaddr, bytestring)
-        astree.add_instruction_span(assign2.assembly_xref, iaddr, bytestring)
+        assign1 = astree.mk_assign(lhs1, rhs1, iaddr=iaddr, bytestring=bytestring)
+        assign2 = astree.mk_assign(lhs2, rhs2, iaddr=iaddr, bytestring=bytestring)
         return (
             preinstrs1
             + preinstrs2
@@ -124,8 +122,6 @@ class ARMStoreRegisterDual(ARMOpcode):
             lhs1 = "*" + lhs1[:-3]
         lval1 = astree.mk_variable_lval(lhs1)
         lval2 = astree.mk_variable_lval(lhs2)
-        assign1 = astree.mk_assign(lval1, rhs1)
-        assign2 = astree.mk_assign(lval2, rhs2)
-        astree.add_instruction_span(assign1.assembly_xref, iaddr, bytestring)
-        astree.add_instruction_span(assign2.assembly_xref, iaddr, bytestring)
+        assign1 = astree.mk_assign(lval1, rhs1, iaddr=iaddr, bytestring=bytestring)
+        assign2 = astree.mk_assign(lval2, rhs2, iaddr=iaddr, bytestring=bytestring)
         return [assign1, assign2]

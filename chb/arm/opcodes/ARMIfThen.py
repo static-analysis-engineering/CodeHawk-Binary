@@ -89,8 +89,8 @@ class ARMIfThen(ARMOpcode):
             rhss = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
             if len(rhss) == 1:
                 rhs = rhss[0]
-                assign = astree.mk_assign(lhs, rhs)
-                astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+                assign = astree.mk_assign(
+                    lhs, rhs, iaddr=iaddr, bytestring=bytestring)
                 return [assign]
             else:
                 return []

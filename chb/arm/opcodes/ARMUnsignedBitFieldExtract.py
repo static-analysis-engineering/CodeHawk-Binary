@@ -95,6 +95,6 @@ class ARMUnsignedExtractBitField(ARMOpcode):
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        assign = astree.mk_assign(lhs, rhs)
-        astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+        assign = astree.mk_assign(
+            lhs, rhs, iaddr=iaddr, bytestring=bytestring)
         return preinstrs + [assign] + postinstrs

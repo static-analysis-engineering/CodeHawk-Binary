@@ -96,6 +96,5 @@ class ARMBitwiseAnd(ARMOpcode):
         (rhs2, preinstrs2, postinstrs2) = self.operands[2].ast_rvalue(astree)
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         binop = astree.mk_binary_op("band", rhs1, rhs2)
-        assign = astree.mk_assign(lhs, binop)
-        astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+        assign = astree.mk_assign(lhs, binop, iaddr=iaddr, bytestring=bytestring)
         return preinstrs1 + preinstrs2 + [assign] + postinstrs1 + postinstrs2

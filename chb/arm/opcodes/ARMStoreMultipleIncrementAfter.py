@@ -131,10 +131,9 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         if self.args[0] == 1:
             reg_incr_c = astree.mk_integer_constant(reg_incr)
             reg_rhs = astree.mk_binary_op("plus", regrval, reg_incr_c)
-            instrs.append(astree.mk_assign(reglval, reg_rhs))
+            instrs.append(astree.mk_assign(
+                reglval, reg_rhs, iaddr=iaddr, bytestring=bytestring))
 
-        for instr in instrs:
-            astree.add_instruction_span(instr.assembly_xref, iaddr, bytestring)
         return instrs
 
     def ast(self,
@@ -154,11 +153,10 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
             if len(lhss) == 1 and len(rhss) == 1:
                 lhs = lhss[0]
                 rhs = rhss[0]
-                instrs.append(astree.mk_assign(lhs, rhs))
+                instrs.append(astree.mk_assign(
+                    lhs, rhs, iaddr=iaddr, bytestring=bytestring))
             else:
                 raise UF.CHBError(
                     "ARMStoreMulipleIncrementAfter: multiple expressions/lvals in ast")
 
-        for instr in instrs:
-            astree.add_instruction_span(instr.assembly_xref, iaddr, bytestring)
         return instrs

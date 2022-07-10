@@ -119,13 +119,16 @@ class ARMReverseSubtract(ARMOpcode):
                 scale = astree.mk_integer_constant(
                     operand2.opkind.scale_factor - 1)
                 binop = astree.mk_binary_op("mult", op1, scale)
-                assign = astree.mk_assign(lhs, binop, annotations=annotations)
-                astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+                assign = astree.mk_assign(
+                    lhs,
+                    binop,
+                    iaddr=iaddr,
+                    bytestring=bytestring,
+                    annotations=annotations)
                 return [assign]
 
         binop = astree.mk_binary_op("minus", op2, op1)
-        assign = astree.mk_assign(lhs, binop)
-        astree.add_instruction_span(assign.assembly_xref, iaddr, bytestring)
+        assign = astree.mk_assign(lhs, binop, iaddr=iaddr, bytestring=bytestring)
         return [assign]
 
     def ast(self,
