@@ -34,6 +34,8 @@ syntax tree. They are organized in a hierarchy as follows:
   - *ASTBlock*: sequence of control flow statements
   - *ASTInstrSequence*: sequence of instructions (basic block)
   - *ASTBranch*: if-then-else branch statement
+  - *ASTSwitch*: swith statement
+  - *ASTGoto*: goto statement
 - **ASTInstruction**: abstract instruction (sequential control flow)
   - *ASTAssign*: assignment instruction, left-hand-side := right-hand-side
   - *ASTCall*: call instruction, (left-hand-side :=) call(..arguments..)
@@ -76,3 +78,10 @@ with auxiliary nodes:
 - **ASTFieldInfo**: definition of field of a struct
 - **ASTFunArgs**: definition of function parameter list
 - **ASTFunArg**: definition of function parameter
+
+
+Most ASTNode objects are immutable. Some node types allow modification and must
+necessarily retain their node identity in the three structure, and thus need to
+be mutable. Examples include the container statements like ASTBlock and ASTInstrSequence,
+to which statements or instructions can be added later, and the ASTGoto statement,
+whose destination stmtid may have to be fixed up later.

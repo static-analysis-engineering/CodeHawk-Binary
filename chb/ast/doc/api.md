@@ -2,6 +2,8 @@
 
 ## Abstract Syntax Tree Construction API
 
+- [Statements](#statements)
+- [Statement labels](#labels)
 - [Instructions](#instructions)
 - [Variables](#variables)
 - [Offsets](#offsets)
@@ -10,7 +12,122 @@
 - [Types](#types)
 
 
+### Statements
+
+Statements provide the control flow structure of a program. The most
+elementary statement is the instruction sequence that contains a
+list of instructions. This statement typically serves to represent
+a basic block in a binary. Statements can be composed hierarchically
+to form a tree, for example a branch statement has two child
+statements: the if branch and the else branch; a loop statement has
+one child statement: the loop body. A sequence of statements can
+be combined into a statement block.
+
+Statements are also used to represent so-called unstructured control
+flow, with GoTos. At its most basic level any control flow graph,
+which usually is readily available for a function in an executable,
+can be converted into a tree of statements using goTos, branches,
+and switches. To produce more readable code, a more sophisticated
+control-flow-graph destructuring is usually preferable. To provide
+provenance relationships we may have a low-level CFG-based abstract
+syntax tree that includes all assembly instructions and a high-level
+structured abstract syntax tree for readable output representation.
+
+Statements have a stmtid that uniquely identifies the statement, and
+that is used as destination identification for unstructured control
+flow constructs such as goTos. Statements also have a locationid
+that can be used to relate the statement to a location in the binary,
+usually expressed by a span that can represent one or more ranges
+of addresses in the binary.
+
+Statements may also have one or more labels that can be used in
+identifying the statement in C, or that serve as the case selectors
+in a switch statement.
+
+All of the statement construction methods below have an optional
+argument for the stmtid and the locationid. If either or both are
+not present a new value is generated automatically.
+
+
+#### Construction methods provided
+
+- **mk_block**: creates a collection of statements that are executed
+  sequentially. An initially empty node may be created first, with
+  statements being added to them later, in case of a top-down
+  construction. Each time a statement is added a new object is returned,
+  as ASTNode objects are immutable.
+  ```
+  def mk_block(self,
+    stmts: List[ASTStmt],
+    stmtid: Optional[int],
+    locationid: Optional[int],
+    labels: List[ASTLabel] = []) -> ASTBlock
+  ```
+
+- **mk_return_stmt**: creates a return statement with an optional
+  return expression.
+  ```
+  def mk_return_stmt(self,
+    expr: Optional[ASTExpr],
+    stmtid: Optional[int],
+    locationid: Optional[int],
+    labels: List[ASTLabel] = []) -> ASTReturn
+  ```
+
+- **mk_branch**: creates a if-then-else statement with a condition
+  expression and if and else branches as child statements.
+  ```
+  def mk_branch(self,
+    condition: ASTExpr,
+    ifbranch: ASTStmt,
+    elsebranch: ASTStmt,
+    relative_offset: int
+    stmtid: Optional[int],
+    locationid: Optional[int],
+    labels: List[ASTLabel] = []) -> ASTReturn
+  ```
+
+- **mk_instr_sequence**: creates a statement for a basic block with
+  a sequence of assignments and calls.
+  ```
+  def mk_instr_sequence(self,
+    instrs: List[ASTInstruction],
+    stmtid: Optional[int],
+    locationid: Optional[int],
+    labels: List[ASTLabel] = []) -> ASTInstrSequence
+  ```
+
+- **mk_goto_stmt**: creates a goTo statement with a stmtid as destination.
+  ```
+  def mk_goto_stmt(self,
+    destinationid: int,
+    stmtid: Optional[int],
+    locationid: Optional[int],
+    labels: List[ASTLabel] = []) -> ASTGoto
+  ```
+
+- **mk_switch_stmt**: creates a switch statement with a switch expression and
+  cases as child statements. It is the callers responsibility to make sure that
+  the child statements have the appropriate case labels.
+  ```
+  def mk_switch_stmt(self,
+    switchexpr: ASTExpr,
+    cases: List[ASTStmt],
+    stmtid: Optional[int],
+    locationid: Optional[int],
+    labels: List[ASTLabel] = []) -> ASTSwitch
+  ```
+
+### Statement Labels<a name="labels"></a>
+
+
 ### Instructions
+
+Instructions represent actions that do not involve control flow (at
+least within the function) and that are always executed sequentially.
+The sole exception is a call to a non-returning function that also
+acts as a return statement. Instructions are always grouped as a
+sequence within an instruction sequence statement.
 
 There are two types of instructions: an assignment and a call. An
 assignment consists of a left-hand-side (lval) and a right-hand-side
@@ -22,11 +139,10 @@ expression in case of an indirect call), and a list of expressions that
 represent the arguments to the call (preferably in conformance with the
 arity of the function type, but this is not checked).
 
-Instructions are assigned a unique assembly cross reference, assembly_xref. 
-This cross reference can then be used to create a link with the instruction 
-address (via the span) if desired. If an assembly_xref was assigned earlier 
-(e.g., when constructing an ast from an existing ast json file) it can be 
-given as an optional argument.
+Instructions have an instrid that uniquely identifies the instruction
+and that is used in expressing provenance relationships.
+Instructions, like statements, have a locationid that can be used to
+relate the statement to a location in the binary.
 
 
 #### Construction methods provided
