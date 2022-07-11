@@ -38,16 +38,13 @@ from chb.ast.ASTApplicationInterface import ASTApplicationInterface
 from chb.ast.ASTBasicCTyper import ASTBasicCTyper
 from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
 from chb.ast.ASTDeserializer import ASTDeserializer
-from chb.ast.ASTLiveCode import ASTLiveCode
 from chb.ast.ASTNode import ASTStmt, ASTExpr, ASTVariable
 from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
 from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
-from chb.ast.ASTExprPropagator import ASTExprPropagator
 
 from chb.astinterface.ASTInterface import ASTInterface
 from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
-from chb.astinterface.ASTRewriter import ASTRewriter
 from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 
 import chb.cmdline.commandutil as UC
@@ -116,6 +113,9 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     xname: str = args.xname
     outputfile: str = args.outputfile
     functions: List[str] = args.functions
+    hints: List[str] = args.hints  # names of json files
+    remove_edges: List[str] = args.remove_edges
+    add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
 
     try:
@@ -152,9 +152,10 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
     astdata = astapi.serialize(verbose)
 
-    filename = outputfile + ".json"
-    with open(filename, "w") as fp:
-        json.dump(astdata, fp, indent=2)
+    if outputfile is not None:
+        filename = outputfile + ".json"
+        with open(filename, "w") as fp:
+            json.dump(astdata, fp, indent=2)
 
     exit(0)
 

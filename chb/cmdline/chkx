@@ -494,13 +494,28 @@ def parse() -> argparse.Namespace:
     buildast = resultsparsers.add_parser("ast")
     buildast.add_argument("xname", help="name of executable")
     buildast.add_argument(
-        "outputfile",
+        "--outputfile", "-o",
         help="name of file to save symboltables and asts (without extension)")
     buildast.add_argument(
         "--functions",
         help="address (in hex) of functions to be included in ast",
         nargs="*",
         default=[])
+    buildast.add_argument(
+        "--hints",
+        help="names of json files with userdata hints",
+        nargs="*",
+        default=[])
+    buildast.add_argument(
+        "--remove_edges",
+        nargs="*",
+        default=[],
+        help="list of edges to be removed (in the form faddr:src-addr:tgt-addr in hex)")
+    buildast.add_argument(
+        "--add_edges",
+        nargs="*",
+        default=[],
+        help="list of edges to be added (in the form faddr:src-addr:tgt-addr in hex)")
     buildast.add_argument(
         "--verbose", "-v",
         action="store_true")

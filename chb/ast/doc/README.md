@@ -36,6 +36,11 @@ syntax tree. They are organized in a hierarchy as follows:
   - *ASTBranch*: if-then-else branch statement
   - *ASTSwitch*: swith statement
   - *ASTGoto*: goto statement
+- **ASTStmtLabel**:
+  - *ASTLabel*: label for goto destination statements
+  - *ASTCaseLabel*: case label for switch statement
+  - *ASTCaseRangeLabel*: case range label for switch statement (gcc extension)
+  - *ASTDefaultLabel*: case default label for switch statement
 - **ASTInstruction**: abstract instruction (sequential control flow)
   - *ASTAssign*: assignment instruction, left-hand-side := right-hand-side
   - *ASTCall*: call instruction, (left-hand-side :=) call(..arguments..)
@@ -80,8 +85,8 @@ with auxiliary nodes:
 - **ASTFunArg**: definition of function parameter
 
 
-Most ASTNode objects are immutable. Some node types allow modification and must
-necessarily retain their node identity in the three structure, and thus need to
+Most ASTNode objects are immutable. Some node types may have to be modified, but must
+necessarily retain their node identity in the tree structure, and thus need to
 be mutable. Examples include the container statements like ASTBlock and ASTInstrSequence,
 to which statements or instructions can be added later, and the ASTGoto statement,
 whose destination stmtid may have to be fixed up later.

@@ -198,7 +198,7 @@ class Cfg:
                             condition, ifbranch, elsebranch, pcoffset)
                 branchinstr = fn.blocks[n].last_instruction
                 astree.add_instruction_span(
-                    bstmt.assembly_xref, branchinstr.iaddr, branchinstr.bytestring)
+                    bstmt.locationid, branchinstr.iaddr, branchinstr.bytestring)
                 if follownode:
                     return construct(
                         follownode, follow, result + [blockstmts[n], bstmt])
