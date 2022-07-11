@@ -319,6 +319,7 @@ class ASTInterface:
         return 0
 
         """Returns the next starting index for the argument in the binary."""
+
         '''
         formal = ASTIFormalVarInfo(vname, parameter, nextindex, bctyp=vtype)
         nextindex = formal.initialize(self.parameter_abi)
@@ -396,17 +397,26 @@ class ASTInterface:
             self,
             lval: AST.ASTLval,
             rhs: AST.ASTExpr,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             annotations: List[str] = []) -> AST.ASTAssign:
         assign = self.astree.mk_assign(lval, rhs)
-        self._annotations[assign.assembly_xref] = annotations
+        if iaddr is not None and bytestring is not None:
+            self.add_instruction_span(assign.instrid, iaddr, bytestring)
+        self._annotations[assign.instrid] = annotations
         return assign
 
     def mk_call(
             self,
             lval: Optional[AST.ASTLval],
             tgt: AST.ASTExpr,
-            args: List[AST.ASTExpr]) -> AST.ASTCall:
-        return self.astree.mk_call(lval, tgt, args)
+            args: List[AST.ASTExpr],
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None) -> AST.ASTCall:
+        call = self.astree.mk_call(lval, tgt, args)
+        if iaddr is not None and bytestring is not None:
+            self.add_instruction_span(call.instrid, iaddr, bytestring)
+        return call
 
     # ----------------------------------------------------- make lvals/exprs ---
 
