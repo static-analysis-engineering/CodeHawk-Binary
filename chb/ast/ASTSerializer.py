@@ -305,24 +305,28 @@ class ASTSerializer(ASTIndexer):
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] =  stmt.locationid
+        for label in stmt.labels:
+            args.append(label.index(self))
         if stmt.has_return_value():
             args.append(stmt.expr.index(self))
         else:
             args.append(-1)
-        for label in stmt.labels:
-            args.append(label.index(self))
         return self.add(tags, args, node)
 
     def index_block_stmt(self, stmt: AST.ASTBlock) -> int:
         tags: List[str] = [stmt.tag, str(stmt.stmtid), str(stmt.locationid)]
-        args: List[int] = [s.index(self) for s in stmt.stmts]
+        args: List[int] = []
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
-        node["locationid"] =  stmt.locationid
+        node["locationid"] = stmt.locationid
         if len(stmt.labels) > 0:
             node["labelcount"] = len(stmt.labels)
             for label in stmt.labels:
                 args.append(label.index(self))
+        for s in stmt.stmts:
+            if s.is_ast_instruction_sequence and len(s.instructions) == 0:
+                continue
+            args.append(s.index(self))
         return self.add(tags, args, node)
 
     def index_loop_stmt(self, stmt: AST.ASTLoop) -> int:
@@ -351,7 +355,7 @@ class ASTSerializer(ASTIndexer):
 
     def index_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> int:
         tags: List[str] = [stmt.tag, str(stmt.stmtid), str(stmt.locationid)]
-        args: List[int] = [instr.index(self) for instr in stmt.instructions]
+        args: List[int] = []
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] = stmt.locationid
@@ -359,6 +363,7 @@ class ASTSerializer(ASTIndexer):
             node["labelcount"] = len(stmt.labels)
             for label in stmt.labels:
                 args.append(label.index(self))
+        args.extend(instr.index(self) for instr in stmt.instructions)
         return self.add(tags, args, node)
 
     def index_goto_stmt(self, stmt: AST.ASTGoto) -> int:

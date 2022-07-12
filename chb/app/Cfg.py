@@ -441,7 +441,7 @@ class Cfg:
         gotolabels: Set[str] = set() # this is both used and mutated by run_with_gotolabels()
         domtree_adj = expand_domtree()
 
-        def run_with_gotolabels() -> AST.ASTStmt:
+        def run_with_gotolabels(apply_labels: bool) -> AST.ASTStmt:
             # This beautifully compact algorithm is due to
             #       Norman Ramsey. 2022. Beyond Relooper: Recursive Translation of
             #       Unstructured Control Flow to Structured Control Flow: Functional Pearl.
@@ -487,6 +487,12 @@ class Cfg:
                 # Could compare rpo numbers instead but this seems clearer.
                 return self.flowgraph._edge_flavors[(src, tgt)] == "back"
 
+            def labeled_if_needed(x: str) -> AST.ASTStmt:
+                xstmt = blockstmts[x]
+                if x in gotolabels and apply_labels:
+                    xstmt.add_label(x)
+                return xstmt
+
             def node_within(x: str, merges: List[str], ctx: ControlFlowContext) -> List[AST.ASTStmt]:
                 if len(merges) >= 1:
                     y_n, ys = merges[0], merges[1:]
@@ -494,11 +500,7 @@ class Cfg:
 
                 succs = self.successors(x)
                 nsuccs = len(succs)
-                xstmt = blockstmts[x]
-                if x in gotolabels:
-                    # TODO(brk): toggle label on xstmt
-                    pass
-                xstmts = [xstmt]
+                xstmts = [labeled_if_needed(x)]
                 if nsuccs == 0:
                     return xstmts # TODO(brk): and return statement?
 
@@ -515,8 +517,8 @@ class Cfg:
             return mk_block(do_tree(self.flowgraph.start_node, initial))
 
         # First run collects the labels; the next run uses them.
-        run_with_gotolabels()
-        return run_with_gotolabels()
+        run_with_gotolabels(apply_labels=False)
+        return run_with_gotolabels(apply_labels=True)
 
     def assembly_ast(
             self,

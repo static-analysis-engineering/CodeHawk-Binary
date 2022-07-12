@@ -217,7 +217,7 @@ class ASTStmt(ASTNode):
         ASTNode.__init__(self, tag)
         self._stmtid = stmtid
         self._locationid = locationid
-        self._labels = labels
+        self._labels = labels.copy() # avoid unwanted aliasing
 
     @property
     def stmtid(self) -> int:
@@ -230,6 +230,9 @@ class ASTStmt(ASTNode):
     @property
     def labels(self) -> List["ASTStmtLabel"]:
         return self._labels
+
+    def add_label(self, name: str) -> None:
+        self._labels.append(ASTLabel(self.locationid, name))
 
     @property
     def is_ast_stmt(self) -> bool:
