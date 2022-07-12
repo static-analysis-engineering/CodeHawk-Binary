@@ -61,6 +61,7 @@ class ASTApplicationInterface:
         astree = AbstractSyntaxTree(astfn.address, astfn.name, localsymboltable)
 
         try:
+            cfg_ast = astfn.cfg_ast(astree, self.support)
             ast = astfn.ast(astree, self.support)
         except Exception as e:
             print("=" * 80)
@@ -73,13 +74,15 @@ class ASTApplicationInterface:
             print("\n")
             pp = ASTCPrettyPrinter(localsymboltable)
             print(pp.to_c(ast))
+            print(pp.to_c(cfg_ast))
 
         fndata: Dict[str, Any] = {}
         serializer = ASTSerializer()
 
         localsymboltable.serialize(serializer)
         protoindex = localsymboltable.serialize_function_prototype(serializer)
-        startindex = serializer.index_stmt(ast)
+        ast_startindex = serializer.index_stmt(ast)
+        cfg_startindex = serializer.index_stmt(cfg_ast)
         astnodes = serializer.records()
 
         fndata["name"] = astfn.name
@@ -87,7 +90,8 @@ class ASTApplicationInterface:
         fndata["prototype"] = protoindex
         fndata["ast"] = {}
         fndata["ast"]["nodes"] = astnodes
-        fndata["ast"]["startnode"] = startindex
+        fndata["ast"]["ast-startnode"] = ast_startindex
+        fndata["ast"]["cfg-ast-stargnode"] = cfg_startindex
         fndata["spans"] = astree.spans
         fndata["available-expressions"] = {}
 

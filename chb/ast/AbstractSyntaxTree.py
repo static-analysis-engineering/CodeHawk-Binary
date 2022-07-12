@@ -196,19 +196,21 @@ class AbstractSyntaxTree:
             self,
             stmts: List[AST.ASTStmt],
             optstmtid: Optional[int] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTBlock:
+            optlocationid: Optional[int] = None,
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTBlock:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
-        return AST.ASTBlock(stmtid, locationid, stmts)
+        return AST.ASTBlock(stmtid, locationid, stmts, labels=labels)
 
     def mk_return_stmt(
             self,
             expr: Optional[AST.ASTExpr],
             optstmtid: Optional[int] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTReturn:
+            optlocationid: Optional[int] = None,
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTReturn:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
-        return AST.ASTReturn(stmtid, locationid, expr)
+        return AST.ASTReturn(stmtid, locationid, expr, labels=labels)
 
     def mk_branch(
             self,
@@ -217,23 +219,100 @@ class AbstractSyntaxTree:
             elsebranch: AST.ASTStmt,
             relative_offset: int,
             optstmtid: Optional[int] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTStmt:
+            optlocationid: Optional[int] = None,
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTStmt:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
         if condition is None:
-            # create a new unknown (unitialized) variable
+            # create a new unknown (uninitialized) variable
             condition = self.mk_tmp_lval_expression()
         return AST.ASTBranch(
             stmtid, locationid, condition, ifbranch, elsebranch, relative_offset)
+
+    def mk_goto_stmt(
+            self,
+            destinationlabel: str,
+            optstmtid: Optional[int] = None,
+            optlocationid: Optional[int] = None,
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTGoto:
+        stmtid = self.get_stmtid(optstmtid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTGoto(stmtid, locationid, destinationlabel)
+
+    def mk_switch_stmt(
+            self,
+            switchexpr: Optional[AST.ASTExpr],
+            cases: List[AST.ASTStmt],
+            optstmtid: Optional[int],
+            optlocationid: Optional[int],
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTSwitchStmt:
+        if switchexpr is None:
+            # create a new unknown (uninitialized) variable
+            switchexpr = self.mk_tmp_lval_expression()
+        stmtid = self.get_stmtid(optstmtid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTSwitchStmt(
+            stmtid, locationid, switchexpr, cases, labels=labels)
 
     def mk_instr_sequence(
             self,
             instrs: List[AST.ASTInstruction],
             optstmtid: Optional[int] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTInstrSequence:
+            optlocationid: Optional[int] = None,
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTInstrSequence:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
-        return AST.ASTInstrSequence(stmtid, locationid, instrs)
+        return AST.ASTInstrSequence(stmtid, locationid, instrs, labels=labels)
+
+
+    """Labels
+    Labels can be associated with statements. They represent both to mark
+    a location in the control-flow, for example serving as the destination
+    of a goto statement, and to specify case label in a switch statement.
+    Labels have a locationid associated with them.
+
+    Construction methods provided:
+    ------------------------------
+    - mk_label: creates a marker label with a name that can be used as the
+        destination of a goto statement
+
+    - mk_case_label: creates a case label for a switch statement with a
+        case expression
+
+    - mk_case_range_label: creates a case label for a switch statement with
+        a range of expressions, expressed as lowexpr and a highexpr
+        (this is a gcc extension, not part of the C standard)
+
+    - mk_default_label: creates a default label for a switch statement.
+    """
+
+    def mk_label(
+            self, name: str, optlocationid: Optional[int]=None) -> AST.ASTLabel:
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTLabel(locationid, name)
+
+    def mk_case_label(
+            self,
+            expr: Optional[AST.ASTExpr],
+            optlocationid: Optional[int]=None) -> AST.ASTCaseLabel:
+        locationid = self.get_locationid(optlocationid)
+        if expr is None:
+            # create an (uninitialized) temporary variable
+            expr = self.mk_tmp_lval_expression()
+        return AST.ASTCaseLabel(locationid, expr)
+
+    def mk_case_range_label(
+            self,
+            lowexpr: AST.ASTExpr,
+            highexpr: AST.ASTExpr,
+            optlocationid: Optional[int]=None) -> AST.ASTCaseRangeLabel:
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTCaseRangeLabel(locationid, lowexpr, highexpr)
+
+    def mk_default_label(
+            self, optlocationid: Optional[int]=None) -> AST.ASTDefaultLabel:
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTDefaultLabel(locationid)
 
     """Instructions
     There are two types of instructions: an assignment and a call. An

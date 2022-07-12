@@ -199,6 +199,8 @@ class ASTCPrettyPrinter(ASTVisitor):
         return str(self.ccode)
 
     def visit_return_stmt(self, stmt: AST.ASTReturn) -> None:
+        for label in stmt.labels:
+            label.accept(self)
         self.ccode.newline(indent=self.indent)
         if stmt.has_return_value():
             self.ccode.write("return ")
@@ -208,6 +210,8 @@ class ASTCPrettyPrinter(ASTVisitor):
             self.ccode.write("return;")
 
     def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
+        for label in stmt.labels:
+            label.accept(self)
         for s in stmt.stmts:
             s.accept(self)
 
@@ -232,6 +236,8 @@ class ASTCPrettyPrinter(ASTVisitor):
                 return (len(s.instructions) == 0)
             return False
 
+        for label in stmt.labels:
+            label.accept(self)
         self.ccode.newline(indent=self.indent)
         self.ccode.write("if (")
         stmt.condition.accept(self)
@@ -251,10 +257,15 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write("}")
 
     def visit_goto_stmt(self, stmt: AST.ASTGoto) -> None:
+        for label in stmt.labels:
+            label.accept(self)
         self.ccode.newline(indent=self.indent)
-        self.ccode.write("goto ?")
+        self.ccode.write("goto ")
+        self.ccode.write(stmt.destination)
 
     def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
+        for label in stmt.labels:
+            label.accept(self)
         self.ccode.newline(indent=self.indent)
         self.ccode.write("switch(")
         stmt.switchexpr.accept(self)
@@ -269,6 +280,7 @@ class ASTCPrettyPrinter(ASTVisitor):
     def visit_label(self, label: AST.ASTLabel) -> None:
         self.ccode.newline(indent=self.indent)
         self.ccode.write(" " + label.name)
+        self.ccode.write(":")
 
     def visit_case_label(self, label: AST.ASTCaseLabel) -> None:
         self.ccode.newline(indent=self.indent)

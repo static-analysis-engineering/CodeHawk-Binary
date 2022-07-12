@@ -220,6 +220,10 @@ class Instruction(ABC):
             reverse: bool = False) -> Optional[AST.ASTExpr]:
         raise UF.CHBError("assembly-ast-condition not defined")
 
+    def ast_case_expression(
+            self, target: str, astree: ASTInterface) -> Optional[AST.ASTExpr]:
+        return None
+
     @abstractmethod
     def to_string(
             self,

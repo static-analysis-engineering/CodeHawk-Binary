@@ -372,11 +372,17 @@ class ASTInterface:
 
     # ------------------------------------------------------ make statements ---
 
-    def mk_block(self, stmts: List[AST.ASTStmt]) -> AST.ASTBlock:
-        return self.astree.mk_block(stmts)
+    def mk_block(
+            self,
+            stmts: List[AST.ASTStmt],
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTBlock:
+        return self.astree.mk_block(stmts, labels=labels)
 
-    def mk_return_stmt(self, expr: Optional[AST.ASTExpr]) -> AST.ASTReturn:
-        return self.astree.mk_return_stmt(expr)
+    def mk_return_stmt(
+            self,
+            expr: Optional[AST.ASTExpr],
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTReturn:
+        return self.astree.mk_return_stmt(expr, labels=labels)
 
     def mk_branch(
             self,
@@ -390,6 +396,18 @@ class ASTInterface:
     def mk_instr_sequence(
             self, instrs: List[AST.ASTInstruction]) -> AST.ASTInstrSequence:
         return self.astree.mk_instr_sequence(instrs)
+
+    def mk_goto_stmt(
+            self, name: str, labels: List[AST.ASTStmtLabel] = []) -> AST.ASTGoto:
+        return self.astree.mk_goto_stmt(name, labels=labels)
+
+    # ---------------------------------------------------- make labels ---------
+
+    def mk_label(self, name: str) -> AST.ASTLabel:
+        return self.astree.mk_label(name)
+
+    def mk_case_label(self, expr: Optional[AST.ASTExpr]) -> AST.ASTCaseLabel:
+        return self.astree.mk_case_label(expr)
 
     # ---------------------------------------------------- make instructions ---
 

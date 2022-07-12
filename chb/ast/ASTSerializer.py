@@ -297,21 +297,7 @@ class ASTSerializer(ASTIndexer):
         return self.table.add(get_key(tags, args), node)
 
     def index_stmt(self, stmt: AST.ASTStmt) -> int:
-        if stmt.is_ast_return:
-            return self.index_return_stmt(cast(AST.ASTReturn, stmt))
-
-        elif stmt.is_ast_block:
-            return self.index_block_stmt(cast(AST.ASTBlock, stmt))
-
-        elif stmt.is_ast_instruction_sequence:
-            return self.index_instruction_sequence_stmt(
-                cast(AST.ASTInstrSequence, stmt))
-
-        elif stmt.is_ast_branch:
-            return self.index_branch_stmt(cast(AST.ASTBranch, stmt))
-
-        else:
-            raise Exception("Statement type not recognized: " + stmt.tag)
+        return stmt.index(self)
 
     def index_return_stmt(self, stmt: AST.ASTReturn) -> int:
         tags: List[str] = [stmt.tag, str(stmt.stmtid), str(stmt.locationid)]
@@ -323,6 +309,8 @@ class ASTSerializer(ASTIndexer):
             args.append(stmt.expr.index(self))
         else:
             args.append(-1)
+        for label in stmt.labels:
+            args.append(label.index(self))
         return self.add(tags, args, node)
 
     def index_block_stmt(self, stmt: AST.ASTBlock) -> int:
@@ -331,6 +319,10 @@ class ASTSerializer(ASTIndexer):
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] =  stmt.locationid
+        if len(stmt.labels) > 0:
+            node["labelcount"] = len(stmt.labels)
+            for label in stmt.labels:
+                args.append(label.index(self))
         return self.add(tags, args, node)
 
     def index_branch_stmt(self, stmt: AST.ASTBranch) -> int:
@@ -355,6 +347,10 @@ class ASTSerializer(ASTIndexer):
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] = stmt.locationid
+        if len(stmt.labels) > 0:
+            node["labelcount"] = len(stmt.labels)
+            for label in stmt.labels:
+                args.append(label.index(self))
         return self.add(tags, args, node)
 
     def index_goto_stmt(self, stmt: AST.ASTGoto) -> int:
@@ -364,7 +360,9 @@ class ASTSerializer(ASTIndexer):
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] = stmt.locationid
-        node["destinationid"] = stmt.destinationid
+        node["destination"] = stmt.destination
+        for label in stmt.labels:
+            args.append(label.index(self))
         return self.add(tags, args, node)
 
     def index_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> int:

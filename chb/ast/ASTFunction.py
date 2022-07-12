@@ -65,3 +65,9 @@ class ASTFunction(ABC):
     def ast(self, astree: AbstractSyntaxTree,
             support: CustomASTSupport) -> ASTStmt:
         ...
+
+    @abstractmethod
+    def cfg_ast(
+            self, astree: AbstractSyntaxTree,
+            support: CustomASTSupport) -> ASTStmt:
+        ...

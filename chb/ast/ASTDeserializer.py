@@ -102,7 +102,7 @@ class ASTDeserializer:
         if "prototype" in fdata:
             fprototypeix = fdata["prototype"]
             self._initialize_function_prototype(fprototypeix, astree, nodes)
-        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["startnode"])])
+        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["ast-startnode"])])
         self._functions[faddr] = (localsymboltable, astnode)
 
     def _initialize_lifted_functions(self) -> None:
@@ -370,6 +370,44 @@ class ASTDeserializer:
                     for i in r["args"]]
                 nodes[id] = astree.mk_block(
                     stmts, optstmtid=stmtid, optlocationid=locationid)
+
+            elif tag == "goto":
+                stmtid = r["stmtid"]
+                locationid = r["locationid"]
+                destinationlabel = r["destination"]
+                nodes[id] = astree.mk_goto_stmt(
+                    destinationlabel, stmtid, locationid)
+
+            elif tag == "switch":
+                stmtid = r["stmtid"]
+                locationid = r["locationid"]
+                switchexpr = cast(AST.ASTExpr, mk_node(arg(0)))
+                cases = [
+                    cast(AST.ASTStmt, mk_node(records[i]))
+                    for i in r["args"][1:]]
+                nodes[id] = astree.mk_switch_stmt(
+                    switchexpr, cases, stmtid, locationid)
+
+            elif tag == "label":
+                locationid = r["locationid"]
+                name = r["name"]
+                nodes[id] = astree.mk_label(name, locationid)
+
+            elif tag == "case":
+                locationid = r["locationid"]
+                expr = cast(AST.ASTExpr, mk_node(arg(0)))
+                nodes[id] = astree.mk_case_label(expr, locationid)
+
+            elif tag == "caserange":
+                locationid = r["locationid"]
+                lowexpr = cast(AST.ASTExpr, mk_node(arg(0)))
+                highexpr = cast(AST.ASTExpr, mk_node(arg(1)))
+                nodes[id] = astree.mk_case_range_label(
+                    lowexpr, highexpr, locationid)
+
+            elif tag == "default":
+                locationid = r["locationid"]
+                nodes[id] = astree.mk_default_label(locationid)
 
             else:
                 raise Exception("Deserializer: tag " + tag + " not handled")

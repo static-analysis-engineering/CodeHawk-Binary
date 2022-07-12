@@ -97,10 +97,10 @@ not present a new value is generated automatically.
     labels: List[ASTLabel] = []) -> ASTInstrSequence
   ```
 
-- **mk_goto_stmt**: creates a goTo statement with a stmtid as destination.
+- **mk_goto_stmt**: creates a goTo statement with a label name as destination.
   ```
   def mk_goto_stmt(self,
-    destinationid: int,
+    destinationlabel: str,
     stmtid: Optional[int],
     locationid: Optional[int],
     labels: List[ASTLabel] = []) -> ASTGoto
@@ -119,6 +119,43 @@ not present a new value is generated automatically.
   ```
 
 ### Statement Labels<a name="labels"></a>
+
+Labels serve two purposes: to provide a named statement as target
+for a goto in a C program, and to provide the case labels in a switch
+statement.
+
+#### Construction methods
+
+**mk_label**: creates a label that sets a marker in the control flow,
+  to be used as a target for a goto statement.
+  ```
+  def mk_label(self,
+    name: str,
+    locationid: Optional[int]) -> ASTLabel
+  ```
+
+**mk_case_label**: creates a case label for a switch statement with
+  a single expression.
+  ```
+  def mk_case_label(self,
+    expr: ASTExpr,
+    locationid: Optional[int]) -> ASTCaseLabel
+  ```
+
+**mk_case_range_label**: creates a case label for a switch statement
+   for a range of values, expressed by its minimum value and maximum
+   value (syntax is a gcc extension, it is not in the C standard).
+   ```
+   def mk_case_range_label(self,
+     lowexpr: ASTExpr,
+     highexpr: ASTExpr,
+     locationid: Optional[int]) -> ASTCaseRangeLabel
+   ```
+
+**mk_default_label**: creates a default case label for a switch statement.
+  ```
+  def mk_default_label(self, locationid: Optional[int]) -> ASTDefaultLabel
+  ```
 
 
 ### Instructions
@@ -152,7 +189,8 @@ relate the statement to a location in the binary.
   def mk_assign(self,
     lval: ASTLval,
     rhs: ASTExpr,
-    opt_assembly_xref: Optional[int]) -> ASTAssign
+    instrid: Optional[int],
+    locationid: Optional[int]) -> ASTAssign
   ```
 
 - **mk_call**: creates a call from an optional lhs (lval), a target (expression),
@@ -162,7 +200,8 @@ relate the statement to a location in the binary.
     lval: Optional[ASTLval],
     tgt: ASTExpr,
     args: List[ASTExpr],
-    opt_assembly_xref: Optional[int]) -> ASTCall
+    instrid: Optional[int],
+    locationid: Optional[int]) -> ASTCall
   ```
 
 - **mk_var_assign**: creates an assignment from a variable name and rhs

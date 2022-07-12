@@ -514,14 +514,14 @@ class ASTGoto(ASTStmt):
             self,
             stmtid: int,
             locationid: int,
-            destinationid: int,
+            destinationlabel: str,
             labels: List["ASTStmtLabel"] = []) -> None:
         ASTStmt.__init__(self, stmtid, locationid, labels, "goto")
-        self._destinationid = destinationid
+        self._destinationlabel = destinationlabel
 
     @property
-    def destinationid(self) -> int:
-        return self._destinationid
+    def destination(self) -> str:
+        return self._destinationlabel
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_goto_stmt(self)

@@ -69,6 +69,13 @@ class ASTInterfaceFunction(ASTFunction):
             support: CustomASTSupport) -> ASTStmt:
         astinterface = ASTInterface(astree)
         return self.function.ast(astinterface)
+
+    def cfg_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            support: CustomASTSupport) -> ASTStmt:
+        astinterface = ASTInterface(astree)
+        return self.function.cfg_ast(astinterface)
         
         
     

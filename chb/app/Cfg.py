@@ -240,6 +240,46 @@ class Cfg:
 
         return self.stmt_ast(fn, astree, blockstmts)
 
+    def cfg_ast(
+            self,
+            fn: "Function",
+            astree: ASTInterface) -> AST.ASTStmt:
+        """Returns an AST directly based on the CFG."""
+
+        blockstmts: List[AST.ASTStmt] = []
+        for (b, successors) in sorted(
+                self.edges.items(), key=lambda e: int(e[0], 16)):
+            label = astree.mk_label(b)
+            block = fn.blocks[b].assembly_ast(astree)
+            succblock: AST.ASTStmt
+            if len(successors) == 0:
+                succblock = astree.mk_return_stmt(None)
+            elif len(successors) == 1:
+                succblock = astree.mk_goto_stmt(successors[0])
+            elif len(successors) == 2:
+                falsebranch = astree.mk_goto_stmt(successors[0])
+                truebranch = astree.mk_goto_stmt(successors[1])
+                instr = fn.blocks[b].last_instruction
+                expr = instr.assembly_ast_condition(astree)
+                pcoffset = (
+                    (int(successors[1], 16)
+                     - int(successors[0], 16))
+                    - 2)
+                succblock = astree.mk_branch(
+                    expr, truebranch, falsebranch, pcoffset)
+            else:
+                cases: List[AST.ASTStmt] = []
+                instr = fn.blocks[b].last_instruction
+                for s in successors:
+                    casexpr = instr.ast_case_expression(s, astree)
+                    caselabel = astree.mk_case_label(casexpr)
+                    dst = astree.mk_goto_stmt(s, labels=[caselabel])
+                    cases.append(dst)
+                succblock = astree.mk_block(cases)
+            bblock = astree.mk_block([block, succblock], labels=[label])
+            blockstmts.append(bblock)
+        return astree.mk_block(blockstmts)
+
     def max_loop_level(self) -> int:
         return max([len(self.blocks[b].looplevels) for b in self.blocks])
 
