@@ -323,10 +323,12 @@ class ASTSerializer(ASTIndexer):
             node["labelcount"] = len(stmt.labels)
             for label in stmt.labels:
                 args.append(label.index(self))
-        for s in stmt.stmts:
-            if s.is_ast_instruction_sequence and len(s.instructions) == 0:
-                continue
-            args.append(s.index(self))
+        def is_empty_instr_sequence(s: AST.ASTStmt) -> bool:
+            if not s.is_ast_instruction_sequence:
+                return False
+            return len(cast(AST.ASTInstrSequence, s).instructions) == 0
+        args.extend(s.index(self) for s in stmt.stmts \
+                        if not is_empty_instr_sequence(s))
         return self.add(tags, args, node)
 
     def index_loop_stmt(self, stmt: AST.ASTLoop) -> int:
