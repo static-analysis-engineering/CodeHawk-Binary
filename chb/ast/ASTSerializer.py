@@ -325,6 +325,14 @@ class ASTSerializer(ASTIndexer):
                 args.append(label.index(self))
         return self.add(tags, args, node)
 
+    def index_loop_stmt(self, stmt: AST.ASTLoop) -> int:
+        tags: List[str] = [stmt.tag, str(stmt.stmtid), str(stmt.locationid)]
+        args: List[int] = [s.index(self) for s in stmt.stmts]
+        node: Dict[str, Any] = {"tag": stmt.tag}
+        node["stmtid"] = stmt.stmtid
+        node["locationid"] =  stmt.locationid
+        return self.add(tags, args, node)
+
     def index_branch_stmt(self, stmt: AST.ASTBranch) -> int:
         tags: List[str] = [
             stmt.tag, str(stmt.stmtid),
@@ -363,6 +371,24 @@ class ASTSerializer(ASTIndexer):
         node["destination"] = stmt.destination
         for label in stmt.labels:
             args.append(label.index(self))
+        return self.add(tags, args, node)
+
+    def index_break_stmt(self, stmt: AST.ASTBreak) -> int:
+        tags: List[str] = [
+            stmt.tag, str(stmt.stmtid), str(stmt.locationid), str(stmt.locationid)]
+        args: List[int] = []
+        node: Dict[str, Any] = {"tag": stmt.tag}
+        node["stmtid"] = stmt.stmtid
+        node["locationid"] = stmt.locationid
+        return self.add(tags, args, node)
+
+    def index_continue_stmt(self, stmt: AST.ASTContinue) -> int:
+        tags: List[str] = [
+            stmt.tag, str(stmt.stmtid), str(stmt.locationid), str(stmt.locationid)]
+        args: List[int] = []
+        node: Dict[str, Any] = {"tag": stmt.tag}
+        node["stmtid"] = stmt.stmtid
+        node["locationid"] = stmt.locationid
         return self.add(tags, args, node)
 
     def index_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> int:

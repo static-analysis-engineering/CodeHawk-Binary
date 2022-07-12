@@ -42,6 +42,18 @@ class ASTVisitor(ABC):
         ...
 
     @abstractmethod
+    def visit_break_stmt(self, stmt: AST.ASTBreak) -> None:
+        ...
+
+    @abstractmethod
+    def visit_continue_stmt(self, stmt: AST.ASTContinue) -> None:
+        ...
+
+    @abstractmethod
+    def visit_loop_stmt(self, stmt: AST.ASTLoop) -> None:
+        ...
+
+    @abstractmethod
     def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
         ...
 

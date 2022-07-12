@@ -378,11 +378,20 @@ class ASTInterface:
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTBlock:
         return self.astree.mk_block(stmts, labels=labels)
 
+    def mk_loop(self, body: AST.ASTStmt) -> AST.ASTLoop:
+        return self.astree.mk_loop(body)
+
     def mk_return_stmt(
             self,
             expr: Optional[AST.ASTExpr],
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTReturn:
         return self.astree.mk_return_stmt(expr, labels=labels)
+
+    def mk_break_stmt(self) -> AST.ASTBreak:
+        return self.astree.mk_break_stmt()
+
+    def mk_continue_stmt(self) -> AST.ASTContinue:
+        return self.astree.mk_continue_stmt()
 
     def mk_branch(
             self,

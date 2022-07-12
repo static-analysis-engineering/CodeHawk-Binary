@@ -127,6 +127,15 @@ class ASTByteSizeCalculator(ASTIndexer):
     def index_return_stmt(self, stmt: AST.ASTReturn) -> int:
         return 0
 
+    def index_break_stmt(self, stmt: AST.ASTBreak) -> int:
+        return 0
+
+    def index_continue_stmt(self, stmt: AST.ASTContinue) -> int:
+        return 0
+
+    def index_loop_stmt(self, stmt: AST.ASTLoop) -> int:
+        return 0
+
     def index_block_stmt(self, stmt: AST.ASTBlock) -> int:
         return 0
 

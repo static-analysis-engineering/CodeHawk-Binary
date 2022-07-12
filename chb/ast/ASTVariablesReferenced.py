@@ -50,6 +50,16 @@ class ASTVariablesReferenced(ASTVisitor):
         if stmt.has_return_value():
             stmt.expr.accept(self)
 
+    def visit_break_stmt(self, stmt: AST.ASTBreak) -> None:
+        pass
+
+    def visit_continue_stmt(self, stmt: AST.ASTContinue) -> None:
+        pass
+
+    def visit_loop_stmt(self, stmt: AST.ASTLoop) -> None:
+        for s in stmt.stmts:
+            s.accept(self)
+
     def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
         for s in stmt.stmts:
             s.accept(self)
