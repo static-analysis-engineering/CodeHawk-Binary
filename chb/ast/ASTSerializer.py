@@ -423,9 +423,10 @@ class ASTSerializer(ASTIndexer):
         return self.add(tags, args, node)
 
     def index_lval(self, lval: AST.ASTLval) -> int:
-        tags: List[str] = [lval.tag]
+        tags: List[str] = [lval.tag, str(lval.lvalid)]
         args: List[int] = [lval.lhost.index(self), lval.offset.index(self)]
         node: Dict[str, Any] = {"tag": lval.tag}
+        node["lvalid"] = lval.lvalid
         return self.add(tags, args, node)
 
     def index_varinfo(self, vinfo: AST.ASTVarInfo) -> int:
@@ -478,21 +479,24 @@ class ASTSerializer(ASTIndexer):
         return self.add(tags, args, node)
 
     def index_integer_constant(self, expr: AST.ASTIntegerConstant) -> int:
-        tags: List[str] = [expr.tag, str(expr.cvalue)]
+        tags: List[str] = [expr.tag, str(expr.cvalue), str(expr.exprid)]
         args: List[int] = []
-        node: Dict[str, Any] = {"tag": expr.tag, "value": str(expr.cvalue)}
+        node: Dict[str, Any] = {
+            "tag": expr.tag, "exprid": expr.exprid, "value": str(expr.cvalue)}
         return self.add(tags, args, node)
 
     def index_global_address(self, expr: AST.ASTGlobalAddressConstant) -> int:
-        tags: List[str] = [expr.tag, str(expr.cvalue)]
+        tags: List[str] = [expr.tag, str(expr.cvalue), str(expr.exprid)]
         args: List[int] = [expr.address_expr.index(self)]
-        node: Dict[str, Any] = {"tag": expr.tag, "value": str(expr.cvalue)}
+        node: Dict[str, Any] = {
+            "tag": expr.tag, "exprid": expr.exprid, "value": str(expr.cvalue)}
         return self.add(tags, args, node)
 
     def index_string_constant(self, expr: AST.ASTStringConstant) -> int:
-        tags: List[str] = [expr.tag, expr.cstr]
+        tags: List[str] = [expr.tag, expr.cstr, str(expr.exprid)]
         args: List[int] = []
-        node: Dict[str, Any] = {"tag": expr.tag, "cstr": expr.cstr}
+        node: Dict[str, Any] = {
+            "tag": expr.tag, "exprid": expr.exprid, "cstr": expr.cstr}
         if expr.address_expr is not None:
             args.append(expr.address_expr.index(self))
         else:
@@ -503,47 +507,49 @@ class ASTSerializer(ASTIndexer):
         return self.add(tags, args, node)
 
     def index_lval_expression(self, expr: AST.ASTLvalExpr) -> int:
-        tags: List[str] = [expr.tag]
+        tags: List[str] = [expr.tag, str(expr.exprid)]
         args: List[int] = [expr.lval.index(self)]
-        node: Dict[str, Any] = {"tag": expr.tag}
+        node: Dict[str, Any] = {"tag": expr.tag, "exprid": expr.exprid}
         return self.add(tags, args, node)
 
     def index_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> int:
-        tags: List[str] = [expr.tag]
+        tags: List[str] = [expr.tag, str(expr.exprid)]
         args: List[int] = [expr.tgt_type.index(self)]
-        node: Dict[str, Any] = {"tag": expr.tag}
+        node: Dict[str, Any] = {"tag": expr.tag, "exprid": expr.exprid}
         return self.add(tags, args, node)
 
     def index_cast_expression(self, expr: AST.ASTCastExpr) -> int:
-        tags: List[str] = [expr.tag]
+        tags: List[str] = [expr.tag, str(expr.exprid)]
         args: List[int] = [
             expr.cast_tgt_type.index(self), expr.cast_expr.index(self)]
-        node: Dict[str, Any] = {"tag": expr.tag}
+        node: Dict[str, Any] = {"tag": expr.tag, "exprid": expr.exprid}
         return self.add(tags, args, node)
 
     def index_unary_expression(self, expr: AST.ASTUnaryOp) -> int:
-        tags: List[str] = [expr.tag, expr.op]
+        tags: List[str] = [expr.tag, expr.op, str(expr.exprid)]
         args: List[int] = [expr.exp1.index(self)]
-        node: Dict[str, Any] = {"tag": expr.tag, "op": expr.op}
+        node: Dict[str, Any] = {
+            "tag": expr.tag, "exprid": expr.exprid, "op": expr.op}
         return self.add(tags, args, node)
 
     def index_binary_expression(self, expr: AST.ASTBinaryOp) -> int:
-        tags: List[str] = [expr.tag, expr.op]
+        tags: List[str] = [expr.tag, expr.op, str(expr.exprid)]
         args: List[int] = [expr.exp1.index(self), expr.exp2.index(self)]
-        node: Dict[str, Any] = {"tag": expr.tag, "op": expr.op}
+        node: Dict[str, Any] = {
+            "tag": expr.tag, "exprid": expr.exprid, "op": expr.op}
         return self.add(tags, args, node)
 
     def index_question_expression(self, expr: AST.ASTQuestion) -> int:
-        tags: List[str] = [expr.tag]
+        tags: List[str] = [expr.tag, str(expr.exprid)]
         args: List[int] = [
             expr.exp1.index(self), expr.exp2.index(self), expr.exp3.index(self)]
-        node: Dict[str, Any] = {"tag": expr.tag}
+        node: Dict[str, Any] = {"tag": expr.tag, "exprid": expr.exprid}
         return self.add(tags, args, node)
 
     def index_address_of_expression(self, expr: AST.ASTAddressOf) -> int:
-        tags: List[str] = [expr.tag]
+        tags: List[str] = [expr.tag, str(expr.exprid)]
         args: List[int] = [expr.lval.index(self)]
-        node: Dict[str, Any] = {"tag": expr.tag}
+        node: Dict[str, Any] = {"tag": expr.tag, "exprid": expr.exprid}
         return self.add(tags, args, node)
 
     def index_void_typ(self, typ: AST.ASTTypVoid) -> int:

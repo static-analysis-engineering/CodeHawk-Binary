@@ -261,46 +261,58 @@ class ASTDeserializer:
                 nodes[id] = astree.mk_expr_index_offset(expr, offset)
 
             elif tag == "lval":
+                lvalid = r["lvalid"]
                 host = cast(AST.ASTLHost, mk_node(arg(0)))
                 offset = cast(AST.ASTOffset, mk_node(arg(1)))
-                nodes[id] = astree.mk_lval(host, offset)
+                nodes[id] = astree.mk_lval(host, offset, optlvalid=lvalid)
 
             elif tag == "integer-constant":
+                exprid = r["exprid"]
                 cvalue = int(r["value"])
-                nodes[id] = astree.mk_integer_constant(cvalue)
+                nodes[id] = astree.mk_integer_constant(cvalue, optexprid=exprid)
 
             elif tag == "string-constant":
+                exprid = r["exprid"]
                 cstr = r["cstr"]
                 va = r["va"] if "va" in r else None
                 if r["args"][0] == -1:
                     addrexpr: Optional[AST.ASTExpr] = None
                 else:
                     addrexpr = cast(AST.ASTExpr, mk_node(arg(0)))
-                nodes[id] = astree.mk_string_constant(addrexpr, cstr, va)
+                nodes[id] = astree.mk_string_constant(
+                    addrexpr, cstr, va, optexprid=exprid)
 
             elif tag == "lval-expr":
+                exprid = r["exprid"]
                 lval = cast(AST.ASTLval, mk_node(arg(0)))
-                nodes[id] = astree.mk_lval_expression(lval)
+                nodes[id] = astree.mk_lval_expression(lval, optexprid=exprid)
 
             elif tag == "cast-expr":
+                exprid = r["exprid"]
                 tgttyp = cast(AST.ASTTyp, mk_node(arg(0)))
                 expr = cast(AST.ASTExpr, mk_node(arg(1)))
-                nodes[id] = astree.mk_cast_expression(tgttyp, expr)
+                nodes[id] = astree.mk_cast_expression(
+                    tgttyp, expr, optexprid=exprid)
 
             elif tag == "address-of":
+                exprid = r["exprid"]
                 lval = cast(AST.ASTLval, mk_node(arg(0)))
-                nodes[id] = astree.mk_address_of_expression(lval)
+                nodes[id] = astree.mk_address_of_expression(
+                    lval, optexprid=exprid)
 
             elif tag == "unary-op":
+                exprid = r["exprid"]
                 exp1 = cast(AST.ASTExpr, mk_node(arg(0)))
                 op = r["op"]
-                nodes[id] = astree.mk_unary_expression(op, exp1)
+                nodes[id] = astree.mk_unary_expression(op, exp1, optexprid=exprid)
 
             elif tag == "binary-op":
+                exprid = r["exprid"]
                 exp1 = cast(AST.ASTExpr, mk_node(arg(0)))
                 exp2 = cast(AST.ASTExpr, mk_node(arg(1)))
                 op = r["op"]
-                nodes[id] = astree.mk_binary_expression(op, exp1, exp2)
+                nodes[id] = astree.mk_binary_expression(
+                    op, exp1, exp2, optexprid=exprid)
 
             elif tag == "assign":
                 instrid = r["instrid"]

@@ -68,6 +68,8 @@ class AbstractSyntaxTree:
         self._stmtid_counter = 1
         self._instrid_counter =  1
         self._locationid_counter = 1
+        self._lval_counter = 1
+        self._expr_counter = 1
         self._tmpcounter = 0
         self._spans: List[ASTSpanRecord] = []
         self._symboltable = localsymboltable
@@ -166,6 +168,26 @@ class AbstractSyntaxTree:
 
     def get_locationid(self, locationid: Optional[int]) -> int:
         return self.new_locationid() if locationid is None else locationid
+
+    def new_lvalid(self) -> int:
+        """Return a new lval id for lvalues."""
+
+        lvalid = self._lval_counter
+        self._lval_counter += 1
+        return lvalid
+
+    def get_lvalid(self, lvalid: Optional[int]) -> int:
+        return self.new_lvalid() if lvalid is None else lvalid
+
+    def new_exprid(self) -> int:
+        """Return a new expression id."""
+
+        exprid = self._expr_counter
+        self._expr_counter += 1
+        return exprid
+
+    def get_exprid(self, exprid: Optional[int]) -> int:
+        return self.new_exprid() if exprid is None else exprid
 
     def add_span(self, span: ASTSpanRecord) -> None:
         self._spans.append(span)
@@ -517,22 +539,31 @@ class AbstractSyntaxTree:
     def mk_vinfo_variable(self, vinfo: AST.ASTVarInfo) -> AST.ASTVariable:
         return AST.ASTVariable(vinfo)
 
-    def mk_lval(self, lhost: AST.ASTLHost, offset: AST.ASTOffset) -> AST.ASTLval:
-        return AST.ASTLval(lhost, offset)
+    def mk_lval(
+            self,
+            lhost: AST.ASTLHost,
+            offset: AST.ASTOffset,
+            optlvalid: Optional[int] = None) -> AST.ASTLval:
+        lvalid = self.get_lvalid(optlvalid)
+        return AST.ASTLval(lvalid, lhost, offset)
 
     def mk_vinfo_lval(
             self,
             vinfo: AST.ASTVarInfo,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
+            offset: AST.ASTOffset = nooffset,
+            optlvalid: Optional[int] = None) -> AST.ASTLval:
         var = self.mk_vinfo_variable(vinfo)
-        return AST.ASTLval(var, offset)
+        return self.mk_lval(var, offset, optlvalid=optlvalid)
 
     def mk_vinfo_lval_expression(
             self,
             vinfo: AST.ASTVarInfo,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTLvalExpr:
-        lval = self.mk_vinfo_lval(vinfo, offset)
-        return AST.ASTLvalExpr(lval)
+            offset: AST.ASTOffset = nooffset,
+            optlvalid: Optional[int] = None,
+            optexprid: Optional[int] = None) -> AST.ASTLvalExpr:
+        lval = self.mk_vinfo_lval(vinfo, offset, optlvalid=optlvalid)
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTLvalExpr(exprid, lval)
 
     def mk_named_variable(
             self,
@@ -556,14 +587,15 @@ class AbstractSyntaxTree:
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
+            offset: AST.ASTOffset = nooffset,
+            optlvalid: Optional[int] = None) -> AST.ASTLval:
         var = self.mk_named_variable(
             vname,
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress,
             vdescr=vdescr)
-        return AST.ASTLval(var, offset)
+        return self.mk_lval(var, offset, optlvalid=optlvalid)
 
     def mk_named_lval_expression(
             self,
@@ -572,7 +604,8 @@ class AbstractSyntaxTree:
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTLvalExpr:
+            offset: AST.ASTOffset = nooffset,
+            optexprid: Optional[int] = None) -> AST.ASTLvalExpr:
         lval = self.mk_named_lval(
             vname,
             vtype=vtype,
@@ -580,7 +613,8 @@ class AbstractSyntaxTree:
             globaladdress=globaladdress,
             vdescr=vdescr,
             offset=offset)
-        return AST.ASTLvalExpr(lval)
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTLvalExpr(exprid, lval)
 
     def new_tmp_name(self) -> str:
         tmpid = self._tmpcounter
@@ -698,8 +732,12 @@ class AbstractSyntaxTree:
 
     """
 
-    def mk_lval_expression(self, lval: AST.ASTLval) -> AST.ASTLvalExpr:
-        return AST.ASTLvalExpr(lval)
+    def mk_lval_expression(
+            self,
+            lval: AST.ASTLval,
+            optexprid: Optional[int] = None) -> AST.ASTLvalExpr:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTLvalExpr(exprid, lval)
 
     def mk_memref(self, memexp: AST.ASTExpr) -> AST.ASTMemRef:
         return AST.ASTMemRef(memexp)
@@ -707,36 +745,50 @@ class AbstractSyntaxTree:
     def mk_memref_lval(
             self,
             memexp: AST.ASTExpr,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
+            offset: AST.ASTOffset = nooffset,
+            optlvalid: Optional[int] = None) -> AST.ASTLval:
         memref = self.mk_memref(memexp)
-        return AST.ASTLval(memref, offset)
+        return self.mk_lval(memref, offset, optlvalid=optlvalid)
 
     def mk_memref_expression(
             self,
             memexp: AST.ASTExpr,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTExpr:
+            offset: AST.ASTOffset = nooffset,
+            optexprid: Optional[int] = None) -> AST.ASTExpr:
         memreflval = self.mk_memref_lval(memexp, offset)
-        return AST.ASTLvalExpr(memreflval)
+        return self.mk_lval_expression(memreflval, optexprid=optexprid)
 
-    def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
-        return AST.ASTIntegerConstant(cvalue)
+    def mk_integer_constant(
+            self,
+            cvalue: int,
+            optexprid: Optional[int] = None) -> AST.ASTIntegerConstant:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTIntegerConstant(exprid, cvalue)
 
     def mk_string_constant(
             self,
             expr: Optional[AST.ASTExpr],
             cstr: str,
-            string_address: Optional[str] = None) -> AST.ASTStringConstant:
-        return AST.ASTStringConstant(expr, cstr, string_address)
+            string_address: Optional[str] = None,
+            optexprid: Optional[int] = None) -> AST.ASTStringConstant:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTStringConstant(exprid, expr, cstr, string_address)
 
-    def mk_address_of_expression(self, lval: AST.ASTLval) -> AST.ASTAddressOf:
-        return AST.ASTAddressOf(lval)
+    def mk_address_of_expression(
+            self,
+            lval: AST.ASTLval,
+            optexprid: Optional[int] = None) -> AST.ASTAddressOf:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTAddressOf(exprid, lval)
 
     def mk_binary_expression(
             self,
             op: str,
             exp1: AST.ASTExpr,
-            exp2: AST.ASTExpr) -> AST.ASTExpr:
-        return AST.ASTBinaryOp(op, exp1, exp2)
+            exp2: AST.ASTExpr,
+            optexprid: Optional[int] = None) -> AST.ASTExpr:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTBinaryOp(exprid, op, exp1, exp2)
 
     def mk_plus_expression(
             self, exp1: AST.ASTExpr, exp2: AST.ASTExpr) -> AST.ASTExpr:
@@ -754,11 +806,18 @@ class AbstractSyntaxTree:
             self,
             exp1: AST.ASTExpr,
             exp2: AST.ASTExpr,
-            exp3: AST.ASTExpr) -> AST.ASTExpr:
-        return AST.ASTQuestion(exp1, exp2, exp3)
+            exp3: AST.ASTExpr,
+            optexprid: Optional[int] = None) -> AST.ASTExpr:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTQuestion(exprid, exp1, exp2, exp3)
 
-    def mk_unary_expression(self, op: str, exp: AST.ASTExpr) -> AST.ASTExpr:
-        return AST.ASTUnaryOp(op, exp)
+    def mk_unary_expression(
+            self,
+            op: str,
+            exp: AST.ASTExpr,
+            optexprid: Optional[int] = None) -> AST.ASTExpr:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTUnaryOp(exprid, op, exp)
 
     def mk_negation_expression(self, exp: AST.ASTExpr) -> AST.ASTExpr:
         return self.mk_unary_expression("neg", exp)
@@ -770,14 +829,13 @@ class AbstractSyntaxTree:
         return self.mk_unary_expression("lnot", exp)
 
     def mk_cast_expression(
-            self, tgttyp: AST.ASTTyp, exp: AST.ASTExpr) -> AST.ASTExpr:
-        return AST.ASTCastExpr(tgttyp, exp)
+            self,
+            tgttyp: AST.ASTTyp,
+            exp: AST.ASTExpr,
+            optexprid: Optional[int] = None) -> AST.ASTExpr:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTCastExpr(exprid, tgttyp, exp)
 
-    def __str__(self) -> str:
-        lines: List[str] = []
-        for r in self._spans:
-            lines.append(str(r))
-        return "\n".join(lines)
 
     """Types
 

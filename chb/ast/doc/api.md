@@ -268,7 +268,8 @@ new one, thereby ignoring the associate data provided.
 Only one instance exists of the ASTVarInfo data structure, held in the
 symboltable for each name. Multiple instances of related ASTVariable,
 ASTLval, and ASTLvalExpr may exist within the abstract syntax tree structure
-(these will all be collapsed into one by the serializer).
+
+Lvalues have unique identifiers to distinguish them in space and time.
 
 Temporary variables are automatically given unique names.
 

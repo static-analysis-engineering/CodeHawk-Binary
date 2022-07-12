@@ -177,7 +177,7 @@ class ASTIFormalVarInfo(ASTIVarInfo):
                                 argloc = get_arg_loc(
                                     "arm", argbytecounter, 1)
                                 indexoffset = AST.ASTIndexOffset(
-                                    AST.ASTIntegerConstant(i),
+                                    AST.ASTIntegerConstant(-1, i),    # TBD
                                     AST.ASTNoOffset())
                                 fieldoffset = AST.ASTFieldOffset(
                                     finfo.fieldname,

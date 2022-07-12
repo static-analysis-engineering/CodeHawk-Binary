@@ -45,7 +45,6 @@ from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 
 from chb.astinterface.ASTInterface import ASTInterface
 from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
-from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI

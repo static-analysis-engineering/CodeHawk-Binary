@@ -850,14 +850,20 @@ class ASTCall(ASTInstruction):
 
 class ASTLval(ASTNode):
 
-    def __init__(self, lhost: "ASTLHost", offset: "ASTOffset") -> None:
+    def __init__(
+            self, lvalid: int, lhost: "ASTLHost", offset: "ASTOffset") -> None:
         ASTNode.__init__(self, "lval")
+        self._lvalid = lvalid
         self._lhost = lhost
         self._offset = offset
 
     @property
     def is_ast_lval(self) -> bool:
         return True
+
+    @property
+    def lvalid(self) -> int:
+        return self._lvalid
 
     @property
     def lhost(self) -> "ASTLHost":
@@ -1284,8 +1290,13 @@ class ASTExpr(ASTNode):
     avoids the need for subsequent explicit casting (for type checking).
     """
 
-    def __init__(self, tag: str) -> None:
+    def __init__(self, exprid: int, tag: str) -> None:
         ASTNode.__init__(self, tag)
+        self._exprid = exprid
+
+    @property
+    def exprid(self) -> int:
+        return self._exprid
 
     @property
     def is_ast_expr(self) -> bool:
@@ -1351,8 +1362,8 @@ class ASTExpr(ASTNode):
 
 class ASTConstant(ASTExpr):
 
-    def __init__(self, tag: str) -> None:
-        ASTExpr.__init__(self, tag)
+    def __init__(self, exprid: int, tag: str) -> None:
+        ASTExpr.__init__(self, exprid, tag)
 
     @property
     def is_ast_constant(self) -> bool:
@@ -1372,10 +1383,11 @@ class ASTIntegerConstant(ASTConstant):
 
     def __init__(
             self,
+            exprid: int,
             cvalue: int,
             ikind: str = "iint",
             tag: str = "integer-constant") -> None:
-        ASTConstant.__init__(self, tag)
+        ASTConstant.__init__(self, exprid, tag)
         self._cvalue = cvalue
         self._ikind = ikind
 
@@ -1413,8 +1425,8 @@ class ASTIntegerConstant(ASTConstant):
 class ASTGlobalAddressConstant(ASTIntegerConstant):
     """An integer constant that is the address of a global variable."""
 
-    def __init__(self, cvalue: int, addressexpr: "ASTExpr") -> None:
-        ASTIntegerConstant.__init__(self, cvalue, tag="global-address")
+    def __init__(self, exprid: int, cvalue: int, addressexpr: "ASTExpr") -> None:
+        ASTIntegerConstant.__init__(self, exprid, cvalue, tag="global-address")
         self._addressexpr = addressexpr
 
     @property
@@ -1441,24 +1453,6 @@ class ASTGlobalAddressConstant(ASTIntegerConstant):
     def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
         return ctyper.ctype_global_address(self)
 
-    '''
-    @property
-    def address_tgt_type(self) -> Optional["BCTyp"]:
-        if self.address_expr.is_ast_addressof:
-            expr = cast("ASTAddressOf", self.address_expr)
-            lval = expr.lval
-            if expr.lval.is_variable and expr.lval.offset.is_no_offset:
-                varinfo = cast("ASTVariable", expr.lval.lhost).varinfo
-                return varinfo.vtype
-            else:
-                return None
-        else:
-            return None
-    @property
-    def ctype(self) -> Optional["BCTyp"]:
-        return self.address_expr.ctype
-    '''
-
     def __str__(self) -> str:
         return str(self.address_expr)
 
@@ -1467,10 +1461,11 @@ class ASTStringConstant(ASTConstant):
 
     def __init__(
             self,
+            exprid: int,
             expr: Optional["ASTExpr"],
             cstr: str,
             saddr: Optional[str]) -> None:
-        ASTConstant.__init__(self, "string-constant")
+        ASTConstant.__init__(self, exprid, "string-constant")
         self._expr = expr    # expression that produced the string
         self._cstr = cstr
         self._saddr = saddr
@@ -1512,8 +1507,8 @@ class ASTStringConstant(ASTConstant):
 
 class ASTLvalExpr(ASTExpr):
 
-    def __init__(self, lval: "ASTLval", tag: str = "lval-expr") -> None:
-        ASTExpr.__init__(self, tag)
+    def __init__(self, exprid: int, lval: "ASTLval", tag: str = "lval-expr") -> None:
+        ASTExpr.__init__(self, exprid, tag)
         self._lval = lval
 
     @property
@@ -1551,8 +1546,8 @@ class ASTLvalExpr(ASTExpr):
 
 class ASTSizeOfExpr(ASTExpr):
 
-    def __init__(self, tgttyp: "ASTTyp") -> None:
-        ASTExpr.__init__(self, "sizeof-expr")
+    def __init__(self, exprid: int, tgttyp: "ASTTyp") -> None:
+        ASTExpr.__init__(self, exprid, "sizeof-expr")
         self._tgttyp = tgttyp
 
     @property
@@ -1577,8 +1572,8 @@ class ASTSizeOfExpr(ASTExpr):
 
 class ASTCastExpr(ASTExpr):
 
-    def __init__(self, tgttyp: "ASTTyp", exp: "ASTExpr") -> None:
-        ASTExpr.__init__(self, "cast-expr")
+    def __init__(self, exprid: int, tgttyp: "ASTTyp", exp: "ASTExpr") -> None:
+        ASTExpr.__init__(self, exprid, "cast-expr")
         self._tgttyp = tgttyp
         self._exp = exp
 
@@ -1621,8 +1616,8 @@ class ASTCastExpr(ASTExpr):
 
 class ASTUnaryOp(ASTExpr):
 
-    def __init__(self, op: str,  exp: "ASTExpr") -> None:
-        ASTExpr.__init__(self, "unary-op")
+    def __init__(self, exprid: int, op: str,  exp: "ASTExpr") -> None:
+        ASTExpr.__init__(self, exprid, "unary-op")
         if not op in operators:
             raise Exception("Unary operator " + op + " not recognized")
         self._op = op
@@ -1669,10 +1664,11 @@ class ASTBinaryOp(ASTExpr):
 
     def __init__(
             self,
+            exprid: int,
             op: str,
             exp1: "ASTExpr",
             exp2: "ASTExpr") -> None:
-        ASTExpr.__init__(self, "binary-op")
+        ASTExpr.__init__(self, exprid, "binary-op")
         if not op in operators:
             raise Exception("Binary operator " + op + " not recognized")
         self._op = op
@@ -1731,10 +1727,11 @@ class ASTQuestion(ASTExpr):
 
     def __init__(
             self,
+            exprid: int,
             exp1: "ASTExpr",
             exp2: "ASTExpr",
             exp3: "ASTExpr") -> None:
-        ASTExpr.__init__(self, "question")
+        ASTExpr.__init__(self, exprid, "question")
         self._exp1 = exp1
         self._exp2 = exp2
         self._exp3 = exp3
@@ -1788,8 +1785,8 @@ class ASTQuestion(ASTExpr):
 
 class ASTAddressOf(ASTExpr):
 
-    def __init__(self, lval: "ASTLval") -> None:
-        ASTExpr.__init__(self, "address-of")
+    def __init__(self, exprid: int, lval: "ASTLval") -> None:
+        ASTExpr.__init__(self, exprid, "address-of")
         self._lval = lval
 
     @property
@@ -1799,24 +1796,6 @@ class ASTAddressOf(ASTExpr):
     @property
     def lval(self) -> "ASTLval":
         return self._lval
-
-    '''
-    @property
-    def ctype(self) -> Optional["BCTyp"]:
-        if self.lval.lhost.is_variable:
-            if self.lval.lhost.ctype is not None:
-                if self.lval.lhost.ctype.is_array:
-                    if self.lval.offset.is_index_offset:
-                        indexoffset = cast(
-                            "ASTIndexOffset", self.lval.offset)
-                        if indexoffset.index_expr.is_integer_constant:
-                            index = cast(
-                                "ASTIntegerConstant", indexoffset.index)
-                            if index.cvalue == 0:
-                                return self.lval.lhost.ctype
-
-        return None
-    '''
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_address_of_expression(self)

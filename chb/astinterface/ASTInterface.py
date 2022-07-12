@@ -51,7 +51,6 @@ import chb.ast.ASTNode as AST
 from chb.ast.ASTSymbolTable import (
     ASTSymbolTable, ASTLocalSymbolTable, ASTGlobalSymbolTable)
 
-from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 from chb.astinterface.ASTIFormalVarInfo import ASTIFormalVarInfo
 
 import chb.astinterface.ASTIUtil as AU
@@ -279,7 +278,7 @@ class ASTInterface:
             lvals: List[AST.ASTLval] = []
             for locindex in locindices:
                 (loc, offset, size) = formal.argloc(locindex)
-                lvals.append(AST.ASTLval(regvar, offset))
+                lvals.append(self.mk_lval(regvar, offset))
             return lvals
         else:
             if self.has_function_prototype():
@@ -530,7 +529,7 @@ class ASTInterface:
             iaddr: str,
             vtype: Optional[AST.ASTTyp]) -> AST.ASTLval:
         var = self.mk_returnval_variable(iaddr, vtype)
-        return AST.ASTLval(var, nooffset)
+        return self.mk_lval(var, nooffset)
 
     def mk_register_variable(
             self,
@@ -546,14 +545,14 @@ class ASTInterface:
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None) -> AST.ASTLval:
         var = self.mk_register_variable(name, vtype, parameter)
-        return AST.ASTLval(var, nooffset)
+        return self.mk_lval(var, nooffset)
 
     def mk_register_variable_expr(
             self, name: str,
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None) -> AST.ASTExpr:
         lval = self.mk_register_variable_lval(name, vtype, parameter)
-        return AST.ASTLvalExpr(lval)
+        return self.mk_lval_expression(lval)
 
     def mk_stack_variable(
             self,
@@ -584,7 +583,7 @@ class ASTInterface:
 
     def mk_formal_lval(self, formal: ASTIFormalVarInfo) -> AST.ASTLval:
         var = AST.ASTVariable(formal)
-        return AST.ASTLval(var, nooffset)
+        return self.mk_lval(var, nooffset)
 
     def mk_memref(self, memexp: AST.ASTExpr) -> AST.ASTMemRef:
         return AST.ASTMemRef(memexp)
@@ -594,14 +593,14 @@ class ASTInterface:
             memexp: AST.ASTExpr,
             offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
         memref = self.mk_memref(memexp)
-        return AST.ASTLval(memref, offset)
+        return self.mk_lval(memref, offset)
 
     def mk_memref_expr(
             self,
             memexp: AST.ASTExpr,
             offset: AST.ASTOffset = nooffset) -> AST.ASTExpr:
         memreflval = self.mk_memref_lval(memexp, offset)
-        return AST.ASTLvalExpr(memreflval)
+        return self.mk_lval_expression(memreflval)
 
     def mk_scalar_index_offset(
             self,
@@ -623,12 +622,6 @@ class ASTInterface:
             offset: AST.ASTOffset = nooffset) -> AST.ASTFieldOffset:
         return self.astree.mk_field_offset(fieldname, compkey, offset=offset)
 
-    '''
-    def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
-        gvinfo = AU.has_global_denotation(self.global_symbols(), hex(cvalue))
-        return AST.ASTIntegerConstant(cvalue)
-    '''
-
     def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
         return self.astree.mk_integer_constant(cvalue)
 
@@ -637,10 +630,10 @@ class ASTInterface:
             expr: AST.ASTExpr,
             cstr: str,
             saddr: str) -> AST.ASTStringConstant:
-        return AST.ASTStringConstant(expr, cstr, saddr)
+        return self.astree.mk_string_constant(expr, cstr, saddr)
 
     def mk_address_of(self, lval: AST.ASTLval) -> AST.ASTAddressOf:
-        return AST.ASTAddressOf(lval)
+        return self.astree.mk_address_of_expression(lval)
 
     def mk_byte_expr(self, index: int, x: AST.ASTExpr) -> AST.ASTExpr:
         if index == 0:
@@ -756,7 +749,7 @@ class ASTInterface:
             exp1: AST.ASTExpr,
             exp2: AST.ASTExpr,
             exp3: AST.ASTExpr) -> AST.ASTExpr:
-        return AST.ASTQuestion(exp1, exp2, exp3)
+        return self.astree.mk_question_expression(exp1, exp2, exp3)
 
     def mk_unary_op(self, op: str, exp: AST.ASTExpr) -> AST.ASTExpr:
         return self.astree.mk_unary_expression(op, exp)
