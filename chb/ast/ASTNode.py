@@ -543,7 +543,7 @@ class ASTSwitchStmt(ASTStmt):
             stmtid: int,
             locationid: int,
             switchexpr: "ASTExpr",
-            cases: List["ASTStmt"],
+            cases: "ASTStmt",
             labels: List["ASTStmtLabel"] = []) -> None:
         ASTStmt.__init__(self, stmtid, locationid, labels, "switch")
         self._switchexpr = switchexpr
@@ -554,7 +554,7 @@ class ASTSwitchStmt(ASTStmt):
         return self._switchexpr
 
     @property
-    def cases(self) -> List["ASTStmt"]:
+    def cases(self) -> "ASTStmt":
         return self._cases
 
     def accept(self, visitor: "ASTVisitor") -> None:

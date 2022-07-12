@@ -367,8 +367,7 @@ class ASTSerializer(ASTIndexer):
 
     def index_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> int:
         tags: List[str] = [stmt.tag, str(stmt.stmtid), str(stmt.locationid)]
-        args: List[int] = [stmt.switchexpr.index(self)]
-        args.extend([c.index(self) for c in stmt.cases])
+        args: List[int] = [stmt.switchexpr.index(self), stmt.cases.index(self)]
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] = stmt.locationid

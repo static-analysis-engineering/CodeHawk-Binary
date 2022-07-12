@@ -382,9 +382,7 @@ class ASTDeserializer:
                 stmtid = r["stmtid"]
                 locationid = r["locationid"]
                 switchexpr = cast(AST.ASTExpr, mk_node(arg(0)))
-                cases = [
-                    cast(AST.ASTStmt, mk_node(records[i]))
-                    for i in r["args"][1:]]
+                cases = cast(AST.ASTStmt, mk_node(arg(1)))
                 nodes[id] = astree.mk_switch_stmt(
                     switchexpr, cases, stmtid, locationid)
 

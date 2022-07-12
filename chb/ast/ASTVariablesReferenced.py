@@ -68,8 +68,7 @@ class ASTVariablesReferenced(ASTVisitor):
 
     def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
         stmt.switchexpr.accept(self)
-        for s in stmt.cases:
-            s.accept(self)
+        stmt.cases.accept(self)
 
     def visit_label(self, label: AST.ASTLabel) -> None:
         pass

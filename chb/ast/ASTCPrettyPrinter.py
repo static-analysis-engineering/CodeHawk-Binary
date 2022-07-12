@@ -271,8 +271,7 @@ class ASTCPrettyPrinter(ASTVisitor):
         stmt.switchexpr.accept(self)
         self.ccode.write(") {")
         self.increase_indent()
-        for c in stmt.cases:
-            c.accept(self)
+        stmt.cases.accept(self)
         self.decrease_indent()
         self.ccode.newline(indent=self.indent)
         self.ccode.write("}")

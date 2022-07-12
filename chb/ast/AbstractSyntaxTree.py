@@ -242,7 +242,7 @@ class AbstractSyntaxTree:
     def mk_switch_stmt(
             self,
             switchexpr: Optional[AST.ASTExpr],
-            cases: List[AST.ASTStmt],
+            cases: AST.ASTStmt,
             optstmtid: Optional[int],
             optlocationid: Optional[int],
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTSwitchStmt:
