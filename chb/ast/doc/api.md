@@ -64,6 +64,16 @@ not present a new value is generated automatically.
     labels: List[ASTLabel] = []) -> ASTBlock
   ```
 
+- **mk_loop**: repeats the given statement (which will often be a block)
+  by wrapping it with an infinite loop construct (e.g. `while (1)`).
+  ```
+  def mk_loop(
+    self,
+    body: AST.ASTStmt,
+    stmtid: Optional[int] = None,
+    locationid: Optional[int] = None) -> AST.ASTLoop
+  ```
+
 - **mk_return_stmt**: creates a return statement with an optional
   return expression.
   ```
@@ -72,6 +82,20 @@ not present a new value is generated automatically.
     stmtid: Optional[int],
     locationid: Optional[int],
     labels: List[ASTLabel] = []) -> ASTReturn
+  ```
+
+- **mk_break_stmt**: creates a break statement.
+  ```
+  def mk_break_stmt(self,
+    stmtid: Optional[int],
+    locationid: Optional[int]) -> ASTBreak
+  ```
+
+- **mk_continue_stmt**: creates a continue statement.
+  ```
+  def mk_continue_stmt(self,
+    stmtid: Optional[int],
+    locationid: Optional[int]) -> ASTBreak
   ```
 
 - **mk_branch**: creates a if-then-else statement with a condition
