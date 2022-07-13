@@ -184,6 +184,14 @@ class ASTCPrettyPrinter(ASTVisitor):
     def stmt_to_c(self, stmt: AST.ASTStmt) -> None:
         if stmt.is_ast_return:
             self.visit_return_stmt(cast(AST.ASTReturn, stmt))
+        elif stmt.is_ast_break:
+            self.visit_break_stmt(cast(AST.ASTBreak, stmt))
+        elif stmt.is_ast_continue:
+            self.visit_continue_stmt(cast(AST.ASTContinue, stmt))
+        elif stmt.is_ast_goto:
+            self.visit_goto_stmt(cast(AST.ASTGoto, stmt))
+        elif stmt.is_ast_loop:
+            self.visit_loop_stmt(cast(AST.ASTLoop, stmt))
         elif stmt.is_ast_block:
             self.visit_block_stmt(cast(AST.ASTBlock, stmt))
         elif stmt.is_ast_instruction_sequence:
@@ -208,6 +216,22 @@ class ASTCPrettyPrinter(ASTVisitor):
             self.ccode.write(";")
         else:
             self.ccode.write("return;")
+
+    def visit_break_stmt(self, stmt: AST.ASTBreak) -> None:
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("break;")
+
+    def visit_continue_stmt(self, stmt: AST.ASTContinue) -> None:
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("continue;")
+
+    def visit_loop_stmt(self, stmt: AST.ASTLoop) -> None:
+        self.ccode.write("while (1) {")
+        self.increase_indent()
+        for s in stmt.stmts:
+            s.accept(self)
+        self.decrease_indent()
+        self.ccode.write("}")
 
     def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
         for label in stmt.labels:

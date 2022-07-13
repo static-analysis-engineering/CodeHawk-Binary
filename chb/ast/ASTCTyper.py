@@ -41,6 +41,15 @@ class ASTCTyper(ABC):
     def ctype_return_stmt(self, stmt: AST.ASTReturn) -> Optional[AST.ASTTyp]:
         return None
 
+    def ctype_break_stmt(self, stmt: AST.ASTBreak) -> Optional[AST.ASTTyp]:
+        return None
+
+    def ctype_continue_stmt(self, stmt: AST.ASTContinue) -> Optional[AST.ASTTyp]:
+        return None
+
+    def ctype_loop_stmt(self, stmt: AST.ASTLoop) -> Optional[AST.ASTTyp]:
+        return None
+
     def ctype_block_stmt(self, stmt: AST.ASTBlock) -> Optional[AST.ASTTyp]:
         return None
 

@@ -41,6 +41,18 @@ class ASTTransformer(ABC):
         ...
 
     @abstractmethod
+    def transform_break_stmt(self, stmt: AST.ASTBreak) -> AST.ASTStmt:
+        ...
+
+    @abstractmethod
+    def transform_continue_stmt(self, stmt: AST.ASTContinue) -> AST.ASTStmt:
+        ...
+
+    @abstractmethod
+    def transform_loop_stmt(self, stmt: AST.ASTLoop) -> AST.ASTStmt:
+        ...
+
+    @abstractmethod
     def transform_block_stmt(self, stmt: AST.ASTBlock) -> AST.ASTStmt:
         ...
 

@@ -234,6 +234,32 @@ class AbstractSyntaxTree:
         locationid = self.get_locationid(optlocationid)
         return AST.ASTReturn(stmtid, locationid, expr, labels=labels)
 
+    def mk_loop(
+            self,
+            body: AST.ASTStmt,
+            optstmtid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTLoop:
+        stmtid = self.get_stmtid(optstmtid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTLoop(stmtid, locationid, body)
+
+
+    def mk_break_stmt(
+            self,
+            optstmtid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTBreak:
+        stmtid = self.get_stmtid(optstmtid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTBreak(stmtid, locationid)
+
+    def mk_continue_stmt(
+            self,
+            optstmtid: Optional[int] = None,
+            optlocationid: Optional[int] = None) -> AST.ASTContinue:
+        stmtid = self.get_stmtid(optstmtid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTContinue(stmtid, locationid)
+
     def mk_branch(
             self,
             condition: Optional[AST.ASTExpr],

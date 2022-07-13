@@ -32,7 +32,10 @@ syntax tree. They are organized in a hierarchy as follows:
 
 - **ASTStmt**: abstract control flow statement
   - *ASTReturn*: return statement
+  - *ASTBreak*: break statement
+  - *ASTContinue*: continue statement
   - *ASTBlock*: sequence of control flow statements
+  - *ASTLoop*: endlessly-repeated statement
   - *ASTInstrSequence*: sequence of instructions (basic block)
   - *ASTBranch*: if-then-else branch statement
   - *ASTSwitch*: swith statement

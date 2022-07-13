@@ -64,6 +64,16 @@ not present a new value is generated automatically.
     labels: List[ASTLabel] = []) -> ASTBlock
   ```
 
+- **mk_loop**: repeats the given statement (which will often be a block)
+  by wrapping it with an infinite loop construct (e.g. `while (1)`).
+  ```
+  def mk_loop(
+    self,
+    body: AST.ASTStmt,
+    stmtid: Optional[int] = None,
+    locationid: Optional[int] = None) -> AST.ASTLoop
+  ```
+
 - **mk_return_stmt**: creates a return statement with an optional
   return expression.
   ```
@@ -72,6 +82,20 @@ not present a new value is generated automatically.
     stmtid: Optional[int],
     locationid: Optional[int],
     labels: List[ASTLabel] = []) -> ASTReturn
+  ```
+
+- **mk_break_stmt**: creates a break statement.
+  ```
+  def mk_break_stmt(self,
+    stmtid: Optional[int],
+    locationid: Optional[int]) -> ASTBreak
+  ```
+
+- **mk_continue_stmt**: creates a continue statement.
+  ```
+  def mk_continue_stmt(self,
+    stmtid: Optional[int],
+    locationid: Optional[int]) -> ASTBreak
   ```
 
 - **mk_branch**: creates a if-then-else statement with a condition
@@ -254,7 +278,7 @@ relate the statement to a location in the binary.
 Variables have a name. For named variables it is the user's responsibility
 to ensure that distinct variables (i.e. distinct storage locations) have
 distinct names (within a function) and that distinct global variables have
-distinct names (across all functions). Local variables in different\
+distinct names (across all functions). Local variables in different
 functions may have the same name (functions have different name spaces).
 
 The basic data structure for a variable is the ASTVarInfo, which holds the
@@ -264,9 +288,9 @@ address is known, and an optional description of what the variable holds.
 The varinfo is stored in the local or global symbol table on first creation.
 
 The first creation of the varinfo determines the associate data. Once a
-variable exists (either in the global symbol or local symbol table)
+variable exists (either in the global or local symbol table)
 subsequent calls to create a variable with the same name (in the same name
-space result in retrieval of the existing varinfo rather than creating a
+space) result in retrieval of the existing varinfo rather than creating a
 new one, thereby ignoring the associate data provided.
 
 Only one instance exists of the ASTVarInfo data structure, held in the
