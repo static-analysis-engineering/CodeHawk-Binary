@@ -49,7 +49,7 @@ class ASTDeserializer:
         self._lifted_functions: Dict[
             str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]] = {}
         self._initialize_functions()
-        # self._initialize_lifted_functions()
+        self._initialize_lifted_functions()
 
     @property
     def serialization(self) -> Dict[str, Any]:
@@ -102,7 +102,7 @@ class ASTDeserializer:
         if "prototype" in fdata:
             fprototypeix = fdata["prototype"]
             self._initialize_function_prototype(fprototypeix, astree, nodes)
-        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["ast-startnode"])])
+        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["cfg-ast-startnode"])])
         self._functions[faddr] = (localsymboltable, astnode)
 
     def _initialize_lifted_functions(self) -> None:
@@ -114,11 +114,11 @@ class ASTDeserializer:
         faddr = fdata["va"]
         localsymboltable = ASTLocalSymbolTable(self.global_symboltable)
         astree = AbstractSyntaxTree(faddr, fname, localsymboltable)
-        nodes = self.mk_ast_nodes(astree, fdata["ast"]["lifted-nodes"])
+        nodes = self.mk_ast_nodes(astree, fdata["ast"]["nodes"])
         if "prototype" in fdata:
             fprototypeix = fdata["prototype"]
             self._initialize_function_prototype(fprototypeix, astree, nodes)
-        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["startnode"])])
+        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["ast-startnode"])])
         self._lifted_functions[faddr] = (localsymboltable, astnode)
 
     def mk_ast_nodes(

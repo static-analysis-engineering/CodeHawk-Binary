@@ -22,6 +22,7 @@ of the basic representation via Visitor classes.
 
 - [Structure](#Structure)
 - [Abstract Syntax Tree API](api.md)
+- [Serialization](serialization.md)
 - [Visitor Classes](visitors.md)
 
 ## Structure

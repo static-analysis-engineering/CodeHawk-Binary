@@ -91,7 +91,7 @@ class ASTApplicationInterface:
         fndata["ast"] = {}
         fndata["ast"]["nodes"] = astnodes
         fndata["ast"]["ast-startnode"] = ast_startindex
-        fndata["ast"]["cfg-ast-stargnode"] = cfg_startindex
+        fndata["ast"]["cfg-ast-startnode"] = cfg_startindex
         fndata["spans"] = astree.spans
         fndata["available-expressions"] = {}
 
@@ -106,10 +106,18 @@ class ASTApplicationInterface:
         ast_output["functions"] = self._fnsdata
 
         if verbose:
-            print("\nDeserialized ast output")
+            print("\nDeserialized cfg-ast output")
             print("-----------------------")
             deserializer = ASTDeserializer(ast_output)
             for (symtable, ast) in deserializer.functions.values():
+                pp = ASTCPrettyPrinter(symtable)
+                print("\n")
+                print(pp.to_c(ast))
+
+            print("\nDeserialized lifted ast output")
+            print("-----------------------")
+            deserializer = ASTDeserializer(ast_output)
+            for (symtable, ast) in deserializer.lifted_functions.values():
                 pp = ASTCPrettyPrinter(symtable)
                 print("\n")
                 print(pp.to_c(ast))
