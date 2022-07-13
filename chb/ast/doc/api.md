@@ -274,7 +274,7 @@ relate the statement to a location in the binary.
 Variables have a name. For named variables it is the user's responsibility
 to ensure that distinct variables (i.e. distinct storage locations) have
 distinct names (within a function) and that distinct global variables have
-distinct names (across all functions). Local variables in different\
+distinct names (across all functions). Local variables in different
 functions may have the same name (functions have different name spaces).
 
 The basic data structure for a variable is the ASTVarInfo, which holds the
@@ -284,9 +284,9 @@ address is known, and an optional description of what the variable holds.
 The varinfo is stored in the local or global symbol table on first creation.
 
 The first creation of the varinfo determines the associate data. Once a
-variable exists (either in the global symbol or local symbol table)
+variable exists (either in the global or local symbol table)
 subsequent calls to create a variable with the same name (in the same name
-space result in retrieval of the existing varinfo rather than creating a
+space) result in retrieval of the existing varinfo rather than creating a
 new one, thereby ignoring the associate data provided.
 
 Only one instance exists of the ASTVarInfo data structure, held in the
