@@ -75,13 +75,15 @@ not present a new value is generated automatically.
   ```
 
 - **mk_branch**: creates a if-then-else statement with a condition
-  expression and if and else branches as child statements.
+  expression and if and else branches as child statements. The target
+  address is the address in hex of the target of the conditional
+  jump.
   ```
   def mk_branch(self,
     condition: ASTExpr,
     ifbranch: ASTStmt,
     elsebranch: ASTStmt,
-    relative_offset: int
+    targetaddr: str,
     stmtid: Optional[int],
     locationid: Optional[int],
     labels: List[ASTLabel] = []) -> ASTReturn
@@ -97,10 +99,12 @@ not present a new value is generated automatically.
     labels: List[ASTLabel] = []) -> ASTInstrSequence
   ```
 
-- **mk_goto_stmt**: creates a goTo statement with a label name as destination.
+- **mk_goto_stmt**: creates a goTo statement with a label name as destination;
+  the destination address is the target address of the jump instruction, in hex.
   ```
   def mk_goto_stmt(self,
     destinationlabel: str,
+    destinationaddress: str,
     stmtid: Optional[int],
     locationid: Optional[int],
     labels: List[ASTLabel] = []) -> ASTGoto

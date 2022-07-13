@@ -453,13 +453,13 @@ class ASTBranch(ASTStmt):
             cond: "ASTExpr",
             ifstmt: "ASTStmt",
             elsestmt: "ASTStmt",
-            relative_offset: int,
+            tgtaddress: str,
             labels: List["ASTStmtLabel"] = []) -> None:
         ASTStmt.__init__(self, stmtid, locationid, labels, "if")
         self._cond = cond
         self._ifstmt = ifstmt
         self._elsestmt = elsestmt
-        self._relative_offset = relative_offset
+        self._tgtaddress = tgtaddress
 
     @property
     def is_ast_branch(self) -> bool:
@@ -478,8 +478,8 @@ class ASTBranch(ASTStmt):
         return self._cond
 
     @property
-    def relative_offset(self) -> int:
-        return self._relative_offset
+    def target_address(self) -> str:
+        return self._tgtaddress
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_branch_stmt(self)
@@ -515,13 +515,19 @@ class ASTGoto(ASTStmt):
             stmtid: int,
             locationid: int,
             destinationlabel: str,
+            destinationaddr: str,
             labels: List["ASTStmtLabel"] = []) -> None:
         ASTStmt.__init__(self, stmtid, locationid, labels, "goto")
         self._destinationlabel = destinationlabel
+        self._destinationaddr = destinationaddr
 
     @property
     def destination(self) -> str:
         return self._destinationlabel
+
+    @property
+    def destination_address(self) -> str:
+        return self._destinationaddr
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_goto_stmt(self)

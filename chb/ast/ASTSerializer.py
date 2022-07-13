@@ -329,7 +329,7 @@ class ASTSerializer(ASTIndexer):
         tags: List[str] = [
             stmt.tag, str(stmt.stmtid),
             str(stmt.locationid),
-            str(stmt.relative_offset)]
+            stmt.target_address]
         args: List[int] = []
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
@@ -338,7 +338,7 @@ class ASTSerializer(ASTIndexer):
             stmt.condition.index(self),
             stmt.ifstmt.index(self),
             stmt.elsestmt.index(self)])
-        node["pc-offset"] = stmt.relative_offset
+        node["destination-addr"] = stmt.target_address
         return self.add(tags, args, node)
 
     def index_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> int:
@@ -355,12 +355,17 @@ class ASTSerializer(ASTIndexer):
 
     def index_goto_stmt(self, stmt: AST.ASTGoto) -> int:
         tags: List[str] = [
-            stmt.tag, str(stmt.stmtid), str(stmt.locationid), str(stmt.locationid)]
+            stmt.tag,
+            str(stmt.stmtid),
+            str(stmt.locationid),
+            stmt.destination,
+            stmt.destination_address]
         args: List[int] = []
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] = stmt.locationid
         node["destination"] = stmt.destination
+        node["destination-addr"] = stmt.destination_address
         for label in stmt.labels:
             args.append(label.index(self))
         return self.add(tags, args, node)

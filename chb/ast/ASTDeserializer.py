@@ -365,12 +365,12 @@ class ASTDeserializer:
                 condition = cast(AST.ASTExpr, mk_node(arg(0)))
                 thenbranch = cast(AST.ASTStmt, mk_node(arg(1)))
                 elsebranch = cast(AST.ASTStmt, mk_node(arg(2)))
-                pcoffset = int(r["pc-offset"])
+                targetaddr = r["destination-addr"]
                 nodes[id] = astree.mk_branch(
                     condition,
                     thenbranch,
                     elsebranch,
-                    pcoffset,
+                    targetaddr,
                     optstmtid=stmtid,
                     optlocationid=locationid)
 
@@ -387,8 +387,9 @@ class ASTDeserializer:
                 stmtid = r["stmtid"]
                 locationid = r["locationid"]
                 destinationlabel = r["destination"]
+                destinationaddr = r["destination-addr"]
                 nodes[id] = astree.mk_goto_stmt(
-                    destinationlabel, stmtid, locationid)
+                    destinationlabel, destinationaddr, stmtid, locationid)
 
             elif tag == "switch":
                 stmtid = r["stmtid"]

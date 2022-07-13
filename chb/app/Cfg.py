@@ -169,15 +169,12 @@ class Cfg:
                     follownode = None
                 ifbranch = construct(self.successors(n)[1], follownode, [])
                 elsebranch = construct(self.successors(n)[0], follownode, [])
-                pcoffset = (
-                    (int(self.successors(n)[1], 16)
-                     - int(self.successors(n)[0], 16))
-                    - 2)
+                tgtaddr = self.successors(n)[1]
                 if ifbranch.is_empty():
                     condition = fn.blocks[n].assembly_ast_condition(
                         astree, reverse=True)
                     bstmt = astree.mk_branch(
-                        condition, elsebranch, ifbranch, pcoffset)
+                        condition, elsebranch, ifbranch, tgtaddr)
                 else:
                     condition = fn.blocks[n].assembly_ast_condition(astree)
                     if (
@@ -189,13 +186,13 @@ class Cfg:
                             condition = astree.mk_binary_expression(
                                 "eq", cond.exp1, cond.exp2)
                             bstmt = astree.mk_branch(
-                                condition, elsebranch, ifbranch, pcoffset)
+                                condition, elsebranch, ifbranch, tgtaddr)
                         else:
                             bstmt = astree.mk_branch(
-                                condition, ifbranch, elsebranch, pcoffset)
+                                condition, ifbranch, elsebranch, tgtaddr)
                     else:
                         bstmt = astree.mk_branch(
-                            condition, ifbranch, elsebranch, pcoffset)
+                            condition, ifbranch, elsebranch, tgtaddr)
                 branchinstr = fn.blocks[n].last_instruction
                 astree.add_instruction_span(
                     bstmt.locationid, branchinstr.iaddr, branchinstr.bytestring)
@@ -255,25 +252,22 @@ class Cfg:
             if len(successors) == 0:
                 succblock = astree.mk_return_stmt(None)
             elif len(successors) == 1:
-                succblock = astree.mk_goto_stmt(successors[0])
+                succblock = astree.mk_goto_stmt(successors[0], successors[0])
             elif len(successors) == 2:
-                falsebranch = astree.mk_goto_stmt(successors[0])
-                truebranch = astree.mk_goto_stmt(successors[1])
+                falsebranch = astree.mk_goto_stmt(successors[0], successors[0])
+                truebranch = astree.mk_goto_stmt(successors[1], successors[1])
                 instr = fn.blocks[b].last_instruction
                 expr = instr.assembly_ast_condition(astree)
-                pcoffset = (
-                    (int(successors[1], 16)
-                     - int(successors[0], 16))
-                    - 2)
+                tgtaddr = successors[1]
                 succblock = astree.mk_branch(
-                    expr, truebranch, falsebranch, pcoffset)
+                    expr, truebranch, falsebranch, tgtaddr)
             else:
                 cases: List[AST.ASTStmt] = []
                 instr = fn.blocks[b].last_instruction
                 for s in successors:
                     casexpr = instr.ast_case_expression(s, astree)
                     caselabel = astree.mk_case_label(casexpr)
-                    dst = astree.mk_goto_stmt(s, labels=[caselabel])
+                    dst = astree.mk_goto_stmt(s, s, labels=[caselabel])
                     cases.append(dst)
                 succblock = astree.mk_block(cases)
             bblock = astree.mk_block([block, succblock], labels=[label])

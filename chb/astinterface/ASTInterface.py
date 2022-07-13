@@ -388,17 +388,20 @@ class ASTInterface:
             condition: Optional[AST.ASTExpr],
             ifbranch: AST.ASTStmt,
             elsebranch: AST.ASTStmt,
-            relative_offset: int) -> AST.ASTStmt:
+            targetaddr: str) -> AST.ASTStmt:
         return self.astree.mk_branch(
-            condition, ifbranch, elsebranch, relative_offset)
+            condition, ifbranch, elsebranch, targetaddr)
 
     def mk_instr_sequence(
             self, instrs: List[AST.ASTInstruction]) -> AST.ASTInstrSequence:
         return self.astree.mk_instr_sequence(instrs)
 
     def mk_goto_stmt(
-            self, name: str, labels: List[AST.ASTStmtLabel] = []) -> AST.ASTGoto:
-        return self.astree.mk_goto_stmt(name, labels=labels)
+            self,
+            name: str,
+            destaddr: str,
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTGoto:
+        return self.astree.mk_goto_stmt(name, destaddr, labels=labels)
 
     # ---------------------------------------------------- make labels ---------
 

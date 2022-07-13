@@ -239,7 +239,7 @@ class AbstractSyntaxTree:
             condition: Optional[AST.ASTExpr],
             ifbranch: AST.ASTStmt,
             elsebranch: AST.ASTStmt,
-            relative_offset: int,
+            targetaddr: str,
             optstmtid: Optional[int] = None,
             optlocationid: Optional[int] = None,
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTStmt:
@@ -249,17 +249,18 @@ class AbstractSyntaxTree:
             # create a new unknown (uninitialized) variable
             condition = self.mk_tmp_lval_expression()
         return AST.ASTBranch(
-            stmtid, locationid, condition, ifbranch, elsebranch, relative_offset)
+            stmtid, locationid, condition, ifbranch, elsebranch, targetaddr)
 
     def mk_goto_stmt(
             self,
             destinationlabel: str,
+            destinationaddr: str,
             optstmtid: Optional[int] = None,
             optlocationid: Optional[int] = None,
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTGoto:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
-        return AST.ASTGoto(stmtid, locationid, destinationlabel)
+        return AST.ASTGoto(stmtid, locationid, destinationlabel, destinationaddr)
 
     def mk_switch_stmt(
             self,
