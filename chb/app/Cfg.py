@@ -277,7 +277,7 @@ class FlowGraph:
 def normalized_branch(astree: ASTInterface,
                       fn: "Function",
                       n: str,
-                      pcoffset: int,
+                      tgtaddr: str,
                       ifbranch: AST.ASTStmt,
                       elsebranch: AST.ASTStmt) -> AST.ASTBranch:
     def cast_binop(condition: Optional[AST.ASTExpr]) -> Optional[AST.ASTBinaryOp]:
@@ -297,7 +297,7 @@ def normalized_branch(astree: ASTInterface,
         return None
 
     def swapped(condition):
-        return astree.mk_branch(condition, elsebranch, ifbranch, pcoffset)
+        return astree.mk_branch(condition, elsebranch, ifbranch, tgtaddr)
 
     condition = fn.blocks[n].assembly_ast_condition(astree)
     couqitiou = inverted_binop(condition)
@@ -309,7 +309,7 @@ def normalized_branch(astree: ASTInterface,
     if ifbranch.is_empty():
         return swapped(fn.blocks[n].assembly_ast_condition(astree, reverse=True))
 
-    return cast(AST.ASTBranch, astree.mk_branch(condition, ifbranch, elsebranch, pcoffset))
+    return cast(AST.ASTBranch, astree.mk_branch(condition, ifbranch, elsebranch, tgtaddr))
 
 
 @dataclass
@@ -475,7 +475,7 @@ class Cfg:
                     return [astree.mk_break_stmt()]
 
                 gotolabels.add(tgt)
-                return [astree.mk_goto_stmt(tgt)]
+                return [astree.mk_goto_stmt(tgt, tgt)]
 
             def is_loop_header(x: str) -> bool:
                 return any(is_backward(pred, x) for pred in self.flowgraph.pre(x))
@@ -510,8 +510,9 @@ class Cfg:
                 assert nsuccs == 2
                 ifbranch = mk_block(do_branch(x, succs[1], ctx))
                 elsebranch = mk_block(do_branch(x, succs[0], ctx))
-                pcoffset = pcoffset = ( (int(succs[1], 16) - int(succs[0], 16)) - 2)
-                return xstmts + [normalized_branch(astree, fn, x, pcoffset, ifbranch, elsebranch)]
+                tgtaddr = succs[1]
+                # pcoffset = pcoffset = ( (int(succs[1], 16) - int(succs[0], 16)) - 2)
+                return xstmts + [normalized_branch(astree, fn, x, tgtaddr, ifbranch, elsebranch)]
 
             initial = ControlFlowContext(None, None, None)
             return mk_block(do_tree(self.flowgraph.start_node, initial))
