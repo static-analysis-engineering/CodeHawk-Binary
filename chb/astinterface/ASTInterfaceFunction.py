@@ -26,10 +26,8 @@
 # ------------------------------------------------------------------------------
 """Function interface for AST construction."""
 
-from typing import Optional
+from typing import cast, Optional, Tuple, TYPE_CHECKING
 
-
-from chb.app.Function import Function
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTFunction import ASTFunction
@@ -42,13 +40,17 @@ from chb.astinterface.CHBASTSupport import CHBASTSupport
 import chb.util.fileutil as UF
 
 
+if TYPE_CHECKING:
+    from chb.app.Function import Function
+
+
 class ASTInterfaceFunction(ASTFunction):
 
     def __init__(
             self,
             faddr: str,
             fname: str,
-            f: Function,
+            f: "Function",
             function_prototype: Optional[ASTVarInfo] = None) -> None:
         ASTFunction.__init__(self, faddr, fname, function_prototype)
         self._function = f
@@ -61,21 +63,40 @@ class ASTInterfaceFunction(ASTFunction):
                 "Function " + self.name + " does not have a function prototype")
 
     @property
-    def function(self) -> Function:
+    def function(self) -> "Function":
         return self._function
 
     def ast(self,
             astree: AbstractSyntaxTree,
             support: CustomASTSupport) -> ASTStmt:
         astinterface = ASTInterface(astree)
-        return self.function.ast(astinterface)
+        return self.function.cfg.ast(self, astinterface)
 
     def cfg_ast(
             self,
             astree: AbstractSyntaxTree,
             support: CustomASTSupport) -> ASTStmt:
         astinterface = ASTInterface(astree)
-        return self.function.cfg_ast(astinterface)
+        return self.function.cfg.cfg_ast(self, astinterface)
+
+    def mk_asts(
+            self,
+            astree: AbstractSyntaxTree,
+            support: CustomASTSupport) -> Tuple[ASTStmt, ASTStmt]:
+        astinterface = ASTInterface(astree)
+        return (
+            self.mk_high_level_ast(astinterface, support),
+            self.mk_low_level_ast(astinterface, support))
+
+    def mk_low_level_ast(
+            self,
+            astinterface: ASTInterface,
+            support: CustomASTSupport) -> ASTStmt:
+        return self.function.cfg.cfg_ast(self, astinterface)
+
+    def mk_high_level_ast(
+            self,
+            astinterface: ASTInterface,
+            support: CustomASTSupport) -> ASTStmt:
+        return self.function.cfg.ast(self, astinterface)
         
-        
-    

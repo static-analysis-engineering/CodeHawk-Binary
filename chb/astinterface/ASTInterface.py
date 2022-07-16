@@ -48,6 +48,7 @@ from chb.ast.ASTBasicCTyper import ASTBasicCTyper
 from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
 from chb.ast.ASTCTyper import ASTCTyper
 import chb.ast.ASTNode as AST
+from chb.ast.ASTStorage import ASTStorage
 from chb.ast.ASTSymbolTable import (
     ASTSymbolTable, ASTLocalSymbolTable, ASTGlobalSymbolTable)
 
@@ -363,12 +364,6 @@ class ASTInterface:
         return self.astree.mk_named_lval_expression(
             name, globaladdress=globaladdress)
 
-    def mk_lval_expr(self, lval: AST.ASTLval) -> AST.ASTExpr:
-        return self.mk_lval_expression(lval)
-
-    def mk_variable_lval(self, name: str) -> AST.ASTLval:
-        return self.mk_named_lval(name)
-
     # ------------------------------------------------------ make statements ---
 
     def mk_block(
@@ -478,6 +473,15 @@ class ASTInterface:
             offset: AST.ASTOffset = nooffset) -> AST.ASTLvalExpr:
         return self.astree.mk_vinfo_lval_expression(vinfo, offset=offset)
 
+    def mk_lval_expr(self, lval: AST.ASTLval) -> AST.ASTExpr:
+        return self.mk_lval_expression(lval)
+
+    def mk_variable_lval(
+            self,
+            name: str,
+            storage: Optional[ASTStorage] = None) -> AST.ASTLval:
+        return self.mk_named_lval(name, storage=storage)
+
     def mk_named_variable(
             self,
             vname: str,
@@ -499,13 +503,15 @@ class ASTInterface:
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
+            offset: AST.ASTOffset = nooffset,
+            storage: Optional[ASTStorage] = None) -> AST.ASTLval:
         return self.astree.mk_named_lval(
             vname,
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress,
-            vdescr=vdescr)
+            vdescr=vdescr,
+            storage=storage)
 
     def mk_named_lval_expression(
             self,
@@ -514,17 +520,23 @@ class ASTInterface:
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTLvalExpr:
+            offset: AST.ASTOffset = nooffset,
+            storage: Optional[ASTStorage] = None) -> AST.ASTLvalExpr:
         return self.astree.mk_named_lval_expression(
             vname,
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress,
             vdescr=vdescr,
-            offset=offset)
+            offset=offset,
+            storage=storage)
 
-    def mk_lval(self, lhost: AST.ASTLHost, offset: AST.ASTOffset) -> AST.ASTLval:
-        return self.astree.mk_lval(lhost, offset)
+    def mk_lval(
+            self,
+            lhost: AST.ASTLHost,
+            offset: AST.ASTOffset,
+            storage: Optional[ASTStorage] = None) -> AST.ASTLval:
+        return self.astree.mk_lval(lhost, offset, storage=storage)
 
     def mk_lval_expression(self, lval: AST.ASTLval) -> AST.ASTExpr:
         return self.astree.mk_lval_expression(lval)
@@ -557,7 +569,8 @@ class ASTInterface:
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None) -> AST.ASTLval:
         var = self.mk_register_variable(name, vtype, parameter)
-        return self.mk_lval(var, nooffset)
+        return self.astree.mk_register_variable_lval(
+            name, vtype=vtype, parameter=parameter)
 
     def mk_register_variable_expr(
             self, name: str,
@@ -584,11 +597,19 @@ class ASTInterface:
     def mk_stack_variable_lval(
             self,
             offset: int,
-            name: Optional[str] = None,
+            optname: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None,
-            parameter: Optional[int] = None) -> AST.ASTLval:
-        var = self.mk_stack_variable(offset, name, vtype, parameter)
-        return self.mk_lval(var, nooffset)
+            parameter: Optional[int] = None,
+            storage_size: Optional[int] = None) -> AST.ASTLval:
+        if optname is None:
+            if offset < 0:
+                name = "localvar_" + str(-offset)
+            else:
+                name = "argvar_" + str(offset)
+        else:
+            name = optname
+        return self.astree.mk_stack_variable_lval(
+            name, offset, vtype=vtype, parameter=parameter)
 
     def mk_temp_lval(self) -> AST.ASTLval:
         return self.astree.mk_tmp_lval()
