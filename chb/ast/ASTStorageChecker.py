@@ -37,9 +37,9 @@ class ASTStorageChecker(ASTVisitor):
 
     def __init__(self, storage: Dict[int, ASTStorage]) -> None:
         self._storage = storage
-        self._current_instr = None
-        self._missing: Dict[int, [str, str]] = {}
-        self._no_size: Dict[int, [str, str]] = {}
+        self._current_instr: Optional[str] = None
+        self._missing: Dict[int, Tuple[str, str]] = {}
+        self._no_size: Dict[int, Tuple[str, str]] = {}
 
     @property
     def storage(self) -> Dict[int, ASTStorage]:
@@ -53,11 +53,11 @@ class ASTStorageChecker(ASTVisitor):
         self._current_instr = instr
 
     @property
-    def missing(self) -> Dict[int, str]:
+    def missing(self) -> Dict[int, Tuple[str, str]]:
         return self._missing
 
     @property
-    def no_size(self) -> Dict[int, str]:
+    def no_size(self) -> Dict[int, Tuple[str, str]]:
         return self._no_size
 
     def add_missing(self, lval: AST.ASTLval) -> None:

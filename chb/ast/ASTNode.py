@@ -961,11 +961,12 @@ class ASTCall(ASTInstruction):
     def __str__(self) -> str:
         result = ""
         if self.lhs is not None:
-            result += (str(lhs) + " = ")
+            result += (str(self.lhs) + " = ")
         result += str(self.tgt)
         result += "("
         result += ", ".join(str(a) for a in self.arguments)
         result += ")"
+        return result
 
 
 class ASTLval(ASTNode):
