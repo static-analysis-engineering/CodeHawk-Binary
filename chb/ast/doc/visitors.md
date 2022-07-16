@@ -29,6 +29,9 @@ The following subclasses are provided:
   that are live, that is, the variables assigned in assignment instructions are used
   elsewhere.
 
+- **ASTStorageChecker**: a class that allows checking whether all lvalues have been
+  associated with a storage location.
+
 
 ### ASTIndexer
 

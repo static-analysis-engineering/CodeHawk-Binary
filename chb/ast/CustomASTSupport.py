@@ -26,8 +26,34 @@
 # ------------------------------------------------------------------------------
 """Class that provides third-party users to introduce local support."""
 
+from typing import Dict
+
+
+arm32_register_sizes: Dict[str, int] = {
+    "R0": 32,
+    "R1": 32,
+    "R2": 32,
+    "R3": 32,
+    "R4": 32,
+    "R5": 32,
+    "R6": 32,
+    "R7": 32,
+    "R8": 32,
+    "R9": 32,
+    "R10": 32,
+    "R11": 32,
+    "R12": 32,
+    "SP": 32,
+    "LR": 32,
+    "PC": 32
+}
+
 
 class CustomASTSupport:
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, registersizes: Dict[str, int] = arm32_register_sizes) -> None:
+        self._registersizes = registersizes
+
+    @property
+    def register_sizes(self) -> Dict[str, int]:
+        return self._registersizes

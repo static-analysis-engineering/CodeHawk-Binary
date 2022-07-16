@@ -33,13 +33,16 @@ from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
 from chb.ast.ASTDeserializer import ASTDeserializer
 from chb.ast.ASTFunction import ASTFunction
 from chb.ast.ASTSerializer import ASTSerializer
+from chb.ast.ASTStorageChecker import ASTStorageChecker
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.CustomASTSupport import CustomASTSupport
 
 
 class ASTApplicationInterface:
 
-    def __init__(self, support: CustomASTSupport = CustomASTSupport()) -> None:
+    def __init__(
+            self,
+            support: CustomASTSupport = CustomASTSupport()) -> None:
         self._support = support
         self._globalsymboltable = ASTGlobalSymbolTable()
         self._fnsdata: List[Dict[str, Any]] = []
@@ -58,12 +61,15 @@ class ASTApplicationInterface:
         if astfn.has_function_prototype():
             localsymboltable.set_function_prototype(astfn.function_prototype())
 
-        astree = AbstractSyntaxTree(astfn.address, astfn.name, localsymboltable)
+        astree = AbstractSyntaxTree(
+            astfn.address,
+            astfn.name,
+            localsymboltable,
+            registersizes=self.support.register_sizes)
 
         try:
-            cfg_ast = astfn.cfg_ast(astree, self.support)
-            ast = astfn.ast(astree, self.support)
-        except Exception as e:
+            (ast, low_level_ast) = astfn.mk_asts(astree, self.support)
+        except NameError as e:
             print("=" * 80)
             print("Error in ast generation of " + astfn.name)
             print(str(e))
@@ -74,7 +80,21 @@ class ASTApplicationInterface:
             print("\n")
             pp = ASTCPrettyPrinter(localsymboltable)
             print(pp.to_c(ast))
-            print(pp.to_c(cfg_ast))
+            print(pp.to_c(low_level_ast))
+
+        if verbose:
+            print("\nCheck Storage")
+            print("---------------")
+            storagechecker = ASTStorageChecker(astree.storage)
+            report = storagechecker.check_stmt(ast)
+
+            print("High-level representation")
+            print(report)
+
+            report = storagechecker.check_stmt(low_level_ast)
+            print("\nLow-level representation")
+            print(report)
+
 
         fndata: Dict[str, Any] = {}
         serializer = ASTSerializer()
@@ -82,7 +102,7 @@ class ASTApplicationInterface:
         localsymboltable.serialize(serializer)
         protoindex = localsymboltable.serialize_function_prototype(serializer)
         ast_startindex = serializer.index_stmt(ast)
-        cfg_startindex = serializer.index_stmt(cfg_ast)
+        low_level_startindex = serializer.index_stmt(low_level_ast)
         astnodes = serializer.records()
 
         fndata["name"] = astfn.name
@@ -91,9 +111,14 @@ class ASTApplicationInterface:
         fndata["ast"] = {}
         fndata["ast"]["nodes"] = astnodes
         fndata["ast"]["ast-startnode"] = ast_startindex
-        fndata["ast"]["cfg-ast-startnode"] = cfg_startindex
+        fndata["ast"]["low-level-ast-startnode"] = low_level_startindex
         fndata["spans"] = astree.spans
+        fndata["provenance"] = {}
+        fndata["provenance"]["instruction-mapping"] = {}
+        fndata["provenance"]["reaching-definitions"] = {}
         fndata["available-expressions"] = {}
+        fndata["definitions-used"] = {}
+        fndata["storage"] = astree.storage_records()
 
         self._fnsdata.append(fndata)
 

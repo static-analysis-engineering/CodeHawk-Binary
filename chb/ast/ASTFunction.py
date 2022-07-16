@@ -28,7 +28,7 @@
 
 from abc import ABC, abstractmethod
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTNode import ASTStmt, ASTVarInfo
@@ -70,4 +70,11 @@ class ASTFunction(ABC):
     def cfg_ast(
             self, astree: AbstractSyntaxTree,
             support: CustomASTSupport) -> ASTStmt:
+        ...
+
+    @abstractmethod
+    def mk_asts(
+            self,
+            astree: AbstractSyntaxTree,
+            support: CustomASTSupport) -> Tuple[ASTStmt, ASTStmt]:
         ...

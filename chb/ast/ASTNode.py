@@ -958,31 +958,14 @@ class ASTCall(ASTInstruction):
     def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
         return ctyper.ctype_call_instr(self)
 
-    def address_taken(self) -> Set[str]:
-        return self.tgt.address_taken().union(
-            *(a.address_taken() for a in self.arguments))
-
-    def variables_used(self) -> Set[str]:
+    def __str__(self) -> str:
+        result = ""
         if self.lhs is not None:
-            lhsvars: Set[str] = self.lhs.variables_used()
-        else:
-            lhsvars = set([])
-        return lhsvars.union(
-            self.tgt.variables_used()).union(
-                *(a.variables_used() for a in self.arguments))
-
-    def callees(self) -> Set[str]:
-        return set([str(self.tgt)])
-
-    def use(self) -> List[str]:
-        result = []
-        result.extend(self.tgt.use())
-        for a in self.arguments:
-            result.extend(a.use())
-        return result
-
-    def kill(self) -> List[str]:
-        return ["R0", "R1", "R2", "R3", "$v0", "$v1", str(self.lhs)]
+            result += (str(lhs) + " = ")
+        result += str(self.tgt)
+        result += "("
+        result += ", ".join(str(a) for a in self.arguments)
+        result += ")"
 
 
 class ASTLval(ASTNode):
@@ -1222,7 +1205,7 @@ class ASTMemRef(ASTLHost):
         return self.memexp.use()
 
     def __str__(self) -> str:
-        return str(self.memexp)
+        return "*" + str(self.memexp)
 
 
 class ASTOffset(ASTNode):

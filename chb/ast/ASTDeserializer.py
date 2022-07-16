@@ -102,7 +102,7 @@ class ASTDeserializer:
         if "prototype" in fdata:
             fprototypeix = fdata["prototype"]
             self._initialize_function_prototype(fprototypeix, astree, nodes)
-        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["cfg-ast-startnode"])])
+        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["low-level-ast-startnode"])])
         self._functions[faddr] = (localsymboltable, astnode)
 
     def _initialize_lifted_functions(self) -> None:

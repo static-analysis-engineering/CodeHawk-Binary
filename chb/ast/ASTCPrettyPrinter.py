@@ -226,6 +226,7 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write("continue;")
 
     def visit_loop_stmt(self, stmt: AST.ASTLoop) -> None:
+        self.ccode.newline(indent=self.indent)
         self.ccode.write("while (1) {")
         self.increase_indent()
         for s in stmt.stmts:

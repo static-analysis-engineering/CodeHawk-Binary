@@ -44,6 +44,14 @@ from typing import (
 
 import chb.ast.ASTNode as AST
 
+from chb.ast.ASTStorage import (
+    ASTStorage,
+    ASTRegisterStorage,
+    ASTStackStorage,
+    ASTBaseStorage,
+    ASTGlobalStorage,
+    ASTStorageConstructor)
+
 from chb.ast.ASTSymbolTable import (
     ASTGlobalSymbolTable, ASTSymbolTable, ASTLocalSymbolTable)
 
@@ -62,7 +70,9 @@ class AbstractSyntaxTree:
             self,
             faddr: str,
             fname: str,
-            localsymboltable: ASTLocalSymbolTable) -> None:
+            localsymboltable: ASTLocalSymbolTable,
+            registersizes: Dict[str, int] = {},
+            defaultsize: Optional[int] =  None) -> None:
         self._faddr = faddr
         self._fname = fname  # same as faddr if no name provided
         self._stmtid_counter = 1
@@ -72,7 +82,10 @@ class AbstractSyntaxTree:
         self._expr_counter = 1
         self._tmpcounter = 0
         self._spans: List[ASTSpanRecord] = []
+        self._storage: Dict[int, ASTStorage] = {}
         self._symboltable = localsymboltable
+        self._storageconstructor = ASTStorageConstructor(
+            registersizes, defaultsize)
 
         # integer types
         self._char_type = self.mk_integer_ikind_type("ichar")
@@ -112,6 +125,20 @@ class AbstractSyntaxTree:
     @property
     def spans(self) -> List[ASTSpanRecord]:
         return self._spans
+
+    @property
+    def storage(self) -> Dict[int, ASTStorage]:
+        return self._storage
+
+    def storage_records(self) -> Dict[int, Dict[str, Union[str, int]]]:
+        results: Dict[int, Dict[str, Union[str, int]]] = {}
+        for (lvalid, record) in self.storage.items():
+            results[lvalid] = record.serialize()
+        return results
+
+    @property
+    def storageconstructor(self) -> ASTStorageConstructor:
+        return self._storageconstructor
 
     def set_function_prototype(self, p: AST.ASTVarInfo) -> None:
         self.symboltable.set_function_prototype(p)
@@ -570,25 +597,38 @@ class AbstractSyntaxTree:
             self,
             lhost: AST.ASTLHost,
             offset: AST.ASTOffset,
-            optlvalid: Optional[int] = None) -> AST.ASTLval:
+            optlvalid: Optional[int] = None,
+            storage: Optional[ASTStorage] = None) -> AST.ASTLval:
         lvalid = self.get_lvalid(optlvalid)
+        if storage is not None:
+            self.storage[lvalid] = storage
         return AST.ASTLval(lvalid, lhost, offset)
 
     def mk_vinfo_lval(
             self,
             vinfo: AST.ASTVarInfo,
             offset: AST.ASTOffset = nooffset,
-            optlvalid: Optional[int] = None) -> AST.ASTLval:
+            optlvalid: Optional[int] = None,
+            storage: Optional[ASTStorage] = None) -> AST.ASTLval:
         var = self.mk_vinfo_variable(vinfo)
-        return self.mk_lval(var, offset, optlvalid=optlvalid)
+        return self.mk_lval(
+            var,
+            offset,
+            optlvalid=optlvalid,
+            storage=storage)
 
     def mk_vinfo_lval_expression(
             self,
             vinfo: AST.ASTVarInfo,
             offset: AST.ASTOffset = nooffset,
             optlvalid: Optional[int] = None,
-            optexprid: Optional[int] = None) -> AST.ASTLvalExpr:
-        lval = self.mk_vinfo_lval(vinfo, offset, optlvalid=optlvalid)
+            optexprid: Optional[int] = None,
+            storage: Optional[ASTStorage] = None) -> AST.ASTLvalExpr:
+        lval = self.mk_vinfo_lval(
+            vinfo,
+            offset,
+            optlvalid=optlvalid,
+            storage=storage)
         exprid = self.get_exprid(optexprid)
         return AST.ASTLvalExpr(exprid, lval)
 
@@ -615,14 +655,52 @@ class AbstractSyntaxTree:
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None,
             offset: AST.ASTOffset = nooffset,
-            optlvalid: Optional[int] = None) -> AST.ASTLval:
+            optlvalid: Optional[int] = None,
+            storage: Optional[ASTStorage] = None) -> AST.ASTLval:
         var = self.mk_named_variable(
             vname,
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress,
             vdescr=vdescr)
-        return self.mk_lval(var, offset, optlvalid=optlvalid)
+        return self.mk_lval(
+            var,
+            offset,
+            optlvalid=optlvalid,
+            storage=storage)
+
+    def mk_register_variable_lval(
+            self,
+            name: str,
+            registername: Optional[str] = None,
+            vtype: Optional[AST.ASTTyp] = None,
+            parameter: Optional[int] = None,
+            vdescr: Optional[str] = None) -> AST.ASTLval:
+        if registername is None:
+            registername = name
+        storage = self.storageconstructor.mk_register_storage(registername)
+        return self.mk_named_lval(
+            name,
+            vtype=vtype,
+            parameter=parameter,
+            vdescr=vdescr,
+            storage=storage)
+
+    def mk_stack_variable_lval(
+            self,
+            name: str,
+            offset: int,
+            vtype: Optional[AST.ASTTyp] = None,
+            parameter: Optional[int] = None,
+            vdescr: Optional[str] = None,
+            size: Optional[int] = None) -> AST.ASTLval:
+        storage = self.storageconstructor.mk_stack_storage(offset, size)
+        return self.mk_named_lval(
+            name,
+            vtype=vtype,
+            parameter=parameter,
+            vdescr=vdescr,
+            storage=storage)
 
     def mk_named_lval_expression(
             self,
@@ -632,14 +710,16 @@ class AbstractSyntaxTree:
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None,
             offset: AST.ASTOffset = nooffset,
-            optexprid: Optional[int] = None) -> AST.ASTLvalExpr:
+            optexprid: Optional[int] = None,
+            storage: Optional[ASTStorage] = None) -> AST.ASTLvalExpr:
         lval = self.mk_named_lval(
             vname,
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress,
             vdescr=vdescr,
-            offset=offset)
+            offset=offset,
+            storage=storage)
         exprid = self.get_exprid(optexprid)
         return AST.ASTLvalExpr(exprid, lval)
 
@@ -669,6 +749,49 @@ class AbstractSyntaxTree:
         vname = self.new_tmp_name()
         return self.mk_named_lval_expression(
             vname, vtype=vtype, vdescr=vdescr)
+
+    """Storage
+
+    Lvalues are (mostly) associated with physical locations in the architecture,
+    such as registers, stack locations, heap locations, and global locations.
+    From a function point-of-view four distinct types of storage are recognized:
+    - registers: this includes the standard CPU registers, but may also include
+      the processor status word, or individual flags in the processor status
+      words. Registers are identified by their name.
+    - stack locations: these are memory locations identified by a fixed offset
+      (specified in bytes) from the stack pointer value at function entry.
+      Offsets can be positive (parent stack frame or argument slots) or negative
+      (local stack frame) or zero (return address on x86, local stack frame on ARM).
+    - base locations: these are memory locations identified by a fixed offset
+      (specified in bytes) from a base pointer, specified by an expression
+      (represented by a string) that is guaranteed to be constant throughout the
+      lifetime of the function, e.g., a pointer argument to the function.
+    - global locations: these are memory locations identified by their virtual
+      address (represented as a hex string).
+
+    Storage locations may optionally have a size (specified in bits), or can be
+    set to be the default word size of the architecture (e.g., 32 bits for
+    ARM32/Thumb2 or x86).
+
+    Construction methods are provided for each the four types.
+
+    """
+
+    def mk_register_storage(self, name: str) -> ASTRegisterStorage:
+        return self.storageconstructor.mk_register_storage(name)
+
+    def mk_stack_storage(
+            self, offset: int, size: Optional[int]) -> ASTStackStorage:
+        return self.storageconstructor.mk_stack_storage(offset, size)
+
+    def mk_base_storage(
+            self, base: str, offset: int, size: Optional[int]) -> ASTBaseStorage:
+        return self.storageconstructor.mk_base_storage(base, offset, size)
+
+    def mk_global_storage(
+            self, address: str, size: Optional[int]) -> ASTGlobalStorage:
+        return self.storageconstructor.mk_global_storage(address, size)
+
 
     """Offsets
 

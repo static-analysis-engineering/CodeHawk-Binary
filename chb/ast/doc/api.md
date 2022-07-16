@@ -6,6 +6,7 @@
 - [Statement labels](#labels)
 - [Instructions](#instructions)
 - [Variables](#variables)
+- [Storage](#storage)
 - [Offsets](#offsets)
 - [Other lvals and expressions](#otherlvals)
 - [Unary and binary operators](#operators)
@@ -299,7 +300,12 @@ ASTLval, and ASTLvalExpr may exist within the abstract syntax tree structure
 
 Lvalues have unique identifiers to distinguish them in space and time.
 
-Temporary variables are automatically given unique names.
+Lvalues generally have storage, which can be specified as an optional
+argument to lval creation. Two methods, <code>mk_register_variable_lval</code>,
+and <code>mk_stack_variable_lval</code> create a storage record automatically.
+
+Temporary variables are automatically given unique names. Temporary variables
+have no storage.
 
 
 #### Construction methods provided
@@ -325,20 +331,28 @@ Temporary variables are automatically given unique names.
 
 - **mk_lval**: creates/returns an lval from an lhost and an offset
   ```
-  def mk_lval(self, lhost: ASTLHost, offset: ASTOffset) -> ASTLval
+  def mk_lval(self,
+        lhost: ASTLHost,
+	offset: ASTOffset,
+	storage: Optional[ASTStorage] = None) -> ASTLval
   ```
 
 - **mk_vinfo_lval**: creates/returns an lval (lhs) (with optional offset) from
   a vinfo
   ```
-  def mk_vinfo_lval(self, vinfo: ASTVarInfo, offset: ASTOffset = nooffset) -> ASTLval
+  def mk_vinfo_lval(self,
+        vinfo: ASTVarInfo,
+	offset: ASTOffset = nooffset,
+	storage: Optional[ASTStorage] = None) -> ASTLval
   ```
   
 - **mk_vinfo_lval_expression**: creates/returns an lval-expression (rhs) (with
   optional offset) from a vinfo
   ```
   def mk_vinfo_lval_expression(self,
-       vinfo: ASTVarInfo, offset: ASTOffset = nooffset) -> ASTLvalExpression
+       vinfo: ASTVarInfo,
+       offset: ASTOffset = nooffset,
+       storage: Optional[ASTStorage] = None) -> ASTLvalExpression
   ```
 
 - **mk_named_variable**: creates a variable with the given a name (and will
@@ -361,7 +375,8 @@ Temporary variables are automatically given unique names.
        parameter: Optional[int] = None,
        globaladdress: Optional[int] = None,
        vdescr: Optional[str] = None,
-       offset: ASTOffset = nooffset) -> ASTLval
+       offset: ASTOffset = nooffset,
+       storage: Optional[ASTStorage] = None) -> ASTLval
   ```
   
 - **mk_named_lval_expression**: creates an lval expression (rhs) (with optional
@@ -373,7 +388,35 @@ Temporary variables are automatically given unique names.
        parameter: Optional[int] = None,
        globaladdress: Optional[int] = None,
        vdescr: Optional[str] = None,
-       offset: ASTOffset = nooffset) -> ASTLvalExpression
+       offset: ASTOffset = nooffset,
+       storage: Optional[ASTStorage] = None) -> ASTLvalExpression
+  ```
+
+- **mk_register_variable_lval**: creates an lval for a register and automatically
+  creates a storage record for the register, with an optional argument for the
+  name of the register if the name of the register is not the same as the name of
+  the variable to be created
+  ```
+  def mk_register_variable_lval(self,
+       name: str,
+       registername: Optional[str] = None,
+       vtype: Optional[ASTTyp] = None,
+       parameter: Optional[int] = None,
+       vdescr: Optional[str] = None) -> ASTLval
+  ```
+
+- **mk_stack_variable_lval**: creates an lval for a stack variable and automatically
+  creates a storage record for the stack variable. The offset is specified as an
+  offset from the stack pointer at function entry, in bytes (negative for local
+  variables, positive for the parent stack frame)
+  ```
+  def mk_stack_variable_lval(self,
+       name: str,
+       offset: int,
+       vtype: Optional[ASTTyp] = None,
+       parameter: Optional[int] = None,
+       vdescr: Optional[str] = None,
+       size: Optional[int] = None) -> ASTLval
   ```
 
 - **mk_tmp_variable**: creates a new varinfo/variable with a unique name
@@ -390,6 +433,61 @@ Temporary variables are automatically given unique names.
   unique name
   ```
   def mk_tmp_variable(self, vtype: Optional[ASTTyp], vdescr: Optional[str]) -> ASTLvalExpression
+  ```
+
+### Storage
+
+Lvalues are (mostly) associated with physical locations in the architecture
+such as registers, stack locations, heap locations, and global locations.
+From a function point-of-view four distinct types of storage are recognized:
+- registers: this includes the standard CPU registers, but may also include
+  the processor status word, or individual flags in the processor status
+  words. Registers are identified by their name.
+- stack locations: these are memory locations identified by a fixed offset
+  (specified in bytes) from the stack pointer value at function entry.
+  Offsets can be positive (parent stack frame or argument slots) or negative
+  (local stack frame) or zero (return address on x86, local stack frame on ARM).
+- base locations: these are memory locations identified by a fixed offset
+  (specified in bytes) from a base pointer, specified by an expression
+  (represented by a string) that is guaranteed to be constant throughout the
+  lifetime of the function, e.g., a pointer argument to the function.
+- global locations: these are memory locations identified by their virtual
+  address (represented as a hex string).
+
+Storage locations may optionally have a size (specified in bits), or can be
+set to be the default word size of the architecture (e.g., 32 bits for
+ARM32/Thumb2 or x86).
+
+#### Construction methods provided
+
+- **mk_register_storage**: create a storage record for a register with a
+  known (registered) register name. The size of the register is determined
+  from a dictionary of register sizes.
+  ```
+  def mk_register_storage(self, name: str) -> ASTRegisterStorage
+  ```
+
+- **mk_stack_storage**: create a storage record for a stack slot (in either
+  the parent stack frame or the local stack frame) by providing the offset
+  from the value of the stack pointer at function entry (in bytes) and,
+  optionally, the size of the stack slot.
+  ```
+  def mk_stack_storage(self, offset: int, size: Optional[int]) -> ASTStackStorage
+  ```
+
+- **mk_base_storage**: create a storage record for a memory location with
+  an unambiguously specified base pointer (an expression represented by a
+  string), which can be a pointer passed as argument to the function, or
+  a return value from a call to malloc within the function, or any other
+  pointer returned by a call to some function within the function at hand.
+  ```
+  def mk_base_storage(self, base: str, offset: int, size: Optional[int]) -> ASTBaseStorage
+  ```
+
+- **mk_global_storage**: create a storage record for a global memory location
+  specified by its address, represented as a hex string.
+  ```
+  def mk_global_storage(self, address: str, size: Optional[int]) -> ASTGlobalStorage
   ```
 
 
