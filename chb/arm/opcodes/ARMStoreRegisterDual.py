@@ -96,8 +96,8 @@ class ARMStoreRegisterDual(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        (lhs1, preinstrs1, postinstrs1) = self.operands[4].ast_lvalue(astree)
-        (lhs2, preinstrs2, postinstrs2) = self.operands[5].ast_lvalue(astree)
+        (lhs1, preinstrs1, postinstrs1) = self.operands[2].ast_lvalue(astree)
+        (lhs2, preinstrs2, postinstrs2) = self.operands[3].ast_lvalue(astree)
         (rhs1, _, _) = self.operands[0].ast_rvalue(astree)
         (rhs2, _, _) = self.operands[1].ast_rvalue(astree)
         assign1 = astree.mk_assign(lhs1, rhs1, iaddr=iaddr, bytestring=bytestring)

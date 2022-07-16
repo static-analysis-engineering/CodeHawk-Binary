@@ -206,7 +206,7 @@ class ARMRegisterOp(ARMOperandKind):
             self,
             astree: ASTInterface) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        return (astree.mk_variable_lval(self.register), [], [])
+        return (astree.mk_register_variable_lval(self.register), [], [])
 
     def ast_rvalue(
             self,

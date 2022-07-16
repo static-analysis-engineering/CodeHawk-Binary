@@ -96,7 +96,7 @@ class ARMMoveTop(ARMOpcode):
 
         (lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (op1, _, _) = self.operands[1].ast_rvalue(astree)
-        (op2, _, _) = self.operands[2].ast_rvalue(astree)
+        (op2, _, _) = self.operands[0].ast_rvalue(astree)
         i16 = astree.mk_integer_constant(16)
         e16 = astree.mk_integer_constant(256 * 256)
         xpr1 = astree.mk_binary_op("lsl", op2, i16)

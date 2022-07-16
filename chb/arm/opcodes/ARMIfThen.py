@@ -96,4 +96,10 @@ class ARMIfThen(ARMOpcode):
                 return []
         else:
             raise UF.CHBError(
-                "ARMIfThen: multiple expressions/lvals in ast")
+                "ARMIfThen: multiple expressions/lvals in ast: "
+                + "vars: "
+                + ", ".join([str(v) for v in xdata.vars])
+                + "; xprs: "
+                + ", ".join([str(x) for x in xdata.xprs])
+                + " at address "
+                + iaddr)
