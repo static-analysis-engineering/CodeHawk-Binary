@@ -226,12 +226,13 @@ class Function(ABC):
     def cfg(self) -> Cfg:
         raise UF.CHBError("Property cfg not implemented for Function")
 
+    '''
     def ast(self, astree: ASTInterface) -> AST.ASTStmt:
         return self.cfg.ast(self, astree)
 
     def cfg_ast(self, astree: ASTInterface) -> AST.ASTStmt:
         return self.cfg.cfg_ast(self, astree)
-
+    '''
     def assembly_ast(self, astree: ASTInterface) -> AST.ASTStmt:
         return self.cfg.assembly_ast(self, astree)
 

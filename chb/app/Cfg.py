@@ -53,6 +53,7 @@ from chb.app.DerivedGraphSequence import DerivedGraphSequence
 
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
+from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
 
 
 import chb.invariants.XXprUtil as XU
@@ -61,6 +62,7 @@ import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.app.Function import Function
+    from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
 
 
 
@@ -533,8 +535,9 @@ class Cfg:
         return self.stmt_ast(fn, astree, blockstmts)
 
     def ast(self,
-            fn: "Function",
+            astfn: "ASTInterfaceFunction",
             astree: ASTInterface) -> AST.ASTStmt:
+        fn = astfn.function
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
             blocknode = fn.blocks[n].ast(astree)
@@ -554,15 +557,17 @@ class Cfg:
 
     def cfg_ast(
             self,
-            fn: "Function",
+            astfn: "ASTInterfaceFunction",
             astree: ASTInterface) -> AST.ASTStmt:
         """Returns an AST directly based on the CFG."""
 
         blockstmts: List[AST.ASTStmt] = []
+        fn = astfn.function
         for (b, successors) in sorted(
                 self.edges.items(), key=lambda e: int(e[0], 16)):
             label = astree.mk_label(b)
-            block = fn.blocks[b].assembly_ast(astree)
+            fnblock = fn.blocks[b]
+            block = fnblock.assembly_ast(astree)
             succblock: AST.ASTStmt
             if len(successors) == 0:
                 succblock = astree.mk_return_stmt(None)
@@ -571,14 +576,14 @@ class Cfg:
             elif len(successors) == 2:
                 falsebranch = astree.mk_goto_stmt(successors[0], successors[0])
                 truebranch = astree.mk_goto_stmt(successors[1], successors[1])
-                instr = fn.blocks[b].last_instruction
+                instr = fnblock.last_instruction
                 expr = instr.assembly_ast_condition(astree)
                 tgtaddr = successors[1]
                 succblock = astree.mk_branch(
                     expr, truebranch, falsebranch, tgtaddr)
             else:
                 cases: List[AST.ASTStmt] = []
-                instr = fn.blocks[b].last_instruction
+                instr = fnblock.last_instruction
                 for s in successors:
                     casexpr = instr.ast_case_expression(s, astree)
                     caselabel = astree.mk_case_label(casexpr)
