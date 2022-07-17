@@ -38,6 +38,7 @@ from typing import (
     NewType,
     Optional,
     Sequence,
+    Set,
     Tuple,
     TYPE_CHECKING,
     Union)
@@ -83,6 +84,7 @@ class AbstractSyntaxTree:
         self._tmpcounter = 0
         self._spans: List[ASTSpanRecord] = []
         self._storage: Dict[int, ASTStorage] = {}
+        self._instructionmapping: Dict[int, Set[int]] = {}
         self._symboltable = localsymboltable
         self._storageconstructor = ASTStorageConstructor(
             registersizes, defaultsize)
@@ -129,6 +131,15 @@ class AbstractSyntaxTree:
     @property
     def storage(self) -> Dict[int, ASTStorage]:
         return self._storage
+
+    @property
+    def instructionmapping(self) -> Dict[int, Set[int]]:
+        return self._instructionmapping
+
+    def addto_instruction_mapping(
+            self, high_level_instrid: int, low_level_instrids: List[int]) -> None:
+        if len(low_level_instrids) > 0:
+            self.instructionmapping[high_level_instrid].update(low_level_instrids)
 
     def storage_records(self) -> Dict[int, Dict[str, Union[str, int]]]:
         results: Dict[int, Dict[str, Union[str, int]]] = {}
@@ -438,9 +449,11 @@ class AbstractSyntaxTree:
             lval: AST.ASTLval,
             rhs: AST.ASTExpr,
             optinstrid: Optional[int] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTAssign:
+            optlocationid: Optional[int] = None,
+            low_level_instrids: List[int] = []) -> AST.ASTAssign:
         instrid = self.get_instrid(optinstrid)
         locationid = self.get_locationid(optlocationid)
+        self.addto_instruction_mapping(instrid, low_level_instrids)
         return AST.ASTAssign(instrid, locationid, lval, rhs)
 
     def mk_var_assign(
@@ -448,18 +461,30 @@ class AbstractSyntaxTree:
             vname: str,
             rhs: AST.ASTExpr,
             optinstrid: Optional[int] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTAssign:
+            optlocationid: Optional[int] = None,
+            low_level_instrids: List[int] = []) -> AST.ASTAssign:
         lval = self.mk_named_lval(vname)
-        return self.mk_assign(lval, rhs, optinstrid, optlocationid)
+        return self.mk_assign(
+            lval,
+            rhs,
+            optinstrid=optinstrid,
+            optlocationid=optlocationid,
+            low_level_instrids=low_level_instrids)
 
     def mk_var_var_assign(
             self,
             vname: str,
             rhsname: str,
             optinstrid: Optional[int] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTAssign:
+            optlocationid: Optional[int] = None,
+            low_level_instrids: List[int] = []) -> AST.ASTAssign:
         rhs = self.mk_named_lval_expression(vname)
-        return self.mk_var_assign(vname, rhs, optinstrid, optlocationid)
+        return self.mk_var_assign(
+            vname,
+            rhs,
+            optinstrid,
+            optlocationid,
+            low_level_instrids=low_level_instrids)
 
     def mk_call(
             self,
@@ -467,9 +492,11 @@ class AbstractSyntaxTree:
             tgt: AST.ASTExpr,
             args: List[AST.ASTExpr],
             optinstrid: Optional[int] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTCall:
+            optlocationid: Optional[int] = None,
+            low_level_instrids: List[int] = []) -> AST.ASTCall:
         instrid = self.get_instrid(optinstrid)
         locationid = self.get_locationid(optlocationid)
+        self.addto_instruction_mapping(instrid, low_level_instrids)
         return AST.ASTCall(instrid, locationid, lval, tgt, args)
 
     def mk_var_call(
@@ -478,17 +505,33 @@ class AbstractSyntaxTree:
             tgt: AST.ASTExpr,
             args: List[AST.ASTExpr],
             optinstrid: Optional[int] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTCall:
+            optlocationid: Optional[int] = None,
+            low_level_instrids: List[int] = []) -> AST.ASTCall:
         lval = self.mk_named_lval(vname)
-        return self.mk_call(lval, tgt, args, optinstrid, optlocationid)
+        return self.mk_call(
+            lval,
+            tgt,
+            args,
+            optinstrid=optinstrid,
+            optlocationid=optlocationid,
+            low_level_instrids=low_level_instrids)
 
     def mk_tgt_call(
             self,
             lval: Optional[AST.ASTLval],
             tgtname: str,
-            args: List[AST.ASTExpr]) -> AST.ASTCall:
+            args: List[AST.ASTExpr],
+            optinstrid: Optional[int] = None,
+            optlocationid: Optional[int] = None,
+            low_level_instrids: List[int] = []) -> AST.ASTCall:
         tgtexpr = self.mk_named_lval_expression(tgtname)
-        return self.mk_call(lval, tgtexpr, args)
+        return self.mk_call(
+            lval,
+            tgtexpr,
+            args,
+            optinstrid=optinstrid,
+            optlocationid=optlocationid,
+            low_level_instrids=low_level_instrids)
 
     def mk_default_call(
             self,
@@ -496,7 +539,8 @@ class AbstractSyntaxTree:
             args: List[AST.ASTExpr],
             tgtvtype: Optional[AST.ASTTyp] = None,
             optinstrid: Optional[int] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTCall:
+            optlocationid: Optional[int] = None,
+            low_level_instrids: List[int] = []) -> AST.ASTCall:
         tgtvinfo = self.mk_vinfo(tgtvname, vtype=tgtvtype)
         lval: Optional[AST.ASTLval] = None
         if (
@@ -508,7 +552,13 @@ class AbstractSyntaxTree:
             else:
                 lval = self.mk_tmp_lval(vdescr="return value from " + tgtvname)
         tgtexpr = self.mk_vinfo_lval_expression(tgtvinfo)
-        return self.mk_call(lval, tgtexpr, args, optinstrid, optlocationid)
+        return self.mk_call(
+            lval,
+            tgtexpr,
+            args,
+            optinstrid=optinstrid,
+            optlocationid=optlocationid,
+            low_level_instrids=low_level_instrids)
 
     """Variables
 

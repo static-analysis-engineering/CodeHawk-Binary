@@ -210,6 +210,11 @@ and that is used in expressing provenance relationships.
 Instructions, like statements, have a locationid that can be used to
 relate the statement to a location in the binary.
 
+Instructions in the high-level representations can be linked to instructions
+at the low-level. The construction methods have an optional argument
+low_level_instrids to record this relationship. A link can also be made
+directly with the method <code>addto_instruction_mapping</code>.
+
 
 #### Construction methods provided
 
@@ -218,8 +223,9 @@ relate the statement to a location in the binary.
   def mk_assign(self,
     lval: ASTLval,
     rhs: ASTExpr,
-    instrid: Optional[int],
-    locationid: Optional[int]) -> ASTAssign
+    instrid: Optional[int] = None,
+    locationid: Optional[int] = None,
+    low_level_instrids: List[int] = []) -> ASTAssign
   ```
 
 - **mk_call**: creates a call from an optional lhs (lval), a target (expression),
@@ -229,35 +235,54 @@ relate the statement to a location in the binary.
     lval: Optional[ASTLval],
     tgt: ASTExpr,
     args: List[ASTExpr],
-    instrid: Optional[int],
-    locationid: Optional[int]) -> ASTCall
+    instrid: Optional[int] = None,
+    locationid: Optional[int] = None,
+    low_level_instruids: List[int] = []) -> ASTCall
   ```
 
 - **mk_var_assign**: creates an assignment from a variable name and rhs
   (expression); an lval with the given name is created (as described
   below under Variables)
   ```
-  def mk_var_assign(self, vname: str, rhs: ASTExpr) -> ASTAssign
+  def mk_var_assign(self,
+    vname: str,
+    rhs: ASTExpr,
+    optinstrid: Optional[int] = None,
+    oplocationid: Optional[int] = None,
+    low_level_instrids: List[int] = []) -> ASTAssign
   ```
   
 - **mk_var_var_assign**: creates an assignment from one variable name to another
   variable name; an lval and lval-expression for the two variables is
   created (as described below under Variables)
   ```
-  def mk_var_var_assign(self, vname: str, rhsname: str) -> ASTAssign
+  def mk_var_var_assign(
+    self, vname: str,
+    rhsname: str,
+    optinstrid: Optional[int] = None,
+    optlocationid: Optional[int] = None,
+    low_level_instrids: List[int] = []) -> ASTAssign
   ```
 
 - **mk_var_call**: creates a call instruction with a variable name as lhs argument
   ```
   def mk_var_call(self,
-    vname: str, tgt: ASTExpr, args: List[ASTExpr]) -> ASTCall
+    vname: str,
+    tgt: ASTExpr,
+    args: List[ASTExpr],
+    optinstrid: Optional[int] = None,
+    optlocationid: Optional[int] = None,
+    low_level_instrids: List[int] = []) -> ASTCall
   ```
 - **mk_tgt_call**: creates a call instruction with a function name as tgt expression
   ```
   def mk_tgt_call(self,
     lval: Optional[ASTLval],
     tgtname: str,
-    args: List[ASTExpr]) -> ASTCall
+    args: List[ASTExpr],
+    optinstrid: Optional[int] = None,
+    optlocationid: Optional[int] = None,
+    low_level_instrids: List[int] = []) -> ASTCall
   ```
 
 - **mk_default_call**: creates a call instruction with only a function name and
@@ -270,9 +295,19 @@ relate the statement to a location in the binary.
   def mk_default_call(self,
     tgtvname: str,
     args: List[ASTExpr],
-    tgtvtype: Optional[ASTTyp]) -> ASTCall
+    tgtvtype: Optional[ASTTyp],
+    optinstrid: Optional[int] = None,
+    optlocationid: Optional[int] = None,
+    low_level_instrids: List[int] = []) -> ASTCall
   ```
 
+- **addto_instruction_mapping**: creates an explicit link between a
+  high-level instruction and one or more low-level instructions.
+  ```
+  def addto_instruction_mapping(self,
+    high_level_instrid: int,
+    low_level_instrids: List[int]) -> None
+  ```
 
 ### Variables
 
