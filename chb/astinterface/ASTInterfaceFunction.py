@@ -107,9 +107,11 @@ class ASTInterfaceFunction(ASTFunction):
             support: CustomASTSupport) -> Tuple[ASTStmt, ASTStmt]:
         self._astinterface = ASTInterface(astree)
         if self.astinterface is not None:
-            return (
-                self.mk_high_level_ast(self.astinterface, support),
-                self.mk_low_level_ast(self.astinterface, support))
+            highlevel = self.mk_high_level_ast(self.astinterface, support)
+            lowlevel  = self.mk_low_level_ast(self.astinterface, support)
+            for (hlid, llids) in self.instruction_mapping().items():
+                astree.addto_instruction_mapping(hlid, llids)
+            return (highlevel, lowlevel)
         else:
             raise Exception("should not happen")
 

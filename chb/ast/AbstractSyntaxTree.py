@@ -84,7 +84,9 @@ class AbstractSyntaxTree:
         self._tmpcounter = 0
         self._spans: List[ASTSpanRecord] = []
         self._storage: Dict[int, ASTStorage] = {}
-        self._instructionmapping: Dict[int, Set[int]] = {}
+        self._instructionmapping: Dict[int, List[int]] = {}
+        self._expressionmapping: Dict[int, List[int]] = {}
+        self._reachingdefinitions: Dict[int, List[int]] = {}
         self._symboltable = localsymboltable
         self._storageconstructor = ASTStorageConstructor(
             registersizes, defaultsize)
@@ -133,13 +135,46 @@ class AbstractSyntaxTree:
         return self._storage
 
     @property
-    def instructionmapping(self) -> Dict[int, Set[int]]:
+    def instructionmapping(self) -> Dict[int, List[int]]:
         return self._instructionmapping
 
     def addto_instruction_mapping(
-            self, high_level_instrid: int, low_level_instrids: List[int]) -> None:
-        if len(low_level_instrids) > 0:
-            self.instructionmapping[high_level_instrid].update(low_level_instrids)
+            self,
+            high_level_instrid: int,
+            low_level_instrids: List[int]) -> None:
+        entry = self.instructionmapping.setdefault(high_level_instrid, [])
+        for llid in low_level_instrids:
+            if llid not in entry:
+                entry.append(llid)
+        self.instructionmapping[high_level_instrid] = entry
+
+    @property
+    def reachingdefinitions(self) -> Dict[int, List[int]]:
+        return self._reachingdefinitions
+
+    def addto_reaching_definitions(
+            self,
+            exprid: int,
+            instrids: List[int]) -> None:
+        entry = self.reachingdefinitions.setdefault(exprid, [])
+        for instrid in instrids:
+            if instrid not in entry:
+                entry.append(instrid)
+        self.reachingdefinitions[exprid] = entry
+
+    @property
+    def expressionmapping(self) -> Dict[int, List[int]]:
+        return self._expressionmapping
+
+    def addto_expression_mapping(
+            self,
+            src_exprid: int,
+            dst_exprids: List[int]) -> None:
+        entry = self.expressionmapping.setdefault(src_exprid, [])
+        for x in dst_exprids:
+            if x not in entry:
+                entry.append(x)
+        self.expressionmapping[src_exprid] = entry
 
     def storage_records(self) -> Dict[int, Dict[str, Union[str, int]]]:
         results: Dict[int, Dict[str, Union[str, int]]] = {}

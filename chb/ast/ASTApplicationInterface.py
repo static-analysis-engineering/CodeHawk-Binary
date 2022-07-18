@@ -114,8 +114,9 @@ class ASTApplicationInterface:
         fndata["ast"]["low-level-ast-startnode"] = low_level_startindex
         fndata["spans"] = astree.spans
         fndata["provenance"] = {}
-        fndata["provenance"]["instruction-mapping"] = astfn.instruction_mapping()
-        fndata["provenance"]["reaching-definitions"] = {}
+        fndata["provenance"]["instruction-mapping"] = astree.instructionmapping
+        fndata["provenance"]["reaching-definitions"] = astree.reachingdefinitions
+        fndata["provenance"]["expression-mapping"] = astree.expressionmapping
         fndata["available-expressions"] = {}
         fndata["definitions-used"] = {}
         fndata["storage"] = astree.storage_records()

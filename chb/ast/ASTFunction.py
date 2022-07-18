@@ -78,7 +78,3 @@ class ASTFunction(ABC):
             astree: AbstractSyntaxTree,
             support: CustomASTSupport) -> Tuple[ASTStmt, ASTStmt]:
         ...
-
-    def instruction_mapping(self) -> Dict[int, List[int]]:
-        result: Dict[int, List[int]] = {}
-        return result

@@ -40,7 +40,12 @@ It consists of two parts:
 2. **Reaching Definitions**: A mapping from expressions in either low level
    or high level instructions to the instructions that <ins>may</ins> define them.
    ```
-   instr-id -> expr-id -> instr-id list
+   expr-id -> instr-id list
+   ```
+3. **Expression Mapping**: A mapping from expressions (either high-level or
+   low-level) to lists of expressions (at the same or a lower level).
+   ```
+   expr-id -> expr-id list
    ```
 
 ### Available Expressions<a name="available-expressions"></a>
