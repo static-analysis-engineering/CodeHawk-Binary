@@ -133,24 +133,6 @@ class BasicBlock(ABC):
             m.update(instr.rev_bytestring.encode("utf-8"))
         return m.hexdigest()
 
-    def assembly_ast_condition(
-            self,
-            astree: ASTInterface,
-            reverse: bool = False) -> Optional[AST.ASTExpr]:
-        return self.last_instruction.assembly_ast_condition(astree, reverse=reverse)
-
-    def assembly_ast(self, astree: ASTInterface) -> AST.ASTStmt:
-        instrs: List[AST.ASTInstruction] = []
-        for (a, i) in sorted(self.instructions.items(), key=lambda p: int(p[0], 16)):
-            instrs.extend(i.assembly_ast(astree))
-        return astree.mk_instr_sequence(instrs)
-
-    def ast(self, astree: ASTInterface) -> AST.ASTStmt:
-        instrs: List[AST.ASTInstruction] = []
-        for (a, i) in sorted(self.instructions.items(), key=lambda p: int(p[0], 16)):
-            instrs.extend(i.ast(astree))
-        return astree.mk_instr_sequence(instrs)
-
     @abstractmethod
     def to_string(
             self,

@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Function interface for AST construction."""
 
-from typing import cast, Optional, Tuple, TYPE_CHECKING
+from typing import cast, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
@@ -34,6 +34,7 @@ from chb.ast.ASTFunction import ASTFunction
 from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 from chb.ast.CustomASTSupport import CustomASTSupport
 
+from chb.astinterface.ASTInterfaceBasicBlock import ASTInterfaceBasicBlock
 from chb.astinterface.ASTInterface import ASTInterface
 from chb.astinterface.CHBASTSupport import CHBASTSupport
 
@@ -41,6 +42,7 @@ import chb.util.fileutil as UF
 
 
 if TYPE_CHECKING:
+    from chb.app.BasicBlock import BasicBlock
     from chb.app.Function import Function
 
 
@@ -54,6 +56,16 @@ class ASTInterfaceFunction(ASTFunction):
             function_prototype: Optional[ASTVarInfo] = None) -> None:
         ASTFunction.__init__(self, faddr, fname, function_prototype)
         self._function = f
+        self._astinterface: Optional[ASTInterface] = None
+        self._blocks: Dict[str, ASTInterfaceBasicBlock] = {}
+
+    @property
+    def blocks(self) -> Dict[str, ASTInterfaceBasicBlock]:
+        return self._blocks
+
+    @property
+    def astinterface(self) -> Optional[ASTInterface]:
+        return self._astinterface
 
     def function_prototype(self) -> ASTVarInfo:
         if self._function_prototype is not None:
@@ -66,27 +78,40 @@ class ASTInterfaceFunction(ASTFunction):
     def function(self) -> "Function":
         return self._function
 
+    def block(self, startaddr: str) -> ASTInterfaceBasicBlock:
+        if not startaddr in self.blocks:
+            astblock = ASTInterfaceBasicBlock(self.function.blocks[startaddr])
+            self.blocks[startaddr] = astblock
+        return self.blocks[startaddr]
+
     def ast(self,
             astree: AbstractSyntaxTree,
             support: CustomASTSupport) -> ASTStmt:
-        astinterface = ASTInterface(astree)
-        return self.function.cfg.ast(self, astinterface)
+        if self.astinterface is not None:
+            return self.function.cfg.ast(self, self.astinterface)
+        else:
+            raise Exception("should not happen")
 
     def cfg_ast(
             self,
             astree: AbstractSyntaxTree,
             support: CustomASTSupport) -> ASTStmt:
-        astinterface = ASTInterface(astree)
-        return self.function.cfg.cfg_ast(self, astinterface)
+        if self.astinterface is not None:
+            return self.function.cfg.cfg_ast(self, self.astinterface)
+        else:
+            raise Exception("should not happen")
 
     def mk_asts(
             self,
             astree: AbstractSyntaxTree,
             support: CustomASTSupport) -> Tuple[ASTStmt, ASTStmt]:
-        astinterface = ASTInterface(astree)
-        return (
-            self.mk_high_level_ast(astinterface, support),
-            self.mk_low_level_ast(astinterface, support))
+        self._astinterface = ASTInterface(astree)
+        if self.astinterface is not None:
+            return (
+                self.mk_high_level_ast(self.astinterface, support),
+                self.mk_low_level_ast(self.astinterface, support))
+        else:
+            raise Exception("should not happen")
 
     def mk_low_level_ast(
             self,
@@ -99,4 +124,12 @@ class ASTInterfaceFunction(ASTFunction):
             astinterface: ASTInterface,
             support: CustomASTSupport) -> ASTStmt:
         return self.function.cfg.ast(self, astinterface)
-        
+
+    def instruction_mapping(self) -> Dict[int, List[int]]:
+        result: Dict[int, List[int]] = {}
+        if self.astinterface is not None:
+            for b in self.blocks.values():
+                result.update(b.instruction_mapping(self.astinterface))
+            return result
+        else:
+            raise Exception("ASTInterface has not yet been created.""")

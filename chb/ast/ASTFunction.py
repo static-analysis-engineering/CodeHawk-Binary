@@ -28,7 +28,7 @@
 
 from abc import ABC, abstractmethod
 
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTNode import ASTStmt, ASTVarInfo
@@ -78,3 +78,7 @@ class ASTFunction(ABC):
             astree: AbstractSyntaxTree,
             support: CustomASTSupport) -> Tuple[ASTStmt, ASTStmt]:
         ...
+
+    def instruction_mapping(self) -> Dict[int, List[int]]:
+        result: Dict[int, List[int]] = {}
+        return result

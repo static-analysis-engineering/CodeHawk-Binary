@@ -276,12 +276,14 @@ class FlowGraph:
         return False
 
 
-def normalized_branch(astree: ASTInterface,
-                      fn: "Function",
-                      n: str,
-                      tgtaddr: str,
-                      ifbranch: AST.ASTStmt,
-                      elsebranch: AST.ASTStmt) -> AST.ASTBranch:
+def normalized_branch(
+        astree: ASTInterface,
+        astfn: "ASTInterfaceFunction",
+        n: str,
+        tgtaddr: str,
+        ifbranch: AST.ASTStmt,
+        elsebranch: AST.ASTStmt) -> AST.ASTBranch:
+
     def cast_binop(condition: Optional[AST.ASTExpr]) -> Optional[AST.ASTBinaryOp]:
         if condition is None or not condition.is_ast_binary_op:
             return None
@@ -301,7 +303,8 @@ def normalized_branch(astree: ASTInterface,
     def swapped(condition):
         return astree.mk_branch(condition, elsebranch, ifbranch, tgtaddr)
 
-    condition = fn.blocks[n].assembly_ast_condition(astree)
+    astblock = astfn.block(n)
+    condition = astblock.assembly_ast_condition(astree)
     couqitiou = inverted_binop(condition)
     if couqitiou is not None:
         inverting_eliminates_negation = couqitiou.op == "eq"
@@ -309,7 +312,7 @@ def normalized_branch(astree: ASTInterface,
             return swapped(couqitiou)
 
     if ifbranch.is_empty():
-        return swapped(fn.blocks[n].assembly_ast_condition(astree, reverse=True))
+        return swapped(astblock.assembly_ast_condition(astree, reverse=True))
 
     return cast(AST.ASTBranch, astree.mk_branch(condition, ifbranch, elsebranch, tgtaddr))
 
@@ -418,9 +421,11 @@ class Cfg:
 
     def stmt_ast(
             self,
-            fn: "Function",
+            astfn: "ASTInterfaceFunction",
             astree: ASTInterface,
             blockstmts: Dict[str, AST.ASTStmt]) -> AST.ASTStmt:
+
+        fn = astfn.function
 
         def expand_domtree() -> Dict[str, List[str]]:
             domtree_adj: Dict[str, List[str]] = dict()
@@ -514,7 +519,10 @@ class Cfg:
                 elsebranch = mk_block(do_branch(x, succs[0], ctx))
                 tgtaddr = succs[1]
                 # pcoffset = pcoffset = ( (int(succs[1], 16) - int(succs[0], 16)) - 2)
-                return xstmts + [normalized_branch(astree, fn, x, tgtaddr, ifbranch, elsebranch)]
+                return (
+                    xstmts
+                    + [normalized_branch(
+                        astree, astfn, x, tgtaddr, ifbranch, elsebranch)])
 
             initial = ControlFlowContext(None, None, None)
             return mk_block(do_tree(self.flowgraph.start_node, initial))
@@ -525,24 +533,25 @@ class Cfg:
 
     def assembly_ast(
             self,
-            fn: "Function",
+            astfn: "ASTInterfaceFunction",
             astree: ASTInterface) -> AST.ASTStmt:
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
-            blocknode = fn.blocks[n].assembly_ast(astree)
+            astblock = astfn.block(n)
+            blocknode = astblock.assembly_ast(astree)
             blockstmts[n] = blocknode
 
-        return self.stmt_ast(fn, astree, blockstmts)
+        return self.stmt_ast(astfn, astree, blockstmts)
 
     def ast(self,
             astfn: "ASTInterfaceFunction",
             astree: ASTInterface) -> AST.ASTStmt:
-        fn = astfn.function
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
-            blocknode = fn.blocks[n].ast(astree)
-            if fn.blocks[n].has_return:
-                instr = fn.blocks[n].last_instruction
+            astblock = astfn.block(n)
+            blocknode = astblock.ast(astree)
+            if astblock.has_return:
+                instr = astblock.last_instruction
                 rv = instr.return_value()
                 if rv is not None:
                     astexprs: List[AST.ASTExpr] = XU.xxpr_to_ast_exprs(rv, astree)
@@ -553,7 +562,7 @@ class Cfg:
                 blocknode = astree.mk_block([blocknode, rtnstmt])
             blockstmts[n] = blocknode
 
-        return self.stmt_ast(fn, astree, blockstmts)
+        return self.stmt_ast(astfn, astree, blockstmts)
 
     def cfg_ast(
             self,
@@ -562,12 +571,11 @@ class Cfg:
         """Returns an AST directly based on the CFG."""
 
         blockstmts: List[AST.ASTStmt] = []
-        fn = astfn.function
         for (b, successors) in sorted(
                 self.edges.items(), key=lambda e: int(e[0], 16)):
             label = astree.mk_label(b)
-            fnblock = fn.blocks[b]
-            block = fnblock.assembly_ast(astree)
+            blocknode = astfn.block(b)
+            block = blocknode.assembly_ast(astree)
             succblock: AST.ASTStmt
             if len(successors) == 0:
                 succblock = astree.mk_return_stmt(None)
@@ -576,14 +584,14 @@ class Cfg:
             elif len(successors) == 2:
                 falsebranch = astree.mk_goto_stmt(successors[0], successors[0])
                 truebranch = astree.mk_goto_stmt(successors[1], successors[1])
-                instr = fnblock.last_instruction
+                instr = blocknode.last_instruction
                 expr = instr.assembly_ast_condition(astree)
                 tgtaddr = successors[1]
                 succblock = astree.mk_branch(
                     expr, truebranch, falsebranch, tgtaddr)
             else:
                 cases: List[AST.ASTStmt] = []
-                instr = fnblock.last_instruction
+                instr = blocknode.last_instruction
                 for s in successors:
                     casexpr = instr.ast_case_expression(s, astree)
                     caselabel = astree.mk_case_label(casexpr)

@@ -216,7 +216,8 @@ class Instruction(ABC):
         raise UF.CHBError("ast (abstract-syntax-tree) not defined")
 
     def assembly_ast_condition(
-            self, astree: ASTInterface,
+            self,
+            astree: ASTInterface,
             reverse: bool = False) -> Optional[AST.ASTExpr]:
         raise UF.CHBError("assembly-ast-condition not defined")
 
