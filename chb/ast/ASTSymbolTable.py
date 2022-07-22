@@ -95,6 +95,8 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         self._referenced: Set[str] = set([])
         self._typesused: Set[int] = set([])
         self._compinfos: Dict[int, AST.ASTCompInfo] = {}
+        self._lval_counter: int = 1
+        self._expr_counter: int = 1
 
     @property
     def symbolic_addresses(self) -> Mapping[str, AST.ASTVarInfo]:
@@ -103,6 +105,26 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
     @property
     def compinfos(self) -> Mapping[int, AST.ASTCompInfo]:
         return self._compinfos
+
+    def new_lvalid(self) -> int:
+        """Return a new lval id for lvalues."""
+
+        lvalid = self._lval_counter
+        self._lval_counter += 1
+        return lvalid
+
+    def get_lvalid(self, lvalid: Optional[int]) -> int:
+        return self.new_lvalid() if lvalid is None else lvalid
+
+    def new_exprid(self) -> int:
+        """Return a new expr id for expressions."""
+
+        exprid = self._expr_counter
+        self._expr_counter += 1
+        return exprid
+
+    def get_exprid(self, exprid: Optional[int]) -> int:
+        return self.new_exprid() if exprid is None else exprid
 
     def compinfo(self, ckey: int) -> AST.ASTCompInfo:
         if ckey in self.compinfos:

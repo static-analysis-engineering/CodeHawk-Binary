@@ -30,7 +30,8 @@ import argparse
 import json
 import os
 
-from typing import Any, cast, Dict, List, NoReturn, Set, Tuple, TYPE_CHECKING
+from typing import (
+    Any, cast, Dict, List, NoReturn, Optional, Set, Tuple, TYPE_CHECKING)
 
 from chb.app.AppAccess import AppAccess
 
@@ -38,13 +39,14 @@ from chb.ast.ASTApplicationInterface import ASTApplicationInterface
 from chb.ast.ASTBasicCTyper import ASTBasicCTyper
 from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
 from chb.ast.ASTDeserializer import ASTDeserializer
-from chb.ast.ASTNode import ASTStmt, ASTExpr, ASTVariable
+from chb.ast.ASTNode import ASTStmt, ASTExpr, ASTVariable, ASTVarInfo
 from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
 from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 
 from chb.astinterface.ASTInterface import ASTInterface
 from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
+from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
@@ -126,9 +128,57 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
+
+    # read hints files
+    os.chdir(path)
+    userhints = UserHints(toxml=False)
+    filenames = [os.path.abspath(s) for s in hints]
+    if len(filenames) > 0:
+        print("use hints files: " + ", ".join(filenames))
+        for filename in filenames:
+            try:
+                with open(filename, "r") as fp:
+                    fuserdata = json.load(fp)
+                if "userdata" in fuserdata:
+                    userhints.add_hints(fuserdata["userdata"])
+                else:
+                    UC.print_error(
+                        "Expected to find userdata in " + filename)
+                    exit(1)
+            except Exception as e:
+                UC.print_error(
+                    "Error in reading " + filename + ": " + str(e))
+                exit(1)
+
     app = UC.get_app(path, xfile, xinfo)
 
     astapi = ASTApplicationInterface()
+
+    # --------------------------------------- initialize global symbol table ---
+
+    symbolicaddrs: Dict[str, str] = userhints.symbolic_addresses()
+    revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
+    revfunctionnames = userhints.rev_function_names()
+
+    globalsymboltable = astapi.globalsymboltable
+    typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
+
+    for vinfo in app.bcfiles.globalvars:
+        vname = vinfo.vname
+        print("Global variable: " + vname)
+        if vname in revsymbolicaddrs:
+            gaddr = int(revsymbolicaddrs[vname], 16)
+        elif vname in revfunctionnames:
+            gaddr = int(revfunctionnames[vname], 16)
+        else:
+            gaddr = 0
+        if gaddr > 0:
+            globalsymboltable.add_symbol(
+                vname,
+                vtype=vinfo.vtype.convert(typconverter),
+                globaladdress=gaddr)
+            # size=vinfo.vtype.byte_size())
+    typconverter.initialize_compinfos()
 
     for faddr in functions:
         if app.has_function(faddr):
@@ -142,7 +192,12 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             else:
                 fname = "sub_" + faddr[2:]
 
-            astfunction = ASTInterfaceFunction(faddr, fname, f)
+            fproto: Optional[ASTVarInfo] = None
+            if app.bcfiles.has_vardecl(fname):
+                if globalsymboltable.has_symbol(fname):
+                    fproto = globalsymboltable.get_symbol(fname)
+
+            astfunction = ASTInterfaceFunction(faddr, fname, f, fproto)
             astapi.add_function(astfunction, verbose=verbose)
 
         else:

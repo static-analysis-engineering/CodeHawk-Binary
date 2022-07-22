@@ -95,7 +95,6 @@ class ASTApplicationInterface:
             print("\nLow-level representation")
             print(report)
 
-
         fndata: Dict[str, Any] = {}
         serializer = ASTSerializer()
 
