@@ -36,6 +36,8 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+import chb.invariants.XXprUtil as XU
+
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
@@ -112,3 +114,18 @@ class ARMLogicalShiftRight(ARMOpcode):
         assign = astree.mk_assign(
             lhs, binop, iaddr=iaddr, bytestring=bytestring, annotations=annotations)
         return preinstrs1 + preinstrs2 + [assign] + postinstrs1 + postinstrs2
+
+    def ast(self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
+        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[3], astree)
+        if len(lhss) == 1 and len(rhss) == 1:
+            lhs = lhss[0]
+            rhs = rhss[0]
+            assign = astree.mk_assign(lhs, rhs)
+            return [assign]
+        else:
+            return self.assembly_ast(astree, iaddr, bytestring, xdata)
