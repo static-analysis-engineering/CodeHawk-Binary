@@ -81,8 +81,11 @@ xpr_operator_strings = {
     "plus": " + ",
     "range": " range ",
     "shiftlt": " << ",
-    "shiftrt": " >> "
-        }
+    "shiftrt": " >> ",
+    "lsr": " >> ",
+    "asr": " s>> ",
+    "lsl": " << "
+}
 
 
 class XXpr(FnXprDictionaryRecord):
