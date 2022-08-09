@@ -351,6 +351,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     doreset: bool = args.reset
     doresetx: bool = args.resetx
     dodisassemble: bool = args.disassemble
+    dovardefs: bool = args.vardefs
     doextract: bool = args.extract
     verbose: bool = args.verbose
     save_asm: str = args.save_asm
@@ -438,6 +439,20 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 verbose=verbose,
                 preamble_cutoff=preamble_cutoff,
                 save_asm=save_asm)
+        except subprocess.CalledProcessError as e:
+            print(e.output)
+            print(e.args)
+            exit(1)
+        except UF.CHBError as e:
+            print(str(e.wrap()))
+            exit(1)
+        exit(0)
+
+    elif dovardefs:
+        try:
+            am.analyze_vardefs(
+                verbose=verbose,
+                preamble_cutoff=preamble_cutoff)
         except subprocess.CalledProcessError as e:
             print(e.output)
             print(e.args)
@@ -1498,6 +1513,49 @@ def show_invariant_table(args: argparse.Namespace) -> NoReturn:
             for fact in invariants[loc]:
                 print("  " + str(fact))
 
+    else:
+        print("*" * 80)
+        print("Function " + faddr + " not found")
+        print("Please specify function as a valid hex address.")
+        print("To see a list of functions and their addresses analyzed use:")
+        print("  > chkx show stats " + xname)
+        print("*" * 80)
+
+    exit(0)
+
+
+def show_var_invariant_table(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    faddr: str = args.faddr
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+    if app.has_function(faddr):
+        f = app.function(faddr)
+        if f is None:
+            print_error("Unable to find function " + faddr)
+            exit(1)
+
+        print(f.varinvdictionary.var_invariant_fact_table_to_string())
+
+        print("Location invariants")
+        print("-------------------")
+        varinvariants = f.var_invariants
+        for loc in sorted(varinvariants):
+            print(loc)
+            for vfact in varinvariants[loc]:
+                print("  " + str(vfact))
     else:
         print("*" * 80)
         print("Function " + faddr + " not found")

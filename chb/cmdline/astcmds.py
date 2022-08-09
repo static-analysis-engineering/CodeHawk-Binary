@@ -165,7 +165,6 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
     for vinfo in app.bcfiles.globalvars:
         vname = vinfo.vname
-        print("Global variable: " + vname)
         if vname in revsymbolicaddrs:
             gaddr = int(revsymbolicaddrs[vname], 16)
         elif vname in revfunctionnames:

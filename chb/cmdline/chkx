@@ -311,9 +311,13 @@ def parse() -> argparse.Namespace:
         action='store_true',
         help='extract and disassemble only')
     analyzecmd.add_argument(
-        '-x', '--extract',
+        "--vardefs",
+        action="store_true",
+        help="analyze variable definitions with symbolic sets")
+    analyzecmd.add_argument(
+        '-x', "--extract",
         action='store_true',
-        help='extract executable content only')
+        help="extract executable content only")
     analyzecmd.add_argument(
         '--reset',
         action='store_true',
@@ -1003,20 +1007,26 @@ def parse() -> argparse.Namespace:
     # --- expr ---
     table_expr = tableparsers.add_parser('expr')
     table_expr.add_argument('xname', help='name of executable')
-    table_expr.add_argument('faddr', help='hex address of executbale')
+    table_expr.add_argument("faddr", help="hex address of executable")
     table_expr.set_defaults(func=UCC.show_expr_table)
 
     # --- variables ---
     table_vars = tableparsers.add_parser('variables')
     table_vars.add_argument('xname', help='name of executable')
-    table_vars.add_argument('faddr', help='hex address of executbale')
+    table_vars.add_argument("faddr", help="hex address of executable")
     table_vars.set_defaults(func=UCC.show_vars_table)
 
     # --- invariants ---
     table_invs = tableparsers.add_parser('invariants')
     table_invs.add_argument('xname', help='name of executable')
-    table_invs.add_argument('faddr', help='hex address of executbale')
+    table_invs.add_argument("faddr", help="hex address of executable")
     table_invs.set_defaults(func=UCC.show_invariant_table)
+
+    # --- variable invariants ---
+    table_varinvs = tableparsers.add_parser("varinvariants")
+    table_varinvs.add_argument("xname", help="name of executable")
+    table_varinvs.add_argument("faddr", help="hex address of executable")
+    table_varinvs.set_defaults(func=UCC.show_var_invariant_table)
 
     # ----------------------------------------------------------- deserialize
     parser_deserialize = subparsers.add_parser("deserialize")
