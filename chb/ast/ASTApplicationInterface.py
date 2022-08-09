@@ -38,6 +38,9 @@ from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.CustomASTSupport import CustomASTSupport
 
 
+pirversion: str = "0.1.0-20220808"
+
+
 class ASTApplicationInterface:
 
     def __init__(
@@ -68,6 +71,7 @@ class ASTApplicationInterface:
             registersizes=self.support.register_sizes)
 
         try:
+            # ast = astfn.ast(astree, self.support)
             (ast, low_level_ast) = astfn.mk_asts(astree, self.support)
         except NameError as e:
             print("=" * 80)
@@ -127,10 +131,12 @@ class ASTApplicationInterface:
         self.globalsymboltable.serialize(globalserializer)
 
         ast_output: Dict[str, Any] = {}
+        ast_output["pir-version"] = pirversion
         ast_output["global-symbol-table"] = globalserializer.records()
         ast_output["functions"] = self._fnsdata
 
         if verbose:
+
             print("\nDeserialized cfg-ast output")
             print("-----------------------")
             deserializer = ASTDeserializer(ast_output)

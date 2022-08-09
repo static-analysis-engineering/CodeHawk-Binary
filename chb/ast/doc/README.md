@@ -25,6 +25,7 @@ of the basic representation via Visitor classes.
 - [Serialization](serialization.md)
 - [Structure Checking](checkers.md)
 - [Visitor Classes](visitors.md)
+- [CHANGELOG](CHANGELOG.md)
 
 ## Structure
 

@@ -91,7 +91,7 @@ Binary operators:
 
 operators = {
     "and": " && ",   # logical and
-    "asr": " s>> ",   # arithmetic shift right
+    "asr": " >> ",   # arithmetic shift right
     "band": " & ",   # bitwise and
     "bnot": "~",     # bitwise not
     "bor": " | ",    # bitwise or

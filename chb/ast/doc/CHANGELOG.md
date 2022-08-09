@@ -1,0 +1,9 @@
+## PIR Changelog
+
+### Version 0.1.0-20220808
+
+- Added versioning (based on [semantic-versioning](https://semver.org/))
+- Added CHANGELOG.md
+- Changed printed version of asr from <code>s>></code> to <code>>></code>
+
+---
