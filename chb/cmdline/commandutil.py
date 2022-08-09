@@ -351,7 +351,6 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     doreset: bool = args.reset
     doresetx: bool = args.resetx
     dodisassemble: bool = args.disassemble
-    dovardefs: bool = args.vardefs
     doextract: bool = args.extract
     verbose: bool = args.verbose
     save_asm: str = args.save_asm
@@ -439,20 +438,6 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 verbose=verbose,
                 preamble_cutoff=preamble_cutoff,
                 save_asm=save_asm)
-        except subprocess.CalledProcessError as e:
-            print(e.output)
-            print(e.args)
-            exit(1)
-        except UF.CHBError as e:
-            print(str(e.wrap()))
-            exit(1)
-        exit(0)
-
-    elif dovardefs:
-        try:
-            am.analyze_vardefs(
-                verbose=verbose,
-                preamble_cutoff=preamble_cutoff)
         except subprocess.CalledProcessError as e:
             print(e.output)
             print(e.args)
