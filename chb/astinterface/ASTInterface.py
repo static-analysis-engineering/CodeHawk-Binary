@@ -54,6 +54,7 @@ from chb.ast.ASTSymbolTable import (
 
 from chb.astinterface.ASTIFormalVarInfo import ASTIFormalVarInfo
 
+from chb.astinterface.ASTIProvenance import ASTIProvenance
 import chb.astinterface.ASTIUtil as AU
 from chb.astinterface.ASTIVarInfo import ASTIVarInfo
 
@@ -63,6 +64,7 @@ if TYPE_CHECKING:
     from chb.bctypes.BCFunctionDefinition import BCFunctionDefinition
     from chb.bctypes.BCTyp import BCTyp, BCTypFun, BCTypComp, BCTypArray, BCTypPtr
     from chb.bctypes.BCVarInfo import BCVarInfo
+    from chb.invariants.VarInvariantFact import VarInvariantFact
 
 
 """fname -> registers/stack -> name/offset -> [span/altname -> (low, high), name]."""
@@ -161,6 +163,7 @@ class ASTInterface:
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
         self._diagnostics: List[str] = []
+        self._provenance = ASTIProvenance()
 
     @property
     def astree(self) -> AbstractSyntaxTree:
@@ -200,6 +203,56 @@ class ASTInterface:
 
     def add_diagnostic(self, msg: str) -> None:
         self._diagnostics.append(msg)
+
+    @property
+    def provenance(self) -> ASTIProvenance:
+        return self._provenance
+
+    def add_instr_mapping(
+            self,
+            hl_instr: AST.ASTInstruction,
+            ll_instr: AST.ASTInstruction) -> None:
+        self.provenance.add_instr_mapping(hl_instr, ll_instr)
+
+    def add_instr_address(
+            self,
+            instr: AST.ASTInstruction,
+            addresses: List[str]) -> None:
+        self.provenance.add_instr_address(instr, addresses)
+
+    def add_expr_mapping(
+            self,
+            hl_expr: AST.ASTExpr,
+            ll_expr: AST.ASTExpr) -> None:
+        self.provenance.add_expr_mapping(hl_expr, ll_expr)
+
+    def add_lval_mapping(
+            self,
+            hl_lval: AST.ASTLval,
+            ll_lval: AST.ASTLval) -> None:
+        self.provenance.add_lval_mapping(hl_lval, ll_lval)
+
+    def add_expr_reachingdefs(
+            self,
+            expr: AST.ASTExpr,
+            reachingdefs: List[Optional["VarInvariantFact"]]) -> None:
+        rdefs: List["VarInvariantFact"] = []
+        for f in reachingdefs:
+            if f is not None:
+                rdefs.append(f)
+        self.provenance.add_expr_reachingdefs(expr, rdefs)
+
+    def add_lval_defuses(
+            self,
+            lval: AST.ASTLval,
+            uses: Optional["VarInvariantFact"]) -> None:
+        self.provenance.add_lval_defuses(lval, uses)
+
+    def add_lval_defuses_high(
+            self,
+            lval: AST.ASTLval,
+            uses: Optional["VarInvariantFact"]) -> None:
+        self.provenance.add_lval_defuses_high(lval, uses)
 
     @property
     def fname(self) -> str:

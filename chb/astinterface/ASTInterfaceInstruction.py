@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Instruction in an abstract syntax tree."""
 
-from typing import Dict, List, Optional, Set, TYPE_CHECKING
+from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
 
@@ -41,33 +41,39 @@ class ASTInterfaceInstruction:
 
     def __init__(self, instr: "Instruction") -> None:
         self._instr = instr
-        self._ast_instrs: List[AST.ASTInstruction] = []
-        self._assembly_ast_instrs: List[AST.ASTInstruction] = []
+        self._hl_ast_instrs: List[AST.ASTInstruction] = []
+        self._ll_ast_instrs: List[AST.ASTInstruction] = []
 
     @property
     def instruction(self) -> "Instruction":
         return self._instr
 
     @property
-    def ast_instructions(self) -> List[AST.ASTInstruction]:
-        return self._ast_instrs
+    def hl_ast_instructions(self) -> List[AST.ASTInstruction]:
+        return self._hl_ast_instrs
 
     @property
-    def assembly_ast_instructions(self) -> List[AST.ASTInstruction]:
-        return self._assembly_ast_instrs
+    def ll_ast_instructions(self) -> List[AST.ASTInstruction]:
+        return self._ll_ast_instrs
+
+    def ast_prov(self, astree: "ASTInterface") -> None:
+        if len(self.hl_ast_instructions) == 0:
+            (hl, ll) = self.instruction.ast_prov(astree)
+        self._hl_ast_instrs = hl
+        self._ll_ast_instrs = ll
 
     def return_value(self) -> Optional["XXpr"]:
         return self.instruction.return_value()
 
     def assembly_ast(self, astree: "ASTInterface") -> List[AST.ASTInstruction]:
-        if len(self.assembly_ast_instructions) == 0:
-            self._assembly_ast_instrs = self.instruction.assembly_ast(astree)
-        return self.assembly_ast_instructions
+        if len(self.ll_ast_instructions) == 0:
+            self.ast_prov(astree)
+        return self.ll_ast_instructions
 
     def ast(self, astree: "ASTInterface") -> List[AST.ASTInstruction]:
-        if len(self.ast_instructions) == 0:
-            self._ast_instrs = self.instruction.ast(astree)
-        return self.ast_instructions
+        if len(self.hl_ast_instructions) == 0:
+            self.ast_prov(astree)
+        return self.hl_ast_instructions
 
     def instruction_mapping(self, astree: "ASTInterface") -> Dict[int, List[int]]:
         result: Dict[int, List[int]] = {}

@@ -34,6 +34,7 @@ from chb.ast.ASTFunction import ASTFunction
 from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 from chb.ast.CustomASTSupport import CustomASTSupport
 
+from chb.astinterface.ASTICPrettyPrinter import ASTICPrettyPrinter
 from chb.astinterface.ASTInterfaceBasicBlock import ASTInterfaceBasicBlock
 from chb.astinterface.ASTInterface import ASTInterface
 from chb.astinterface.CHBASTSupport import CHBASTSupport
@@ -87,6 +88,7 @@ class ASTInterfaceFunction(ASTFunction):
     def ast(self,
             astree: AbstractSyntaxTree,
             support: CustomASTSupport) -> ASTStmt:
+        self._astinterface = ASTInterface(astree)
         if self.astinterface is not None:
             return self.function.cfg.ast(self, self.astinterface)
         else:
@@ -109,8 +111,6 @@ class ASTInterfaceFunction(ASTFunction):
         if self.astinterface is not None:
             highlevel = self.mk_high_level_ast(self.astinterface, support)
             lowlevel  = self.mk_low_level_ast(self.astinterface, support)
-            for (hlid, llids) in self.instruction_mapping().items():
-                astree.addto_instruction_mapping(hlid, llids)
             return (highlevel, lowlevel)
         else:
             raise Exception("should not happen")
@@ -125,7 +125,12 @@ class ASTInterfaceFunction(ASTFunction):
             self,
             astinterface: ASTInterface,
             support: CustomASTSupport) -> ASTStmt:
-        return self.function.cfg.ast(self, astinterface)
+        ast = self.function.cfg.ast(self, astinterface)
+        prettyprinter = ASTICPrettyPrinter(
+            astinterface.symboltable,
+            astinterface.provenance)
+        print(prettyprinter.to_c(ast))
+        return ast
 
     def instruction_mapping(self) -> Dict[int, List[int]]:
         result: Dict[int, List[int]] = {}
