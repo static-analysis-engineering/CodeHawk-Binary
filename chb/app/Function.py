@@ -64,8 +64,10 @@ from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnVarDictionary import FnVarDictionary
+from chb.invariants.FnVarInvDictionary import FnVarInvDictionary
 from chb.invariants.FnXprDictionary import FnXprDictionary
 from chb.invariants.InvariantFact import InvariantFact
+from chb.invariants.VarInvariantFact import VarInvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
@@ -96,7 +98,9 @@ class Function(ABC):
         self._names = names
         self._vd: Optional[FnVarDictionary] = None
         self._id: Optional[FnInvDictionary] = None
+        self._varinvd: Optional[FnVarInvDictionary] = None
         self._invariants: Dict[str, List[InvariantFact]] = {}
+        self._varinvariants: Dict[str, List[VarInvariantFact]] = {}
 
     @property
     def path(self) -> str:
@@ -164,6 +168,17 @@ class Function(ABC):
         return self._id
 
     @property
+    def varinvdictionary(self) -> FnVarInvDictionary:
+        if self._varinvd is None:
+            xvarinvnode = UF.get_function_varinvs_xnode(
+                self.path, self.filename, self.faddr)
+            xvarinvd = xvarinvnode.find("varinv-dictionary")
+            if xvarinvd is None:
+                raise UF.CHBError("VarInv-dictionary element not found")
+            self._varinvd = FnVarInvDictionary(self.vardictionary, xvarinvd)
+        return self._varinvd
+
+    @property
     def invariants(self) -> Mapping[str, Sequence[InvariantFact]]:
         if len(self._invariants) == 0:
             xinvnode = UF.get_function_invs_xnode(
@@ -181,6 +196,25 @@ class Function(ABC):
                         self._invariants[xaddr].append(
                             self.invdictionary.invariant_fact(ix))
         return self._invariants
+
+    @property
+    def var_invariants(self) -> Mapping[str, Sequence[VarInvariantFact]]:
+        if len(self._varinvariants) == 0:
+            xvarinvnode = UF.get_function_varinvs_xnode(
+                self.path, self.filename, self.faddr)
+            xvarfacts = xvarinvnode.find("locations")
+            if xvarfacts is None:
+                raise UF.CHBError("Location var-invariants element not found")
+            for xloc in xvarfacts.findall("loc"):
+                xaddr = xloc.get("a")
+                xvfacts = xloc.get("ivfacts")
+                if xaddr is not None and xvfacts is not None:
+                    vfacts = [int(i) for i in xvfacts.split(",")]
+                    self._varinvariants[xaddr] = []
+                    for ix in vfacts:
+                        self._varinvariants[xaddr].append(
+                            self.varinvdictionary.var_invariant_fact(ix))
+        return self._varinvariants
 
     def global_refs(self) -> Tuple[Sequence[XVariable], Sequence[XXpr]]:
         lhsresult: List[XVariable] = []

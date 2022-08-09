@@ -26,10 +26,11 @@
 # ------------------------------------------------------------------------------
 """Provides access to invariants for instruction operands."""
 
-from typing import List, Tuple, Sequence, TYPE_CHECKING, Union
+from typing import List, Optional, Tuple, Sequence, TYPE_CHECKING, Union
 
 from chb.app.BDictionary import BDictionary, AsmAddress
 
+from chb.invariants.VarInvariantFact import VarInvariantFact
 from chb.invariants.XXpr import XXpr
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XInterval import XInterval
@@ -44,6 +45,7 @@ if TYPE_CHECKING:
     from chb.app.Function import Function
     from chb.app.FunctionDictionary import FunctionDictionary
     from chb.invariants.FnVarDictionary import FnVarDictionary
+    from chb.invariants.FnVarInvDictionary import FnVarInvDictionary
     from chb.invariants.FnXprDictionary import FnXprDictionary
 
 
@@ -61,6 +63,9 @@ class InstrXData(IndexedTableValue):
         self._intervals: List[XInterval] = []
         self._strs: List[str] = []
         self._ints: List[int] = []
+        self._reachingdefs: List[Optional[VarInvariantFact]] = []
+        self._defuses: List[Optional[VarInvariantFact]] = []
+        self._defuseshigh: List[Optional[VarInvariantFact]] = []
 
     @property
     def functiondictionary(self) -> "FunctionDictionary":
@@ -81,6 +86,10 @@ class InstrXData(IndexedTableValue):
     @property
     def vardictionary(self) -> "FnVarDictionary":
         return self.function.vardictionary
+
+    @property
+    def varinvdictionary(self) -> "FnVarInvDictionary":
+        return self.function.varinvdictionary
 
     @property
     def vars(self) -> List[XVariable]:
@@ -112,6 +121,24 @@ class InstrXData(IndexedTableValue):
             self._expand()
         return self._ints
 
+    @property
+    def reachingdefs(self) -> List[Optional[VarInvariantFact]]:
+        if not self.expanded:
+            self._expand
+        return self._reachingdefs
+
+    @property
+    def defuses(self) -> List[Optional[VarInvariantFact]]:
+        if not self.expanded:
+            self._expand
+        return self._defuses
+
+    @property
+    def defuseshigh(self) -> List[Optional[VarInvariantFact]]:
+        if not self.expanded:
+            self._expand
+        return self._defuseshigh
+
     def _expand(self) -> None:
         self.expanded = True
         if len(self.tags) == 0:
@@ -123,6 +150,7 @@ class InstrXData(IndexedTableValue):
                 arg = self.args[i]
                 xd = self.xprdictionary
                 bd = self.bdictionary
+                varinvd = self.varinvdictionary
                 if c == "v":
                     self._vars.append(xd.variable(arg))
                 elif c == "x":
@@ -135,6 +163,15 @@ class InstrXData(IndexedTableValue):
                     self._intervals.append(xd.interval(arg))
                 elif c == "l":
                     self._ints.append(arg)
+                elif c == "r":
+                    rdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                    self._reachingdefs.append(rdef)
+                elif c == "d":
+                    use = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                    self._defuses.append(use)
+                elif c == "h":
+                    usehigh = varinvd.var_invariant_fact(arg) if arg > 0 else None
+                    self._defuseshigh.append(usehigh)
                 else:
                     raise UF.CHBError("Key letter not recognized: " + c)
 
