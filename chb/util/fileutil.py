@@ -625,6 +625,16 @@ def get_function_invs_xnode(path: str, xfile: str, fname: str) -> ET.Element:
     return get_chb_xnode(filename, "function")
 
 
+def get_function_varinvs_filename(path: str, xfile: str, fname: str) -> str:
+    fdir = get_analysis_dir(path, xfile)
+    return get_chb_function_filename(fdir, xfile, fname, "varinvs.xml")
+
+
+def get_function_varinvs_xnode(path: str, xfile: str, fname: str) -> ET.Element:
+    filename = get_function_varinvs_filename(path, xfile, fname)
+    return get_chb_xnode(filename, "function")
+
+
 def get_pe_header_filename(path: str, xfile: str) -> str:
     fdir = get_executable_dir(path, xfile)
     return get_chb_filename(fdir, xfile, "pe_header.xml")
