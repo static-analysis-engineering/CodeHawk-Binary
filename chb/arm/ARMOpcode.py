@@ -155,6 +155,16 @@ class ARMOpcode(ARMDictionaryRecord):
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         return self.assembly_ast(astree, iaddr, bytestring, xdata)
 
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        instrs = self.ast(astree, iaddr, bytestring, xdata)
+        return (instrs, instrs)
+
     def ast_condition(
             self,
             astree: ASTInterface,
@@ -175,6 +185,14 @@ class ARMOpcode(ARMDictionaryRecord):
 
     @property
     def operands(self) -> List[ARMOperand]:
+        """Return the operands that appear in the assembly instruction."""
+
+        return []
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        """Return all operand types in the assembly instruction arguments."""
+
         return []
 
     @property
