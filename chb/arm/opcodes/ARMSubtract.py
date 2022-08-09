@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -36,12 +36,15 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+import chb.invariants.XXprUtil as XU
+
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
+    from chb.invariants.XXpr import XprCompound, XprConstant
 
 
 @armregistry.register_tag("SUBW", ARMOpcode)
@@ -132,15 +135,87 @@ class ARMSubtract(ARMOpcode):
             annotations=annotations)
         return [assign]
 
-    def ast(self,
+    def ast_prov(self,
             astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        lhs = str(xdata.vars[0])
-        rhs1 = str(xdata.xprs[0])
-        rhs2 = str(xdata.xprs[1])
-        if lhs == "SP" and rhs1 == "SP" and xdata.xprs[1].is_constant:
-            return []
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "SUB"]
+
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        rhs3 = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        (ll_op1, _, _) = self.operands[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.operands[2].ast_rvalue(astree)
+        ll_sub_expr = astree.mk_binary_op("minus", ll_op1, ll_op2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_sub_expr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, astree)
+        if len(lhsasts) != 1:
+            raise UF.CHBError("ARMSubtract: multiple lvals in ast")
+
+        hl_lhs = lhsasts[0]
+
+        # resulting expression is a stack address
+        if str(rhs1) == "SP" and rhs3.is_stack_address:
+            annotations.append("stack address")
+            rhs3 = cast("XprCompound", rhs3)
+            stackoffset = rhs3.stack_address_offset()
+            rhslval = astree.mk_stack_variable_lval(stackoffset)
+            rhsast: AST.ASTExpr = astree.mk_address_of(rhslval)
+
+        elif str(rhs1) == "PC" or str(rhs2) == "PC":
+            annotations.append("PC-relative")
+            if rhs3.is_int_constant:
+                rhsval = cast("XprConstant", rhs3).intvalue
+                rhsast = astree.mk_integer_constant(rhsval)
+            else:
+                rhsasts = XU.xxpr_to_ast_exprs(rhs3, astree)
+                if len(rhsasts) == 1:
+                    rhsast = rhsasts[0]
+                else:
+                    raise UF.CHBError(
+                        "ARMSubtract: multiple expressions in ast rhs")
+
         else:
-            return self.assembly_ast(astree, iaddr, bytestring, xdata)
+            rhsasts = XU.xxpr_to_ast_exprs(rhs3, astree)
+            if len(rhsasts) == 1:
+                rhsast = rhsasts[0]
+            else:
+                raise UF.CHBError(
+                    "ARMSubtract: multiple expressions in ast rhs")
+
+        hl_sub_expr = rhsast
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_sub_expr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_sub_expr, ll_sub_expr)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_sub_expr, [rdefs[0], rdefs[1]])
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

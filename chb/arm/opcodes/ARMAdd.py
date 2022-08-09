@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -155,37 +155,47 @@ class ARMAdd(ARMOpcode):
             annotations=annotations)
         return [assign]
 
-    def ast(self,
+    def ast_prov(
+            self,
             astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        """Create one or more register-to-register assignments.
-
-        There may be more than one assignment if the source expression
-        and/or the destination register has a type smaller than 4.
-        """
-        lhs = xdata.vars[0]
-        rhs1 = str(xdata.xprs[0])
-        rhs2 = xdata.xprs[1]
-        rhs3 = xdata.xprs[3]
-
-        # if lhs == "SP" and rhs1 == "SP" and rhs2.is_constant:
-        #    return []
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "ADD"]
+
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        rhs3 = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        (ll_op1, _, _) = self.operands[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.operands[2].ast_rvalue(astree)
+        ll_add_expr = astree.mk_binary_op("plus", ll_op1, ll_op2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_add_expr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
 
         lhsasts = XU.xvariable_to_ast_lvals(lhs, astree)
         if len(lhsasts) != 1:
             raise UF.CHBError("ARMAdd: multiple lvals in ast")
 
-        lhsast = lhsasts[0]
+        hl_lhs = lhsasts[0]
 
         if str(lhs) == "PC":
             astree.add_diagnostic(iaddr + ": ADD instruction sets PC")
 
         # resulting expression is a stack address
-        if rhs1 == "SP" and rhs3.is_stack_address:
+        if str(rhs1) == "SP" and rhs3.is_stack_address:
             annotations.append("stack address")
             rhs3 = cast("XprCompound", rhs3)
             stackoffset = rhs3.stack_address_offset()
@@ -193,7 +203,7 @@ class ARMAdd(ARMOpcode):
             rhsast: AST.ASTExpr = astree.mk_address_of(rhslval)
 
         # resulting expression is a pc-relative address
-        elif rhs1 == "PC" or str(rhs2) == "PC":
+        elif str(rhs1) == "PC" or str(rhs2) == "PC":
             annotations.append("PC-relative")
             if rhs3.is_int_constant:
                 rhsval = cast("XprConstant", rhs3).intvalue
@@ -207,12 +217,30 @@ class ARMAdd(ARMOpcode):
                         "ARMAdd: multiple expressions in ast")
 
         else:
-            return self.assembly_ast(astree, iaddr, bytestring, xdata)
+            rhsasts = XU.xxpr_to_ast_exprs(rhs3, astree)
+            if len (rhsasts) == 1:
+                rhsast = rhsasts[0]
+            else:
+                raise UF.CHBError(
+                    "ARMAdd: multiple expressions in ast")
 
-        assign = astree.mk_assign(
-            lhsast,
-            rhsast,
+        hl_add_expr = rhsast
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_add_expr,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
-        return [assign]
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_add_expr, ll_add_expr)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_add_expr, [rdefs[0], rdefs[1]])
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])
