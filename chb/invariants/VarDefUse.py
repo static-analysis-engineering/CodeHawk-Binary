@@ -4,9 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,59 +24,45 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Invariant expressed by a linear equality."""
+"""Tuple of a variable and a set of symbols representing locations."""
 
-from typing import Iterator, List, Sequence, Tuple, TYPE_CHECKING
+from typing import Sequence, TYPE_CHECKING
 
-from chb.invariants.FnDictionaryRecord import FnInvDictionaryRecord
+from chb.invariants.FnDictionaryRecord import FnVarInvDictionaryRecord
 from chb.invariants.XSymbol import XSymbol
 from chb.invariants.XVariable import XVariable
-from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    from chb.invariants.FnInvDictionary import FnInvDictionary
+    from chb.invariants.FnVarInvDictionary import FnVarInvDictionary
 
 
-class LinearEquality(FnInvDictionaryRecord):
-    """Linear equality expressed as a1.f1 + ... + an.fn = c .
+class VarDefUse(FnVarInvDictionaryRecord):
+    """Tuple of variable and list of symbols.
 
-    tags[0]: constant c (as string)
-    tags[1..]: coefficients a1 ... an (as string)
-    args[0..]: indices of factor variables f1 ... fn in xprdictionary
+    args[0]: index of variable in variable dictionary
+    args[1..]: indices of symbols in variable dictionary
     """
 
     def __init__(
             self,
-            invd: "FnInvDictionary",
+            varinvd: "FnVarInvDictionary",
             ixval: IndexedTableValue) -> None:
-        FnInvDictionaryRecord.__init__(self, invd, ixval)
+        FnVarInvDictionaryRecord.__init__(self, varinvd, ixval)
 
     @property
-    def constant(self) -> int:
-        return int(self.tags[0])
+    def variable(self) -> XVariable:
+        return self.xd.variable(self.args[0])
 
     @property
-    def coefficients(self) -> Sequence[int]:
-        return [int(x) for x in self.tags[1:]]
-
-    @property
-    def factors(self) -> Sequence[XVariable]:
-        return [self.xd.variable(i) for i in self.args]
+    def symbols(self) -> Sequence[XSymbol]:
+        return [self.xd.symbol(i) for i in self.args[1:]]
 
     def __str__(self) -> str:
-        cfs: Iterator[Tuple[int, XVariable]] = zip(self.coefficients, self.factors)
-
-        def term(c: int, f: XVariable) -> str:
-            if c == 1:
-                return str(f)
-            elif c == -1:
-                return '-' + str(f)
-            else:
-                return str(c) + '.' + str(f)
-
-        terms = " + ".join([term(c, f) for (c, f) in cfs])
-        return terms + " = " + str(self.constant)
+        return (
+            str(self.variable)
+            + ": ["
+            + ", ".join(str(x) for x in self.symbols) + "]")

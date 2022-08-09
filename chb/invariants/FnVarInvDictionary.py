@@ -26,18 +26,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Invariant dictionary local to a particular function."""
+"""Variable Invariant dictionary local to a particular function."""
 
 import xml.etree.ElementTree as ET
 
 from typing import Callable, List, Optional, Tuple, TYPE_CHECKING
 
-from chb.invariants.FnDictionaryRecord import invregistry
+from chb.invariants.FnDictionaryRecord import varinvregistry
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnXprDictionary import FnXprDictionary
-from chb.invariants.InvariantFact import InvariantFact
-from chb.invariants.LinearEquality import LinearEquality
-from chb.invariants.NonRelationalValue import NonRelationalValue
+from chb.invariants.VarDefUse import VarDefUse
+from chb.invariants.VarInvariantFact import VarInvariantFact
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -46,22 +45,20 @@ if TYPE_CHECKING:
     from chb.app.Function import Function
 
 
-class FnInvDictionary:
+class FnVarInvDictionary:
 
     def __init__(
             self,
             vd: FnVarDictionary,
             xnode: ET.Element) -> None:
+
         self._vd = vd
         self.xnode = xnode
-        self.non_relational_value_table = IT.IndexedTable(
-            "non-relational-value-table")
-        self.linear_equality_table = IT.IndexedTable("linear-equality-table")
-        self.invariant_fact_table = IT.IndexedTable("invariant-fact-table")
+        self.vardefuse_table = IT.IndexedTable("vardefuse-table")
+        self.var_invariant_fact_table = IT.IndexedTable("var-invariant-fact-table")
         self.tables: List[IT.IndexedTable] = [
-            self.non_relational_value_table,
-            self.linear_equality_table,
-            self.invariant_fact_table
+            self.vardefuse_table,
+            self.var_invariant_fact_table
         ]
         self.initialize(xnode)
 
@@ -77,35 +74,27 @@ class FnInvDictionary:
     def function(self) -> "Function":
         return self.vd.function
 
-    # ------------------------- Retrieve items from dictionary tables ----------
+    # ----------------------------- Retrieve items from dictionary tables ------
 
-    def non_relational_value(self, ix: int) -> NonRelationalValue:
+    def vardefuse(self, ix) -> VarDefUse:
         if ix > 0:
-            return invregistry.mk_instance(
+            return VarDefUse(
+                self, self.vardefuse_table.retrieve(ix))
+        else:
+            raise UF.CHBError(
+                "Illegal vardefuse index value: " + str(ix))
+
+    def var_invariant_fact(self, ix: int) -> VarInvariantFact:
+        if ix > 0:
+            return varinvregistry.mk_instance(
                 self,
-                self.non_relational_value_table.retrieve(ix),
-                NonRelationalValue)
+                self.var_invariant_fact_table.retrieve(ix),
+                VarInvariantFact)
         else:
-            raise UF.CHBError("Illegal non-relational-value index value: "
-                              + str(ix))
+            raise UF.CHBError(
+                "Illegal var-invariant-fact index value: " + str(ix))
 
-    def linear_equality(self, ix: int) -> LinearEquality:
-        if ix > 0:
-            return LinearEquality(
-                self, self.linear_equality_table.retrieve(ix))
-        else:
-            raise UF.CHBError("Illegal linear-equality index value: "
-                              + str(ix))
-
-    def invariant_fact(self, ix: int) -> InvariantFact:
-        if ix > 0:
-            return invregistry.mk_instance(
-                self, self.invariant_fact_table.retrieve(ix), InvariantFact)
-        else:
-            raise UF.CHBError("Illegal invariant-fact index value: "
-                              + str(ix))
-
-    # ---------------------------- Initialize dictionary from file -------------
+    # ----------------------------- Initialize dictionary from file ------------
 
     def initialize(self, xnode: ET.Element) -> None:
         for t in self.tables:
@@ -114,26 +103,18 @@ class FnInvDictionary:
                 t.reset()
                 t.read_xml(xtable, "n")
             else:
-                raise UF.CHBError("Table "
-                                  + t.name
-                                  + " is missing from invariant dictionary")
+                raise UF.CHBError(
+                    "Table "
+                    + t.name
+                    + " is missing from varinvariant dictionary")
 
-    # ---------------------------- Printing ------------------------------------
+    # ------------------------------------------------------ Printing ----------
 
-    def nrv_table_to_string(self) -> str:
+    def var_invariant_fact_table_to_string(self) -> str:
         lines: List[str] = []
 
         def f(ix: int, v: IT.IndexedTableValue) -> None:
-            lines.append(str(ix) + ": " + str(self.non_relational_value(ix)))
+            lines.append(str(ix) + ": " + str(self.var_invariant_fact(ix)))
 
-        self.non_relational_value_table.iter(f)
-        return "\n".join(lines)
-
-    def invariant_fact_table_to_string(self) -> str:
-        lines: List[str] = []
-
-        def f(ix: int, v: IT.IndexedTableValue) -> None:
-            lines.append(str(ix) + ": " + str(self.invariant_fact(ix)))
-
-        self.invariant_fact_table.iter(f)
+        self.var_invariant_fact_table.iter(f)
         return "\n".join(lines)
