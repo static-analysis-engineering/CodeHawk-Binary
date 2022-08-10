@@ -44,16 +44,23 @@ class ASTCCode:
 
     def __init__(self) -> None:
         self._outputlines: List[str] = []
+        self._pos: int = 0    # position in the line
 
     @property
     def outputlines(self) -> List[str]:
         return self._outputlines
 
+    @property
+    def pos(self) -> int:
+        return self._pos
+
     def newline(self, indent: int = 0) -> None:
         self._outputlines.append(" " * indent)
+        self._pos = indent
 
     def write(self, s: str) -> None:
         self._outputlines[-1] += s
+        self._pos += len(s)
 
     def __str__(self) -> str:
         return "\n".join(self.outputlines)

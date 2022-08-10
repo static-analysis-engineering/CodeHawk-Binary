@@ -619,17 +619,22 @@ class ASTInterface:
     def mk_register_variable_lval(
             self,
             name: str,
+            registername: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None) -> AST.ASTLval:
         var = self.mk_register_variable(name, vtype, parameter)
         return self.astree.mk_register_variable_lval(
-            name, vtype=vtype, parameter=parameter)
+            name,
+            registername=registername,
+            vtype=vtype,
+            parameter=parameter)
 
     def mk_register_variable_expr(
             self, name: str,
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None) -> AST.ASTExpr:
-        lval = self.mk_register_variable_lval(name, vtype, parameter)
+        lval = self.mk_register_variable_lval(
+            name, vtype=vtype, parameter=parameter)
         return self.mk_lval_expression(lval)
 
     def mk_stack_variable(

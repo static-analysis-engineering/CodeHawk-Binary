@@ -7,3 +7,7 @@
 - Changed printed version of asr from <code>s>></code> to <code>>></code>
 
 ---
+
+### Version 0.1.0-20220810
+
+- Added line position to ASTCPrettyPrinter

@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -245,8 +245,9 @@ class VInitialRegisterValue(VConstantValueVariable):
         if self.is_argument_value:
             return self.register.argument_index()
         else:
-            raise UF.CHBError("Constant-value-variable is not an argument index: "
-                              + str(self))
+            raise UF.CHBError(
+                "Constant-value-variable is not an argument index: "
+                + str(self))
 
     def __str__(self) -> str:
         if self.level == 0:

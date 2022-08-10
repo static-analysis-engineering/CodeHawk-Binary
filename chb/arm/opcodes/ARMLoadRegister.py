@@ -59,6 +59,26 @@ class ARMLoadRegister(ARMOpcode):
     args[2]: index of index in armdictionary
     args[3]: index of memory location in armdictionary
     args[4]: is-wide (thumb)
+
+    xdata format: a:vxxxxrrrdh
+    --------------------------
+    vars[0]: lhs
+    vars[1]: memory location expressed as a variable
+    xprs[0]: value in rn
+    xprs[1]: value in rm
+    xprs[2]: value in memory location
+    xprs[3]: value in memory location (simplified)
+    rdefs[0]: reaching definitions rn
+    rdefs[1]: reaching definitions rm
+    rdefs[2]: reaching definitions memory location
+    uses[0]: use of lhs
+    useshigh[0]: use of lhs at high level
+
+    optional:
+    vars[1]: lhs base register (if base update)
+
+    xprs[.]: instruction condition (if has condition)
+    xprs[.]: new address for base register
     """
 
     def __init__(
@@ -83,26 +103,12 @@ class ARMLoadRegister(ARMOpcode):
         return [xdata.xprs[1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """lhs, rhs, with optional instr condition and base update
-
-        vars[0]: lhs
-        vars[1]: memory location expressed as a variable
-        xprs[0]: value in rn
-        xprs[1]: value in rm
-        xprs[2]: value in memory location
-        xprs[3]: value in memory location (simplified)
-
-        optional:
-        vars[1]: lhs base register (if base update)
-
-        xprs[.]: instruction condition (if has condition)
-        xprs[.]: new address for base register
-        """
+        """lhs, rhs, with optional instr condition and base update."""
 
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[3])
 
-        xctr = 2
+        xctr = 4
         if xdata.has_instruction_condition():
             pcond = "if " + str(xdata.xprs[xctr]) + " then "
             xctr += 1
@@ -111,8 +117,9 @@ class ARMLoadRegister(ARMOpcode):
         else:
             pcond = ""
 
+        vctr = 2
         if xdata.has_base_update():
-            blhs = str(xdata.vars[1])
+            blhs = str(xdata.vars[vctr])
             brhs = str(xdata.xprs[xctr])
             pbupd = "; " + blhs + " := " + brhs
         else:

@@ -72,12 +72,15 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         ASTCPrettyPrinter.visit_assign_instr(self, instr)
         if self.provenance.has_instruction_mapped(instr.instrid):
+            pos = self.ccode.pos
             mapped_instr = cast(
                 AST.ASTAssign,
                 self.provenance.get_instruction_mapped(instr.instrid))
-            self.ccode.write("  // ")
+            self.ccode.write(" " * (60 - pos))
+            self.ccode.write("// ")
             if self.provenance.has_instruction_address(instr.instrid):
-                address = ", ".join(self.provenance.get_instruction_address(instr.instrid))
+                address = ", ".join(
+                    self.provenance.get_instruction_address(instr.instrid))
                 self.ccode.write(address)
                 self.ccode.write("  ")
             mapped_instr.lhs.accept(self)
