@@ -304,17 +304,21 @@ def normalized_branch(
         return astree.mk_branch(condition, elsebranch, ifbranch, tgtaddr)
 
     astblock = astfn.block(n)
-    condition = astblock.assembly_ast_condition(astree)
+    '''
+    condition = astblock.ast_condition(astree)
     couqitiou = inverted_binop(condition)
     if couqitiou is not None:
         inverting_eliminates_negation = couqitiou.op == "eq"
         if ifbranch.is_empty() or (inverting_eliminates_negation and not elsebranch.is_empty()):
             return swapped(couqitiou)
-
+    '''
     if ifbranch.is_empty():
-        return swapped(astblock.assembly_ast_condition(astree, reverse=True))
+        return swapped(astblock.ast_condition(astree, reverse=True))
 
-    return cast(AST.ASTBranch, astree.mk_branch(condition, ifbranch, elsebranch, tgtaddr))
+    else:
+        condition = astblock.ast_condition(astree)
+        return cast(AST.ASTBranch, astree.mk_branch(
+            condition, ifbranch, elsebranch, tgtaddr))
 
 
 @dataclass

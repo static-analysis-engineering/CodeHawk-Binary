@@ -219,6 +219,10 @@ class Instruction(ABC):
             List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError("ast-prov not defined")
 
+    def ast_condition_prov(self, astree: ASTInterface, reverse: bool = False) -> Tuple[
+            Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+        raise UF.CHBError("ast-condition-prov not defined")
+
     def assembly_ast_condition(
             self,
             astree: ASTInterface,

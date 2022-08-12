@@ -66,6 +66,7 @@ class InstrXData(IndexedTableValue):
         self._reachingdefs: List[Optional[VarInvariantFact]] = []
         self._defuses: List[Optional[VarInvariantFact]] = []
         self._defuseshigh: List[Optional[VarInvariantFact]] = []
+        self._flagreachingdefs: List[Optional[VarInvariantFact]] = []
 
     @property
     def functiondictionary(self) -> "FunctionDictionary":
@@ -128,6 +129,12 @@ class InstrXData(IndexedTableValue):
         return self._reachingdefs
 
     @property
+    def flag_reachingdefs(self) -> List[Optional[VarInvariantFact]]:
+        if not self.expanded:
+            self._expand
+        return self._flagreachingdefs
+
+    @property
     def defuses(self) -> List[Optional[VarInvariantFact]]:
         if not self.expanded:
             self._expand
@@ -172,6 +179,9 @@ class InstrXData(IndexedTableValue):
                 elif c == "h":
                     usehigh = varinvd.var_invariant_fact(arg) if arg > 0 else None
                     self._defuseshigh.append(usehigh)
+                elif c == "f":
+                    flagrdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                    self._flagreachingdefs.append(flagrdef)
                 else:
                     raise UF.CHBError("Key letter not recognized: " + c)
 
@@ -271,4 +281,6 @@ class InstrXData(IndexedTableValue):
             lines.append("vars[" + str(i) + "] = " + str(v))
         for (i, x) in enumerate(self.xprs):
             lines.append("xprs[" + str(i) + "] = " + str(x))
+        for (i, f) in enumerate(self.flag_reachingdefs):
+            lines.append("flagrdefs[" + str(i) + "] = " + str(f))
         return "\n".join(lines)
