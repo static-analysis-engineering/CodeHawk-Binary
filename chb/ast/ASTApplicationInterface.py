@@ -36,6 +36,7 @@ from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTStorageChecker import ASTStorageChecker
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.CustomASTSupport import CustomASTSupport
+from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 
 
 pirversion: str = "0.1.0-20220808"
@@ -57,6 +58,59 @@ class ASTApplicationInterface:
     @property
     def globalsymboltable(self) -> ASTGlobalSymbolTable:
         return self._globalsymboltable
+
+    def add_function_ast(self,
+                         astree: AbstractSyntaxTree,
+                         lifted_ast: ASTStmt,
+                         low_level_ast: ASTStmt,
+                         verbose: bool = False,
+                        ) -> None:
+        localsymboltable = astree.symboltable
+        if verbose:
+            print("\n")
+            pp = ASTCPrettyPrinter(localsymboltable)
+            print(pp.to_c(lifted_ast))
+            print(pp.to_c(low_level_ast))
+
+        if verbose:
+            print("\nCheck Storage")
+            print("---------------")
+            storagechecker = ASTStorageChecker(astree.storage)
+            report = storagechecker.check_stmt(lifted_ast)
+
+            print("High-level representation")
+            print(report)
+
+            report = storagechecker.check_stmt(low_level_ast)
+            print("\nLow-level representation")
+            print(report)
+
+        fndata: Dict[str, Any] = {}
+        serializer = ASTSerializer()
+
+        localsymboltable.serialize(serializer)
+        protoindex = localsymboltable.serialize_function_prototype(serializer)
+        ast_startindex = serializer.index_stmt(lifted_ast)
+        low_level_startindex = serializer.index_stmt(low_level_ast)
+        astnodes = serializer.records()
+
+        fndata["name"] = astree.fname
+        fndata["va"] = astree.faddr
+        fndata["prototype"] = protoindex
+        fndata["ast"] = {}
+        fndata["ast"]["nodes"] = astnodes
+        fndata["ast"]["ast-startnode"] = ast_startindex
+        fndata["ast"]["low-level-ast-startnode"] = low_level_startindex
+        fndata["spans"] = astree.spans
+        fndata["provenance"] = {}
+        fndata["provenance"]["instruction-mapping"] = astree.instructionmapping
+        fndata["provenance"]["reaching-definitions"] = astree.reachingdefinitions
+        fndata["provenance"]["expression-mapping"] = astree.expressionmapping
+        fndata["available-expressions"] = {}
+        fndata["definitions-used"] = {}
+        fndata["storage"] = astree.storage_records()
+
+        self._fnsdata.append(fndata)
 
     def add_function(self, astfn: ASTFunction, verbose: bool = False) -> None:
 
@@ -80,51 +134,7 @@ class ASTApplicationInterface:
             print("*" * 80)
             return
 
-        if verbose:
-            print("\n")
-            pp = ASTCPrettyPrinter(localsymboltable)
-            print(pp.to_c(ast))
-            print(pp.to_c(low_level_ast))
-
-        if verbose:
-            print("\nCheck Storage")
-            print("---------------")
-            storagechecker = ASTStorageChecker(astree.storage)
-            report = storagechecker.check_stmt(ast)
-
-            print("High-level representation")
-            print(report)
-
-            report = storagechecker.check_stmt(low_level_ast)
-            print("\nLow-level representation")
-            print(report)
-
-        fndata: Dict[str, Any] = {}
-        serializer = ASTSerializer()
-
-        localsymboltable.serialize(serializer)
-        protoindex = localsymboltable.serialize_function_prototype(serializer)
-        ast_startindex = serializer.index_stmt(ast)
-        low_level_startindex = serializer.index_stmt(low_level_ast)
-        astnodes = serializer.records()
-
-        fndata["name"] = astfn.name
-        fndata["va"] = astfn.address
-        fndata["prototype"] = protoindex
-        fndata["ast"] = {}
-        fndata["ast"]["nodes"] = astnodes
-        fndata["ast"]["ast-startnode"] = ast_startindex
-        fndata["ast"]["low-level-ast-startnode"] = low_level_startindex
-        fndata["spans"] = astree.spans
-        fndata["provenance"] = {}
-        fndata["provenance"]["instruction-mapping"] = astree.instructionmapping
-        fndata["provenance"]["reaching-definitions"] = astree.reachingdefinitions
-        fndata["provenance"]["expression-mapping"] = astree.expressionmapping
-        fndata["available-expressions"] = {}
-        fndata["definitions-used"] = {}
-        fndata["storage"] = astree.storage_records()
-
-        self._fnsdata.append(fndata)
+        self.add_function_ast(astree, ast, low_level_ast, verbose)
 
     def serialize(self, verbose: bool = False) -> Dict[str, Any]:
         globalserializer = ASTSerializer()
