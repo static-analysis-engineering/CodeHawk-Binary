@@ -43,6 +43,8 @@ class ASTInterfaceInstruction:
         self._instr = instr
         self._hl_ast_instrs: List[AST.ASTInstruction] = []
         self._ll_ast_instrs: List[AST.ASTInstruction] = []
+        self._hl_ast_condition: Optional[AST.ASTExpr] = None
+        self._ll_ast_condition: Optional[AST.ASTExpr] = None
 
     @property
     def instruction(self) -> "Instruction":
@@ -55,6 +57,14 @@ class ASTInterfaceInstruction:
     @property
     def ll_ast_instructions(self) -> List[AST.ASTInstruction]:
         return self._ll_ast_instrs
+
+    @property
+    def hl_ast_condition(self) -> Optional[AST.ASTExpr]:
+        return self._hl_ast_condition
+
+    @property
+    def ll_ast_condition(self) -> Optional[AST.ASTExpr]:
+        return self._ll_ast_condition
 
     def ast_prov(self, astree: "ASTInterface") -> None:
         if len(self.hl_ast_instructions) == 0:
@@ -102,7 +112,27 @@ class ASTInterfaceInstruction:
             self,
             astree: "ASTInterface",
             reverse: bool = False) -> Optional[AST.ASTExpr]:
-        return self.instruction.assembly_ast_condition(astree, reverse=reverse)
+        if self.ll_ast_condition is None:
+            self.ast_condition_prov(astree, reverse=reverse)
+        return self.ll_ast_condition
+
+    def ast_condition(
+            self,
+            astree: "ASTInterface",
+            reverse: bool = False) -> Optional[AST.ASTExpr]:
+        if self.hl_ast_condition is None:
+            self.ast_condition_prov(astree, reverse=reverse)
+        return self.hl_ast_condition
+
+    def ast_condition_prov(
+            self,
+            astree: "ASTInterface",
+            reverse: bool = False) -> None:
+        if self.hl_ast_condition is None:
+            (hl, ll) = self.instruction.ast_condition_prov(astree, reverse=reverse)
+        self._hl_ast_condition = hl
+        self._ll_ast_condition = ll
+
 
     def ast_case_expression(
             self, target: str, astree: "ASTInterface") -> Optional[AST.ASTExpr]:

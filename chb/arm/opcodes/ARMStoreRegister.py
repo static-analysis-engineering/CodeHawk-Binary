@@ -107,6 +107,8 @@ class ARMStoreRegister(ARMOpcode):
         rhs = xdata.xprs[3]
         if rhs.is_function_return_value:
             rhsp = str(rhs.variable.denotation)
+        else:
+            rhsp = str(rhs)
         assign = str(lhs) + " := " + rhsp
 
         xctr = 4

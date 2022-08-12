@@ -71,6 +71,12 @@ class ASTInterfaceBasicBlock:
             reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.last_instruction.assembly_ast_condition(astree, reverse=reverse)
 
+    def ast_condition(
+            self,
+            astree: "ASTInterface",
+            reverse: bool = False) -> Optional[AST.ASTExpr]:
+        return self.last_instruction.ast_condition(astree, reverse=reverse)
+
     def assembly_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         instrs: List[AST.ASTInstruction] = []
         for (a, i) in sorted(self.instructions.items(), key=lambda p: int(p[0], 16)):

@@ -69,6 +69,46 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
     def provenance(self) -> "ASTIProvenance":
         return self._provenance
 
+    def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
+        print(self.provenance.expressions_mapped)
+        condition = stmt.condition
+        if self.provenance.has_reaching_defs(condition.exprid):
+            rdefs = self.provenance.get_reaching_defs(condition.exprid)
+        else:
+            rdefs = []
+        if self.provenance.has_expression_mapped(condition.exprid):
+            ll_condition = self.provenance.get_expression_mapped(condition.exprid)
+            if self.provenance.has_flag_reaching_defs(ll_condition.exprid):
+                flagrdefs = self.provenance.get_flag_reaching_defs(ll_condition.exprid)
+            else:
+                flagrdefs = []
+
+            self.ccode.newline(indent=self.indent)
+            self.ccode.write("// " + ("-" * 60))
+            self.ccode.newline(indent=self.indent)
+            self.ccode.write("// ")
+            if self.provenance.has_condition_address(ll_condition.exprid):
+                conditionaddr = ",".join(
+                    self.provenance.get_condition_address(ll_condition.exprid))
+                self.ccode.write(conditionaddr)
+            self.ccode.write(" ll-condition: ")
+            ll_condition.accept(self)
+            self.ccode.newline(indent=self.indent)
+            self.ccode.write("// ")
+            for rdef in rdefs:
+                self.ccode.newline(indent=self.indent)
+                self.ccode.write("// " + str(rdef))
+            for frdef in flagrdefs:
+                self.ccode.newline(indent=self.indent)
+                self.ccode.write("// " + str(frdef))
+            self.ccode.newline(indent=self.indent)
+            self.ccode.write("// " + "-" * 60)
+        else:
+            print("No expression mapped for " + str(condition))
+
+        ASTCPrettyPrinter.visit_branch_stmt(self, stmt)
+
+
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         ASTCPrettyPrinter.visit_assign_instr(self, instr)
         if self.provenance.has_instruction_mapped(instr.instrid):

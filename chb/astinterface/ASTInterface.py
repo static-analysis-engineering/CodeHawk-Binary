@@ -220,6 +220,12 @@ class ASTInterface:
             addresses: List[str]) -> None:
         self.provenance.add_instr_address(instr, addresses)
 
+    def add_condition_address(
+            self,
+            expr: AST.ASTExpr,
+            addresses: List[str]) -> None:
+        self.provenance.add_condition_address(expr, addresses)
+
     def add_expr_mapping(
             self,
             hl_expr: AST.ASTExpr,
@@ -241,6 +247,16 @@ class ASTInterface:
             if f is not None:
                 rdefs.append(f)
         self.provenance.add_expr_reachingdefs(expr, rdefs)
+
+    def add_flag_expr_reachingdefs(
+            self,
+            expr: AST.ASTExpr,
+            reachingdefs: List[Optional["VarInvariantFact"]]) -> None:
+        rdefs: List["VarInvariantFact"] = []
+        for f in reachingdefs:
+            if f is not None:
+                rdefs.append(f)
+        self.provenance.add_flag_expr_reachingdefs(expr, rdefs)
 
     def add_lval_defuses(
             self,
@@ -628,6 +644,22 @@ class ASTInterface:
             registername=registername,
             vtype=vtype,
             parameter=parameter)
+
+    def mk_flag_variable_lval(
+            self,
+            name: str,
+            flagname: Optional[str] = None,
+            vdescr: Optional[str] = None) -> AST.ASTLval:
+        return self.astree.mk_flag_variable_lval(
+            name, flagname=flagname, vdescr=vdescr)
+
+    def mk_flag_variable_lval_expression(
+            self,
+            name: str,
+            flagname: Optional[str] = None,
+            vdescr: Optional[str] = None) -> AST.ASTLvalExpr:
+        return self.astree.mk_flag_variable_lval_expression(
+            name, flagname=flagname, vdescr=vdescr)
 
     def mk_register_variable_expr(
             self, name: str,

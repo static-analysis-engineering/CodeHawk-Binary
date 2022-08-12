@@ -43,9 +43,11 @@ class ASTIProvenance:
         self._expr_mapping: Dict[int, int] = {}   # hl_expr -> ll_expr
         self._lval_mapping: Dict[int, int] = {}   # hl_lval -> ll_lval
         self._expr_rdefs: Dict[int, List["VarInvariantFact"]] = {}
+        self._flag_expr_rdefs: Dict[int, List["VarInvariantFact"]] = {}
         self._lval_defuses: Dict[int, "VarInvariantFact"] = {}
         self._lval_defuses_high: Dict[int, "VarInvariantFact"] = {}
         self._instr_addresses: Dict[int, List[str]] = {}  # instr -> hex-address
+        self._condition_addresses: Dict[int, List[str]] = {}  # expr -> hex-address
         self._instructions: Dict[int, AST.ASTInstruction] = {}
         self._expressions: Dict[int, AST.ASTExpr] = {}
         self._lvals: Dict[int, AST.ASTLval] = {}
@@ -59,8 +61,29 @@ class ASTIProvenance:
         return self._expr_mapping
 
     @property
+    def expressions_mapped(self) -> str:
+        lines: List[str] = []
+        for (hl_id, ll_id) in sorted(self.expression_mapping.items()):
+            hl_expr = self.expressions[hl_id]
+            ll_expr = self.expressions[ll_id]
+            lines.append(
+                "("
+                + str(hl_expr.exprid).rjust(3)
+                + ")  "
+                + str(hl_expr).ljust(28)
+                + "  --->  ("
+                + str(ll_expr.exprid).rjust(3)
+                + ")  "
+                + str(ll_expr))
+        return "\n".join(lines)
+
+    @property
     def instruction_addresses(self) -> Dict[int, List[str]]:
         return self._instr_addresses
+
+    @property
+    def condition_addresses(self) -> Dict[int, List[str]]:
+        return self._condition_addresses
 
     @property
     def instructions(self) -> Dict[int, AST.ASTInstruction]:
@@ -73,6 +96,10 @@ class ASTIProvenance:
     @property
     def expr_rdefs(self) -> Dict[int, List["VarInvariantFact"]]:
         return self._expr_rdefs
+
+    @property
+    def flag_expr_rdefs(self) -> Dict[int, List["VarInvariantFact"]]:
+        return self._flag_expr_rdefs
 
     @property
     def lval_defuses(self) -> Dict[int, "VarInvariantFact"]:
@@ -114,6 +141,14 @@ class ASTIProvenance:
             self._expr_rdefs[expr.exprid] = reachingdefs
             self.add_expr(expr)
 
+    def add_flag_expr_reachingdefs(
+            self,
+            expr: AST.ASTExpr,
+            flagreachingdefs: List["VarInvariantFact"]) -> None:
+        if len(flagreachingdefs) > 0:
+            self._flag_expr_rdefs[expr.exprid] = flagreachingdefs
+            self.add_expr(expr)
+
     def add_lval_defuses(
             self,
             lval: AST.ASTLval,
@@ -136,6 +171,13 @@ class ASTIProvenance:
             addresses: List[str]) -> None:
         self._instr_addresses[instr.instrid] =  addresses
         self.add_instruction(instr)
+
+    def add_condition_address(
+            self,
+            expr: AST.ASTExpr,
+            addresses: List[str]) -> None:
+        self._condition_addresses[expr.exprid] = addresses
+        self.add_expr(expr)
 
     def add_instruction(self, instr: AST.ASTInstruction) -> None:
         instrid = instr.instrid
@@ -184,6 +226,16 @@ class ASTIProvenance:
             raise UF.CHBError(
                 "No address found for instruction with id " + str(instrid))
 
+    def has_condition_address(self, exprid: int) -> bool:
+        return exprid in self.condition_addresses
+
+    def get_condition_address(self, exprid: int) -> List[str]:
+        if self.has_condition_address(exprid):
+            return self.condition_addresses[exprid]
+        else:
+            raise UF.CHBError(
+                "No address found for condition with id " + str(exprid))
+
     def has_lval_defuse(self, lvalid: int) -> bool:
         return lvalid in self.lval_defuses
 
@@ -213,3 +265,13 @@ class ASTIProvenance:
         else:
             raise UF.CHBError(
                 "No reaching def found for expr with id " + str(exprid))
+
+    def has_flag_reaching_defs(self, exprid: int) -> bool:
+        return exprid in self.flag_expr_rdefs
+
+    def get_flag_reaching_defs(self, exprid: int) -> List["VarInvariantFact"]:
+        if self.has_flag_reaching_defs(exprid):
+            return self.flag_expr_rdefs[exprid]
+        else:
+            raise UF.CHBError(
+                "No flag reaching def found for expr with id " + str(exprid))

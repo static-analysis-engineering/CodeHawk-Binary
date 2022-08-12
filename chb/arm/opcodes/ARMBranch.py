@@ -80,7 +80,7 @@ class ARMBranch(ARMOpcode):
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         if xdata.has_branch_conditions():
-            return [xdata.xprs[1], xdata.xprs[0]]
+            return [xdata.xprs[3], xdata.xprs[2]]
         else:
             return []
 
@@ -264,3 +264,33 @@ class ARMBranch(ARMOpcode):
                     "ARMBranch: multiple expressions for condition")
         else:
             return None
+
+    def ast_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData,
+            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+
+        ftconds = self.ft_conditions(xdata)
+        if len(ftconds) == 2:
+            if reverse:
+                condition = ftconds[0]
+            else:
+                condition = ftconds[1]
+        astconds = XU.xxpr_to_ast_exprs(condition, astree)
+        if len(astconds) == 1:
+            hl_astcond = astconds[0]
+            ll_astcond = self.ast_cc_expr(astree)
+
+            astree.add_expr_mapping(hl_astcond, ll_astcond)
+            astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+            astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
+            astree.add_condition_address(ll_astcond, [iaddr])
+
+            return (hl_astcond, ll_astcond)
+
+        else:
+            raise UF.CHBError(
+                "ARMBranch: multiple expressions for condition")

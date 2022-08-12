@@ -212,6 +212,14 @@ class ARMInstruction(Instruction):
         return self.opcode.ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata, reverse)
 
+    def ast_condition_prov(
+            self, astree: ASTInterface, reverse=False) -> Tuple[
+                Optional[ASTExpr], Optional[ASTExpr]]:
+        """Return conditional branch instruction with provenance."""
+
+        return self.opcode.ast_condition_prov(
+            astree, self.iaddr, self.bytestring, self.xdata, reverse)
+
     @property
     def stackpointer_offset(self) -> StackPointerOffset:
         return self.armfunctiondictionary.read_xml_sp_offset(self.xnode)

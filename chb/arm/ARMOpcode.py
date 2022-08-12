@@ -162,6 +162,8 @@ class ARMOpcode(ARMDictionaryRecord):
             bytestring: str,
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        """Return default; should be overridden by instruction opcodes."""
+
         instrs = self.ast(astree, iaddr, bytestring, xdata)
         return (instrs, instrs)
 
@@ -174,6 +176,70 @@ class ARMOpcode(ARMDictionaryRecord):
             reverse: bool) -> Optional[AST.ASTExpr]:
         return self.assembly_ast_condition(
             astree, iaddr, bytestring, xdata, reverse)
+
+    def ast_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData,
+            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+        """ Return default; should be overridden by instruction opcodes."""
+
+        expr = self.ast_condition(astree, iaddr, bytestring, xdata, reverse)
+        return (expr, expr)
+
+    def ast_cc_expr(self, astree: ASTInterface) -> AST.ASTExpr:
+        cc = self.mnemonic_extension()
+        def zflag(): return astree.mk_flag_variable_lval_expression("Z")
+        def cflag(): return astree.mk_flag_variable_lval_expression("C")
+        def vflag(): return astree.mk_flag_variable_lval_expression("V")
+        def nflag(): return astree.mk_flag_variable_lval_expression("N")
+        def one(): return astree.mk_integer_constant(1)
+        def zero(): return astree.mk_integer_constant(0)
+        def flagexpr(op: str, x: AST.ASTExpr, v: AST.ASTExpr) -> AST.ASTExpr:
+            return astree.mk_binary_expression(op, x, v)
+
+        if cc == "EQ":
+            return flagexpr("eq", zflag(), one())
+        elif cc == "NE":
+            return flagexpr("eq", zflag(), zero())
+        elif cc == "CS":
+            return flagexpr("eq", cflag(), one())
+        elif cc == "CC":
+            return flagexpr("eq", cflag(), zero())
+        elif cc == "MI":
+            return flagexpr("eq", nflag(), one())
+        elif cc == "PL":
+            return flagexpr("eq", nflag(), zero())
+        elif cc == "VS":
+            return flagexpr("eq", vflag(), one())
+        elif cc == "VC":
+            return flagexpr("eq", vflag(), zero())
+        elif cc == "HI":
+            e1 = flagexpr("eq", cflag(), one())
+            e2 = flagexpr("eq", zflag(), zero())
+            return flagexpr("and", e1, e2)
+        elif cc == "LS":
+            e1 = flagexpr("eq", cflag(), zero())
+            e2 = flagexpr("eq", zflag(), one())
+            return flagexpr("lor", e1, e2)
+        elif cc == "GE":
+            return flagexpr("eq", nflag(), vflag())
+        elif cc == "LT":
+            return flagexpr("ne", nflag(), vflag())
+        elif cc == "GT":
+            e1 = flagexpr("eq", zflag(), zero())
+            e2 = flagexpr("eq", nflag(), vflag())
+            return flagexpr("eq", e1, e2)
+        elif cc == "LE":
+            e1 = flagexpr("eq", zflag(), one())
+            e2 = flagexpr("ne", nflag(), vflag())
+            return flagexpr("lor", e1, e2)
+        elif cc == "":
+            return one()
+        else:
+            return zero()
 
     def mnemonic_extension(self) -> str:
         if self.mnemonic.startswith("IT"):
