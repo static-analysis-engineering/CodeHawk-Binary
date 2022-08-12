@@ -336,7 +336,8 @@ ASTLval, and ASTLvalExpr may exist within the abstract syntax tree structure
 Lvalues have unique identifiers to distinguish them in space and time.
 
 Lvalues generally have storage, which can be specified as an optional
-argument to lval creation. Two methods, <code>mk_register_variable_lval</code>,
+argument to lval creation. Three methods, <code>mk_register_variable_lval</code>,
+<code>mk_flag_variable_lval</code>
 and <code>mk_stack_variable_lval</code> create a storage record automatically.
 
 Temporary variables are automatically given unique names. Temporary variables
@@ -440,6 +441,17 @@ have no storage.
        vdescr: Optional[str] = None) -> ASTLval
   ```
 
+- **mk_flag_variable_lval**: creates an lval for a (processor) flag and automatically
+  creates a storage record for the flag, with an optional argument for the name
+  of the flag if the name of the flag is not the same as the name the variable to
+  be created
+  ```
+  def mk_flag_variable_lval(self,
+      name: str,
+      flagname: Optional[str] = None,
+      vdescr: Optional[str] = None) -> ASTLval
+  ```
+
 - **mk_stack_variable_lval**: creates an lval for a stack variable and automatically
   creates a storage record for the stack variable. The offset is specified as an
   offset from the stack pointer at function entry, in bytes (negative for local
@@ -473,11 +485,13 @@ have no storage.
 ### Storage
 
 Lvalues are (mostly) associated with physical locations in the architecture
-such as registers, stack locations, heap locations, and global locations.
+such as registers, flags, stack locations, heap locations, and global locations.
 From a function point-of-view four distinct types of storage are recognized:
 - registers: this includes the standard CPU registers, but may also include
   the processor status word, or individual flags in the processor status
   words. Registers are identified by their name.
+- flags: flags in the processor status word can also be separately identified.
+  Flags are identified by their name.
 - stack locations: these are memory locations identified by a fixed offset
   (specified in bytes) from the stack pointer value at function entry.
   Offsets can be positive (parent stack frame or argument slots) or negative
@@ -501,6 +515,9 @@ ARM32/Thumb2 or x86).
   ```
   def mk_register_storage(self, name: str) -> ASTRegisterStorage
   ```
+
+- **mk_flag_storage**: create a storage record for a flag with a known
+  (registered) flag name.
 
 - **mk_stack_storage**: create a storage record for a stack slot (in either
   the parent stack frame or the local stack frame) by providing the offset

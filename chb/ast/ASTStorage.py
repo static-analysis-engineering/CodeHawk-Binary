@@ -27,12 +27,12 @@
 """Representation for variable storage."""
 
 
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 
 class ASTStorage:
 
-    def __init__(self, kind: str, size: Optional[int]) -> None:
+    def __init__(self, kind: str, size: Optional[int] = None) -> None:
         self._kind = kind
         self._size = size
 
@@ -41,6 +41,10 @@ class ASTStorage:
 
     @property
     def is_register(self) -> bool:
+        return False
+
+    @property
+    def is_flag(self) -> bool:
         return False
 
     @property
@@ -79,6 +83,29 @@ class ASTRegisterStorage(ASTStorage):
 
     @property
     def is_register(self) -> bool:
+        return True
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def serialize(self) -> Dict[str, Union[str, int]]:
+        result = ASTStorage.serialize(self)
+        result["name"] = self.name
+        return result
+
+    def __str__(self) -> str:
+        return self._name
+
+
+class ASTFlagStorage(ASTStorage):
+
+    def __init__(self, name: str) -> None:
+        ASTStorage.__init__(self, "flag")
+        self._name = name
+
+    @property
+    def is_flag(self) -> bool:
         return True
 
     @property
@@ -179,13 +206,19 @@ class ASTStorageConstructor:
     def __init__(
             self,
             registersizes: Dict[str, int],
-            defaultsize: Optional[int] = None) -> None:
+            defaultsize: Optional[int] = None,
+            flagnames: List[str] = []) -> None:
         self._registersizes = registersizes
         self._defaultsize = defaultsize
+        self._flagnames = flagnames
 
     @property
     def register_sizes(self) -> Dict[str, int]:
         return self._registersizes
+
+    @property
+    def flagnames(self) -> List[str]:
+        return self._flagnames
 
     @property
     def default_size(self) -> Optional[int]:
@@ -193,6 +226,9 @@ class ASTStorageConstructor:
 
     def has_register(self, name: str) -> bool:
         return name in self.register_sizes
+
+    def has_flag(self, name: str) -> bool:
+        return name in self.flagnames
 
     def register_size(self, name) -> int:
         if self.has_register(name):
@@ -211,6 +247,12 @@ class ASTStorageConstructor:
             return ASTRegisterStorage(name, self.register_size(name))
         else:
             raise Exception("No register with name " + name)
+
+    def mk_flag_storage(self, name: str) -> ASTFlagStorage:
+        if self.has_flag(name):
+            return ASTFlagStorage(name)
+        else:
+            raise Exception("No flag with name " + name)
 
     def mk_stack_storage(
             self, offset: int, size: Optional[int] = None) -> ASTStackStorage:

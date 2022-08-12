@@ -38,7 +38,7 @@ from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.CustomASTSupport import CustomASTSupport
 
 
-pirversion: str = "0.1.0-20220808"
+pirversion: str = "0.1.0-20220811"
 
 
 class ASTApplicationInterface:
@@ -68,7 +68,8 @@ class ASTApplicationInterface:
             astfn.address,
             astfn.name,
             localsymboltable,
-            registersizes=self.support.register_sizes)
+            registersizes=self.support.register_sizes,
+            flagnames=self.support.flagnames)
 
         try:
             # ast = astfn.ast(astree, self.support)

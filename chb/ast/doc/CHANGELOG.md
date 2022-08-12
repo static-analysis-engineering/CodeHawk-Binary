@@ -11,3 +11,11 @@
 ### Version 0.1.0-20220810
 
 - Added line position to ASTCPrettyPrinter
+
+---
+
+### Version 0.1.0-20220811
+
+- Added flag variable, with constructor functions and storage
+
+---

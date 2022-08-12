@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Class that provides third-party users to introduce local support."""
 
-from typing import Dict
+from typing import Dict, List
 
 
 arm32_register_sizes: Dict[str, int] = {
@@ -49,11 +49,22 @@ arm32_register_sizes: Dict[str, int] = {
 }
 
 
+arm32_flags: List[str] = ["C", "N", "V", "Z"]
+
+
 class CustomASTSupport:
 
-    def __init__(self, registersizes: Dict[str, int] = arm32_register_sizes) -> None:
+    def __init__(
+            self,
+            registersizes: Dict[str, int] = arm32_register_sizes,
+            flagnames: List[str] = arm32_flags) -> None:
         self._registersizes = registersizes
+        self._flagnames = flagnames
 
     @property
     def register_sizes(self) -> Dict[str, int]:
         return self._registersizes
+
+    @property
+    def flagnames(self) -> List[str]:
+        return self._flagnames

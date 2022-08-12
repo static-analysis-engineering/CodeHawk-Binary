@@ -48,6 +48,7 @@ import chb.ast.ASTNode as AST
 from chb.ast.ASTStorage import (
     ASTStorage,
     ASTRegisterStorage,
+    ASTFlagStorage,
     ASTStackStorage,
     ASTBaseStorage,
     ASTGlobalStorage,
@@ -73,6 +74,7 @@ class AbstractSyntaxTree:
             fname: str,
             localsymboltable: ASTLocalSymbolTable,
             registersizes: Dict[str, int] = {},
+            flagnames: List[str] = [],
             defaultsize: Optional[int] =  None) -> None:
         self._faddr = faddr
         self._fname = fname  # same as faddr if no name provided
@@ -89,7 +91,7 @@ class AbstractSyntaxTree:
         self._reachingdefinitions: Dict[int, List[int]] = {}
         self._symboltable = localsymboltable
         self._storageconstructor = ASTStorageConstructor(
-            registersizes, defaultsize)
+            registersizes, defaultsize, flagnames)
 
         # integer types
         self._char_type = self.mk_integer_ikind_type("ichar")
@@ -770,6 +772,27 @@ class AbstractSyntaxTree:
             parameter=parameter,
             vdescr=vdescr,
             storage=storage)
+
+    def mk_flag_variable_lval(
+            self,
+            name: str,
+            flagname: Optional[str] = None,
+            vdescr: Optional[str] = None) -> AST.ASTLval:
+        if flagname is None:
+            flagname = name
+        storage = self.storageconstructor.mk_flag_storage(flagname)
+        return self.mk_named_lval(
+            name,
+            storage=storage)
+
+    def mk_flag_variable_lval_expression(
+            self,
+            name: str,
+            flagname: Optional[str] = None,
+            vdescr: Optional[str] = None) -> AST.ASTLvalExpr:
+        lval = self.mk_flag_variable_lval(name, flagname=flagname, vdescr=vdescr)
+        exprid = self.get_lvalid(None)
+        return AST.ASTLvalExpr(exprid, lval)
 
     def mk_stack_variable_lval(
             self,
