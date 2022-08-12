@@ -60,6 +60,10 @@ class VarInvariantFact(FnVarInvDictionaryRecord):
     def is_reaching_def(self) -> bool:
         return False
 
+    @property
+    def is_flag_reaching_def(self) -> bool:
+        return False
+
 
 @varinvregistry.register_tag("r", VarInvariantFact)
 class ReachingDefFact(VarInvariantFact):
@@ -94,6 +98,39 @@ class ReachingDefFact(VarInvariantFact):
         return "RD: " + str(self.vardefuse)
 
 
+@varinvregistry.register_tag("f", VarInvariantFact)
+class FlagReachingDefFact(VarInvariantFact):
+    """Assertion that the flag definitions made at these locations may reach here.
+
+    args[0]: index of vardef use in varinvdictionary
+    """
+
+    def __init__(
+            self,
+            varinvd: "FnVarInvDictionary",
+            ixval: IndexedTableValue) -> None:
+        VarInvariantFact.__init__(self, varinvd, ixval)
+
+    @property
+    def is_flag_reaching_def(self) -> bool:
+        return True
+
+    @property
+    def vardefuse(self) -> VarDefUse:
+        return self.varinvd.vardefuse(self.args[0])
+
+    @property
+    def variable(self) -> XVariable:
+        return self.vardefuse.variable
+
+    @property
+    def deflocations(self) -> Sequence[XSymbol]:
+        return self.vardefuse.symbols
+
+    def __str__(self) -> str:
+        return "FRD: " + str(self.vardefuse)
+
+
 @varinvregistry.register_tag("d", VarInvariantFact)
 class DefUse(VarInvariantFact):
     """Assertion that the definition is used at this location.
@@ -124,7 +161,7 @@ class DefUse(VarInvariantFact):
         return self.vardefuse.symbols
 
     def __str__(self) -> str:
-        return "Definitions used: " + str(self.vardefuse)
+        return "DU: " + str(self.vardefuse)
 
 
 @varinvregistry.register_tag("h", VarInvariantFact)
@@ -157,4 +194,4 @@ class DefUseHigh(VarInvariantFact):
         return self.vardefuse.symbols
 
     def __str__(self) -> str:
-        return "Definitions used at high level: " + str(self.vardefuse)
+        return "DU-H: " + str(self.vardefuse)
