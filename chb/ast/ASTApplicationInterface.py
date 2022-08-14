@@ -36,6 +36,7 @@ from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTStorageChecker import ASTStorageChecker
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.CustomASTSupport import CustomASTSupport
+from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 
 
 pirversion: str = "0.1.0-20220811"
@@ -58,6 +59,7 @@ class ASTApplicationInterface:
     def globalsymboltable(self) -> ASTGlobalSymbolTable:
         return self._globalsymboltable
 
+<<<<<<< HEAD
     def add_function(self, astfn: ASTFunction, verbose: bool = False) -> None:
 
         localsymboltable = ASTLocalSymbolTable(self.globalsymboltable)
@@ -81,17 +83,26 @@ class ASTApplicationInterface:
             print("*" * 80)
             return
 
+=======
+    def add_function_ast(self,
+                         astree: AbstractSyntaxTree,
+                         lifted_ast: ASTStmt,
+                         low_level_ast: ASTStmt,
+                         verbose: bool = False,
+                        ) -> None:
+        localsymboltable = astree.symboltable
+>>>>>>> 43becff03d0c2e4c88702c9f7a04fc013bde4dee
         if verbose:
             print("\n")
             pp = ASTCPrettyPrinter(localsymboltable)
-            print(pp.to_c(ast))
+            print(pp.to_c(lifted_ast))
             print(pp.to_c(low_level_ast))
 
         if verbose:
             print("\nCheck Storage")
             print("---------------")
             storagechecker = ASTStorageChecker(astree.storage)
-            report = storagechecker.check_stmt(ast)
+            report = storagechecker.check_stmt(lifted_ast)
 
             print("High-level representation")
             print(report)
@@ -105,12 +116,12 @@ class ASTApplicationInterface:
 
         localsymboltable.serialize(serializer)
         protoindex = localsymboltable.serialize_function_prototype(serializer)
-        ast_startindex = serializer.index_stmt(ast)
+        ast_startindex = serializer.index_stmt(lifted_ast)
         low_level_startindex = serializer.index_stmt(low_level_ast)
         astnodes = serializer.records()
 
-        fndata["name"] = astfn.name
-        fndata["va"] = astfn.address
+        fndata["name"] = astree.fname
+        fndata["va"] = astree.faddr
         fndata["prototype"] = protoindex
         fndata["ast"] = {}
         fndata["ast"]["nodes"] = astnodes
@@ -126,6 +137,30 @@ class ASTApplicationInterface:
         fndata["storage"] = astree.storage_records()
 
         self._fnsdata.append(fndata)
+
+    def add_function(self, astfn: ASTFunction, verbose: bool = False) -> None:
+
+        localsymboltable = ASTLocalSymbolTable(self.globalsymboltable)
+        if astfn.has_function_prototype():
+            localsymboltable.set_function_prototype(astfn.function_prototype())
+
+        astree = AbstractSyntaxTree(
+            astfn.address,
+            astfn.name,
+            localsymboltable,
+            registersizes=self.support.register_sizes)
+
+        try:
+            # ast = astfn.ast(astree, self.support)
+            (ast, low_level_ast) = astfn.mk_asts(astree, self.support)
+        except NameError as e:
+            print("=" * 80)
+            print("Error in ast generation of " + astfn.name)
+            print(str(e))
+            print("*" * 80)
+            return
+
+        self.add_function_ast(astree, ast, low_level_ast, verbose)
 
     def serialize(self, verbose: bool = False) -> Dict[str, Any]:
         globalserializer = ASTSerializer()

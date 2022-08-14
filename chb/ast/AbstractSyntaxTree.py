@@ -117,6 +117,10 @@ class AbstractSyntaxTree:
         return self._fname
 
     @property
+    def faddr(self) -> str:
+        return self._faddr
+
+    @property
     def symboltable(self) -> ASTLocalSymbolTable:
         return self._symboltable
 
