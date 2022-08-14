@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -55,10 +55,23 @@ class ARMArithmeticShiftRight(ARMOpcode):
 
     tags[1]: <c>
     args[0]: {S}
-    args[1]: index of op1 in armdictionary
-    args[2]: index of op2 in armdictionary
-    args[3]: index of op3 in armdictionary
+    args[1]: index of rd in armdictionary
+    args[2]: index of rn in armdictionary
+    args[3]: index of rm in armdictionary
     args[4]: is-wide (thumb)
+
+    xdata format: a:vxxxxrrdh
+    -------------------------
+    vars[0]: lhs
+    xprs[0]: xrn
+    xprs[1]: xrm
+    xprs[2]: xrn >> xrm
+    xprs[3]: xrn >> xrm (simplified)
+    rdefs[0]: xrm
+    rdefs[1]: xrn
+    rdefs[2..]: xrn >> xrm (simplified)
+    uses[0]: lhs
+    useshigh[0]: lhs
     """
 
     def __init__(
@@ -80,21 +93,15 @@ class ARMArithmeticShiftRight(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[1:-1]]
+
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx .
-
-        vars[0]: lhs (Rd)
-        xprs[0]: rhs1 (Rm/Rn)
-        xprs[1]: rhs2 (Rm/imm)
-        xprs[2]: rhs1 >> rhs2 (syntactic)
-        xprs[3]: rhs1 >> rhs2 (simplified)
-        args[4]: is-wide (thumb)
-        """
-
         lhs = str(xdata.vars[0])
         result = xdata.xprs[1]
         rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
+        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return lhs + " := " + xresult
 
     def assembly_ast(
@@ -124,3 +131,62 @@ class ARMArithmeticShiftRight(ARMOpcode):
             return [assign]
         else:
             return self.assembly_ast(astree, iaddr, bytestring, xdata)
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "ASR"]
+
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        rhs3 = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_asr_expr = astree.mk_binary_op("asr", ll_rhs1, ll_rhs2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_asr_expr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs3, astree)
+        if len(hl_lhss) == 1 and len(hl_rhss) == 1:
+            hl_lhs = hl_lhss[0]
+            hl_rhs = hl_rhss[0]
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            astree.add_instr_mapping(hl_assign, ll_assign)
+            astree.add_instr_address(hl_assign, [iaddr])
+            astree.add_expr_mapping(hl_rhs, ll_asr_expr)
+            astree.add_lval_mapping(hl_lhs, ll_lhs)
+            astree.add_expr_reachingdefs(ll_asr_expr, [rdefs[0], rdefs[1]])
+            astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
+            astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
+            astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+            astree.add_lval_defuses(hl_lhs, defuses[0])
+            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+            return ([hl_assign], [ll_assign])
+
+        else:
+            raise UF.CHBError(
+                "ARMArithmeticShiftRight: multiple lval/expressions in ast")

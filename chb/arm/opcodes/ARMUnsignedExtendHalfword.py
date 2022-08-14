@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -35,6 +35,8 @@ from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -53,6 +55,17 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
     tags[1]: <c>
     args[0]: index of op1 in armdictionary
     args[1]: index of op2 in armdictionary
+
+    xdata format: a:vxxxrdh
+    -----------------------
+    vars[0]: lhs
+    xprs[0]: xrm
+    xprs[1]: xrm & 65535
+    xprs[2]: xrm & 65535 (simplified)
+    rdefs[0]: rm
+    rdefs[1..]: xrm 65535 (simplified)
+    uses[0]: lhs
+    useshigh[0]: lhs
     """
 
     def __init__(
@@ -65,15 +78,11 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return self.operands
+
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: value to be stored (syntactic)
-        xprs[2]: value to be stored (simplified)
-        """
-
         lhs = str(xdata.vars[0])
         result = xdata.xprs[1]
         rresult = xdata.xprs[2]
@@ -94,3 +103,55 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
         assign = astree.mk_assign(
             lhs, rhs, iaddr=iaddr, bytestring=bytestring, annotations=annotations)
         return preinstrs + [assign] + postinstrs
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "UXTH"]
+
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[2]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, astree)
+        if len(hl_rhss) == 1 and len(hl_lhss) == 1:
+            hl_lhs = hl_lhss[0]
+            hl_rhs = hl_rhss[0]
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            astree.add_instr_mapping(hl_assign, ll_assign)
+            astree.add_instr_address(hl_assign, [iaddr])
+            astree.add_expr_mapping(hl_rhs, ll_rhs)
+            astree.add_lval_mapping(hl_lhs, ll_lhs)
+            astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
+            astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
+            astree.add_lval_defuses(hl_lhs, defuses[0])
+            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+            return ([hl_assign], [ll_assign])
+
+        else:
+            raise UF.CHBError(
+                "ARMUnsignedExtendHalfword: multiple expressions/lvals in ast")

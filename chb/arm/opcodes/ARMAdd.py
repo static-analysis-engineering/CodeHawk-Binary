@@ -81,6 +81,10 @@ class ARMAdd(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 
     @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[1:-1]]
+
+    @property
     def writeback(self) -> bool:
         return self.args[0] == 1
 
