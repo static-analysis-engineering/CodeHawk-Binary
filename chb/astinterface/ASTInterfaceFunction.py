@@ -32,8 +32,10 @@ from typing import cast, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTFunction import ASTFunction
 from chb.ast.ASTNode import ASTStmt, ASTVarInfo
+from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
 from chb.ast.CustomASTSupport import CustomASTSupport
 
+from chb.astinterface.ASTICodeTransformer import ASTICodeTransformer
 from chb.astinterface.ASTICPrettyPrinter import ASTICPrettyPrinter
 from chb.astinterface.ASTInterfaceBasicBlock import ASTInterfaceBasicBlock
 from chb.astinterface.ASTInterface import ASTInterface
@@ -126,10 +128,18 @@ class ASTInterfaceFunction(ASTFunction):
             astinterface: ASTInterface,
             support: CustomASTSupport) -> ASTStmt:
         ast = self.function.cfg.ast(self, astinterface)
-        prettyprinter = ASTICPrettyPrinter(
+        iprettyprinter = ASTICPrettyPrinter(
             astinterface.symboltable,
             astinterface.provenance)
-        print(prettyprinter.to_c(ast))
+        print(iprettyprinter.to_c(ast))
+
+        codetransformer = ASTICodeTransformer(astinterface)
+        transformedcode = codetransformer.transform_stmt(ast)
+
+        prettyprinter = ASTCPrettyPrinter(
+            astinterface.symboltable)
+        print("\n\nTransformed code")
+        print(prettyprinter.to_c(transformedcode))
         return ast
 
     def instruction_mapping(self) -> Dict[int, List[int]]:

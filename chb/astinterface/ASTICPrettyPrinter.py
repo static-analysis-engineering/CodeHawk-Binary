@@ -148,6 +148,12 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
             self.add_reachingdefs(rdefs)
         lvalexpr.lval.accept(self)
 
+    def visit_binary_expression(self, binopexpr: AST.ASTBinaryOp) -> None:
+        if self.provenance.has_reaching_defs(binopexpr.exprid):
+            rdefs = self.provenance.get_reaching_defs(binopexpr.exprid)
+            self.add_reachingdefs(rdefs)
+        ASTCPrettyPrinter.visit_binary_expression(self, binopexpr)
+
     def visit_memref(self, memref: AST.ASTMemRef) -> None:
         if self.provenance.has_reaching_defs(memref.memexp.exprid):
             rdefs = self.provenance.get_reaching_defs(memref.memexp.exprid)

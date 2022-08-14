@@ -164,10 +164,15 @@ class ASTInterface:
         self._annotations: Dict[int, List[str]] = {}
         self._diagnostics: List[str] = []
         self._provenance = ASTIProvenance()
+        self._ignoredlhs = self.mk_variable_lval("ignored")
 
     @property
     def astree(self) -> AbstractSyntaxTree:
         return self._astree
+
+    @property
+    def ignoredlhs(self) -> AST.ASTLval:
+        return self._ignoredlhs
 
     '''
     @property
@@ -438,11 +443,16 @@ class ASTInterface:
     def mk_block(
             self,
             stmts: List[AST.ASTStmt],
-            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTBlock:
-        return self.astree.mk_block(stmts, labels=labels)
+            labels: List[AST.ASTStmtLabel] = [],
+            optlocationid: Optional[int] = None) -> AST.ASTBlock:
+        return self.astree.mk_block(
+            stmts, labels=labels, optlocationid=optlocationid)
 
-    def mk_loop(self, body: AST.ASTStmt) -> AST.ASTLoop:
-        return self.astree.mk_loop(body)
+    def mk_loop(
+            self,
+            body: AST.ASTStmt,
+            optlocationid: Optional[int] = None) -> AST.ASTLoop:
+        return self.astree.mk_loop(body, optlocationid=optlocationid)
 
     def mk_return_stmt(
             self,
@@ -461,13 +471,19 @@ class ASTInterface:
             condition: Optional[AST.ASTExpr],
             ifbranch: AST.ASTStmt,
             elsebranch: AST.ASTStmt,
-            targetaddr: str) -> AST.ASTStmt:
+            targetaddr: str,
+            optlocationid: Optional[int] = None) -> AST.ASTStmt:
         return self.astree.mk_branch(
-            condition, ifbranch, elsebranch, targetaddr)
+            condition,
+            ifbranch,
+            elsebranch,
+            targetaddr,
+            optlocationid=optlocationid)
 
     def mk_instr_sequence(
-            self, instrs: List[AST.ASTInstruction]) -> AST.ASTInstrSequence:
-        return self.astree.mk_instr_sequence(instrs)
+            self, instrs: List[AST.ASTInstruction],
+            optlocationid: Optional[int] = None) -> AST.ASTInstrSequence:
+        return self.astree.mk_instr_sequence(instrs, optlocationid=optlocationid)
 
     def mk_goto_stmt(
             self,
@@ -475,6 +491,15 @@ class ASTInterface:
             destaddr: str,
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTGoto:
         return self.astree.mk_goto_stmt(name, destaddr, labels=labels)
+
+    def mk_switch_stmt(
+            self,
+            switchexpr: Optional[AST.ASTExpr],
+            cases: AST.ASTStmt,
+            optlocationid: Optional[int] = None,
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTSwitchStmt:
+        return self.astree.mk_switch_stmt(
+            switchexpr, cases, optlocationid=optlocationid, labels=labels)
 
     # ---------------------------------------------------- make labels ---------
 
