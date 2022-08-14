@@ -17,5 +17,10 @@
 ### Version 0.1.0-20220811
 
 - Added flag variable, with constructor functions and storage
+- Added alternative way to add functions to the application interface
 
 ---
+
+### Version 0.1.0-20220814
+
+- Added Identity Transformer

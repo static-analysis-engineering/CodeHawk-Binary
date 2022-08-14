@@ -371,8 +371,8 @@ class AbstractSyntaxTree:
             self,
             switchexpr: Optional[AST.ASTExpr],
             cases: AST.ASTStmt,
-            optstmtid: Optional[int],
-            optlocationid: Optional[int],
+            optstmtid: Optional[int] = None,
+            optlocationid: Optional[int] = None,
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTSwitchStmt:
         if switchexpr is None:
             # create a new unknown (uninitialized) variable
