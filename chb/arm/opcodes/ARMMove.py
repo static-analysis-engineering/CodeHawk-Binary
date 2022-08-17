@@ -155,6 +155,37 @@ class ARMMove(ARMOpcode):
                 raise UF.CHBError(
                     "ARMMove: multiple expressions/lvals in ast")
 
+    def ast_prov_subsumed(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        """Return only low-level instruction with low-level condition."""
+
+        annotations: List[str] = [iaddr, "MOV (subsumed)"]
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs_t, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_rhs_f = astree.mk_lval_expr(ll_lhs)
+
+        cc = self.ast_cc_expr(astree)
+
+        questionx = astree.mk_question(cc, ll_rhs_t, ll_rhs_f)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            questionx,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        rdefs = xdata.reachingdefs
+
+        astree.add_expr_reachingdefs(ll_rhs_f, rdefs)
+
+        return ([], [ll_assign])
+
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -164,7 +195,7 @@ class ARMMove(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         if xdata.instruction_is_subsumed():
-            return ([], [])
+            return self.ast_prov_subsumed(astree, iaddr, bytestring, xdata)
 
         annotations: List[str] = [iaddr, "MOV"]
 
@@ -201,7 +232,7 @@ class ARMMove(ARMOpcode):
             astree.add_lval_mapping(hl_lhs, ll_lhs)
             astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
             astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
-            astree.add_lval_defuses(ll_lhs, defuses[0])
+            astree.add_lval_defuses(hl_lhs, defuses[0])
             astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
             return ([hl_assign], [ll_assign])

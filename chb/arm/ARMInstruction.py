@@ -172,6 +172,16 @@ class ARMInstruction(Instruction):
             return str(self.xdata.xprs[0]) != "LR"
         return False
 
+    @property
+    def is_subsumed(self) -> bool:
+        return self.xdata.instruction_is_subsumed()
+
+    def subsumed_by(self) -> str:
+        if self.is_subsumed:
+            return self.xdata.subsumed_by()
+        else:
+            raise UF.CHBError("ARM instruction is not subsumed")
+
     def return_expr(self) -> XXpr:
         raise UF.CHBError("get-return-expr: not implemented")
 

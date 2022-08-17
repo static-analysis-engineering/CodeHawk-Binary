@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -103,3 +103,47 @@ class ARMIfThen(ARMOpcode):
                 + ", ".join([str(x) for x in xdata.xprs])
                 + " at address "
                 + iaddr)
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "IT"]
+
+        if len(xdata.vars) == 0:
+            return ([], [])
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[0]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, astree)
+        if len(hl_lhss) == 1 and len(hl_rhss) == 1:
+            hl_lhs = hl_lhss[0]
+            hl_rhs = hl_rhss[0]
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            subsumes = xdata.subsumes()
+
+            astree.add_instr_address(hl_assign, [iaddr] + subsumes)
+            astree.add_expr_reachingdefs(hl_rhs, rdefs)
+            astree.add_lval_defuses(hl_lhs, defuses[0])
+            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+            return ([hl_assign], [])
+
+        else:
+            raise UF.CHBError(
+                "ARMIfThen: multiple lval/expressions in ast")
