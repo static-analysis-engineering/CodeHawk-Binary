@@ -178,8 +178,12 @@ def xcompound_to_ast_exprs(
             if len(op1s) == 1 and len(op2s) == 1:
                 op1 = op1s[0]
                 op2 = op2s[0]
-                if op1.ctype(astree.ctyper) is not None and op in ["plus", "minus"]:
-                    return xtyped_expr_to_ast_exprs(op, op1, op2, astree)
+                if op in ["plus", "minus"]:
+                    try:
+                        op1type = op1.ctype(astree.ctyper)
+                        return xtyped_expr_to_ast_exprs(op, op1, op2, astree)
+                    except:
+                        return [astree.mk_binary_op(op, op1, op2)]
                 else:
                     return [astree.mk_binary_op(op, op1, op2)]
             elif op == "band" and len(op2s) == 1 and op2s[0].is_integer_constant:
@@ -392,7 +396,6 @@ def vinitregister_value_list_to_ast_lvals(
             # All register arguments refer to the same formal argument
             if len(formal_locindices) == len(formal.arglocs):
                 # All components of the formal are covered
-                argtype = formal.vtype
                 return [astree.mk_formal_lval(formal)]
 
     return [astree.mk_register_variable_lval(str(vconstvar.register))

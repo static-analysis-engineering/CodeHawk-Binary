@@ -192,6 +192,17 @@ class Instruction(ABC):
         return False
 
     @property
+    def is_subsumed(self) -> bool:
+        """Return true if another instruction incorporates this instruction."""
+
+        return False
+
+    def subsumed_by(self) -> str:
+        """Return the address of the instruction that subsumes this instruction."""
+
+        raise UF.CHBError("Instruction is not subsumed.")
+
+    @property
     @abstractmethod
     def ft_conditions(self) -> Sequence[XXpr]:
         ...

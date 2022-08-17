@@ -265,9 +265,29 @@ class InstrXData(IndexedTableValue):
         return "bu" in self.tags
 
     def instruction_is_subsumed(self) -> bool:
-        """An instruction may be subsumed as part of an ITE construct (ARM)."""
+        """An instruction may be subsumed as part of an IT construct (ARM)."""
 
         return "subsumed" in self.tags
+
+    def subsumed_by(self) -> str:
+        """Return the address of the IT instruction that subsumes this instruction."""
+
+        if "subsumed" in self.tags:
+            index = self.tags.index("subsumed")
+            return self.tags[index + 1]
+        else:
+            raise UF.CHBError(
+                "XData does not have a subsumed-by address: "
+                + ", ".join(self.tags))
+
+    def subsumes(self) -> List[str]:
+        """Return the addresses of the instruction subsumed by this instruction."""
+
+        if "subsumes" in self.tags:
+            index = self.tags.index("subsumes")
+            return self.tags[index + 1:]
+        else:
+            return []
 
     def has_return_value(self) -> bool:
         return "rv" in self.tags

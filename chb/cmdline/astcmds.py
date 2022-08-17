@@ -35,6 +35,7 @@ from typing import (
 
 from chb.app.AppAccess import AppAccess
 
+from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTApplicationInterface import ASTApplicationInterface
 from chb.ast.ASTBasicCTyper import ASTBasicCTyper
 from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
@@ -47,6 +48,7 @@ from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.astinterface.ASTInterface import ASTInterface
 from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
 from chb.astinterface.BC2ASTConverter import BC2ASTConverter
+from chb.astinterface.CHBASTSupport import CHBASTSupport
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
@@ -58,6 +60,7 @@ import chb.util.fileutil as UF
 if TYPE_CHECKING:
     from chb.bctypes.BCCompInfo import BCCompInfo    
     from chb.bctypes.BCTyp import BCTypComp
+    from chb.bctypes.BCVarInfo import BCVarInfo
 
 
 def reduce_ast_nodes(
@@ -152,7 +155,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
     app = UC.get_app(path, xfile, xinfo)
 
-    astapi = ASTApplicationInterface()
+    support = CHBASTSupport()
+    astapi = ASTApplicationInterface(support=support)
 
     # --------------------------------------- initialize global symbol table ---
 
@@ -191,13 +195,34 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             else:
                 fname = "sub_" + faddr[2:]
 
-            fproto: Optional[ASTVarInfo] = None
+            srcprototype: Optional["BCVarInfo"] = None
             if app.bcfiles.has_vardecl(fname):
-                if globalsymboltable.has_symbol(fname):
-                    fproto = globalsymboltable.get_symbol(fname)
+                srcprototype = app.bcfiles.vardecl(fname)
 
-            astfunction = ASTInterfaceFunction(faddr, fname, f, fproto)
-            astapi.add_function(astfunction, verbose=verbose)
+            localsymboltable = ASTLocalSymbolTable(globalsymboltable)
+            astree = AbstractSyntaxTree(
+                faddr,
+                fname,
+                localsymboltable,
+                registersizes=support.register_sizes,
+                flagnames=support.flagnames)
+            astinterface = ASTInterface(
+                astree,
+                typconverter,
+                xinfo.architecture,
+                srcprototype,
+                verbose=verbose)
+
+            astfunction = ASTInterfaceFunction(faddr, fname, f, astinterface)
+
+            asts = astfunction.mk_asts(support)
+            astapi.add_function_ast(astree, asts, verbose)
+
+            print("\nLifted code")
+            print("--------------------------------------------------------")
+            prettyprinter = ASTCPrettyPrinter(
+                localsymboltable, annotations=astinterface.annotations)
+            print(prettyprinter.to_c(asts[0]))
 
         else:
             UC.print_error("Unable to find function " + faddr)

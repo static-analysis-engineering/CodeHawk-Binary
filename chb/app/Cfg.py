@@ -303,7 +303,7 @@ def normalized_branch(
     def swapped(condition):
         return astree.mk_branch(condition, elsebranch, ifbranch, tgtaddr)
 
-    astblock = astfn.block(n)
+    astblock = astfn.astblock(n)
     '''
     condition = astblock.ast_condition(astree)
     couqitiou = inverted_binop(condition)
@@ -541,7 +541,7 @@ class Cfg:
             astree: ASTInterface) -> AST.ASTStmt:
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
-            astblock = astfn.block(n)
+            astblock = astfn.astblock(n)
             blocknode = astblock.assembly_ast(astree)
             blockstmts[n] = blocknode
 
@@ -552,7 +552,7 @@ class Cfg:
             astree: ASTInterface) -> AST.ASTStmt:
         blockstmts: Dict[str, AST.ASTStmt] = {}
         for n in self.rpo_sorted_nodes:
-            astblock = astfn.block(n)
+            astblock = astfn.astblock(n)
             blocknode = astblock.ast(astree)
             if astblock.has_return:
                 instr = astblock.last_instruction
@@ -578,7 +578,7 @@ class Cfg:
         for (b, successors) in sorted(
                 self.edges.items(), key=lambda e: int(e[0], 16)):
             label = astree.mk_label(b)
-            blocknode = astfn.block(b)
+            blocknode = astfn.astblock(b)
             block = blocknode.assembly_ast(astree)
             succblock: AST.ASTStmt
             if len(successors) == 0:
