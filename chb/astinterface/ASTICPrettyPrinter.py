@@ -70,7 +70,6 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
         return self._provenance
 
     def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
-        print(self.provenance.expressions_mapped)
         condition = stmt.condition
         if self.provenance.has_reaching_defs(condition.exprid):
             rdefs = self.provenance.get_reaching_defs(condition.exprid)
@@ -112,21 +111,23 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         ASTCPrettyPrinter.visit_assign_instr(self, instr)
         if self.provenance.has_instruction_mapped(instr.instrid):
-            pos = self.ccode.pos
-            mapped_instr = cast(
-                AST.ASTAssign,
-                self.provenance.get_instruction_mapped(instr.instrid))
-            self.ccode.write(" " * (60 - pos))
-            self.ccode.write("// ")
-            if self.provenance.has_instruction_address(instr.instrid):
-                address = ", ".join(
-                    self.provenance.get_instruction_address(instr.instrid))
-                self.ccode.write(address)
-                self.ccode.write("  ")
-            mapped_instr.lhs.accept(self)
-            self.ccode.write(" = ")
-            mapped_instr.rhs.accept(self)
-            self.ccode.write(";")
+            mapped_instrs = (
+                self.provenance.get_instructions_mapped(instr.instrid))
+            for (i, mapped_instr) in enumerate(mapped_instrs):
+                mapped_instr = cast(AST.ASTAssign, mapped_instr)
+                if i > 0:
+                    self.ccode.newline(indent = self.indent)
+                self.ccode.write(" " * (60 - self.ccode.pos))
+                self.ccode.write("// ")
+                if self.provenance.has_instruction_address(instr.instrid):
+                    address = ", ".join(
+                        self.provenance.get_instruction_address(instr.instrid))
+                    self.ccode.write(address)
+                    self.ccode.write("  ")
+                mapped_instr.lhs.accept(self)
+                self.ccode.write(" = ")
+                mapped_instr.rhs.accept(self)
+                self.ccode.write(";")
             for rdefstring in self.instr_reachingdefs:
                 self.ccode.newline(indent = self.indent + 4)
                 self.ccode.write("  // " + rdefstring)

@@ -31,13 +31,12 @@ from typing import cast, List, Optional, Tuple, TYPE_CHECKING
 import chb.ast.ASTNode as AST
 
 from chb.astinterface.ASTIUtil import get_arg_loc
-from chb.astinterface.ASTIVarInfo import ASTIVarInfo
 
 if TYPE_CHECKING:
     import chb.bctypes.BCTyp as BCT
 
 
-class ASTIFormalVarInfo(ASTIVarInfo):
+class ASTIFormalVarInfo:
     """Represents a formal parameter of a function in C source view.
 
     The parameter index refers to the source view index (zero-based).
@@ -64,19 +63,27 @@ class ASTIFormalVarInfo(ASTIVarInfo):
             vname: str,
             parameter: int,
             argindex: int,
+            liftedvinfo: AST.ASTVarInfo,
             bctyp: Optional["BCT.BCTyp"] = None,
-            vtype: Optional[AST.ASTTyp] = None,
             size: Optional[int] = None) -> None:
-        ASTIVarInfo.__init__(
-            self,
-            vname,
-            vtype,
-            size=size,
-            parameter=parameter,
-            notes=set(["formal"]))
+        self._vname = vname
+        self._parameter = parameter
+        self._liftedvinfo = liftedvinfo
         self._bctyp = bctyp
         self._argindex = argindex
         self._arglocs: List[Tuple[str, AST.ASTOffset, int]] = []
+
+    @property
+    def vname(self) -> str:
+        return self._vname
+
+    @property
+    def parameter(self) -> int:
+        return self._parameter
+
+    @property
+    def lifted_vinfo(self) -> AST.ASTVarInfo:
+        return self._liftedvinfo
 
     @property
     def bctyp(self) -> Optional["BCT.BCTyp"]:
@@ -205,4 +212,4 @@ class ASTIFormalVarInfo(ASTIVarInfo):
         else:
             p_arglocs = ", ".join(
                 str(loc) + ": " + str(offset) for (loc, offset, _) in self.arglocs)
-        return ASTIVarInfo.__str__(self) + " (" + p_arglocs + ")"
+        return self.vname + " (" + p_arglocs + ")"

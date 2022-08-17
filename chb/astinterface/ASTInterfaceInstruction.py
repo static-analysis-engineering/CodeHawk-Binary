@@ -51,6 +51,17 @@ class ASTInterfaceInstruction:
         return self._instr
 
     @property
+    def iaddr(self) -> str:
+        return self.instruction.iaddr
+
+    @property
+    def is_subsumed(self) -> bool:
+        return self.instruction.is_subsumed
+
+    def subsumed_by(self) -> str:
+        return self.instruction.subsumed_by()
+
+    @property
     def hl_ast_instructions(self) -> List[AST.ASTInstruction]:
         return self._hl_ast_instrs
 
@@ -69,8 +80,8 @@ class ASTInterfaceInstruction:
     def ast_prov(self, astree: "ASTInterface") -> None:
         if len(self.hl_ast_instructions) == 0:
             (hl, ll) = self.instruction.ast_prov(astree)
-        self._hl_ast_instrs = hl
-        self._ll_ast_instrs = ll
+            self._hl_ast_instrs = hl
+            self._ll_ast_instrs = ll
 
     def return_value(self) -> Optional["XXpr"]:
         return self.instruction.return_value()
@@ -85,29 +96,6 @@ class ASTInterfaceInstruction:
             self.ast_prov(astree)
         return self.hl_ast_instructions
 
-    def instruction_mapping(self, astree: "ASTInterface") -> Dict[int, List[int]]:
-        result: Dict[int, List[int]] = {}
-        lowlevelinstrs = self.assembly_ast(astree)
-        highlevelinstrs = self.ast(astree)
-        if len(lowlevelinstrs) == len(highlevelinstrs):
-            for (high, low) in zip(highlevelinstrs, lowlevelinstrs):
-                result[high.instrid] = [low.instrid]
-        elif len(highlevelinstrs) == 1:
-            high = highlevelinstrs[0]
-            result[high.instrid] = [i.instrid for i in lowlevelinstrs]
-        elif len(highlevelinstrs) == 0:
-            pass
-        else:
-            raise Exception(
-                "Instruction "
-                + str(self.instruction)
-                + " has "
-                + str(len(highlevelinstrs))
-                + " high-level instructions and "
-                + str(len(lowlevelinstrs))
-                + " low-level instructions")
-        return result
-                      
     def assembly_ast_condition(
             self,
             astree: "ASTInterface",
@@ -132,7 +120,6 @@ class ASTInterfaceInstruction:
             (hl, ll) = self.instruction.ast_condition_prov(astree, reverse=reverse)
         self._hl_ast_condition = hl
         self._ll_ast_condition = ll
-
 
     def ast_case_expression(
             self, target: str, astree: "ASTInterface") -> Optional[AST.ASTExpr]:

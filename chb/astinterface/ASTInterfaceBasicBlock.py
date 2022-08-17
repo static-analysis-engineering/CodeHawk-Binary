@@ -88,13 +88,6 @@ class ASTInterfaceBasicBlock:
         for (a, i) in sorted(self.instructions.items(), key=lambda p: int(p[0], 16)):
             instrs.extend(i.ast(astree))
         return astree.mk_instr_sequence(instrs)
-
-    def instruction_mapping(self, astree: "ASTInterface") -> Dict[int, List[int]]:
-        result: Dict[int, List[int]] = {}
-        for instr in self.instructions.values():
-            result.update(instr.instruction_mapping(astree))
-        return result
-
     
 
         

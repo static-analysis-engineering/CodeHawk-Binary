@@ -218,9 +218,17 @@ class BC2ASTConverter(BCConverter):
         if self.symboltable.has_compinfo(cinfo.ckey):
             return self.symboltable.compinfo(cinfo.ckey)
         else:
-            finfos = [f.convert(self) for f in cinfo.fieldinfos]
+            astfields: List[AST.ASTFieldInfo] = []
+            bcfieldoffsets = cinfo.fieldoffsets()
+            for (offset, bcfinfo) in bcfieldoffsets:
+                astfinfo = AST.ASTFieldInfo(
+                    bcfinfo.fieldname,
+                    bcfinfo.fieldtype.convert(self),
+                    bcfinfo.ckey,
+                    byteoffset=offset)
+                astfields.append(astfinfo)
             astcinfo = AST.ASTCompInfo(
-                cinfo.cname, cinfo.ckey, finfos, is_union=cinfo.is_union)
+                cinfo.cname, cinfo.ckey, astfields, is_union=cinfo.is_union)
             return astcinfo
 
     def convert_fieldinfo(self, finfo: BCFieldInfo) -> AST.ASTFieldInfo:

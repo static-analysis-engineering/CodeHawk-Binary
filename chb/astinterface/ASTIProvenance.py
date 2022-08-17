@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 class ASTIProvenance:
 
     def __init__(self):
-        self._instr_mapping: Dict[int, int] = {}  # hl_instr -> ll_instr
+        self._instr_mapping: Dict[int, List[int]] = {}  # hl_instr -> ll_instrs
         self._expr_mapping: Dict[int, int] = {}   # hl_expr -> ll_expr
         self._lval_mapping: Dict[int, int] = {}   # hl_lval -> ll_lval
         self._expr_rdefs: Dict[int, List["VarInvariantFact"]] = {}
@@ -53,7 +53,7 @@ class ASTIProvenance:
         self._lvals: Dict[int, AST.ASTLval] = {}
 
     @property
-    def instruction_mapping(self) -> Dict[int, int]:
+    def instruction_mapping(self) -> Dict[int, List[int]]:
         return self._instr_mapping
 
     @property
@@ -113,7 +113,9 @@ class ASTIProvenance:
             self,
             hl_instr: AST.ASTInstruction,
             ll_instr: AST.ASTInstruction) -> None:
-        self._instr_mapping[hl_instr.instrid] = ll_instr.instrid
+        self._instr_mapping.setdefault(hl_instr.instrid, [])
+        if not ll_instr.instrid in self.instruction_mapping:
+            self.instruction_mapping[hl_instr.instrid].append(ll_instr.instrid)
         self.add_instruction(hl_instr)
         self.add_instruction(ll_instr)
 
@@ -197,10 +199,10 @@ class ASTIProvenance:
     def has_instruction_mapped(self, instrid: int) -> bool:
         return instrid in self.instruction_mapping
 
-    def get_instruction_mapped(self, instrid: int) -> AST.ASTInstruction:
+    def get_instructions_mapped(self, instrid: int) -> List[AST.ASTInstruction]:
         if self.has_instruction_mapped(instrid):
-            mapped_id = self.instruction_mapping[instrid]
-            return self.instructions[mapped_id]
+            mapped_ids = self.instruction_mapping[instrid]
+            return [self.instructions[id] for id in mapped_ids]
         else:
             raise UF.CHBError(
                 "Instruction with id " + str(instrid) + " not found")

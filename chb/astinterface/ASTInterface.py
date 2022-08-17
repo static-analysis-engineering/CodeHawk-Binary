@@ -56,9 +56,10 @@ from chb.astinterface.ASTIFormalVarInfo import ASTIFormalVarInfo
 
 from chb.astinterface.ASTIProvenance import ASTIProvenance
 import chb.astinterface.ASTIUtil as AU
-from chb.astinterface.ASTIVarInfo import ASTIVarInfo
 
 if TYPE_CHECKING:
+    from chb.astinterface.BC2ASTConverter import BC2ASTConverter
+    from chb.bctypes.BCConverter import BCConverter
     from chb.bctypes.BCFieldInfo import BCFieldInfo
     from chb.bctypes.BCFunArgs import BCFunArg
     from chb.bctypes.BCFunctionDefinition import BCFunctionDefinition
@@ -150,35 +151,48 @@ class ASTInterface:
 
     def __init__(
             self,
-            astree: AbstractSyntaxTree) -> None:
-            # typconverter: BC2ASTConverter,
-            # parameter_abi: str) -> None:
+            astree: AbstractSyntaxTree,
+            typconverter: "BC2ASTConverter",
+            parameter_abi: str,
+            srcprototype: Optional["BCVarInfo"] = None,
+            verbose: bool = False) -> None:
         self._astree = astree
-        # self._typconverter = typconverter
+        self._srcprototype = srcprototype
+        self._typconverter = typconverter
+        self._verbose = verbose
         self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
         self._bytesizecalculator = ASTByteSizeCalculator(self._ctyper)
-        # self._parameter_abi = parameter_abi
-        self._formals: List[ASTIFormalVarInfo] = []
-        self._fprototype: Optional["BCVarInfo"] = None
+        self._parameter_abi = parameter_abi
+        self._srcformals: List[ASTIFormalVarInfo] = []
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
         self._diagnostics: List[str] = []
         self._provenance = ASTIProvenance()
         self._ignoredlhs = self.mk_variable_lval("ignored")
+        self._initialize_formals()
+        if self._srcprototype is not None:
+            astprototype = self._srcprototype.convert(self._typconverter)
+            self.set_asm_function_prototype(astprototype)
 
     @property
     def astree(self) -> AbstractSyntaxTree:
         return self._astree
 
     @property
+    def srcprototype(self) -> Optional["BCVarInfo"]:
+        return self._srcprototype
+
+    @property
     def ignoredlhs(self) -> AST.ASTLval:
         return self._ignoredlhs
 
-    '''
     @property
-    def typconverter(self) -> BC2ASTConverter:
+    def typconverter(self) -> "BC2ASTConverter":
         return self._typconverter
-    '''
+
+    @property
+    def verbose(self) -> bool:
+        return self._verbose
 
     @property
     def ctyper(self) -> ASTCTyper:
@@ -188,15 +202,16 @@ class ASTInterface:
     def bytesize_calculator(self) -> ASTByteSizeCalculator:
         return self._bytesizecalculator
 
-    '''
+    def set_asm_function_prototype(self, p: AST.ASTVarInfo) -> None:
+        self.astree.set_function_prototype(p)
+
     @property
     def parameter_abi(self) -> str:
         return self._parameter_abi
-    '''
 
     @property
-    def formals(self) -> List[ASTIFormalVarInfo]:
-        return self._formals
+    def srcformals(self) -> List[ASTIFormalVarInfo]:
+        return self._srcformals
 
     @property
     def annotations(self) -> Dict[int, List[str]]:
@@ -297,28 +312,25 @@ class ASTInterface:
     def spans(self) -> List[ASTSpanRecord]:
         return self.astree.spans
 
-    @property
-    def function_prototype(self) -> Optional["BCVarInfo"]:
-        return self._fprototype
+    def _initialize_formals(self) -> None:
+        p = self.srcprototype
+        if p is not None:
+            ftype = cast("BCTypFun", p.vtype)
+            if ftype.argtypes:
+                nextindex = 0
+                for (argindex, arg) in enumerate(ftype.argtypes.funargs):
+                    nextindex = self.add_formal(
+                        arg.name, arg.typ, argindex, nextindex)
 
-    def set_fprototype(self, p: "BCVarInfo") -> None:
-        self._fprototype = p
-        ftype = cast("BCTypFun", p.vtype)
-        if ftype.argtypes:
-            nextindex = 0
-            for (argindex, arg) in enumerate(ftype.argtypes.funargs):
-                nextindex = self.add_formal(
-                    arg.name, arg.typ, argindex, nextindex)        
-
-    def has_function_prototype(self) -> bool:
-        return self.function_prototype is not None
+            for bccompinfo in self.typconverter.compinfos_referenced.values():
+                astcompinfo = bccompinfo.convert(self.typconverter)
+                self.symboltable.add_compinfo(astcompinfo)
+        else:
+            self.add_diagnostic("No source prototype found")
 
     def global_symbols(self) -> Sequence[AST.ASTVarInfo]:
         return []
         # return self.symboltable.global_symbols()
-
-    def set_function_prototype(self, p: AST.ASTVarInfo) -> None:
-        self.astree.set_function_prototype(p)
 
     def get_formal_locindices(
             self, argindex: int) -> Tuple[ASTIFormalVarInfo, List[int]]:
@@ -327,7 +339,7 @@ class ASTInterface:
         There may be more than one location in case of a packed array.
         """
 
-        for formal in reversed(self.formals):
+        for formal in reversed(self.srcformals):
             if argindex >= formal.argindex:
                 if (argindex - formal.argindex) < formal.numargs:
                     return (formal, formal.arglocs_for_argindex(argindex))
@@ -336,7 +348,7 @@ class ASTInterface:
                         "get_formal_locindex: "
                         + str(argindex)
                         + " is too large. Formals:  "
-                        + ", ".join(str(f) for f in self.formals))
+                        + ", ".join(str(f) for f in self.srcformals))
 
         else:
             raise Exception("No formal found for argindex: " + str(argindex))
@@ -347,22 +359,15 @@ class ASTInterface:
         There may be more than one argument, in case of a packed array.
         """
 
-        if len(self.formals) > 0:
+        if len(self.srcformals) > 0:
             (formal, locindices) = self.get_formal_locindices(index)
-            regvar = AST.ASTVariable(formal)
+            regvar = AST.ASTVariable(formal.lifted_vinfo)
             lvals: List[AST.ASTLval] = []
             for locindex in locindices:
                 (loc, offset, size) = formal.argloc(locindex)
                 lvals.append(self.mk_lval(regvar, offset))
             return lvals
         else:
-            if self.has_function_prototype():
-                self.add_diagnostic(
-                    str(self.function_prototype)
-                    + " has no parameters")
-            else:
-                self.add_diagnostic(
-                    "No function prototype present to extract parameters")
             return []
 
     def has_symbol(self, name: str) -> bool:
@@ -389,19 +394,15 @@ class ASTInterface:
             vtype: "BCTyp",
             parameter: int,
             nextindex: int) -> int:
-
-        return 0
-
         """Returns the next starting index for the argument in the binary."""
 
-        '''
-        formal = ASTIFormalVarInfo(vname, parameter, nextindex, bctyp=vtype)
+        asttyp = vtype.convert(self.typconverter)
+        vinfo = self.add_symbol(vname, vtype=asttyp, parameter=parameter)
+        formal = ASTIFormalVarInfo(
+            vname, parameter, nextindex, vinfo, bctyp=vtype)
         nextindex = formal.initialize(self.parameter_abi)
-        self.add_symbol(
-            vname, vtype=vtype.convert(self.typconverter), parameter=parameter)
-        self._formals.append(formal)
+        self._srcformals.append(formal)
         return nextindex
-        '''
 
     def add_span(self, span: ASTSpanRecord) -> None:
         self.astree.add_span
@@ -730,7 +731,7 @@ class ASTInterface:
         return self.astree.mk_tmp_lval()
 
     def mk_formal_lval(self, formal: ASTIFormalVarInfo) -> AST.ASTLval:
-        var = AST.ASTVariable(formal)
+        var = AST.ASTVariable(formal.lifted_vinfo)
         return self.mk_lval(var, nooffset)
 
     def mk_memref(self, memexp: AST.ASTExpr) -> AST.ASTMemRef:

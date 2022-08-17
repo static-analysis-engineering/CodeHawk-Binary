@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import TYPE_CHECKING
+from typing import cast, List, TYPE_CHECKING
 
 from chb.ast.ASTIdentityTransformer import ASTIdentityTransformer
 import chb.ast.ASTNode as AST
@@ -66,11 +66,18 @@ class ASTICodeTransformer(ASTIdentityTransformer):
         
     def transform_instruction_sequence_stmt(
             self, stmt: AST.ASTInstrSequence) -> AST.ASTStmt:
+        instrs: List[AST.ASTInstruction] = []
+        for instr in stmt.instructions:
+            if instr.is_ast_assign:
+                instr = cast(AST.ASTAssign, instr)
+                if self.provenance.has_lval_defuse_high(instr.lhs.lvalid):
+                    instrs.append(instr)
+            else:
+                instrs.append(instr)
         return self.astinterface.mk_instr_sequence(
-            [], optlocationid=stmt.locationid)
+            instrs, optlocationid=stmt.locationid)
 
     def transform_branch_stmt(self, stmt: AST.ASTBranch) -> AST.ASTStmt:
-        print("transform branch")
         newif = stmt.ifstmt.transform(self)
         newelse = stmt.elsestmt.transform(self)
         return self.astinterface.mk_branch(

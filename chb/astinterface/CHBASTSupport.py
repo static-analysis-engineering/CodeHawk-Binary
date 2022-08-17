@@ -32,5 +32,5 @@ from chb.ast.CustomASTSupport import CustomASTSupport
 class CHBASTSupport(CustomASTSupport):
 
     def __init__(self) -> None:
-        CHBASTSupport.__init__(self)
+        CustomASTSupport.__init__(self)
         pass
