@@ -44,7 +44,6 @@ class ASTFunction(ABC):
             function_prototype: Optional[ASTVarInfo] = None) -> None:
         self._address = faddr
         self._name = fname
-        self._function_prototype = function_prototype
 
     @property
     def address(self) -> str:
@@ -54,27 +53,14 @@ class ASTFunction(ABC):
     def name(self) -> str:
         return self._name
 
-    def has_function_prototype(self) -> bool:
-        return self._function_prototype is not None
-
     @abstractmethod
-    def function_prototype(self) -> ASTVarInfo:
+    def ast(self, support: CustomASTSupport) -> ASTStmt:
         ...
 
     @abstractmethod
-    def ast(self, astree: AbstractSyntaxTree,
-            support: CustomASTSupport) -> ASTStmt:
+    def cfg_ast(self, support: CustomASTSupport) -> ASTStmt:
         ...
 
     @abstractmethod
-    def cfg_ast(
-            self, astree: AbstractSyntaxTree,
-            support: CustomASTSupport) -> ASTStmt:
-        ...
-
-    @abstractmethod
-    def mk_asts(
-            self,
-            astree: AbstractSyntaxTree,
-            support: CustomASTSupport) -> Tuple[ASTStmt, ASTStmt]:
+    def mk_asts(self, support: CustomASTSupport) -> List[ASTStmt]:
         ...

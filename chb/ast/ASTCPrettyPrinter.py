@@ -78,7 +78,7 @@ class ASTCPrettyPrinter(ASTVisitor):
         self._indent = 0                   # current indentation
         self._localsymboltable = localsymboltable
         self._globalsymboltable = localsymboltable.globaltable
-        self._annotations = annotations
+        self._annotations = annotations  # instrid -> annotation strings
         self._livevars_on_exit = livevars_on_exit
         self._ccode = ASTCCode()
 

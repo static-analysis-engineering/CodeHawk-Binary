@@ -1893,7 +1893,7 @@ class ASTQuestion(ASTExpr):
         return self.exp1.variables_used().union(
             self.exp2.variables_used()).union(self.exp3.variables_used())
 
-    def __str_(self) -> str:
+    def __str__(self) -> str:
         return (
             "("
             + str(self.exp1)
@@ -2345,6 +2345,10 @@ class ASTFieldInfo(ASTNode):
     def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
         return ctyper.ctype_fieldinfo(self)
 
+    def __str__(self) -> str:
+        p_offset = str(self.byteoffset) + " " if self.byteoffset is not None else ""
+        return p_offset + self.fieldname + ": " + str(self.fieldtype)
+
 
 class ASTCompInfo(ASTNode):
 
@@ -2381,19 +2385,19 @@ class ASTCompInfo(ASTNode):
         return True
 
     def has_field_offsets(self) -> bool:
-        return all(finfo.has_byteoffset for finfo in self.fieldinfos)
+        return all(finfo.has_byteoffset() for finfo in self.fieldinfos)
 
     @property
     def field_offsets(self) -> Dict[int, str]:
         result: Dict[int, str] = {}
-        if self.has_field_offsets:
+        if self.has_field_offsets():
             for finfo in self.fieldinfos:
                 byteoffset = cast(int, finfo.byteoffset)
                 result[byteoffset] = finfo.fieldname
             return result
         else:
             raise Exception(
-                "No field offsets are specified for compinfo " + self.cname)
+                "No field offsets are specified for compinfo " + self.compname)
 
     def field_at_offset(self, offset: int) -> Tuple["ASTFieldInfo", int]:
         """Return the field at the max offset less than or equal to offset.
@@ -2419,8 +2423,15 @@ class ASTCompInfo(ASTNode):
             else:
                 prev = (i, fname)
         else:
-            prev = cast(Tuple[int, str], prev)
-            return (self.fieldinfo(prev[1]), offset - prev[0])
+            if prev is not None:
+                prev = cast(Tuple[int, str], prev)
+                return (self.fieldinfo(prev[1]), offset - prev[0])
+            else:
+                raise Exception(
+                    "No field found at offset "
+                    + str(offset)
+                    + " in struct "
+                    + self.compname)
 
     def fieldinfo(self, fname: str) -> "ASTFieldInfo":
         for finfo in self.fieldinfos:
@@ -2440,6 +2451,13 @@ class ASTCompInfo(ASTNode):
 
     def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
         return ctyper.ctype_compinfo(self)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append(self.compname + " (" + str(self.compkey) + ")")
+        for finfo in self.fieldinfos:
+            lines.append("  " + str(finfo))
+        return "\n".join(lines)
 
 
 class ASTTypComp(ASTTyp):

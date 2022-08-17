@@ -39,7 +39,7 @@ from chb.ast.CustomASTSupport import CustomASTSupport
 from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 
 
-pirversion: str = "0.1.0-20220814"
+pirversion: str = "0.1.0-20220817"
 
 
 class ASTApplicationInterface:
@@ -59,17 +59,35 @@ class ASTApplicationInterface:
     def globalsymboltable(self) -> ASTGlobalSymbolTable:
         return self._globalsymboltable
 
-    def add_function_ast(self,
-                         astree: AbstractSyntaxTree,
-                         lifted_ast: ASTStmt,
-                         low_level_ast: ASTStmt,
-                         verbose: bool = False,
-                        ) -> None:
+    def add_function_ast(
+            self,
+            astree: AbstractSyntaxTree,
+            asts: List[ASTStmt],
+            verbose: bool = False) -> None:
+        """Add function with its abstract syntax tree object and list of asts.
+
+        There should be at least two asts, there may be more. It is assumed that
+        the first ast is the high-level ast, and the last ast is the low-level
+        ast.
+        """
+
         localsymboltable = astree.symboltable
+        if len(asts) < 2:
+            raise Exception(
+                "Found only "
+                + str(len)
+                + " asts. Expected at least two asts")
+        lifted_ast = asts[0]
+        low_level_ast = asts[-1]
+
         if verbose:
             print("\n")
             pp = ASTCPrettyPrinter(localsymboltable)
+            print("Lifted AST")
+            print("----------")
             print(pp.to_c(lifted_ast))
+            print("\nLow-level AST")
+            print("--------------")
             print(pp.to_c(low_level_ast))
 
         if verbose:
@@ -78,7 +96,7 @@ class ASTApplicationInterface:
             storagechecker = ASTStorageChecker(astree.storage)
             report = storagechecker.check_stmt(lifted_ast)
 
-            print("High-level representation")
+            print("\nHigh-level representation")
             print(report)
 
             report = storagechecker.check_stmt(low_level_ast)
@@ -90,8 +108,7 @@ class ASTApplicationInterface:
 
         localsymboltable.serialize(serializer)
         protoindex = localsymboltable.serialize_function_prototype(serializer)
-        ast_startindex = serializer.index_stmt(lifted_ast)
-        low_level_startindex = serializer.index_stmt(low_level_ast)
+        ast_startindices = [serializer.index_stmt(ast) for ast in asts]
         astnodes = serializer.records()
 
         fndata["name"] = astree.fname
@@ -99,8 +116,7 @@ class ASTApplicationInterface:
         fndata["prototype"] = protoindex
         fndata["ast"] = {}
         fndata["ast"]["nodes"] = astnodes
-        fndata["ast"]["ast-startnode"] = ast_startindex
-        fndata["ast"]["low-level-ast-startnode"] = low_level_startindex
+        fndata["ast"]["ast-startnodes"] = ast_startindices
         fndata["spans"] = astree.spans
         fndata["provenance"] = {}
         fndata["provenance"]["instruction-mapping"] = astree.instructionmapping
@@ -111,31 +127,6 @@ class ASTApplicationInterface:
         fndata["storage"] = astree.storage_records()
 
         self._fnsdata.append(fndata)
-
-    def add_function(self, astfn: ASTFunction, verbose: bool = False) -> None:
-
-        localsymboltable = ASTLocalSymbolTable(self.globalsymboltable)
-        if astfn.has_function_prototype():
-            localsymboltable.set_function_prototype(astfn.function_prototype())
-
-        astree = AbstractSyntaxTree(
-            astfn.address,
-            astfn.name,
-            localsymboltable,
-            registersizes=self.support.register_sizes,
-            flagnames=self.support.flagnames)
-
-        try:
-            # ast = astfn.ast(astree, self.support)
-            (ast, low_level_ast) = astfn.mk_asts(astree, self.support)
-        except NameError as e:
-            print("=" * 80)
-            print("Error in ast generation of " + astfn.name)
-            print(str(e))
-            print("*" * 80)
-            return
-
-        self.add_function_ast(astree, ast, low_level_ast, verbose)
 
     def serialize(self, verbose: bool = False) -> Dict[str, Any]:
         globalserializer = ASTSerializer()

@@ -102,7 +102,7 @@ class ASTDeserializer:
         if "prototype" in fdata:
             fprototypeix = fdata["prototype"]
             self._initialize_function_prototype(fprototypeix, astree, nodes)
-        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["low-level-ast-startnode"])])
+        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["ast-startnodes"][-1])])
         self._functions[faddr] = (localsymboltable, astnode)
 
     def _initialize_lifted_functions(self) -> None:
@@ -118,7 +118,7 @@ class ASTDeserializer:
         if "prototype" in fdata:
             fprototypeix = fdata["prototype"]
             self._initialize_function_prototype(fprototypeix, astree, nodes)
-        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["ast-startnode"])])
+        astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["ast-startnodes"][0])])
         self._lifted_functions[faddr] = (localsymboltable, astnode)
 
     def mk_ast_nodes(
@@ -313,6 +313,14 @@ class ASTDeserializer:
                 op = r["op"]
                 nodes[id] = astree.mk_binary_expression(
                     op, exp1, exp2, optexprid=exprid)
+
+            elif tag == "question":
+                exprid = r["exprid"]
+                exp1 = cast(AST.ASTExpr, mk_node(arg(0)))
+                exp2 = cast(AST.ASTExpr, mk_node(arg(1)))
+                exp3 = cast(AST.ASTExpr, mk_node(arg(2)))
+                nodes[id] = astree.mk_question_expression(
+                    exp1, exp2, exp3, optexprid=exprid)
 
             elif tag == "assign":
                 instrid = r["instrid"]
