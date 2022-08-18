@@ -44,6 +44,7 @@ from typing import (
     Union)
 
 import chb.ast.ASTNode as AST
+from chb.ast.ASTProvenance import ASTProvenance
 
 from chb.ast.ASTStorage import (
     ASTStorage,
@@ -92,6 +93,7 @@ class AbstractSyntaxTree:
         self._symboltable = localsymboltable
         self._storageconstructor = ASTStorageConstructor(
             registersizes, defaultsize, flagnames)
+        self._provenance = ASTProvenance()
 
         # integer types
         self._char_type = self.mk_integer_ikind_type("ichar")
@@ -131,6 +133,10 @@ class AbstractSyntaxTree:
     @property
     def compinfos(self) -> Mapping[int, AST.ASTCompInfo]:
         return self.symboltable.compinfos
+
+    @property
+    def provenance(self) -> ASTProvenance:
+        return self._provenance
 
     @property
     def spans(self) -> List[ASTSpanRecord]:

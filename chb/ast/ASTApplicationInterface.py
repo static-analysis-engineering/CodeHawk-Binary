@@ -118,12 +118,8 @@ class ASTApplicationInterface:
         fndata["ast"]["nodes"] = astnodes
         fndata["ast"]["ast-startnodes"] = ast_startindices
         fndata["spans"] = astree.spans
-        fndata["provenance"] = {}
-        fndata["provenance"]["instruction-mapping"] = astree.instructionmapping
-        fndata["provenance"]["reaching-definitions"] = astree.reachingdefinitions
-        fndata["provenance"]["expression-mapping"] = astree.expressionmapping
+        fndata["provenance"] = astree.provenance.serialize()
         fndata["available-expressions"] = {}
-        fndata["definitions-used"] = {}
         fndata["storage"] = astree.storage_records()
 
         self._fnsdata.append(fndata)

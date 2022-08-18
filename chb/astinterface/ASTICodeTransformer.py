@@ -49,7 +49,7 @@ class ASTICodeTransformer(ASTIdentityTransformer):
 
     @property
     def provenance(self) -> "ASTIProvenance":
-        return self.astinterface.provenance
+        return self.astinterface.astiprovenance
 
     def transform_stmt(self, stmt: AST.ASTStmt) -> AST.ASTStmt:
         return stmt.transform(self)

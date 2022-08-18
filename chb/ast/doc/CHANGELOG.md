@@ -40,3 +40,4 @@
 - Changed signature for add_function_ast in ASTApplicationInterface to provide a list of ASTStmt, rather than a separately identified high-level ast and low-level ast.
 - Minor corrections to ASTNode
 - Added question item to Deserializer
+- Added ASTProvenance class

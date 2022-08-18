@@ -57,6 +57,14 @@ class VarInvariantFact(FnVarInvDictionaryRecord):
         return "varfact:" + self.tags[0]
 
     @property
+    def vardefuse(self) -> VarDefUse:
+        return self.varinvd.vardefuse(self.args[0])
+
+    @property
+    def variable(self) -> XVariable:
+        return self.vardefuse.variable
+
+    @property
     def is_reaching_def(self) -> bool:
         return False
 
@@ -81,14 +89,6 @@ class ReachingDefFact(VarInvariantFact):
     @property
     def is_reaching_def(self) -> bool:
         return True
-
-    @property
-    def vardefuse(self) -> VarDefUse:
-        return self.varinvd.vardefuse(self.args[0])
-
-    @property
-    def variable(self) -> XVariable:
-        return self.vardefuse.variable
 
     @property
     def deflocations(self) -> Sequence[XSymbol]:
@@ -116,14 +116,6 @@ class FlagReachingDefFact(VarInvariantFact):
         return True
 
     @property
-    def vardefuse(self) -> VarDefUse:
-        return self.varinvd.vardefuse(self.args[0])
-
-    @property
-    def variable(self) -> XVariable:
-        return self.vardefuse.variable
-
-    @property
     def deflocations(self) -> Sequence[XSymbol]:
         return self.vardefuse.symbols
 
@@ -149,14 +141,6 @@ class DefUse(VarInvariantFact):
         return True
 
     @property
-    def vardefuse(self) -> VarDefUse:
-        return self.varinvd.vardefuse(self.args[0])
-
-    @property
-    def variable(self) -> XVariable:
-        return self.vardefuse.variable
-
-    @property
     def uselocations(self) -> Sequence[XSymbol]:
         return self.vardefuse.symbols
 
@@ -180,14 +164,6 @@ class DefUseHigh(VarInvariantFact):
     @property
     def is_def_use_high(self) -> bool:
         return True
-
-    @property
-    def vardefuse(self) -> VarDefUse:
-        return self.varinvd.vardefuse(self.args[0])
-
-    @property
-    def variable(self) -> XVariable:
-        return self.vardefuse.variable
 
     @property
     def uselocations(self) -> Sequence[XSymbol]:

@@ -216,6 +216,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             astfunction = ASTInterfaceFunction(faddr, fname, f, astinterface)
 
             asts = astfunction.mk_asts(support)
+
             astapi.add_function_ast(astree, asts, verbose)
 
             print("\nLifted code")

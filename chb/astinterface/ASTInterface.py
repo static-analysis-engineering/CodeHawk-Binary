@@ -48,6 +48,7 @@ from chb.ast.ASTBasicCTyper import ASTBasicCTyper
 from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
 from chb.ast.ASTCTyper import ASTCTyper
 import chb.ast.ASTNode as AST
+from chb.ast.ASTProvenance import ASTProvenance
 from chb.ast.ASTStorage import ASTStorage
 from chb.ast.ASTSymbolTable import (
     ASTSymbolTable, ASTLocalSymbolTable, ASTGlobalSymbolTable)
@@ -167,7 +168,7 @@ class ASTInterface:
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
         self._diagnostics: List[str] = []
-        self._provenance = ASTIProvenance()
+        self._astiprovenance = ASTIProvenance()
         self._ignoredlhs = self.mk_variable_lval("ignored")
         self._initialize_formals()
         if self._srcprototype is not None:
@@ -225,38 +226,45 @@ class ASTInterface:
         self._diagnostics.append(msg)
 
     @property
-    def provenance(self) -> ASTIProvenance:
-        return self._provenance
+    def astiprovenance(self) -> ASTIProvenance:
+        return self._astiprovenance
+
+    def set_ast_provenance(self) -> None:
+        self.astiprovenance.set_ast_provenance(self.astree.provenance)
+
+    @property
+    def provenance(self) -> ASTProvenance:
+        return self.astree.provenance
 
     def add_instr_mapping(
             self,
             hl_instr: AST.ASTInstruction,
             ll_instr: AST.ASTInstruction) -> None:
-        self.provenance.add_instr_mapping(hl_instr, ll_instr)
+        self.astiprovenance.add_instr_mapping(hl_instr, ll_instr)
 
     def add_instr_address(
             self,
             instr: AST.ASTInstruction,
             addresses: List[str]) -> None:
-        self.provenance.add_instr_address(instr, addresses)
+        self.astiprovenance.add_instr_address(instr, addresses)
 
     def add_condition_address(
             self,
             expr: AST.ASTExpr,
             addresses: List[str]) -> None:
-        self.provenance.add_condition_address(expr, addresses)
+        self.astiprovenance.add_condition_address(expr, addresses)
 
     def add_expr_mapping(
             self,
             hl_expr: AST.ASTExpr,
             ll_expr: AST.ASTExpr) -> None:
-        self.provenance.add_expr_mapping(hl_expr, ll_expr)
+        self.astiprovenance.add_expr_mapping(hl_expr, ll_expr)
 
     def add_lval_mapping(
             self,
             hl_lval: AST.ASTLval,
             ll_lval: AST.ASTLval) -> None:
-        self.provenance.add_lval_mapping(hl_lval, ll_lval)
+        self.astiprovenance.add_lval_mapping(hl_lval, ll_lval)
 
     def add_expr_reachingdefs(
             self,
@@ -266,7 +274,7 @@ class ASTInterface:
         for f in reachingdefs:
             if f is not None:
                 rdefs.append(f)
-        self.provenance.add_expr_reachingdefs(expr, rdefs)
+        self.astiprovenance.add_expr_reachingdefs(expr, rdefs)
 
     def add_flag_expr_reachingdefs(
             self,
@@ -276,19 +284,19 @@ class ASTInterface:
         for f in reachingdefs:
             if f is not None:
                 rdefs.append(f)
-        self.provenance.add_flag_expr_reachingdefs(expr, rdefs)
+        self.astiprovenance.add_flag_expr_reachingdefs(expr, rdefs)
 
     def add_lval_defuses(
             self,
             lval: AST.ASTLval,
             uses: Optional["VarInvariantFact"]) -> None:
-        self.provenance.add_lval_defuses(lval, uses)
+        self.astiprovenance.add_lval_defuses(lval, uses)
 
     def add_lval_defuses_high(
             self,
             lval: AST.ASTLval,
             uses: Optional["VarInvariantFact"]) -> None:
-        self.provenance.add_lval_defuses_high(lval, uses)
+        self.astiprovenance.add_lval_defuses_high(lval, uses)
 
     @property
     def fname(self) -> str:

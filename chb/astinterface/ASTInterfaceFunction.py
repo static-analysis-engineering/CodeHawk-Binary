@@ -104,6 +104,10 @@ class ASTInterfaceFunction(ASTFunction):
     def mk_asts(self, support: CustomASTSupport) -> List[ASTStmt]:
         highlevel = self.mk_high_level_ast(support)
         lowlevel  = self.mk_low_level_ast(support)
+
+        # transfer provenance data to the AST abstract syntaxtree
+        self.astinterface.set_ast_provenance()
+
         return highlevel + [lowlevel]
 
     def mk_low_level_ast(
@@ -121,7 +125,7 @@ class ASTInterfaceFunction(ASTFunction):
         if self.verbose:
             iprettyprinter = ASTICPrettyPrinter(
                 self.astinterface.symboltable,
-                self.astinterface.provenance)
+                self.astinterface.astiprovenance)
             print(iprettyprinter.to_c(ast))
 
         codetransformer = ASTICodeTransformer(self.astinterface)

@@ -26,27 +26,38 @@
 # ------------------------------------------------------------------------------
 """Provenance data structure to provide ast meta data."""
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import cast, Dict, List, Optional, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
+from chb.ast.ASTProvenance import ASTProvenance
 
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    from chb.invariants.VarInvariantFact import VarInvariantFact
+    from chb.invariants.VarInvariantFact import (
+        DefUse,
+        DefUseHigh,
+        FlagReachingDefFact,
+        ReachingDefFact,
+        VarInvariantFact
+    )
 
 
 class ASTIProvenance:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._instr_mapping: Dict[int, List[int]] = {}  # hl_instr -> ll_instrs
         self._expr_mapping: Dict[int, int] = {}   # hl_expr -> ll_expr
         self._lval_mapping: Dict[int, int] = {}   # hl_lval -> ll_lval
+        self._reaching_definitions: Dict[int, List[int]] = {}
+        self._flag_reaching_definitions: Dict[int, List[int]] = {}
+        self._definitions_used: Dict[int, List[int]] = {}
         self._expr_rdefs: Dict[int, List["VarInvariantFact"]] = {}
         self._flag_expr_rdefs: Dict[int, List["VarInvariantFact"]] = {}
         self._lval_defuses: Dict[int, "VarInvariantFact"] = {}
         self._lval_defuses_high: Dict[int, "VarInvariantFact"] = {}
         self._instr_addresses: Dict[int, List[str]] = {}  # instr -> hex-address
+        self._addr_instructions: Dict[str, List[int]] = {}  # hex-address -> instrs
         self._condition_addresses: Dict[int, List[str]] = {}  # expr -> hex-address
         self._instructions: Dict[int, AST.ASTInstruction] = {}
         self._expressions: Dict[int, AST.ASTExpr] = {}
@@ -59,6 +70,22 @@ class ASTIProvenance:
     @property
     def expression_mapping(self) -> Dict[int, int]:
         return self._expr_mapping
+
+    @property
+    def lval_mapping(self) -> Dict[int, int]:
+        return self._lval_mapping
+
+    @property
+    def reaching_definitions(self) -> Dict[int, List[int]]:
+        return self._reaching_definitions
+
+    @property
+    def flag_reaching_definitions(self) -> Dict[int, List[int]]:
+        return self._flag_reaching_definitions
+
+    @property
+    def definitions_used(self) -> Dict[int, List[int]]:
+        return self._definitions_used
 
     @property
     def expressions_mapped(self) -> str:
@@ -80,6 +107,10 @@ class ASTIProvenance:
     @property
     def instruction_addresses(self) -> Dict[int, List[str]]:
         return self._instr_addresses
+
+    @property
+    def address_instructions(self) -> Dict[str, List[int]]:
+        return self._addr_instructions
 
     @property
     def condition_addresses(self) -> Dict[int, List[str]]:
@@ -135,6 +166,21 @@ class ASTIProvenance:
         self.add_lval(hl_lval)
         self.add_lval(ll_lval)
 
+    def add_reaching_definition(self, exprid: int, instrid: int) -> None:
+        self._reaching_definitions.setdefault(exprid, [])
+        if instrid not in self.reaching_definitions[exprid]:
+            self._reaching_definitions[exprid].append(instrid)
+
+    def add_flag_reaching_definition(self, exprid: int, instrid: int) -> None:
+        self._flag_reaching_definitions.setdefault(exprid, [])
+        if instrid not in self.flag_reaching_definitions[exprid]:
+            self._flag_reaching_definitions[exprid].append(instrid)
+
+    def add_definition_used(self, lvalid: int, instrid: int) -> None:
+        self._definitions_used.setdefault(lvalid, [])
+        if instrid not in self.definitions_used[lvalid]:
+            self._definitions_used[lvalid].append(instrid)
+
     def add_expr_reachingdefs(
             self,
             expr: AST.ASTExpr,
@@ -172,6 +218,11 @@ class ASTIProvenance:
             instr: AST.ASTInstruction,
             addresses: List[str]) -> None:
         self._instr_addresses[instr.instrid] =  addresses
+        for addr in addresses:
+            self._addr_instructions.setdefault(addr, [])
+            if instr.instrid not in self.address_instructions[addr]:
+                self._addr_instructions[addr].append(instr.instrid)
+
         self.add_instruction(instr)
 
     def add_condition_address(
@@ -277,3 +328,67 @@ class ASTIProvenance:
         else:
             raise UF.CHBError(
                 "No flag reaching def found for expr with id " + str(exprid))
+
+    def set_ast_provenance(self, p: ASTProvenance) -> None:
+        self.resolve_reaching_defs()
+        self.resolve_flag_reaching_defs()
+        self.resolve_definitions_used()
+        self.resolve_definitions_used_high()
+        for (hl, lls) in self.instruction_mapping.items():
+            for ll in lls:
+                p.add_instruction_mapping(hl, ll)
+        for (hl, ll) in self.expression_mapping.items():
+            p.add_expression_mapping(hl, ll)
+        for (hl, ll) in self.lval_mapping.items():
+            p.add_lval_mapping(hl, ll)
+        for (xid, rds) in self.reaching_definitions.items():
+            p.add_reaching_definitions(xid, rds)
+        for (xid, frds) in self.flag_reaching_definitions.items():
+            p.add_flag_reaching_definitions(xid, frds)
+        for (lvalid, dus) in self.definitions_used.items():
+            p.add_definitions_used(lvalid, dus)
+
+    def resolve_reaching_defs(self) -> None:
+        for (xid, rds) in self.expr_rdefs.items():
+            for rd in rds:
+                rd = cast("ReachingDefFact", rd)
+                v = str(rd.variable)
+                addrs = [str(d) for d in rd.deflocations]
+                for addr in addrs:
+                    if addr in self.address_instructions:
+                        instrids = self.address_instructions[addr]
+                        for instrid in instrids:
+                            if instrid in self.instructions:
+                                instr = self.instructions[instrid]
+                                if instr.is_ast_assign:
+                                    instr = cast(AST.ASTAssign, instr)
+                                    if str(instr.lhs) == v:
+                                        self.add_reaching_definition(xid, instrid)
+
+    def resolve_flag_reaching_defs(self) -> None:
+        for (xid, frds) in self.flag_expr_rdefs.items():
+            for frd in frds:
+                frd = cast("FlagReachingDefFact", frd)
+                addrs = [str(d) for d in frd.deflocations]
+                for addr in addrs:
+                    instrids = self.address_instructions[addr]
+                    for instrid in instrids:
+                        self.add_flag_reaching_definition(xid, instrid)
+
+    def resolve_definitions_used(self) -> None:
+        for (lvalid, defuse) in self.lval_defuses.items():
+            defuse = cast("DefUse", defuse)
+            addrs = [str(u) for u in defuse.uselocations if str(u) != "exit"]
+            for addr in addrs:
+                instrids = self.address_instructions[addr]
+                for instrid in instrids:
+                    self.add_definition_used(lvalid, instrid)
+
+    def resolve_definitions_used_high(self) -> None:
+        for (lvalid, defuse) in self.lval_defuses_high.items():
+            defuse = cast("DefUseHigh", defuse)
+            addrs = [str(u) for u in defuse.uselocations if str(u) != "exit"]
+            for addr in addrs:
+                instrids = self.address_instructions[addr]
+                for instrid in instrids:
+                    self.add_definition_used(lvalid, instrid)
