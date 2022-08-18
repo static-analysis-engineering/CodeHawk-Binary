@@ -11,6 +11,7 @@
 - [Other lvals and expressions](#otherlvals)
 - [Unary and binary operators](#operators)
 - [Types](#types)
+- [Provenance](#provenance)
 
 
 ### Statements
@@ -486,7 +487,7 @@ have no storage.
 
 Lvalues are (mostly) associated with physical locations in the architecture
 such as registers, flags, stack locations, heap locations, and global locations.
-From a function point-of-view four distinct types of storage are recognized:
+From a function point-of-view five distinct types of storage are recognized:
 - registers: this includes the standard CPU registers, but may also include
   the processor status word, or individual flags in the processor status
   words. Registers are identified by their name.
@@ -816,3 +817,89 @@ and for floats:
 | <code>float</code> | <code>float</code> |
 | <code>fdouble</code> | <code>double</code> |
 | <code>flongdouble</code> | <code>long double</code> |
+
+
+### Provenance
+
+Provenance provides a connection between the high-level AST representation
+that is presented to the reader (in the form of C code) and a low-level AST
+representation that can be more directly related to the assembly code. We
+currently support the following relationships:
+
+1. **Instruction Mapping**: a mapping from high-level instructions to low-level
+   instructions.
+   ```
+   high-level instr-id -> low-level instr-id list
+   ```
+
+2. **Expression Mapping**: a mapping from high-level expressions to low-level
+   expressions.
+   ```
+   high-level expr-id -> low-level expr-id
+   ```
+
+3. **Lval Mapping**: a mapping from high-level lvals to low-level lvals.
+   ```
+   high-level lval-id -> low-level lval-id
+   ```
+
+4. **Reaching Definitions**: a mapping from expressions (mostly lval-exprs) to the
+   instructions that <ins>may</ins> define them.
+   ```
+   expr-id -> instr-id list
+   ```
+   This information can be used by the patcher to identify the instruction(s) that
+   may have to be changed to achieve a given modification in an expression.
+
+5. **Flag reaching definitions**: a mapping from expressions involving flags to
+   the instructions that <ins>may</ins> set these flags.
+   ```
+   expr-id -> instr-id list
+   ```
+   This mapping is kept separate from the regular reaching definitions, because
+   different tools may handle processor status word flags differently. Some
+   different possibilities for creating this relationship include:
+   - identify all flags explicitly (e.g., C, N, V, Z for ARM) as flag variables,
+     use the full flag expression as the low-level branch condition (e.g.,
+     Z = 1 for EQ in ARM), and include a link from the expr-id for the lval-expr
+     for Z to the associated instruction that sets Z (e.g., a CMP instruction);
+     the CMP instruction can be defined as an assignment to each flag variable
+     individually, or to some ignored left-hand side, because the only relevant
+     information about this instruction is its right-hand side, the test
+     expression.
+   - use a generic flagvariable, say flag, and use the rvalue of this variable
+     as the low-level branch condition, and include a link from the flag
+     lval-expr to the CMP instruction (which can be an assignment of the test
+     expression to the flag variable).
+
+5. **Definitions Used**: a mapping from lvalues to the instructions that
+   <ins>may</ins> use the values assigned to these lvalues (lvalue id's uniquely
+   identify the instruction that performs the definition).
+   ```
+   lval-id -> instr-id list
+   ```
+   This information can be used by the patcher to determine if other parts of the
+   function would be affected if the definition performed by this instruction would
+   be changed.
+
+
+#### Provenance Implementation
+
+The Abstract Syntax Tree has a **provenance** property that returns a ASTProvenance
+object with the following methods to enter the relationships described above:
+```
+add_instruction_mapping(hl_instrid: int, ll_instrid: int) -> None
+
+add_expression_mapping(hl_exprid: int, ll_exprid: int) -> None
+
+add_lval_mapping(hl_lvalid: int, ll_lvalid: int) -> None
+
+add_reaching_definitions(exprid: int, instrids: List[int]) -> None
+
+add_flag_reaching_definitions(exprid: int, instrids: List[int]) -> None
+
+add_definitions_used(lvalid: int, instrids: List[int]) -> None
+```
+
+The serialization is automatically included in the function serialization
+by the ASTApplicationInterface.
