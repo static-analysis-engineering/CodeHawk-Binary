@@ -47,3 +47,10 @@
 ### Version 0.1.0-20220818
 
 - Added available expressions to Abstract Syntax Tree
+
+---
+
+### Version 0.1.0-20220819
+
+- Removed instruction_mapping, expression_mapping, and reaching_definitions
+  from AbstractSyntaxTree (as they are now provided in ASTProvenance object).
