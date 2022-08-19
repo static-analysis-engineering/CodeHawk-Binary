@@ -31,7 +31,7 @@ from typing import cast, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTFunction import ASTFunction
-from chb.ast.ASTNode import ASTStmt, ASTVarInfo
+from chb.ast.ASTNode import ASTStmt, ASTVarInfo, ASTExpr
 from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
 from chb.ast.CustomASTSupport import CustomASTSupport
 
@@ -42,12 +42,15 @@ from chb.astinterface.ASTInterfaceBasicBlock import ASTInterfaceBasicBlock
 from chb.astinterface.ASTInterfaceInstruction import ASTInterfaceInstruction
 from chb.astinterface.CHBASTSupport import CHBASTSupport
 
+import chb.invariants.XXprUtil as XU
+
 import chb.util.fileutil as UF
 
 
 if TYPE_CHECKING:
     from chb.app.BasicBlock import BasicBlock
     from chb.app.Function import Function
+    from chb.invariants.InvariantFact import NRVFact
 
 
 class ASTInterfaceFunction(ASTFunction):
@@ -107,6 +110,7 @@ class ASTInterfaceFunction(ASTFunction):
 
         # transfer provenance data to the AST abstract syntaxtree
         self.astinterface.set_ast_provenance()
+        self.set_invariants()
 
         return highlevel + [lowlevel]
 
@@ -150,3 +154,32 @@ class ASTInterfaceFunction(ASTFunction):
                 for hl_instr in subsumerinstr.hl_ast_instructions:
                     for ll_instr in instr.ll_ast_instructions:
                         self.astinterface.add_instr_mapping(hl_instr, ll_instr)
+
+    def set_invariants(self) -> None:
+        invariants = self.function.invariants
+        aexprs: Dict[str, Dict[str, Tuple[int, int, str]]] = {}
+        for loc in sorted(invariants):
+            for fact in invariants[loc]:
+                if fact.is_nonrelational:
+                    fact = cast("NRVFact", fact)
+                    var = XU.xvariable_to_ast_lvals(
+                        fact.variable,
+                        self.astinterface,
+                        anonymous=True)[0]
+                    varindex = var.index(self.astinterface.serializer)
+                    value = fact.value
+                    if value.is_singleton_value:
+                        aexpr: ASTExpr = self.astinterface.mk_integer_constant(
+                            value.singleton_value)
+                        aexprindex = aexpr.index(self.astinterface.serializer)
+                    elif value.is_symbolic_expression:
+                        aexpr = XU.xxpr_to_ast_exprs(
+                            fact.value.expr,
+                            self.astinterface,
+                            anonymous=True)[0]
+                        aexprindex = aexpr.index(self.astinterface.serializer)
+                    else:
+                        continue
+                    aexprs.setdefault(loc, {})
+                    aexprs[loc][str(var)] = (varindex, aexprindex, str(aexpr))
+        self.astinterface.set_available_expressions(aexprs)

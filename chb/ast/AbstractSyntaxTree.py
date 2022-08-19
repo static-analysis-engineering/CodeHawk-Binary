@@ -45,6 +45,7 @@ from typing import (
 
 import chb.ast.ASTNode as AST
 from chb.ast.ASTProvenance import ASTProvenance
+from chb.ast.ASTSerializer import ASTSerializer
 
 from chb.ast.ASTStorage import (
     ASTStorage,
@@ -90,10 +91,12 @@ class AbstractSyntaxTree:
         self._instructionmapping: Dict[int, List[int]] = {}
         self._expressionmapping: Dict[int, List[int]] = {}
         self._reachingdefinitions: Dict[int, List[int]] = {}
+        self._available_expressions: Dict[str, Dict[str, Tuple[int, int, str]]] = {}
         self._symboltable = localsymboltable
         self._storageconstructor = ASTStorageConstructor(
             registersizes, defaultsize, flagnames)
         self._provenance = ASTProvenance()
+        self._serializer = ASTSerializer()
 
         # integer types
         self._char_type = self.mk_integer_ikind_type("ichar")
@@ -139,12 +142,26 @@ class AbstractSyntaxTree:
         return self._provenance
 
     @property
+    def serializer(self) -> ASTSerializer:
+        return self._serializer
+
+    @property
     def spans(self) -> List[ASTSpanRecord]:
         return self._spans
 
     @property
     def storage(self) -> Dict[int, ASTStorage]:
         return self._storage
+
+    @property
+    def available_expressions(
+            self) -> Dict[str, Dict[str, Tuple[int, int, str]]]:
+        return self._available_expressions
+
+    def set_available_expressions(
+            self,
+            aexprs: Dict[str, Dict[str, Tuple[int, int, str]]]) -> None:
+        self._available_expressions = aexprs
 
     @property
     def instructionmapping(self) -> Dict[int, List[int]]:
@@ -772,7 +789,8 @@ class AbstractSyntaxTree:
             registername: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
-            vdescr: Optional[str] = None) -> AST.ASTLval:
+            vdescr: Optional[str] = None,
+            optlvalid: Optional[int] = None) -> AST.ASTLval:
         if registername is None:
             registername = name
         storage = self.storageconstructor.mk_register_storage(registername)
@@ -781,27 +799,33 @@ class AbstractSyntaxTree:
             vtype=vtype,
             parameter=parameter,
             vdescr=vdescr,
-            storage=storage)
+            storage=storage,
+            optlvalid=optlvalid)
 
     def mk_flag_variable_lval(
             self,
             name: str,
             flagname: Optional[str] = None,
-            vdescr: Optional[str] = None) -> AST.ASTLval:
+            vdescr: Optional[str] = None,
+            optlvalid: Optional[int] = None) -> AST.ASTLval:
         if flagname is None:
             flagname = name
         storage = self.storageconstructor.mk_flag_storage(flagname)
         return self.mk_named_lval(
             name,
-            storage=storage)
+            storage=storage,
+            optlvalid=optlvalid)
 
     def mk_flag_variable_lval_expression(
             self,
             name: str,
             flagname: Optional[str] = None,
-            vdescr: Optional[str] = None) -> AST.ASTLvalExpr:
-        lval = self.mk_flag_variable_lval(name, flagname=flagname, vdescr=vdescr)
-        exprid = self.get_lvalid(None)
+            vdescr: Optional[str] = None,
+            optlvalid: Optional[int] = None,
+            optexprid: Optional[int] = None) -> AST.ASTLvalExpr:
+        lval = self.mk_flag_variable_lval(
+            name, flagname=flagname, vdescr=vdescr, optlvalid=optlvalid)
+        exprid = self.get_exprid(optexprid)
         return AST.ASTLvalExpr(exprid, lval)
 
     def mk_stack_variable_lval(
@@ -811,14 +835,16 @@ class AbstractSyntaxTree:
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
             vdescr: Optional[str] = None,
-            size: Optional[int] = None) -> AST.ASTLval:
+            size: Optional[int] = None,
+            optlvalid: Optional[int] = None) -> AST.ASTLval:
         storage = self.storageconstructor.mk_stack_storage(offset, size)
         return self.mk_named_lval(
             name,
             vtype=vtype,
             parameter=parameter,
             vdescr=vdescr,
-            storage=storage)
+            storage=storage,
+            optlvalid=optlvalid)
 
     def mk_named_lval_expression(
             self,
@@ -828,6 +854,7 @@ class AbstractSyntaxTree:
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None,
             offset: AST.ASTOffset = nooffset,
+            optlvalid: Optional[int] = None,
             optexprid: Optional[int] = None,
             storage: Optional[ASTStorage] = None) -> AST.ASTLvalExpr:
         lval = self.mk_named_lval(
@@ -837,7 +864,8 @@ class AbstractSyntaxTree:
             globaladdress=globaladdress,
             vdescr=vdescr,
             offset=offset,
-            storage=storage)
+            storage=storage,
+            optlvalid=optlvalid)
         exprid = self.get_exprid(optexprid)
         return AST.ASTLvalExpr(exprid, lval)
 
@@ -1030,7 +1058,7 @@ class AbstractSyntaxTree:
             self,
             cvalue: int,
             optexprid: Optional[int] = None) -> AST.ASTIntegerConstant:
-        exprid = self.get_exprid(optexprid)
+        exprid = -1 if optexprid is None else optexprid
         return AST.ASTIntegerConstant(exprid, cvalue)
 
     def mk_string_constant(

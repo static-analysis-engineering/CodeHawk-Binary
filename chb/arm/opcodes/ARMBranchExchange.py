@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, Sequence, TYPE_CHECKING
+from typing import List, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 

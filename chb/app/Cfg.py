@@ -68,9 +68,14 @@ if TYPE_CHECKING:
 
 UserNodeID = str # NewType('UserNodeID', str)
 
+
 class FlowGraph:
 
-    def __init__(self, nodes: Sequence[UserNodeID], edges: Mapping[UserNodeID, Sequence[UserNodeID]], start_node: UserNodeID):
+    def __init__(
+            self,
+            nodes: Sequence[UserNodeID],
+            edges: Mapping[UserNodeID, Sequence[UserNodeID]],
+            start_node: UserNodeID):
         self.nodes = nodes
         self.edges = edges
         self.start_node = start_node
@@ -101,7 +106,8 @@ class FlowGraph:
             starttime[node] = vtime
             vtime += 1
 
-            # Set iteration order is nondeterministic, so we must sort to ensure determinism.
+            # Set iteration order is nondeterministic, so we must sort to ensure
+            # determinism.
             successors = sorted(self.post(node))
             if len(prev_rpo) > 0:
                 succ_idxs = sorted(prev_rpo.index(x) for x in successors)
@@ -575,8 +581,11 @@ class Cfg:
         """Returns an AST directly based on the CFG."""
 
         blockstmts: List[AST.ASTStmt] = []
-        for (b, successors) in sorted(
-                self.edges.items(), key=lambda e: int(e[0], 16)):
+        for b in sorted(self.blocks):
+            if b in self.edges:
+                successors = self.edges[b]
+            else:
+                successors = []
             label = astree.mk_label(b)
             blocknode = astfn.astblock(b)
             block = blocknode.assembly_ast(astree)

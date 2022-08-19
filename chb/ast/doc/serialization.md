@@ -23,8 +23,32 @@ For each function, the json structure contains a record with the following items
   ast representation, including reaching definitions and definitions used
   (described [here](./api.md#provenance)).
 - **available-expressions**: a mapping from instruction addresses to expressions
-  available in any lvalue visible at that address (pending).
+  available in any lvalue visible at that address (see [below](#available-expressions)).
 - **storage**: a mapping from lvalues to locations in the binary (see [below](#storage))
+
+
+### Available Expressions
+
+Available expressions provide information at each instruction address which
+expressions are available in registers and possibly stack variables. It is
+currently represented as a mapping from address to the name of the variable
+to the expression represented as a string:
+```
+instruction address (as hex-string)
+    -> variable name
+          -> (id of variable lval node,
+	          id of expression node,
+	          expression (as string))
+```
+
+Note that the id of the variable is not the lvalid, but the id of the node,
+and similarly the id of the expression is not the exprid, but the id of the
+expression node. The reason to use the id rather than the lvalid/exprid is
+that these lvals and expressions do not directly correspond to lvals or
+expressions in the assembly code, since most of the lvals are not accessed
+at most of the locations. Furthermore, making these lvals and expressions
+anonymous, allows for sharing these lvals and expressions across different
+locations.
 
 
 ### Storage

@@ -41,3 +41,9 @@
 - Minor corrections to ASTNode
 - Added question item to Deserializer
 - Added ASTProvenance class
+
+---
+
+### Version 0.1.0-20220818
+
+- Added available expressions to Abstract Syntax Tree

@@ -49,6 +49,7 @@ from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
 from chb.ast.ASTCTyper import ASTCTyper
 import chb.ast.ASTNode as AST
 from chb.ast.ASTProvenance import ASTProvenance
+from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTStorage import ASTStorage
 from chb.ast.ASTSymbolTable import (
     ASTSymbolTable, ASTLocalSymbolTable, ASTGlobalSymbolTable)
@@ -235,6 +236,14 @@ class ASTInterface:
     @property
     def provenance(self) -> ASTProvenance:
         return self.astree.provenance
+
+    @property
+    def serializer(self) -> ASTSerializer:
+        return self.astree.serializer
+
+    def set_available_expressions(
+            self, aexprs: Dict[str, Dict[str, Tuple[int, int, str]]]) -> None:
+        self.astree.set_available_expressions(aexprs)
 
     def add_instr_mapping(
             self,
@@ -567,23 +576,30 @@ class ASTInterface:
     def mk_vinfo_lval(
             self,
             vinfo: AST.ASTVarInfo,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
-        return self.astree.mk_vinfo_lval(vinfo, offset=offset)
+            offset: AST.ASTOffset = nooffset,
+            anonymous: bool = False) -> AST.ASTLval:
+        optlvalid = -1 if anonymous else None
+        return self.astree.mk_vinfo_lval(
+            vinfo, offset=offset, optlvalid=optlvalid)
 
     def mk_vinfo_lval_expression(
             self,
             vinfo: AST.ASTVarInfo,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTLvalExpr:
-        return self.astree.mk_vinfo_lval_expression(vinfo, offset=offset)
+            offset: AST.ASTOffset = nooffset,
+            anonymous: bool = False) -> AST.ASTLvalExpr:
+        optexprid = -1 if anonymous else None
+        return self.astree.mk_vinfo_lval_expression(
+            vinfo, offset=offset, optexprid=optexprid)
 
-    def mk_lval_expr(self, lval: AST.ASTLval) -> AST.ASTExpr:
-        return self.mk_lval_expression(lval)
+    def mk_lval_expr(self, lval: AST.ASTLval, anonymous:bool = False) -> AST.ASTExpr:
+        return self.mk_lval_expression(lval, anonymous=anonymous)
 
     def mk_variable_lval(
             self,
             name: str,
-            storage: Optional[ASTStorage] = None) -> AST.ASTLval:
-        return self.mk_named_lval(name, storage=storage)
+            storage: Optional[ASTStorage] = None,
+            anonymous: bool = False) -> AST.ASTLval:
+        return self.mk_named_lval(name, storage=storage, anonymous=anonymous)
 
     def mk_named_variable(
             self,
@@ -607,14 +623,17 @@ class ASTInterface:
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None,
             offset: AST.ASTOffset = nooffset,
-            storage: Optional[ASTStorage] = None) -> AST.ASTLval:
+            storage: Optional[ASTStorage] = None,
+            anonymous: bool = False) -> AST.ASTLval:
+        optlvalid = -1 if anonymous else None
         return self.astree.mk_named_lval(
             vname,
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress,
             vdescr=vdescr,
-            storage=storage)
+            storage=storage,
+            optlvalid=optlvalid)
 
     def mk_named_lval_expression(
             self,
@@ -624,7 +643,9 @@ class ASTInterface:
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None,
             offset: AST.ASTOffset = nooffset,
-            storage: Optional[ASTStorage] = None) -> AST.ASTLvalExpr:
+            storage: Optional[ASTStorage] = None,
+            anonymous: bool = False) -> AST.ASTLvalExpr:
+        optexprid = -1 if anonymous else None
         return self.astree.mk_named_lval_expression(
             vname,
             vtype=vtype,
@@ -632,17 +653,23 @@ class ASTInterface:
             globaladdress=globaladdress,
             vdescr=vdescr,
             offset=offset,
-            storage=storage)
+            storage=storage,
+            optexprid=optexprid)
 
     def mk_lval(
             self,
             lhost: AST.ASTLHost,
             offset: AST.ASTOffset,
-            storage: Optional[ASTStorage] = None) -> AST.ASTLval:
-        return self.astree.mk_lval(lhost, offset, storage=storage)
+            storage: Optional[ASTStorage] = None,
+            anonymous: bool = False) -> AST.ASTLval:
+        optlvalid = -1 if anonymous else None
+        return self.astree.mk_lval(
+            lhost, offset, storage=storage, optlvalid=optlvalid)
 
-    def mk_lval_expression(self, lval: AST.ASTLval) -> AST.ASTExpr:
-        return self.astree.mk_lval_expression(lval)
+    def mk_lval_expression(
+            self, lval: AST.ASTLval, anonymous: bool = False) -> AST.ASTExpr:
+        optexprid = -1 if anonymous else None
+        return self.astree.mk_lval_expression(lval, optexprid=optexprid)
 
     def mk_returnval_variable(
             self,
@@ -654,9 +681,10 @@ class ASTInterface:
     def mk_returnval_variable_lval(
             self,
             iaddr: str,
-            vtype: Optional[AST.ASTTyp]) -> AST.ASTLval:
+            vtype: Optional[AST.ASTTyp],
+            anonymous: bool = False) -> AST.ASTLval:
         var = self.mk_returnval_variable(iaddr, vtype)
-        return self.mk_lval(var, nooffset)
+        return self.mk_lval(var, nooffset, anonymous=anonymous)
 
     def mk_register_variable(
             self,
@@ -671,37 +699,50 @@ class ASTInterface:
             name: str,
             registername: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None,
-            parameter: Optional[int] = None) -> AST.ASTLval:
+            parameter: Optional[int] = None,
+            anonymous: bool = False) -> AST.ASTLval:
         var = self.mk_register_variable(name, vtype, parameter)
+        optlvalid = -1 if anonymous else None
         return self.astree.mk_register_variable_lval(
             name,
             registername=registername,
             vtype=vtype,
-            parameter=parameter)
+            parameter=parameter,
+            optlvalid=optlvalid)
 
     def mk_flag_variable_lval(
             self,
             name: str,
             flagname: Optional[str] = None,
-            vdescr: Optional[str] = None) -> AST.ASTLval:
+            vdescr: Optional[str] = None,
+            anonymous: bool = False) -> AST.ASTLval:
+        optlvalid = -1 if anonymous else None
         return self.astree.mk_flag_variable_lval(
-            name, flagname=flagname, vdescr=vdescr)
+            name, flagname=flagname, vdescr=vdescr, optlvalid=optlvalid)
 
     def mk_flag_variable_lval_expression(
             self,
             name: str,
             flagname: Optional[str] = None,
-            vdescr: Optional[str] = None) -> AST.ASTLvalExpr:
+            vdescr: Optional[str] = None,
+            anonymous: bool = False) -> AST.ASTLvalExpr:
+        optexprid = -1 if anonymous else None
+        optlvalid = -1 if anonymous else None
         return self.astree.mk_flag_variable_lval_expression(
-            name, flagname=flagname, vdescr=vdescr)
+            name,
+            flagname=flagname,
+            vdescr=vdescr,
+            optlvalid=optlvalid,
+            optexprid=optexprid)
 
     def mk_register_variable_expr(
             self, name: str,
             vtype: Optional[AST.ASTTyp] = None,
-            parameter: Optional[int] = None) -> AST.ASTExpr:
+            parameter: Optional[int] = None,
+            anonymous: bool = False) -> AST.ASTExpr:
         lval = self.mk_register_variable_lval(
-            name, vtype=vtype, parameter=parameter)
-        return self.mk_lval_expression(lval)
+            name, vtype=vtype, parameter=parameter, anonymous=anonymous)
+        return self.mk_lval_expression(lval, anonymous=anonymous)
 
     def mk_stack_variable(
             self,
@@ -724,7 +765,8 @@ class ASTInterface:
             optname: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
-            storage_size: Optional[int] = None) -> AST.ASTLval:
+            storage_size: Optional[int] = None,
+            anonymous: bool = False) -> AST.ASTLval:
         if optname is None:
             if offset < 0:
                 name = "localvar_" + str(-offset)
@@ -732,8 +774,9 @@ class ASTInterface:
                 name = "argvar_" + str(offset)
         else:
             name = optname
+        optlvalid = -1 if anonymous else None
         return self.astree.mk_stack_variable_lval(
-            name, offset, vtype=vtype, parameter=parameter)
+            name, offset, vtype=vtype, parameter=parameter, optlvalid=optlvalid)
 
     def mk_temp_lval(self) -> AST.ASTLval:
         return self.astree.mk_tmp_lval()
@@ -748,16 +791,18 @@ class ASTInterface:
     def mk_memref_lval(
             self,
             memexp: AST.ASTExpr,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTLval:
+            offset: AST.ASTOffset = nooffset,
+            anonymous: bool = False) -> AST.ASTLval:
         memref = self.mk_memref(memexp)
-        return self.mk_lval(memref, offset)
+        return self.mk_lval(memref, offset, anonymous=anonymous)
 
     def mk_memref_expr(
             self,
             memexp: AST.ASTExpr,
-            offset: AST.ASTOffset = nooffset) -> AST.ASTExpr:
-        memreflval = self.mk_memref_lval(memexp, offset)
-        return self.mk_lval_expression(memreflval)
+            offset: AST.ASTOffset = nooffset,
+            anonymous: bool = False) -> AST.ASTExpr:
+        memreflval = self.mk_memref_lval(memexp, offset, anonymous=anonymous)
+        return self.mk_lval_expression(memreflval, anonymous=anonymous)
 
     def mk_scalar_index_offset(
             self,
@@ -789,8 +834,10 @@ class ASTInterface:
             saddr: str) -> AST.ASTStringConstant:
         return self.astree.mk_string_constant(expr, cstr, saddr)
 
-    def mk_address_of(self, lval: AST.ASTLval) -> AST.ASTAddressOf:
-        return self.astree.mk_address_of_expression(lval)
+    def mk_address_of(
+            self, lval: AST.ASTLval, anonymous: bool = False) -> AST.ASTAddressOf:
+        optexprid = -1 if anonymous else None
+        return self.astree.mk_address_of_expression(lval, optexprid=optexprid)
 
     def mk_byte_expr(self, index: int, x: AST.ASTExpr) -> AST.ASTExpr:
         if index == 0:
@@ -828,15 +875,18 @@ class ASTInterface:
             self,
             op: str,
             exp1: AST.ASTExpr,
-            exp2: AST.ASTExpr) -> AST.ASTExpr:
-        return self.astree.mk_binary_expression(op, exp1, exp2)
+            exp2: AST.ASTExpr,
+            anonymous: bool = False) -> AST.ASTExpr:
+        optexprid = -1 if anonymous else None
+        return self.astree.mk_binary_expression(
+            op, exp1, exp2, optexprid=optexprid)
 
     def mk_binary_op(
             self,
             op: str,
             exp1: AST.ASTExpr,
             exp2: AST.ASTExpr) -> AST.ASTExpr:
-        return self.astree.mk_binary_expression(op, exp1, exp2)
+        return self.mk_binary_expression(op, exp1, exp2)
 
     '''
     def mk_binary_op(
@@ -908,8 +958,12 @@ class ASTInterface:
             exp3: AST.ASTExpr) -> AST.ASTExpr:
         return self.astree.mk_question_expression(exp1, exp2, exp3)
 
-    def mk_unary_op(self, op: str, exp: AST.ASTExpr) -> AST.ASTExpr:
-        return self.astree.mk_unary_expression(op, exp)
+    def mk_unary_op(
+            self, op: str,
+            exp: AST.ASTExpr,
+            anonymous: bool = False) -> AST.ASTExpr:
+        optexprid = -1 if anonymous else None
+        return self.astree.mk_unary_expression(op, exp, optexprid=optexprid)
     '''
         if exp.is_ast_binary_op and op == "lnot":
             exp = cast(AST.ASTBinaryOp, exp)
@@ -939,8 +993,13 @@ class ASTInterface:
         return AST.ASTUnaryOp(op, exp)
     '''
 
-    def mk_cast_expr(self, tgttyp: AST.ASTTyp, exp: AST.ASTExpr) -> AST.ASTExpr:
-        return self.astree.mk_cast_expression(tgttyp, exp)
+    def mk_cast_expr(
+            self,
+            tgttyp: AST.ASTTyp,
+            exp: AST.ASTExpr,
+            anonymous: bool = False) -> AST.ASTExpr:
+        optexprid = -1 if anonymous else False
+        return self.astree.mk_cast_expression(tgttyp, exp, optexprid=optexprid)
 
     # ---------------------------------------------------- AST rewriting ---
 

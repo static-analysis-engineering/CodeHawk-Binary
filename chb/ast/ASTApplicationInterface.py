@@ -39,7 +39,7 @@ from chb.ast.CustomASTSupport import CustomASTSupport
 from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 
 
-pirversion: str = "0.1.0-20220817"
+pirversion: str = "0.1.0-20220818"
 
 
 class ASTApplicationInterface:
@@ -104,7 +104,7 @@ class ASTApplicationInterface:
             print(report)
 
         fndata: Dict[str, Any] = {}
-        serializer = ASTSerializer()
+        serializer = astree.serializer
 
         localsymboltable.serialize(serializer)
         protoindex = localsymboltable.serialize_function_prototype(serializer)
@@ -119,7 +119,7 @@ class ASTApplicationInterface:
         fndata["ast"]["ast-startnodes"] = ast_startindices
         fndata["spans"] = astree.spans
         fndata["provenance"] = astree.provenance.serialize()
-        fndata["available-expressions"] = {}
+        fndata["available-expressions"] = astree.available_expressions
         fndata["storage"] = astree.storage_records()
 
         self._fnsdata.append(fndata)
