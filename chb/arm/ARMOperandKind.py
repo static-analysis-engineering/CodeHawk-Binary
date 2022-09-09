@@ -143,6 +143,10 @@ class ARMOperandKind(ARMDictionaryRecord):
         raise UF.CHBError("Operand is not a register list " + str(self))
 
     @property
+    def is_extension_register_list(self) -> bool:
+        return False
+
+    @property
     def offset(self) -> int:
         raise UF.CHBError("Offset not avaialable for operand kind " + str(self))
 
@@ -313,6 +317,31 @@ class ARMRegListOp(ARMOperandKind):
 
     def __str__(self) -> str:
         return "{" + ",".join(self.registers) + "}"
+
+
+@armregistry.register_tag("xl", ARMOperandKind)
+class ARMExtensionRegListOp(ARMOperandKind):
+    """List of extension registers.
+
+    args: indices of extension registers
+    """
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def extension_registers(self) -> List["ARMExtensionRegister"]:
+        return [self.bd.arm_extension_register(i) for i in self.args]
+
+    @property
+    def is_extension_register_list(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return "{" + ",".join(str(r) for r in self.extension_registers) + "}"
 
 
 @armregistry.register_tag("s", ARMOperandKind)
