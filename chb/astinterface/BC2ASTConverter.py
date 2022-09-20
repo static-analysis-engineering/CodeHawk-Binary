@@ -48,6 +48,7 @@ from chb.bctypes.BCVarInfo import BCVarInfo
 import chb.util.fileutil as UF
 
 bc2ast_operators: Dict[str, str] = {
+    "div": "div",
     "minusa": "minus",
     "mult": "mult"
     }
@@ -70,6 +71,7 @@ class BC2ASTConverter(BCConverter):
         self._globalstore = globalstore
         self._symboltable = symboltable
         self._compinfos_referenced: Dict[int, BCCompInfo] = {}
+        self._newcompinfos: Dict[int, BCCompInfo] = {}
 
     @property
     def globalstore(self) -> BCFiles:
@@ -90,11 +92,20 @@ class BC2ASTConverter(BCConverter):
         return self.symboltable.get_exprid(None)
 
     def add_compinfo_reference(self, cinfo: BCCompInfo) -> None:
-        self.compinfos_referenced.setdefault(cinfo.ckey, cinfo)
+        if cinfo.ckey not in self.compinfos_referenced:
+            self._newcompinfos.setdefault(cinfo.ckey, cinfo)
 
     def initialize_compinfos(self) -> None:
+        if len(self._newcompinfos) == 0:
+            return
+        else:
+            for (key, cinfo) in self._newcompinfos.items():
+                if key not in self._compinfos_referenced:
+                    self._compinfos_referenced[key] = cinfo
+            self._newcompinfos = {}
         for cinfo in self.compinfos_referenced.values():
             cinfo.convert(self)
+        self.initialize_compinfos()
 
     def convert_lval(self, lval: BCLval) -> AST.ASTLval:
         lhost = lval.lhost.convert(self)
