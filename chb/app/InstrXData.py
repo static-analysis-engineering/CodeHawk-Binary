@@ -26,14 +26,22 @@
 # ------------------------------------------------------------------------------
 """Provides access to invariants for instruction operands."""
 
-from typing import List, Optional, Tuple, Sequence, TYPE_CHECKING, Union
+from typing import cast, List, Optional, Tuple, Sequence, TYPE_CHECKING, Union
 
 from chb.app.BDictionary import BDictionary, AsmAddress
 
-from chb.invariants.VarInvariantFact import VarInvariantFact
-from chb.invariants.XXpr import XXpr
-from chb.invariants.XVariable import XVariable
+from chb.invariants.VarInvariantFact import (
+    DefUse,
+    DefUseHigh,
+    FlagReachingDefFact,
+    ReachingDefFact,
+    VarInvariantFact
+)
+
 from chb.invariants.XInterval import XInterval
+from chb.invariants.XSymbol import XSymbol
+from chb.invariants.XVariable import XVariable
+from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
 
@@ -63,10 +71,10 @@ class InstrXData(IndexedTableValue):
         self._intervals: List[XInterval] = []
         self._strs: List[str] = []
         self._ints: List[int] = []
-        self._reachingdefs: List[Optional[VarInvariantFact]] = []
-        self._defuses: List[Optional[VarInvariantFact]] = []
-        self._defuseshigh: List[Optional[VarInvariantFact]] = []
-        self._flagreachingdefs: List[Optional[VarInvariantFact]] = []
+        self._reachingdefs: List[Optional[ReachingDefFact]] = []
+        self._defuses: List[Optional[DefUse]] = []
+        self._defuseshigh: List[Optional[DefUseHigh]] = []
+        self._flagreachingdefs: List[Optional[FlagReachingDefFact]] = []
 
     @property
     def functiondictionary(self) -> "FunctionDictionary":
@@ -123,30 +131,52 @@ class InstrXData(IndexedTableValue):
         return self._ints
 
     @property
-    def reachingdefs(self) -> List[Optional[VarInvariantFact]]:
+    def reachingdefs(self) -> List[Optional[ReachingDefFact]]:
         if not self.expanded:
-            self._expand
+            self._expand()
         return self._reachingdefs
 
     @property
-    def flag_reachingdefs(self) -> List[Optional[VarInvariantFact]]:
+    def flag_reachingdefs(self) -> List[Optional[FlagReachingDefFact]]:
         if not self.expanded:
-            self._expand
+            self._expand()
         return self._flagreachingdefs
 
     @property
-    def defuses(self) -> List[Optional[VarInvariantFact]]:
+    def defuses(self) -> List[Optional[DefUse]]:
         if not self.expanded:
-            self._expand
+            self._expand()
         return self._defuses
 
     @property
-    def defuseshigh(self) -> List[Optional[VarInvariantFact]]:
+    def defuseshigh(self) -> List[Optional[DefUseHigh]]:
         if not self.expanded:
-            self._expand
+            self._expand()
         return self._defuseshigh
 
+    def reachingdeflocs_for(self, var: XVariable) -> Sequence[XSymbol]:
+        for rdef in self.reachingdefs:
+            if rdef is not None:
+                if rdef.variable.seqnr == var.seqnr:
+                    return rdef.deflocations
+        return []
+
+    def reachingdeflocs_for_s(self, var: str) -> Sequence[XSymbol]:
+        for rdef in self.reachingdefs:
+            if rdef is not None:
+                if str(rdef.variable) == var:
+                    return rdef.deflocations
+        return []
+
     def _expand(self) -> None:
+        """Expand the arguments based on the argument string in the keys.
+
+        Note: the varinvariant directory is loaded only if the argument
+        string contains any of the var-invariant letters (r, d, h, f),
+        because not all architectures currently have a varinvariant
+        directory. This is the reason it is repeated for every such
+        letter; preloading it will cause a crash in systems without.
+        """
         self.expanded = True
         if len(self.tags) == 0:
             return
@@ -157,7 +187,6 @@ class InstrXData(IndexedTableValue):
                 arg = self.args[i]
                 xd = self.xprdictionary
                 bd = self.bdictionary
-                varinvd = self.varinvdictionary
                 if c == "v":
                     self._vars.append(xd.variable(arg))
                 elif c == "x":
@@ -171,16 +200,24 @@ class InstrXData(IndexedTableValue):
                 elif c == "l":
                     self._ints.append(arg)
                 elif c == "r":
+                    varinvd = self.varinvdictionary
                     rdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                    rdef = cast(Optional[ReachingDefFact], rdef)
                     self._reachingdefs.append(rdef)
                 elif c == "d":
+                    varinvd = self.varinvdictionary
                     use = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                    use = cast(Optional[DefUse], use)
                     self._defuses.append(use)
                 elif c == "h":
+                    varinvd = self.varinvdictionary
                     usehigh = varinvd.var_invariant_fact(arg) if arg > 0 else None
+                    usehigh = cast(Optional[DefUseHigh], usehigh)
                     self._defuseshigh.append(usehigh)
                 elif c == "f":
+                    varinvd = self.varinvdictionary
                     flagrdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                    flagrdef = cast(Optional[FlagReachingDefFact], flagrdef)
                     self._flagreachingdefs.append(flagrdef)
                 else:
                     raise UF.CHBError("Key letter not recognized: " + c)
