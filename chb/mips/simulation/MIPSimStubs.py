@@ -1966,7 +1966,7 @@ class MIPStub_getline(MIPSimStub):
     def sitecounters(self) -> Dict[str, int]:
         return self._sitecounters
 
-    def sitecounter(self, site) -> int:
+    def sitecounter(self, site: str) -> int:
         self.sitecounters.setdefault(site, 0)
         self.sitecounters[site] += 1
         return self.sitecounters[site]
@@ -2317,7 +2317,7 @@ class MIPStub_gmtime(MIPSimStub):
         t = time.gmtime()
         print("time: " + str(t))
 
-        def set_tm(off, tmval):
+        def set_tm(off: int, tmval: int) -> None:
             simstate.set_memval(
                 iaddr, address.add_offset(off), SV.mk_simvalue(tmval))
 
@@ -2527,7 +2527,7 @@ class MIPStub_localtime(MIPSimStub):
         t = time.localtime()
         print('time: ' + str(t))
 
-        def set_tm(off, tmval):
+        def set_tm(off: int, tmval: int) -> None:
             simstate.set_memval(
                 iaddr, address.add_offset(off), SV.mk_simvalue(tmval))
 
@@ -4819,7 +4819,7 @@ class MIPStub_strerror(MIPSimStub):
     def sitecounters(self) -> Dict[str, int]:
         return self._sitecounters
 
-    def sitecounter(self, site) -> int:
+    def sitecounter(self, site: str) -> int:
         self.sitecounters.setdefault(site, 0)
         self.sitecounters[site] += 1
         return self.sitecounters[site]
@@ -5945,7 +5945,7 @@ class MIPStub_config_get(MIPSimStub):
     def sitecounters(self) -> Dict[str, int]:
         return self._sitecounters
 
-    def sitecounter(self, site) -> int:
+    def sitecounter(self, site: str) -> int:
         self.sitecounters.setdefault(site, 0)
         self.sitecounters[site] += 1
         return self.sitecounters[site]
