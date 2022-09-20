@@ -344,7 +344,7 @@ class BCTypPtr(BCTyp):
     def is_scalar(self) -> bool:
         return True
 
-    def is_leq(self, other) -> bool:
+    def is_leq(self, other: "BCTyp") -> bool:
         if other.is_pointer:
             other = cast("BCTypPtr", other)
             return (
@@ -606,7 +606,7 @@ class BCTypComp(BCTyp):
     def is_union(self) -> bool:
         return self.compinfo.is_union
 
-    def is_leq(self, other: "BCTyp"):
+    def is_leq(self, other: "BCTyp") -> bool:
         if other.is_struct:
             other = cast("BCTypComp", other)
             return self.compinfo.is_leq(other.compinfo)

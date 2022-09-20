@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Dictionary of CIL-types as produced by the CIL parser."""
 
-from typing import Any, Dict, TYPE_CHECKING
+from typing import Any, Callable, Dict, Tuple, TYPE_CHECKING
 
 import xml.etree.ElementTree as ET
 
@@ -168,7 +168,8 @@ class BCDictionary:
         args = [t.index]
         key = IT.get_key(tags, args)
 
-        def f(ix, key) -> BCTyp:
+        def f(ix: int,
+              key: Tuple[str, str]) -> BCTyp:
             itv = IT.IndexedTableValue(ix, tags, args)
             return bcregistry.mk_instance(self, itv, BCTyp)
 
