@@ -263,7 +263,7 @@ class StructTables(HintsEntry):
     def structtables(self) -> Mapping[str, Tuple[str, int]]:
         return self._structtables
 
-    def update(self, d: Dict[str, Tuple[str, int]]):
+    def update(self, d: Dict[str, Tuple[str, int]]) -> None:
         for (k, v) in d.items():
             if k not in self.structtables:
                 self._structtables[k] = v
@@ -300,7 +300,7 @@ class CallbackTables(HintsEntry):
     def callbacktables(self) -> Mapping[str, str]:
         return self._callbacktables
 
-    def update(self, d: Dict[str, str]):
+    def update(self, d: Dict[str, str]) -> None:
         for (k, v) in d.items():
             if k not in self.callbacktables:
                 self._callbacktables[k] = v
@@ -505,7 +505,7 @@ class FunctionNamesHints(HintsEntry):
                 self._revnames[name].append(addr)
         return self._revnames
 
-    def namecount(self, name) -> int:
+    def namecount(self, name: str) -> int:
         if name in self.revnames:
             return len(self.revnames[name])
         else:
