@@ -41,9 +41,9 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("VADD", ARMOpcode)
-class ARMVectorAdd(ARMOpcode):
-    """Adds corresponding elements in a vector.
+@armregistry.register_tag("VMLA", ARMOpcode)
+class ARMVectorMultiplyAccumulate(ARMOpcode):
+    """Multiplies corresponding elements in a vector.
 
     tags[1]: <c>
     args[0]: index of datatype in armdictionary
@@ -57,7 +57,7 @@ class ARMVectorAdd(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "VectorAdd")
+        self.check_key(2, 4, "VectorMultiplyAccumulate")
 
     @property
     def operands(self) -> List[ARMOperand]:

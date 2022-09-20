@@ -243,3 +243,28 @@ class ARMBranchLink(ARMOpcode):
             return [call] + assigns
         else:
             return self.assembly_ast(astree, iaddr, bytestring, xdata)
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "BL"]
+
+        ll_lhs = astree.mk_register_variable_lval("R0")
+        tgt = self.operands[0]
+        if tgt.is_absolute:
+            tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
+            faddr = tgtaddr.address.get_hex()
+            tgtxpr: AST.ASTExpr = astree.mk_global_variable_expr(
+                faddr, globaladdress=tgtaddr.address.get_int())
+        else:
+            (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
+        call = astree.mk_call(ll_lhs, tgtxpr, [], iaddr=iaddr, bytestring=bytestring)
+
+        astree.add_instr_address(call, [iaddr])
+
+        return ([call], [call])

@@ -41,15 +41,20 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("VADD", ARMOpcode)
-class ARMVectorAdd(ARMOpcode):
-    """Adds corresponding elements in a vector.
+@armregistry.register_tag("STCL", ARMOpcode)
+@armregistry.register_tag("STC", ARMOpcode)
+class ARMStoreCoprocessor(ARMOpcode):
+    """Stores memory data from a coprocessor to a sequence of addresses.
+
+    STC{L}<c> <coproc>, <CRd>, [<Rn>, +/-#<imm>]
 
     tags[1]: <c>
-    args[0]: index of datatype in armdictionary
-    args[1]: index of destination in armdictionary
-    args[2]: index of source 1 in armdictionary
-    args[3]: index of source 2 in armdictionary
+    args[0]: is-long
+    args[1]: is-ta2
+    args[2]: coproc
+    args[3]: CRd
+    args[4]: index of memory address
+    args[5]: optional option
     """
 
     def __init__(
@@ -57,11 +62,14 @@ class ARMVectorAdd(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "VectorAdd")
+        self.check_key(2, 6, "StoreCoprocessor")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:]]
+        return [self.armd.arm_operand(self.args[3])]
+
+    def is_load_instruction(self, xdata: InstrXData) -> bool:
+        return True
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "pending"
+        return "store coprocessor"
