@@ -166,13 +166,13 @@ class FlowGraph:
             self._rpo = {k:i+1 for i, k in enumerate(self.rpo_sorted)}
         return self._rpo
 
-    def post(self, n) -> Set[str]:
+    def post(self, n: UserNodeID) -> Set[str]:
         if n in self.edges:
             return set(self.edges[n])
         else:
             return set([])
 
-    def pre(self, n) -> Set[str]:
+    def pre(self, n: UserNodeID) -> Set[str]:
         if n in self.revedges:
             return set(self.revedges[n])
         else:
@@ -184,7 +184,8 @@ class FlowGraph:
         """
         phantomend = '__' + str(len(self.nodes))
         augedges = self.revedges.copy()
-        terminators = [node for node in self.nodes if len(self.post(node)) == 0]
+        terminators: List[UserNodeID] = [
+            node for node in self.nodes if len(self.post(node)) == 0]
         augedges[phantomend] = terminators
         return FlowGraph(list(self.nodes) + [phantomend], augedges, phantomend)
 
@@ -306,8 +307,9 @@ def normalized_branch(
                 return cast(AST.ASTBinaryOp, binexpr)
         return None
 
-    def swapped(condition):
-        return astree.mk_branch(condition, elsebranch, ifbranch, tgtaddr)
+    def swapped(condition: Optional[AST.ASTExpr]) -> AST.ASTBranch:
+        return cast(
+            AST.ASTBranch, astree.mk_branch(condition, elsebranch, ifbranch, tgtaddr))
 
     astblock = astfn.astblock(n)
     '''

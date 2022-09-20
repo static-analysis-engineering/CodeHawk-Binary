@@ -271,6 +271,18 @@ class Function(ABC):
             m.update(instr.bytestring.encode("utf-8"))
         return m.hexdigest()
 
+    def mnemonic_string(self) -> str:
+        s: str = ""
+        for (iaddr, i) in sorted(self.instructions.items()):
+            s += i.mnemonic
+        return s
+
+    @property
+    def mnemonic_string_md5(self) -> str:
+        m = hashlib.md5()
+        m.update(self.mnemonic_string().encode("utf-8"))
+        return m.hexdigest()
+
     @property
     def rev_md5(self) -> str:
         """Use reverse bytestring to account for difference in endianness."""

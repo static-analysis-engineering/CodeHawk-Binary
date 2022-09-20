@@ -138,13 +138,13 @@ class GraphInterval:
                 self._idom[n] = max(self.dom[n] - set([n]), key=lambda k: self.rpo[k])
         return self._idom
 
-    def post(self, n) -> Set[str]:
+    def post(self, n: str) -> Set[str]:
         if n in self.edges:
             return set(self.edges[n])
         else:
             return set([])
 
-    def pre(self, n) -> Set[str]:
+    def pre(self, n: str) -> Set[str]:
         if n in self.revedges:
             return set(self.revedges[n])
         else:
@@ -153,7 +153,7 @@ class GraphInterval:
     def has_node(self, n: str) -> bool:
         return n in self.nodes
 
-    def has_nodes(self, s: Set[str]):
+    def has_nodes(self, s: Set[str]) -> bool:
         return s.issubset(self.nodes)
 
     def add_node(self, n: str) -> None:
@@ -237,13 +237,13 @@ class IntervalGraph:
                     self._revintervals[k] = h
         return self._revintervals
 
-    def post(self, n) -> Set[str]:
+    def post(self, n: str) -> Set[str]:
         if n in self.edges:
             return set(self.edges[n])
         else:
             return set([])
 
-    def pre(self, n) -> Set[str]:
+    def pre(self, n: str) -> Set[str]:
         if n in self.revedges:
             return set(self.revedges[n])
         else:
@@ -333,7 +333,7 @@ class IntervalGraph:
             self,
             name: str,
             rpo: Dict[str, List[int]] = {},
-            showintervals=False) -> DotGraph:
+            showintervals: bool = False) -> DotGraph:
         dotgraph = DotGraph(name)
         for n in self.nodes:
             if n in rpo:
@@ -445,7 +445,7 @@ class DerivedGraphSequence:
             g = IntervalGraph(self.faddr, gnodes, gedges)
             self._graphs.append(g)
 
-    def to_dot(self, path: str, out: str):
+    def to_dot(self, path: str, out: str) -> None:
         for (i, g) in enumerate(self.graphs):
             pdffilename = UD.print_dot(
                 path,
