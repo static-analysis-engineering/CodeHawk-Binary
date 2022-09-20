@@ -76,7 +76,7 @@ class FnVarInvDictionary:
 
     # ----------------------------- Retrieve items from dictionary tables ------
 
-    def vardefuse(self, ix) -> VarDefUse:
+    def vardefuse(self, ix: int) -> VarDefUse:
         if ix > 0:
             return VarDefUse(
                 self, self.vardefuse_table.retrieve(ix))

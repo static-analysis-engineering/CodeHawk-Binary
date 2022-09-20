@@ -408,8 +408,11 @@ class XprVariable(XXpr):
             tgtval = self.returnval_target()
             if tgtval:
                 if str(tgtval) == "getenv":
-                    args = str(self.returnval_arguments()[0])
-                    return "rtn_getenv(" + args + ")"
+                    if len(self.returnval_arguments()) > 0:
+                        args = str(self.returnval_arguments()[0])
+                        return "rtn_getenv(" + args + ")"
+                    else:
+                        return "rtn_" + str(tgtval)
                 else:
                     return 'rtn_' + str(tgtval)
             else:
