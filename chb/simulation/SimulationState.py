@@ -253,13 +253,13 @@ class SimModule:
             raise UF.CHBError(
                 "Symbol " + sym + " not found in exports of " + self.name)
 
-    def has_function_name(self, addr: int):
+    def has_function_name(self, addr: int) -> bool:
         return self.app.has_function_name(hex(addr))
 
-    def has_function(self, addr: int):
+    def has_function(self, addr: int) -> bool:
         return self.app.has_function(hex(addr))
 
-    def function_name(self, addr: int):
+    def function_name(self, addr: int) -> str:
         if self.has_function_name(addr):
             return self.app.function_name(hex(addr))
         else:

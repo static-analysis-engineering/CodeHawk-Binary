@@ -245,7 +245,7 @@ class SimSupport:
     def has_environment_variable(self, name: str) -> bool:
         return name in self.environment_variables
 
-    def get_environment_variable(self, name) -> str:
+    def get_environment_variable(self, name: str) -> str:
         if name in self.environment_variables:
             return self.environment_variables[name]
         else:
