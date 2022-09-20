@@ -202,7 +202,7 @@ class ARMInstruction(Instruction):
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def assembly_ast_condition(
-            self, astree: ASTInterface, reverse=False) -> Optional[ASTExpr]:
+            self, astree: ASTInterface, reverse: bool = False) -> Optional[ASTExpr]:
         return self.opcode.assembly_ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata, reverse)
 
@@ -218,12 +218,12 @@ class ARMInstruction(Instruction):
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def ast_condition(
-            self, astree: ASTInterface, reverse=False) -> Optional[ASTExpr]:
+            self, astree: ASTInterface, reverse: bool = False) -> Optional[ASTExpr]:
         return self.opcode.ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata, reverse)
 
     def ast_condition_prov(
-            self, astree: ASTInterface, reverse=False) -> Tuple[
+            self, astree: ASTInterface, reverse: bool = False) -> Tuple[
                 Optional[ASTExpr], Optional[ASTExpr]]:
         """Return conditional branch instruction with provenance."""
 
@@ -259,7 +259,10 @@ class ARMInstruction(Instruction):
 
     @property
     def call_arguments(self) -> Sequence[XXpr]:
-        return []
+        if self.is_call_instruction and self.has_call_target():
+            return self.opcode.arguments(self.xdata)
+        else:
+            return []
 
     def to_string(
             self,
@@ -281,4 +284,5 @@ class ARMInstruction(Instruction):
                 + self.opcodetext
                 + ": "
                 + str(e))
-            return "??"
+            raise
+            # return "??"

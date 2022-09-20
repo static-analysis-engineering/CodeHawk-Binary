@@ -380,7 +380,7 @@ class ARMShiftedRegisterOp(ARMOperandKind):
                 return 1
             else:
                 if srt.is_shift_left:
-                    return 2**shiftamount
+                    return 2 ** shiftamount
                 else:
                     return None
         else:

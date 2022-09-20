@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """ARM opcodes."""
 
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
 
@@ -191,12 +191,25 @@ class ARMOpcode(ARMDictionaryRecord):
 
     def ast_cc_expr(self, astree: ASTInterface) -> AST.ASTExpr:
         cc = self.mnemonic_extension()
-        def zflag(): return astree.mk_flag_variable_lval_expression("Z")
-        def cflag(): return astree.mk_flag_variable_lval_expression("C")
-        def vflag(): return astree.mk_flag_variable_lval_expression("V")
-        def nflag(): return astree.mk_flag_variable_lval_expression("N")
-        def one(): return astree.mk_integer_constant(1)
-        def zero(): return astree.mk_integer_constant(0)
+
+        def zflag() -> AST.ASTLvalExpr:
+            return astree.mk_flag_variable_lval_expression("Z")
+
+        def cflag() -> AST.ASTLvalExpr:
+            return astree.mk_flag_variable_lval_expression("C")
+
+        def vflag() -> AST.ASTLvalExpr:
+            return astree.mk_flag_variable_lval_expression("V")
+
+        def nflag() -> AST.ASTLvalExpr:
+            return astree.mk_flag_variable_lval_expression("N")
+
+        def one() -> AST.ASTIntegerConstant:
+            return astree.mk_integer_constant(1)
+
+        def zero() -> AST.ASTIntegerConstant:
+            return astree.mk_integer_constant(0)
+
         def flagexpr(op: str, x: AST.ASTExpr, v: AST.ASTExpr) -> AST.ASTExpr:
             return astree.mk_binary_expression(op, x, v)
 
@@ -284,6 +297,9 @@ class ARMOpcode(ARMDictionaryRecord):
         return self.mnemonic in call_opcodes or xdata.has_call_target()
 
     def call_target(self, xdata: InstrXData) -> CallTarget:
+        raise UF.CHBError("Instruction is not a call: " + str(self))
+
+    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
         raise UF.CHBError("Instruction is not a call: " + str(self))
 
     def is_load_instruction(self, xdata: InstrXData) -> bool:
