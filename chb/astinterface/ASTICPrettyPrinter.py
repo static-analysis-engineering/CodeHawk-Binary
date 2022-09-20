@@ -34,7 +34,10 @@ import chb.ast.ASTNode as AST
 if TYPE_CHECKING:
     from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
     from chb.astinterface.ASTIProvenance import ASTIProvenance
-    from chb.invariants.VarInvariantFact import VarInvariantFact
+    from chb.invariants.VarInvariantFact import (
+        ReachingDefFact,
+        VarInvariantFact
+    )
 
 
 class ASTICPrettyPrinter(ASTCPrettyPrinter):
@@ -59,7 +62,7 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
     def instr_reachingdefs(self) -> List[str]:
         return self._instr_reachingdefs
 
-    def add_reachingdefs(self, rdefs: List["VarInvariantFact"]) -> None:
+    def add_reachingdefs(self, rdefs: List["ReachingDefFact"]) -> None:
         self._instr_reachingdefs.extend(str(r) for r in rdefs)
 
     def reset_reachingdefs(self) -> None:

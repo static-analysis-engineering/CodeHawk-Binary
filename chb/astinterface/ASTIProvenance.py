@@ -52,10 +52,10 @@ class ASTIProvenance:
         self._reaching_definitions: Dict[int, List[int]] = {}
         self._flag_reaching_definitions: Dict[int, List[int]] = {}
         self._definitions_used: Dict[int, List[int]] = {}
-        self._expr_rdefs: Dict[int, List["VarInvariantFact"]] = {}
-        self._flag_expr_rdefs: Dict[int, List["VarInvariantFact"]] = {}
-        self._lval_defuses: Dict[int, "VarInvariantFact"] = {}
-        self._lval_defuses_high: Dict[int, "VarInvariantFact"] = {}
+        self._expr_rdefs: Dict[int, List["ReachingDefFact"]] = {}
+        self._flag_expr_rdefs: Dict[int, List["FlagReachingDefFact"]] = {}
+        self._lval_defuses: Dict[int, "DefUse"] = {}
+        self._lval_defuses_high: Dict[int, "DefUseHigh"] = {}
         self._instr_addresses: Dict[int, List[str]] = {}  # instr -> hex-address
         self._addr_instructions: Dict[str, List[int]] = {}  # hex-address -> instrs
         self._condition_addresses: Dict[int, List[str]] = {}  # expr -> hex-address
@@ -125,19 +125,19 @@ class ASTIProvenance:
         return self._expressions
 
     @property
-    def expr_rdefs(self) -> Dict[int, List["VarInvariantFact"]]:
+    def expr_rdefs(self) -> Dict[int, List["ReachingDefFact"]]:
         return self._expr_rdefs
 
     @property
-    def flag_expr_rdefs(self) -> Dict[int, List["VarInvariantFact"]]:
+    def flag_expr_rdefs(self) -> Dict[int, List["FlagReachingDefFact"]]:
         return self._flag_expr_rdefs
 
     @property
-    def lval_defuses(self) -> Dict[int, "VarInvariantFact"]:
+    def lval_defuses(self) -> Dict[int, "DefUse"]:
         return self._lval_defuses
 
     @property
-    def lval_defuses_high(self) -> Dict[int, "VarInvariantFact"]:
+    def lval_defuses_high(self) -> Dict[int, "DefUseHigh"]:
         return self._lval_defuses_high
 
     def add_instr_mapping(
@@ -184,7 +184,7 @@ class ASTIProvenance:
     def add_expr_reachingdefs(
             self,
             expr: AST.ASTExpr,
-            reachingdefs: List["VarInvariantFact"]) -> None:
+            reachingdefs: List["ReachingDefFact"]) -> None:
         if len(reachingdefs) > 0:
             self._expr_rdefs[expr.exprid] = reachingdefs
             self.add_expr(expr)
@@ -192,7 +192,7 @@ class ASTIProvenance:
     def add_flag_expr_reachingdefs(
             self,
             expr: AST.ASTExpr,
-            flagreachingdefs: List["VarInvariantFact"]) -> None:
+            flagreachingdefs: List["FlagReachingDefFact"]) -> None:
         if len(flagreachingdefs) > 0:
             self._flag_expr_rdefs[expr.exprid] = flagreachingdefs
             self.add_expr(expr)
@@ -200,7 +200,7 @@ class ASTIProvenance:
     def add_lval_defuses(
             self,
             lval: AST.ASTLval,
-            uses: Optional["VarInvariantFact"]) -> None:
+            uses: Optional["DefUse"]) -> None:
         if uses is not None:
             self._lval_defuses[lval.lvalid] = uses
             self.add_lval(lval)
@@ -208,7 +208,7 @@ class ASTIProvenance:
     def add_lval_defuses_high(
             self,
             lval: AST.ASTLval,
-            useshigh: Optional["VarInvariantFact"]) -> None:
+            useshigh: Optional["DefUseHigh"]) -> None:
         if useshigh is not None:
             self._lval_defuses_high[lval.lvalid] = useshigh
             self.add_lval(lval)
@@ -292,7 +292,7 @@ class ASTIProvenance:
     def has_lval_defuse(self, lvalid: int) -> bool:
         return lvalid in self.lval_defuses
 
-    def get_lval_defuse(self, lvalid: int) -> "VarInvariantFact":
+    def get_lval_defuse(self, lvalid: int) -> "DefUse":
         if self.has_lval_defuse(lvalid):
             return self.lval_defuses[lvalid]
         else:
@@ -302,7 +302,7 @@ class ASTIProvenance:
     def has_lval_defuse_high(self, lvalid: int) -> bool:
         return lvalid in self.lval_defuses_high
 
-    def get_lval_defuse_high(self, lvalid: int) -> "VarInvariantFact":
+    def get_lval_defuse_high(self, lvalid: int) -> "DefUseHigh":
         if self.has_lval_defuse_high(lvalid):
             return self.lval_defuses_high[lvalid]
         else:
@@ -312,7 +312,7 @@ class ASTIProvenance:
     def has_reaching_defs(self, exprid: int) -> bool:
         return exprid in self.expr_rdefs
 
-    def get_reaching_defs(self, exprid: int) -> List["VarInvariantFact"]:
+    def get_reaching_defs(self, exprid: int) -> List["ReachingDefFact"]:
         if self.has_reaching_defs(exprid):
             return self.expr_rdefs[exprid]
         else:
@@ -322,7 +322,7 @@ class ASTIProvenance:
     def has_flag_reaching_defs(self, exprid: int) -> bool:
         return exprid in self.flag_expr_rdefs
 
-    def get_flag_reaching_defs(self, exprid: int) -> List["VarInvariantFact"]:
+    def get_flag_reaching_defs(self, exprid: int) -> List["FlagReachingDefFact"]:
         if self.has_flag_reaching_defs(exprid):
             return self.flag_expr_rdefs[exprid]
         else:

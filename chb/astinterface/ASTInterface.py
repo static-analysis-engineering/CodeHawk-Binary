@@ -67,8 +67,13 @@ if TYPE_CHECKING:
     from chb.bctypes.BCFunctionDefinition import BCFunctionDefinition
     from chb.bctypes.BCTyp import BCTyp, BCTypFun, BCTypComp, BCTypArray, BCTypPtr
     from chb.bctypes.BCVarInfo import BCVarInfo
-    from chb.invariants.VarInvariantFact import VarInvariantFact
-
+    from chb.invariants.VarInvariantFact import (
+        DefUse,
+        DefUseHigh,
+        FlagReachingDefFact,
+        ReachingDefFact,
+        VarInvariantFact
+    )
 
 """fname -> registers/stack -> name/offset -> [span/altname -> (low, high), name]."""
 VariableNamesRec = NewType(
@@ -278,8 +283,8 @@ class ASTInterface:
     def add_expr_reachingdefs(
             self,
             expr: AST.ASTExpr,
-            reachingdefs: List[Optional["VarInvariantFact"]]) -> None:
-        rdefs: List["VarInvariantFact"] = []
+            reachingdefs: List[Optional["ReachingDefFact"]]) -> None:
+        rdefs: List["ReachingDefFact"] = []
         for f in reachingdefs:
             if f is not None:
                 rdefs.append(f)
@@ -288,8 +293,8 @@ class ASTInterface:
     def add_flag_expr_reachingdefs(
             self,
             expr: AST.ASTExpr,
-            reachingdefs: List[Optional["VarInvariantFact"]]) -> None:
-        rdefs: List["VarInvariantFact"] = []
+            reachingdefs: List[Optional["FlagReachingDefFact"]]) -> None:
+        rdefs: List["FlagReachingDefFact"] = []
         for f in reachingdefs:
             if f is not None:
                 rdefs.append(f)
@@ -298,13 +303,13 @@ class ASTInterface:
     def add_lval_defuses(
             self,
             lval: AST.ASTLval,
-            uses: Optional["VarInvariantFact"]) -> None:
+            uses: Optional["DefUse"]) -> None:
         self.astiprovenance.add_lval_defuses(lval, uses)
 
     def add_lval_defuses_high(
             self,
             lval: AST.ASTLval,
-            uses: Optional["VarInvariantFact"]) -> None:
+            uses: Optional["DefUseHigh"]) -> None:
         self.astiprovenance.add_lval_defuses_high(lval, uses)
 
     @property
