@@ -217,7 +217,7 @@ class ASTIProvenance:
             self,
             instr: AST.ASTInstruction,
             addresses: List[str]) -> None:
-        self._instr_addresses[instr.instrid] =  addresses
+        self._instr_addresses[instr.instrid] = addresses
         for addr in addresses:
             self._addr_instructions.setdefault(addr, [])
             if instr.instrid not in self.address_instructions[addr]:
@@ -380,15 +380,21 @@ class ASTIProvenance:
             defuse = cast("DefUse", defuse)
             addrs = [str(u) for u in defuse.uselocations if str(u) != "exit"]
             for addr in addrs:
-                instrids = self.address_instructions[addr]
-                for instrid in instrids:
-                    self.add_definition_used(lvalid, instrid)
+                if addr in self.address_instructions:
+                    instrids = self.address_instructions[addr]
+                    for instrid in instrids:
+                        self.add_definition_used(lvalid, instrid)
+                else:
+                    print("  DU: instruction address missing: " + addr)
 
     def resolve_definitions_used_high(self) -> None:
         for (lvalid, defuse) in self.lval_defuses_high.items():
             defuse = cast("DefUseHigh", defuse)
             addrs = [str(u) for u in defuse.uselocations if str(u) != "exit"]
             for addr in addrs:
-                instrids = self.address_instructions[addr]
-                for instrid in instrids:
-                    self.add_definition_used(lvalid, instrid)
+                if addr in self.address_instructions:
+                    instrids = self.address_instructions[addr]
+                    for instrid in instrids:
+                        self.add_definition_used(lvalid, instrid)
+                else:
+                    print("  DH: instruction address missing: " + addr)
