@@ -346,7 +346,19 @@ class ASTInterface:
 
             for bccompinfo in self.typconverter.compinfos_referenced.values():
                 astcompinfo = bccompinfo.convert(self.typconverter)
-                self.symboltable.add_compinfo(astcompinfo)
+                if self.symboltable.has_compinfo(astcompinfo.compkey):
+                    symcompinfo = self.symboltable.compinfo(astcompinfo.compkey)
+                    if astcompinfo.compname != symcompinfo.compname:
+                        raise Exception(
+                            "Encountered two different compinfos with the same key: "
+                            + str(symcompinfo.compkey)
+                            + ". Existing name: "
+                            + symcompinfo.compname
+                            + ", New name: "
+                            + astcompinfo.compname)
+                else:
+                    self.symboltable.add_compinfo(astcompinfo)
+
         else:
             self.add_diagnostic("No source prototype found")
 
