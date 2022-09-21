@@ -254,5 +254,11 @@ class ASTLocalSymbolTable(ASTSymbolTable):
         else:
             return -1
 
+    def has_compinfo(self, ckey: int) -> bool:
+        return self.globaltable.has_compinfo(ckey)
+
+    def compinfo(self, ckey: int) -> AST.ASTCompInfo:
+        return self.globaltable.compinfo(ckey)
+
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
         self.globaltable.add_compinfo(cinfo)
