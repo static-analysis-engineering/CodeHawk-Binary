@@ -7,6 +7,12 @@ The format is based on
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+### Version 0.1.0-2022-09-20
+
+- Added mk_sizeof_expression to AbstractSyntaxTree and Deserializer.
+
+---
+
 ### Version 0.1.0-2022-08-19
 
 - Removed instruction_mapping, expression_mapping, and reaching_definitions.

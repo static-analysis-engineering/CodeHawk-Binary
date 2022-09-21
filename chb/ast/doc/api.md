@@ -653,7 +653,7 @@ Several kinds of other expressions can be created, some with operators defined
   ```
 
 - **mk_address_of_expression**: create an expression that applies the address-of
-  operator an lval
+  operator to an lval
   ```
   def mk_address_of_expression(self, lval: ASTLval) -> ASTExpr
   ```
@@ -662,6 +662,11 @@ Several kinds of other expressions can be created, some with operators defined
   a given type
   ```
   def mk_cast_expression(self, tgttyp: ASTTyp, exp: ASTExpr) -> ASTExpr
+  ```
+
+- **mk_sizeof_expression**: create an expression that takes the size of a type
+  ```
+  def mk_sizeof_expression(self, typ: ASTTyp) -> ASTExpr
   ```
 
 #### Some special-purpose expressions

@@ -294,6 +294,11 @@ class ASTDeserializer:
                 nodes[id] = astree.mk_cast_expression(
                     tgttyp, expr, optexprid=exprid)
 
+            elif tag == "sizeof-expr":
+                exprid = r["exprid"]
+                tgttyp = cast(AST.ASTTyp, mk_node(arg(0)))
+                nodes[id] = astree.mk_sizeof_expression(tgttyp, optexprid=exprid)
+
             elif tag == "address-of":
                 exprid = r["exprid"]
                 lval = cast(AST.ASTLval, mk_node(arg(0)))

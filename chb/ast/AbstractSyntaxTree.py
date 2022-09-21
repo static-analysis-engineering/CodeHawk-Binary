@@ -1089,6 +1089,13 @@ class AbstractSyntaxTree:
         exprid = self.get_exprid(optexprid)
         return AST.ASTCastExpr(exprid, tgttyp, exp)
 
+    def mk_sizeof_expression(
+            self,
+            tgttyp: AST.ASTTyp,
+            optexprid: Optional[int] = None) -> AST.ASTExpr:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTSizeOfExpr(exprid, tgttyp)
+
 
     """Types
 
