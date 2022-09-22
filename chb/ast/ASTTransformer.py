@@ -224,3 +224,15 @@ class ASTTransformer(ABC):
     @abstractmethod
     def transform_comp_typ(self, typ: AST.ASTTypComp) -> AST.ASTTyp:
         ...
+
+    @abstractmethod
+    def transform_enumitem(self, eitem: AST.ASTEnumItem) -> AST.ASTEnumItem:
+        ...
+
+    @abstractmethod
+    def transform_enuminfo(self, einfo: AST.ASTEnumInfo) -> AST.ASTEnumInfo:
+        ...
+
+    @abstractmethod
+    def transform_enum_typ(self, typ: AST.ASTTypEnum) -> AST.ASTTyp:
+        ...

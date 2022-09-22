@@ -215,3 +215,15 @@ class ASTIndexer(ABC):
     @abstractmethod
     def index_comp_typ(self, typ: AST.ASTTypComp) -> int:
         ...
+
+    @abstractmethod
+    def index_enumitem(self, eitem: AST.ASTEnumItem) -> int:
+        ...
+
+    @abstractmethod
+    def index_enuminfo(self, einfo: AST.ASTEnumInfo) -> int:
+        ...
+
+    @abstractmethod
+    def index_enum_typ(self, typ: AST.ASTTypEnum) -> int:
+        ...

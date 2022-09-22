@@ -81,12 +81,15 @@ syntax tree. They are organized in a hierarchy as follows:
   - *ASTTypFun*: function type
   - *ASTTypNamed*: typedef type
   - *ASTTypComp*: structured type (struct or union)
+  - *ASTTypEnum*: enum type
 
 with auxiliary nodes:
 
 - **ASTVarInfo**: definition of local or global variable
 - **ASTCompInfo**: definition of struct
 - **ASTFieldInfo**: definition of field of a struct
+- **ASTEnumInfo**: definition of enum
+- **ASTEnumItem**: definition of an enum value
 - **ASTFunArgs**: definition of function parameter list
 - **ASTFunArg**: definition of function parameter
 

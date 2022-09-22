@@ -166,6 +166,10 @@ class ASTDeserializer:
                 name = r["name"]
                 nodes[id] = astree.mk_comp_type_by_key(ckey, name)
 
+            elif tag == "enumtyp":
+                enumname = r["name"]
+                nodes[id] = astree.mk_enum_type_by_name(name)
+
             elif tag == "typdef":
                 name = r["name"]
                 typ = cast(AST.ASTTyp, mk_node(arg(0)))
@@ -209,6 +213,19 @@ class ASTDeserializer:
                 is_union = r["union"] == "yes"
                 nodes[id] = astree.mk_compinfo(
                     name, compkey, finfos, is_union=is_union)
+
+            elif tag == "enumitem":
+                itemname = r["name"]
+                itemvalue = cast(AST.ASTExpr, mk_node(arg(0)))
+                nodes[id] = astree.mk_enum_item(itemname, itemvalue)
+
+            elif tag == "enuminfo":
+                enumitems = [
+                    cast(AST.ASTEnumItem, mk_node(records[i]))
+                    for i in r["args"]]
+                enumname = r["name"]
+                enumkind = r["ekind"]
+                nodes[id] = astree.mk_enuminfo(enumname, enumkind, enumitems)
 
             elif tag == "varinfo":
                 name = r["name"]

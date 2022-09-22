@@ -249,6 +249,12 @@ class ASTStorageChecker(ASTVisitor):
 
     def visit_fieldinfo(self, finfo: AST.ASTFieldInfo) -> None:
         pass
-    
-            
-                 
+
+    def visit_enum_typ(self, t: AST.ASTTypEnum) -> None:
+        pass
+
+    def visit_enumitem(self, eitem: AST.ASTEnumItem) -> None:
+        pass
+
+    def visit_enuminfo(self, einfo: AST.ASTEnumInfo) -> None:
+        pass

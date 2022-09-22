@@ -220,3 +220,15 @@ class ASTVisitor(ABC):
     @abstractmethod
     def visit_comp_typ(self, typ: AST.ASTTypComp) -> None:
         ...
+
+    @abstractmethod
+    def visit_enumitem(self, eitem: AST.ASTEnumItem) -> None:
+        ...
+
+    @abstractmethod
+    def visit_enuminfo(self, einfo: AST.ASTEnumInfo) -> None:
+        ...
+
+    @abstractmethod
+    def visit_enum_typ(self, typ: AST.ASTTypEnum) -> None:
+        ...

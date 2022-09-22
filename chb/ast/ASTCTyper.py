@@ -205,3 +205,12 @@ class ASTCTyper(ABC):
 
     def ctype_comp_typ(self, typ: AST.ASTTypComp) -> Optional[AST.ASTTyp]:
         return typ
+
+    def ctype_enuminfo(self, einfo: AST.ASTEnumInfo) -> Optional[AST.ASTTyp]:
+        return None
+
+    def ctype_enumitem(self, eitem: AST.ASTEnumItem) -> Optional[AST.ASTTyp]:
+        return None
+
+    def ctype_enum_typ(self, typ: AST.ASTTypEnum) -> Optional[AST.ASTTyp]:
+        return typ

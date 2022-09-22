@@ -196,6 +196,10 @@ class ASTNode:
     def is_compinfo(self) -> bool:
         return False
 
+    @property
+    def is_enuminfo(self) -> bool:
+        return False
+
     def variables_used(self) -> Set[str]:
         return set([])
 
@@ -1957,6 +1961,10 @@ class ASTTyp(ASTNode):
         return False
 
     @property
+    def is_enum(self) -> bool:
+        return False
+
+    @property
     def is_float(self) -> bool:
         return False
 
@@ -2493,3 +2501,119 @@ class ASTTypComp(ASTTyp):
 
     def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
         return ctyper.ctype_comp_typ(self)
+
+    def __str__(self) -> str:
+        return "struct " + self.compname
+
+
+class ASTEnumItem(ASTNode):
+
+    def __init__(self, itemname: str, itemexpr: "ASTExpr") -> None:
+        self._itemname = itemname
+        self._itemexpr = itemexpr
+
+    @property
+    def itemname(self) -> str:
+        return self._itemname
+
+    @property
+    def itemexpr(self) -> "ASTExpr":
+        return self._itemexpr
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        return visitor.visit_enumitem(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTEnumItem":
+        return transformer.transform_enumitem(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_enumitem(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_enumitem(self)
+
+    def __str__(self) -> str:
+        return self.itemname + ":" + str(self.itemexpr)
+
+
+class ASTEnumInfo(ASTNode):
+
+    def __init__(
+            self,
+            enumname: str,
+            enumitems: List["ASTEnumItem"],
+            enumkind: str) -> None:
+        ASTNode.__init__(self, "enuminfo")
+        self._enumname = enumname
+        self._enumitems = enumitems
+        self._enumkind = enumkind
+
+    @property
+    def enumname(self) -> str:
+        return self._enumname
+
+    @property
+    def enumitems(self) -> List["ASTEnumItem"]:
+        return self._enumitems
+
+    @property
+    def enumkind(self) -> str:
+        return self._enumkind
+
+    @property
+    def is_enuminfo(self) -> bool:
+        return True
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_enuminfo(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTEnumInfo":
+        return transformer.transform_enuminfo(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_enuminfo(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_enuminfo(self)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append(self.enumname)
+        for enumitem in self.enumitems:
+            lines.append("  " + str(enumitem))
+        return "\n".join(lines)
+
+
+class ASTTypEnum(ASTTyp):
+
+    def __init__(self, enumname: str, enumkind: str) -> None:
+        ASTTyp.__init__(self, "enumtyp")
+        self._enumname = enumname
+        self._enumkind = enumkind
+
+    @property
+    def enumname(self) -> str:
+        return self._enumname
+
+    @property
+    def enumkind(self) -> str:
+        return self._enumkind
+
+    @property
+    def is_enum(self) -> bool:
+        return True
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_enum_typ(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTTyp":
+        return transformer.transform_enum_typ(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_enum_typ(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_enum_typ(self)
+
+    def __str__(self) -> str:
+        return "enum " + self.enumname

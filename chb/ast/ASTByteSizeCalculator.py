@@ -289,3 +289,12 @@ class ASTByteSizeCalculator(ASTIndexer):
 
     def index_builtin_va_list(self, typ: AST.ASTTypBuiltinVAList) -> int:
         return self.address_size
+
+    def index_enumitem(self, eitem: AST.ASTEnumItem) -> int:
+        return eitem.itemexpr.index(self)
+
+    def index_enuminfo(self, einfo: AST.ASTEnumInfo) -> int:
+        return self.intsize(einfo.enumkind)
+
+    def index_enum_typ(self, typ: AST.ASTTypEnum) -> int:
+        return self.intsize(typ.enumkind)

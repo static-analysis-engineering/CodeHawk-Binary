@@ -179,3 +179,12 @@ class ASTIdentityTransformer(ASTTransformer):
 
     def transform_comp_typ(self, typ: AST.ASTTypComp) -> AST.ASTTyp:
         return typ
+
+    def transform_enumitem(self, eitem: AST.ASTEnumItem) -> AST.ASTEnumItem:
+        return eitem
+
+    def transform_enuminfo(self, einfo: AST.ASTEnumInfo) -> AST.ASTEnumInfo:
+        return einfo
+
+    def transform_enum_typ(self, typ: AST.ASTTypEnum) -> AST.ASTTyp:
+        return typ

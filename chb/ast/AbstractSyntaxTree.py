@@ -135,6 +135,10 @@ class AbstractSyntaxTree:
         return self.symboltable.compinfos
 
     @property
+    def enuminfos(self) -> Mapping[str, AST.ASTEnumInfo]:
+        return self.symboltable.enuminfos
+
+    @property
     def provenance(self) -> ASTProvenance:
         return self._provenance
 
@@ -195,6 +199,9 @@ class AbstractSyntaxTree:
 
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
         self.symboltable.add_compinfo(cinfo)
+
+    def add_enuminfo(self, einfo: AST.ASTEnumInfo) -> None:
+        self.symboltable.add_enuminfo(einfo)
 
     def new_stmtid(self) -> int:
         """Return a new id for statements."""
@@ -1147,8 +1154,8 @@ class AbstractSyntaxTree:
     - mk_typedef
         associate a name with a type
 
-    Struct types
-    ------------
+    Struct types/Enum types
+    -----------------------
     Struct types are specified by the compinfo data structure. Compinfo data
     structures are uniquely identified by an integer key (ckey) to be provided
     by the user. When a new compinfo is created it is registered in the global
@@ -1176,8 +1183,24 @@ class AbstractSyntaxTree:
     - mk_comp_type_by_key
         specify a compinfo ckey value and name to get a struct type
 
+    - mk_enum_info
+        specify the enum items as EnumItems
+    - mk_enuminfo_with_constants
+        specify the enum items as a list of (name, integer value) tuples
+
+    - mk_enum_item
+         specify name and expression for a single enumeration value
+    - mk_enumitem_by_value
+         specify name and integer value for a single enumeration value
+
+    - mk_enum_type
+         specify an enuminfo to get an enum type
+    - mk_enum_type_by_name
+         specify an enuminfo name to get an enum type
+
     - mk_named_type
-        specify a type definition with a name and type
+        specify a type definition with a name and type; it is assumed that
+        the enumeration with that name was already created earlier
 
     """
 
@@ -1348,3 +1371,49 @@ class AbstractSyntaxTree:
         If the compkey is not known, None is returned.
         """
         return self.compinfos.get(compkey, None)
+
+    def mk_enuminfo(
+            self,
+            enumname: str,
+            enumkind: str,
+            enumitems: List[AST.ASTEnumItem]) -> AST.ASTEnumInfo:
+        if enumname in self.enuminfos:
+            return self.enuminfos[enumname]  # TODO: add a check that they have the same items
+        else:
+            einfo = AST.ASTEnumInfo(enumname, enumitems, enumkind)
+            self.add_enuminfo(einfo)
+            return einfo
+
+    def mk_enuminfo_with_constants(
+            self,
+            enumname: str,
+            enumkind: str,
+            enumvalues: List[Tuple[str, int]]) -> AST.ASTEnumInfo:
+        if enumname in self.enuminfos:
+            return self.enuminfos[enumname]   # TODO: add a check that they have the same items
+        else:
+            enumitems: List[AST.ASTEnumItem] = []
+            for (name, value) in enumvalues:
+                enumitems.append(self.mk_enumitem_by_value(name, value))
+            return self.mk_enuminfo(enumname, enumkind, enumitems)
+
+    def mk_enum_item(self, itemname: str, itemexpr: AST.ASTExpr) -> AST.ASTEnumItem:
+        return AST.ASTEnumItem(itemname, itemexpr)
+
+    def mk_enumitem_by_value(self, itemname: str, value: int) -> AST.ASTEnumItem:
+        return AST.ASTEnumItem(itemname, self.mk_integer_constant(value))
+
+    def mk_enum_type(self, einfo: AST.ASTEnumInfo) -> AST.ASTTypEnum:
+        if einfo.enumname not in self.enuminfos:
+            self.add_enuminfo(einfo)
+        return AST.ASTTypEnum(einfo.enumname, einfo.enumkind)
+
+    def mk_enum_type_by_name(self, enumname: str) -> AST.ASTTypEnum:
+        if enumname in self.enuminfos:
+            einfo = self.enuminfos[enumname]
+            return self.mk_enum_type(einfo)
+        else:
+            raise Exception(
+                "Unable to create an enum type for "
+                + enumname
+                + ". No enuminfo found for this name")

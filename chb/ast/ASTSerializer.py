@@ -682,3 +682,25 @@ class ASTSerializer(ASTIndexer):
         node["name"] = typ.compname
         node["compkey"] = typ.compkey
         return self.add(tags, args, node)
+
+    def index_enumitem(self, eitem: AST.ASTEnumItem) -> int:
+        tags: List[str] = [eitem.tag, eitem.itemname]
+        args: List[int] = [eitem.itemexpr.index(self)]
+        node: Dict[str, Any] = {"tag": eitem.tag}
+        node["name"] = eitem.itemname
+        return self.add(tags, args, node)
+
+    def index_enuminfo(self, einfo: AST.ASTEnumInfo) -> int:
+        tags: List[str] = [einfo.tag, einfo.enumname]
+        args: List[int] = [eitem.index(self) for eitem in einfo.enumitems]
+        node: Dict[str, Any] = {"tag": einfo.tag}
+        node["name"] = einfo.enumname
+        node["ekind"] = einfo.enumkind
+        return self.add(tags, args, node)
+
+    def index_enum_typ(self, typ: AST.ASTTypEnum) -> int:
+        tags: List[str] = [typ.tag, typ.enumname]
+        args: List[int] = []
+        node: Dict[str, Any] = {"tag": typ.tag}
+        node["name"] = typ.enumname
+        return self.add(tags, args, node)

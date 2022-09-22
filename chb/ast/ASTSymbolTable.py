@@ -95,6 +95,7 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         self._referenced: Set[str] = set([])
         self._typesused: Set[int] = set([])
         self._compinfos: Dict[int, AST.ASTCompInfo] = {}
+        self._enuminfos: Dict[str, AST.ASTEnumInfo] = {}
         self._lval_counter: int = 1
         self._expr_counter: int = 1
 
@@ -105,6 +106,10 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
     @property
     def compinfos(self) -> Mapping[int, AST.ASTCompInfo]:
         return self._compinfos
+
+    @property
+    def enuminfos(self) -> Mapping[str, AST.ASTEnumInfo]:
+        return self._enuminfos
 
     def new_lvalid(self) -> int:
         """Return a new lval id for lvalues."""
@@ -131,6 +136,12 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
             return self.compinfos[ckey]
         else:
             raise Exception("No compinfo found for ckey: " + str(ckey))
+
+    def enuminfo(self, enumname: str) -> AST.ASTEnumInfo:
+        if enumname in self.enuminfos:
+            return self.enuminfos[enumname]
+        else:
+            raise Exception("No enuminfo found for name: " + enumname)
 
     @property
     def referenced(self) -> Set[str]:
@@ -177,13 +188,25 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
                 + " already exists: "
                 + cinfo.compname)
 
+    def add_enuminfo(self, einfo: AST.ASTEnumInfo) -> None:
+        if einfo.enumname not in self.enuminfos:
+            self._enuminfos[einfo.enumname] = einfo
+        else:
+            raise Exception(
+                "Enuminfo with name " + einfo.enumname + " already exists")
+
     def has_compinfo(self, ckey: int) -> bool:
         return ckey in self.compinfos
+
+    def has_enuminfo(self, enumname: str) -> bool:
+        return enumname in self.enuminfos
 
     def serialize(self, indexer: ASTIndexer) -> None:
         ASTSymbolTable.serialize(self, indexer)
         for cinfo in self.compinfos.values():
             cinfo.index(indexer)
+        for einfo in self.enuminfos.values():
+            einfo.index(indexer)
 
     def __str__(self) -> str:
         lines: List[str] = []
@@ -236,6 +259,10 @@ class ASTLocalSymbolTable(ASTSymbolTable):
     def compinfos(self) -> Mapping[int, AST.ASTCompInfo]:
         return self.globaltable.compinfos
 
+    @property
+    def enuminfos(self) -> Mapping[str, AST.ASTEnumInfo]:
+        return self.globaltable.enuminfos
+
     def is_formal(self, vname: str) -> bool:
         return any([vinfo.vname == vname for vinfo in self.formals])
 
@@ -262,3 +289,12 @@ class ASTLocalSymbolTable(ASTSymbolTable):
 
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
         self.globaltable.add_compinfo(cinfo)
+
+    def has_enuminfo(self, enumname: str) -> bool:
+        return self.globaltable.has_enuminfo(enumname)
+
+    def enuminfo(self, enumname: str) -> AST.ASTEnumInfo:
+        return self.globaltable.enuminfo(enumname)
+
+    def add_enuminfo(self, einfo: AST.ASTEnumInfo) -> None:
+        self.globaltable.add_enuminfo(einfo)

@@ -797,6 +797,99 @@ and for floats:
   ```
 
 
+#### Construction methods for structs
+
+Struct types are specified by the compinfo data structure, ASTCompInfo. Compinfo
+data structures are uniquely identified by an integer key (ckey) to be provided
+by the user. When a new compinfo is created it is registers in the global symbol
+table; subsequent attempts to create a compinfo with the same ckey value will
+just return the one created earlier. It is also possible to pre-populate the
+global symbol table with compinfo data structures, if they are available up front.
+Struct types are thus global and shared by different functions. Field offsets also
+include the ckey of the compinfo that they belong to.
+
+- **mk_compinfo**: Specify the fields as FieldInfos:
+  ```
+  def mk_compinfo(
+     self, cname: str, ckey: int, fieldinfos: List[ASTFieldInfo],
+     is_union: bool) -> ASTCompInfo
+  ```
+
+- **mk_compinfo_with_fields**: Specify the fields as a list of (name, type) tuples:
+  ```
+  def mk_cominfo_with_fields(
+     self, cname: str, ckey: int, fields: List[Tuple[str, ASTTyp]],
+     is_union: bool) -> ASTCompInfo
+   ```
+
+- **mk_fieldinfo**: Specify the name and type for a single field, with they key
+  of the compinfo to which it belongs; optionally the byte offset at which the
+  field is located within the struct can be specified as well:
+  ```
+  def mk_fieldinfo(
+     self, fname: str, ftype: ASTTyp, ckey: int, byteoffset: Optional[int]) -> ASTFieldInfo
+  ```
+
+- **mk_comp_type**: Specify a compinfo to get a struct type. The compinfo will be added
+  to the symbol table, so that subsequent declarations may specify only the key and the
+  name:
+  ```
+  def mk_comp_type(self, cinfo: ASTCompInfo) -> AST.ASTTypComp
+  ```
+
+- **mk_comp_type_by_key**: Specify a compinfo ckey value and struct name to get a struct
+  type; the corresponding compinfo must have been added earlier to use this method.
+  ```
+  def mk_comp_type_by_key(self, ckey: int, cname: str) -> ASTTypComp
+  ```
+
+#### Construction methods for enums
+
+Enum types are specified by the enuminfo data structure, ASTEnumInfo. Enuminfo data
+structures are uniquely identified by their name (enumname) to be provided by the
+user. Each enum type has an enumkind, specified by a string (same as ikind for integers)
+that specifies the particular kind of integer used for this enum. The individual enum
+values are specified the enumitem data structure, ASTEnumItem, that specifies the
+name (itemname) and the value as an expression (ASTExpr).
+
+- **mk_enum_info**: Specify the enum items as EnumItems:
+  ```
+  def mk_enum_info(
+     self, enumname: str, enumkind: str, enumitems: List[ASTEnumItem]) -> ASTEnumInfo
+  ```
+
+- **mk_enuminfo_with_constants**: Specify the enum items as of a list of (name, integer
+  value) tuples:
+  ```
+  def mk_enuminfo_with_constants(
+     self, enumname: str, enumkind: str, enumitems: List[Tuple[str, int]]) -> ASTEnumInfo
+  ```
+
+- **mk_enum_item**: Specify the name and expression for a single enumeration value:
+  ```
+  def mk_enum_item(self, itemname: str, itemexpr: AST.ASTExpr) -> ASTEnumItem
+  ```
+
+- **mk_enumitem_by_value**: Specify the name and integer value for a single enumeration
+  value:
+  ```
+  def mk_enumitem_by_value(self, itemname: str, itemvalue: int) -> ASTEnumItem
+  ```
+
+- **mk_enum_type**: Specify an enuminfo to get an enum type. If the enuminfo is new
+  it will be registered, so that future enum types for the same enum can be created
+  by specifying the name only.
+  ```
+  def _mk_enum_type(self, einfo: ASTEnumInfo) -> ASTTypEnum
+  ```
+
+- **mk_enum_type_by_name**: Specify the name of an enuminfo to get an enum type; the
+  enuminfo with that name must have been registered earlier.
+  ```
+  def mk_enum_type_by_name(self, enumname: str) -> ASTTypEnum
+  ```
+
+
 #### Integer Type Specifiers<a name="ikind"></a>
 
 | ikind | pretty-printed |
