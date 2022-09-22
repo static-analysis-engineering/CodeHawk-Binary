@@ -35,6 +35,8 @@ from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable
 from chb.bctypes.BCCompInfo import BCCompInfo
 import chb.bctypes.BCConstant as BCC
 from chb.bctypes.BCConverter import BCConverter
+from chb.bctypes.BCEnumInfo import BCEnumInfo
+from chb.bctypes.BCEnumItem import BCEnumItem
 import chb.bctypes.BCExp as BCE
 from chb.bctypes.BCFieldInfo import BCFieldInfo
 from chb.bctypes.BCFiles import BCFiles
@@ -71,7 +73,9 @@ class BC2ASTConverter(BCConverter):
         self._globalstore = globalstore
         self._symboltable = symboltable
         self._compinfos_referenced: Dict[int, BCCompInfo] = {}
+        self._enuminfos_referenced: Dict[str, BCEnumInfo] = {}
         self._newcompinfos: Dict[int, BCCompInfo] = {}
+        self._newenuminfos: Dict[str, BCEnumInfo] = {}
 
     @property
     def globalstore(self) -> BCFiles:
@@ -85,6 +89,10 @@ class BC2ASTConverter(BCConverter):
     def compinfos_referenced(self) -> Dict[int, BCCompInfo]:
         return self._compinfos_referenced
 
+    @property
+    def enuminfos_referenced(self) -> Dict[str, BCEnumInfo]:
+        return self._enuminfos_referenced
+
     def get_lvalid(self) -> int:
         return self.symboltable.get_lvalid(None)
 
@@ -94,6 +102,10 @@ class BC2ASTConverter(BCConverter):
     def add_compinfo_reference(self, cinfo: BCCompInfo) -> None:
         if cinfo.ckey not in self.compinfos_referenced:
             self._newcompinfos.setdefault(cinfo.ckey, cinfo)
+
+    def add_enuminfo_reference(self, einfo: BCEnumInfo) -> None:
+        if einfo.ename not in self.enuminfos_referenced:
+            self._newenuminfos.setdefault(einfo.ename, einfo)
 
     def initialize_compinfos(self) -> None:
         if len(self._newcompinfos) == 0:
@@ -106,6 +118,22 @@ class BC2ASTConverter(BCConverter):
         for cinfo in self.compinfos_referenced.values():
             cinfo.convert(self)
         self.initialize_compinfos()
+
+    def initialize_enuminfos(self, startset: List[BCEnumInfo] = []) -> None:
+        if len(startset) > 0:
+            for einfo in startset:
+                if einfo.ename not in self._enuminfos_referenced:
+                    self._enuminfos_referenced[einfo.ename] = einfo
+
+        if len(self._newenuminfos) == 0:
+            return
+        else:
+            for (ename, einfo) in self._newenuminfos.items():
+                if ename not in self._enuminfos_referenced:
+                    self._enuminfos_referenced[ename] = einfo
+            self._newenuminfos = {}
+        for einfo in self.enuminfos_referenced.values():
+            einfo.convert(self)
 
     def convert_lval(self, lval: BCLval) -> AST.ASTLval:
         lhost = lval.lhost.convert(self)
@@ -215,7 +243,8 @@ class BC2ASTConverter(BCConverter):
         return AST.ASTFunArg(arg.name, arg.typ.convert(self))
 
     def convert_named_typ(self, t: BCT.BCTypNamed) -> AST.ASTTypNamed:
-        return AST.ASTTypNamed(t.tname, t.typedef.ttype.convert(self))
+        namedtype = AST.ASTTypNamed(t.tname, t.typedef.ttype.convert(self))
+        return namedtype
 
     def convert_builtin_va_list(
             self, t: BCT.BCTypBuiltinVaList) -> AST.ASTTypBuiltinVAList:
@@ -224,6 +253,24 @@ class BC2ASTConverter(BCConverter):
     def convert_comp_typ(self, t: BCT.BCTypComp) -> AST.ASTTypComp:
         self.add_compinfo_reference(t.compinfo)
         return AST.ASTTypComp(t.compname, t.compkey)
+
+    def convert_enum_typ(self, t: BCT.BCTypEnum) -> AST.ASTTypEnum:
+        self.add_enuminfo_reference(t.enuminfo)
+        return AST.ASTTypEnum(t.ename, t.enuminfo.ekind)
+
+    def convert_enuminfo(self, einfo: BCEnumInfo) -> AST.ASTEnumInfo:
+        if self.symboltable.has_enuminfo(einfo.ename):
+            return self.symboltable.enuminfo(einfo.ename)
+        else:
+            astitems: List[AST.ASTEnumItem] = []
+            for eitem in einfo.enumitems:
+                astitems.append(eitem.convert(self))
+            asteinfo = AST.ASTEnumInfo(einfo.ename, astitems, einfo.ekind)
+            return asteinfo
+
+    def convert_enumitem(self, eitem: BCEnumItem) -> AST.ASTEnumItem:
+        astexpr = eitem.itemexpr.convert(self)
+        return AST.ASTEnumItem(eitem.itemname, astexpr)
 
     def convert_compinfo(self, cinfo: BCCompInfo) -> AST.ASTCompInfo:
         if self.symboltable.has_compinfo(cinfo.ckey):
