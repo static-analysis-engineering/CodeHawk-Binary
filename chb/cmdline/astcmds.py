@@ -181,6 +181,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 vtype=vinfo.vtype.convert(typconverter),
                 globaladdress=gaddr)
             # size=vinfo.vtype.byte_size())
+
+    typconverter.initialize_enuminfos(app.bcfiles.genumtags)
     typconverter.initialize_compinfos()
 
     for faddr in functions:
