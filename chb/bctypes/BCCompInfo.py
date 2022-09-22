@@ -128,6 +128,10 @@ class BCCompInfo(BCDictionaryRecord):
             newf = news + fsize
             return OffsetAccumulator(newf, news, fsize)
 
+        if self.is_union:
+            maxlen = max(finfo.byte_size() for finfo in self.fieldinfos)
+            return addt(maxlen, self.alignment())
+
         acc = OffsetAccumulator(0, 0, 0)
         for finfo in self.fieldinfos:
             acc = aux(finfo, acc)

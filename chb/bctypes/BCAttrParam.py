@@ -70,6 +70,10 @@ class BCAttrParam(BCDictionaryRecord):
             ixval: IT.IndexedTableValue) -> None:
         BCDictionaryRecord.__init__(self, bcd, ixval)
 
+    @property
+    def is_int(self) -> bool:
+        return False
+
     def __str__(self) -> str:
         return "bc-attrparam:" + self.tags[0]
 
@@ -87,6 +91,10 @@ class BCAttrParamInt(BCAttrParam):
     @property
     def intvalue(self) -> int:
         return self.args[0]
+
+    @property
+    def is_int(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return "aint(" + str(self.intvalue) + ")"

@@ -86,6 +86,9 @@ class BCDictionary:
         self.enumitem_table = IT.IndexedTable("enumitem-table")
         self.enuminfo_table = IT.IndexedTable("enuminfo-table")
         self.tables = [
+            self.attributes_table,
+            self.attribute_table,
+            self.attrparam_table,
             self.constant_table,
             self.exp_table,
             self.funarg_table,
@@ -98,6 +101,7 @@ class BCDictionary:
             self.initinfo_table,
             self.typeinfo_table,
             self.typsig_table,
+            self.typsiglist_table,
             self.varinfo_table,
             self.fieldinfo_table,
             self.compinfo_table,
@@ -145,8 +149,11 @@ class BCDictionary:
     def attribute(self, ix: int) -> BCAttribute:
         return BCAttribute(self, self.attribute_table.retrieve(ix))
 
-    def attributes(self, ix: int) -> BCAttributes:
-        return BCAttributes(self, self.attributes_table.retrieve(ix))
+    def attributes(self, ix: int) -> Optional[BCAttributes]:
+        if ix == -1:
+            return None
+        else:
+            return BCAttributes(self, self.attributes_table.retrieve(ix))
 
     def constant(self, ix: int) -> BCConstant:
         return bcregistry.mk_instance(

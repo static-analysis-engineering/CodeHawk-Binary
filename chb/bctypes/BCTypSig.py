@@ -60,10 +60,11 @@ class BCTypSig(BCDictionaryRecord):
         BCDictionaryRecord.__init__(self, bcd, ixval)
 
     def get_attrs(self, index: int) -> List["BCAttribute"]:
-        if len(self.args) > index:
-            return self.bcd.attributes(self.args[index]).attrs
-        else:
+        attrs = self.bcd.attributes(self.args[index])
+        if attrs is None:
             return []
+        else:
+            return attrs.attrs
 
     def attrs_str(self, attrs: List["BCAttribute"]) -> str:
         if len(attrs) == 0:

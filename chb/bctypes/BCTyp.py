@@ -57,6 +57,7 @@ import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
 
 if TYPE_CHECKING:
+    from chb.bctypes.BCAttribute import BCAttribute
     from chb.bctypes.BCConstant import BCCInt64
     from chb.bctypes.BCCompInfo import BCCompInfo
     from chb.bctypes.BCDictionary import BCDictionary
@@ -176,6 +177,14 @@ class BCTyp(BCDictionaryRecord):
     @property
     def is_vararg(self) -> bool:
         return False
+
+    @property
+    def attrs(self) -> List["BCAttribute"]:
+        attrs = self.bcd.attributes(self.args[-1])
+        if attrs is None:
+            return []
+        else:
+            return attrs.attrs
 
     def is_leq(self, other: "BCTyp") -> bool:
         """Return true if this type is more precise or equal."""
