@@ -60,6 +60,7 @@ if TYPE_CHECKING:
     from chb.bctypes.BCConstant import BCCInt64
     from chb.bctypes.BCCompInfo import BCCompInfo
     from chb.bctypes.BCDictionary import BCDictionary
+    from chb.bctypes.BCEnumInfo import BCEnumInfo
     from chb.bctypes.BCExp import BCExp, BCExpConst
     from chb.bctypes.BCFunArgs import BCFunArgs
     from chb.bctypes.BCTypeInfo import BCTypeInfo
@@ -640,11 +641,18 @@ class BCTypEnum(BCTyp):
         return self.tags[1]
 
     @property
+    def enuminfo(self) -> "BCEnumInfo":
+        return self.bcd.enuminfo_by_name(self.ename)
+
+    @property
     def is_scalar(self) -> bool:
         return True
 
     def byte_size(self) -> int:
         return 4
+
+    def convert(self, converter: "BCConverter") -> AST.ASTTypEnum:
+        return converter.convert_enum_typ(self)
 
     def __str__(self) -> str:
         return self.ename

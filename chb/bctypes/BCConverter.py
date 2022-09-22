@@ -35,6 +35,8 @@ import chb.ast.ASTNode as AST
 if TYPE_CHECKING:
     from chb.bctypes.BCCompInfo import BCCompInfo
     import chb.bctypes.BCConstant as BCC
+    from chb.bctypes.BCEnumInfo import BCEnumInfo
+    from chb.bctypes.BCEnumItem import BCEnumItem
     import chb.bctypes.BCExp as BCE
     from chb.bctypes.BCFieldInfo import BCFieldInfo
     from chb.bctypes.BCFunArgs import BCFunArgs, BCFunArg
@@ -172,4 +174,16 @@ class BCConverter(ABC):
 
     @abstractmethod
     def convert_fieldinfo(self, finfo: "BCFieldInfo") -> AST.ASTFieldInfo:
+        ...
+
+    @abstractmethod
+    def convert_enum_typ(self, t: "BCT.BCTypEnum") -> AST.ASTTypEnum:
+        ...
+
+    @abstractmethod
+    def convert_enuminfo(self, einfo: "BCEnumInfo") -> AST.ASTEnumInfo:
+        ...
+
+    @abstractmethod
+    def convert_enumitem(self, eitem: "BCEnumItem") -> AST.ASTEnumItem:
         ...

@@ -33,6 +33,8 @@ import xml.etree.ElementTree as ET
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord, bcregistry
 from chb.bctypes.BCCompInfo import BCCompInfo
 from chb.bctypes.BCConstant import BCConstant
+from chb.bctypes.BCEnumInfo import BCEnumInfo
+from chb.bctypes.BCEnumItem import BCEnumItem
 from chb.bctypes.BCExp import BCExp
 from chb.bctypes.BCFieldInfo import BCFieldInfo
 from chb.bctypes.BCFunArgs import BCFunArg, BCFunArgs
@@ -73,6 +75,8 @@ class BCDictionary:
         self.varinfo_table = IT.IndexedTable("varinfo-table")
         self.fieldinfo_table = IT.IndexedTable("fieldinfo-table")
         self.compinfo_table = IT.IndexedTable("compinfo-table")
+        self.enumitem_table = IT.IndexedTable("enumitem-table")
+        self.enuminfo_table = IT.IndexedTable("enuminfo-table")
         self.tables = [
             self.constant_table,
             self.exp_table,
@@ -87,10 +91,13 @@ class BCDictionary:
             self.typeinfo_table,
             self.varinfo_table,
             self.fieldinfo_table,
-            self.compinfo_table
+            self.compinfo_table,
+            self.enumitem_table,
+            self.enuminfo_table
         ]
         self.typeinfo_names: Dict[str, BCTypeInfo] = {}
         self.compinfo_keys: Dict[int, BCCompInfo] = {}
+        self.enuminfo_names: Dict[str, BCEnumInfo] = {}
         self.initialize(xnode)
 
     @property
@@ -110,6 +117,12 @@ class BCDictionary:
             return self.compinfo_keys[key]
         else:
             raise UF.CHBError("Compinfo key " + str(key) + " not found")
+
+    def enuminfo_by_name(self, name: str) -> BCEnumInfo:
+        if name in self.enuminfo_names:
+            return self.enuminfo_names[name]
+        else:
+            raise UF.CHBError("Enuminfo name " + name + " not found")
 
     # ------------------------- retrieve items from dictionary tables ----------
 
@@ -157,6 +170,15 @@ class BCDictionary:
         cinfo = BCCompInfo(self, self.compinfo_table.retrieve(ix))
         self.compinfo_keys[cinfo.ckey] = cinfo
         return cinfo
+
+    def enuminfo(self, ix: int) -> BCEnumInfo:
+        einfo = BCEnumInfo(self, self.enuminfo_table.retrieve(ix))
+        self.enuminfo_names[einfo.ename] = einfo
+        return einfo
+
+    def enumitem(self, ix: int) -> BCEnumItem:
+        eitem = BCEnumItem(self, self.enumitem_table.retrieve(ix))
+        return BCEnumItem(self, eitem)
 
     def fieldinfo(self, ix: int) -> BCFieldInfo:
         return BCFieldInfo(self, self.fieldinfo_table.retrieve(ix))
