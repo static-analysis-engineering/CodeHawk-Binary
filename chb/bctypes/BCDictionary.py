@@ -26,10 +26,12 @@
 # ------------------------------------------------------------------------------
 """Dictionary of CIL-types as produced by the CIL parser."""
 
-from typing import Any, Callable, Dict, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import xml.etree.ElementTree as ET
 
+from chb.bctypes.BCAttribute import BCAttribute, BCAttributes
+from chb.bctypes.BCAttrParam import BCAttrParam
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord, bcregistry
 from chb.bctypes.BCCompInfo import BCCompInfo
 from chb.bctypes.BCConstant import BCConstant
@@ -42,6 +44,7 @@ from chb.bctypes.BCLHost import BCLHost
 from chb.bctypes.BCLval import BCLval
 from chb.bctypes.BCOffset import BCOffset
 from chb.bctypes.BCTyp import BCTyp
+from chb.bctypes.BCTypSig import BCTypSig, BCTypSigList
 from chb.bctypes.BCTypeInfo import BCTypeInfo
 from chb.bctypes.BCVarInfo import BCVarInfo
 
@@ -61,6 +64,9 @@ class BCDictionary:
             xnode: ET.Element) -> None:
         self._app = app
         self.string_table = SI.StringIndexedTable("string-table")
+        self.attrparam_table = IT.IndexedTable("attrparam-table")
+        self.attributes_table = IT.IndexedTable("attributes-table")
+        self.attribute_table = IT.IndexedTable("attribute-table")
         self.constant_table = IT.IndexedTable("constant-table")
         self.exp_table = IT.IndexedTable("exp-table")
         self.funarg_table = IT.IndexedTable("funarg-table")
@@ -72,6 +78,8 @@ class BCDictionary:
         self.location_table = IT.IndexedTable("location-table")
         self.initinfo_table = IT.IndexedTable("initinfo-table")
         self.typeinfo_table = IT.IndexedTable("typeinfo-table")
+        self.typsig_table = IT.IndexedTable("typsig-table")
+        self.typsiglist_table = IT.IndexedTable("typsiglist-table")
         self.varinfo_table = IT.IndexedTable("varinfo-table")
         self.fieldinfo_table = IT.IndexedTable("fieldinfo-table")
         self.compinfo_table = IT.IndexedTable("compinfo-table")
@@ -89,6 +97,7 @@ class BCDictionary:
             self.location_table,
             self.initinfo_table,
             self.typeinfo_table,
+            self.typsig_table,
             self.varinfo_table,
             self.fieldinfo_table,
             self.compinfo_table,
@@ -129,6 +138,16 @@ class BCDictionary:
     def string(self, ix: int) -> str:
         return self.string_table.retrieve(ix)
 
+    def attrparam(self, ix: int) -> BCAttrParam:
+        return bcregistry.mk_instance(
+            self, self.attrparam_table.retrieve(ix), BCAttrParam)
+
+    def attribute(self, ix: int) -> BCAttribute:
+        return BCAttribute(self, self.attribute_table.retrieve(ix))
+
+    def attributes(self, ix: int) -> BCAttributes:
+        return BCAttributes(self, self.attributes_table.retrieve(ix))
+
     def constant(self, ix: int) -> BCConstant:
         return bcregistry.mk_instance(
             self, self.constant_table.retrieve(ix), BCConstant)
@@ -162,6 +181,15 @@ class BCDictionary:
         tinfo = BCTypeInfo(self, self.typeinfo_table.retrieve(ix))
         self.typeinfo_names[tinfo.tname] = tinfo
         return tinfo
+
+    def typsig(self, ix: int) -> BCTypSig:
+        return bcregistry.mk_instance(
+            self, self.typsig_table.retrieve(ix), BCTypSig)
+
+    def optional_typsig_list(self, ix: int) -> Optional[BCTypSigList]:
+        if ix == -1:
+            return None
+        return BCTypSigList(self, self.typsiglist_table.retrieve(ix))
 
     def varinfo(self, ix: int) -> BCVarInfo:
         return BCVarInfo(self, self.varinfo_table.retrieve(ix))
