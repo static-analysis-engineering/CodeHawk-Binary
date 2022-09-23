@@ -205,6 +205,7 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         ASTSymbolTable.serialize(self, indexer)
         for cinfo in self.compinfos.values():
             cinfo.index(indexer)
+
         for einfo in self.enuminfos.values():
             einfo.index(indexer)
 

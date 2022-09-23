@@ -2509,6 +2509,7 @@ class ASTTypComp(ASTTyp):
 class ASTEnumItem(ASTNode):
 
     def __init__(self, itemname: str, itemexpr: "ASTExpr") -> None:
+        ASTNode.__init__(self, "enumitem")
         self._itemname = itemname
         self._itemexpr = itemexpr
 

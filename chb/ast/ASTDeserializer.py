@@ -168,7 +168,7 @@ class ASTDeserializer:
 
             elif tag == "enumtyp":
                 enumname = r["name"]
-                nodes[id] = astree.mk_enum_type_by_name(name)
+                nodes[id] = astree.mk_enum_type_by_name(enumname)
 
             elif tag == "typdef":
                 name = r["name"]
@@ -458,7 +458,13 @@ class ASTDeserializer:
             else:
                 raise Exception("Deserializer: No node created for " + str(id))
 
+        # Process enuminfos first, so their names are known for compinfo fields
         for r in records.values():
-            mk_node(r)
+            if r["tag"] == "enuminfo":
+                mk_node(r)
+
+        for r in records.values():
+            if r["tag"] != "enuminfo":
+                mk_node(r)
 
         return nodes
