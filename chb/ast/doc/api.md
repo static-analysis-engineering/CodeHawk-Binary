@@ -97,7 +97,7 @@ not present a new value is generated automatically.
   ```
   def mk_continue_stmt(self,
     stmtid: Optional[int],
-    locationid: Optional[int]) -> ASTBreak
+    locationid: Optional[int]) -> ASTContinue
   ```
 
 - **mk_branch**: creates a if-then-else statement with a condition
@@ -112,7 +112,7 @@ not present a new value is generated automatically.
     targetaddr: str,
     stmtid: Optional[int],
     locationid: Optional[int],
-    labels: List[ASTLabel] = []) -> ASTReturn
+    labels: List[ASTLabel] = []) -> ASTBranch
   ```
 
 - **mk_instr_sequence**: creates a statement for a basic block with

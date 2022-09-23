@@ -332,7 +332,7 @@ class AbstractSyntaxTree:
             targetaddr: str,
             optstmtid: Optional[int] = None,
             optlocationid: Optional[int] = None,
-            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTStmt:
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTBranch:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
         if condition is None:
