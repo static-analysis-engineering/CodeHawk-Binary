@@ -172,9 +172,17 @@ def xcompound_to_ast_exprs(
 
     if len(operands) == 1:
         op1s = xxpr_to_ast_exprs(operands[0], astree, anonymous=anonymous)
+
         if len(op1s) == 1:
             op1 = op1s[0]
-            return [astree.mk_unary_op(op, op1, anonymous=anonymous)]
+            if op in ["lsb", "lsh"]:
+                return [op1]
+            else:
+                return [astree.mk_unary_op(op, op1, anonymous=anonymous)]
+
+        elif len(op1s) == 4 and op == "lsb":
+            return [op1s[0]]
+
         else:
             raise UF.CHBError(
                 "Multiple operands to unary operation: "
@@ -192,7 +200,17 @@ def xcompound_to_ast_exprs(
             if len(op1s) == 1 and len(op2s) == 1:
                 op1 = op1s[0]
                 op2 = op2s[0]
-                if op in ["plus", "minus"]:
+
+                # Extract a byte from a 32-bit value
+                if op == "xbyte":
+                    if str(op1) == "1":
+                        mask = astree.mk_integer_constant(0xff00)
+                        shift = astree.mk_integer_constant(8)
+                        x1 = astree.mk_binary_op("band", op2, mask)
+                        x2 = astree.mk_binary_op("lsr", x1, shift)
+                        return [x2]
+
+                elif op in ["plus", "minus"]:
                     try:
                         op1type = op1.ctype(astree.ctyper)
                         return xtyped_expr_to_ast_exprs(
@@ -200,9 +218,18 @@ def xcompound_to_ast_exprs(
                     except:
                         return [astree.mk_binary_expression(
                             op, op1, op2, anonymous=anonymous)]
-                else:
+                elif op in AST.operators:
                     return [astree.mk_binary_expression(
                         op, op1, op2, anonymous=anonymous)]
+                else:
+                    raise UF.CHBError(
+                        "Compound expression with unsupported operator: "
+                        + op
+                        + " ("
+                        + str(op1)
+                        + ", "
+                        + str(op2)
+                        + ")")
             elif op == "band" and len(op2s) == 1 and op2s[0].is_integer_constant:
                 mask = cast(AST.ASTIntegerConstant, op2s[0])
                 if mask.cvalue == 255 and len(op1s) == 4:
@@ -236,11 +263,10 @@ def xcompound_to_ast_exprs(
                     + ", ".join(str(x) for x in op2s)
                     + "]")
 
-    else:
-        raise UF.CHBError(
-            "AST conversion of compound expression "
-            + str(xc)
-            + " not yet supported")
+    raise UF.CHBError(
+        "AST conversion of compound expression "
+        + str(xc)
+        + " not yet supported")
 
 
 def stack_variable_to_ast_lvals(
@@ -373,10 +399,41 @@ def global_variable_to_ast_lvals(
         gvinfo = astree.globalsymboltable.global_variable_name(gaddr)
         if gvinfo is not None:
             return [astree.mk_vinfo_lval(gvinfo, anonymous=anonymous)]
-        else:
-            gvname = "gv_" + gaddr
-            return [astree.mk_named_lval(
-                gvname, globaladdress=offset.offsetvalue(), anonymous=anonymous)]
+
+        gvinfo = astree.globalsymboltable.in_global_variable(
+            gaddr, astree.bytesize_calculator)
+        if gvinfo is not None:
+            igvaddr = gvinfo.globaladdress
+            if igvaddr is None:
+                raise UF.CHBError(
+                    "Internal error in global_variable_to_as_lvals: address")
+            gvtype = gvinfo.vtype
+            if gvtype is None:
+                raise UF.CHBError(
+                    "Internal error in global_variable_to_ast_lvals: type")
+            if gvtype.is_compound:
+                gvtype = cast(AST.ASTTypComp, gvtype)
+                gvckey = gvtype.compkey
+                gvcompinfo = astree.globalsymboltable.compinfo(gvckey)
+                gvoffset = int(gaddr, 16) - igvaddr
+                (gvfield, gvfieldoffset) = gvcompinfo.field_at_offset(gvoffset)
+                gvfieldtype = gvfield.fieldtype
+                if gvfieldtype.is_array:
+                    gvfieldtype = cast(AST.ASTTypArray, gvfieldtype)
+                    if gvfieldtype.has_constant_size():
+                        arraysize = gvfieldtype.size_value()
+                        if gvfieldoffset < arraysize:
+                            arrayoffset = astree.mk_scalar_index_offset(
+                                gvfieldoffset)
+                            fieldoffset = astree.mk_field_offset(
+                                gvfield.fieldname,
+                                gvfield.compkey,
+                                offset=arrayoffset)
+                            return [astree.mk_vinfo_lval(gvinfo, fieldoffset)]
+
+        gvname = "gv_" + gaddr
+        return [astree.mk_named_lval(
+            gvname, globaladdress=offset.offsetvalue(), anonymous=anonymous)]
 
     return [astree.mk_named_lval("gv_" + str(offset), anonymous=anonymous)]
 
