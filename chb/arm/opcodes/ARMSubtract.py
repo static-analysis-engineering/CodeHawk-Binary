@@ -61,6 +61,18 @@ class ARMSubtract(ARMOpcode):
     args[3]: index of op3 in armdictionary
     args[4]: is-wide (thumb)
     args[5]: wide
+
+    xdata format: a:vxxxxrrdh
+    -------------------------
+    vars[0]: lhs (Rd)
+    xprs[0]: rhs1 (Rn)
+    xprs[1]: rhs2 (Rm)
+    xprs[2]: rhs1 - rhs2
+    xprs[3]: rhs1 - rhs2 (simplified)
+    rdefs[0]: rhs1
+    rdefs[1]: rhs2
+    uses[0]: lhs
+    useshigh[0]: lhs
     """
 
     def __init__(
@@ -72,6 +84,10 @@ class ARMSubtract(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[1: -2]]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1: -2]]
 
     @property
@@ -99,41 +115,11 @@ class ARMSubtract(ARMOpcode):
         return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: rhs1 - rhs2 (syntactic)
-        xprs[3]: rhs1 - rhs2 (simplified)
-        """
-
         lhs = str(xdata.vars[0])
         result = xdata.xprs[2]
         rresult = xdata.xprs[3]
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return lhs + " := " + xresult
-
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "SUB"]
-
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        (op1, _, _) = self.operands[1].ast_rvalue(astree)
-        (op2, _, _) = self.operands[2].ast_rvalue(astree)
-        binop = astree.mk_binary_op("minus", op1, op2)
-        assign = astree.mk_assign(
-            lhs,
-            binop,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-        return [assign]
 
     def ast_prov(self,
             astree: ASTInterface,
@@ -152,9 +138,9 @@ class ARMSubtract(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        (ll_op1, _, _) = self.operands[1].ast_rvalue(astree)
-        (ll_op2, _, _) = self.operands[2].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
         ll_sub_expr = astree.mk_binary_op("minus", ll_op1, ll_op2)
 
         ll_assign = astree.mk_assign(

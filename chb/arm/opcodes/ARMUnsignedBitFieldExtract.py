@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -55,6 +55,15 @@ class ARMUnsignedExtractBitField(ARMOpcode):
     tags[1]: <c>
     args[0]: index of Rd in armdictionary
     args[1]: index of Rn in armdictionary
+
+    xdata format: a:vxxrdh
+    ----------------------
+    vars[0]: lhs (Rd)
+    xprs[0]: xrn (Rn)
+    xprs[1]: xrn (simplified)
+    rdefs[0]: Rn
+    uses[0]: lhs
+    useshigh: lhs
     """
 
     def __init__(
@@ -66,6 +75,10 @@ class ARMUnsignedExtractBitField(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
@@ -98,3 +111,55 @@ class ARMUnsignedExtractBitField(ARMOpcode):
         assign = astree.mk_assign(
             lhs, rhs, iaddr=iaddr, bytestring=bytestring)
         return preinstrs + [assign] + postinstrs
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "UBFX"]
+
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[1]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, astree)
+        if len(hl_rhss) == 1 and len(hl_lhss) == 1:
+            hl_lhs = hl_lhss[0]
+            hl_rhs = hl_rhss[0]
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            astree.add_instr_mapping(hl_assign, ll_assign)
+            astree.add_instr_address(hl_assign, [iaddr])
+            astree.add_expr_mapping(hl_rhs, ll_rhs)
+            astree.add_lval_mapping(hl_lhs, ll_lhs)
+            astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
+            astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
+            astree.add_lval_defuses(hl_lhs, defuses[0])
+            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+            return ([hl_assign], [ll_assign])
+
+        else:
+            raise UF.CHBError(
+                "ARMUnsignedBitFieldExtract: multiple expressions/lvals in ast")

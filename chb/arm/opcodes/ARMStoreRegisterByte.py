@@ -104,7 +104,7 @@ class ARMStoreRegisterByte(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[1])
+        rhs = str(xdata.xprs[3])
         assign = lhs + " := " + rhs
 
         xctr = 4
@@ -117,59 +117,6 @@ class ARMStoreRegisterByte(ARMOpcode):
             pcond = ""
 
         return pcond + assign
-
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "STRB"]
-
-        (lhs, preinstrs, postinstrs) = self.operands[1].ast_lvalue(astree)
-        (rhs, _, _) = self.operands[0].ast_rvalue(astree)
-        assign = astree.mk_assign(
-            lhs,
-            rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-        return preinstrs + [assign] + postinstrs
-
-    def ast(self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "STRB"]
-
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], astree)
-        if len(rhss) == 1:
-            rhs = rhss[0]
-        elif len(rhss) == 4:
-            rhs = rhss[1]
-        else:
-            raise UF.CHBError(
-                "STRB: rhs consists of " + str(len(rhss)) + " components")
-
-        lhs = xdata.vars[0]
-        if str(lhs) == "?":
-            return self.assembly_ast(astree, iaddr, bytestring, xdata)
-
-        lvals = XU.xvariable_to_ast_lvals(lhs, astree)
-        if len(lvals) == 1:
-            lval = lvals[0]
-            assign = astree.mk_assign(
-                lval,
-                rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-            return [assign]
-        else:
-            raise UF.CHBError("ARMStoreRegisterByte: multiple lvals")
 
     def ast_prov(
             self,
@@ -199,6 +146,15 @@ class ARMStoreRegisterByte(ARMOpcode):
         hl_preinstrs: List[AST.ASTInstruction] = []
         hl_postinstrs: List[AST.ASTInstruction] = []
         rhsexprs = XU.xxpr_to_ast_exprs(rhs, astree)
+        if len(rhsexprs) == 1:
+            rhsexpr = rhsexprs[0]
+            try:
+                rhstype = rhsexpr.ctype(astree.ctyper)
+            except Exception as e:
+                rhstype = None
+            if rhstype is not None:
+                pass
+
         lvals = XU.xvariable_to_ast_lvals(lhs, astree)
         if len(rhsexprs) == 1 and len(lvals) == 1:
             hl_rhs = rhsexprs[0]

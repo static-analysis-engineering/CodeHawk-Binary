@@ -2780,7 +2780,9 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"E": "< 29>1101D110111<vd>101s11M0<vmd>",
+			"D": "Y"
 		    }
 		],
 		"between floating-point and integer": [

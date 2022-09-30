@@ -127,50 +127,6 @@ class ARMLoadRegister(ARMOpcode):
 
         return pcond + lhs + " := " + rhs + pbupd
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "LDR"]
-
-        (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        assign = astree.mk_assign(
-            lhs, rhs, iaddr=iaddr, bytestring=bytestring, annotations=annotations)
-        return preinstrs + [assign] + postinstrs
-
-    def ast(self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "LDR"]
-
-        preinstrs: List[AST.ASTInstruction] = []
-        postinstrs: List[AST.ASTInstruction] = []
-        rhslvals = XU.xvariable_to_ast_lvals(xdata.vars[1], astree)
-        if len(rhslvals) == 1:
-            rhslval = rhslvals[0]
-            lhs = astree.mk_register_variable_lval(str(xdata.vars[0]))
-            rhs = astree.mk_lval_expr(rhslval)
-            if str(rhs).startswith("temp"):
-                (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
-
-            assign = astree.mk_assign(
-                lhs,
-                rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-            return [assign]
-        else:
-            raise UF.CHBError(
-                "ARMLoadRegister: multiple expressions/lvals in ast")
-
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -200,38 +156,42 @@ class ARMLoadRegister(ARMOpcode):
 
         hl_preinstrs: List[AST.ASTInstruction] = []
         hl_postinstrs: List[AST.ASTInstruction] = []
+
         rhsexprs = XU.xxpr_to_ast_exprs(rhs, astree)
-        if len(rhsexprs) == 1:
-            hl_rhs = rhsexprs[0]
-            hl_lhs = astree.mk_register_variable_lval(str(lhs))
-            if str(hl_rhs).startswith("temp"):
-                (hl_rhs,
-                 hl_preinstrs,
-                 hl_postinstrs) = self.opargs[1].ast_rvalue(astree)
+        if len(rhsexprs) == 0:
+            raise UF.CHBError("No rhs for LoadRegister (LDR)")
 
-            hl_assign = astree.mk_assign(
-                hl_lhs,
-                hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-
-            astree.add_instr_mapping(hl_assign, ll_assign)
-            astree.add_instr_address(hl_assign, [iaddr])
-            astree.add_expr_mapping(hl_rhs, ll_rhs)
-            astree.add_lval_mapping(hl_lhs, ll_lhs)
-            astree.add_expr_reachingdefs(hl_rhs, [rdefs[2]])
-            astree.add_lval_defuses(hl_lhs, defuses[0])
-            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-
-            if ll_rhs.is_ast_lval_expr:
-                lvalexpr = cast(AST.ASTLvalExpr, ll_rhs)
-                if lvalexpr.lval.lhost.is_memref:
-                    memexp = cast(AST.ASTMemRef, lvalexpr.lval.lhost).memexp
-                    astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
-
-            return ([hl_assign], [ll_assign])
-
-        else:
+        if len(rhsexprs) > 1:
             raise UF.CHBError(
-                "ARMLoadRegister: multiple expressions/lvals in ast")
+                "Multiple rhs values for LoadRegister (LDR): "
+                + ", ".join(str(x) for x in rhsexprs))
+
+        hl_rhs = rhsexprs[0]
+        hl_lhs = astree.mk_register_variable_lval(str(lhs))
+        if str(hl_rhs).startswith("temp"):
+            (hl_rhs,
+             hl_preinstrs,
+             hl_postinstrs) = self.opargs[1].ast_rvalue(astree)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, [rdefs[2]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if ll_rhs.is_ast_lval_expr:
+            lvalexpr = cast(AST.ASTLvalExpr, ll_rhs)
+            if lvalexpr.lval.lhost.is_memref:
+                memexp = cast(AST.ASTMemRef, lvalexpr.lval.lhost).memexp
+                astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
+
+        return ([hl_assign], [ll_assign])

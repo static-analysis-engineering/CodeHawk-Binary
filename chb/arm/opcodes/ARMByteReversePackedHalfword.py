@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -36,6 +36,7 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+import chb.invariants.XXprUtil as XU
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
@@ -54,6 +55,16 @@ class ARMByteReversePackedHalfword(ARMOpcode):
     args[0]: index of Rd in armdictionary
     args[1]: index of Rm in armdictionary
     args[2]: Thumb.wide
+
+    xdata format: a:vxxr..dh
+    ------------------------
+    vars[0]: lhs (Rd)
+    xprs[0]: rhs (Rm)
+    xprs[0]: rhs (Rm) (rewritten)
+    rdefs[0]: rhs
+    rdefs[1..]: rdefs for Rm rewritten
+    uses[0]: lhs
+    useshigh[0]: lhs
     """
 
     def __init__(
@@ -65,6 +76,10 @@ class ARMByteReversePackedHalfword(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
@@ -89,26 +104,75 @@ class ARMByteReversePackedHalfword(ARMOpcode):
     #   R[d] = result;
     # --------------------------------------------------------------------------
 
-    def assembly_ast(
+    def ast_prov(
             self,
             astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        bswap16sig = astree.mk_function_with_arguments_type(
+            astree.astree.unsigned_short_type, [("x", astree.astree.unsigned_short_type)])
+        bswap16tgt = astree.mk_named_lval_expression(
+            "bswap_16",
+            vtype=bswap16sig,
+            globaladdress=0,
+            vdescr="builtin function")
 
         annotations: List[str] = [iaddr, "REV16"]
 
-        (rhs, _, _) = self.operands[1].ast_rvalue(astree)
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        b0 = astree.mk_byte_expr(1, rhs)
-        b1 = astree.mk_byte_expr(0, rhs)
-        b2 = astree.mk_byte_expr(3, rhs)
-        b3 = astree.mk_byte_expr(2, rhs)
-        result = astree.mk_byte_sum([b0, b1, b2, b3])
-        assign = astree.mk_assign(
-            lhs,
-            result,
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[0]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+
+        ll_call = astree.mk_call(
+            ll_lhs,
+            bswap16tgt,
+            [ll_rhs],
             iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-        return [assign]
+            bytestring=bytestring)
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, astree)
+        if len(lhsasts) == 0:
+            raise UF.CHBError("REV16: no lval found")
+
+        if len(lhsasts) > 1:
+            raise UF.CHBError(
+                "REV16: multiple lvals in ast: "
+                + ", ".join(str(v) for v in lhsasts))
+
+        hl_lhs = lhsasts[0]
+
+        rhsasts = XU.xxpr_to_ast_exprs(rhs, astree)
+        if len(rhsasts) == 0:
+            raise UF.CHBError("REV16: no argument value found")
+
+        if len(rhsasts) > 1:
+            raise UF.CHBError(
+                "REV16: multiple argument values in asts: "
+                + ", ".join(str(x) for x in rhsasts))
+
+        hl_rhs = rhsasts[0]
+
+        hl_call = astree.mk_call(
+            hl_lhs,
+            bswap16tgt,
+            [hl_rhs],
+            iaddr=iaddr,
+            bytestring=bytestring)
+
+        astree.add_instr_mapping(hl_call, ll_call)
+        astree.add_instr_address(hl_call, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_call], [ll_call])

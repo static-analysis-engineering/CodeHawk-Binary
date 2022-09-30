@@ -91,37 +91,6 @@ class ARMUnsignedExtendByte(ARMOpcode):
         xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
         return lhs + " := " + xresult
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "UXTB"]
-
-        (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[2], astree)
-        if len(rhss) == 1:
-            rhs = rhss[0]
-            mask = astree.mk_integer_constant(255)
-            rhs = astree.mk_binary_op("band", rhs, mask)
-            annotations.append("mask except first byte")
-        elif len(rhss) == 4:
-            annotations.append("select first byte")
-            rhs = rhss[0]
-        else:
-            raise UF.CHBError(
-                "UXTB: Received "
-                + str(len(rhss))
-                + " expressions: "
-                + ", ".join((str(rhs) for rhs in rhss)))
-
-        assign = astree.mk_assign(
-            lhs, rhs, iaddr=iaddr, bytestring=bytestring, annotations=annotations)
-        return preinstrs + [assign] + postinstrs
-
     def ast_prov(
             self,
             astree: ASTInterface,

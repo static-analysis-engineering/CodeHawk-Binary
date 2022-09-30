@@ -254,17 +254,64 @@ class ARMBranchLink(ARMOpcode):
 
         annotations: List[str] = [iaddr, "BL"]
 
-        ll_lhs = astree.mk_register_variable_lval("R0")
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
         tgt = self.operands[0]
         if tgt.is_absolute:
             tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
             faddr = tgtaddr.address.get_hex()
-            tgtxpr: AST.ASTExpr = astree.mk_global_variable_expr(
-                faddr, globaladdress=tgtaddr.address.get_int())
+            if self.app.has_function_name(tgtaddr.address.get_hex()):
+                fnsymbol = self.app.function_name(faddr)
+                tgtxpr: AST.ASTExpr = astree.mk_global_variable_expr(
+                    fnsymbol, globaladdress=int(str(tgtaddr.address), 16))
+            else:
+                (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
         else:
             (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
-        call = astree.mk_call(ll_lhs, tgtxpr, [], iaddr=iaddr, bytestring=bytestring)
 
-        astree.add_instr_address(call, [iaddr])
 
-        return ([call], [call])
+        ll_lhs = astree.mk_register_variable_lval("R0")
+        ll_call = astree.mk_call(
+            ll_lhs,
+            tgtxpr,
+            [],
+            iaddr=iaddr,
+            bytestring=bytestring)
+
+        if not (self.is_call(xdata) and xdata.has_call_target()):
+            raise UF.CHBError("BL at " + iaddr + ": Call without calltarget")
+
+        callargs = self.arguments(xdata)
+        argregs = ["R0", "R1", "R2", "R3"][:len(callargs)]
+        argxprs: List[AST.ASTExpr] = []
+        for (reg, arg) in zip(argregs, callargs):
+            if arg.is_string_reference:
+                regast = astree.mk_register_variable_expr(reg)
+                cstr = arg.constant.string_reference()
+                saddr = hex(arg.constant.value)
+                argxprs.append(astree.mk_string_constant(regast, cstr, saddr))
+            elif arg.is_argument_value:
+                argindex = arg.argument_index()
+                funargs = astree.function_argument(argindex)
+                if len(funargs) != 1:
+                    raise UF.CHBError(
+                        "BL: no or multiple function arguments")
+                funarg = funargs[0]
+                if funarg:
+                    argxprs.append(astree.mk_lval_expr(funarg))
+                else:
+                    argxprs.append(astree.mk_register_variable_expr(reg))
+        hl_call = cast(AST.ASTInstruction, astree.mk_call(
+            ll_lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
+
+        astree.add_instr_mapping(hl_call, ll_call)
+        astree.add_instr_address(hl_call, [iaddr])
+        for (i, argxpr) in enumerate(argxprs):
+            if len(rdefs) > i:
+                astree.add_expr_reachingdefs(argxpr, [rdefs[i]])
+        astree.add_lval_defuses(ll_lhs, defuses[0])
+        astree.add_lval_defuses_high(ll_lhs, defuseshigh[0])
+
+        return ([hl_call], [ll_call])

@@ -135,30 +135,6 @@ class ARMAdd(ARMOpcode):
     # where op2 can be imm32 (immediate) or shifted (shifted register value)
     # --------------------------------------------------------------------------
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        """Create one register-to-register assignment."""
-
-        annotations: List[str] = [iaddr, "ADD"]
-
-        # there are no versions of ADD with write-back arguments
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        (op1, _, _) = self.operands[1].ast_rvalue(astree)
-        (op2, _, _) = self.operands[2].ast_rvalue(astree)
-
-        binop = astree.mk_binary_op("plus", op1, op2)
-        assign = astree.mk_assign(
-            lhs,
-            binop,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-        return [assign]
-
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -190,8 +166,13 @@ class ARMAdd(ARMOpcode):
             annotations=annotations)
 
         lhsasts = XU.xvariable_to_ast_lvals(lhs, astree)
-        if len(lhsasts) != 1:
-            raise UF.CHBError("ARMAdd: multiple lvals in ast")
+        if len(lhsasts) == 0:
+            raise UF.CHBError("ARMAdd: no lval found")
+
+        if len(lhsasts) > 1:
+            raise UF.CHBError(
+                "ARMAdd: multiple lvals in ast: "
+                + ", ".join(str(v) for v in lhsasts))
 
         hl_lhs = lhsasts[0]
 

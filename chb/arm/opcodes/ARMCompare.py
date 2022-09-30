@@ -140,4 +140,5 @@ class ARMCompare(ARMOpcode):
 
         else:
             raise UF.CHBError(
-                "ARMCompare: multiple lval/expressions in ast")
+                "ARMCompare: multiple lval/expressions in ast: "
+                + ", ".join(str(x) for x in hl_rhss))

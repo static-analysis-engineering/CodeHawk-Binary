@@ -279,18 +279,29 @@ class ARMBranch(ARMOpcode):
                 condition = ftconds[0]
             else:
                 condition = ftconds[1]
-        astconds = XU.xxpr_to_ast_exprs(condition, astree)
-        if len(astconds) == 1:
-            hl_astcond = astconds[0]
-            ll_astcond = self.ast_cc_expr(astree)
+            astconds = XU.xxpr_to_ast_exprs(condition, astree)
+            if len(astconds) == 1:
+                hl_astcond = astconds[0]
+                ll_astcond = self.ast_cc_expr(astree)
 
-            astree.add_expr_mapping(hl_astcond, ll_astcond)
-            astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
-            astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
-            astree.add_condition_address(ll_astcond, [iaddr])
+                astree.add_expr_mapping(hl_astcond, ll_astcond)
+                astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+                astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
+                astree.add_condition_address(ll_astcond, [iaddr])
 
-            return (hl_astcond, ll_astcond)
+                return (hl_astcond, ll_astcond)
+            else:
+                raise UF.CHBError(
+                    "ARMBranch: multiple expressions for condition "
+                    + str(condition)
+                    + " at "
+                    + iaddr)
+
+        elif len(ftconds) == 0:
+            # raise UF.CHBError(
+                # "ARMBranch: no branch condition at " + iaddr)
+            return (astree.mk_integer_constant(0), astree.mk_integer_constant(0))
 
         else:
             raise UF.CHBError(
-                "ARMBranch: multiple expressions for condition")
+                "ARMBranch: one or more than two conditions at " + iaddr)
