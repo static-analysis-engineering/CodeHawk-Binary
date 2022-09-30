@@ -76,6 +76,7 @@ class BC2ASTConverter(BCConverter):
         self._enuminfos_referenced: Dict[str, BCEnumInfo] = {}
         self._newcompinfos: Dict[int, BCCompInfo] = {}
         self._newenuminfos: Dict[str, BCEnumInfo] = {}
+        self._structsizes: Dict[int, int] = {}
 
     @property
     def globalstore(self) -> BCFiles:
@@ -92,6 +93,10 @@ class BC2ASTConverter(BCConverter):
     @property
     def enuminfos_referenced(self) -> Dict[str, BCEnumInfo]:
         return self._enuminfos_referenced
+
+    @property
+    def structsizes(self) -> Dict[int, int]:
+        return self._structsizes
 
     def get_lvalid(self) -> int:
         return self.symboltable.get_lvalid(None)
@@ -125,13 +130,12 @@ class BC2ASTConverter(BCConverter):
                 if einfo.ename not in self._enuminfos_referenced:
                     self._enuminfos_referenced[einfo.ename] = einfo
 
-        if len(self._newenuminfos) == 0:
-            return
-        else:
+        if len(self._newenuminfos) > 0:
             for (ename, einfo) in self._newenuminfos.items():
                 if ename not in self._enuminfos_referenced:
                     self._enuminfos_referenced[ename] = einfo
             self._newenuminfos = {}
+
         for einfo in self.enuminfos_referenced.values():
             einfo.convert(self)
 
@@ -266,6 +270,7 @@ class BC2ASTConverter(BCConverter):
             for eitem in einfo.enumitems:
                 astitems.append(eitem.convert(self))
             asteinfo = AST.ASTEnumInfo(einfo.ename, astitems, einfo.ekind)
+            self.symboltable.add_enuminfo(asteinfo)
             return asteinfo
 
     def convert_enumitem(self, eitem: BCEnumItem) -> AST.ASTEnumItem:
@@ -287,6 +292,7 @@ class BC2ASTConverter(BCConverter):
                 astfields.append(astfinfo)
             astcinfo = AST.ASTCompInfo(
                 cinfo.cname, cinfo.ckey, astfields, is_union=cinfo.is_union)
+            self._structsizes[cinfo.ckey] = cinfo.byte_size()
             return astcinfo
 
     def convert_fieldinfo(self, finfo: BCFieldInfo) -> AST.ASTFieldInfo:

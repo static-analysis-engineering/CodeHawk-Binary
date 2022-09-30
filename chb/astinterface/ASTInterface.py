@@ -168,7 +168,9 @@ class ASTInterface:
         self._typconverter = typconverter
         self._verbose = verbose
         self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
-        self._bytesizecalculator = ASTByteSizeCalculator(self._ctyper)
+        self._bytesizecalculator = ASTByteSizeCalculator(
+            self._ctyper,
+            structsizes=self._typconverter.structsizes)
         self._parameter_abi = parameter_abi
         self._srcformals: List[ASTIFormalVarInfo] = []
         self._unsupported: Dict[str, List[str]] = {}
@@ -1017,6 +1019,16 @@ class ASTInterface:
             anonymous: bool = False) -> AST.ASTExpr:
         optexprid = -1 if anonymous else False
         return self.astree.mk_cast_expression(tgttyp, exp, optexprid=optexprid)
+
+    # ---------------------------------------------------- types -----------
+
+    def mk_function_with_arguments_type(
+            self,
+            returntype: AST.ASTTyp,
+            arguments: List[Tuple[str, AST.ASTTyp]],
+            varargs: bool = False) -> AST.ASTTypFun:
+        return self.astree.mk_function_with_arguments_type(
+            returntype, arguments, varargs=varargs)
 
     # ---------------------------------------------------- AST rewriting ---
 

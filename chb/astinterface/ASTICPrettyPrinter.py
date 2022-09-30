@@ -146,6 +146,43 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                 self.ccode.write("  // ")
                 self.ccode.write(str(defusehigh))
 
+    def visit_call_instr(self, instr: AST.ASTCall) -> None:
+        ASTCPrettyPrinter.visit_call_instr(self, instr)
+        if self.provenance.has_instruction_mapped(instr.instrid):
+            mapped_instrs = (
+                self.provenance.get_instructions_mapped(instr.instrid))
+            for (i, mapped_instr) in enumerate(mapped_instrs):
+                mapped_instr = cast(AST.ASTCall, mapped_instr)
+                if i > 0:
+                    self.ccode.newline(indent = self.indent)
+                self.ccode.write(" " * (60 - self.ccode.pos))
+                self.ccode.write("// ")
+                if self.provenance.has_instruction_address(instr.instrid):
+                    address = ", ".join(
+                        self.provenance.get_instruction_address(instr.instrid))
+                    self.ccode.write(address)
+                    self.ccode.write("  ")
+                if mapped_instr.lhs is not None:
+                    mapped_instr.lhs.accept(self)
+                    self.ccode.write(" = ")
+                mapped_instr.tgt.accept(self)
+                self.ccode.write(";")
+            for rdefstring in self.instr_reachingdefs:
+                self.ccode.newline(indent = self.indent + 5)
+                self.ccode.write("  / " + rdefstring)
+            self.reset_reachingdefs()
+            if instr.lhs is not None:
+                if self.provenance.has_lval_defuse(instr.lhs.lvalid):
+                    self.ccode.newline(indent = self.indent + 4)
+                    defuse = self.provenance.get_lval_defuse(instr.lhs.lvalid)
+                    self.ccode.write("  // ")
+                    self.ccode.write(str(defuse))
+                if self.provenance.has_lval_defuse_high(instr.lhs.lvalid):
+                    self.ccode.newline(indent=self.indent + 4)
+                    defusehigh = self.provenance.get_lval_defuse_high(instr.lhs.lvalid)
+                    self.ccode.write("  // ")
+                    self.ccode.write(str(defusehigh))
+
     def visit_lval_expression(self, lvalexpr: AST.ASTLvalExpr) -> None:
         if self.provenance.has_reaching_defs(lvalexpr.exprid):
             rdefs = self.provenance.get_reaching_defs(lvalexpr.exprid)
