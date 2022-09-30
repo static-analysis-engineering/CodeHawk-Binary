@@ -343,10 +343,10 @@ class ASTCPrettyPrinter(ASTVisitor):
     def visit_call_instr(self, instr: AST.ASTCall) -> None:
         self.ccode.newline(indent=self.indent)
         if instr.lhs is not None:
-            lhslive = self.is_returnval_live(instr.instrid, str(instr.lhs))
-            if lhslive:
-                instr.lhs.accept(self)
-                self.ccode.write(" = ")
+            # lhslive = self.is_returnval_live(instr.instrid, str(instr.lhs))
+            #if lhslive:
+            instr.lhs.accept(self)
+            self.ccode.write(" = ")
         instr.tgt.accept(self)
         self.ccode.write("(")
         if len(instr.arguments) > 0:

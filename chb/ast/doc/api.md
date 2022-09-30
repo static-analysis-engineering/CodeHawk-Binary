@@ -419,7 +419,7 @@ have no storage.
 - **mk_named_lval_expression**: creates an lval expression (rhs) (with optional
   offset) with the given name
   ```
-  def mk_named_lval(self,
+  def mk_named_lval_expression(self,
        vname: str,
        vtype: Optional[ASTTyp] = None,
        parameter: Optional[int] = None,

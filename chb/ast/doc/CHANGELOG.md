@@ -6,6 +6,14 @@ The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+### Version 0.1.0-2022-09-29
+
+- Separated symbolic_names from symbolic_addrs in global symbol table
+- Added accessor for field in global variable to global symbol table
+
+---
+
 ### Version 0.1.0-2022-09-21
 
 - Added support for enum types: ASTEnumInfo, ASTEnumItem, ASTTypEnum

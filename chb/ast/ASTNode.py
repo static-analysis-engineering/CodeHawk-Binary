@@ -2201,6 +2201,9 @@ class ASTTypFun(ASTTyp):
     def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
         return ctyper.ctype_fun_typ(self)
 
+    def __str__(self) -> str:
+        return "(" + str(self.argtypes) + "):" + str(self.returntyp) + " "
+
 
 class ASTFunArgs(ASTNode):
 
@@ -2223,6 +2226,9 @@ class ASTFunArgs(ASTNode):
 
     def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
         return ctyper.ctype_funargs(self)
+
+    def __str__(self) -> str:
+        return ", ".join(str(a) for a in self.funargs)
 
 
 class ASTFunArg(ASTNode):

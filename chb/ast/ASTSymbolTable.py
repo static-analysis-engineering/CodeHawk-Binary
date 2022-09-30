@@ -28,6 +28,8 @@
 
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Set
 
+from chb.ast.ASTByteSizeCalculator import (
+    ASTByteSizeCalculator, ASTByteSizeCalculationException)
 from chb.ast.ASTIndexer import ASTIndexer
 import chb.ast.ASTNode as AST
 from chb.ast.ASTNodeDictionary import ASTNodeDictionary, get_key
@@ -92,6 +94,7 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
     def __init__(self) -> None:
         ASTSymbolTable.__init__(self)
         self._symbolicaddrs: Dict[str, AST.ASTVarInfo] = {}
+        self._symbolicnames: Dict[str, AST.ASTVarInfo] = {}
         self._referenced: Set[str] = set([])
         self._typesused: Set[int] = set([])
         self._compinfos: Dict[int, AST.ASTCompInfo] = {}
@@ -101,7 +104,15 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
 
     @property
     def symbolic_addresses(self) -> Mapping[str, AST.ASTVarInfo]:
+        """Return a mapping from global addresses to varinfos."""
+
         return self._symbolicaddrs
+
+    @property
+    def symbolic_names(self) -> Mapping[str, AST.ASTVarInfo]:
+        """Return a mapping from global variable names to varinfos."""
+
+        return self._symbolicnames
 
     @property
     def compinfos(self) -> Mapping[int, AST.ASTCompInfo]:
@@ -155,6 +166,27 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         else:
             return None
 
+    def in_global_variable(
+            self,
+            gaddr: str,
+            size_calculator: ASTByteSizeCalculator) -> Optional[AST.ASTVarInfo]:
+        """Return a variable that includes the global address within its extent."""
+
+        if gaddr in self.symbolic_addresses:
+            return self.symbolic_addresses[gaddr]
+        else:
+            igaddr = int(gaddr, 16)
+            for (a, gvinfo) in self.symbolic_addresses.items():
+                if int(a, 16) < igaddr:
+                    if gvinfo.vtype is not None:
+                        try:
+                            if int(a, 16) + gvinfo.vtype.index(size_calculator) > igaddr:
+                                return gvinfo
+                        except ASTByteSizeCalculationException as e:
+                            print("Unable to determine size of " + str(gvinfo))
+
+        return None
+
     def add_symbol(
             self,
             vname: str,
@@ -171,12 +203,9 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
             globaladdress=globaladdress,
             vdescr=vdescr)
         if globaladdress is not None and globaladdress > 0:
-            self._symbolicaddrs[vinfo.vname] = vinfo
+            self._symbolicnames[vinfo.vname] = vinfo
+            self._symbolicaddrs[hex(globaladdress)] = vinfo
         return vinfo
-
-    def add_varinfo(self, vinfo: AST.ASTVarInfo) -> None:
-        if vinfo.vname not in self.symbolic_addresses:
-            self._symbolicaddrs[vinfo.vname] = vinfo
 
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
         if cinfo.compkey not in self.compinfos:
@@ -216,6 +245,10 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         lines.append("-" * 80)
         for cinfo in self.compinfos.values():
             lines.append(str(cinfo.compkey).rjust(4) + "  " + cinfo.compname)
+        lines.append("\nEnum definitions")
+        lines.append("-" * 80)
+        for einfo in self.enuminfos.values():
+            lines.append(einfo.enumname)
         return "\n".join(lines)
 
 
