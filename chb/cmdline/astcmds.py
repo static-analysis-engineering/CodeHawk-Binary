@@ -231,6 +231,12 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             UC.print_error("Unable to find function " + faddr)
             continue
 
+    if verbose:
+        print("\nGlobal symbol table")
+        print("=" * 25)
+        print(str(globalsymboltable))
+        print("\n\n")
+
     astdata = astapi.serialize(verbose)
 
     if outputfile is not None:

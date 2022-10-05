@@ -307,9 +307,15 @@ def parse() -> argparse.Namespace:
     analyzecmd = subparsers.add_parser('analyze')
     analyzecmd.add_argument('xname', help='name of executable')
     analyzecmd.add_argument(
-        '-d', '--disassemble',
+        "-d", "--disassemble",
         action='store_true',
-        help='extract and disassemble only')
+        help="extract and disassemble only")
+    analyzecmd.add_argument(
+        "--save_datablocks",
+        help="save datablocks in range <startaddr>:<endaddr>")
+    analyzecmd.add_argument(
+        "-o", "--outputfile",
+        help="name of json file (without extension) to save datablocks")
     analyzecmd.add_argument(
         "--vardefs",
         action="store_true",
@@ -345,6 +351,11 @@ def parse() -> argparse.Namespace:
         type=int,
         default=12,
         help='maximum number of iterations')
+    analyzecmd.add_argument(
+        "--analysisrepeats",
+        type=int,
+        default=1,
+        help="number of analyses to be performed per cycle")
     analyzecmd.add_argument(
         '--preamble_cutoff',
         type=int,

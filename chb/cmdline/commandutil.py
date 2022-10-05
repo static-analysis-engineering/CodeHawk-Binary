@@ -351,12 +351,15 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     doreset: bool = args.reset
     doresetx: bool = args.resetx
     dodisassemble: bool = args.disassemble
+    savedatablocks: str = args.save_datablocks
+    outputfile: str = args.outputfile
     doextract: bool = args.extract
     verbose: bool = args.verbose
     save_asm: str = args.save_asm
     thumb: List[str] = args.thumb
     preamble_cutoff: int = args.preamble_cutoff
     iterations: int = args.iterations
+    analysisrepeats: int = args.analysisrepeats
     deps: List[str] = args.thirdpartysummaries
     so_libraries: List[str] = args.so_libraries
     skip_if_asm: bool = args.skip_if_asm
@@ -424,6 +427,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         arm=xinfo.is_arm,
         power=xinfo.is_powerpc,
         elf=xinfo.is_elf,
+        savedatablocks=(savedatablocks is not None),
         deps=deps,
         so_libraries=so_libraries,
         ifilenames=ifilenames,
@@ -445,11 +449,27 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         except UF.CHBError as e:
             print(str(e.wrap()))
             exit(1)
+
+        if savedatablocks is not None and outputfile is not None:
+            (startaddr, endaddr) = savedatablocks.split(":")
+            app = get_app(path, xfile, xinfo)
+            systeminfo = app.systeminfo
+            datablocks = systeminfo.datablocks.datablocks_in_range(startaddr, endaddr)
+            userdata: Dict[str, Any] = {}
+            udata = userdata["userdata"] = {}
+            dbdata = udata["data-blocks"] = []
+            for db in datablocks:
+                dbrec: Dict = {}
+                dbrec["r"] = [db.startaddr, db.endaddr]
+                dbdata.append(dbrec)
+            with open(outputfile + ".json", "w") as fp:
+                json.dump(userdata, fp, indent=2)
         exit(0)
 
     else:
         try:
             am.analyze(
+                analysisrepeats=analysisrepeats,
                 iterations=iterations,
                 verbose=verbose,
                 preamble_cutoff=preamble_cutoff)
@@ -979,12 +999,17 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
             with open(outfilename, "w") as fp:
                 json.dump(cbtable.serialize(), fp, indent=2)
             if showtags:
+                outfilename = xout + "_tags.json"
                 cbtags = cbtable.tags()
                 if len(cbtags) > 0:
                     print("Call-back table tags (" + str(len(cbtags)) + ")")
                     print("------------------------------")
                     for t in sorted(cbtags):
                         print("  " + t)
+                    dresult: Dict[str, List[str]] = {}
+                    dresult["tags"] = cbtags
+                    with open(outfilename, "w") as fp:
+                        json.dump(dresult, fp, indent=2)
             exit(0)
         else:
             print_error("Callback table address not found: " + addr)
