@@ -39,7 +39,7 @@ from chb.ast.CustomASTSupport import CustomASTSupport
 from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 
 
-pirversion: str = "0.1.0-20221004"
+pirversion: str = "0.1.0-20221005"
 
 
 class ASTApplicationInterface:

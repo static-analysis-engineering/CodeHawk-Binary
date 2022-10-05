@@ -248,6 +248,8 @@ class ASTCPrettyPrinter(ASTVisitor):
             s.accept(self)
 
     def visit_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> None:
+        for label in stmt.labels:
+            label.accept(self)
         for i in stmt.instructions:
             i.accept(self)
 
