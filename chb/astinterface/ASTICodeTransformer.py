@@ -67,7 +67,9 @@ class ASTICodeTransformer(ASTIdentityTransformer):
     def transform_block_stmt(self, stmt: AST.ASTBlock) -> AST.ASTStmt:
         newstmts = [s.transform(self) for s in stmt.stmts]
         return self.astinterface.mk_block(
-            newstmts, optlocationid=stmt.locationid)
+            newstmts,
+            labels=stmt.labels,
+            optlocationid=stmt.locationid)
         
     def transform_instruction_sequence_stmt(
             self, stmt: AST.ASTInstrSequence) -> AST.ASTStmt:
@@ -80,7 +82,9 @@ class ASTICodeTransformer(ASTIdentityTransformer):
             else:
                 instrs.append(instr)
         return self.astinterface.mk_instr_sequence(
-            instrs, optlocationid=stmt.locationid)
+            instrs,
+            labels=stmt.labels,
+            optlocationid=stmt.locationid)
 
     def transform_branch_stmt(self, stmt: AST.ASTBranch) -> AST.ASTStmt:
         newif = stmt.ifstmt.transform(self)

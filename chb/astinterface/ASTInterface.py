@@ -537,9 +537,12 @@ class ASTInterface:
             optlocationid=optlocationid)
 
     def mk_instr_sequence(
-            self, instrs: List[AST.ASTInstruction],
+            self,
+            instrs: List[AST.ASTInstruction],
+            labels: List[AST.ASTStmtLabel] = [],
             optlocationid: Optional[int] = None) -> AST.ASTInstrSequence:
-        return self.astree.mk_instr_sequence(instrs, optlocationid=optlocationid)
+        return self.astree.mk_instr_sequence(
+            instrs, labels=labels, optlocationid=optlocationid)
 
     def mk_goto_stmt(
             self,
