@@ -566,7 +566,8 @@ class Cfg:
                 instr = astblock.last_instruction
                 rv = instr.return_value()
                 if rv is not None:
-                    astexprs: List[AST.ASTExpr] = XU.xxpr_to_ast_exprs(rv, astree)
+                    astexprs: List[AST.ASTExpr] = XU.xxpr_to_ast_exprs(
+                        rv, instr.xdata, astree)
                 else:
                     astexprs = []
                 astexpr = astexprs[0] if len(astexprs) == 1 else None

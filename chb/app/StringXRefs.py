@@ -112,3 +112,6 @@ class StringsXRefs(object):
                 result[faddr].setdefault(strval, 0)
                 result[faddr][strval] += 1
         return result
+
+    def __str__(self) -> str:
+        return str(len(self.function_xref_strings())) + " string references"

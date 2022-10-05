@@ -31,6 +31,7 @@ from typing import List, Optional, Sequence
 
 from chb.app.BDictionary import BDictionary
 from chb.app.CallbackTables import CallbackTables
+from chb.app.DataBlocks import DataBlocks
 from chb.app.FunctionsData import FunctionsData
 from chb.app.JumpTables import JumpTables
 from chb.app.StringXRefs import StringsXRefs, StringXRefs
@@ -52,6 +53,7 @@ class SystemInfo:
         self._jumptables: Optional[JumpTables] = None
         self._callbacktables: Optional[CallbackTables] = None
         self._structtables: Optional[StructTables] = None
+        self._datablocks: Optional[DataBlocks] = None
 
     @property
     def bd(self) -> BDictionary:
@@ -127,3 +129,13 @@ class SystemInfo:
             else:
                 raise UF.CHBError("Struct tables not found in system info")
         return self._structtables
+
+    @property
+    def datablocks(self) -> DataBlocks:
+        if self._datablocks is None:
+            xdatablocks = self.xnode.find("data-blocks")
+            if xdatablocks is not None:
+                self._datablocks = DataBlocks(xdatablocks)
+            else:
+                raise UF.CHBError("Data blocks not found in system info")
+        return self._datablocks

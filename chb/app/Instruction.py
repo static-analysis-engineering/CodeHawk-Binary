@@ -52,6 +52,7 @@ from chb.invariants.XXpr import XXpr
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
+    from chb.app.InstrXData import InstrXData
     from chb.app.Operand import Operand
     from chb.app.StackPointerOffset import StackPointerOffset
     from chb.invariants.XVariable import XVariable
@@ -94,6 +95,11 @@ class Instruction(ABC):
     @property
     @abstractmethod
     def annotation(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
+    def xdata(self) -> "InstrXData":
         ...
 
     @property
