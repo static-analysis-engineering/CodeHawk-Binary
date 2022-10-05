@@ -288,6 +288,13 @@ class ASTDeserializer:
                 cvalue = int(r["value"])
                 nodes[id] = astree.mk_integer_constant(cvalue, optexprid=exprid)
 
+            elif tag == "global-address":
+                exprid = r["exprid"]
+                cvalue = int(r["value"])
+                address_expr = cast(AST.ASTExpr, mk_node(arg(0)))
+                nodes[id] = astree.mk_global_address_constant(
+                    cvalue, address_expr, optexprid=exprid)
+
             elif tag == "string-constant":
                 exprid = r["exprid"]
                 cstr = r["cstr"]

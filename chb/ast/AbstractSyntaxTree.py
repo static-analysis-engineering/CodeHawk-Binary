@@ -1025,6 +1025,14 @@ class AbstractSyntaxTree:
         exprid = -1 if optexprid is None else optexprid
         return AST.ASTIntegerConstant(exprid, cvalue)
 
+    def mk_global_address_constant(
+            self,
+            cvalue: int,
+            addressexpr: AST.ASTExpr,
+            optexprid: Optional[int] = None) -> AST.ASTGlobalAddressConstant:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTGlobalAddressConstant(exprid, cvalue, addressexpr)
+
     def mk_string_constant(
             self,
             expr: Optional[AST.ASTExpr],

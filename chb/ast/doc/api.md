@@ -623,6 +623,12 @@ Several kinds of other expressions can be created, some with operators defined
   def mk_integer_constant(self, cvalue: int) -> ASTIntegerConstant
   ```
 
+- **mk_global_address_constant**: create an integer constant that represents a global
+  address, together with the expression that produces that address
+  ```
+  def mk_global_address_constant(self, cvalue: int, addressexpr: ASTExpr) -> ASTGlobalAddressConstant
+  ```
+
 - **mk_string_constant**: create a string constant from a string and the
   expression that produced the string address, and the string address
   itself (in hex) (to ensure proper identification)

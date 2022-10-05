@@ -1475,6 +1475,10 @@ class ASTExpr(ASTNode):
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         ...
 
+    @abstractmethod
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        ...
+
     def use(self) -> List[str]:
         return []
 
@@ -1572,7 +1576,7 @@ class ASTGlobalAddressConstant(ASTIntegerConstant):
     def transformer(self, transformer: "ASTTransformer") -> "ASTExpr":
         return transformer.transform_global_address(self)
 
-    def indexer(self, indexer: "ASTIndexer") -> int:
+    def index(self, indexer: "ASTIndexer") -> int:
         return indexer.index_global_address(self)
 
     def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
