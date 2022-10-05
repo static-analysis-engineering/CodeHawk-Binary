@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -88,52 +88,6 @@ class ARMMoveTop(ARMOpcode):
         xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
         return lhs + " := " + xresult
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "MOVT"]
-
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        (op1, _, _) = self.operands[1].ast_rvalue(astree)
-        (op2, _, _) = self.operands[0].ast_rvalue(astree)
-        i16 = astree.mk_integer_constant(16)
-        e16 = astree.mk_integer_constant(256 * 256)
-        xpr1 = astree.mk_binary_op("lsl", op2, i16)
-        xpr2 = astree.mk_binary_op("mod", op1, e16)
-        xpr = astree.mk_binary_op("plus", xpr1, xpr2)
-        assign = astree.mk_assign(
-            lhs, xpr, iaddr=iaddr, bytestring=bytestring, annotations=annotations)
-        return [assign]
-
-    def ast(self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "MOVT"]
-
-        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], xdata, astree)
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[4], xdata, astree)
-        if len(lhss) == 1 and len(rhss) == 1:
-            lhs = lhss[0]
-            rhs = rhss[0]
-            assign = astree.mk_assign(
-                lhs,
-                rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-            return [assign]
-        else:
-            raise UF.CHBError(
-                "ARMMoveTop: multiple expressions/lvals in ast")
-
-    '''
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -155,5 +109,56 @@ class ARMMoveTop(ARMOpcode):
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
         (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(astree)
-        ll_x1 = astree.mk_binary_op(
-    '''
+        mask = astree.mk_integer_constant(0xffff)
+        shift = astree.mk_integer_constant(16)
+        ll_x1 = astree.mk_binary_op("band", ll_rhs1, mask)
+        ll_x2 = astree.mk_binary_op("lsl", ll_rhs2, shift)
+        ll_result = astree.mk_binary_op("plus", ll_x1, ll_x2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_result,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(lhsasts) == 0:
+            raise UF.CHBError("MoveTop (MOVT): no lval found")
+
+        if len(lhsasts) > 1:
+            raise UF.CHBError(
+                "MoveTop (MOVT): multiple lvals in ast: "
+                + ", ".join(str(v) for v in lhsasts))
+
+        hl_lhs = lhsasts[0]
+
+        rhsasts = XU.xxpr_to_ast_exprs(rresult, xdata, astree)
+        if len(rhsasts) == 0:
+            raise UF.CHBError("MoveTop (MOVT): no ast value for rhs")
+
+        if len(rhsasts) > 1:
+            raise UF.CHBError(
+                "MoveTop (MOVT): multiple ast values for rhs: "
+                + ", ".join(str(v) for v in rhsasts))
+
+        hl_rhs = rhsasts[0]
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, str(lhs), hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_result)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_result, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])
