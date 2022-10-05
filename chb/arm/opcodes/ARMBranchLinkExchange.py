@@ -211,7 +211,7 @@ class ARMBranchLinkExchange(ARMOpcode):
                     argxprs.append(astree.mk_register_variable_expr(reg))
             if len(args) > 4:
                 for a in args[4:]:
-                    argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
+                    argxprs.extend(XU.xxpr_to_ast_exprs(a, xdata, astree))
             call = cast(AST.ASTInstruction, astree.mk_call(
                 lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
             return [call] + assigns

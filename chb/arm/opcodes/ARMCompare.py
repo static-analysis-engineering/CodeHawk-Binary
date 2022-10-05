@@ -85,15 +85,8 @@ class ARMCompare(ARMOpcode):
     def annotation(self, xdata: InstrXData) -> str:
         rhs1 = str(xdata.xprs[0])
         rhs2 = str(xdata.xprs[1])
-        return "compare " + str(rhs1) + " and " + str(rhs2)
-
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        return []
+        result = str(xdata.xprs[2])
+        return "compare " + str(rhs1) + " and " + str(rhs2) + " (" + result + ")"
 
     def ast_prov(
             self,
@@ -119,7 +112,7 @@ class ARMCompare(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
         if len(hl_rhss) == 1:
             hl_rhs = hl_rhss[0]
             hl_assign = astree.mk_assign(

@@ -115,7 +115,7 @@ class ARMBranch(ARMOpcode):
             args = ", ".join(str(x) for x in self.arguments(xdata))
             return "call " + str(tgt) + "(" + args + ")"
         elif xdata.has_branch_conditions():
-            return "if " + str(xdata.xprs[0]) + " then goto " + str(xdata.xprs[4])
+            return "if " + str(xdata.xprs[2]) + " then goto " + str(xdata.xprs[4])
         elif self.tags[1] in ["a", "unc"]:
             return "goto " + str(xdata.xprs[0])
         else:
@@ -222,48 +222,12 @@ class ARMBranch(ARMOpcode):
                     argxprs.append(astree.mk_register_variable_expr(reg))
             if len(args) > 4:
                 for a in args[4:]:
-                    argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
+                    argxprs.extend(XU.xxpr_to_ast_exprs(a, xdata, astree))
             call = cast(AST.ASTInstruction, astree.mk_call(
                 lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
             return [call] + assigns
         else:
             return []
-
-    def assembly_ast_condition(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData,
-            reverse: bool) -> Optional[AST.ASTExpr]:
-        ftconds = self.ft_conditions(xdata)
-        if len(ftconds) == 2:
-            if reverse:
-                condition = ftconds[0]
-            else:
-                condition = ftconds[1]
-            astconds = XU.xxpr_to_ast_exprs(condition, astree)
-            if len(astconds) == 1:
-                astcond = astconds[0]
-                if xdata.has_condition_setter():
-                    csetter = xdata.get_condition_setter()
-                    cbytestr = xdata.get_condition_setter_bytestring()
-                    if int(csetter, 16) + (len(cbytestr) // 2) == int(iaddr, 16):
-                        newaddr = hex(int(iaddr, 16) - (len(cbytestr) // 2))
-                        # astree.add_instruction_span(
-                        #    astcond.assembly_xref, newaddr, cbytestr + bytestring)
-                    else:
-                        # astree.add_instruction_span(astcond.id, iaddr, bytestring)
-                        pass
-                else:
-                    # astree.add_instruction_span(astcond.id, iaddr, bytestring)
-                    pass
-                return astcond
-            else:
-                raise UF.CHBError(
-                    "ARMBranch: multiple expressions for condition")
-        else:
-            return None
 
     def ast_condition_prov(
             self,
@@ -279,7 +243,7 @@ class ARMBranch(ARMOpcode):
                 condition = ftconds[0]
             else:
                 condition = ftconds[1]
-            astconds = XU.xxpr_to_ast_exprs(condition, astree)
+            astconds = XU.xxpr_to_ast_exprs(condition, xdata, astree)
             if len(astconds) == 1:
                 hl_astcond = astconds[0]
                 ll_astcond = self.ast_cc_expr(astree)

@@ -68,6 +68,7 @@ class ARMLoadRegister(ARMOpcode):
     xprs[1]: value in rm
     xprs[2]: value in memory location
     xprs[3]: value in memory location (simplified)
+    xprs[4]: address of memory location
     rdefs[0]: reaching definitions rn
     rdefs[1]: reaching definitions rm
     rdefs[2]: reaching definitions memory location
@@ -157,7 +158,7 @@ class ARMLoadRegister(ARMOpcode):
         hl_preinstrs: List[AST.ASTInstruction] = []
         hl_postinstrs: List[AST.ASTInstruction] = []
 
-        rhsexprs = XU.xxpr_to_ast_exprs(rhs, astree)
+        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
         if len(rhsexprs) == 0:
             raise UF.CHBError("No rhs for LoadRegister (LDR)")
 
@@ -167,12 +168,11 @@ class ARMLoadRegister(ARMOpcode):
                 + ", ".join(str(x) for x in rhsexprs))
 
         hl_rhs = rhsexprs[0]
-        hl_lhs = astree.mk_register_variable_lval(str(lhs))
-        if str(hl_rhs).startswith("temp"):
-            (hl_rhs,
-             hl_preinstrs,
-             hl_postinstrs) = self.opargs[1].ast_rvalue(astree)
+        if str(hl_rhs).startswith("__asttmp"):
+            addrlval = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, astree)
+            hl_rhs = astree.mk_lval_expression(addrlval)
 
+        hl_lhs = astree.mk_register_variable_lval(str(lhs))
         hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
@@ -180,6 +180,7 @@ class ARMLoadRegister(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        astree.add_reg_definition(iaddr, str(lhs), hl_rhs)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)

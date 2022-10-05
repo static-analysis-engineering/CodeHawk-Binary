@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -58,6 +58,19 @@ class ARMLogicalShiftRight(ARMOpcode):
     args[2]: index of Rn in armdictionary
     args[3]: index of Rm in armdictionary
     args[4]: is-wide (thumb)
+
+    xdata format: a:vxxxxrrdh
+    -------------------------
+    vars[0]: lhs
+    xprs[0]: xrn
+    xprs[1]: xrm
+    xprs[2]: xrn >> xrm
+    xprs[3]: xrn >> xrm (simplified)
+    rdefs[0]: xrm
+    rdefs[1]: xrn
+    rdefs[2..]: xrn >> xrm (simplified)
+    uses[0]: lhs
+    useshigh[0]: lhs
     """
 
     def __init__(
@@ -68,6 +81,10 @@ class ARMLogicalShiftRight(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[1:-1]]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 
     @property
@@ -83,49 +100,79 @@ class ARMLogicalShiftRight(ARMOpcode):
         return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: rhs1 >> rhs2 (syntactic)
-        xprs[3]: rhs1 >> rhs2 (simplified)
-        """
-
         lhs = str(xdata.vars[0])
         result = xdata.xprs[1]
         rresult = xdata.xprs[2]
         xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
         return lhs + " := " + xresult
 
-    def assembly_ast(
+    def ast_prov(
             self,
             astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "LSR"]
 
-        (rhs1, preinstrs1, postinstrs1) = self.operands[1].ast_rvalue(astree)
-        (rhs2, preinstrs2, postinstrs2) = self.operands[2].ast_rvalue(astree)
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        binop = astree.mk_binary_op("lsr", rhs1, rhs2)
-        assign = astree.mk_assign(
-            lhs, binop, iaddr=iaddr, bytestring=bytestring, annotations=annotations)
-        return preinstrs1 + preinstrs2 + [assign] + postinstrs1 + postinstrs2
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        rresult = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-    def ast(self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[3], astree)
-        if len(lhss) == 1 and len(rhss) == 1:
-            lhs = lhss[0]
-            rhs = rhss[0]
-            assign = astree.mk_assign(lhs, rhs)
-            return [assign]
-        else:
-            return self.assembly_ast(astree, iaddr, bytestring, xdata)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_lsl_expr = astree.mk_binary_op("lsr", ll_rhs1, ll_rhs2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_lsl_expr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(hl_lhss) == 0:
+            raise UF.CHBError("ARMLogicalShiftRight (LSR): no lhs found")
+
+        if len(hl_lhss) > 1:
+            raise UF.CHBError(
+                "ARMLogicalShiftRight (LSR): Multiple lhs locations found: "
+                + ", ".join(str(l) for l in hl_lhss))
+
+        hl_rhss = XU.xxpr_to_ast_exprs(rresult, xdata, astree)
+        if len(hl_rhss) == 0:
+            raise UF.CHBError("ARMLogicalShiftRight (LSR): no rhs found")
+
+        if len(hl_rhss) > 1:
+            raise UF.CHBError(
+                "ARMLogicalShiftRight (LSR): Multiple rhs values found: "
+                + ", ".join(str(v) for v in hl_rhss))
+
+        hl_lhs = hl_lhss[0]
+        hl_rhs = hl_rhss[0]
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, str(lhs), hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_lsl_expr)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_lsl_expr, [rdefs[0], rdefs[1]])
+        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

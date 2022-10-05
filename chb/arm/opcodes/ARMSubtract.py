@@ -150,7 +150,7 @@ class ARMSubtract(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, astree)
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(lhsasts) != 1:
             raise UF.CHBError("ARMSubtract: multiple lvals in ast")
 
@@ -170,7 +170,7 @@ class ARMSubtract(ARMOpcode):
                 rhsval = cast("XprConstant", rhs3).intvalue
                 rhsast = astree.mk_integer_constant(rhsval)
             else:
-                rhsasts = XU.xxpr_to_ast_exprs(rhs3, astree)
+                rhsasts = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
                 if len(rhsasts) == 1:
                     rhsast = rhsasts[0]
                 else:
@@ -178,7 +178,7 @@ class ARMSubtract(ARMOpcode):
                         "ARMSubtract: multiple expressions in ast rhs")
 
         else:
-            rhsasts = XU.xxpr_to_ast_exprs(rhs3, astree)
+            rhsasts = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
             if len(rhsasts) == 1:
                 rhsast = rhsasts[0]
             else:

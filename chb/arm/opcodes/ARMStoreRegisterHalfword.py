@@ -67,7 +67,8 @@ class ARMStoreRegisterHalfword(ARMOpcode):
     xprs[1]: xrm (index)
     xprs[2]: xrt (rhs, source register)
     xprs[3]: xrt (rhs, simplified)
-    xprs[4]: condition (if TC is set)
+    xprs[4]: address of memory location
+    xprs[5]: condition (if TC is set)
     rdefs[0]: rn
     rdefs[1]: rm
     rdefs[2]: rt
@@ -118,54 +119,6 @@ class ARMStoreRegisterHalfword(ARMOpcode):
 
         return pcond + assign
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "STRH"]
-
-        (lhs, preinstrs, postinstrs) = self.operands[1].ast_lvalue(astree)
-        mask = astree.mk_integer_constant((256 * 256) - 1)
-        (rhs, _, _) = self.operands[0].ast_rvalue(astree)
-        rhs = astree.mk_binary_op("band", rhs, mask)
-        assign = astree.mk_assign(
-            lhs,
-            rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-        return preinstrs + [assign] + postinstrs
-
-    def ast(self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "STRH"]
-
-        (rhs, _, _) = self.operands[0].ast_rvalue(astree)
-        lhs = xdata.vars[0]
-        if str(lhs) == "?":
-            return self.assembly_ast(astree, iaddr, bytestring, xdata)
-
-        lvals = XU.xvariable_to_ast_lvals(lhs, astree)
-        if len(lvals) == 1:
-            lval = lvals[0]
-            assign = astree.mk_assign(
-                lval,
-                rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-            return [assign]
-        else:
-            raise UF.CHBError(
-                "ARMStoreRegisterHalfword: multiple lvals in ast")
-
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -193,32 +146,53 @@ class ARMStoreRegisterHalfword(ARMOpcode):
 
         hl_preinstrs: List[AST.ASTInstruction] = []
         hl_postinstrs: List[AST.ASTInstruction] = []
-        rhsexprs = XU.xxpr_to_ast_exprs(rhs, astree)
-        lvals = XU.xvariable_to_ast_lvals(lhs, astree)
-        if len(rhsexprs) == 1 and len(lvals) == 1:
-            hl_rhs = rhsexprs[0]
-            hl_lhs = lvals[0]
-            hl_assign = astree.mk_assign(
-                hl_lhs,
-                hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
 
-            astree.add_instr_mapping(hl_assign, ll_assign)
-            astree.add_instr_address(hl_assign, [iaddr])
-            astree.add_expr_mapping(hl_rhs, ll_rhs)
-            astree.add_lval_mapping(hl_lhs, ll_lhs)
-            astree.add_expr_reachingdefs(ll_rhs, [rdefs[2]])
-            astree.add_lval_defuses(hl_lhs, defuses[0])
-            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        if len(rhsexprs) == 0:
+            raise UF.CHBError("No rhs for StoreRegisterHalfword (STRH) at " + iaddr)
 
-            if ll_lhs.lhost.is_memref:
-                memexp = cast(AST.ASTMemRef, ll_lhs.lhost).memexp
-                astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
-
-            return ([hl_assign], [ll_assign])
-
-        else:
+        if len(rhsexprs) > 1:
             raise UF.CHBError(
-                "ARMStoreRegisterHalfword: multiple expressions/lvals in ast")
+                "Multiple rhs values for StoreRegisterHalfword (STRH) at "
+                + iaddr
+                + ": "
+                + ", ".join(str(x) for x in rhsexprs))
+
+        hl_rhs = rhsexprs[0]
+
+        lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(lvals) == 0:
+            raise UF.CHBError(
+                "No lhs value for StoreRegister (STR) at " + iaddr)
+
+        if len(lvals) > 1:
+            raise UF.CHBError(
+                "Multiple lhs values for StoreRegister (STR) at "
+                + iaddr
+                + ": "
+                + ", ".join(str(x) for x in lvals))
+
+        hl_lhs = lvals[0]
+        if str(hl_lhs).startswith("__asttmp"):
+            hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, astree)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs[2]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if ll_lhs.lhost.is_memref:
+            memexp = cast(AST.ASTMemRef, ll_lhs.lhost).memexp
+            astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
+
+        return ([hl_assign], [ll_assign])

@@ -138,7 +138,7 @@ class ARMByteReversePackedHalfword(ARMOpcode):
             iaddr=iaddr,
             bytestring=bytestring)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, astree)
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(lhsasts) == 0:
             raise UF.CHBError("REV16: no lval found")
 
@@ -149,7 +149,7 @@ class ARMByteReversePackedHalfword(ARMOpcode):
 
         hl_lhs = lhsasts[0]
 
-        rhsasts = XU.xxpr_to_ast_exprs(rhs, astree)
+        rhsasts = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
         if len(rhsasts) == 0:
             raise UF.CHBError("REV16: no argument value found")
 

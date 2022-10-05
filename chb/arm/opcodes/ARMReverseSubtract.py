@@ -137,7 +137,7 @@ class ARMReverseSubtract(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, astree)
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(lhsasts) == 0:
             raise UF.CHBError("No lvalue for ReverseSubtract")
 
@@ -148,7 +148,7 @@ class ARMReverseSubtract(ARMOpcode):
 
         hl_lhs = lhsasts[0]
 
-        rhsasts = XU.xxpr_to_ast_exprs(result, astree)
+        rhsasts = XU.xxpr_to_ast_exprs(result, xdata, astree)
         if len(rhsasts) == 0:
             raise UF.CHBError("No result value for ReverseSubtract")
 

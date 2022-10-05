@@ -97,19 +97,6 @@ class ARMBitwiseAnd(ARMOpcode):
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return lhs + " := " + xresult
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        (rhs1, preinstrs1, postinstrs1) = self.operands[1].ast_rvalue(astree)
-        (rhs2, preinstrs2, postinstrs2) = self.operands[2].ast_rvalue(astree)
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        binop = astree.mk_binary_op("band", rhs1, rhs2)
-        assign = astree.mk_assign(lhs, binop, iaddr=iaddr, bytestring=bytestring)
-        return preinstrs1 + preinstrs2 + [assign] + postinstrs1 + postinstrs2
-
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -140,8 +127,8 @@ class ARMBitwiseAnd(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, astree)
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs3, astree)
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
         if len(hl_lhss) == 1 and len(hl_rhss) == 1:
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]

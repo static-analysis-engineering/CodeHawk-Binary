@@ -148,8 +148,8 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         instrs: List[AST.ASTInstruction] = []
 
         for (v, x) in zip(vars, xprs):
-            lhss = XU.xvariable_to_ast_lvals(v, astree)
-            rhss = XU.xxpr_to_ast_exprs(x, astree)
+            lhss = XU.xvariable_to_ast_lvals(v, xdata, astree)
+            rhss = XU.xxpr_to_ast_exprs(x, xdata, astree)
             if len(lhss) == 1 and len(rhss) == 1:
                 lhs = lhss[0]
                 rhs = rhss[0]

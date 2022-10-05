@@ -109,52 +109,6 @@ class ARMMove(ARMOpcode):
         else:
             return assignment
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        if xdata.instruction_is_subsumed():
-            return []
-        else:
-            annotations: List[str] = [iaddr, "MOV"]
-            (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-            (rhs, _, _) = self.operands[1].ast_rvalue(astree)
-            assign = astree.mk_assign(
-                lhs,
-                rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-            return [assign]
-
-    def ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        if xdata.instruction_is_subsumed():
-            return []
-        else:
-            annotations: List[str] = [iaddr, "MOV"]
-            lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
-            rhss = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
-            if len(lhss) == 1 and len(rhss) == 1:
-                lhs = lhss[0]
-                rhs = rhss[0]
-                assign = astree.mk_assign(
-                    lhs,
-                    rhs,
-                    iaddr=iaddr,
-                    bytestring=bytestring,
-                    annotations=annotations)
-                return [assign]
-            else:
-                raise UF.CHBError(
-                    "ARMMove: multiple expressions/lvals in ast")
-
     def ast_prov_subsumed(
             self,
             astree: ASTInterface,
@@ -214,8 +168,8 @@ class ARMMove(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, astree)
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, astree)
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
         if len(hl_lhss) == 1 and len(hl_rhss) == 1:
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]

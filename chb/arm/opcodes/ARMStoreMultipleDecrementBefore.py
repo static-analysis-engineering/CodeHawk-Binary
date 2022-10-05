@@ -145,7 +145,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         instrs: List[AST.ASTInstruction] = []
         annotations: List[str] = [iaddr, "STMDB"]
 
-        rhss = XU.xxpr_list_to_ast_exprs(xprs, astree)
+        rhss = XU.xxpr_list_to_ast_exprs(xprs, xdata, astree)
 
         '''
         if len(rhss) == 1 and rhss[0].ctype and rhss[0].ctype.is_struct:

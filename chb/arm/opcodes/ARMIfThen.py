@@ -78,32 +78,6 @@ class ARMIfThen(ARMOpcode):
         else:
             return self.tags[0]
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        if len(xdata.vars) == 1 and len(xdata.xprs) == 1:
-            lhs = astree.mk_variable_lval(str(xdata.vars[0]))
-            rhss = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
-            if len(rhss) == 1:
-                rhs = rhss[0]
-                assign = astree.mk_assign(
-                    lhs, rhs, iaddr=iaddr, bytestring=bytestring)
-                return [assign]
-            else:
-                return []
-        else:
-            raise UF.CHBError(
-                "ARMIfThen: multiple expressions/lvals in ast: "
-                + "vars: "
-                + ", ".join([str(v) for v in xdata.vars])
-                + "; xprs: "
-                + ", ".join([str(x) for x in xdata.xprs])
-                + " at address "
-                + iaddr)
-
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -123,8 +97,8 @@ class ARMIfThen(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, astree)
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, astree)
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
         if len(hl_lhss) == 1 and len(hl_rhss) == 1:
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]

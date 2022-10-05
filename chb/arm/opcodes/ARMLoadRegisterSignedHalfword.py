@@ -133,46 +133,6 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
 
         return pcond + lhs + " := " + rhs + pbupd
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "LDRSH"]
-
-        (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        assign = astree.mk_assign(
-            lhs, rhs, iaddr=iaddr, bytestring=bytestring, annotations=annotations)
-        return preinstrs + [assign] + postinstrs
-
-    def ast(self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        annotations: List[str] = [iaddr, "LDRSH"]
-
-        rhslvals = XU.xvariable_to_ast_lvals(xdata.vars[1], astree)
-        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
-        if len(rhslvals) == 1 and len(lhss) == 1:
-            rhslval = rhslvals[0]
-            lhs = lhss[0]
-            rhs = astree.mk_lval_expr(rhslval)
-            assign = astree.mk_assign(
-                lhs,
-                rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-            return [assign]
-        else:
-            raise UF.CHBError(
-                "ARMLoadRegisterSignedHalfword: multiple expressions/lvals in ast")
-
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -202,7 +162,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
 
         hl_preinstrs: List[AST.ASTInstruction] = []
         hl_postinstrs: List[AST.ASTInstruction] = []
-        rhsexprs = XU.xxpr_to_ast_exprs(rhs, astree)
+        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
         if len(rhsexprs) == 1:
             hl_rhs = rhsexprs[0]
             hl_lhs = astree.mk_register_variable_lval(str(lhs))

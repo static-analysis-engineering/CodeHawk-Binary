@@ -129,47 +129,6 @@ class ARMPop(ARMOpcode):
 
         return pcond + assigns
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        regsop = self.operands[1]
-        if not regsop.is_register_list:
-            raise UF.CHBError("Argument to push is not a register list")
-
-        (splval, _, _) = self.operands[0].ast_lvalue(astree)
-        (sprval, _, _) = self.operands[0].ast_rvalue(astree)
-
-        instrs: List[AST.ASTInstruction] = []
-        registers = regsop.registers
-        sp_incr = 4 * len(registers)
-        sp_offset = 0
-        for r in registers:
-            sp_offset_c = astree.mk_integer_constant(sp_offset)
-            addr = astree.mk_binary_op("plus", sprval, sp_offset_c)
-            lhs = astree.mk_variable_lval(r)
-            rhs = astree.mk_memref_expr(addr)
-            instrs.append(astree.mk_assign(lhs, rhs))
-            sp_offset += 4
-        sp_incr_c = astree.mk_integer_constant(sp_incr)
-        sp_rhs = astree.mk_binary_op("plus", sprval, sp_incr_c)
-        instrs.append(astree.mk_assign(
-            splval, sp_rhs, iaddr=iaddr, bytestring=bytestring))
-        return instrs
-
-    def ast(self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        vars = xdata.vars
-        xprs = xdata.xprs
-        instrs: List[AST.ASTInstruction] = []
-        return []
-
-
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -212,8 +171,8 @@ class ARMPop(ARMOpcode):
 
             lhs = reglhss[i]
             rhs = memrhss[i]
-            hl_lhss = XU.xvariable_to_ast_lvals(lhs, astree)
-            hl_rhss = XU.xxpr_to_ast_exprs(rhs, astree)
+            hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+            hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
             if len(hl_lhss) != 1 and len(hl_rhss) != 1:
                 raise UF.CHBError(
                     "ARMPop: more than one lhs or ths in assignments")
@@ -238,8 +197,8 @@ class ARMPop(ARMOpcode):
         ll_sp_assign = astree.mk_assign(ll_sp_lhs, ll_sp_rhs, iaddr=iaddr)
         ll_instrs.append(ll_sp_assign)
 
-        hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, astree)
-        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, astree)
+        hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, xdata, astree)
+        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, xdata, astree)
         if len(hl_sp_lhss) != 1 or len(hl_sp_rhss) != 1:
             raise UF.CHBError(
                 "ARMPop more than one lhs or rhs in SP assignment")

@@ -55,6 +55,15 @@ class ARMMoveTop(ARMOpcode):
     tags[1]: <c>
     args[0]: index of Rd in arm dictionary
     args[1]: index of imm16 in arm dictionary
+
+    xdata format: a:vxxxxxrdh
+    -------------------------
+    vars[0]: lhs
+    xprs[0]: immediate value
+    xprs[1]: rhs
+    xprs[2]: rhs shifted by 16 bits
+    xprs[3]: result
+    xprs[4]: result (simplified)
     """
 
     def __init__(
@@ -68,17 +77,11 @@ class ARMMoveTop(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args]
+
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vx .
-
-        vars[0]: lhs (Rd)
-        xprs[0]: imm16
-        xprs[1]: rhs (Rd)
-        xprs[2]: rhs % 2^16
-        xprs[3]: (rhs % 2^16) + (2^16 * imm16) (syntactic)
-        xprs[4]: (rhs % 2^16) + (2^16 * imm16) (simplified)
-        """
-
         lhs = str(xdata.vars[0])
         result = xdata.xprs[3]
         rresult = xdata.xprs[4]
@@ -114,8 +117,8 @@ class ARMMoveTop(ARMOpcode):
 
         annotations: List[str] = [iaddr, "MOVT"]
 
-        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[4], astree)
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], xdata, astree)
+        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[4], xdata, astree)
         if len(lhss) == 1 and len(rhss) == 1:
             lhs = lhss[0]
             rhs = rhss[0]
@@ -129,3 +132,28 @@ class ARMMoveTop(ARMOpcode):
         else:
             raise UF.CHBError(
                 "ARMMoveTop: multiple expressions/lvals in ast")
+
+    '''
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "MOVT"]
+
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        rresult = xdata.xprs[4]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_x1 = astree.mk_binary_op(
+    '''

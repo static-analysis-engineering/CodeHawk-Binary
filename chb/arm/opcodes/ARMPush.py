@@ -106,46 +106,6 @@ class ARMPush(ARMOpcode):
             str(v) + " := " + str(x) for (v, x) in zip(vars, xprs))
         return assigns
 
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        regsop = self.operands[1]
-        if not regsop.is_register_list:
-            raise UF.CHBError("Argument to push is not a register list")
-
-        (splval, _, _) = self.operands[0].ast_lvalue(astree)
-        (sprval, _, _) = self.operands[0].ast_rvalue(astree)
-
-        instrs: List[AST.ASTInstruction] = []
-        registers = regsop.registers
-        sp_decr = 4 * len(registers)
-        sp_offset = sp_decr
-        for r in registers:
-            sp_offset_c = astree.mk_integer_constant(sp_offset)
-            addr = astree.mk_binary_op("minus", sprval, sp_offset_c)
-            lhs = astree.mk_memref_lval(addr)
-            rhs = astree.mk_register_variable_expr(r)
-            instrs.append(astree.mk_assign(lhs, rhs))
-            sp_offset -= 4
-        sp_decr_c = astree.mk_integer_constant(sp_decr)
-        sp_rhs = astree.mk_binary_op("minus", sprval, sp_decr_c)
-        instrs.append(astree.mk_assign(
-            splval, sp_rhs, iaddr=iaddr, bytestring=bytestring))
-        return instrs
-
-    def ast(self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        vars = xdata.vars
-        xprs = xdata.xprs
-        return []
-
-
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -188,8 +148,8 @@ class ARMPush(ARMOpcode):
 
             lhs = memlhss[i]
             rhs = regrhss[i]
-            hl_lhss = XU.xvariable_to_ast_lvals(lhs, astree)
-            hl_rhss = XU.xxpr_to_ast_exprs(rhs, astree)
+            hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+            hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
             if len(hl_lhss) != 1 and len(hl_rhss) != 1:
                 raise UF.CHBError(
                     "ARMPush: more than one lhs or rhs in assignments")
@@ -214,8 +174,8 @@ class ARMPush(ARMOpcode):
         ll_sp_assign = astree.mk_assign(ll_sp_lhs, ll_sp_rhs, iaddr=iaddr)
         ll_instrs.append(ll_sp_assign)
 
-        hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, astree)
-        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, astree)
+        hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, xdata, astree)
+        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, xdata, astree)
         if len(hl_sp_lhss) != 1 or len(hl_sp_rhss) != 1:
             raise UF.CHBError(
                 "ARMPush more than one lhs or rhs in SP assignment")

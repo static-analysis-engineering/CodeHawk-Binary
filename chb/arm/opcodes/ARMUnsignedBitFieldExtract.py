@@ -100,18 +100,6 @@ class ARMUnsignedExtractBitField(ARMOpcode):
     #  msbit = lsbit = widthminus1
     #  R[d] = ZeroExtend(R[n]<msbit:lsbit>, 32);
     # --------------------------------------------------------------------------
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        assign = astree.mk_assign(
-            lhs, rhs, iaddr=iaddr, bytestring=bytestring)
-        return preinstrs + [assign] + postinstrs
-
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -137,8 +125,8 @@ class ARMUnsignedExtractBitField(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, astree)
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, astree)
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
         if len(hl_rhss) == 1 and len(hl_lhss) == 1:
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]

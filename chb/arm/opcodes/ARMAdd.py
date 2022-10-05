@@ -148,6 +148,7 @@ class ARMAdd(ARMOpcode):
         lhs = xdata.vars[0]
         rhs1 = xdata.xprs[0]
         rhs2 = xdata.xprs[1]
+        rhssum = xdata.xprs[2]
         rhs3 = xdata.xprs[3]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
@@ -165,7 +166,7 @@ class ARMAdd(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, astree)
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(lhsasts) == 0:
             raise UF.CHBError("ARMAdd: no lval found")
 
@@ -191,10 +192,15 @@ class ARMAdd(ARMOpcode):
         elif str(rhs1) == "PC" or str(rhs2) == "PC":
             annotations.append("PC-relative")
             if rhs3.is_int_constant:
-                rhsval = cast("XprConstant", rhs3).intvalue
-                rhsast = astree.mk_integer_constant(rhsval)
+                rhsexprs = XU.xxpr_to_ast_exprs(rhssum, xdata, astree)
+                if len(rhsexprs) == 1:
+                    rhsval = cast("XprConstant", rhs3).intvalue
+                    rhsast = astree.mk_global_address_constant(rhsval, rhsexprs[0])
+                else:
+                    raise UF.CHBError(
+                        "ARMAdd: multiple expressions in pc-relative expression")
             else:
-                rhsasts = XU.xxpr_to_ast_exprs(rhs3, astree)
+                rhsasts = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
                 if len(rhsasts) == 1:
                     rhsast = rhsasts[0]
                 else:
@@ -202,7 +208,7 @@ class ARMAdd(ARMOpcode):
                         "ARMAdd: multiple expressions in ast")
 
         else:
-            rhsasts = XU.xxpr_to_ast_exprs(rhs3, astree)
+            rhsasts = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
             if len (rhsasts) == 1:
                 rhsast = rhsasts[0]
             else:
@@ -218,6 +224,7 @@ class ARMAdd(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        astree.add_reg_definition(iaddr, str(lhs), hl_add_expr)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_add_expr, ll_add_expr)
