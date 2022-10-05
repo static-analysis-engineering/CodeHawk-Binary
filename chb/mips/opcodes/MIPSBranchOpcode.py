@@ -82,7 +82,7 @@ class MIPSBranchOpcode(MIPSOpcode):
         ftconds = self.ft_conditions(xdata)
         if len(ftconds) == 2:
             tcond = ftconds[1]
-            astconds = XU.xxpr_to_ast_exprs(tcond, astree)
+            astconds = XU.xxpr_to_ast_exprs(tcond, xdata, astree)
             if len(astconds) > 1:
                 raise UF.CHBError(
                     "Multiple expressions for MIPS condition")

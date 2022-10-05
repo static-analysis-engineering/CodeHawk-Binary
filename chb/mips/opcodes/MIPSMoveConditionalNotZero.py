@@ -101,10 +101,10 @@ class MIPSMoveConditionalNotZero(MIPSOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
-        conds = XU.xxpr_to_ast_exprs(xdata.xprs[2], astree)
-        rhs2s = XU.xxpr_to_ast_exprs(xdata.xprs[3], astree)
-        rhs1s = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], xdata, astree)
+        conds = XU.xxpr_to_ast_exprs(xdata.xprs[2], xdata, astree)
+        rhs2s = XU.xxpr_to_ast_exprs(xdata.xprs[3], xdata, astree)
+        rhs1s = XU.xxpr_to_ast_exprs(xdata.xprs[0], xdata, astree)
         if (
                 len(lhss) == 1
                 and len(conds) == 1

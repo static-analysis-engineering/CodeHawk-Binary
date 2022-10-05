@@ -89,8 +89,8 @@ class MIPSMoveFromHi(MIPSOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], xdata, astree)
+        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[0], xdata, astree)
         if len(lhss) == 1 and len(rhss) == 1:
             lhs = lhss[0]
             rhs = rhss[0]

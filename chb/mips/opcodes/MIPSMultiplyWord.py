@@ -101,8 +101,8 @@ class MIPSMultiplyWord(MIPSOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        lhslos = XU.xvariable_to_ast_lvals(xdata.vars[1], astree)
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[3], astree)
+        lhslos = XU.xvariable_to_ast_lvals(xdata.vars[1], xdata, astree)
+        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[3], xdata, astree)
         if len(lhslos) == 1 and len(rhss) == 0:
             lhslo = lhslos[0]
             rhs = rhss[0]

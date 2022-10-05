@@ -171,7 +171,7 @@ class MIPSJumpLinkRegister(MIPSOpcode):
                 if XU.is_struct_field_address(arg, astree):
                     addr = XU.xxpr_to_struct_field_address_expr(arg, astree)
                 elif arg.is_string_reference:
-                    xprs = XU.xxpr_to_ast_exprs(arg, astree)
+                    xprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
                     if len(xprs) != 1:
                         raise UF.CHBError(
                             "MIPSJumpLinkRegister: Multiple expressions for string constant")
@@ -191,10 +191,10 @@ class MIPSJumpLinkRegister(MIPSOpcode):
                     if funarg:
                         argxprs.append(astree.mk_lval_expr(funarg))
                     else:
-                        astxpr = XU.xxpr_to_ast_exprs(arg, astree)
+                        astxpr = XU.xxpr_to_ast_exprs(arg, xdata, astree)
                         argxprs.extend(astxpr)
                 else:
-                    astxpr = XU.xxpr_to_ast_exprs(arg, astree)
+                    astxpr = XU.xxpr_to_ast_exprs(arg, xdata, astree)
                     argxprs.extend(astxpr)
             call = cast(AST.ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
             astree.add_instruction_span(call.locationid, iaddr, bytestring)
