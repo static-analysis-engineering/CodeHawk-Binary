@@ -33,6 +33,7 @@ import chb.ast.ASTNode as AST
 
 if TYPE_CHECKING:
     from chb.app.Instruction import Instruction
+    from chb.app.InstrXData import InstrXData
     from chb.astinterface.ASTInterface import ASTInterface
     from chb.invariants.XXpr import XXpr
 
@@ -49,6 +50,10 @@ class ASTInterfaceInstruction:
     @property
     def instruction(self) -> "Instruction":
         return self._instr
+
+    @property
+    def xdata(self) -> "InstrXData":
+        return self.instruction.xdata
 
     @property
     def iaddr(self) -> str:

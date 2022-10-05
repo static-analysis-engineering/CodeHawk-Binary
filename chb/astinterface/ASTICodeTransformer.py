@@ -24,7 +24,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Transforms from low-level to high-level code by removing instructions.
 
+Assignment instructions are removed based on whether their left-hand side
+is used later, which is, in turn, based on the def-use-high of the left-hand
+side.
+"""
 
 from typing import cast, List, TYPE_CHECKING
 

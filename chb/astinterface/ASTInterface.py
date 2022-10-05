@@ -178,6 +178,7 @@ class ASTInterface:
         self._diagnostics: List[str] = []
         self._astiprovenance = ASTIProvenance()
         self._ignoredlhs = self.mk_variable_lval("ignored")
+        self._regdefinitions: Dict[str, Dict[str, AST.ASTExpr]] = {}
         self._initialize_formals()
         if self._srcprototype is not None:
             astprototype = self._srcprototype.convert(self._typconverter)
@@ -247,6 +248,24 @@ class ASTInterface:
     @property
     def serializer(self) -> ASTSerializer:
         return self.astree.serializer
+
+    @property
+    def regdefinitions(self) -> Dict[str, Dict[str, AST.ASTExpr]]:
+        return self._regdefinitions
+
+    def regdefinition(self, iaddr: str, reg: str) -> Optional[AST.ASTExpr]:
+        if iaddr in self.regdefinitions:
+            if reg in self.regdefinitions[iaddr]:
+                return self.regdefinitions[iaddr][reg]
+        return None
+
+    def add_reg_definition(
+            self,
+            iaddr: str,
+            reg: str,
+            expr: AST.ASTExpr) -> None:
+        self._regdefinitions.setdefault(iaddr, {})
+        self._regdefinitions[iaddr][reg] = expr
 
     def set_available_expressions(
             self, aexprs: Dict[str, Dict[str, Tuple[int, int, str]]]) -> None:
@@ -557,7 +576,7 @@ class ASTInterface:
             annotations: List[str] = []) -> AST.ASTAssign:
         assign = self.astree.mk_assign(lval, rhs)
         if iaddr is not None and bytestring is not None:
-            self.add_instruction_span(assign.instrid, iaddr, bytestring)
+            self.add_instruction_span(assign.locationid, iaddr, bytestring)
         self._annotations[assign.instrid] = annotations
         return assign
 
@@ -570,7 +589,7 @@ class ASTInterface:
             bytestring: Optional[str] = None) -> AST.ASTCall:
         call = self.astree.mk_call(lval, tgt, args)
         if iaddr is not None and bytestring is not None:
-            self.add_instruction_span(call.instrid, iaddr, bytestring)
+            self.add_instruction_span(call.locationid, iaddr, bytestring)
         return call
 
     # ----------------------------------------------------- make lvals/exprs ---
@@ -845,6 +864,12 @@ class ASTInterface:
 
     def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
         return self.astree.mk_integer_constant(cvalue)
+
+    def mk_global_address_constant(
+            self,
+            cvalue: int,
+            addressexpr: AST.ASTExpr) -> AST.ASTGlobalAddressConstant:
+        return self.astree.mk_global_address_constant(cvalue, addressexpr)
 
     def mk_string_constant(
             self,

@@ -160,10 +160,12 @@ class ASTInterfaceFunction(ASTFunction):
         aexprs: Dict[str, Dict[str, Tuple[int, int, str]]] = {}
         for loc in sorted(invariants):
             for fact in invariants[loc]:
+                instr = self.function.instruction(loc)
                 if fact.is_nonrelational:
                     fact = cast("NRVFact", fact)
                     var = XU.xvariable_to_ast_lvals(
                         fact.variable,
+                        instr.xdata,
                         self.astinterface,
                         anonymous=True)[0]
                     varindex = var.index(self.astinterface.serializer)
@@ -175,6 +177,7 @@ class ASTInterfaceFunction(ASTFunction):
                     elif value.is_symbolic_expression:
                         aexpr = XU.xxpr_to_ast_exprs(
                             fact.value.expr,
+                            instr.xdata,
                             self.astinterface,
                             anonymous=True)[0]
                         aexprindex = aexpr.index(self.astinterface.serializer)
