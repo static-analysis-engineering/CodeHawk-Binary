@@ -271,7 +271,6 @@ class ARMBranchLink(ARMOpcode):
         else:
             (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
 
-
         ll_lhs = astree.mk_register_variable_lval("R0")
         ll_call = astree.mk_call(
             ll_lhs,
@@ -280,11 +279,34 @@ class ARMBranchLink(ARMOpcode):
             iaddr=iaddr,
             bytestring=bytestring)
 
+        tgt_returntype = None
+        tgt_argcount = -1
+        tgt_xprtype = tgtxpr.ctype(astree.ctyper)
+        if tgt_xprtype is not None:
+            if tgt_xprtype.is_function:
+                tgt_xprtype = cast(AST.ASTTypFun, tgt_xprtype)
+                tgt_returntype = tgt_xprtype.returntyp
+                if (not tgt_xprtype.is_varargs) and tgt_xprtype.argtypes is not None:
+                    argtypes = tgt_xprtype.argtypes.funargs
+                    tgt_argcount = len(argtypes)
+
+        if tgt_returntype is None:
+            hl_lhs: Optional[AST.ASTLval] = ll_lhs
+        else:
+            if tgt_returntype.is_void or defuses[0] is None:
+                hl_lhs = None
+            else:
+                hl_lhs = astree.mk_returnval_variable_lval(iaddr, vtype=tgt_returntype) 
+
         if not (self.is_call(xdata) and xdata.has_call_target()):
-            raise UF.CHBError("BL at " + iaddr + ": Call without calltarget")
+            raise UF.CHBError("BL at " + iaddr + ": Call without call target")
 
         callargs = self.arguments(xdata)
-        argregs = ["R0", "R1", "R2", "R3"][:len(callargs)]
+        if tgt_argcount == -1:
+            argcount = len(callargs)
+        else:
+            argcount = tgt_argcount
+        argregs = ["R0", "R1", "R2", "R3"][:argcount]
         argxprs: List[AST.ASTExpr] = []
         for (reg, arg) in zip(argregs, callargs):
             if arg.is_string_reference:
@@ -303,15 +325,29 @@ class ARMBranchLink(ARMOpcode):
                     argxprs.append(astree.mk_lval_expr(funarg))
                 else:
                     argxprs.append(astree.mk_register_variable_expr(reg))
+            else:
+                astxprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
+                if len(astxprs) == 0:
+                    raise UF.CHBError("No ast value for call argument at " + iaddr)
+                if len(astxprs) > 1:
+                    raise UF.CHBError(
+                        "Multiple rhs values for call argument at "
+                        + iaddr
+                        + ": "
+                        + ", ".join(str(a) for a in argxprs))
+                argxprs.append(astxprs[0])
+
         hl_call = cast(AST.ASTInstruction, astree.mk_call(
-            ll_lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
+            hl_lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
 
         astree.add_instr_mapping(hl_call, ll_call)
         astree.add_instr_address(hl_call, [iaddr])
         for (i, argxpr) in enumerate(argxprs):
             if len(rdefs) > i:
                 astree.add_expr_reachingdefs(argxpr, [rdefs[i]])
-        astree.add_lval_defuses(ll_lhs, defuses[0])
-        astree.add_lval_defuses_high(ll_lhs, defuseshigh[0])
+        if hl_lhs is not None:
+            astree.add_lval_mapping(hl_lhs, ll_lhs)
+            astree.add_lval_defuses(hl_lhs, defuses[0])
+            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
         return ([hl_call], [ll_call])
