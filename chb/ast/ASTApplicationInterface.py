@@ -26,6 +26,8 @@
 # ------------------------------------------------------------------------------
 """Main interface to the AST library."""
 
+from datetime import datetime
+
 from typing import Any, Dict, List
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
@@ -39,7 +41,7 @@ from chb.ast.CustomASTSupport import CustomASTSupport
 from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 
 
-pirversion: str = "0.1.0-20221005"
+pirversion: str = "0.1.0-20221006"
 
 
 class ASTApplicationInterface:
@@ -129,6 +131,13 @@ class ASTApplicationInterface:
         self.globalsymboltable.serialize(globalserializer)
 
         ast_output: Dict[str, Any] = {}
+
+        if self.support.toolname_and_version is not None:
+            (toolname, toolversion) = self.support.toolname_and_version
+            ast_output["created-by"] = {}
+            ast_output["created-by"]["tool-name"] = toolname
+            ast_output["created-by"]["tool-version"] = toolversion
+            ast_output["created-by"]["time"] = str(datetime.now())
         ast_output["pir-version"] = pirversion
         ast_output["global-symbol-table"] = globalserializer.records()
         ast_output["functions"] = self._fnsdata

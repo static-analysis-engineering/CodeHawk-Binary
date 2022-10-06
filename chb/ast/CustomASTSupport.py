@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Class that provides third-party users to introduce local support."""
 
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 
 arm32_register_sizes: Dict[str, int] = {
@@ -68,3 +68,7 @@ class CustomASTSupport:
     @property
     def flagnames(self) -> List[str]:
         return self._flagnames
+
+    @property
+    def toolname_and_version(self) -> Optional[Tuple[str, str]]:
+        return None
