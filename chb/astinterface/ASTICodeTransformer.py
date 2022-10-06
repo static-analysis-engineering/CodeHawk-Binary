@@ -77,7 +77,9 @@ class ASTICodeTransformer(ASTIdentityTransformer):
         for instr in stmt.instructions:
             if instr.is_ast_assign:
                 instr = cast(AST.ASTAssign, instr)
-                if self.provenance.has_lval_defuse_high(instr.lhs.lvalid):
+                if (
+                        self.provenance.has_lval_defuse_high(instr.lhs.lvalid)
+                        or self.provenance.has_lval_store(instr.lhs.lvalid)):
                     instrs.append(instr)
             else:
                 instrs.append(instr)

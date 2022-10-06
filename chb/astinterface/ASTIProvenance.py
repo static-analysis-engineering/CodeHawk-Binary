@@ -56,6 +56,7 @@ class ASTIProvenance:
         self._flag_expr_rdefs: Dict[int, List["FlagReachingDefFact"]] = {}
         self._lval_defuses: Dict[int, "DefUse"] = {}
         self._lval_defuses_high: Dict[int, "DefUseHigh"] = {}
+        self._lval_stores: List[int] = []
         self._instr_addresses: Dict[int, List[str]] = {}  # instr -> hex-address
         self._addr_instructions: Dict[str, List[int]] = {}  # hex-address -> instrs
         self._condition_addresses: Dict[int, List[str]] = {}  # expr -> hex-address
@@ -140,6 +141,10 @@ class ASTIProvenance:
     def lval_defuses_high(self) -> Dict[int, "DefUseHigh"]:
         return self._lval_defuses_high
 
+    @property
+    def lval_stores(self) -> List[int]:
+        return self._lval_stores
+
     def add_instr_mapping(
             self,
             hl_instr: AST.ASTInstruction,
@@ -212,6 +217,10 @@ class ASTIProvenance:
         if useshigh is not None:
             self._lval_defuses_high[lval.lvalid] = useshigh
             self.add_lval(lval)
+
+    def add_lval_store(self, lval: AST.ASTLval) -> None:
+        self._lval_stores.append(lval.lvalid)
+        self.add_lval(lval)
 
     def add_instr_address(
             self,
@@ -301,6 +310,9 @@ class ASTIProvenance:
 
     def has_lval_defuse_high(self, lvalid: int) -> bool:
         return lvalid in self.lval_defuses_high
+
+    def has_lval_store(self, lvalid: int) -> bool:
+        return lvalid in self.lval_stores
 
     def get_lval_defuse_high(self, lvalid: int) -> "DefUseHigh":
         if self.has_lval_defuse_high(lvalid):

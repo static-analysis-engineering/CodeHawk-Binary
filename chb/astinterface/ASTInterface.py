@@ -333,6 +333,9 @@ class ASTInterface:
             uses: Optional["DefUseHigh"]) -> None:
         self.astiprovenance.add_lval_defuses_high(lval, uses)
 
+    def add_lval_store(self, lval: AST.ASTLval) -> None:
+        self.astiprovenance.add_lval_store(lval)
+
     @property
     def fname(self) -> str:
         return self.astree.fname

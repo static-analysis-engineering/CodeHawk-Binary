@@ -25,7 +25,9 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+from typing import Optional, Tuple, TYPE_CHECKING
 
+from chb.app.CHVersion import chbversion
 from chb.ast.CustomASTSupport import CustomASTSupport
 
 
@@ -34,3 +36,7 @@ class CHBASTSupport(CustomASTSupport):
     def __init__(self) -> None:
         CustomASTSupport.__init__(self)
         pass
+
+    @property
+    def toolname_and_version(self) -> Optional[Tuple[str, str]]:
+        return ("CodeHawk", chbversion)
