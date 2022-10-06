@@ -236,7 +236,12 @@ class BC2ASTConverter(BCConverter):
         return AST.ASTTypArray(t.tgttyp.convert(self), astsize)
 
     def convert_fun_typ(self, t: BCT.BCTypFun) -> AST.ASTTypFun:
-        astfunargs = None if t.argtypes is None else t.argtypes.convert(self)
+        # astfunargs = None if t.argtypes is None else t.argtypes.convert(self)
+        if t.argtypes is None:
+            # use for now until signatures have been updated
+            astfunargs = AST.ASTFunArgs([])
+        else:
+            astfunargs = t.argtypes.convert(self)
         returntype = t.returntype.convert(self)
         return AST.ASTTypFun(returntype, astfunargs, t.is_vararg)
 
