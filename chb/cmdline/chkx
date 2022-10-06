@@ -128,6 +128,8 @@ import sys
 
 from typing import NoReturn
 
+from chb.app.CHVersion import chbversion
+
 import chb.cmdline.AnalysisManager as AM
 import chb.cmdline.astcmds as AST
 import chb.cmdline.commandutil as UCC
@@ -148,7 +150,7 @@ from chb.util.DotGraph import DotGraph
 
 
 def showversion(args: argparse.Namespace) -> NoReturn:
-    print('Version 0.3.0')
+    print("Version " + chbversion)
     exit(0)
 
 
