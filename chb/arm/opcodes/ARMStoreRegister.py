@@ -164,22 +164,24 @@ class ARMStoreRegister(ARMOpcode):
 
         hl_rhs = rhsexprs[0]
 
-        lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lvals) == 0:
-            raise UF.CHBError(
-                "No lhs value for StoreRegister (STR) at " + iaddr)
-
-        if len(lvals) > 1:
-            raise UF.CHBError(
-                "Multiple lhs values for StoreRegister (STR) at "
-                + iaddr
-                + ": "
-                + ", ".join(str(x) for x in lvals))
-
-        hl_lhs = lvals[0]
-
-        if str(hl_lhs).startswith("__asttmp") or str(hl_lhs).startswith("unknown"):
+        if lhs.is_tmp or lhs.has_unknown_memory_base():
             hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, astree)
+            astree.add_lval_store(hl_lhs)
+
+        else:
+            lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+            if len(lvals) == 0:
+                raise UF.CHBError(
+                    "No lhs value for StoreRegister (STR) at " + iaddr)
+
+            if len(lvals) > 1:
+                raise UF.CHBError(
+                    "Multiple lhs values for StoreRegister (STR) at "
+                    + iaddr
+                    + ": "
+                    + ", ".join(str(x) for x in lvals))
+
+            hl_lhs = lvals[0]
 
         hl_assign = astree.mk_assign(
             hl_lhs,
