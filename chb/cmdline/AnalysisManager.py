@@ -64,6 +64,7 @@ class AnalysisManager(object):
             arm: bool = False,
             power: bool = False,
             thumb: bool = False,
+            savedatablocks: bool = False,
             ifilenames: List[str] = [],
             fns_no_lineq: List[str] = [],
             fns_exclude: List[str] = [],
@@ -89,6 +90,7 @@ class AnalysisManager(object):
         self.arm = arm
         self.power = power
         self.thumb = thumb
+        self.savedatablocks = savedatablocks
         self.hints = hints
         self.ifilenames = ifilenames
         self.config = Config()
@@ -196,6 +198,8 @@ class AnalysisManager(object):
             cmd.append("-verbose")
         if self.thumb:
             cmd.append("-thumb")
+        if self.savedatablocks:
+            cmd.append("-set_datablocks")
         for d in self.deps:
             cmd.extend(["-summaries", d])
         for s in self.so_libraries:
@@ -223,6 +227,7 @@ class AnalysisManager(object):
 
     def analyze(
             self,
+            analysisrepeats: int = 1,
             iterations: int = 10,
             extract: bool = False,
             verbose: bool = False,
@@ -234,6 +239,7 @@ class AnalysisManager(object):
         self.fnsanalyzed = []
         self._analysis_setup(extract)
         result = self._analyze_until_stable(
+            analysisrepeats,
             iterations,
             ignore_stable,
             asm=save_asm,
@@ -347,6 +353,7 @@ class AnalysisManager(object):
 
     def _analyze_until_stable(
             self,
+            analysisrepeats: int,
             iterations: int,
             ignore_stable: bool = False,
             asm: bool = False,
@@ -379,6 +386,8 @@ class AnalysisManager(object):
             cmd.extend(["-fn_include", s])
         for s in self.specializations:
             cmd.extend(["-specialization", s])
+        if analysisrepeats > 1:
+            cmd.extend(["-analysisrepeats", str(analysisrepeats)])
         if ignore_stable:
             cmd.append("-ignore_stable")
         if verbose:

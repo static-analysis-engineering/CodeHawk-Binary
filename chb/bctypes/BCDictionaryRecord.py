@@ -36,6 +36,7 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
     from chb.bctypes.BCDictionary import BCDictionary
+    from chb.bctypes.BCVisitor import BCVisitor
 
 
 class BCDictionaryRecord(IndexedTableValue):
@@ -56,10 +57,8 @@ class BCDictionaryRecord(IndexedTableValue):
     def ixval(self) -> IndexedTableValue:
         return self._ixval
 
-    def serialize(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        result["id"] = self.index
-        return result
+    def accept(self, visitor: "BCVisitor") -> None:
+        pass
 
 
 BCdR = TypeVar("BCdR", bound=BCDictionaryRecord, covariant=True)

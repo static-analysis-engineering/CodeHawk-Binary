@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Sequence, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -47,6 +47,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    from chb.api.CallTarget import CallTarget, AppTarget, StubTarget
     from chb.mips.MIPSDictionary import MIPSDictionary
     from chb.simulation.SimulationState import SimulationState
 
@@ -84,6 +85,28 @@ class MIPSBranchLTZeroLink(MIPSBranchOpcode):
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         return [xdata.xprs[3], xdata.xprs[2]]
+
+    def has_call_target(self, xdata: InstrXData) -> bool:
+        return xdata.has_call_target()
+
+    def call_target(self, xdata: InstrXData) -> "CallTarget":
+        if xdata.has_call_target():
+            return xdata.call_target(self.ixd)
+        else:
+            raise UF.CHBError("Call target not found for " + str(self))
+
+    def has_string_arguments(self, xdata: InstrXData) -> bool:
+        return any([x.is_string_reference for x in self.arguments(xdata)])
+
+    def has_stack_arguments(self, xdata: InstrXData) -> bool:
+        return any([x.is_stack_address for x in self.arguments(xdata)])
+
+    def annotated_call_arguments(
+            self, xdata: InstrXData) -> Sequence[Dict[str, Any]]:
+        return [x.to_annotated_value() for x in self.arguments(xdata)]
+
+    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
+        return xdata.xprs
 
     def annotation(self, xdata: InstrXData) -> str:
         """data format a:xxxx

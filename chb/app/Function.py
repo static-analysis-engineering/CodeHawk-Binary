@@ -38,12 +38,20 @@ import xml.etree.ElementTree as ET
 
 from abc import ABC, abstractmethod
 from typing import (
-    Any, Callable, cast, Dict, List, Mapping, NewType, Optional, Sequence, Tuple, Union)
+    Any,
+    Callable,
+    cast,
+    Dict,
+    List,
+    Mapping,
+    NewType,
+    Optional,
+    Sequence,
+    Tuple,
+    Union)
 
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree, VariableNamesRec
-from chb.app.ASTNode import ASTNode
 from chb.app.BasicBlock import BasicBlock
 from chb.app.BDictionary import BDictionary
 from chb.app.Cfg import Cfg
@@ -51,10 +59,15 @@ from chb.app.FunctionInfo import FunctionInfo
 from chb.app.Instruction import Instruction
 from chb.app.StringXRefs import StringsXRefs
 
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
 from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnVarDictionary import FnVarDictionary
+from chb.invariants.FnVarInvDictionary import FnVarInvDictionary
 from chb.invariants.FnXprDictionary import FnXprDictionary
 from chb.invariants.InvariantFact import InvariantFact
+from chb.invariants.VarInvariantFact import VarInvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
@@ -85,7 +98,9 @@ class Function(ABC):
         self._names = names
         self._vd: Optional[FnVarDictionary] = None
         self._id: Optional[FnInvDictionary] = None
+        self._varinvd: Optional[FnVarInvDictionary] = None
         self._invariants: Dict[str, List[InvariantFact]] = {}
+        self._varinvariants: Dict[str, List[VarInvariantFact]] = {}
 
     @property
     def path(self) -> str:
@@ -153,6 +168,17 @@ class Function(ABC):
         return self._id
 
     @property
+    def varinvdictionary(self) -> FnVarInvDictionary:
+        if self._varinvd is None:
+            xvarinvnode = UF.get_function_varinvs_xnode(
+                self.path, self.filename, self.faddr)
+            xvarinvd = xvarinvnode.find("varinv-dictionary")
+            if xvarinvd is None:
+                raise UF.CHBError("VarInv-dictionary element not found")
+            self._varinvd = FnVarInvDictionary(self.vardictionary, xvarinvd)
+        return self._varinvd
+
+    @property
     def invariants(self) -> Mapping[str, Sequence[InvariantFact]]:
         if len(self._invariants) == 0:
             xinvnode = UF.get_function_invs_xnode(
@@ -170,6 +196,25 @@ class Function(ABC):
                         self._invariants[xaddr].append(
                             self.invdictionary.invariant_fact(ix))
         return self._invariants
+
+    @property
+    def var_invariants(self) -> Mapping[str, Sequence[VarInvariantFact]]:
+        if len(self._varinvariants) == 0:
+            xvarinvnode = UF.get_function_varinvs_xnode(
+                self.path, self.filename, self.faddr)
+            xvarfacts = xvarinvnode.find("locations")
+            if xvarfacts is None:
+                raise UF.CHBError("Location var-invariants element not found")
+            for xloc in xvarfacts.findall("loc"):
+                xaddr = xloc.get("a")
+                xvfacts = xloc.get("ivfacts")
+                if xaddr is not None and xvfacts is not None:
+                    vfacts = [int(i) for i in xvfacts.split(",")]
+                    self._varinvariants[xaddr] = []
+                    for ix in vfacts:
+                        self._varinvariants[xaddr].append(
+                            self.varinvdictionary.var_invariant_fact(ix))
+        return self._varinvariants
 
     def global_refs(self) -> Tuple[Sequence[XVariable], Sequence[XXpr]]:
         lhsresult: List[XVariable] = []
@@ -215,12 +260,6 @@ class Function(ABC):
     def cfg(self) -> Cfg:
         raise UF.CHBError("Property cfg not implemented for Function")
 
-    def ast(self, astree: AbstractSyntaxTree) -> ASTNode:
-        return self.cfg.ast(self, astree)
-
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> ASTNode:
-        return self.cfg.assembly_ast(self, astree)
-
     @abstractmethod
     def strings_referenced(self) -> List[str]:
         ...
@@ -230,6 +269,18 @@ class Function(ABC):
         m = hashlib.md5()
         for instr in self.instructions.values():
             m.update(instr.bytestring.encode("utf-8"))
+        return m.hexdigest()
+
+    def mnemonic_string(self) -> str:
+        s: str = ""
+        for (iaddr, i) in sorted(self.instructions.items()):
+            s += i.mnemonic
+        return s
+
+    @property
+    def mnemonic_string_md5(self) -> str:
+        m = hashlib.md5()
+        m.update(self.mnemonic_string().encode("utf-8"))
         return m.hexdigest()
 
     @property
@@ -272,6 +323,15 @@ class Function(ABC):
         for (baddr, b) in self.blocks.items():
             if len(b.call_instructions) > 0:
                 result[baddr] = b.call_instructions
+        return result
+
+    def jump_instructions(self) -> Mapping[str, Sequence[Instruction]]:
+        """Return a mapping of block address to instructions that perform a jump."""
+
+        result: Dict[str, Sequence[Instruction]] = {}
+        for (baddr, b) in self.blocks.items():
+            if len(b.jump_instructions) > 0:
+                result[baddr] = b.jump_instructions
         return result
 
     def has_instruction(self, iaddr: str) -> bool:

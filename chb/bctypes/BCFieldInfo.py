@@ -27,12 +27,17 @@
 
 from typing import Any, cast, Dict, List, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
 
 if TYPE_CHECKING:
+    from chb.bctypes.BCAttribute import BCAttribute
+    from chb.bctypes.BCAttrParam import BCAttrParam, BCAttrParamInt
     from chb.bctypes.BCDictionary import BCDictionary
     from chb.bctypes.BCTyp import BCTyp, BCTypArray, BCTypComp
 
@@ -57,19 +62,36 @@ class BCFieldInfo(BCDictionaryRecord):
     def fieldtype(self) -> "BCTyp":
         return self.bcd.typ(self.args[1])
 
+    @property
+    def attrs(self) -> List["BCAttribute"]:
+        attrs = self.bcd.attributes(self.args[3])
+        if attrs is None:
+            return []
+        else:
+            return attrs.attrs
+
+    def is_leq(self, other: "BCFieldInfo") -> bool:
+        if self.fieldname == other.fieldname:
+            return self.fieldtype.is_leq(other.fieldtype)
+        else:
+            return False
+
     def byte_size(self) -> int:
         return self.fieldtype.byte_size()
 
     def alignment(self) -> int:
+        if len(self.attrs) > 0:
+            for attr in self.attrs:
+                if attr.name == "aligned":
+                    params = attr.params
+                    for param in attr.params:
+                        if param.is_int:
+                            return cast("BCAttrParamInt", param).intvalue
+
         return self.fieldtype.alignment()
 
-    def serialize(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        result["id"] = self.index
-        result["key"] = self.ckey
-        result["name"] = self.fieldname
-        result["args"] = [self.fieldtype.index]
-        return result
+    def convert(self, converter: BCConverter) -> AST.ASTFieldInfo:
+        return converter.convert_fieldinfo(self)
 
     def __str__(self) -> str:
         if self.fieldtype.is_array:

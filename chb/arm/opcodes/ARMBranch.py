@@ -28,15 +28,15 @@
 from typing import (
     Any, cast, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING)
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
-
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 from chb.arm.ARMOperandKind import ARMOperandKind, ARMAbsoluteOp
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.bctypes.BCTyp import BCTyp
 
@@ -80,7 +80,7 @@ class ARMBranch(ARMOpcode):
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         if xdata.has_branch_conditions():
-            return [xdata.xprs[1], xdata.xprs[0]]
+            return [xdata.xprs[3], xdata.xprs[2]]
         else:
             return []
 
@@ -115,7 +115,7 @@ class ARMBranch(ARMOpcode):
             args = ", ".join(str(x) for x in self.arguments(xdata))
             return "call " + str(tgt) + "(" + args + ")"
         elif xdata.has_branch_conditions():
-            return "if " + str(xdata.xprs[0]) + " then goto " + str(xdata.xprs[4])
+            return "if " + str(xdata.xprs[2]) + " then goto " + str(xdata.xprs[4])
         elif self.tags[1] in ["a", "unc"]:
             return "goto " + str(xdata.xprs[0])
         else:
@@ -123,8 +123,8 @@ class ARMBranch(ARMOpcode):
 
     def target_expr_ast(
             self,
-            astree: AbstractSyntaxTree,
-            xdata: InstrXData) -> ASTExpr:
+            astree: ASTInterface,
+            xdata: InstrXData) -> AST.ASTExpr:
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
         if calltarget.is_app_target:
@@ -136,47 +136,36 @@ class ARMBranch(ARMOpcode):
 
     def lhs_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
-            xdata: InstrXData) -> Tuple[ASTLval, List[ASTInstruction]]:
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
 
         def indirect_lhs(
-                rtype: Optional[BCTyp]) -> Tuple[ASTLval, List[ASTInstruction]]:
+                rtype: Optional[AST.ASTTyp]) -> Tuple[
+                    AST.ASTLval, List[AST.ASTInstruction]]:
             tmplval = astree.mk_returnval_variable_lval(iaddr, rtype)
             tmprhs = astree.mk_lval_expr(tmplval)
             reglval = astree.mk_register_variable_lval("R0")
-            return (tmplval, [astree.mk_assign(reglval, tmprhs)])
+            assign = astree.mk_assign(
+                reglval, tmprhs, iaddr=iaddr, bytestring=bytestring)
+            return (tmplval, [assign])
 
         calltarget = xdata.call_target(self.ixd)
         tgtname = calltarget.name
         models = ModelsAccess()
         if astree.has_symbol(tgtname):
-            fnsymbol = astree.symbol(tgtname)
-            if fnsymbol.returns_void:
-                return (astree.mk_ignored_lval(), [])
-            else:
-                return indirect_lhs(fnsymbol.vtype)
-        elif models.has_so_function_summary(tgtname):
-            summary = models.so_function_summary(tgtname)
-            returntype = summary.signature.returntype
-            if returntype.is_named_type:
-                returntype = cast(MNamedType, returntype)
-                typename = returntype.typename
-                if typename == "void" or typename == "VOID":
-                    return (astree.mk_ignored_lval(), [])
-                else:
-                    return indirect_lhs(None)
-            else:
-                return indirect_lhs(None)
+            fnsymbol = astree.get_symbol(tgtname)
+            return indirect_lhs(fnsymbol.vtype)
         else:
             return indirect_lhs(None)
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         if self.is_call_instruction(xdata) and xdata.has_call_target():
             lhs = astree.mk_register_variable_lval("R0")
             tgt = self.operands[0]
@@ -185,30 +174,30 @@ class ARMBranch(ARMOpcode):
                 if self.app.has_function_name(tgtaddr.address.get_hex()):
                     faddr = tgtaddr.address.get_hex()
                     fnsymbol = self.app.function_name(faddr)
-                    tgtxpr: ASTExpr = astree.mk_global_variable_expr(
+                    tgtxpr: AST.ASTExpr = astree.mk_global_variable_expr(
                         fnsymbol, globaladdress=tgtaddr.address.get_int())
                 else:
                     (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
             else:
                 (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
-            call = astree.mk_call(lhs, tgtxpr, [])
-            astree.add_instruction_span(call.id, iaddr, bytestring)
+            call = astree.mk_call(
+                lhs, tgtxpr, [], iaddr=iaddr, bytestring=bytestring)
             return [call]
         else:
             return []
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         if self.is_call_instruction(xdata) and xdata.has_call_target():
             tgtxpr = self.target_expr_ast(astree, xdata)
-            (lhs, assigns) = self.lhs_ast(astree, iaddr, xdata)
+            (lhs, assigns) = self.lhs_ast(astree, iaddr, bytestring, xdata)
             args = self.arguments(xdata)
             argregs = ["R0", "R1", "R2", "R3"]
             callargs = argregs[:len(args)]
-            argxprs: List[ASTExpr] = []
+            argxprs: List[AST.ASTExpr] = []
             for (reg, arg) in zip(callargs, args):
                 if XU.is_struct_field_address(arg, astree):
                     addr = XU.xxpr_to_struct_field_address_expr(arg, astree)
@@ -233,50 +222,50 @@ class ARMBranch(ARMOpcode):
                     argxprs.append(astree.mk_register_variable_expr(reg))
             if len(args) > 4:
                 for a in args[4:]:
-                    argxprs.extend(XU.xxpr_to_ast_exprs(a, astree))
-            if lhs.is_ignored:
-                call: ASTInstruction = astree.mk_call(lhs, tgtxpr, argxprs)
-                astree.add_instruction_span(call.id, iaddr, bytestring)
-                return [call]
-            else:
-                call = cast(ASTInstruction, astree.mk_call(lhs, tgtxpr, argxprs))
-                astree.add_instruction_span(call.id, iaddr, bytestring)
-                for assign in assigns:
-                    astree.add_instruction_span(assign.id, iaddr, bytestring)
-                return [call] + assigns
+                    argxprs.extend(XU.xxpr_to_ast_exprs(a, xdata, astree))
+            call = cast(AST.ASTInstruction, astree.mk_call(
+                lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
+            return [call] + assigns
         else:
             return []
 
-    def assembly_ast_condition(
+    def ast_condition_prov(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
-            reverse: bool) -> Optional[ASTExpr]:
+            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+
         ftconds = self.ft_conditions(xdata)
         if len(ftconds) == 2:
             if reverse:
                 condition = ftconds[0]
             else:
                 condition = ftconds[1]
-            astconds = XU.xxpr_to_ast_exprs(condition, astree)
+            astconds = XU.xxpr_to_ast_exprs(condition, xdata, astree)
             if len(astconds) == 1:
-                astcond = astconds[0]
-                if xdata.has_condition_setter():
-                    csetter = xdata.get_condition_setter()
-                    cbytestr = xdata.get_condition_setter_bytestring()
-                    if int(csetter, 16) + (len(cbytestr) // 2) == int(iaddr, 16):
-                        newaddr = hex(int(iaddr, 16) - (len(cbytestr) // 2))
-                        astree.add_instruction_span(
-                            astcond.id, newaddr, cbytestr + bytestring)
-                    else:
-                        astree.add_instruction_span(astcond.id, iaddr, bytestring)
-                else:
-                    astree.add_instruction_span(astcond.id, iaddr, bytestring)
-                return astcond
+                hl_astcond = astconds[0]
+                ll_astcond = self.ast_cc_expr(astree)
+
+                astree.add_expr_mapping(hl_astcond, ll_astcond)
+                astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+                astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
+                astree.add_condition_address(ll_astcond, [iaddr])
+
+                return (hl_astcond, ll_astcond)
             else:
                 raise UF.CHBError(
-                    "ARMBranch: multiple expressions for condition")
+                    "ARMBranch: multiple expressions for condition "
+                    + str(condition)
+                    + " at "
+                    + iaddr)
+
+        elif len(ftconds) == 0:
+            # raise UF.CHBError(
+                # "ARMBranch: no branch condition at " + iaddr)
+            return (astree.mk_integer_constant(0), astree.mk_integer_constant(0))
+
         else:
-            return None
+            raise UF.CHBError(
+                "ARMBranch: one or more than two conditions at " + iaddr)

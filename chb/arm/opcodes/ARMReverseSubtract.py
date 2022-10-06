@@ -25,16 +25,18 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -57,6 +59,18 @@ class ARMReverseSubtract(ARMOpcode):
     args[2]: index of op2 in armdictionary
     args[3]: index of op3 in armdictionary
     args[4]: is-wide (thumb)
+
+    xdata format: a:vxxxxrrdh
+    -------------------------
+    vars[0]: lhs (Rd)
+    xprs[0]: rhs1 (Rn)
+    xprs[1]: rhs2 (Rm)
+    xprs[2]: rhs2 - rhs1
+    xprs[3]: rhs2 - rhs1 (simplified)
+    rdefs[0]: rhs1
+    rdefs[1]: rhs2
+    uses[0]: lhs
+    useshigh[0]: lhs
     """
 
     def __init__(
@@ -68,6 +82,10 @@ class ARMReverseSubtract(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1: -1]]
 
     @property
@@ -83,59 +101,79 @@ class ARMReverseSubtract(ARMOpcode):
         return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: rhs2 - rhs1 (syntactic)
-        xprs[3]: rhs2 - rhs1 (simplified)
-        """
-
         lhs = str(xdata.vars[0])
         result = xdata.xprs[2]
         rresult = xdata.xprs[3]
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return lhs + " := " + xresult
 
-    def assembly_ast(
+    def ast_prov(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "RSB"]
 
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        (op1, _, _) = self.operands[1].ast_rvalue(astree)
-        (op2, _, _) = self.operands[2].ast_rvalue(astree)
-        if (
-                self.operands[0].register == self.operands[1].register
-                and self.operands[0].register == self.operands[2].register
-                and self.operands[2].is_shifted_register):
-            operand2 = self.operands[2]
-            if operand2.opkind.scale_factor:
-                scale = astree.mk_integer_constant(operand2.opkind.scale_factor - 1)
-                binop = astree.mk_binary_op("mult", op1, scale)
-                result = astree.mk_assign(lhs, binop, annotations=annotations)
-                astree.add_instruction_span(result.id, iaddr, bytestring)
-                return [result]
-            
-        binop = astree.mk_binary_op("minus", op2, op1)
-        result = astree.mk_assign(lhs, binop)
-        astree.add_instruction_span(result.id, iaddr, bytestring)
-        return [result]
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        result = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-    def ast(self,
-            astree: AbstractSyntaxTree,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
-        lhs = str(xdata.vars[0])
-        rhs1 = str(xdata.xprs[0])
-        rhs2 = str(xdata.xprs[1])
-        if lhs == "SP" and rhs1 == "SP" and xdata.xprs[1].is_constant:
-            return []
-        else:
-            return self.assembly_ast(astree, iaddr, bytestring, xdata)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_sub_expr = astree.mk_binary_op("minus", ll_op2, ll_op1)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_sub_expr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(lhsasts) == 0:
+            raise UF.CHBError("No lvalue for ReverseSubtract")
+
+        if len(lhsasts) > 1:
+            raise UF.CHBError(
+                "ARMReverseSubtract: multiple lvals in ast: "
+                + ", ".join(str(v) for v in lhsasts))
+
+        hl_lhs = lhsasts[0]
+
+        rhsasts = XU.xxpr_to_ast_exprs(result, xdata, astree)
+        if len(rhsasts) == 0:
+            raise UF.CHBError("No result value for ReverseSubtract")
+
+        if len(rhsasts) > 1:
+            raise UF.CHBError(
+                "ARMReverseSubtract: multipel rvals in ast: "
+                + ", ".join(str(v) for v in rhsasts))
+
+        hl_sub_expr = rhsasts[0]
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_sub_expr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_sub_expr, ll_sub_expr)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_sub_expr, [rdefs[0], rdefs[1]])
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

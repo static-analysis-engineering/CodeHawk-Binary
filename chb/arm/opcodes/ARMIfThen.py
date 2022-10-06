@@ -25,17 +25,16 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.invariants.XXprUtil as XU
 
@@ -79,22 +78,46 @@ class ARMIfThen(ARMOpcode):
         else:
             return self.tags[0]
 
-    def assembly_ast(
+    def ast_prov(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        if len(xdata.vars) == 1 and len(xdata.xprs) == 1:
-            lhs = astree.mk_variable_lval(str(xdata.vars[0]))
-            rhss = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
-            if len(rhss) == 1:
-                rhs = rhss[0]
-                assign = astree.mk_assign(lhs, rhs)
-                astree.add_instruction_span(assign.id, iaddr, bytestring)
-                return [assign]
-            else:
-                return []
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "IT"]
+
+        if len(xdata.vars) == 0:
+            return ([], [])
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[0]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        if len(hl_lhss) == 1 and len(hl_rhss) == 1:
+            hl_lhs = hl_lhss[0]
+            hl_rhs = hl_rhss[0]
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            subsumes = xdata.subsumes()
+
+            astree.add_instr_address(hl_assign, [iaddr] + subsumes)
+            astree.add_expr_reachingdefs(hl_rhs, rdefs)
+            astree.add_lval_defuses(hl_lhs, defuses[0])
+            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+            return ([hl_assign], [])
+
         else:
             raise UF.CHBError(
-                "ARMIfThen: multiple expressions/lvals in ast")
+                "ARMIfThen: multiple lval/expressions in ast")

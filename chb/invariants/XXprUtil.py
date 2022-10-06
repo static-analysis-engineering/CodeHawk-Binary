@@ -25,19 +25,19 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Optional, Set, TYPE_CHECKING
+from typing import cast, List, Optional, Sequence, Set, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
-import chb.app.ASTNode as AST
-
+from chb.invariants.XVariable import XVariable
 import chb.invariants.XXpr as X
 
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    from chb.bctypes.BCCompInfo import BCCompInfo
-    from chb.bctypes.BCTyp import BCTyp, BCTypArray, BCTypPtr, BCTypComp
+    from chb.app.InstrXData import InstrXData
+    from chb.invariants.InvariantFact import InvariantFact
     from chb.invariants.VAssemblyVariable import (
         VMemoryVariable, VAuxiliaryVariable, VRegisterVariable)
     from chb.invariants.VConstantValueVariable import (
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from chb.mips.MIPSRegister import MIPSRegister
 
 
-def is_struct_field_address(xpr: X.XXpr, astree: AbstractSyntaxTree) -> bool:
+def is_struct_field_address(xpr: X.XXpr, astree: ASTInterface) -> bool:
     """Return true if the expression is the address of a known struct."""
 
     if xpr.is_int_constant:
@@ -56,7 +56,7 @@ def is_struct_field_address(xpr: X.XXpr, astree: AbstractSyntaxTree) -> bool:
 
 
 def xxpr_to_struct_field_address_expr(
-        xpr: X.XXpr, astree: AbstractSyntaxTree) -> AST.ASTExpr:
+        xpr: X.XXpr, astree: ASTInterface, anonymous: bool = False) -> AST.ASTExpr:
     """Return a struct field as an address expression."""
 
     if not is_struct_field_address(xpr, astree):
@@ -66,30 +66,44 @@ def xxpr_to_struct_field_address_expr(
 
 
 def xxpr_list_to_ast_exprs(
-        xprs: List[X.XXpr], astree: AbstractSyntaxTree) -> List[AST.ASTExpr]:
+        xprs: List[X.XXpr],
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        anonymous: bool = False) -> List[AST.ASTExpr]:
 
     if all(xpr.is_var for xpr in xprs):
         return xprvariable_list_to_ast_exprs(
-            [cast(X.XprVariable, xpr) for xpr in xprs], astree)
+            [cast(X.XprVariable, xpr) for xpr in xprs],
+            xdata,
+            astree,
+            anonymous=anonymous)
 
-    return sum((xxpr_to_ast_exprs(xpr, astree) for xpr in xprs), [])
+    return sum((xxpr_to_ast_exprs(xpr, xdata, astree) for xpr in xprs), [])
 
 
 def xxpr_to_ast_exprs(
         xpr: X.XXpr,
-        astree: AbstractSyntaxTree,
-        size: int = 4) -> List[AST.ASTExpr]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        size: int = 4,
+        anonymous: bool = False) -> List[AST.ASTExpr]:
     """Convert an XXpr expression into an AST Expr node."""
 
     if xpr.is_constant:
-        return xconstant_to_ast_exprs(cast(X.XprConstant, xpr), astree)
+        return xconstant_to_ast_exprs(cast(
+            X.XprConstant, xpr), xdata, astree, anonymous=anonymous)
 
     elif xpr.is_var:
         return xprvariable_to_ast_exprs(
-            cast(X.XprVariable, xpr), astree, size=size)
+            cast(X.XprVariable, xpr),
+            xdata,
+            astree,
+            size=size,
+            anonymous=anonymous)
 
     elif xpr.is_compound:
-        return xcompound_to_ast_exprs(cast(X.XprCompound, xpr), astree)
+        return xcompound_to_ast_exprs(
+            cast(X.XprCompound, xpr), xdata, astree, anonymous=anonymous)
 
     else:
         raise UF.CHBError(
@@ -97,7 +111,10 @@ def xxpr_to_ast_exprs(
 
 
 def xconstant_to_ast_exprs(
-        xc: X.XprConstant, astree: AbstractSyntaxTree) -> List[AST.ASTExpr]:
+        xc: X.XprConstant,
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        anonymous: bool = False) -> List[AST.ASTExpr]:
     """Convert a constant value to an AST Expr node."""
 
     if xc.is_int_constant:
@@ -110,78 +127,185 @@ def xconstant_to_ast_exprs(
 
 def xprvariable_list_to_ast_exprs(
         xvs: List[X.XprVariable],
-        astree: AbstractSyntaxTree) -> List[AST.ASTExpr]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        anonymous: bool = False) -> List[AST.ASTExpr]:
 
-    lvals = xvariable_list_to_ast_lvals([xv.variable for xv in xvs], astree)
-    return [astree.mk_lval_expr(lval) for lval in lvals]
+    lvals = xvariable_list_to_ast_lvals(
+        [xv.variable for xv in xvs], xdata, astree, anonymous=anonymous)
+    return [astree.mk_lval_expression(lval, anonymous=anonymous) for lval in lvals]
 
 
 def xprvariable_to_ast_exprs(
         xv: X.XprVariable,
-        astree: AbstractSyntaxTree,
-        size: int = 4) -> List[AST.ASTExpr]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        size: int = 4,
+        anonymous: bool = False) -> List[AST.ASTExpr]:
     """Convert a variable to an AST Expr node."""
 
-    lvals = xvariable_to_ast_lvals(xv.variable, astree, size=size)
-    return [astree.mk_lval_expr(lval) for lval in lvals]
+    def default() -> List[AST.ASTExpr]:
+        lvals = xvariable_to_ast_lvals(
+            xv.variable, xdata, astree, size=size, anonymous=anonymous)
+        return [astree.mk_lval_expression(
+            lval, anonymous=anonymous) for lval in lvals]
+
+    def default_reg() -> List[AST.ASTExpr]:
+        lval = astree.mk_register_variable_lval(
+            name, anonymous=anonymous)
+        return [astree.mk_lval_expression(lval, anonymous=anonymous)]
+
+    if xv.variable.is_tmp:
+        return [astree.mk_lval_expression(astree.mk_temp_lval())]
+
+    if xv.variable.is_register_variable:
+        xvden = cast("VRegisterVariable", xv.variable.denotation)
+        reg = xvden.register
+        if reg.is_mips_register:
+            mipsreg = cast("MIPSRegister", reg)
+            name = "mips_" + mipsreg.name
+            return default_reg()
+
+        else:
+            name = str(xv)
+            return default_reg()
+        '''
+            vdefs = xdata.reachingdeflocs_for_s(name)
+            if len(vdefs) == 0:
+                print("DEBUG:Regvar: no definitions for " + str(name))
+                return default()
+
+            if len(vdefs) > 1:
+                print("DEBUG:Regvar: multiple definitions for "
+                      + name
+                      + ": "
+                      + ", ".join(str(d) for d in vdefs))
+                return default()
+
+            regdef = astree.regdefinition(str(vdefs[0]), name)
+            if regdef is None:
+                print("DEBUG:Regvar: No definition found for "
+                      + name
+                      + " at location "
+                      + str(vdefs[0]))
+                return default()
+
+            print("DEBUG:Regvar: return definition "
+                  + str(regdef)
+                  + " for "
+                  + name
+                  + " from location "
+                  + str(vdefs[0]))
+            return [regdef]
+        '''
+    return default()
 
 
 def xtyped_expr_to_ast_exprs(
         op: str,
         op1: AST.ASTExpr,
         op2: AST.ASTExpr,
-        astree: AbstractSyntaxTree) -> List[AST.ASTExpr]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        anonymous: bool = False) -> List[AST.ASTExpr]:
     """Determine if expression needs different representation based on type."""
 
-    if op1.ctype is None:
+    op1type = op1.ctype(astree.ctyper)
+
+    if op1type is None:
         raise UF.CHBError("Expression is not typed: " + str(op1))
 
-    if op1.ctype.is_pointer and op2.is_integer_constant:
+    if op1type.is_pointer and op2.is_integer_constant:
         op2 = cast(AST.ASTIntegerConstant, op2)
-        tgttype = cast("BCTypPtr", op1.ctype).tgttyp
-        if tgttype.is_struct:
-            compinfo = cast("BCTypComp", tgttype).compinfo
+        tgttype = cast(AST.ASTTypPtr, op1type).tgttyp
+        if tgttype.is_compound:
+            ckey = cast(AST.ASTTypComp, tgttype).compkey
+            compinfo = astree.compinfo(ckey)
             fieldoffset = field_at_offset(
-                compinfo, op2.cvalue, astree)
-            lval = astree.mk_memref_lval(op1, fieldoffset)
-            return [astree.mk_address_of(lval)]
+                compinfo, op2.cvalue, xdata, astree)
+            lval = astree.mk_memref_lval(op1, fieldoffset, anonymous=anonymous)
+            return [astree.mk_address_of(lval, anonymous=anonymous)]
 
-    return [astree.mk_binary_op(op, op1, op2)]
+    return [astree.mk_binary_expression(op, op1, op2, anonymous=anonymous)]
 
 
 def xcompound_to_ast_exprs(
-        xc: X.XprCompound, astree: AbstractSyntaxTree) -> List[AST.ASTExpr]:
+        xc: X.XprCompound,
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        anonymous: bool = False) -> List[AST.ASTExpr]:
     """Convert a compound expression to an AST Expr node."""
 
     op = xc.operator
     operands = xc.operands
 
     if len(operands) == 1:
-        op1s = xxpr_to_ast_exprs(operands[0], astree)
+        op1s = xxpr_to_ast_exprs(operands[0], xdata, astree, anonymous=anonymous)
+
         if len(op1s) == 1:
             op1 = op1s[0]
-            return [astree.mk_unary_op(op, op1)]
+            if op == "lsb":
+                mask = astree.mk_integer_constant(0xff)
+                return [astree.mk_binary_op("band", op1, mask)]
+            if op == "lsh":
+                mask = astree.mk_integer_constant(0xff00)
+                return [astree.mk_binary_op("band", op1, mask)]
+            else:
+                return [astree.mk_unary_op(op, op1, anonymous=anonymous)]
+
+        elif len(op1s) == 4 and op == "lsb":
+            return [op1s[0]]
+
         else:
             raise UF.CHBError(
                 "Multiple operands to unary operation: "
                 + ", ".join(str(x) for x in op1s))
 
     elif len(operands) == 2:
-        
+
         if xc.is_stack_address:
             stackoffset = xc.stack_address_offset()
-            rhslval = astree.mk_stack_variable_lval(stackoffset)
-            return [astree.mk_address_of(rhslval)]
+            rhslval = astree.mk_stack_variable_lval(
+                stackoffset, anonymous=anonymous)
+            return [astree.mk_address_of(rhslval, anonymous=anonymous)]
         else:
-            op1s = xxpr_to_ast_exprs(operands[0], astree)
-            op2s = xxpr_to_ast_exprs(operands[1], astree)
+            op1s = xxpr_to_ast_exprs(
+                operands[0], xdata, astree, anonymous=anonymous)
+            op2s = xxpr_to_ast_exprs(
+                operands[1], xdata, astree, anonymous=anonymous)
             if len(op1s) == 1 and len(op2s) == 1:
                 op1 = op1s[0]
                 op2 = op2s[0]
-                if op1.ctype is not None and op in ["plus", "minus"]:
-                    return xtyped_expr_to_ast_exprs(op, op1, op2, astree)
+
+                # Extract a byte from a 32-bit value
+                if op == "xbyte":
+                    if str(op1) == "1":
+                        mask = astree.mk_integer_constant(0xff00)
+                        shift = astree.mk_integer_constant(8)
+                        x1 = astree.mk_binary_op("band", op2, mask)
+                        x2 = astree.mk_binary_op("lsr", x1, shift)
+                        return [x2]
+
+                elif op in ["plus", "minus"]:
+                    try:
+                        op1type = op1.ctype(astree.ctyper)
+                        return xtyped_expr_to_ast_exprs(
+                            op, op1, op2, xdata, astree, anonymous=anonymous)
+                    except:
+                        return [astree.mk_binary_expression(
+                            op, op1, op2, anonymous=anonymous)]
+                elif op in AST.operators:
+                    return [astree.mk_binary_expression(
+                        op, op1, op2, anonymous=anonymous)]
                 else:
-                    return [astree.mk_binary_op(op, op1, op2)]
+                    raise UF.CHBError(
+                        "Compound expression with unsupported operator: "
+                        + op
+                        + " ("
+                        + str(op1)
+                        + ", "
+                        + str(op2)
+                        + ")")
             elif op == "band" and len(op2s) == 1 and op2s[0].is_integer_constant:
                 mask = cast(AST.ASTIntegerConstant, op2s[0])
                 if mask.cvalue == 255 and len(op1s) == 4:
@@ -202,7 +326,7 @@ def xcompound_to_ast_exprs(
                         + "], ["
                         + ", ".join(str(x) for x in op2s)
                         + "]")
-                    
+
             else:
                 raise UF.CHBError(
                     "Multiple operands for one or more operands to binary "
@@ -215,163 +339,226 @@ def xcompound_to_ast_exprs(
                     + ", ".join(str(x) for x in op2s)
                     + "]")
 
-    else:
-        raise UF.CHBError(
-            "AST conversion of compound expression "
-            + str(xc)
-            + " not yet supported")
+    raise UF.CHBError(
+        "AST conversion of compound expression "
+        + str(xc)
+        + " not yet supported")
 
 
 def stack_variable_to_ast_lvals(
         offset: "VMemoryOffset",
-        astree: AbstractSyntaxTree,
+        xdata: "InstrXData",
+        astree: ASTInterface,
         size: int = 4,
-        ctype: Optional["BCTyp"] = None) -> List[AST.ASTLval]:
+        ctype: Optional[AST.ASTTyp] = None,
+        anonymous: bool = False) -> List[AST.ASTLval]:
     """TODO: split up."""
 
     if offset.is_constant_value_offset:
         if size == 2:
             v1 = astree.mk_stack_variable_lval(
-                offset.offsetvalue(), vtype=ctype)
+                offset.offsetvalue(), vtype=ctype, anonymous=anonymous)
             v2 = astree.mk_stack_variable_lval(
-                offset.offsetvalue() + 1, vtype=ctype)
+                offset.offsetvalue() + 1, vtype=ctype, anonymous=anonymous)
             return [v1, v2]
-        else:   
+        else:
             return [astree.mk_stack_variable_lval(
-                offset.offsetvalue(), vtype=ctype)]
+                offset.offsetvalue(), vtype=ctype, anonymous=anonymous)]
 
-    return [astree.mk_variable_lval("stack: " + str(offset))]
+    return [astree.mk_named_lval("stack: " + str(offset), anonymous=anonymous)]
 
 
 def field_at_offset(
-        compinfo: "BCCompInfo",
+        compinfo: AST.ASTCompInfo,
         offsetvalue: int,
-        astree: AbstractSyntaxTree) -> AST.ASTOffset:
+        xdata: "InstrXData",
+        astree: ASTInterface) -> AST.ASTOffset:
     (finfo, r) = compinfo.field_at_offset(offsetvalue)
 
-    if finfo.fieldtype.is_struct:
-        fcompinfo = cast("BCTypComp", finfo.fieldtype).compinfo
-        foffset = field_at_offset(fcompinfo, r, astree)
+    if finfo.fieldtype.is_compound:
+        fieldfkey = cast(AST.ASTTypComp, finfo.fieldtype).compkey
+        fcompinfo = astree.compinfo(fieldfkey)
+        foffset = field_at_offset(fcompinfo, r, xdata, astree)
         return astree.mk_field_offset(
-            finfo.fieldname, finfo.fieldtype, offset=foffset)
+            finfo.fieldname, finfo.compkey, offset=foffset)
     elif r == 0:
-        return astree.mk_field_offset(finfo.fieldname, finfo.fieldtype)
+        return astree.mk_field_offset(finfo.fieldname, finfo.compkey)
     elif finfo.fieldtype.is_array:
-        ftype = cast("BCTypArray", finfo.fieldtype)
-        elsize = ftype.tgttyp.byte_size()
+        ftype = cast(AST.ASTTypArray, finfo.fieldtype)
+        elsize = astree.type_size_in_bytes(ftype.tgttyp)
         index = r // elsize
         ioffset = astree.mk_scalar_index_offset(index)
         return astree.mk_field_offset(
-            finfo.fieldname, finfo.fieldtype, offset=ioffset)
+            finfo.fieldname, finfo.compkey, offset=ioffset)
     else:
         raise UF.CHBError(
             "No field found at offset: "
             + str(offsetvalue)
             + " in struct "
-            + compinfo.cname
+            + compinfo.compname
             + " (Offsets found: "
             + ", ".join(
                 (str(f[0])
                  + ":"
-                 + str(f[1].fieldtype)
+                 + str(compinfo.fieldinfo(f[1]).fieldtype)
                  + " "
-                 + f[1].fieldname)
-                for f in compinfo.fieldoffsets())
+                 + compinfo.fieldinfo(f[1]).fieldname)
+                for f in compinfo.field_offsets.items())
             + ")")
 
 
 def basevar_variable_to_ast_lvals(
         basevar: "X.XVariable",
         offset: "VMemoryOffset",
-        astree: AbstractSyntaxTree,
-        size: int = 4) -> List[AST.ASTLval]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        size: int = 4,
+        anonymous: bool = False) -> List[AST.ASTLval]:
 
     if offset.is_constant_value_offset:
         offsetvalue = offset.offsetvalue()
-        baselvals = xvariable_to_ast_lvals(basevar, astree)
+        baselvals = xvariable_to_ast_lvals(
+            basevar, xdata, astree, anonymous=anonymous)
         if len(baselvals) != 1:
             raise UF.CHBError(
                 "Multiple baselvals: "
                 + ", ".join(str(b) for b in baselvals))
         baselval = baselvals[0]
-        basetype = baselval.ctype
+        basetype = baselval.ctype(astree.ctyper)
         if basetype is not None:
             if basetype.is_array:
-                elttype = cast("BCTypArray", basetype).tgttyp
-                eltsize = elttype.byte_size()
+                elttype = cast(AST.ASTTypArray, basetype).tgttyp
+                eltsize = astree.type_size_in_bytes(elttype)
                 index = offsetvalue // eltsize
                 indexoffset = astree.mk_scalar_index_offset(index)
                 return [astree.mk_lval(baselval.lhost, indexoffset)]
-            elif basetype.is_struct:
-                compinfo = cast("BCTypComp", basetype).compinfo
-                fieldoffset = field_at_offset(compinfo, offsetvalue, astree)
-                return [astree.mk_lval(baselval.lhost, fieldoffset)]
+            elif basetype.is_compound:
+                fcompkey = cast(AST.ASTTypComp, basetype).compkey
+                compinfo = astree.compinfo(fcompkey)
+                fieldoffset = field_at_offset(
+                    compinfo, offsetvalue, xdata, astree)
+                return [astree.mk_lval(
+                    baselval.lhost, fieldoffset, anonymous=anonymous)]
             elif basetype.is_pointer:
-                tgttype = cast("BCTypPtr", basetype).tgttyp
-                basexpr = astree.mk_lval_expr(baselval)
+                tgttype = cast(AST.ASTTypPtr, basetype).tgttyp
+                basexpr = astree.mk_lval_expression(baselval)
                 if tgttype.is_scalar:
-                    tgtsize = tgttype.byte_size()
+                    tgtsize = astree.type_size_in_bytes(tgttype)
                     index = offsetvalue // tgtsize
                     indexoffset = astree.mk_scalar_index_offset(index)
-                    return [astree.mk_lval(baselval.lhost, indexoffset)]
-                elif tgttype.is_struct:
-                    compinfo = cast("BCTypComp", tgttype).compinfo
+                    return [astree.mk_lval(
+                        baselval.lhost, indexoffset, anonymous=anonymous)]
+                elif tgttype.is_compound:
+                    fcompkey = cast(AST.ASTTypComp, tgttype).compkey
+                    compinfo = astree.compinfo(fcompkey)
                     fieldoffset = field_at_offset(
-                        compinfo, offsetvalue, astree)
-                    return [astree.mk_memref_lval(basexpr, fieldoffset)]
+                        compinfo, offsetvalue, xdata, astree)
+                    return [astree.mk_memref_lval(
+                        basexpr, fieldoffset, anonymous=anonymous)]
                 elif tgttype.is_void:
                     index = offsetvalue
                     indexoffset = astree.mk_scalar_index_offset(index)
-                    return [astree.mk_lval(baselval.lhost, indexoffset)]
+                    return [astree.mk_lval(
+                        baselval.lhost, indexoffset, anonymous=anonymous)]
                 elif offsetvalue == 0:
-                    return [astree.mk_memref_lval(basexpr)]
+                    return [astree.mk_memref_lval(basexpr, anonymous=anonymous)]
         else:
             index = offsetvalue
             indexoffset = astree.mk_scalar_index_offset(index)
-            return [astree.mk_lval(baselval.lhost, indexoffset)]
+            return [astree.mk_lval(baselval.lhost, indexoffset, anonymous=anonymous)]
 
-    return [astree.mk_variable_lval(str(basevar) + str(offset))]
+    return [astree.mk_named_lval(str(basevar) + str(offset), anonymous=anonymous)]
 
 
 def global_variable_to_ast_lvals(
         offset: "VMemoryOffset",
-        astree: AbstractSyntaxTree) -> List[AST.ASTLval]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        anonymous: bool = False) -> List[AST.ASTLval]:
 
     if offset.is_constant_value_offset:
         gaddr = hex(offset.offsetvalue())
-        gvname = astree.global_variable_name(gaddr)
-        if gvname is None:
-            gvname = "gv_" + gaddr
-        return [astree.mk_global_variable_lval(
-            gvname, globaladdress=int(gaddr, 16))]
+        gvinfo = astree.globalsymboltable.global_variable_name(gaddr)
+        if gvinfo is not None:
+            return [astree.mk_vinfo_lval(gvinfo, anonymous=anonymous)]
 
-    return [astree.mk_variable_lval("gv_" + str(offset))]
+        gvinfo = astree.globalsymboltable.in_global_variable(
+            gaddr, astree.bytesize_calculator)
+        if gvinfo is not None:
+            igvaddr = gvinfo.globaladdress
+            if igvaddr is None:
+                raise UF.CHBError(
+                    "Internal error in global_variable_to_as_lvals: address")
+            gvtype = gvinfo.vtype
+            if gvtype is None:
+                raise UF.CHBError(
+                    "Internal error in global_variable_to_ast_lvals: type")
+            if gvtype.is_compound:
+                gvtype = cast(AST.ASTTypComp, gvtype)
+                gvckey = gvtype.compkey
+                gvcompinfo = astree.globalsymboltable.compinfo(gvckey)
+                gvoffset = int(gaddr, 16) - igvaddr
+                (gvfield, gvfieldoffset) = gvcompinfo.field_at_offset(gvoffset)
+                gvfieldtype = gvfield.fieldtype
+                if gvfieldtype.is_array:
+                    gvfieldtype = cast(AST.ASTTypArray, gvfieldtype)
+                    if gvfieldtype.has_constant_size():
+                        arraysize = gvfieldtype.size_value()
+                        if gvfieldoffset < arraysize:
+                            arrayoffset = astree.mk_scalar_index_offset(
+                                gvfieldoffset)
+                            fieldoffset = astree.mk_field_offset(
+                                gvfield.fieldname,
+                                gvfield.compkey,
+                                offset=arrayoffset)
+                            return [astree.mk_vinfo_lval(gvinfo, fieldoffset)]
+
+        gvname = "gv_" + gaddr
+        return [astree.mk_named_lval(
+            gvname, globaladdress=offset.offsetvalue(), anonymous=anonymous)]
+
+    return [astree.mk_named_lval("gv_" + str(offset), anonymous=anonymous)]
 
 
 def vmemory_variable_to_ast_lvals(
         xvmem: "VMemoryVariable",
-        astree: AbstractSyntaxTree,
+        xdata: "InstrXData",
+        astree: ASTInterface,
         size: int = 4,
-        ctype: Optional["BCTyp"] = None) -> List[AST.ASTLval]:
+        ctype: Optional[AST.ASTTyp] = None,
+        anonymous: bool = False) -> List[AST.ASTLval]:
     """TODO: split up."""
 
     if xvmem.base.is_local_stack_frame:
         return stack_variable_to_ast_lvals(
-            xvmem.offset, astree, size=size, ctype=ctype)
+            xvmem.offset,
+            xdata,
+            astree,
+            size=size,
+            ctype=ctype,
+            anonymous=anonymous)
 
     elif xvmem.is_basevar_variable:
         return basevar_variable_to_ast_lvals(
-            xvmem.basevar, xvmem.offset, astree, size=size)
+            xvmem.basevar,
+            xvmem.offset,
+            xdata,
+            astree,
+            size=size,
+            anonymous=anonymous)
 
     elif xvmem.is_global_variable:
-        return global_variable_to_ast_lvals(xvmem.offset, astree)
+        return global_variable_to_ast_lvals(
+            xvmem.offset, xdata, astree, anonymous=anonymous)
 
-    return [astree.mk_variable_lval(str(xvmem))]
+    return [astree.mk_named_lval(str(xvmem))]
 
 
 def vinitregister_value_list_to_ast_lvals(
         vconstvars: List["VInitialRegisterValue"],
-        astree: AbstractSyntaxTree) -> List[AST.ASTLval]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        anonymous: bool = False) -> List[AST.ASTLval]:
 
     if all(vconstvar.is_argument_value for vconstvar in vconstvars):
         formal_argindices: Set[int] = set([])
@@ -387,17 +574,18 @@ def vinitregister_value_list_to_ast_lvals(
             # All register arguments refer to the same formal argument
             if len(formal_locindices) == len(formal.arglocs):
                 # All components of the formal are covered
-                argtype = formal.vtype
                 return [astree.mk_formal_lval(formal)]
 
-    return [astree.mk_register_variable_lval(str(vconstvar.register))
-            for vconstvar in vconstvars]
+    return [astree.mk_register_variable_lval(
+        str(vconstvar.register), anonymous=anonymous) for vconstvar in vconstvars]
 
 
 def vinitregister_value_to_ast_lvals(
         vconstvar: "VInitialRegisterValue",
-        astree: AbstractSyntaxTree,
-        size: int = 4) -> List[AST.ASTLval]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        size: int = 4,
+        anonymous: bool = False) -> List[AST.ASTLval]:
 
     if vconstvar.is_argument_value:
         argindex = vconstvar.argument_index()
@@ -405,18 +593,24 @@ def vinitregister_value_to_ast_lvals(
         if len(arglvals) > 0:
             return arglvals
         else:
-            return [astree.mk_register_variable_lval(str(vconstvar.register))]
+            register = str(vconstvar.register)
+            return [astree.mk_register_variable_lval(
+                register + "_in", registername=register, anonymous=anonymous)]
 
     elif vconstvar.register.is_stack_pointer:
-        return [astree.mk_register_variable_lval("base_sp")]
+        return [astree.mk_register_variable_lval("base_sp", anonymous=anonymous)]
     else:
-        return [astree.mk_register_variable_lval(str(vconstvar.register))]
+        register = str(vconstvar.register)
+        return [astree.mk_register_variable_lval(
+            register + "_in", registername=register, anonymous=anonymous)]
 
 
 def vinitmemory_value_to_ast_lvals(
         vconstvar: "VInitialMemoryValue",
-        astree: AbstractSyntaxTree,
-        size: int = 4) -> List[AST.ASTLval]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        size: int = 4,
+        anonymous: bool = False) -> List[AST.ASTLval]:
 
     xvar = vconstvar.variable
 
@@ -431,72 +625,95 @@ def vinitmemory_value_to_ast_lvals(
                     flvals = astree.function_argument(argindex)
                     return flvals
 
-    return xvariable_to_ast_lvals(xvar, astree)
+    return xvariable_to_ast_lvals(xvar, xdata, astree, anonymous=anonymous)
 
 
 def vfunctionreturn_value_to_ast_lvals(
         vconstvar: "VFunctionReturnValue",
-        astree: AbstractSyntaxTree) -> List[AST.ASTLval]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        anonymous: bool = False) -> List[AST.ASTLval]:
 
-    vtype = None
+    vtype: Optional[AST.ASTTyp] = None
+
     if vconstvar.has_call_target():
         calltarget = str(vconstvar.call_target())
         if astree.has_symbol(calltarget):
-            vinfo = astree.symbol(calltarget)
+            vinfo = astree.get_symbol(calltarget)
             vtype = vinfo.vtype
 
-    return [astree.mk_returnval_variable_lval(vconstvar.callsite, vtype)]
+    return [astree.mk_returnval_variable_lval(
+        vconstvar.callsite, vtype, anonymous=anonymous)]
 
 
 def vauxiliary_variable_list_to_ast_lvals(
         xvauxs: List["VAuxiliaryVariable"],
-        astree: AbstractSyntaxTree) -> List[AST.ASTLval]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        anonymous: bool = False) -> List[AST.ASTLval]:
 
     if all(xvaux.auxvar.is_initial_register_value for xvaux in xvauxs):
         vconstvars = [
             cast("VInitialRegisterValue", xvaux.auxvar) for xvaux in xvauxs]
-        return vinitregister_value_list_to_ast_lvals(vconstvars, astree)
+        return vinitregister_value_list_to_ast_lvals(
+            vconstvars, xdata, astree, anonymous=anonymous)
 
-    return [astree.mk_variable_lval(str(xvaux)) for xvaux in xvauxs]
+    return [astree.mk_named_lval(str(xvaux), anonymous=anonymous) for xvaux in xvauxs]
+
 
 def vauxiliary_variable_to_ast_lvals(
         xvaux: "VAuxiliaryVariable",
-        astree: AbstractSyntaxTree,
-        size: int = 4) -> List[AST.ASTLval]:
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        size: int = 4,
+        anonymous: bool = False) -> List[AST.ASTLval]:
 
     vconstvar = xvaux.auxvar
 
     if vconstvar.is_initial_register_value:
         vconstvar = cast("VInitialRegisterValue", vconstvar)
-        return vinitregister_value_to_ast_lvals(vconstvar, astree, size=size)
+        return vinitregister_value_to_ast_lvals(
+            vconstvar, xdata, astree, size=size, anonymous=anonymous)
 
     elif vconstvar.is_initial_memory_value:
         vconstvar = cast("VInitialMemoryValue", vconstvar)
-        return vinitmemory_value_to_ast_lvals(vconstvar, astree)
+        return vinitmemory_value_to_ast_lvals(
+            vconstvar, xdata, astree, anonymous=anonymous)
 
     elif vconstvar.is_function_return_value:
         vconstvar = cast("VFunctionReturnValue", vconstvar)
-        return vfunctionreturn_value_to_ast_lvals(vconstvar, astree)
+        return vfunctionreturn_value_to_ast_lvals(
+            vconstvar, xdata, astree, anonymous=anonymous)
 
     """TODO: split up."""
-    return [astree.mk_variable_lval(str(xvaux))]
+    return [astree.mk_named_lval(str(xvaux), anonymous=anonymous)]
 
 
 def xvariable_list_to_ast_lvals(
-        xvs: List[X.XVariable], astree: AbstractSyntaxTree) -> List[AST.ASTLval]:
+        xvs: List[X.XVariable],
+        xdata: "InstrXData",
+        astree: ASTInterface,
+        anonymous: bool = False) -> List[AST.ASTLval]:
 
     if all(xv.is_auxiliary_variable for xv in xvs):
         return vauxiliary_variable_list_to_ast_lvals(
-            [cast("VAuxiliaryVariable", xv.denotation) for xv in xvs], astree)
+            [cast("VAuxiliaryVariable", xv.denotation) for xv in xvs],
+            xdata,
+            astree,
+            anonymous=anonymous)
 
-    return sum((xvariable_to_ast_lvals(xv, astree) for xv in xvs), [])
+    return sum(
+        (xvariable_to_ast_lvals(
+            xv, xdata, astree, anonymous=anonymous) for xv in xvs), [])
 
 
 def xvariable_to_ast_lvals(
         xv: X.XVariable,
-        astree: AbstractSyntaxTree,
+        xdata: "InstrXData",
+        astree: ASTInterface,
         size: int = 4,
-        ctype: Optional["BCTyp"] = None) -> List[AST.ASTLval]:
+        ctype: Optional[AST.ASTTyp] = None,
+        anonymous: bool = False) -> List[AST.ASTLval]:
     """Convert a CHIF variable to an AST Lval node."""
 
     if xv.is_tmp:
@@ -510,16 +727,155 @@ def xvariable_to_ast_lvals(
             name = "mips_" + mipsreg.name
         else:
             name = str(xv)
-        return [astree.mk_register_variable_lval(name)]
+        return [astree.mk_register_variable_lval(name, anonymous=anonymous)]
 
     elif xv.is_memory_variable:
         xvmem = cast("VMemoryVariable", xv.denotation)
         return vmemory_variable_to_ast_lvals(
-            xvmem, astree, size=size, ctype=ctype)
+            xvmem, xdata, astree, size=size, ctype=ctype, anonymous=anonymous)
 
     elif xv.is_auxiliary_variable:
         xvaux = cast("VAuxiliaryVariable", xv.denotation)
-        return vauxiliary_variable_to_ast_lvals(xvaux, astree, size=size)
+        return vauxiliary_variable_to_ast_lvals(
+            xvaux, xdata, astree, size=size, anonymous=anonymous)
 
     else:
-        return [astree.mk_variable_lval(str(xv))]
+        return [astree.mk_named_lval(str(xv), anonymous=anonymous)]
+
+
+def xvar_offset_dereference_lval(
+        var: X.XprVariable,
+        offset: Optional[X.XXpr],
+        xdata: "InstrXData",
+        astree: ASTInterface) -> AST.ASTLval:
+    """Return an lval associated with a base variable + offset."""
+
+    def default() -> AST.ASTLval:
+        addrasts = xprvariable_to_ast_exprs(var, xdata, astree)
+        if len(addrasts) == 0:
+            raise UF.CHBError(
+                "Error in converting address expression: "
+                + str(var))
+
+        elif len(addrasts) > 1:
+            raise UF.CHBError(
+                "Multiple expressions in convertine address expression: "
+                + ", ".join(str(x) for x in addrasts))
+
+        return astree.mk_memref_lval(addrasts[0])
+
+    vdefs = xdata.reachingdeflocs_for_s(str(var))
+    if len(vdefs) == 0:
+        return default()
+
+    if len(vdefs) > 1:
+        return default()
+
+    regdef = astree.regdefinition(str(vdefs[0]), str(var))
+    if regdef is None:
+        return default()
+
+    vtype = regdef.ctype(astree.ctyper)
+    if vtype is None:
+        return default()
+
+    if not vtype.is_pointer:
+        return default()
+
+    vtype = cast(AST.ASTTypPtr, vtype)
+    vtgttype = vtype.tgttyp
+    if not vtgttype.is_compound:
+        return default()
+
+    vtgttype = cast(AST.ASTTypComp, vtgttype)
+    compinfo = astree.compinfo(vtgttype.compkey)
+
+    if offset is None:
+        byte_fieldoffset = 0
+    elif offset.is_int_constant:
+        byte_fieldoffset = offset.intvalue
+    else:
+        return default()
+
+    (fieldinfo, suboff) = compinfo.field_at_offset(byte_fieldoffset)
+    if not suboff == 0:
+        return default()
+
+    fieldoffset = astree.mk_field_offset(fieldinfo.fieldname, vtgttype.compkey)
+    return astree.mk_memref_lval(regdef, offset=fieldoffset)
+
+
+def xmemory_dereference_lval(
+        address: X.XXpr,
+        xdata: "InstrXData",
+        astree: ASTInterface) -> AST.ASTLval:
+    """Return an lval associated with a memory address."""
+
+    def default() -> AST.ASTLval:
+        addrasts = xxpr_to_ast_exprs(address, xdata, astree)
+        if len(addrasts) == 0:
+            raise UF.CHBError(
+                "Error in converting address expression: "
+                + str(address))
+
+        elif len(addrasts) > 1:
+            raise UF.CHBError(
+                "Multiple expressions in convertine address expression: "
+                + ", ".join(str(x) for x in addrasts))
+
+        return astree.mk_memref_lval(addrasts[0])
+
+    if address.is_global_address:
+        return default()
+
+    elif address.is_var:
+        address = cast(X.XprVariable, address)
+        return xvar_offset_dereference_lval(address, None, xdata, astree)
+
+    elif address.is_compound:
+        address = cast(X.XprCompound, address)
+        if not (len(address.operands) == 2):
+            return default()
+
+        op1 = address.operands[0]
+        op2 = address.operands[1]
+
+        if op1.is_var:
+            op1 = cast(X.XprVariable, op1)
+            return xvar_offset_dereference_lval(op1, op2, xdata, astree)
+
+        if not op1.is_global_address:
+            return default()
+
+        gvinfo = astree.globalsymboltable.global_variable_name(str(op1))
+        if gvinfo is None:
+            return default()
+
+        gvtype = gvinfo.vtype
+        if gvtype is None:
+            return default()
+
+        if gvtype.is_array:
+            gvtype = cast(AST.ASTTypArray, gvtype)
+            eltype = gvtype.tgttyp
+            eltypsize = astree.type_size_in_bytes(eltype)
+
+            if not op2.is_compound:
+                return default()
+
+            op2 = cast(X.XprCompound, op2)
+            if (not len(op2.operands) == 2):
+                return default()
+
+            op2_1 = op2.operands[0]
+            op2_2 = op2.operands[1]
+
+            if op2_1.is_int_const_value(eltypsize):
+
+                indexexprs = xxpr_to_ast_exprs(op2_2, xdata, astree)
+                if len(indexexprs) == 1:
+                    offset = astree.mk_expr_index_offset(indexexprs[0])
+                    lval = astree.mk_vinfo_lval(gvinfo, offset=offset)
+                    return lval
+
+    return default()

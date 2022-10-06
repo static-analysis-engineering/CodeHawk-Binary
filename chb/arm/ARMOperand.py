@@ -28,11 +28,13 @@
 
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTLval, ASTExpr, ASTInstruction
 from chb.app.Operand import Operand
+
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
 from chb.arm.ARMOperandKind import ARMOperandKind
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.util.IndexedTable import IndexedTableValue
 
@@ -105,14 +107,14 @@ class ARMOperand(ARMDictionaryRecord, Operand):
 
     def ast_lvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
-                ASTLval, List[ASTInstruction], List[ASTInstruction]]:
+            astree: ASTInterface) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return self.opkind.ast_lvalue(astree)
 
     def ast_rvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
-                ASTExpr, List[ASTInstruction], List[ASTInstruction]]:
+            astree: ASTInterface) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return self.opkind.ast_rvalue(astree)
 
     def __str__(self) -> str:

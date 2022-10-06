@@ -95,13 +95,16 @@ from abc import ABC, abstractmethod
 from typing import (
     Any, cast, Dict, List, Mapping, NewType, Optional, Sequence, Tuple, Union)
 
-from chb.app.AbstractSyntaxTree import VariableNamesRec
-
 import chb.userdata.btypeutil as UT
 from chb.userdata.UserBType import UserStructBType
 
 import chb.util.fileutil as UF
 import chb.util.xmlutil as UX
+
+
+VariableNamesRec = NewType(
+    "VariableNamesRec",
+    Dict[str, Dict[str, Dict[str, List[Dict[str, Union[Tuple[str, str], str]]]]]])
 
 
 class HintsEntry(ABC):
@@ -260,7 +263,7 @@ class StructTables(HintsEntry):
     def structtables(self) -> Mapping[str, Tuple[str, int]]:
         return self._structtables
 
-    def update(self, d: Dict[str, Tuple[str, int]]):
+    def update(self, d: Dict[str, Tuple[str, int]]) -> None:
         for (k, v) in d.items():
             if k not in self.structtables:
                 self._structtables[k] = v
@@ -297,7 +300,7 @@ class CallbackTables(HintsEntry):
     def callbacktables(self) -> Mapping[str, str]:
         return self._callbacktables
 
-    def update(self, d: Dict[str, str]):
+    def update(self, d: Dict[str, str]) -> None:
         for (k, v) in d.items():
             if k not in self.callbacktables:
                 self._callbacktables[k] = v
@@ -332,7 +335,7 @@ class CallTargetsHints(HintsEntry):
                            | dll:name
                            | so:name
                            | jni:index
-                           | cbt:addr:offset}]}
+                           | cba:addr:offset}]}
         """
 
         HintsEntry.__init__(self, "call-targets")
@@ -502,7 +505,7 @@ class FunctionNamesHints(HintsEntry):
                 self._revnames[name].append(addr)
         return self._revnames
 
-    def namecount(self, name) -> int:
+    def namecount(self, name: str) -> int:
         if name in self.revnames:
             return len(self.revnames[name])
         else:

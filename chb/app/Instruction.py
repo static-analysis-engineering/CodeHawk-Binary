@@ -41,9 +41,10 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKIN
 
 from chb.api.CallTarget import CallTarget
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr
 from chb.app.FunctionDictionary import FunctionDictionary
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -51,6 +52,7 @@ from chb.invariants.XXpr import XXpr
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
+    from chb.app.InstrXData import InstrXData
     from chb.app.Operand import Operand
     from chb.app.StackPointerOffset import StackPointerOffset
     from chb.invariants.XVariable import XVariable
@@ -93,6 +95,11 @@ class Instruction(ABC):
     @property
     @abstractmethod
     def annotation(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
+    def xdata(self) -> "InstrXData":
         ...
 
     @property
@@ -149,6 +156,11 @@ class Instruction(ABC):
 
     @property
     @abstractmethod
+    def is_jump_instruction(self) -> bool:
+        ...
+
+    @property
+    @abstractmethod
     def is_load_instruction(self) -> bool:
         """Return true if this instruction loads data from memory."""
         ...
@@ -180,6 +192,23 @@ class Instruction(ABC):
         ...
 
     @property
+    def is_unresolved(self) -> bool:
+        """Return true if something about this instruction is unresolved."""
+
+        return False
+
+    @property
+    def is_subsumed(self) -> bool:
+        """Return true if another instruction incorporates this instruction."""
+
+        return False
+
+    def subsumed_by(self) -> str:
+        """Return the address of the instruction that subsumes this instruction."""
+
+        raise UF.CHBError("Instruction is not subsumed.")
+
+    @property
     @abstractmethod
     def ft_conditions(self) -> Sequence[XXpr]:
         ...
@@ -197,16 +226,29 @@ class Instruction(ABC):
     def return_value(self) -> Optional[XXpr]:
         return None
 
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+    def assembly_ast(self, astree: ASTInterface) -> List[AST.ASTInstruction]:
         raise UF.CHBError("assembly-ast not defined")
 
-    def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
+    def ast(self, astree: ASTInterface) -> List[AST.ASTInstruction]:
         raise UF.CHBError("ast (abstract-syntax-tree) not defined")
 
+    def ast_prov(self, astree: ASTInterface) -> Tuple[
+            List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        raise UF.CHBError("ast-prov not defined")
+
+    def ast_condition_prov(self, astree: ASTInterface, reverse: bool = False) -> Tuple[
+            Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+        raise UF.CHBError("ast-condition-prov not defined")
+
     def assembly_ast_condition(
-            self, astree: AbstractSyntaxTree,
-            reverse: bool = False) -> Optional[ASTExpr]:
+            self,
+            astree: ASTInterface,
+            reverse: bool = False) -> Optional[AST.ASTExpr]:
         raise UF.CHBError("assembly-ast-condition not defined")
+
+    def ast_case_expression(
+            self, target: str, astree: ASTInterface) -> Optional[AST.ASTExpr]:
+        return None
 
     @abstractmethod
     def to_string(

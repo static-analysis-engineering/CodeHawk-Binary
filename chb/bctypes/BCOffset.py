@@ -37,7 +37,11 @@ type offset
 
 from typing import List, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord, bcregistry
+from chb.bctypes.BCVisitor import BCVisitor
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -55,6 +59,9 @@ class BCOffset(BCDictionaryRecord):
             ixval: IT.IndexedTableValue) -> None:
         BCDictionaryRecord.__init__(self, cd, ixval)
 
+    def convert(self, converter: "BCConverter") -> AST.ASTOffset:
+        raise NotImplementedError("BCOffset.convert")
+
     def __str__(self) -> str:
         return "bc-offset:" + self.tags[0]
 
@@ -67,6 +74,12 @@ class BCNoOffset(BCOffset):
             cd: "BCDictionary",
             ixval: IT.IndexedTableValue) -> None:
         BCOffset.__init__(self, cd, ixval)
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_no_offset(self)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTNoOffset:
+        return converter.convert_no_offset(self)
 
     def __str__(self) -> str:
         return ""
@@ -93,6 +106,12 @@ class BCFieldOffset(BCOffset):
     def suboffset(self) -> "BCOffset":
         return self.bcd.offset(self.args[1])
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_field_offset(self)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTFieldOffset:
+        return converter.convert_field_offset(self)
+
     def __str__(self) -> str:
         return "." + self.fieldname + str(self.suboffset)
 
@@ -113,6 +132,12 @@ class BCIndexOffset(BCOffset):
     @property
     def suboffset(self) -> "BCOffset":
         return self.bcd.offset(self.args[1])
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_index_offset(self)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTIndexOffset:
+        return converter.convert_index_offset(self)
 
     def __str__(self) -> str:
         return "[" + str(self.exp) + "]" + str(self.suboffset)

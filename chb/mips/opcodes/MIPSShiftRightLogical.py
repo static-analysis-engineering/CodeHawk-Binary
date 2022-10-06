@@ -29,10 +29,10 @@
 
 from typing import cast, List, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTExpr, ASTInstruction
-
 from chb.app.InstrXData import InstrXData
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -93,17 +93,17 @@ class MIPSShiftRightLogical(MIPSOpcode):
 
     def ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
-        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[2], astree)
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], xdata, astree)
+        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[2], xdata, astree)
         if len(lhss) == 1 and len(rhss) == 1:
             lhs = lhss[0]
             rhs = rhss[0]
             assign = astree.mk_assign(lhs, rhs)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            astree.add_instruction_span(assign.locationid, iaddr, bytestring)
             return [assign]
         else:
             raise UF.CHBError(

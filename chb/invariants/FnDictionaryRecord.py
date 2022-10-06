@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from chb.app.StringXRefs import StringsXRefs
     from chb.invariants.FnInvDictionary import FnInvDictionary
     from chb.invariants.FnVarDictionary import FnVarDictionary
+    from chb.invariants.FnVarInvDictionary import FnVarInvDictionary
     from chb.invariants.FnXprDictionary import FnXprDictionary
 
 
@@ -150,6 +151,33 @@ class FnInvDictionaryRecord(IndexedTableValue):
         return self.invd.function
 
 
+class FnVarInvDictionaryRecord(IndexedTableValue):
+    """Base class for objects kept in the FnVarInvDictionary."""
+
+    def __init__(
+            self,
+            varinvd: "FnVarInvDictionary",
+            ixval: IndexedTableValue) -> None:
+        IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
+        self._varinvd = varinvd
+
+    @property
+    def varinvd(self) -> "FnVarInvDictionary":
+        return self._varinvd
+
+    @property
+    def vd(self) -> "FnVarDictionary":
+        return self.varinvd.vd
+
+    @property
+    def xd(self) -> "FnXprDictionary":
+        return self.varinvd.xd
+
+    @property
+    def function(self) -> "Function":
+        return self.varinvd.function
+
+
 VdR = TypeVar("VdR", bound=FnVarDictionaryRecord, covariant=True)
 
 
@@ -248,3 +276,34 @@ class InvDictionaryRegistry:
 
 
 invregistry: InvDictionaryRegistry = InvDictionaryRegistry()
+
+
+VIdR = TypeVar("VIdR", bound=FnVarInvDictionaryRecord, covariant=True)
+
+
+class VarInvDictionaryRegistry:
+
+    def __init__(self) -> None:
+        self.register: Dict[Tuple[type, str], Type[FnVarInvDictionaryRecord]] = {}
+
+    def register_tag(
+            self,
+            tag: str,
+            anchor: type) -> Callable[[type], type]:
+        def handler(t: type) -> type:
+            self.register[(anchor, tag)] = t
+            return t
+        return handler
+
+    def mk_instance(
+            self,
+            varinvd: "chb.invariants.FnVarInvDictionary.FnVarInvDictionary",
+            ixval: IndexedTableValue,
+            superclass: type) -> VIdR:
+        tag = ixval.tags[0]
+        if (superclass, tag) not in self.register:
+            raise UF.CHBError("Unknown varinvdictionary type: " + tag)
+        instance = self.register[(superclass, tag)](varinvd, ixval)
+        return cast(VIdR, instance)
+
+varinvregistry: VarInvDictionaryRegistry = VarInvDictionaryRegistry()

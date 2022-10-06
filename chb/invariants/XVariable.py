@@ -150,6 +150,11 @@ class XVariable(FnXprDictionaryRecord):
             result[str(self.global_variable_base())] = 1
         return result
 
+    def has_unknown_memory_base(self) -> bool:
+        return (
+            self.is_memory_variable
+            and self.denotation.has_unknown_memory_base())
+
     @property
     def is_structured_var(self) -> bool:
         return (self.has_denotation() and self.denotation.is_structured_var)

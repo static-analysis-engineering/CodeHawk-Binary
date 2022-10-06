@@ -29,10 +29,10 @@
 
 from typing import cast, List, Optional, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
-
 from chb.app.InstrXData import InstrXData
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -67,28 +67,28 @@ class MIPSBranchOpcode(MIPSOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         return []
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Optional[ASTExpr]:
+            xdata: InstrXData) -> Optional[AST.ASTExpr]:
         ftconds = self.ft_conditions(xdata)
         if len(ftconds) == 2:
             tcond = ftconds[1]
-            astconds = XU.xxpr_to_ast_exprs(tcond, astree)
+            astconds = XU.xxpr_to_ast_exprs(tcond, xdata, astree)
             if len(astconds) > 1:
                 raise UF.CHBError(
                     "Multiple expressions for MIPS condition")
             else:
                 astcond = astconds[0]
-                astree.add_instruction_span(astcond.id, iaddr, bytestring)
+                # astree.add_instruction_span(astcond.id, iaddr, bytestring)
                 return astcond
         else:
             return None

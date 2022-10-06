@@ -25,17 +25,16 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, Sequence, TYPE_CHECKING
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
+from typing import List, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 
@@ -86,7 +85,7 @@ class ARMBranchExchange(ARMOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:

@@ -81,13 +81,15 @@ class BDictionary:
             "arm-extension-register-element-table")
         self.arm_extension_register_replicated_element_table = IT.IndexedTable(
             "arm-extension-register-replicated-element-table")
-        self.register_table = IT.IndexedTable('register-table')
+        self.register_table = IT.IndexedTable("register-table")
+        self.flag_table = IT.IndexedTable("flag-table")
         self.tables: List[IT.IndexedTable] = [
             self.address_table,
             self.arm_extension_register_table,
             self.arm_extension_register_element_table,
             self.arm_extension_register_replicated_element_table,
-            self.register_table]
+            self.register_table,
+            self.flag_table]
         self.initialize(xnode)
 
     @property
@@ -139,6 +141,8 @@ class BDictionary:
                 t.read_xml(xtable, "n")
             else:
                 if t.name.startswith("arm") and (not self.app.is_arm):
+                    pass
+                elif t.name == "flag-table" and self.app.is_mips:
                     pass
                 else:
                     raise UF.CHBError("Error reading table " + t.name)

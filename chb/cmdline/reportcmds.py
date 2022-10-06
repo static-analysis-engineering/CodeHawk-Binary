@@ -28,19 +28,143 @@
 """Support functions for the command-line interpreter."""
 
 import argparse
+import json
 
-from typing import Dict, List, NoReturn, Tuple
+from typing import (
+    Any, Callable, cast, Dict, List, Mapping, NoReturn, Optional, Sequence, Tuple)
+
+from chb.app.Instruction import Instruction
+
+from chb.arm.ARMInstruction import ARMInstruction
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
 
+from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
+
 import chb.util.fileutil as UF
+
+
+def dst_stack_arg_offset(instr: Instruction, dstargix: int) -> Optional[int]:
+    try:
+        dstarg = instr.call_arguments[dstargix]
+        if dstarg.is_stack_address:
+            dstarg = cast(XprCompound, dstarg)
+            return (-dstarg.stack_address_offset())
+        else:
+            print("Not a stack address: " + str(dstarg))
+            return None
+    except Exception as e:
+        print("Exception in " + str(instr) + ": " + str(e))
+        return None
+
+
+destination_arguments: Dict[str, int] = {
+    "memcpy": 0,
+    "snprintf": 0,
+    "sprintf": 0,
+    "strlcpy": 0,
+    "strcat": 0,
+    "strcpy": 0,
+    "strlcpy": 0,
+    "strncpy": 0
+}
+
+
+class CallRecord:
+
+    def __init__(
+            self,
+            faddr: str,
+            instr: Instruction,
+            fname: Optional[str] = None) -> None:
+        self._faddr = faddr
+        self._fname = fname
+        self._instr = instr
+
+    @property
+    def instr(self) -> Instruction:
+        return self._instr
+
+    @property
+    def faddr(self) -> str:
+        return self._faddr
+
+    @property
+    def iaddr(self) -> str:
+        return self.instr.iaddr
+
+    def has_fname(self) -> bool:
+        return self._fname is not None
+
+    @property
+    def fname(self) -> str:
+        if self._fname is not None:
+            return self._fname
+        else:
+            raise UF.CHBError("Function does not have a name")
+
+    @property
+    def callee(self) -> str:
+        return str(self.instr.call_target)
+
+    @property
+    def arguments(self) -> Sequence["XXpr"]:
+        return self.instr.call_arguments
+
+    @property
+    def write_destination(self) -> Optional[str]:
+        if self.callee in destination_arguments:
+            argix = destination_arguments[self.callee]
+            if len(self.arguments) > argix:
+                dstarg = self.arguments[destination_arguments[self.callee]]
+            else:
+                print("Argument " + str(argix) + " not present for " + self.callee)
+                return None
+            if dstarg.is_stack_address:
+                return "stack"
+            elif dstarg.is_heap_address:
+                return "heap"
+            elif dstarg.is_global_address:
+                return "global"
+            else:
+                return None
+        else:
+            return None
+
+    def dest_stack_frame_size(self) -> Optional[int]:
+        dest = self.write_destination
+        if dest and dest == "stack":
+            return dst_stack_arg_offset(
+                self.instr, destination_arguments[self.callee])
+        else:
+            return None
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        writedst = self.write_destination
+        result["faddr"] = self.faddr
+        result["iaddr"] = self.iaddr
+        if self.has_fname():
+            result["fname"] = self.fname
+        result["callee"] = self.callee
+        result["arguments"] = [str(a) for a in self.arguments]
+        if writedst is not None:
+            result["writes-to"] = writedst
+            if writedst == "stack":
+                framesize = self.dest_stack_frame_size()
+                if framesize is not None:
+                    result["dst-framesize"] = framesize
+        return result
 
 
 def report_calls(args: argparse.Namespace) -> NoReturn:
 
     # arguments
     xname: str = args.xname
+    outputfile: str = args.outputfile
+    verbose: bool = args.verbose
+    callees: List[str] = args.callees
 
     try:
         (path, xfile) = UC.get_path_filename(xname)
@@ -55,20 +179,55 @@ def report_calls(args: argparse.Namespace) -> NoReturn:
     app = UC.get_app(path, xfile, xinfo)
 
     calls = app.call_instructions()
-    calllist: List[Tuple[str, str]] = []
+    calllist: List[CallRecord] = []
 
     for faddr in sorted(calls):
-        print("\nFunction " + faddr)
+        fname = (
+            app.function_name(faddr)
+            if app.has_function_name(faddr)
+            else None)
+        if verbose:
+            print("\nFunction " + faddr)
         for baddr in calls[faddr]:
-            print("  Block " + baddr)
             for instr in calls[faddr][baddr]:
-                calllist.append((instr.annotation, faddr))
-                print("     " + str(instr))
+                calltgt = str(instr.call_target)
+                if "all" in callees or calltgt in callees:
+                    callrec = CallRecord(faddr, instr, fname=fname)
+                    calllist.append(callrec)
+                    if verbose:
+                        print("     " + str(instr))
+                else:
+                    if "all" in callees:
+                        callrec = CallRecord(faddr, instr, fname=fname)
+                        calllist.append(callrec)
 
-    print("\nCalls aggregated")
-    print("------------------")
-    for (c, faddr) in sorted(calllist):
-        print(faddr.ljust(12) + c)
+    results: Dict[str, Any] = {}
+    results["application"] = {}
+    results["application"]["name"] = xfile
+    results["application"]["md5"] = xinfo.md5
+    results["calls"] = [callrec.to_dict() for callrec in calllist]
+
+    filename = outputfile + ".json"
+    with open(filename, "w") as fp:
+        json.dump(results, fp, indent=2)
+
+    stats: Dict[str, Dict[str, int]] = {}
+
+    for c in calllist:
+        callee = c.callee
+        stats.setdefault(callee, {})
+        dst = c.write_destination
+        if dst is None:
+            dst = "unknown"
+        stats[callee].setdefault(dst, 0)
+        stats[callee][dst] += 1
+
+    print("Statistics")
+    print("==========")
+    for (call, counts) in stats.items():
+        print(call + " (" + str(sum([counts[n] for n in counts])) + ")")
+        for (d, n) in counts.items():
+            print("  " + d.ljust(8) + str(n).rjust(5))
 
     exit(0)
 
@@ -215,4 +374,134 @@ def report_memops(args: argparse.Namespace) -> NoReturn:
         + " ("
         + fperc
         + "%)")
+    exit(0)
+
+
+def report_unresolved(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    xoutput: str = args.outputfile
+    xverbose: bool = args.verbose
+
+    try:
+        (path, xfile) = UC.get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    results: Dict[str, Any] = {}
+    results["memory-operations"] = {}
+
+    app = UC.get_app(path, xfile, xinfo)
+
+    calls = app.call_instructions()
+    jumps = app.jump_instructions()
+
+    memloads = app.load_instructions()
+    memstores = app.store_instructions()
+
+    unknownloads: Dict[str, List[str]] = {}
+    unknownstores: Dict[str, List[str]] = {}
+    unknowncalls: Dict[str, List[str]] = {}
+    unknownjumps: Dict[str, List[str]]  = {}
+
+    def vprint(faddr: str, instr: Instruction) -> None:
+        if xverbose:
+            print(faddr + ":" + instr.iaddr + "  " + str(instr))
+
+    def add_unknown_load(faddr: str, instr: Instruction) -> None:
+        vprint(faddr, instr)
+        unknownloads.setdefault(faddr, [])
+        unknownloads[faddr].append(instr.iaddr)
+
+    def add_unknown_store(faddr: str, instr: Instruction) -> None:
+        vprint(faddr, instr)
+        unknownstores.setdefault(faddr, [])
+        unknownstores[faddr].append(instr.iaddr)
+
+    def add_unknown_call(faddr: str, instr: Instruction) -> None:
+        vprint(faddr, instr)
+        unknowncalls.setdefault(faddr, [])
+        unknowncalls[faddr].append(instr.iaddr)
+
+    def add_unknown_jump(faddr: str, instr: Instruction) -> None:
+        vprint(faddr, instr)
+        unknownjumps.setdefault(faddr, [])
+        unknownjumps[faddr].append(instr.iaddr)
+
+    for faddr in sorted(memloads):
+        for baddr in memloads[faddr]:
+            for instr in memloads[faddr][baddr]:
+                for rhs in instr.rhs:
+                    if "?" in str(rhs):
+                        add_unknown_load(faddr, instr)
+
+    for faddr in sorted(memstores):
+        for baddr in memstores[faddr]:
+            for instr in memstores[faddr][baddr]:
+                for lhs in instr.lhs:
+                    if "?" in str(lhs):    # in ["?", "??operand??"]:
+                        add_unknown_store(faddr, instr)
+
+    for faddr in sorted(calls):
+        for baddr in calls[faddr]:
+            for instr in calls[faddr][baddr]:
+                if instr.mnemonic == "BLX":
+                    instr = cast("ARMInstruction", instr)
+                    if not instr.xdata.has_call_target():
+                        add_unknown_call(faddr, instr)
+
+    for faddr in sorted(jumps):
+        for baddr in jumps[faddr]:
+            for instr in jumps[faddr][baddr]:
+                if instr.mnemonic == "BX":
+                    instr = cast("ARMInstruction", instr)
+                    if str(instr.xdata.xprs[0]) not in  ["LR", "PC"]:
+                        add_unknown_jump(faddr, instr)
+
+    results["calls"] = unknowncalls
+    results["jumps"] = unknownjumps
+    results["memory-operations"]["loads"] = unknownloads
+    results["memory-operations"]["stores"] = unknownstores
+
+    data: Dict[str, Any] = {}
+    data["program"] = xinfo.file
+    data["md5"] = xinfo.md5
+    data["unresolved"] = results
+
+    numcalls = sum(len(unknowncalls[f]) for f in unknowncalls)
+    numjumps = sum(len(unknownjumps[f]) for f in unknownjumps)
+    numloads = sum(len(unknownloads[f]) for f in unknownloads)
+    numstores = sum(len(unknownstores[f]) for f in unknownstores)
+
+    def count_instrs(d: Mapping[str, Mapping[str, Sequence[Instruction]]]) -> int:
+        result: int = 0
+        for faddr in d:
+            for baddr in d[faddr]:
+                result += len(d[faddr][baddr])
+        return result
+
+    perccalls = float(numcalls) / float(count_instrs(calls))
+    percjumps = float(numjumps) / float(count_instrs(jumps))
+    percloads = float(numloads) / float(count_instrs(memloads))
+    percstores = float(numstores) / float(count_instrs(memstores))
+
+    def perc(v: float) -> str:
+        return (" (" + "{:.1f}".format(100.0 * v) + "%)").rjust(8)
+
+    print("\nResults:")
+    print("Unresolved calls : " + str(numcalls).rjust(5) + perc(perccalls))
+    print("Unresolved jumps : " + str(numjumps).rjust(5) + perc(percjumps))
+    print("Unresolved loads : " + str(numloads).rjust(5) + perc(percloads))
+    print("Unresolved stores: " + str(numstores).rjust(5) + perc(percstores))
+
+    filename = xoutput + ".json"
+    with open(filename, "w") as fp:
+        json.dump(data, fp, indent=2)
+
     exit(0)

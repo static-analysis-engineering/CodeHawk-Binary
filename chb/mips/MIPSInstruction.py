@@ -35,13 +35,13 @@ from typing import (
 
 from chb.api.CallTarget import CallTarget
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTNode, ASTInstruction, ASTExpr
-
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.Instruction import Instruction
 from chb.app.InstrXData import InstrXData
 from chb.app.StackPointerOffset import StackPointerOffset
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -138,27 +138,26 @@ class MIPSInstruction(Instruction):
     def operand_values(self) -> Sequence[XXpr]:
         return self.opcode.operand_values(self.xdata)
 
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
-        astree.set_current_addr(self.iaddr)
+    def assembly_ast(
+            self, astree: ASTInterface) -> List[AST.ASTInstruction]:
         return self.opcode.assembly_ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
-            reverse: bool = False) -> Optional[ASTExpr]:
+            astree: ASTInterface,
+            reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.opcode.assembly_ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata)
 
-    def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
-        astree.set_current_addr(self.iaddr)
+    def ast(self, astree: ASTInterface) -> List[AST.ASTInstruction]:
         return self.opcode.ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def ast_condition(
             self,
-            astree: AbstractSyntaxTree,
-            reverse: bool = False) -> Optional[ASTExpr]:
+            astree: ASTInterface,
+            reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.opcode.ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata)
 
@@ -203,6 +202,10 @@ class MIPSInstruction(Instruction):
         return self.opcode.is_call_instruction(self.xdata)
 
     @property
+    def is_jump_instruction(self) -> bool:               # TBD
+        return False
+
+    @property
     def is_load_instruction(self) -> bool:
         return False
 
@@ -230,7 +233,7 @@ class MIPSInstruction(Instruction):
                 "Instruction is not a return instruction: " + str(self))
 
     def is_call_to_app_function(self, tgtaddr: str) -> bool:
-        if self.is_call_instruction:
+        if self.is_call_instruction and self.opcode.has_call_target(self.xdata):
             opc = cast(MIPSJumpLinkRegister, self.opcode)
             ctgtaddr = opc.call_target(self.xdata)
             return ctgtaddr == tgtaddr

@@ -81,8 +81,14 @@ xpr_operator_strings = {
     "plus": " + ",
     "range": " range ",
     "shiftlt": " << ",
-    "shiftrt": " >> "
-        }
+    "shiftrt": " >> ",
+    "lsr": " >> ",
+    "asr": " s>> ",
+    "lsl": " << ",
+    "lsb": " lsb ",
+    "lsh": " lsh ",
+    "xbyte": " xbyte "
+}
 
 
 class XXpr(FnXprDictionaryRecord):
@@ -134,6 +140,10 @@ class XXpr(FnXprDictionaryRecord):
         return False
 
     @property
+    def is_heap_base_address(self) -> bool:
+        return False
+
+    @property
     def is_argument_value(self) -> bool:
         return False
 
@@ -169,6 +179,10 @@ class XXpr(FnXprDictionaryRecord):
     def is_stack_address(self) -> bool:
         """Returns true if this expression involves the stack pointer."""
         return False
+
+    @property
+    def is_heap_address(self) -> bool:
+        return self.is_heap_base_address
 
     @property
     def is_function_return_value(self) -> bool:
@@ -316,6 +330,13 @@ class XprVariable(XXpr):
         else:
             return False
 
+    @property
+    def is_heap_base_address(self) -> bool:
+        if self.variable.has_denotation():
+            return self.variable.denotation.is_heap_base_address
+        else:
+            return False
+
     def command_line_argument_value_index(self) -> int:
         if self.is_command_line_argument_value:
             (arg, offset) = self.variable.denotation.argument_deref_arg_offset()
@@ -390,8 +411,11 @@ class XprVariable(XXpr):
             tgtval = self.returnval_target()
             if tgtval:
                 if str(tgtval) == "getenv":
-                    args = str(self.returnval_arguments()[0])
-                    return "rtn_getenv(" + args + ")"
+                    if len(self.returnval_arguments()) > 0:
+                        args = str(self.returnval_arguments()[0])
+                        return "rtn_getenv(" + args + ")"
+                    else:
+                        return "rtn_" + str(tgtval)
                 else:
                     return 'rtn_' + str(tgtval)
             else:
@@ -568,6 +592,13 @@ class XprCompound(XXpr):
         else:
             raise UF.CHBError("Expression is not a stack address: "
                               + str(self))
+
+    def is_heap_address(self) -> bool:
+        args = self.operands
+        if len(args) == 2:
+            return (args[0].is_heap_base_address and args[1].is_constant)
+        else:
+            return False
 
     @property
     def is_string_manipulation_condition(self) -> bool:

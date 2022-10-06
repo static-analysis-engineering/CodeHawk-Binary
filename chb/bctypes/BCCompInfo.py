@@ -27,6 +27,9 @@
 
 from typing import Any, cast, Dict, List, Optional, Tuple, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
 
 import chb.util.fileutil as UF
@@ -96,8 +99,25 @@ class BCCompInfo(BCDictionaryRecord):
     def fieldinfos(self) -> List["BCFieldInfo"]:
         return [self.bcd.fieldinfo(i) for i in self.args[3:]]
 
+    def is_leq(self, other: "BCCompInfo") -> bool:
+
+        def foffset_leq(
+                foffset1: Tuple[int, "BCFieldInfo"],
+                foffset2: Tuple[int, "BCFieldInfo"]) -> bool:
+            if foffset1[0] == foffset2[0]:
+                return foffset1[1].is_leq(foffset2[1])
+            else:
+                return False
+
+        return all(foffset_leq(foffset1, foffset2)
+                   for (foffset1, foffset2)
+                   in zip(self.fieldoffsets(), other.fieldoffsets()))
+
     def byte_size(self) -> int:
         """Return size in bytes."""
+
+        if len(self.fieldinfos) == 0:
+            return 4
 
         def addt(size: int, roundto: int) -> int:
             return ((((size + roundto) - 1) // roundto) * roundto)
@@ -108,6 +128,10 @@ class BCCompInfo(BCDictionaryRecord):
             newf = news + fsize
             return OffsetAccumulator(newf, news, fsize)
 
+        if self.is_union:
+            maxlen = max(finfo.byte_size() for finfo in self.fieldinfos)
+            return addt(maxlen, self.alignment())
+
         acc = OffsetAccumulator(0, 0, 0)
         for finfo in self.fieldinfos:
             acc = aux(finfo, acc)
@@ -117,7 +141,10 @@ class BCCompInfo(BCDictionaryRecord):
     def alignment(self) -> int:
         """Return size of largest field."""
 
-        return max(finfo.alignment() for finfo in self.fieldinfos)
+        if len(self.fieldinfos) == 0:
+            return 0
+        else:
+            return max(finfo.alignment() for finfo in self.fieldinfos)
 
     def fieldoffsets(self) -> List[Tuple[int, "BCFieldInfo"]]:
         """Return a list of pairs with offset in bytes and fieldinfo."""
@@ -182,13 +209,8 @@ class BCCompInfo(BCDictionaryRecord):
                     + str(self.alignment())
                     + ")")
 
-    def serialize(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        result["name"] = self.cname
-        result["key"] = self.ckey
-        result["is-struct"] = self.is_struct
-        result["args"] = [f.index for f in self.fieldinfos]
-        return result
+    def convert(self, converter: BCConverter) -> AST.ASTCompInfo:
+        return converter.convert_compinfo(self)
 
     def __str__(self) -> str:
         lines: List[str] = []

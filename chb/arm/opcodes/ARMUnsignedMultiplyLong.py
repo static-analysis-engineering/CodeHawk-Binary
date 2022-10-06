@@ -25,16 +25,18 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTExpr, ASTInstruction
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -56,6 +58,21 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
     args[2]: index of RdHi in armdictionary
     args[3]: index of Rn in armdictionary
     args[4]: index of Rm in armdictionary
+
+    xdata format: a:vvxxxxrrddhh
+    ----------------------------
+    vars[0]: lhs1 (RdLo)
+    vars[1]: lhs2 (RdHi)
+    xprs[0]: rhs1 (Rn)
+    xprs[1]: rhs2 (Rm)
+    xprs[2]: rhs1 * rhs2
+    xprs[3]: rhs1 * rhs2 (simplified)
+    rdefs[1]: rhs1 (Rn)
+    rdefs[2]: rhs2 (Rm)
+    uses[0]: lhs1 (RdLo)
+    uses[1]: lhs2 (RdHi)
+    useshigh[0]: lhs1 (RdLo)
+    useshigh[1]: lhs2 (RdHi)
     """
 
     def __init__(
@@ -69,17 +86,11 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:]]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
+
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx
-
-        vars[0]: lhslo
-        vars[1]: lhshi
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: (rhs1 * rhs2)
-        xprs[3]: (rhs1 * rhs2)
-        """
-
         lhslo = str(xdata.vars[0])
         lhshi = str(xdata.vars[1])
         result = xdata.xprs[2]
@@ -89,10 +100,10 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
 
         annotations: List[str] = [iaddr, "UMULL"]
 
@@ -102,8 +113,92 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
         (lhs2, _, _) = self.operands[1].ast_lvalue(astree)
         binop = astree.mk_binary_op("mult", rhs1, rhs2)
         zero = astree.mk_integer_constant(0)
-        assign1 = astree.mk_assign(lhs1, binop, annotations=(annotations + ["low"]))
-        assign2 = astree.mk_assign(lhs2, zero, annotations=annotations)
-        astree.add_instruction_span(assign1.id, iaddr, bytestring)
-        astree.add_instruction_span(assign2.id, iaddr, bytestring)
+        assign1 = astree.mk_assign(
+            lhs1,
+            binop,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=(annotations + ["low"]))
+        assign2 = astree.mk_assign(
+            lhs2,
+            zero,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
         return preinstrs1 + preinstrs2 + [assign1, assign2] + postinstrs1 + postinstrs2
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "UMULL"]
+
+        lhs1 = xdata.vars[0]
+        lhs2 = xdata.vars[1]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        result = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_result = astree.mk_binary_op("mult", ll_op1, ll_op2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_result,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs1, xdata, astree)
+        if len(lhsasts) == 0:
+            raise UF.CHBError(
+                "UnsignedMultiplyLong (UMULL): no lvals found: "
+                + str(lhs1))
+
+        if len(lhsasts) > 1:
+            raise UF.CHBError(
+                "UnsigendMultiplyLong (UMULL): multiple lvals found: "
+                + ", ".join(str(v) for v in lhsasts))
+
+        hl_lhs = lhsasts[0]
+
+        rhsasts = XU.xxpr_to_ast_exprs(result, xdata, astree)
+        if len(rhsasts) == 0:
+            raise UF.CHBError(
+                "UnsignedMultiplyLong (UMULL): no rhs value found: "
+                + str(result))
+
+        if len(rhsasts) > 1:
+            raise UF.CHBError(
+                "UnsignedMultiplyLong (UMULL): multiple rhs values found: "
+                + ", ".join(str(v) for v in rhsasts))
+
+        hl_rhs = rhsasts[0]
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, str(lhs1), hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_result)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

@@ -32,13 +32,14 @@ from typing import (
 
 from chb.api.CallTarget import CallTarget
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTNode, ASTInstruction, ASTExpr
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.Instruction import Instruction
 from chb.app.InstrXData import InstrXData
 from chb.app.Operand import Operand
 from chb.app.StackPointerOffset import StackPointerOffset
+
+from chb.ast.ASTNode import ASTNode, ASTInstruction, ASTExpr
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.arm.ARMDictionary import ARMDictionary
 from chb.arm.ARMOpcode import ARMOpcode
@@ -141,6 +142,13 @@ class ARMInstruction(Instruction):
         return self.opcode.is_call_instruction(self.xdata)
 
     @property
+    def is_jump_instruction(self) -> bool:
+        return self.is_branch_instruction
+
+    def has_call_target(self) -> bool:
+        return self.xdata.has_call_target()
+
+    @property
     def is_load_instruction(self) -> bool:
         return self.opcode.is_load_instruction(self.xdata)
 
@@ -155,6 +163,24 @@ class ARMInstruction(Instruction):
     @property
     def is_branch_instruction(self) -> bool:
         return self.opcode.is_branch_instruction
+
+    @property
+    def is_unresolved(self) -> bool:
+        if self.is_call_instruction:
+            return not self.xdata.has_call_target()
+        elif self.mnemonic == "BX":
+            return str(self.xdata.xprs[0]) != "LR"
+        return False
+
+    @property
+    def is_subsumed(self) -> bool:
+        return self.xdata.instruction_is_subsumed()
+
+    def subsumed_by(self) -> str:
+        if self.is_subsumed:
+            return self.xdata.subsumed_by()
+        else:
+            raise UF.CHBError("ARM instruction is not subsumed")
 
     def return_expr(self) -> XXpr:
         raise UF.CHBError("get-return-expr: not implemented")
@@ -171,24 +197,37 @@ class ARMInstruction(Instruction):
     def annotation(self) -> str:
         return self.opcode.annotation(self.xdata).ljust(40)
 
-    def assembly_ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
-        astree.set_current_addr(self.iaddr)
+    def assembly_ast(self, astree: ASTInterface) -> List[ASTInstruction]:
         return self.opcode.assembly_ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def assembly_ast_condition(
-            self, astree: AbstractSyntaxTree, reverse=False) -> Optional[ASTExpr]:
+            self, astree: ASTInterface, reverse: bool = False) -> Optional[ASTExpr]:
         return self.opcode.assembly_ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata, reverse)
 
-    def ast(self, astree: AbstractSyntaxTree) -> List[ASTInstruction]:
-        astree.set_current_addr(self.iaddr)
+    def ast(self, astree: ASTInterface) -> List[ASTInstruction]:
         return self.opcode.ast(
             astree, self.iaddr, self.bytestring, self.xdata)
 
+    def ast_prov(self, astree: ASTInterface) -> Tuple[
+            List[ASTInstruction],List[ASTInstruction]]:
+        """Return instruction ast with provenance."""
+
+        return self.opcode.ast_prov(
+            astree, self.iaddr, self.bytestring, self.xdata)
+
     def ast_condition(
-            self, astree: AbstractSyntaxTree, reverse=False) -> Optional[ASTExpr]:
+            self, astree: ASTInterface, reverse: bool = False) -> Optional[ASTExpr]:
         return self.opcode.ast_condition(
+            astree, self.iaddr, self.bytestring, self.xdata, reverse)
+
+    def ast_condition_prov(
+            self, astree: ASTInterface, reverse: bool = False) -> Tuple[
+                Optional[ASTExpr], Optional[ASTExpr]]:
+        """Return conditional branch instruction with provenance."""
+
+        return self.opcode.ast_condition_prov(
             astree, self.iaddr, self.bytestring, self.xdata, reverse)
 
     @property
@@ -220,7 +259,10 @@ class ARMInstruction(Instruction):
 
     @property
     def call_arguments(self) -> Sequence[XXpr]:
-        return []
+        if self.is_call_instruction and self.has_call_target():
+            return self.opcode.arguments(self.xdata)
+        else:
+            return []
 
     def to_string(
             self,
@@ -242,4 +284,5 @@ class ARMInstruction(Instruction):
                 + self.opcodetext
                 + ": "
                 + str(e))
-            return "??"
+            raise
+            # return "??"

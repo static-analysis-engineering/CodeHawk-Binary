@@ -26,13 +26,17 @@
 # ------------------------------------------------------------------------------
 """Dictionary of CIL-types as produced by the CIL parser."""
 
-from typing import Any, Dict, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import xml.etree.ElementTree as ET
 
+from chb.bctypes.BCAttribute import BCAttribute, BCAttributes
+from chb.bctypes.BCAttrParam import BCAttrParam
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord, bcregistry
 from chb.bctypes.BCCompInfo import BCCompInfo
 from chb.bctypes.BCConstant import BCConstant
+from chb.bctypes.BCEnumInfo import BCEnumInfo
+from chb.bctypes.BCEnumItem import BCEnumItem
 from chb.bctypes.BCExp import BCExp
 from chb.bctypes.BCFieldInfo import BCFieldInfo
 from chb.bctypes.BCFunArgs import BCFunArg, BCFunArgs
@@ -40,6 +44,7 @@ from chb.bctypes.BCLHost import BCLHost
 from chb.bctypes.BCLval import BCLval
 from chb.bctypes.BCOffset import BCOffset
 from chb.bctypes.BCTyp import BCTyp
+from chb.bctypes.BCTypSig import BCTypSig, BCTypSigList
 from chb.bctypes.BCTypeInfo import BCTypeInfo
 from chb.bctypes.BCVarInfo import BCVarInfo
 
@@ -59,6 +64,9 @@ class BCDictionary:
             xnode: ET.Element) -> None:
         self._app = app
         self.string_table = SI.StringIndexedTable("string-table")
+        self.attrparam_table = IT.IndexedTable("attrparam-table")
+        self.attributes_table = IT.IndexedTable("attributes-table")
+        self.attribute_table = IT.IndexedTable("attribute-table")
         self.constant_table = IT.IndexedTable("constant-table")
         self.exp_table = IT.IndexedTable("exp-table")
         self.funarg_table = IT.IndexedTable("funarg-table")
@@ -70,10 +78,17 @@ class BCDictionary:
         self.location_table = IT.IndexedTable("location-table")
         self.initinfo_table = IT.IndexedTable("initinfo-table")
         self.typeinfo_table = IT.IndexedTable("typeinfo-table")
+        self.typsig_table = IT.IndexedTable("typsig-table")
+        self.typsiglist_table = IT.IndexedTable("typsiglist-table")
         self.varinfo_table = IT.IndexedTable("varinfo-table")
         self.fieldinfo_table = IT.IndexedTable("fieldinfo-table")
         self.compinfo_table = IT.IndexedTable("compinfo-table")
+        self.enumitem_table = IT.IndexedTable("enumitem-table")
+        self.enuminfo_table = IT.IndexedTable("enuminfo-table")
         self.tables = [
+            self.attributes_table,
+            self.attribute_table,
+            self.attrparam_table,
             self.constant_table,
             self.exp_table,
             self.funarg_table,
@@ -85,12 +100,17 @@ class BCDictionary:
             self.location_table,
             self.initinfo_table,
             self.typeinfo_table,
+            self.typsig_table,
+            self.typsiglist_table,
             self.varinfo_table,
             self.fieldinfo_table,
-            self.compinfo_table
+            self.compinfo_table,
+            self.enumitem_table,
+            self.enuminfo_table
         ]
         self.typeinfo_names: Dict[str, BCTypeInfo] = {}
         self.compinfo_keys: Dict[int, BCCompInfo] = {}
+        self.enuminfo_names: Dict[str, BCEnumInfo] = {}
         self.initialize(xnode)
 
     @property
@@ -111,10 +131,29 @@ class BCDictionary:
         else:
             raise UF.CHBError("Compinfo key " + str(key) + " not found")
 
+    def enuminfo_by_name(self, name: str) -> BCEnumInfo:
+        if name in self.enuminfo_names:
+            return self.enuminfo_names[name]
+        else:
+            raise UF.CHBError("Enuminfo name " + name + " not found")
+
     # ------------------------- retrieve items from dictionary tables ----------
 
     def string(self, ix: int) -> str:
         return self.string_table.retrieve(ix)
+
+    def attrparam(self, ix: int) -> BCAttrParam:
+        return bcregistry.mk_instance(
+            self, self.attrparam_table.retrieve(ix), BCAttrParam)
+
+    def attribute(self, ix: int) -> BCAttribute:
+        return BCAttribute(self, self.attribute_table.retrieve(ix))
+
+    def attributes(self, ix: int) -> Optional[BCAttributes]:
+        if ix == -1:
+            return None
+        else:
+            return BCAttributes(self, self.attributes_table.retrieve(ix))
 
     def constant(self, ix: int) -> BCConstant:
         return bcregistry.mk_instance(
@@ -150,6 +189,15 @@ class BCDictionary:
         self.typeinfo_names[tinfo.tname] = tinfo
         return tinfo
 
+    def typsig(self, ix: int) -> BCTypSig:
+        return bcregistry.mk_instance(
+            self, self.typsig_table.retrieve(ix), BCTypSig)
+
+    def optional_typsig_list(self, ix: int) -> Optional[BCTypSigList]:
+        if ix == -1:
+            return None
+        return BCTypSigList(self, self.typsiglist_table.retrieve(ix))
+
     def varinfo(self, ix: int) -> BCVarInfo:
         return BCVarInfo(self, self.varinfo_table.retrieve(ix))
 
@@ -157,6 +205,15 @@ class BCDictionary:
         cinfo = BCCompInfo(self, self.compinfo_table.retrieve(ix))
         self.compinfo_keys[cinfo.ckey] = cinfo
         return cinfo
+
+    def enuminfo(self, ix: int) -> BCEnumInfo:
+        einfo = BCEnumInfo(self, self.enuminfo_table.retrieve(ix))
+        self.enuminfo_names[einfo.ename] = einfo
+        return einfo
+
+    def enumitem(self, ix: int) -> BCEnumItem:
+        eitem = BCEnumItem(self, self.enumitem_table.retrieve(ix))
+        return BCEnumItem(self, eitem)
 
     def fieldinfo(self, ix: int) -> BCFieldInfo:
         return BCFieldInfo(self, self.fieldinfo_table.retrieve(ix))
@@ -168,21 +225,13 @@ class BCDictionary:
         args = [t.index]
         key = IT.get_key(tags, args)
 
-        def f(ix, key) -> BCTyp:
+        def f(ix: int,
+              key: Tuple[str, str]) -> BCTyp:
             itv = IT.IndexedTableValue(ix, tags, args)
             return bcregistry.mk_instance(self, itv, BCTyp)
 
         index = self.typ_table.add(key, f)
         return self.typ(index)
-
-    # -------------------------------------- serialization ---------------------
-
-    def serialize(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        result["types"] = []
-        for ix in self.typ_table.keys():
-            result["types"].append(self.typ(ix).serialize())
-        return result
 
     # -------------------------- initialize dictionary from file ---------------
 

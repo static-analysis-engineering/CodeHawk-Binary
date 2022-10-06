@@ -116,7 +116,7 @@ class TaggedAppCallgraphNode(AppCallgraphNode):
         self._tag = tag
 
     @property
-    def is_tagged_app_node(self):
+    def is_tagged_app_node(self) -> bool:
         return True
 
 
@@ -202,7 +202,7 @@ class Callgraph:
         self._nodes: Dict[str, CallgraphNode] = {}
         self._edges: Dict[str, Dict[str, CallgraphEdge]] = {}
 
-    def clone(self, reverse=False) -> "Callgraph":
+    def clone(self, reverse: bool = False) -> "Callgraph":
         result = Callgraph()
         for n in self.nodes.values():
             result.add_node(n)

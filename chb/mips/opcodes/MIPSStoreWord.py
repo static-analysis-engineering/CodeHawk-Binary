@@ -27,14 +27,12 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-
 from typing import cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
-
 from chb.app.InstrXData import InstrXData
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -121,20 +119,20 @@ class MIPSStoreWord(MIPSOpcode):
 
     def ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         if self.is_spill(xdata):
             return []
         else:
-            rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], astree)
-            lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
+            rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], xdata, astree)
+            lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], xdata, astree)
             if len(rhss) == 1 and len(lhss) == 1:
                 rhs = rhss[0]
                 lhs = lhss[0]
                 assign = astree.mk_assign(lhs, rhs)
-                astree.add_instruction_span(assign.id, iaddr, bytestring)
+                astree.add_instruction_span(assign.locationid, iaddr, bytestring)
                 return [assign]
             else:
                 raise UF.CHBError(

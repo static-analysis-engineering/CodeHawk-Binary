@@ -30,9 +30,6 @@
 
 from typing import cast, List, Optional, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
-
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XXpr import XXpr
@@ -58,8 +55,8 @@ if TYPE_CHECKING:
     from chb.simulation.SimulationState import SimulationState
 
 
-@mipsregistry.register_tag("bne", MIPSBranchOpcode)
-class MIPSBranchNotEqual(MIPSOpcode):
+@mipsregistry.register_tag("bne", MIPSOpcode)
+class MIPSBranchNotEqual(MIPSBranchOpcode):
     """BNE rs, rt, offset
 
     Branch on Not Equal.

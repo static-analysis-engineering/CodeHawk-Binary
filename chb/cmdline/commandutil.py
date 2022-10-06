@@ -53,17 +53,10 @@ from typing import (
 
 import xml.etree.ElementTree as ET
 
-from chb.app.AbstractSyntaxTree import VariableNamesRec
-
-from chb.app.ASTUtil import InstrUseDef, UseDef
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.app.AppAccess import AppAccess
 from chb.app.Assembly import Assembly
-from chb.app.ASTNode import ASTStmt, ASTExpr, ASTVariable
-from chb.app.Callgraph import CallgraphNode
 
-import chb.app.ASTDeserializer as D
+from chb.app.Callgraph import CallgraphNode
 
 from chb.arm.ARMAccess import ARMAccess
 from chb.arm.ARMAssembly import ARMAssembly
@@ -358,12 +351,15 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     doreset: bool = args.reset
     doresetx: bool = args.resetx
     dodisassemble: bool = args.disassemble
+    savedatablocks: str = args.save_datablocks
+    outputfile: str = args.outputfile
     doextract: bool = args.extract
     verbose: bool = args.verbose
     save_asm: str = args.save_asm
     thumb: List[str] = args.thumb
     preamble_cutoff: int = args.preamble_cutoff
     iterations: int = args.iterations
+    analysisrepeats: int = args.analysisrepeats
     deps: List[str] = args.thirdpartysummaries
     so_libraries: List[str] = args.so_libraries
     skip_if_asm: bool = args.skip_if_asm
@@ -431,6 +427,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         arm=xinfo.is_arm,
         power=xinfo.is_powerpc,
         elf=xinfo.is_elf,
+        savedatablocks=(savedatablocks is not None),
         deps=deps,
         so_libraries=so_libraries,
         ifilenames=ifilenames,
@@ -452,11 +449,27 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         except UF.CHBError as e:
             print(str(e.wrap()))
             exit(1)
+
+        if savedatablocks is not None and outputfile is not None:
+            (startaddr, endaddr) = savedatablocks.split(":")
+            app = get_app(path, xfile, xinfo)
+            systeminfo = app.systeminfo
+            datablocks = systeminfo.datablocks.datablocks_in_range(startaddr, endaddr)
+            userdata: Dict[str, Any] = {}
+            udata = userdata["userdata"] = {}
+            dbdata = udata["data-blocks"] = []
+            for db in datablocks:
+                dbrec: Dict = {}
+                dbrec["r"] = [db.startaddr, db.endaddr]
+                dbdata.append(dbrec)
+            with open(outputfile + ".json", "w") as fp:
+                json.dump(userdata, fp, indent=2)
         exit(0)
 
     else:
         try:
             am.analyze(
+                analysisrepeats=analysisrepeats,
                 iterations=iterations,
                 verbose=verbose,
                 preamble_cutoff=preamble_cutoff)
@@ -476,6 +489,8 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     # arguments
     xname: str = str(args.xname)
     nocallees: bool = args.nocallees
+    sortby: str = args.sortby
+    timeshare: int = args.timeshare
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -491,11 +506,30 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
 
     stats = app.result_metrics
     print(stats.header_to_string())
-    for f in sorted(stats.get_function_results(),
-                    key=lambda f: (f.espp, f.faddr)):
+    if sortby == "instrs":
+        sortkey = lambda f: f.instruction_count
+    elif sortby == "basicblocks":
+        sortkey = lambda f: f.block_count
+    elif sortby == "loopdepth":
+        sortkey = lambda f: f.loop_depth
+    elif sortby == "time":
+        sortkey = lambda f: f.time
+    else:
+        sortkey = lambda f: f.faddr
+    for f in sorted(stats.get_function_results(), key=sortkey):
         print(f.metrics_to_string(shownocallees=nocallees))
     print(stats.disassembly_to_string())
     print(stats.analysis_to_string())
+    if timeshare > 0:
+        topanalysistimes = stats.time_share(timeshare)
+        toptotal = sum(topanalysistimes.values())
+        print("\nFunctions taking up most analysis time:")
+        print("\nAddress     share (%)")
+        print("-----------------------")
+        for (s, t) in topanalysistimes.items():
+            print(s.ljust(14) + "{:4.2f}".format(100.0 * t).rjust(6))
+        print("-----------------------")
+        print("Total".ljust(14) + "{:4.2f}".format(100.0 * toptotal).rjust(6))
     exit(0)
 
 
@@ -746,6 +780,57 @@ def results_function(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def results_callbacktables(args: argparse.Namespace) -> NoReturn:
+    """Prints or saves information regarding callback tables."""
+
+    # arguments
+    xname: str = str(args.xname)
+    xshowall: bool = args.showall
+    xlist: bool = args.list
+    xoutput: Optional[str] = args.output
+    xdevice: Optional[str] = args.device
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+    app = get_app(path, xfile, xinfo)
+
+    if xshowall:
+        for (addr, cbtable) in app.callbacktables.callbacktables.items():
+            print("\nAddress: " + addr + " (" + str(len(cbtable.records)) + " records)")
+            print(str(cbtable))
+
+    elif xlist:
+        for (addr, cbtable) in app.callbacktables.callbacktables.items():
+            print("\nAddress  : " + addr)
+            print("Size     : " + str(len(cbtable.records)) + " records")
+            print("Structure:")
+            for (offset, tag) in sorted(cbtable.structure.items()):
+                print(str(offset).rjust(4) + "  " + tag)
+
+    if xoutput is not None:
+        filename = xoutput + ".json"
+        cbdata: Dict[str, Any] = {}
+        cbdata["name"] = xfile
+        if xdevice is not None:
+            cbdata["device"] = xdevice
+        cbdata["tables"] = {}
+        for (addr, cbtable) in app.callbacktables.callbacktables.items():
+            cbdata["tables"][addr] = {}
+            cbdata["tables"][addr]["structure"] = cbtable.structure
+            cbdata["tables"][addr]["records"] = cbtable.serialize()
+        with open(filename, "w") as fp:
+            json.dump(cbdata, fp, indent=2)
+
+    exit(0)
+
+
 def results_invariants(args: argparse.Namespace) -> NoReturn:
     """Prints out a list of invariants for a function per location."""
 
@@ -865,6 +950,9 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
     structure: List[str] = args.structure
     stringtables: List[str] = args.stringtables
     structtable: bool = args.structtable
+    callbacktable: bool = args.callbacktable
+    callbacktables: bool = args.callbacktables
+    showtags: bool = args.showtags
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -902,6 +990,29 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
             exit(0)
         else:
             print_error("Structtable address not found: " + addr)
+            exit(1)
+
+    elif callbacktable:
+        if addr in app.callbacktables.callbacktables:
+            cbtable = app.callbacktables.callbacktable(addr)
+            outfilename = xout + ".json"
+            with open(outfilename, "w") as fp:
+                json.dump(cbtable.serialize(), fp, indent=2)
+            if showtags:
+                outfilename = xout + "_tags.json"
+                cbtags = cbtable.tags()
+                if len(cbtags) > 0:
+                    print("Call-back table tags (" + str(len(cbtags)) + ")")
+                    print("------------------------------")
+                    for t in sorted(cbtags):
+                        print("  " + t)
+                    dresult: Dict[str, List[str]] = {}
+                    dresult["tags"] = cbtags
+                    with open(outfilename, "w") as fp:
+                        json.dump(dresult, fp, indent=2)
+            exit(0)
+        else:
+            print_error("Callback table address not found: " + addr)
             exit(1)
 
     if stringtables:
@@ -1027,333 +1138,6 @@ def extract_function_edges(edges: List[str]) -> Dict[str, List[Tuple[str, str]]]
                 + "; Expected to find two colon separators: faddr:src:tgt")
             exit(1)
     return result
-
-
-def showast(args: argparse.Namespace) -> NoReturn:
-
-    # arguments
-    xname: str = args.xname
-    decompile: bool = args.decompile
-    exclude: List[str] = args.exclude
-    ignore_return_value: List[str] = args.ignore_return_value
-    functions: List[str] = args.functions
-    hints: List[str] = args.hints  # names of json files
-    remove_edges: List[str] = args.remove_edges
-    add_edges: List[str] = args.add_edges
-    verbose: bool = args.verbose
-    available_exprs: List[str] = args.show_available_exprs
-
-    if (not decompile) and len(functions) == 0:
-        print_error(
-            "Please specify at least one function address\n"
-            + "with the --functions command-line option.")
-        exit(1)
-
-    rmedges: Dict[str, List[Tuple[str, str]]] = {}
-    adedges: Dict[str, List[Tuple[str, str]]] = {}
-    if len(remove_edges) + len(add_edges) > 0:
-        rmedges = extract_function_edges(remove_edges)
-        adedges = extract_function_edges(add_edges)
-
-    try:
-        (path, xfile) = get_path_filename(xname)
-        UF.check_analysis_results(path, xfile)
-    except UF.CHBError as e:
-        print(str(e.wrap()))
-        exit(1)
-
-    xinfo = XI.XInfo()
-    xinfo.load(path, xfile)
-
-    # read hints files
-    os.chdir(path)
-    userhints = UserHints(toxml=False)
-    filenames = [os.path.abspath(s) for s in hints]
-    if len(filenames) > 0:
-        print("use hints files: " + ", ".join(filenames))
-        for filename in filenames:
-            try:
-                with open(filename, "r") as fp:
-                    fuserdata = json.load(fp)
-                if "userdata" in fuserdata:
-                    userhints.add_hints(fuserdata["userdata"])
-                else:
-                    print_error(
-                        "Expected to find userdata in " + filename)
-                    exit(1)
-            except Exception as e:
-                print_error(
-                    "Error in reading " + filename + ": " + str(e))
-                exit(1)
-
-    if UF.file_has_registered_userdata(xinfo.md5):
-        print("Use registered userdata.")
-        userdata = UF.get_file_registered_userdata(xinfo.md5)
-        userhints.add_hints(userdata)
-
-    jsonfilenames: Dict[str, str] = {}
-
-    app = get_app(path, xfile, xinfo)
-
-    excluded: int = 0
-    if decompile:
-        for (faddr, fn) in app.functions.items():
-            if faddr in exclude or fn.cfg.has_loops():
-                excluded += 1
-                continue
-            functions.append(faddr)
-
-    functioncount: int = 0
-    failedfunctions: int = 0
-    opc_unsupported: Dict[str, int] = {}    # instr mnemonic -> count
-
-    for faddr in functions:
-        print("========= Function " + faddr + " ================")
-        if app.has_function(faddr):
-            f = app.function(faddr)
-            if f is None:
-                print_error("Unable to find function " + faddr)
-                continue
-
-            fnrmedges: List[Tuple[str, str]] = []
-            fnadedges: List[Tuple[str, str]] = []
-            if faddr in rmedges:
-                fnrmedges = rmedges[faddr]
-                print("Remove " + str(len(fnrmedges)) + " edge(s) from cfg")                
-            if faddr in adedges:
-                fnadedges = adedges[faddr]
-                print("Add " + str(len(fnadedges)) + " edge(s) to cfg")                
-            if len(fnrmedges) + len(fnadedges) > 0:
-                f.cfg.modify_edges(fnrmedges, fnadedges)
-
-            fname = faddr
-            if app.has_function_name(faddr):
-                fname = app.function_name(faddr)
-            else:
-                fname = "sub_" + faddr[2:]
-
-            variablenames: VariableNamesRec = userhints.variable_names()
-            symbolicaddrs: Dict[str, str] = userhints.symbolic_addresses()
-            revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
-            revfunctionnames = userhints.rev_function_names()
-
-            astree = AbstractSyntaxTree(
-                faddr,
-                fname,
-                variablenames=variablenames,
-                symbolicaddrs=symbolicaddrs,
-                ignore_return_value=ignore_return_value,
-                callingconvention=xinfo.architecture)
-            gvars: List[ASTVariable] = []
-
-            if app.bcfiles.has_functiondef(fname):
-                fdef = app.bcfiles.functiondef(fname)
-                astree.set_functiondef(fdef)
-                astree.set_function_prototype(fdef.svinfo)
-
-            for vinfo in app.bcfiles.globalvars:
-                vname = vinfo.vname
-                if vname in revsymbolicaddrs:
-                    gaddr = int(revsymbolicaddrs[vname], 16)
-                elif vname in revfunctionnames:
-                    gaddr = int(revfunctionnames[vname], 16)
-                else:
-                    gaddr = 0
-                gvars.append(
-                    astree.mk_global_variable(
-                        vname, vinfo.vtype, globaladdress=gaddr))
-
-            try:
-                ast = f.ast(astree)
-            except UF.CHBError as e:
-                print("=" * 80)
-                print("AST generation is still experimental with limited support.")
-                print(
-                    "The following is not yet supported for function "
-                    + fname
-                    + " ("
-                    + faddr
-                    + ")")
-                print(" -- " + str(e))
-                print('-' * 80)
-                failedfunctions += 1
-                continue
-            except Exception as e:
-                print("*" * 80)
-                print(
-                    "Error in AST generation in function: "
-                    + fname
-                    + " ("
-                    + faddr
-                    + ")")
-                print(str(e))
-                print("*" * 80)
-                failedfunctions += 1
-                continue
-
-            unsupported = astree.unsupported_instructions
-            if len(unsupported) > 0:
-                print("=" * 80)
-                print("AST generation is still experimental with limited support.")
-                print(
-                    "We don't yet support the following instructions in "
-                    + fname
-                    + " ("
-                    + faddr
-                    + ")")
-                print('-' * 80)
-                for m in unsupported:
-                    opc_unsupported.setdefault(m, 0)
-                    opc_unsupported[m] += len(unsupported)
-                    print(m)
-                    for instr in unsupported[m]:
-                        print("  " + instr)
-                print('-' * 80)
-                failedfunctions += 1
-                continue
-
-            ast = cast(ASTStmt, ast)
-
-            # defs = ast.defs()
-            addresstaken = ast.address_taken()
-            callees = ast.callees()
-            storagerecords = astree.storage_records()
-
-            macronames: Dict[int, str] = {}
-            for s in symbolicaddrs:
-                macronames[int(s, 16)] = symbolicaddrs[s]
-
-            for i in range(0, 5):
-                instr_usedefs_e = InstrUseDef()
-                usedefs = UseDef({})
-                usedefs = ast.usedefs_x(usedefs, addresstaken, instr_usedefs_e)
-                ast = ast.transform_instr_subx(instr_usedefs_e)
-
-            spans = astree.spans
-
-            if verbose:
-                print("\nSpans")
-                print("-" * 80)
-                for span in spans:
-                    print(str(span))
-                print("=" * 80)
-
-            if verbose:
-                print(ast.to_c_like(sp=3))
-
-            spanmap: Dict[int, str] = {}
-            for spanrec in spans:
-                spanid = cast(int, (spanrec["id"]))
-                spans_at_id = cast(List[Dict[str, Any]], spanrec["spans"])
-                spanmap[spanid] = spans_at_id[0]["base_va"]
-
-            availablexprs: Dict[str, List[Tuple[int, str, str, str]]] = {}
-            for instrlabel in instr_usedefs_e.instrdefs:
-                if instrlabel in spanmap:
-                    addr = spanmap[instrlabel]
-                    availablexprs[addr] = cast(List[Tuple[int, str, str, str]], [])
-                    for (v, d) in instr_usedefs_e.get(instrlabel).defs.items():
-                        lvaltype = d[1].ctype
-                        if lvaltype is None:
-                            lvaltype = d[2].ctype
-                        availablexprs[addr].append((d[0], v, d[2].to_c_like(), str(lvaltype)))
-
-            if verbose:
-                print("\nAvailable expressions")
-                print("-" * 80)
-                for s in sorted(availablexprs):
-                    print(s)
-                    for r in availablexprs[s]:
-                        print("  " + str(r))
-                print("=" * 80)
-
-            instr_live_x: Dict[int, Set[str]] = {}
-            live_x = ast.live_e(set([]), instr_live_x)
-
-            mapping: Dict[int, int] = {}
-            astreduced = ast.reduce(mapping, instr_live_x, macronames)
-
-            astreduced = astree.rewrite_stmt(astreduced)
-
-            revmapping: Dict[int, List[int]] = {}
-            for (i, j) in mapping.items():
-                revmapping.setdefault(j, [])
-                revmapping[j].append(i)
-
-            functioncount += 1
-            print("")
-            if astree.has_function_prototype():
-                print(str(astree.function_prototype()) + "{")
-            else:
-                print("int " + fname + "(?)")
-            print(astreduced.to_c_like(sp=3))
-            print("}\n")
-
-            if not decompile:
-
-                ast_output: Dict[str, Any] = {}
-                ast_output["functions"] = astfunctions = []
-                astfunction: Dict[str, Any] = {}
-                if app.has_function_name(faddr):
-                    astfunction["name"] = app.function_name(faddr)
-                astfunction["va"] = faddr
-                astfunction["assembly-ast"] = {}
-                astfunction["assembly-ast"]["nodes"] = ast.serialize()
-                astfunction["assembly-ast"]["nodes"].extend(astree.serialize_symboltable())
-                astfunction["assembly-ast"]["startnode"] = ast.id
-                astfunction["lifted-ast"] = {}
-                astfunction["lifted-ast"]["nodes"] = astreduced.serialize()
-                astfunction["lifted-ast"]["nodes"].extend(astree.serialize_symboltable())
-                astfunction["lifted-ast"]["startnode"] = astreduced.id
-                astfunction["spans"] = astree.spans
-                astfunction["available-expressions"] = availablexprs
-                astfunction["storage"] = storagerecords
-                astfunctions.append(astfunction)
-
-                jsonfilenames[fname] = xfile + "_" + faddr + "_ast.json"
-                with open(jsonfilenames[fname], "w") as fp:
-                    json.dump(ast_output, fp, indent=2)
-
-                if args.verbose or len(available_exprs) > 0:
-                    dastree = D.AbstractSyntaxTree(
-                        astfunction["lifted-ast"]["nodes"],
-                        astfunction["lifted-ast"]["startnode"],
-                        astfunction["available-expressions"],
-                        astfunction["spans"])
-                    print("\nDeserialized lifted ast")
-                    print(str(dastree.to_c_like()))
-
-                    if len(available_exprs) > 0:
-                        print("\nAvailable expressions for " + ", ".join(available_exprs))
-                        print(dastree.var_available_expressions(available_exprs))
-
-                    if len(astree.notes) > 0:
-                        print("\nNotes")
-                        print("=" * 80)
-                        print("\n".join(astree.notes))
-                        print("=" * 80)
-
-        else:
-            print_error("Function " + faddr + " not found")
-            exit(1)
-
-    if decompile:
-        print("\nStatistics:")
-        print("Functions decompiled : " + str(functioncount))
-        print("Functions that failed: " + str(failedfunctions))
-        print("Functions excluded   : " + str(excluded))
-        if len(opc_unsupported) > 0:
-            print("Unsupported opcodes: ")
-            for (opc, count) in sorted(opc_unsupported.items()):
-                print("  " + opc.ljust(10) + str(count).rjust(5))
-    else:
-        print("\nAST(s) were saved in:")
-        for (fname, ffile) in jsonfilenames.items():
-            ffile = os.path.abspath(ffile)
-            print("  " + fname + ": " + ffile)
-        print("-" * 80)
-
-    exit(0)
 
 
 def extract_edges(edges: List[str]) -> List[Tuple[str, str]]:
@@ -1739,6 +1523,49 @@ def show_invariant_table(args: argparse.Namespace) -> NoReturn:
             for fact in invariants[loc]:
                 print("  " + str(fact))
 
+    else:
+        print("*" * 80)
+        print("Function " + faddr + " not found")
+        print("Please specify function as a valid hex address.")
+        print("To see a list of functions and their addresses analyzed use:")
+        print("  > chkx show stats " + xname)
+        print("*" * 80)
+
+    exit(0)
+
+
+def show_var_invariant_table(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    faddr: str = args.faddr
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+    if app.has_function(faddr):
+        f = app.function(faddr)
+        if f is None:
+            print_error("Unable to find function " + faddr)
+            exit(1)
+
+        print(f.varinvdictionary.var_invariant_fact_table_to_string())
+
+        print("Location invariants")
+        print("-------------------")
+        varinvariants = f.var_invariants
+        for loc in sorted(varinvariants):
+            print(loc)
+            for vfact in varinvariants[loc]:
+                print("  " + str(vfact))
     else:
         print("*" * 80)
         print("Function " + faddr + " not found")

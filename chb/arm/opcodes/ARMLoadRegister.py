@@ -25,17 +25,16 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -60,6 +59,27 @@ class ARMLoadRegister(ARMOpcode):
     args[2]: index of index in armdictionary
     args[3]: index of memory location in armdictionary
     args[4]: is-wide (thumb)
+
+    xdata format: a:vxxxxrrrdh
+    --------------------------
+    vars[0]: lhs
+    vars[1]: memory location expressed as a variable
+    xprs[0]: value in rn
+    xprs[1]: value in rm
+    xprs[2]: value in memory location
+    xprs[3]: value in memory location (simplified)
+    xprs[4]: address of memory location
+    rdefs[0]: reaching definitions rn
+    rdefs[1]: reaching definitions rm
+    rdefs[2]: reaching definitions memory location
+    uses[0]: use of lhs
+    useshigh[0]: use of lhs at high level
+
+    optional:
+    vars[1]: lhs base register (if base update)
+
+    xprs[.]: instruction condition (if has condition)
+    xprs[.]: new address for base register
     """
 
     def __init__(
@@ -73,6 +93,10 @@ class ARMLoadRegister(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 3]]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2, 3]]
+
     def is_load_instruction(self, xdata: InstrXData) -> bool:
         return True
 
@@ -80,24 +104,12 @@ class ARMLoadRegister(ARMOpcode):
         return [xdata.xprs[1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """lhs, rhs, with optional instr condition and base update
-
-        vars[0]: lhs
-        vars[1]: memory location expressed as a variable
-        xprs[0]: value in memory location
-        xprs[1]: value in memory location (simplified)
-
-        optional:
-        vars[1]: lhs base register (if base update)
-
-        xprs[.]: instruction condition (if has condition)
-        xprs[.]: new address for base register
-        """
+        """lhs, rhs, with optional instr condition and base update."""
 
         lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[1])
+        rhs = str(xdata.xprs[3])
 
-        xctr = 2
+        xctr = 4
         if xdata.has_instruction_condition():
             pcond = "if " + str(xdata.xprs[xctr]) + " then "
             xctr += 1
@@ -106,8 +118,9 @@ class ARMLoadRegister(ARMOpcode):
         else:
             pcond = ""
 
+        vctr = 2
         if xdata.has_base_update():
-            blhs = str(xdata.vars[1])
+            blhs = str(xdata.vars[vctr])
             brhs = str(xdata.xprs[xctr])
             pbupd = "; " + blhs + " := " + brhs
         else:
@@ -115,42 +128,71 @@ class ARMLoadRegister(ARMOpcode):
 
         return pcond + lhs + " := " + rhs + pbupd
 
-    def assembly_ast(
+    def ast_prov(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "LDR"]
 
-        (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return preinstrs + [assign] + postinstrs
+        (ll_rhs, ll_preinstrs, ll_postinstrs) = self.opargs[3].ast_rvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
 
-    def ast(self,
-            astree: AbstractSyntaxTree,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-        annotations: List[str] = [iaddr, "LDR"]
+        hl_preinstrs: List[AST.ASTInstruction] = []
+        hl_postinstrs: List[AST.ASTInstruction] = []
 
-        preinstrs: List[AST.ASTInstruction] = []
-        postinstrs: List[AST.ASTInstruction] = []
-        rhslvals = XU.xvariable_to_ast_lvals(xdata.vars[1], astree)
-        if len(rhslvals) == 1:
-            rhslval = rhslvals[0]
-            lhs = astree.mk_register_variable_lval(str(xdata.vars[0]))
-            rhs = astree.mk_lval_expr(rhslval)
-            if str(rhs).startswith("temp"):
-                (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
-                
-            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
-            return [assign]
-        else:
+        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        if len(rhsexprs) == 0:
+            raise UF.CHBError("No rhs for LoadRegister (LDR)")
+
+        if len(rhsexprs) > 1:
             raise UF.CHBError(
-                "ARMLoadRegister: multiple expressions/lvals in ast")
+                "Multiple rhs values for LoadRegister (LDR): "
+                + ", ".join(str(x) for x in rhsexprs))
+
+        hl_rhs = rhsexprs[0]
+        if str(hl_rhs).startswith("__asttmp"):
+            addrlval = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, astree)
+            hl_rhs = astree.mk_lval_expression(addrlval)
+
+        hl_lhs = astree.mk_register_variable_lval(str(lhs))
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, str(lhs), hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, [rdefs[2]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if ll_rhs.is_ast_lval_expr:
+            lvalexpr = cast(AST.ASTLvalExpr, ll_rhs)
+            if lvalexpr.lval.lhost.is_memref:
+                memexp = cast(AST.ASTMemRef, lvalexpr.lval.lhost).memexp
+                astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
+
+        return ([hl_assign], [ll_assign])

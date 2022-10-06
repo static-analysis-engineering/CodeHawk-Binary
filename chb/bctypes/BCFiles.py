@@ -30,10 +30,9 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 import xml.etree.ElementTree as ET
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
 from chb.bctypes.BCCompInfo import BCCompInfo
 from chb.bctypes.BCDictionary import BCDictionary
+from chb.bctypes.BCEnumInfo import BCEnumInfo
 from chb.bctypes.BCFunctionDefinition import BCFunctionDefinition
 from chb.bctypes.BCTyp import BCTyp
 from chb.bctypes.BCTypeInfo import BCTypeInfo
@@ -52,6 +51,7 @@ class BCFiles:
         self._app = app
         self._gtypes: List[BCTyp] = []
         self._gcomptags: List[BCCompInfo] = []
+        self._genumtags: List[BCEnumInfo] = []
         self._gvardecls: List[BCVarInfo] = []
         self._gvardefs: List[BCVarInfo] = []
         self._functions: Dict[str, BCFunctionDefinition] = {}
@@ -72,6 +72,10 @@ class BCFiles:
     @property
     def gcomptags(self) -> List[BCCompInfo]:
         return self._gcomptags
+
+    @property
+    def genumtags(self) -> List[BCEnumInfo]:
+        return self._genumtags
 
     @property
     def gvardecls(self) -> List[BCVarInfo]:
@@ -103,8 +107,31 @@ class BCFiles:
         else:
             return name in self.functions
 
+    def has_vardecl(self, name: str) -> bool:
+        return any([vinfo.vname == name for vinfo in self.gvardecls])
+
+    def vardecl(self, name: str) -> BCVarInfo:
+        for vinfo in self.gvardecls:
+            if vinfo.vname == name:
+                return vinfo
+        else:
+            raise UF.CHBError(
+                "Variable declaration for " + name + " not found")
+
+    def has_compinfo(self, ckey: int) -> bool:
+        return any([cinfo.ckey == ckey for cinfo in self.gcomptags])
+
+    def compinfo(self, ckey: int) -> BCCompInfo:
+        for cinfo in self.gcomptags:
+            if cinfo.ckey == ckey:
+                return cinfo
+        else:
+            raise UF.CHBError(
+                "Compinfo with key " + str(ckey) + " not found")
+
     def initialize(self, xnode: ET.Element) -> None:
         self.initialize_compinfos(xnode.find("compinfos"))
+        self.initialize_enuminfos(xnode.find("enuminfos"))
         self.initialize_typeinfos(xnode.find("typeinfos"))
         self.initialize_vardefs(xnode.find("varinfos"))
         self.initialize_vardecls(xnode.find("varinfodecls"))
@@ -118,6 +145,15 @@ class BCFiles:
                 if name and ixs:
                     ids: List[int] = [int(n) for n in ixs.split(",")]
                     self._gcomptags.append(self.bcd.compinfo(ids[0]))
+
+    def initialize_enuminfos(self, tnode: Optional[ET.Element]) -> None:
+        if tnode:
+            for x in tnode.findall("ei"):
+                name = x.get("name")
+                ixs = x.get("ixs")
+                if name and ixs:
+                    ids: List[int] = [int(n) for n in ixs.split(",")]
+                    self._genumtags.append(self.bcd.enuminfo(ids[0]))
 
     def initialize_typeinfos(self, tnode: Optional[ET.Element]) -> None:
         if tnode:

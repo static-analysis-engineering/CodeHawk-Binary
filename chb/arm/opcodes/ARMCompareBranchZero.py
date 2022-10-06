@@ -27,16 +27,14 @@
 
 from typing import List, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction
-
-import chb.app.ASTNode as AST
-
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.util.fileutil as UF
 
@@ -80,7 +78,7 @@ class ARMCompareBranchZero(ARMOpcode):
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
@@ -89,16 +87,16 @@ class ARMCompareBranchZero(ARMOpcode):
         regvar = astree.mk_register_variable_expr(reg)
         zero = astree.mk_integer_constant(0)
         if reverse:
-            condition = astree.mk_binary_op("neq", regvar, zero)
+            condition = astree.mk_binary_op("ne", regvar, zero)
         else:
             condition = astree.mk_binary_op("eq", regvar, zero)
-        astree.add_instruction_span(condition.id, iaddr, bytestring)
+        # astree.add_instruction_span(condition.id, iaddr, bytestring)
         return condition
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         return []

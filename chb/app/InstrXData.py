@@ -26,13 +26,22 @@
 # ------------------------------------------------------------------------------
 """Provides access to invariants for instruction operands."""
 
-from typing import List, Tuple, Sequence, TYPE_CHECKING, Union
+from typing import cast, List, Optional, Tuple, Sequence, TYPE_CHECKING, Union
 
 from chb.app.BDictionary import BDictionary, AsmAddress
 
-from chb.invariants.XXpr import XXpr
-from chb.invariants.XVariable import XVariable
+from chb.invariants.VarInvariantFact import (
+    DefUse,
+    DefUseHigh,
+    FlagReachingDefFact,
+    ReachingDefFact,
+    VarInvariantFact
+)
+
 from chb.invariants.XInterval import XInterval
+from chb.invariants.XSymbol import XSymbol
+from chb.invariants.XVariable import XVariable
+from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
 
@@ -44,6 +53,7 @@ if TYPE_CHECKING:
     from chb.app.Function import Function
     from chb.app.FunctionDictionary import FunctionDictionary
     from chb.invariants.FnVarDictionary import FnVarDictionary
+    from chb.invariants.FnVarInvDictionary import FnVarInvDictionary
     from chb.invariants.FnXprDictionary import FnXprDictionary
 
 
@@ -61,6 +71,10 @@ class InstrXData(IndexedTableValue):
         self._intervals: List[XInterval] = []
         self._strs: List[str] = []
         self._ints: List[int] = []
+        self._reachingdefs: List[Optional[ReachingDefFact]] = []
+        self._defuses: List[Optional[DefUse]] = []
+        self._defuseshigh: List[Optional[DefUseHigh]] = []
+        self._flagreachingdefs: List[Optional[FlagReachingDefFact]] = []
 
     @property
     def functiondictionary(self) -> "FunctionDictionary":
@@ -81,6 +95,10 @@ class InstrXData(IndexedTableValue):
     @property
     def vardictionary(self) -> "FnVarDictionary":
         return self.function.vardictionary
+
+    @property
+    def varinvdictionary(self) -> "FnVarInvDictionary":
+        return self.function.varinvdictionary
 
     @property
     def vars(self) -> List[XVariable]:
@@ -112,7 +130,53 @@ class InstrXData(IndexedTableValue):
             self._expand()
         return self._ints
 
+    @property
+    def reachingdefs(self) -> List[Optional[ReachingDefFact]]:
+        if not self.expanded:
+            self._expand()
+        return self._reachingdefs
+
+    @property
+    def flag_reachingdefs(self) -> List[Optional[FlagReachingDefFact]]:
+        if not self.expanded:
+            self._expand()
+        return self._flagreachingdefs
+
+    @property
+    def defuses(self) -> List[Optional[DefUse]]:
+        if not self.expanded:
+            self._expand()
+        return self._defuses
+
+    @property
+    def defuseshigh(self) -> List[Optional[DefUseHigh]]:
+        if not self.expanded:
+            self._expand()
+        return self._defuseshigh
+
+    def reachingdeflocs_for(self, var: XVariable) -> Sequence[XSymbol]:
+        for rdef in self.reachingdefs:
+            if rdef is not None:
+                if rdef.variable.seqnr == var.seqnr:
+                    return rdef.deflocations
+        return []
+
+    def reachingdeflocs_for_s(self, var: str) -> Sequence[XSymbol]:
+        for rdef in self.reachingdefs:
+            if rdef is not None:
+                if str(rdef.variable) == var:
+                    return rdef.deflocations
+        return []
+
     def _expand(self) -> None:
+        """Expand the arguments based on the argument string in the keys.
+
+        Note: the varinvariant directory is loaded only if the argument
+        string contains any of the var-invariant letters (r, d, h, f),
+        because not all architectures currently have a varinvariant
+        directory. This is the reason it is repeated for every such
+        letter; preloading it will cause a crash in systems without.
+        """
         self.expanded = True
         if len(self.tags) == 0:
             return
@@ -135,6 +199,26 @@ class InstrXData(IndexedTableValue):
                     self._intervals.append(xd.interval(arg))
                 elif c == "l":
                     self._ints.append(arg)
+                elif c == "r":
+                    varinvd = self.varinvdictionary
+                    rdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                    rdef = cast(Optional[ReachingDefFact], rdef)
+                    self._reachingdefs.append(rdef)
+                elif c == "d":
+                    varinvd = self.varinvdictionary
+                    use = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                    use = cast(Optional[DefUse], use)
+                    self._defuses.append(use)
+                elif c == "h":
+                    varinvd = self.varinvdictionary
+                    usehigh = varinvd.var_invariant_fact(arg) if arg > 0 else None
+                    usehigh = cast(Optional[DefUseHigh], usehigh)
+                    self._defuseshigh.append(usehigh)
+                elif c == "f":
+                    varinvd = self.varinvdictionary
+                    flagrdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                    flagrdef = cast(Optional[FlagReachingDefFact], flagrdef)
+                    self._flagreachingdefs.append(flagrdef)
                 else:
                     raise UF.CHBError("Key letter not recognized: " + c)
 
@@ -218,9 +302,29 @@ class InstrXData(IndexedTableValue):
         return "bu" in self.tags
 
     def instruction_is_subsumed(self) -> bool:
-        """An instruction may be subsumed as part of an ITE construct (ARM)."""
+        """An instruction may be subsumed as part of an IT construct (ARM)."""
 
         return "subsumed" in self.tags
+
+    def subsumed_by(self) -> str:
+        """Return the address of the IT instruction that subsumes this instruction."""
+
+        if "subsumed" in self.tags:
+            index = self.tags.index("subsumed")
+            return self.tags[index + 1]
+        else:
+            raise UF.CHBError(
+                "XData does not have a subsumed-by address: "
+                + ", ".join(self.tags))
+
+    def subsumes(self) -> List[str]:
+        """Return the addresses of the instruction subsumed by this instruction."""
+
+        if "subsumes" in self.tags:
+            index = self.tags.index("subsumes")
+            return self.tags[index + 1:]
+        else:
+            return []
 
     def has_return_value(self) -> bool:
         return "rv" in self.tags
@@ -234,4 +338,6 @@ class InstrXData(IndexedTableValue):
             lines.append("vars[" + str(i) + "] = " + str(v))
         for (i, x) in enumerate(self.xprs):
             lines.append("xprs[" + str(i) + "] = " + str(x))
+        for (i, f) in enumerate(self.flag_reachingdefs):
+            lines.append("flagrdefs[" + str(i) + "] = " + str(f))
         return "\n".join(lines)

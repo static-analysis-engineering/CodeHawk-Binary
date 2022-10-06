@@ -85,6 +85,8 @@ class MIPSDictionaryRegistry:
             anchor: Type[MdR]) -> MdR:
         tag = ixval.tags[0]
         if (anchor, tag) not in self.register:
+            for (anchor, ttag) in self.register:
+                print(str(anchor) + ": " + ttag)
             raise UF.CHBError("Unknown mipsdictionary type: " + tag)
         instance = self.register[(anchor, tag)](md, ixval)
         return cast(MdR, instance)

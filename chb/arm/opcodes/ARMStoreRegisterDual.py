@@ -27,15 +27,14 @@
 
 from typing import List, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
-
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.util.fileutil as UF
 
@@ -93,17 +92,16 @@ class ARMStoreRegisterDual(ARMOpcode):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        (lhs1, preinstrs1, postinstrs1) = self.operands[4].ast_lvalue(astree)
-        (lhs2, preinstrs2, postinstrs2) = self.operands[5].ast_lvalue(astree)
+        (lhs1, preinstrs1, postinstrs1) = self.operands[2].ast_lvalue(astree)
+        (lhs2, preinstrs2, postinstrs2) = self.operands[3].ast_lvalue(astree)
         (rhs1, _, _) = self.operands[0].ast_rvalue(astree)
         (rhs2, _, _) = self.operands[1].ast_rvalue(astree)
-        assign1 = astree.mk_assign(lhs1, rhs1)
-        assign2 = astree.mk_assign(lhs2, rhs2)
-        astree.add_instruction_span(assign1.id, iaddr, bytestring)
+        assign1 = astree.mk_assign(lhs1, rhs1, iaddr=iaddr, bytestring=bytestring)
+        assign2 = astree.mk_assign(lhs2, rhs2, iaddr=iaddr, bytestring=bytestring)
         return (
             preinstrs1
             + preinstrs2
@@ -112,7 +110,7 @@ class ARMStoreRegisterDual(ARMOpcode):
             + postinstrs2)
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -124,8 +122,6 @@ class ARMStoreRegisterDual(ARMOpcode):
             lhs1 = "*" + lhs1[:-3]
         lval1 = astree.mk_variable_lval(lhs1)
         lval2 = astree.mk_variable_lval(lhs2)
-        assign1 = astree.mk_assign(lval1, rhs1)
-        assign2 = astree.mk_assign(lval2, rhs2)
-        astree.add_instruction_span(assign1.id, iaddr, bytestring)
-        astree.add_instruction_span(assign2.id, iaddr, bytestring)
+        assign1 = astree.mk_assign(lval1, rhs1, iaddr=iaddr, bytestring=bytestring)
+        assign2 = astree.mk_assign(lval2, rhs2, iaddr=iaddr, bytestring=bytestring)
         return [assign1, assign2]

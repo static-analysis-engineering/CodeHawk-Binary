@@ -128,7 +128,10 @@ import sys
 
 from typing import NoReturn
 
+from chb.app.CHVersion import chbversion
+
 import chb.cmdline.AnalysisManager as AM
+import chb.cmdline.astcmds as AST
 import chb.cmdline.commandutil as UCC
 import chb.cmdline.runcmds as UR
 import chb.cmdline.fileformatcmds as FF
@@ -147,7 +150,7 @@ from chb.util.DotGraph import DotGraph
 
 
 def showversion(args: argparse.Namespace) -> NoReturn:
-    print('Version 0.3.0')
+    print("Version " + chbversion)
     exit(0)
 
 
@@ -306,13 +309,23 @@ def parse() -> argparse.Namespace:
     analyzecmd = subparsers.add_parser('analyze')
     analyzecmd.add_argument('xname', help='name of executable')
     analyzecmd.add_argument(
-        '-d', '--disassemble',
+        "-d", "--disassemble",
         action='store_true',
-        help='extract and disassemble only')
+        help="extract and disassemble only")
     analyzecmd.add_argument(
-        '-x', '--extract',
+        "--save_datablocks",
+        help="save datablocks in range <startaddr>:<endaddr>")
+    analyzecmd.add_argument(
+        "-o", "--outputfile",
+        help="name of json file (without extension) to save datablocks")
+    analyzecmd.add_argument(
+        "--vardefs",
+        action="store_true",
+        help="analyze variable definitions with symbolic sets")
+    analyzecmd.add_argument(
+        '-x', "--extract",
         action='store_true',
-        help='extract executable content only')
+        help="extract executable content only")
     analyzecmd.add_argument(
         '--reset',
         action='store_true',
@@ -340,6 +353,11 @@ def parse() -> argparse.Namespace:
         type=int,
         default=12,
         help='maximum number of iterations')
+    analyzecmd.add_argument(
+        "--analysisrepeats",
+        type=int,
+        default=1,
+        help="number of analyses to be performed per cycle")
     analyzecmd.add_argument(
         '--preamble_cutoff',
         type=int,
@@ -442,6 +460,16 @@ def parse() -> argparse.Namespace:
         '--nocallees',
         action='store_true',
         help='indicate if a function has no callees')
+    resultsstats.add_argument(
+        "--sortby",
+        help="sort by function-address (default), function-size, or function analysis time",
+        choices=["faddr", "instrs", "basicblocks", "time", "loopdepth"],
+        default="faddr")
+    resultsstats.add_argument(
+        "--timeshare",
+        type=int,
+        help="list percentage of time used by <n> most expensive functions",
+        default=0)
     resultsstats.set_defaults(func=UCC.results_stats)
 
     # -- results callgraph --
@@ -479,21 +507,50 @@ def parse() -> argparse.Namespace:
         help="list of names of terminal nodes to constrain callgraph")
     resultscg.set_defaults(func=UCC.results_callgraph)
 
-    # -- results ast (abstract syntax tree) --
-    showast = resultsparsers.add_parser("ast")
+    # -- results ast
+    buildast = resultsparsers.add_parser("ast")
+    buildast.add_argument("xname", help="name of executable")
+    buildast.add_argument(
+        "--outputfile", "-o",
+        help="name of file to save symboltables and asts (without extension)")
+    buildast.add_argument(
+        "--functions",
+        help="address (in hex) of functions to be included in ast",
+        nargs="*",
+        default=[])
+    buildast.add_argument(
+        "--hints",
+        help="names of json files with userdata hints",
+        nargs="*",
+        default=[])
+    buildast.add_argument(
+        "--remove_edges",
+        nargs="*",
+        default=[],
+        help="list of edges to be removed (in the form faddr:src-addr:tgt-addr in hex)")
+    buildast.add_argument(
+        "--add_edges",
+        nargs="*",
+        default=[],
+        help="list of edges to be added (in the form faddr:src-addr:tgt-addr in hex)")
+    buildast.add_argument(
+        "--verbose", "-v",
+        action="store_true")
+    buildast.set_defaults(func=AST.buildast)
+
+    # -- results decompile (abstract syntax tree) --
+    showast = resultsparsers.add_parser("decompile")
     showast.add_argument("xname", help="name of executable")
     showast.add_argument(
         "--decompile",
         help="attempt to decompile all functions without loops",
         action="store_true")
     showast.add_argument(
+        "--outputfile", "-o",
+        help="filename to save symboltables and asts in json format")
+    showast.add_argument(
         "--exclude",
         help="exclude from decompilation",
-        nargs="*",
-        default=[])
-    showast.add_argument(
-        "--ignore_return_value",
-        help="functions whose returnvalue can be considered ignored",
         nargs="*",
         default=[])
     showast.add_argument(
@@ -525,7 +582,7 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help="list of left-hand sides for which to show available expressions (e.g., R5)")
-    showast.set_defaults(func=UCC.showast)
+    showast.set_defaults(func=AST.showast)
 
     # -- results cfg (control flow graph) --
     showcfg = resultsparsers.add_parser("cfg")
@@ -636,6 +693,25 @@ def parse() -> argparse.Namespace:
         help="number of characters for opcode text")
     resultsfunction.set_defaults(func=UCC.results_function)
 
+    # --- results callback tables ---
+    resultscallbacktables = resultsparsers.add_parser("callbacktables")
+    resultscallbacktables.add_argument("xname", help="name of executable")
+    resultscallbacktables.add_argument(
+        "--showall",
+        action="store_true",
+        help="print the addresses and contents of all callback tables")
+    resultscallbacktables.add_argument(
+        "--list",
+        action="store_true",
+        help="list the addresses and structure of callback tables present")
+    resultscallbacktables.add_argument(
+        "--output", "-o",
+        help="filename to save callbacktable(s) to json format (no extension)")
+    resultscallbacktables.add_argument(
+        "--device",
+        help="name of device to store in outputfile")
+    resultscallbacktables.set_defaults(func=UCC.results_callbacktables)
+
     # --- results invariants ---
     resultsinvariants = resultsparsers.add_parser("invariants")
     resultsinvariants.add_argument("xname", help="name of executable")
@@ -674,6 +750,18 @@ def parse() -> argparse.Namespace:
         "--structtable",
         action="store_true",
         help="extract structtable at the given address")
+    resultsextract.add_argument(
+        "--callbacktable",
+        action="store_true",
+        help="extract callback table at the given address")
+    resultsextract.add_argument(
+        "--callbacktables",
+        action="store_true",
+        help="extract all callback tables")
+    resultsextract.add_argument(
+        "--showtags",
+        action="store_true",
+        help="if structure has a field called tags, print all tags")
     resultsextract.add_argument(
         "--stringtables",
         nargs="*",
@@ -742,7 +830,31 @@ def parse() -> argparse.Namespace:
     # -- report calls
     report_calls = reportparsers.add_parser("calls")
     report_calls.add_argument("xname", help="name of executable")
+    report_calls.add_argument(
+        "outputfile",
+        help="name of json output file (without extension")
+    report_calls.add_argument(
+        "--callees",
+        nargs="*",
+        default=["all"],
+        help="target functions to be included (default: all)")
+    report_calls.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="print out a list of calls")
     report_calls.set_defaults(func=REP.report_calls)
+
+    # --- report unresolved
+    report_unresolved = reportparsers.add_parser("unresolved")
+    report_unresolved.add_argument("xname", help="name of executable")
+    report_unresolved.add_argument(
+        "outputfile",
+        help="name of json output file (without extension)")
+    report_unresolved.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="print instructions with unresolved calls/jumps/loads/stores")
+    report_unresolved.set_defaults(func=REP.report_unresolved)
 
     '''
 
@@ -908,20 +1020,33 @@ def parse() -> argparse.Namespace:
     # --- expr ---
     table_expr = tableparsers.add_parser('expr')
     table_expr.add_argument('xname', help='name of executable')
-    table_expr.add_argument('faddr', help='hex address of executbale')
+    table_expr.add_argument("faddr", help="hex address of executable")
     table_expr.set_defaults(func=UCC.show_expr_table)
 
     # --- variables ---
     table_vars = tableparsers.add_parser('variables')
     table_vars.add_argument('xname', help='name of executable')
-    table_vars.add_argument('faddr', help='hex address of executbale')
+    table_vars.add_argument("faddr", help="hex address of executable")
     table_vars.set_defaults(func=UCC.show_vars_table)
 
     # --- invariants ---
     table_invs = tableparsers.add_parser('invariants')
     table_invs.add_argument('xname', help='name of executable')
-    table_invs.add_argument('faddr', help='hex address of executbale')
+    table_invs.add_argument("faddr", help="hex address of executable")
     table_invs.set_defaults(func=UCC.show_invariant_table)
+
+    # --- variable invariants ---
+    table_varinvs = tableparsers.add_parser("varinvariants")
+    table_varinvs.add_argument("xname", help="name of executable")
+    table_varinvs.add_argument("faddr", help="hex address of executable")
+    table_varinvs.set_defaults(func=UCC.show_var_invariant_table)
+
+    # ----------------------------------------------------------- deserialize
+    parser_deserialize = subparsers.add_parser("deserialize")
+    parser_deserialize.add_argument(
+        "filename",
+        help="name of json ast file to be deserialized")
+    parser_deserialize.set_defaults(func=AST.deserialize)
 
     # ---------------------------------------------------------- run commands
     parser_runcmds = subparsers.add_parser("runcmds")

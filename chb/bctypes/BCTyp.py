@@ -47,18 +47,21 @@ the args.
 
 from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-import chb.app.ASTNode as AST
+import chb.ast.ASTNode as AST
 
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord, bcregistry
+from chb.bctypes.BCVisitor import BCVisitor
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
 
 if TYPE_CHECKING:
+    from chb.bctypes.BCAttribute import BCAttribute
     from chb.bctypes.BCConstant import BCCInt64
     from chb.bctypes.BCCompInfo import BCCompInfo
     from chb.bctypes.BCDictionary import BCDictionary
+    from chb.bctypes.BCEnumInfo import BCEnumInfo
     from chb.bctypes.BCExp import BCExp, BCExpConst
     from chb.bctypes.BCFunArgs import BCFunArgs
     from chb.bctypes.BCTypeInfo import BCTypeInfo
@@ -141,6 +144,10 @@ class BCTyp(BCDictionaryRecord):
         return False
 
     @property
+    def is_float(self) -> bool:
+        return False
+
+    @property
     def is_pointer(self) -> bool:
         return False
 
@@ -150,6 +157,9 @@ class BCTyp(BCDictionaryRecord):
 
     @property
     def is_array(self) -> bool:
+        return False
+
+    def has_constant_size(self) -> bool:
         return False
 
     @property
@@ -164,6 +174,23 @@ class BCTyp(BCDictionaryRecord):
     def is_function(self) -> bool:
         return False
 
+    @property
+    def is_vararg(self) -> bool:
+        return False
+
+    @property
+    def attrs(self) -> List["BCAttribute"]:
+        attrs = self.bcd.attributes(self.args[-1])
+        if attrs is None:
+            return []
+        else:
+            return attrs.attrs
+
+    def is_leq(self, other: "BCTyp") -> bool:
+        """Return true if this type is more precise or equal."""
+
+        return False
+
     def alignment(self) -> int:
         """Return alignment boundary in bytes."""
         return self.byte_size()
@@ -172,10 +199,36 @@ class BCTyp(BCDictionaryRecord):
         """Return size in bytes."""
         return 0
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCDictionaryRecord.serialize(self)
-        result["tag"] = self.tags[0]
-        return result
+    @property
+    def ikind(self) -> str:
+        raise UF.CHBError("Type is not an integer: " + str(self))
+
+    @property
+    def fkind(self) -> str:
+        raise UF.CHBError("Type is not a float: " + str(self))
+
+    @property
+    def tgttyp(self) -> "BCTyp":
+        raise UF.CHBError("Type does not have a target type: " + str(self))
+
+    @property
+    def size_expr(self) -> Optional["BCExp"]:
+        raise UF.CHBError("Type does not have a size expression: " + str(self))
+
+    @property
+    def sizevalue(self) -> int:
+        raise UF.CHBError("Type does not have a size value: " + str(self))
+
+    @property
+    def returntype(self) -> "BCTyp":
+        raise UF.CHBError("Type does not have a return type: " + str(self))
+
+    @property
+    def argtypes(self) -> Optional["BCFunArgs"]:
+        raise UF.CHBError("Type is not a function: " + str(self))
+
+    def convert(self, converter: "BCConverter") -> AST.ASTTyp:
+        raise NotImplementedError("BCTyp.convert: " + self.tags[0])
 
     def __str__(self) -> str:
         return "cil-typ:" + self.tags[0]
@@ -194,8 +247,11 @@ class BCTypVoid(BCTyp):
     def is_void(self) -> bool:
         return True
 
-    def serialize(self) -> Dict[str, Any]:
-        return BCTyp.serialize(self)
+    def is_leq(self, other: "BCTyp") -> bool:
+        return other.is_void
+
+    def convert(self, converter: "BCConverter") -> AST.ASTTypVoid:
+        return converter.convert_void_typ(self)
 
     def __str__(self) -> str:
         return "void"
@@ -222,13 +278,18 @@ class BCTypInt(BCTyp):
     def is_scalar(self) -> bool:
         return True
 
+    def is_leq(self, other: "BCTyp") -> bool:
+        if other.is_integer:
+            other = cast("BCTypInt", other)
+            return other.ikind == self.ikind
+        else:
+            return False
+
     def byte_size(self) -> int:
         return size_of_integer_type(self.ikind)
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["ikind"] = self.ikind
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypInt:
+        return converter.convert_integer_typ(self)
 
     def __str__(self) -> str:
         return inttypes[self.ikind]
@@ -248,16 +309,25 @@ class BCTypFloat(BCTyp):
         return self.tags[1]
 
     @property
+    def is_float(self) -> bool:
+        return True
+
+    @property
     def is_scalar(self) -> bool:
         return True
+
+    def is_leq(self, other: "BCTyp") -> bool:
+        if other.is_float:
+            other = cast("BCTypFloat", other)
+            return other.fkind == self.fkind
+        else:
+            return False
 
     def byte_size(self) -> int:
         return size_of_float_type(self.fkind)
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["fkind"] = self.fkind
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypFloat:
+        return converter.convert_float_typ(self)
 
     def __str__(self) -> str:
         return floattypes[self.fkind]
@@ -284,15 +354,21 @@ class BCTypPtr(BCTyp):
     def is_scalar(self) -> bool:
         return True
 
+    def is_leq(self, other: "BCTyp") -> bool:
+        if other.is_pointer:
+            other = cast("BCTypPtr", other)
+            return (
+                other.tgttyp.is_void or other.tgttyp.is_leq(self.tgttyp))
+        else:
+            return False
+
     def byte_size(self) -> int:
         """We assume 32-bit systems."""
 
         return 4
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["args"] = self.tgttyp.index
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypPtr:
+        return converter.convert_pointer_typ(self)
 
     def __str__(self) -> str:
         return str(self.tgttyp) + " *"
@@ -312,7 +388,7 @@ class BCTypArray(BCTyp):
         return self.bcd.typ(self.args[0])
 
     @property
-    def size(self) -> Optional["BCExp"]:
+    def size_expr(self) -> Optional["BCExp"]:
         if self.args[1] == -1:
             return None
         else:
@@ -321,11 +397,26 @@ class BCTypArray(BCTyp):
     @property
     def sizevalue(self) -> int:
         if self.has_constant_size():
-            size = cast("BCExp", self.size)
+            size = cast("BCExp", self.size_expr)
             isize = cast("BCExpConst", size).constant
             return cast("BCCInt64", isize).value
         else:
             raise UF.CHBError("Array type does not have constant size")
+
+    def is_leq(self, other: "BCTyp") -> bool:
+        if other.is_array:
+            other = cast("BCTypArray", other)
+            if other.has_constant_size() and self.has_constant_size():
+                return (
+                    other.sizevalue == self.sizevalue
+                    and other.tgttyp.is_leq(self.tgttyp))
+            elif self.has_constant_size():
+                return (
+                    other.tgttyp.is_leq(self.tgttyp))
+            else:
+                return False
+        else:
+            return False
 
     # Alignment is ignored
     def byte_size(self) -> int:
@@ -343,21 +434,17 @@ class BCTypArray(BCTyp):
         return True
 
     def has_constant_size(self) -> bool:
-        if self.size is not None:
-            if self.size.is_constant:
-                size = cast("BCExpConst", self.size)
+        if self.size_expr is not None:
+            if self.size_expr.is_constant:
+                size = cast("BCExpConst", self.size_expr)
                 return size.is_integer_constant
         return False
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["args"] = [self.tgttyp.index]
-        if self.has_constant_size():
-            result["size"] = self.sizevalue
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypArray:
+        return converter.convert_array_typ(self)
 
     def __str__(self) -> str:
-        return str(self.tgttyp) + "[" + str(self.size) + "]"
+        return str(self.tgttyp) + "[" + str(self.size_expr) + "]"
 
 
 @bcregistry.register_tag("tfun", BCTyp)
@@ -388,13 +475,23 @@ class BCTypFun(BCTyp):
     def is_function(self) -> bool:
         return True
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["args"] = [self.returntype.index]
-        if self.argtypes is not None:
-            argtypes = [t.index for t in self.argtypes.argtypes]
-            result["args"].extend(argtypes)
-        return result
+    def is_leq(self, other: "BCTyp") -> bool:
+        if other.is_function:
+            other = cast("BCTypFun", other)
+            if self.returntype.is_leq(other.returntype):
+                if self.argtypes and other.argtypes:
+                    return self.argtypes.is_leq(other.argtypes)
+                elif self.argtypes:
+                    return True
+                else:
+                    return False
+            else:
+                return False
+        else:
+            return False
+
+    def convert(self, converter: "BCConverter") -> AST.ASTTypFun:
+        return converter.convert_fun_typ(self)
 
     def __str__(self) -> str:
         return str(self.returntype) + "__" + str(self.argtypes)
@@ -425,13 +522,65 @@ class BCTypNamed(BCTyp):
     def is_integer(self) -> bool:
         return self.typedef.ttype.is_integer
 
+    @property
+    def is_float(self) -> bool:
+        return self.typedef.ttype.is_float
+
+    @property
+    def is_pointer(self) -> bool:
+        return self.typedef.ttype.is_pointer
+
+    @property
+    def is_array(self) -> bool:
+        return self.typedef.ttype.is_array
+
+    def has_constant_size(self) -> bool:
+        return self.typedef.ttype.has_constant_size()
+
+    @property
+    def is_function(self) -> bool:
+        return self.typedef.ttype.is_function
+
+    @property
+    def is_vararg(self) -> bool:
+        return self.typedef.ttype.is_vararg
+
+    @property
+    def ikind(self) -> str:
+        return self.typedef.ttype.ikind
+
+    @property
+    def fkind(self) -> str:
+        return self.typedef.ttype.fkind
+
+    @property
+    def tgttyp(self) -> "BCTyp":
+        return self.typedef.ttype.tgttyp
+
+    @property
+    def size_expr(self) -> Optional["BCExp"]:
+        return self.typedef.ttype.size_expr
+
+    @property
+    def sizevalue(self) -> int:
+        return self.typedef.ttype.sizevalue
+
+    @property
+    def returntype(self) -> "BCTyp":
+        return self.typedef.ttype.returntype
+
+    @property
+    def argtypes(self) -> Optional["BCFunArgs"]:
+        return self.typedef.ttype.argtypes
+
+    def is_leq(self, other: "BCTyp") -> bool:
+        return self.typedef.ttype.is_leq(other)
+
     def byte_size(self) -> int:
         return self.typedef.ttype.byte_size()
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["name"] = self.tname
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypNamed:
+        return converter.convert_named_typ(self)
 
     def __str__(self) -> str:
         return str(self.typedef.ttype)
@@ -467,16 +616,21 @@ class BCTypComp(BCTyp):
     def is_union(self) -> bool:
         return self.compinfo.is_union
 
+    def is_leq(self, other: "BCTyp") -> bool:
+        if other.is_struct:
+            other = cast("BCTypComp", other)
+            return self.compinfo.is_leq(other.compinfo)
+        else:
+            return False
+
     def byte_size(self) -> int:
         return self.compinfo.byte_size()
 
     def alignment(self) -> int:
         return self.compinfo.alignment()
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["key"] = self.compkey
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypComp:
+        return converter.convert_comp_typ(self)
 
     def __str__(self) -> str:
         return "struct " + self.compname
@@ -496,16 +650,34 @@ class BCTypEnum(BCTyp):
         return self.tags[1]
 
     @property
+    def enuminfo(self) -> "BCEnumInfo":
+        return self.bcd.enuminfo_by_name(self.ename)
+
+    @property
     def is_scalar(self) -> bool:
         return True
 
     def byte_size(self) -> int:
         return 4
 
-    def serialize(self) -> Dict[str, Any]:
-        result = BCTyp.serialize(self)
-        result["name"] = self.ename
-        return result
+    def convert(self, converter: "BCConverter") -> AST.ASTTypEnum:
+        return converter.convert_enum_typ(self)
 
     def __str__(self) -> str:
         return self.ename
+
+
+@bcregistry.register_tag("tbuiltin-va-list", BCTyp)
+class BCTypBuiltinVaList(BCTyp):
+
+    def __init__(
+            self,
+            cd: "BCDictionary",
+            ixval: IT.IndexedTableValue) -> None:
+        BCTyp.__init__(self, cd, ixval)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTTypBuiltinVAList:
+        return converter.convert_builtin_va_list(self)
+
+    def __str__(self) -> str:
+        return "builtin-va-list"

@@ -661,6 +661,8 @@ class MIPStub_atoi(MIPSimStub):
         a0 = self.get_arg_val(iaddr, simstate, 'a0')
         try:
             a0str = self.get_arg_string(iaddr, simstate, "a0")
+        except SU.CHBSimAddressError as e:
+            raise e
         except Exception as e:
             raise SU.CHBSimError(
                 simstate,
@@ -1964,7 +1966,7 @@ class MIPStub_getline(MIPSimStub):
     def sitecounters(self) -> Dict[str, int]:
         return self._sitecounters
 
-    def sitecounter(self, site) -> int:
+    def sitecounter(self, site: str) -> int:
         self.sitecounters.setdefault(site, 0)
         self.sitecounters[site] += 1
         return self.sitecounters[site]
@@ -2315,7 +2317,7 @@ class MIPStub_gmtime(MIPSimStub):
         t = time.gmtime()
         print("time: " + str(t))
 
-        def set_tm(off, tmval):
+        def set_tm(off: int, tmval: int) -> None:
             simstate.set_memval(
                 iaddr, address.add_offset(off), SV.mk_simvalue(tmval))
 
@@ -2525,7 +2527,7 @@ class MIPStub_localtime(MIPSimStub):
         t = time.localtime()
         print('time: ' + str(t))
 
-        def set_tm(off, tmval):
+        def set_tm(off: int, tmval: int) -> None:
             simstate.set_memval(
                 iaddr, address.add_offset(off), SV.mk_simvalue(tmval))
 
@@ -4817,7 +4819,7 @@ class MIPStub_strerror(MIPSimStub):
     def sitecounters(self) -> Dict[str, int]:
         return self._sitecounters
 
-    def sitecounter(self, site) -> int:
+    def sitecounter(self, site: str) -> int:
         self.sitecounters.setdefault(site, 0)
         self.sitecounters[site] += 1
         return self.sitecounters[site]
@@ -4953,6 +4955,7 @@ class MIPStub_strlcpy(MIPSimStub):
         a1_len = SV.mk_simvalue(len(a1str))
         simstate.set_register(iaddr, "v0", a1_len)
         return self.add_logmsg(iaddr, simstate, pargs)
+
 
 class MIPStub_strlen(MIPSimStub):
 
@@ -5942,7 +5945,7 @@ class MIPStub_config_get(MIPSimStub):
     def sitecounters(self) -> Dict[str, int]:
         return self._sitecounters
 
-    def sitecounter(self, site) -> int:
+    def sitecounter(self, site: str) -> int:
         self.sitecounters.setdefault(site, 0)
         self.sitecounters[site] += 1
         return self.sitecounters[site]
@@ -5996,15 +5999,17 @@ class MIPStub_config_match(MIPSimStub):
         configvalues = simstate.simsupport.configvalues
         if configvalues.config_has(a0str):
             result = configvalues.config_match(a0str, a1str)
-            if result:
-                configmsg = "matched value for " + a0str + " with " + a1str
-                resultval = SV.simOne
-            else:
-                configmsg = "no match for " + a0str + " with " + a1str
-                resultval = SV.simZero
         else:
+            # config_get produces the empty string if key is not present
+            result = a1str == ""
+
+        if result:
+            configmsg = "matched value for " + a0str + " with " + a1str
             resultval = SV.simOne
-            configmsg = "config key " + a0str + " not found"
+        else:
+            configmsg = "no match for " + a0str + " with " + a1str
+            resultval = SV.simZero
+
         pargs = str(a0) + ":" + a0str + ", " + str(a1) + ":" + a1str
         simstate.set_register(iaddr, "v0", resultval)
         simstate.add_logmsg("config", configmsg)

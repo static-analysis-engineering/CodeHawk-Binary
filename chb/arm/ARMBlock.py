@@ -70,14 +70,6 @@ class ARMBlock(BasicBlock):
                 self._instructions[iaddr] = ARMInstruction(self, n)
         return self._instructions
 
-    @property
-    def call_instructions(self) -> Sequence[ARMInstruction]:
-        result: List[ARMInstruction] = []
-        for (ia, instr) in sorted(self.instructions.items()):
-            if instr.is_call_instruction:
-                result.append(instr)
-        return result
-
     def to_string(
             self,
             bytes: bool = False,

@@ -27,15 +27,14 @@
 
 from typing import cast, List, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
-
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.invariants.XXprUtil as XU
 
@@ -89,11 +88,11 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             "; ".join(
                 str(v)
                 + " := "
-                + str(x) for (v,x) in zip(xdata.vars, xdata.xprs[:-1])))
+                + str(x) for (v, x) in zip(xdata.vars, xdata.xprs[:-1])))
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -102,7 +101,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         if not regsop.is_register_list:
             raise UF.CHBError("Argument to STMDB is not a register list")
 
-        annotations: List[str] = [iaddr, "STMDB"]        
+        annotations: List[str] = [iaddr, "STMDB"]
 
         (reglval, _, _) = baseop.ast_lvalue(astree)
         (regrval, _, _) = baseop.ast_rvalue(astree)
@@ -116,17 +115,26 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             addr = astree.mk_binary_op("minus", regrval, reg_offset_c)
             lhs = astree.mk_memref_lval(addr)
             rhs = astree.mk_register_variable_expr(r)
-            instrs.append(astree.mk_assign(lhs, rhs, annotations=annotations))
+            instrs.append(astree.mk_assign(
+                lhs,
+                rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations))
             reg_offset -= 4
         if self.args[0] == 1:
             reg_decr_c = astree.mk_integer_constant(reg_decr)
             reg_rhs = astree.mk_binary_op("minus", regrval, reg_decr_c)
-            instrs.append(astree.mk_assign(reglval, reg_rhs, annotations=annotations))
-        astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
+            instrs.append(astree.mk_assign(
+                reglval,
+                reg_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations))
         return instrs
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -137,13 +145,14 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         instrs: List[AST.ASTInstruction] = []
         annotations: List[str] = [iaddr, "STMDB"]
 
-        rhss = XU.xxpr_list_to_ast_exprs(xprs, astree)
+        rhss = XU.xxpr_list_to_ast_exprs(xprs, xdata, astree)
 
+        '''
         if len(rhss) == 1 and rhss[0].ctype and rhss[0].ctype.is_struct:
             # the registers represent a single struct
             structtype = cast("BCTypComp", rhss[0].ctype)
             compinfo = structtype.compinfo
-            
+
             if vars[0].is_memory_variable:
                 xvar = cast("VMemoryVariable", vars[0].denotation)
                 if xvar.base.is_local_stack_frame:
@@ -192,7 +201,6 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                 else:
                     raise UF.CHBError(
                         "ARMStoreMultipleDecrementBefore: multiple expressions/lvals in ast")
+        '''
 
-        for instr in instrs:
-            astree.add_instruction_span(instr.id, iaddr, bytestring)
         return instrs

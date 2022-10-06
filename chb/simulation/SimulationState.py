@@ -83,6 +83,7 @@ prefer_stubs = [
     "fgets",
     "fileno",
     "fopen",
+    "fork",
     "fprintf",
     "fputc",
     "fputs",
@@ -111,19 +112,23 @@ prefer_stubs = [
     "shmat",
     "shmget",
     "sigaction",
+    "sleep",
     "snprintf",
     "socket",
     "sprintf",
     "stat",
     "strcasecmp",
     "strcat",
+    "strchr",
     "strcmp",
     "strcpy",
+    "strdup",
     "strftime",
     "strlcpy",
     "strlen",
     "strncasecmp",
     "strncpy",
+    "strncmp",
     "strstr",
     "strtok",
     "system",
@@ -141,13 +146,15 @@ class SimModule:
             name: str,
             app: "AppAccess",
             base: str,
-            max_addr: str) -> None:
+            max_addr: str,
+            loadaddr: str = None) -> None:
         self._name = name
         self._app = app
         self._base = base  # base address in hex
         self._imports: Dict[int, str] = {}
         self._exports: Dict[str, int] = {}
         self._max_addr = max_addr
+        self._loadaddr = loadaddr
 
     @property
     def name(self) -> str:
@@ -178,6 +185,22 @@ class SimModule:
     @property
     def max_addr_i(self) -> int:
         return int(self.max_addr, 16)
+
+    @property
+    def loadaddr(self) -> Optional[str]:
+        """Return address where module is loaded."""
+
+        return self._loadaddr
+
+    def has_load_address(self) -> bool:
+        return self.loadaddr is not None
+
+    @property
+    def loadaddr_i(self) -> int:
+        if self.loadaddr is not None:
+            return int(self.loadaddr, 16)
+        else:
+            return 0
 
     @property
     def imports(self) -> Dict[int, str]:
@@ -230,21 +253,38 @@ class SimModule:
             raise UF.CHBError(
                 "Symbol " + sym + " not found in exports of " + self.name)
 
-    def has_function_name(self, addr: int):
+    def has_function_name(self, addr: int) -> bool:
         return self.app.has_function_name(hex(addr))
 
-    def has_function(self, addr: int):
+    def has_function(self, addr: int) -> bool:
         return self.app.has_function(hex(addr))
 
-    def function_name(self, addr: int):
+    def function_name(self, addr: int) -> str:
         if self.has_function_name(addr):
             return self.app.function_name(hex(addr))
         else:
             raise UF.CHBError(
                 "No function name associated with " + hex(addr))
 
-    def has_address(self, addr: int):
-        return addr >= self.base_i and addr <= self.max_addr_i
+    def has_address(self, addr: int) -> bool:
+        return (addr >= self.base_i and addr <= self.max_addr_i)
+
+    def has_address_as_loaded(self, addr: int) -> bool:
+        """Return true if there is a load address and address is in that range."""
+
+        if self.has_load_address():
+            modaddr = addr - self.loadaddr_i
+            return self.has_address(modaddr)
+        else:
+            return False
+
+    def get_address_in_module(self, addr: int) -> int:
+        """Return address as contained in executable module address space."""
+
+        if self.has_load_address():
+            return addr - self.loadaddr_i
+        else:
+            raise UF.CHBError("Module has no load address: " + self.name)
 
 
 class ModuleSimulationState:
@@ -280,6 +320,9 @@ class ModuleSimulationState:
             self, iaddr: str, addrvalue: int) -> SSV.SimGlobalAddress:
         if self.module.has_address(addrvalue):
             return SSV.mk_global_address(addrvalue, modulename=self.modulename)
+        elif self.module.has_address_as_loaded(addrvalue):
+            modaddrvalue = self.module.get_address_in_module(addrvalue)
+            return SSV.mk_global_address(modaddrvalue, modulename=self.modulename)
         else:
             return SSV.mk_undefined_global_address(self.modulename)
 
@@ -710,13 +753,21 @@ class SimulationState:
                     return addr
 
             else:
-                raise SU.CHBSimError(
-                    self,
-                    iaddr,
-                    ("Unable to resolve address: "
-                     + hex(addrvalue)
-                     + " in "
-                     + self.modulename))
+                for m in self.modulestates:
+                    addr = self.modulestates[m].resolve_literal_address(
+                        iaddr, addrvalue)
+                    if addr.is_defined:
+                        return addr
+                else:
+                    raise SU.CHBSimAddressError(
+                        self,
+                        iaddr,
+                        hex(addrvalue),
+                        self.modulename,
+                        ("Unable to resolve address: "
+                         + hex(addrvalue)
+                         + " in "
+                         + self.modulename))
 
     def lhs(self, iaddr: str, op: Operand) -> SimLocation:
         if op.is_register:

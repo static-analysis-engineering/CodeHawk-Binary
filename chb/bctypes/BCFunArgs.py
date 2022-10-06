@@ -27,7 +27,11 @@
 
 from typing import cast, List, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
+from chb.bctypes.BCVisitor import BCVisitor
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -52,6 +56,12 @@ class BCFunArg(BCDictionaryRecord):
     @property
     def typ(self) -> "BCTyp":
         return self.bcd.typ(self.args[0])
+
+    def is_leq(self, other: "BCFunArg") -> bool:
+        return self.typ.is_leq(other.typ)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTFunArg:
+        return converter.convert_funarg(self)
 
     def __str__(self) -> str:
         return str(self.typ) + " " + self.name
@@ -101,6 +111,12 @@ class BCFunArgs(BCDictionaryRecord):
                 return False
         else:
             return True
+
+    def is_leq(self, other: "BCFunArgs") -> bool:
+        return all(a.is_leq(o) for (a, o) in zip(self.funargs, other.funargs))
+
+    def convert(self, converter: "BCConverter") -> AST.ASTFunArgs:
+        return converter.convert_funargs(self)
 
     def __str__(self) -> str:
         return "(" + ", ".join(str(a) for a in self.funargs) + ")"

@@ -25,17 +25,16 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.invariants.XXprUtil as XU
 
@@ -60,6 +59,16 @@ class ARMMove(ARMOpcode):
     args[2]: index of op2 in armdictionary
     args[3]: is-wide (thumb)
     args[4]: wide
+
+    xdata format: a:vxxrdh
+    ----------------------
+    vars[0]: lhs
+    xprs[0]: rhs
+    xprs[1]: rhs (simplified)
+    rdefs[0]: rhs
+    rdefs[1..]: rhs (simplified)
+    uses[0]: lhs
+    useshigh[0]: lhs
     """
 
     def __init__(
@@ -78,23 +87,19 @@ class ARMMove(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args[1: -2]]
 
     @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[1: -2]]
+
+    @property
     def operandstring(self) -> str:
         return ", ".join(str(op) for op in self.operands)
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vx . with optional condition, identified by
-        tags[1]: "TC"
-
-        vars[0]: lhs
-        xprs[0]: rhs
-        xprs[1]: condition (if flagged by tags[1])
-        """
-
         if xdata.instruction_is_subsumed():
             return "subsumed by ITE"
 
         lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[0])
+        rhs = str(xdata.xprs[1])
         assignment = lhs + " := " + rhs
         if xdata.has_unknown_instruction_condition():
             return "if ? then " + assignment
@@ -104,40 +109,88 @@ class ARMMove(ARMOpcode):
         else:
             return assignment
 
-    def assembly_ast(
+    def ast_prov_subsumed(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        if xdata.instruction_is_subsumed():
-            return []
-        else:
-            annotations: List[str] = [iaddr, "MOV"]
-            (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-            (rhs, _, _) = self.operands[1].ast_rvalue(astree)
-            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
-            return [assign]
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        """Return only low-level instruction with low-level condition."""
 
-    def ast(
+        annotations: List[str] = [iaddr, "MOV (subsumed)"]
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs_t, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_rhs_f = astree.mk_lval_expr(ll_lhs)
+
+        cc = self.ast_cc_expr(astree)
+
+        questionx = astree.mk_question(cc, ll_rhs_t, ll_rhs_f)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            questionx,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        rdefs = xdata.reachingdefs
+
+        astree.add_expr_reachingdefs(ll_rhs_f, rdefs)
+
+        return ([], [ll_assign])
+
+    def ast_prov(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
         if xdata.instruction_is_subsumed():
-            return []
+            return self.ast_prov_subsumed(astree, iaddr, bytestring, xdata)
+
+        annotations: List[str] = [iaddr, "MOV"]
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[1]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        if len(hl_lhss) == 1 and len(hl_rhss) == 1:
+            hl_lhs = hl_lhss[0]
+            hl_rhs = hl_rhss[0]
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            astree.add_instr_mapping(hl_assign, ll_assign)
+            astree.add_instr_address(hl_assign, [iaddr])
+            astree.add_expr_mapping(hl_rhs, ll_rhs)
+            astree.add_lval_mapping(hl_lhs, ll_lhs)
+            astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
+            astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
+            astree.add_lval_defuses(hl_lhs, defuses[0])
+            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+            return ([hl_assign], [ll_assign])
+
         else:
-            annotations: List[str] = [iaddr, "MOV"]
-            lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
-            rhss = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
-            if len(lhss) == 1 and len(rhss) == 1:
-                lhs = lhss[0]
-                rhs = rhss[0]
-                assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-                astree.add_instruction_span(assign.id, iaddr, bytestring)
-                return [assign]
-            else:
-                raise UF.CHBError(
-                    "ARMMove: multiple expressions/lvals in ast")
+            raise UF.CHBError(
+                "ARMMove: multiple lval/expressions in ast")

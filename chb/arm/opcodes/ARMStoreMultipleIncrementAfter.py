@@ -27,15 +27,14 @@
 
 from typing import List, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
-
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.invariants.XXprUtil as XU
 
@@ -106,7 +105,7 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
     # --------------------------------------------------------------------------
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -132,14 +131,13 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         if self.args[0] == 1:
             reg_incr_c = astree.mk_integer_constant(reg_incr)
             reg_rhs = astree.mk_binary_op("plus", regrval, reg_incr_c)
-            instrs.append(astree.mk_assign(reglval, reg_rhs))
+            instrs.append(astree.mk_assign(
+                reglval, reg_rhs, iaddr=iaddr, bytestring=bytestring))
 
-        for instr in instrs:
-            astree.add_instruction_span(instr.id, iaddr, bytestring)
         return instrs
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
@@ -150,16 +148,15 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         instrs: List[AST.ASTInstruction] = []
 
         for (v, x) in zip(vars, xprs):
-            lhss = XU.xvariable_to_ast_lvals(v, astree)
-            rhss = XU.xxpr_to_ast_exprs(x, astree)
+            lhss = XU.xvariable_to_ast_lvals(v, xdata, astree)
+            rhss = XU.xxpr_to_ast_exprs(x, xdata, astree)
             if len(lhss) == 1 and len(rhss) == 1:
                 lhs = lhss[0]
                 rhs = rhss[0]
-                instrs.append(astree.mk_assign(lhs, rhs))
+                instrs.append(astree.mk_assign(
+                    lhs, rhs, iaddr=iaddr, bytestring=bytestring))
             else:
                 raise UF.CHBError(
                     "ARMStoreMulipleIncrementAfter: multiple expressions/lvals in ast")
 
-        for instr in instrs:
-            astree.add_instruction_span(instr.id, iaddr, bytestring)
         return instrs

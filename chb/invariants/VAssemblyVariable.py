@@ -103,6 +103,10 @@ class VAssemblyVariable(FnVarDictionaryRecord):
         return False
 
     @property
+    def is_heap_base_address(self) -> bool:
+        return False
+
+    @property
     def is_stack_argument(self) -> bool:
         return False
 
@@ -144,6 +148,13 @@ class VAssemblyVariable(FnVarDictionaryRecord):
     @property
     def basevar(self) -> "XVariable":
         raise UF.CHBError("Basevar not supported for " + str(self))
+
+    @property
+    def base(self) -> "VMemoryBase":
+        raise UF.CHBError("Base not supported for " + str(self))
+
+    def has_unknown_memory_base(self) -> bool:
+        return (self.is_memory_variable and self.base.is_unknown)
 
     def global_base(self) -> "VAssemblyVariable":
         raise UF.CHBError("Global_base not supported for " + str(self))
@@ -219,9 +230,10 @@ class VMemoryVariable(VAssemblyVariable):
 
     @property
     def is_stack_argument(self) -> bool:
-        return (self.base.is_local_stack_frame
-                and self.offset.is_constant_value_offset
-                and self.offset.offsetvalue() > 0)
+        return (
+            self.base.is_local_stack_frame
+            and self.offset.is_constant_value_offset
+            and self.offset.offsetvalue() > 0)
 
     def argument_index(self) -> int:
         if self.is_stack_argument:
@@ -232,21 +244,27 @@ class VMemoryVariable(VAssemblyVariable):
 
     @property
     def is_local_stack_variable(self) -> bool:
-        return (self.base.is_local_stack_frame
-                and self.offset.is_constant_offset
-                and self.offset.offsetvalue() < 0)
+        return (
+            self.base.is_local_stack_frame
+            and self.offset.is_constant_offset
+            and self.offset.offsetvalue() < 0)
 
     @property
     def is_return_address(self) -> bool:
-        return (self.base.is_local_stack_frame
-                and self.offset.is_constant_offset
-                and self.offset.offsetvalue() == 0)
+        return (
+            self.base.is_local_stack_frame
+            and self.offset.is_constant_offset
+            and self.offset.offsetvalue() == 0)
 
     @property
     def is_realigned_stack_variable(self) -> bool:
-        return (self.base.is_realigned_stack_frame
-                and self.offset.is_constant_offset
-                and self.offset.offsetvalue() <= 0)
+        return (
+            self.base.is_realigned_stack_frame
+            and self.offset.is_constant_offset
+            and self.offset.offsetvalue() <= 0)
+
+    def has_unknown_base(self) -> bool:
+        return self.base.is_unknown
 
     def __str__(self) -> str:
         if self.is_global_variable:
@@ -351,6 +369,10 @@ class VAuxiliaryVariable(VAssemblyVariable):
     @property
     def is_stack_base_address(self) -> bool:
         return self.auxvar.is_stack_base_address
+
+    @property
+    def is_heap_base_address(self) -> bool:
+        return self.auxvar.is_heap_base_address
 
     @property
     def is_argument_value(self) -> bool:

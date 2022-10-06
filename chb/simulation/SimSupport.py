@@ -117,7 +117,7 @@ class ConfigurationValues:
 
     def config_match(self, key: str, value: str) -> bool:
         if key in self.values:
-            return self.values[key] <= value
+            return self.values[key] == value
         else:
             raise UF.CHBError("No configuration value found for " + key)
 
@@ -245,7 +245,7 @@ class SimSupport:
     def has_environment_variable(self, name: str) -> bool:
         return name in self.environment_variables
 
-    def get_environment_variable(self, name) -> str:
+    def get_environment_variable(self, name: str) -> str:
         if name in self.environment_variables:
             return self.environment_variables[name]
         else:

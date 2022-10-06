@@ -25,17 +25,16 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
@@ -57,8 +56,30 @@ class ARMLoadRegisterHalfword(ARMOpcode):
     tags[0]: <c>
     args[0]: index of destination operand in armdictionary
     args[1]: index of base register in armdictionary
-    args[2]: index of memory location in armdictionary
-    args[3]: is-wide (thumb)
+    args[2]: index of index in armdictionary
+    args[3]: index of memory location in armdictionary
+    args[4]: is-wide (thumb)
+
+    xdata format: a:vxxxxrrrdh
+    --------------------------
+    vars[0]: lhs
+    vars[1]: memory location expressed as a variable
+    xprs[0]: value in rn
+    xprs[1]: value in rm
+    xprs[2]: value in memory location
+    xprs[3]: value in memory location (simplified)
+    xprs[4]: address of memory location
+    rdefs[0]: reaching definitions rn
+    rdefs[1]: reaching definitions rm
+    rdefs[2]: reaching definitions memory location
+    uses[0]: use of lhs
+    useshigh[0]: use of lhs at high level
+
+    optional:
+    vars[1]: lhs base register (if base update)
+
+    xprs[.]: instruction condition (if has condition)
+    xprs[.]: new address for base register
     """
 
     def __init__(
@@ -69,7 +90,11 @@ class ARMLoadRegisterHalfword(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 3]]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2, 3]]
 
     def is_load_instruction(self, xdata: InstrXData) -> bool:
         return True
@@ -89,47 +114,71 @@ class ARMLoadRegisterHalfword(ARMOpcode):
         rhs = str(xdata.xprs[1])
         return lhs + " := " + rhs
 
-    def assembly_ast(
+    def ast_prov(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "LDRH"]
 
-        (rhs, preinstrs, postinstrs) = self.operands[1].ast_rvalue(astree)
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-        astree.add_instruction_span(assign.id, iaddr, bytestring)
-        return preinstrs + [assign] + postinstrs
+        (ll_rhs, ll_preinstrs, ll_postinstrs) = self.opargs[3].ast_rvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
 
-    def ast(self,
-            astree: AbstractSyntaxTree,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-        annotations: List[str] = [iaddr, "LDRH"]
+        hl_preinstrs: List[AST.ASTInstruction] = []
+        hl_postinstrs: List[AST.ASTInstruction] = []
 
-        rhslvals = XU.xvariable_to_ast_lvals(xdata.vars[1], astree, size=2)
-        lhsvar = str(xdata.vars[0])        
-        lhs = astree.mk_variable_lval(lhsvar)
-        if len(rhslvals) == 1:
-            rhslval = rhslvals[0]
-            rhs = astree.mk_lval_expr(rhslval)
-            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
-            return [assign]
+        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        if len(rhsexprs) == 0:
+            raise UF.CHBError("No rhs for LoadRegisterHalfword (LDRH)")
 
-        if len(rhslvals) == 2:
-            b0 = astree.mk_lval_expr(rhslvals[0])
-            b1 = astree.mk_lval_expr(rhslvals[1])
-            rhs = astree.mk_byte_sum([b0, b1])
-            assign = astree.mk_assign(lhs, rhs, annotations=annotations)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
-            return [assign]
-
-        else:
+        if len(rhsexprs) > 1:
             raise UF.CHBError(
-                "ARMLoadRegisterHalfword: multiple expressions/lvals in ast")
+                "Multiple rhs values for LoadRegisterHalfword (LDRH): "
+                + ", ".join(str(x) for x in rhsexprs))
+
+        hl_rhs = rhsexprs[0]
+        if str(hl_rhs).startswith("__asttmp"):
+            addrlval = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, astree)
+            hl_rhs = astree.mk_lval_expression(addrlval)
+
+        hl_lhs = astree.mk_register_variable_lval(str(lhs))
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, [rdefs[2]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if ll_rhs.is_ast_lval_expr:
+            lvalexpr = cast(AST.ASTLvalExpr, ll_rhs)
+            if lvalexpr.lval.lhost.is_memref:
+                memexp = cast(AST.ASTMemRef, lvalexpr.lval.lhost).memexp
+                astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
+
+        return ([hl_assign], [ll_assign])

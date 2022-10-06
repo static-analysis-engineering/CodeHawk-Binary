@@ -25,17 +25,16 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.invariants.XXprUtil as XU
 
@@ -56,6 +55,15 @@ class ARMMoveTop(ARMOpcode):
     tags[1]: <c>
     args[0]: index of Rd in arm dictionary
     args[1]: index of imm16 in arm dictionary
+
+    xdata format: a:vxxxxxrdh
+    -------------------------
+    vars[0]: lhs
+    xprs[0]: immediate value
+    xprs[1]: rhs
+    xprs[2]: rhs shifted by 16 bits
+    xprs[3]: result
+    xprs[4]: result (simplified)
     """
 
     def __init__(
@@ -69,60 +77,88 @@ class ARMMoveTop(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args]
+
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vx .
-
-        vars[0]: lhs (Rd)
-        xprs[0]: imm16
-        xprs[1]: rhs (Rd)
-        xprs[2]: rhs % 2^16
-        xprs[3]: (rhs % 2^16) + (2^16 * imm16) (syntactic)
-        xprs[4]: (rhs % 2^16) + (2^16 * imm16) (simplified)
-        """
-
         lhs = str(xdata.vars[0])
         result = xdata.xprs[3]
         rresult = xdata.xprs[4]
         xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
         return lhs + " := " + xresult
 
-    def assembly_ast(
+    def ast_prov(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "MOVT"]
 
-        (lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        (op1, _, _) = self.operands[1].ast_rvalue(astree)
-        (op2, _, _) = self.operands[2].ast_rvalue(astree)
-        i16 = astree.mk_integer_constant(16)
-        e16 = astree.mk_integer_constant(256 * 256)
-        xpr1 = astree.mk_binary_op("lsl", op2, i16)
-        xpr2 = astree.mk_binary_op("mod", op1, e16)
-        xpr = astree.mk_binary_op("plus", xpr1, xpr2)
-        result = astree.mk_assign(lhs, xpr, annotations=annotations)
-        astree.add_instruction_span(result.id, iaddr, bytestring)
-        return [result]
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        rresult = xdata.xprs[4]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-    def ast(self,
-            astree:AbstractSyntaxTree,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(astree)
+        mask = astree.mk_integer_constant(0xffff)
+        shift = astree.mk_integer_constant(16)
+        ll_x1 = astree.mk_binary_op("band", ll_rhs1, mask)
+        ll_x2 = astree.mk_binary_op("lsl", ll_rhs2, shift)
+        ll_result = astree.mk_binary_op("plus", ll_x1, ll_x2)
 
-        annotations: List[str] = [iaddr, "MOVT"]
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_result,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
 
-        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[4], astree)
-        if len(lhss) == 1 and len(rhss) == 1:
-            lhs = lhss[0]
-            rhs = rhss[0]        
-            result = astree.mk_assign(lhs, rhs, annotations=annotations)
-            astree.add_instruction_span(result.id, iaddr, bytestring)
-            return [result]
-        else:
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(lhsasts) == 0:
+            raise UF.CHBError("MoveTop (MOVT): no lval found")
+
+        if len(lhsasts) > 1:
             raise UF.CHBError(
-                "ARMMoveTop: multiple expressions/lvals in ast")
+                "MoveTop (MOVT): multiple lvals in ast: "
+                + ", ".join(str(v) for v in lhsasts))
+
+        hl_lhs = lhsasts[0]
+
+        rhsasts = XU.xxpr_to_ast_exprs(rresult, xdata, astree)
+        if len(rhsasts) == 0:
+            raise UF.CHBError("MoveTop (MOVT): no ast value for rhs")
+
+        if len(rhsasts) > 1:
+            raise UF.CHBError(
+                "MoveTop (MOVT): multiple ast values for rhs: "
+                + ", ".join(str(v) for v in rhsasts))
+
+        hl_rhs = rhsasts[0]
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, str(lhs), hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_result)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_result, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

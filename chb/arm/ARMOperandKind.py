@@ -67,11 +67,10 @@ type arm_operand_kind_t =
 
 from typing import cast, List, Optional, Tuple, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
-
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord, armregistry
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.util.fileutil as UF
 
@@ -144,6 +143,10 @@ class ARMOperandKind(ARMDictionaryRecord):
         raise UF.CHBError("Operand is not a register list " + str(self))
 
     @property
+    def is_extension_register_list(self) -> bool:
+        return False
+
+    @property
     def offset(self) -> int:
         raise UF.CHBError("Offset not avaialable for operand kind " + str(self))
 
@@ -158,7 +161,7 @@ class ARMOperandKind(ARMDictionaryRecord):
 
     def ast_lvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError(
             "AST lvalue not available for operand kind "
@@ -169,7 +172,7 @@ class ARMOperandKind(ARMDictionaryRecord):
 
     def ast_rvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError(
             "AST rvalue not available for operand kind "
@@ -205,13 +208,13 @@ class ARMRegisterOp(ARMOperandKind):
 
     def ast_lvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        return (astree.mk_variable_lval(self.register), [], [])
+        return (astree.mk_register_variable_lval(self.register), [], [])
 
     def ast_rvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (astree.mk_register_variable_expr(self.register), [], [])
 
@@ -316,6 +319,31 @@ class ARMRegListOp(ARMOperandKind):
         return "{" + ",".join(self.registers) + "}"
 
 
+@armregistry.register_tag("xl", ARMOperandKind)
+class ARMExtensionRegListOp(ARMOperandKind):
+    """List of extension registers.
+
+    args: indices of extension registers
+    """
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def extension_registers(self) -> List["ARMExtensionRegister"]:
+        return [self.bd.arm_extension_register(i) for i in self.args]
+
+    @property
+    def is_extension_register_list(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return "{" + ",".join(str(r) for r in self.extension_registers) + "}"
+
+
 @armregistry.register_tag("s", ARMOperandKind)
 class ARMShiftedRegisterOp(ARMOperandKind):
     """Value of register shifted by a certain amount.
@@ -352,7 +380,7 @@ class ARMShiftedRegisterOp(ARMOperandKind):
                 return 1
             else:
                 if srt.is_shift_left:
-                    return 2**shiftamount
+                    return 2 ** shiftamount
                 else:
                     return None
         else:
@@ -360,14 +388,14 @@ class ARMShiftedRegisterOp(ARMOperandKind):
 
     def ast_lvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError(
             "AST lvalue unexpected for shifted register " + str(self))
 
     def ast_rvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         srt = self.shift_rotate
         rvar = astree.mk_register_variable_expr(self.register)
@@ -432,14 +460,14 @@ class ARMRegBitSequenceOp(ARMOperandKind):
 
     def ast_lvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError(
             "AST lvalue unexpected for bit sequende operand " + str(self))
 
     def ast_rvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         """
         from: https://stackoverflow.com/questions/8366625/arm-bit-field-extract
@@ -488,7 +516,7 @@ class ARMAbsoluteOp(ARMOperandKind):
 
     def ast_rvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (astree.mk_integer_constant(self.address.get_int()), [], [])
 
@@ -511,7 +539,7 @@ class ARMLiteralAddressOp(ARMOperandKind):
 
     def ast_rvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         gvname = "gv_" + self.address.get_hex()
         gv = astree.mk_global_variable_expr(
@@ -586,7 +614,7 @@ class ARMOffsetAddressOp(ARMOperandKind):
 
     def ast_lvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         offset = self.memory_offset.ast_rvalue(astree)
         if not self.is_add:
@@ -609,7 +637,7 @@ class ARMOffsetAddressOp(ARMOperandKind):
 
     def ast_rvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         (lval, preinstrs, postinstrs) = self.ast_lvalue(astree)
         rval = astree.mk_lval_expr(lval)
@@ -653,13 +681,13 @@ class ARMImmediateOp(ARMOperandKind):
 
     def ast_lvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError("Immediate operand cannot be an lvalue")
 
     def ast_rvalue(
             self,
-            astree: AbstractSyntaxTree) -> Tuple[
+            astree: ASTInterface) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (astree.mk_integer_constant(self.value), [], [])
 

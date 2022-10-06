@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,7 +49,11 @@ type exp
 
 from typing import List, TYPE_CHECKING
 
+import chb.ast.ASTNode as AST
+
+from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord, bcregistry
+from chb.bctypes.BCVisitor import BCVisitor
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -77,6 +81,9 @@ class BCExp(BCDictionaryRecord):
     def is_integer_constant(self) -> bool:
         return False
 
+    def convert(self, converter: "BCConverter") -> AST.ASTExpr:
+        raise NotImplementedError("BCExp.convert: " + self.tags[0])
+
     def __str__(self) -> str:
         return "bc-exp:" + self.tags[0]
 
@@ -103,6 +110,9 @@ class BCExpConst(BCExp):
     def is_integer_constant(self) -> bool:
         return self.constant.is_integer_constant
 
+    def convert(self, converter: "BCConverter") -> AST.ASTExpr:
+        return self.constant.convert(converter)
+
     def __str__(self) -> str:
         return str(self.constant)
 
@@ -121,6 +131,9 @@ class BCExpLval(BCExp):
     def lval(self) -> "BCLval":
         return self.bcd.lval(self.args[0])
 
+    def convert(self, converter: "BCConverter") -> AST.ASTLvalExpr:
+        return converter.convert_lval_expression(self)
+
     def __str__(self) -> str:
         return "lval(" + str(self.lval) + ")"
 
@@ -138,6 +151,9 @@ class BCExpSizeOf(BCExp):
     @property
     def typ(self) -> "BCTyp":
         return self.bcd.typ(self.args[0])
+
+    def convert(self, converter: "BCConverter") -> AST.ASTSizeOfExpr:
+        return converter.convert_sizeof_expression(self)
 
     def __str__(self) -> str:
         return "sizeof(" + str(self.typ) + ")"
@@ -267,6 +283,9 @@ class BCExpBinOp(BCExp):
     def typ(self) -> "BCTyp":
         return self.bcd.typ(self.args[2])
 
+    def convert(self, converter: "BCConverter") -> AST.ASTExpr:
+        return converter.convert_binary_expression(self)
+
     def __str__(self) -> str:
         return str(self.exp1) + " " + self.operator + " " + str(self.exp2)
 
@@ -324,6 +343,9 @@ class BCExpCastE(BCExp):
     def exp(self) -> "BCExp":
         return self.bcd.exp(self.args[1])
 
+    def convert(self, converter: "BCConverter") -> AST.ASTCastExpr:
+        return converter.convert_cast_expression(self)
+
     def __str__(self) -> str:
         return "(" + str(self.typ) + ")" + str(self.exp)
 
@@ -341,6 +363,9 @@ class BCExpAddressOf(BCExp):
     @property
     def lval(self) -> "BCLval":
         return self.bcd.lval(self.args[0])
+
+    def convert(self, converter: "BCConverter") -> AST.ASTAddressOf:
+        return converter.convert_address_of_expression(self)
 
     def __str__(self) -> str:
         return "&" + str(self.lval)

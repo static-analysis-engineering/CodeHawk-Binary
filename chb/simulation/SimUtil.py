@@ -208,6 +208,28 @@ class CHBSimError(UF.CHBError):
         return '\n'.join(lines)
 
 
+class CHBSimAddressError(CHBSimError):
+
+    def __init__(
+            self,
+            simstate: "SimulationState",
+            iaddr: str,
+            addr: str,
+            modulename: str,
+            msg: str) -> None:
+        CHBSimError.__init__(self, simstate, iaddr, msg)
+        self._addr = addr
+        self._modulename = modulename
+
+    @property
+    def addr(self) -> str:
+        return self._addr
+
+    @property
+    def modulename(self) -> str:
+        return self._modulename
+
+
 class CHBSimOpError(UF.CHBError):
 
     def __init__(self, msg: str, ops: List["SimValue"]) -> None:

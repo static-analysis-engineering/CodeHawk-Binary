@@ -26,16 +26,17 @@
 # ------------------------------------------------------------------------------
 """ARM opcodes."""
 
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -63,6 +64,10 @@ def simplify_result(id1: int, id2: int, x1: XXpr, x2: XXpr) -> str:
 
 branch_opcodes = [
     "B", "BX"
+]
+
+call_opcodes = [
+    "BLX", "BL"
 ]
 
 
@@ -110,10 +115,10 @@ class ARMOpcode(ARMDictionaryRecord):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         msg = (
             iaddr + ": "
             + bytestring
@@ -128,11 +133,11 @@ class ARMOpcode(ARMDictionaryRecord):
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
-            reverse: bool) -> Optional[ASTExpr]:
+            reverse: bool) -> Optional[AST.ASTExpr]:
         msg = (
             bytestring
             + "  "
@@ -144,21 +149,110 @@ class ARMOpcode(ARMDictionaryRecord):
         raise UF.CHBError("No assembly-ast-condition defined for " + msg)
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         return self.assembly_ast(astree, iaddr, bytestring, xdata)
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        """Return default; should be overridden by instruction opcodes."""
+
+        instrs = self.ast(astree, iaddr, bytestring, xdata)
+        return (instrs, instrs)
 
     def ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
-            reverse: bool) -> Optional[ASTExpr]:
+            reverse: bool) -> Optional[AST.ASTExpr]:
         return self.assembly_ast_condition(
             astree, iaddr, bytestring, xdata, reverse)
+
+    def ast_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData,
+            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+        """ Return default; should be overridden by instruction opcodes."""
+
+        expr = self.ast_condition(astree, iaddr, bytestring, xdata, reverse)
+        return (expr, expr)
+
+    def ast_cc_expr(self, astree: ASTInterface) -> AST.ASTExpr:
+        cc = self.mnemonic_extension()
+
+        def zflag() -> AST.ASTLvalExpr:
+            return astree.mk_flag_variable_lval_expression("Z")
+
+        def cflag() -> AST.ASTLvalExpr:
+            return astree.mk_flag_variable_lval_expression("C")
+
+        def vflag() -> AST.ASTLvalExpr:
+            return astree.mk_flag_variable_lval_expression("V")
+
+        def nflag() -> AST.ASTLvalExpr:
+            return astree.mk_flag_variable_lval_expression("N")
+
+        def one() -> AST.ASTIntegerConstant:
+            return astree.mk_integer_constant(1)
+
+        def zero() -> AST.ASTIntegerConstant:
+            return astree.mk_integer_constant(0)
+
+        def flagexpr(op: str, x: AST.ASTExpr, v: AST.ASTExpr) -> AST.ASTExpr:
+            return astree.mk_binary_expression(op, x, v)
+
+        if cc == "EQ":
+            return flagexpr("eq", zflag(), one())
+        elif cc == "NE":
+            return flagexpr("eq", zflag(), zero())
+        elif cc == "CS":
+            return flagexpr("eq", cflag(), one())
+        elif cc == "CC":
+            return flagexpr("eq", cflag(), zero())
+        elif cc == "MI":
+            return flagexpr("eq", nflag(), one())
+        elif cc == "PL":
+            return flagexpr("eq", nflag(), zero())
+        elif cc == "VS":
+            return flagexpr("eq", vflag(), one())
+        elif cc == "VC":
+            return flagexpr("eq", vflag(), zero())
+        elif cc == "HI":
+            e1 = flagexpr("eq", cflag(), one())
+            e2 = flagexpr("eq", zflag(), zero())
+            return flagexpr("and", e1, e2)
+        elif cc == "LS":
+            e1 = flagexpr("eq", cflag(), zero())
+            e2 = flagexpr("eq", zflag(), one())
+            return flagexpr("lor", e1, e2)
+        elif cc == "GE":
+            return flagexpr("eq", nflag(), vflag())
+        elif cc == "LT":
+            return flagexpr("ne", nflag(), vflag())
+        elif cc == "GT":
+            e1 = flagexpr("eq", zflag(), zero())
+            e2 = flagexpr("eq", nflag(), vflag())
+            return flagexpr("eq", e1, e2)
+        elif cc == "LE":
+            e1 = flagexpr("eq", zflag(), one())
+            e2 = flagexpr("ne", nflag(), vflag())
+            return flagexpr("lor", e1, e2)
+        elif cc == "":
+            return one()
+        else:
+            return zero()
 
     def mnemonic_extension(self) -> str:
         if self.mnemonic.startswith("IT"):
@@ -170,6 +264,14 @@ class ARMOpcode(ARMDictionaryRecord):
 
     @property
     def operands(self) -> List[ARMOperand]:
+        """Return the operands that appear in the assembly instruction."""
+
+        return []
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        """Return all operand types in the assembly instruction arguments."""
+
         return []
 
     @property
@@ -192,9 +294,12 @@ class ARMOpcode(ARMDictionaryRecord):
         return False
 
     def is_call_instruction(self, xdata: InstrXData) -> bool:
-        return xdata.has_call_target()
+        return self.mnemonic in call_opcodes or xdata.has_call_target()
 
     def call_target(self, xdata: InstrXData) -> CallTarget:
+        raise UF.CHBError("Instruction is not a call: " + str(self))
+
+    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
         raise UF.CHBError("Instruction is not a call: " + str(self))
 
     def is_load_instruction(self, xdata: InstrXData) -> bool:

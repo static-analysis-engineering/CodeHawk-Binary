@@ -29,10 +29,10 @@
 
 from typing import cast, List, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTExpr, ASTInstruction
-
 from chb.app.InstrXData import InstrXData
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -97,14 +97,14 @@ class MIPSMoveConditionalNotZero(MIPSOpcode):
 
     def ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
-        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], astree)
-        conds = XU.xxpr_to_ast_exprs(xdata.xprs[2], astree)
-        rhs2s = XU.xxpr_to_ast_exprs(xdata.xprs[3], astree)
-        rhs1s = XU.xxpr_to_ast_exprs(xdata.xprs[0], astree)
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], xdata, astree)
+        conds = XU.xxpr_to_ast_exprs(xdata.xprs[2], xdata, astree)
+        rhs2s = XU.xxpr_to_ast_exprs(xdata.xprs[3], xdata, astree)
+        rhs1s = XU.xxpr_to_ast_exprs(xdata.xprs[0], xdata, astree)
         if (
                 len(lhss) == 1
                 and len(conds) == 1
@@ -116,7 +116,7 @@ class MIPSMoveConditionalNotZero(MIPSOpcode):
             rhs1 = rhs1s[0]
             rhs = astree.mk_question(cond, rhs1, rhs2)
             assign = astree.mk_assign(lhs, rhs)
-            astree.add_instruction_span(assign.id, iaddr, bytestring)
+            astree.add_instruction_span(assign.locationid, iaddr, bytestring)
             return [assign]
         else:
             raise UF.CHBError(

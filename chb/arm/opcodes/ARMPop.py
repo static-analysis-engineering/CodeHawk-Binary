@@ -25,17 +25,19 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
-
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-
-import chb.app.ASTNode as AST
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+from chb.invariants.XXpr import XXpr
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -55,6 +57,21 @@ class ARMPop(ARMOpcode):
     args[0]: index of stackpointer operand in armdictionary
     args[1]: index of register list in armdictionary
     args[2]: is-wide (thumb)
+
+    xdata format: a:vv(n)xxxx(n)rr(n)dd(n)hh(n)   (SP + registers popped)
+    ---------------------------------------------------------------------
+    vars[0]: SP
+    vars[1..n]: v(r) for r: register popped
+    xprs[0]: SP
+    xprs[1]: SP updated
+    xprs[2]: SP updated, simplified
+    xprs[3..n+2]: x(m) for m: memory location value retrieved
+    rdefs[0]: SP
+    rdefs[1..n]: rdef(m) for m: memory location variable
+    uses[0}: SP
+    uses[1..n]: uses(r) for r: register popped
+    useshigh[0]: SP
+    useshigh[1..n]: useshigh(r): for r: register popped used at high level
     """
 
     def __init__(
@@ -66,7 +83,11 @@ class ARMPop(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
 
     @property
     def operandstring(self) -> str:
@@ -108,51 +129,90 @@ class ARMPop(ARMOpcode):
 
         return pcond + assigns
 
-    def assembly_ast(
+    def ast_prov(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        regsop = self.operands[1]
-        if not regsop.is_register_list:
-            raise UF.CHBError("Argument to push is not a register list")
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        (splval, _, _) = self.operands[0].ast_lvalue(astree)
-        (sprval, _, _) = self.operands[0].ast_rvalue(astree)
+        splhs = xdata.vars[0]
+        reglhss = xdata.vars[1:]
+        sprrhs = xdata.xprs[0]
+        spresult = xdata.xprs[1]
+        sprresult = xdata.xprs[2]
+        memrhss = xdata.xprs[3:]
+        sprdef = xdata.reachingdefs[0]
+        memrdefs = xdata.reachingdefs[1:]
+        spuses = xdata.defuses[0]
+        reguses = xdata.defuses[1:]
+        spuseshigh = xdata.defuseshigh[0]
+        reguseshigh = xdata.defuseshigh[1:]
 
-        instrs: List[AST.ASTInstruction] = []
+        annotations: List[str] = [iaddr, "POP"]
+
+        (splval, _, _) = self.opargs[0].ast_lvalue(astree)
+        (sprval, _, _) = self.opargs[0].ast_rvalue(astree)
+
+        ll_instrs: List[AST.ASTInstruction] = []
+        hl_instrs: List[AST.ASTInstruction] = []
+        regsop = self.opargs[1]
         registers = regsop.registers
         sp_incr = 4 * len(registers)
         sp_offset = 0
-        for r in registers:
+        for (i, r) in enumerate(registers):
             sp_offset_c = astree.mk_integer_constant(sp_offset)
             addr = astree.mk_binary_op("plus", sprval, sp_offset_c)
-            lhs = astree.mk_variable_lval(r)
-            rhs = astree.mk_memref_expr(addr)
-            instrs.append(astree.mk_assign(lhs, rhs))
+            ll_lhs = astree.mk_variable_lval(r)
+            ll_rhs = astree.mk_memref_expr(addr)
+            ll_assign = astree.mk_assign(ll_lhs, ll_rhs, iaddr=iaddr)
+            ll_instrs.append(ll_assign)
+
+            lhs = reglhss[i]
+            rhs = memrhss[i]
+            hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+            hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+            if len(hl_lhss) != 1 and len(hl_rhss) != 1:
+                raise UF.CHBError(
+                    "ARMPop: more than one lhs or ths in assignments")
+            hl_lhs = hl_lhss[0]
+            hl_rhs = hl_rhss[0]
+            hl_assign = astree.mk_assign(hl_lhs, hl_rhs, iaddr=iaddr)
+            hl_instrs.append(hl_assign)
+
+            astree.add_instr_mapping(hl_assign, ll_assign)
+            astree.add_instr_address(hl_assign, [iaddr])
+            astree.add_expr_mapping(hl_rhs, ll_rhs)
+            astree.add_lval_mapping(hl_lhs, ll_lhs)
+            astree.add_expr_reachingdefs(ll_rhs, [memrdefs[i]])
+            astree.add_lval_defuses(hl_lhs, reguses[i])
+            astree.add_lval_defuses_high(hl_lhs, reguseshigh[i])
+
             sp_offset += 4
+
+        ll_sp_lhs = splval
         sp_incr_c = astree.mk_integer_constant(sp_incr)
-        sp_rhs = astree.mk_binary_op("plus", sprval, sp_incr_c)
-        instrs.append(astree.mk_assign(splval, sp_rhs))
-        astree.add_instruction_span(instrs[0].id, iaddr, bytestring)
-        return instrs
+        ll_sp_rhs = astree.mk_binary_op("plus", sprval, sp_incr_c)
+        ll_sp_assign = astree.mk_assign(ll_sp_lhs, ll_sp_rhs, iaddr=iaddr)
+        ll_instrs.append(ll_sp_assign)
 
-    def ast(self,
-            astree: AbstractSyntaxTree,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        vars = xdata.vars
-        xprs = xdata.xprs
-        instrs: List[AST.ASTInstruction] = []
-        return []
+        hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, xdata, astree)
+        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, xdata, astree)
+        if len(hl_sp_lhss) != 1 or len(hl_sp_rhss) != 1:
+            raise UF.CHBError(
+                "ARMPop more than one lhs or rhs in SP assignment")
+        hl_sp_lhs = hl_sp_lhss[0]
+        hl_sp_rhs = hl_sp_rhss[0]
+        hl_sp_assign = astree.mk_assign(hl_sp_lhs, hl_sp_rhs, iaddr=iaddr)
+        hl_instrs.append(hl_sp_assign)
 
-        '''
-        for (v, x) in zip(vars, xprs):
-            lhs = astree.mk_variable_lval(str(v), str(v))
-            rhs = astree.mk_variable_expr(str(x), str(x))
-            instrs.append(astree.mk_assign(lhs, rhs))
-        astree.add_instruction_span(instrs[0].id, iaddr, len(bytestring) // 2)
-        return instrs
-        '''
+        astree.add_instr_mapping(hl_sp_assign, ll_sp_assign)
+        astree.add_instr_address(hl_sp_assign, [iaddr])
+        astree.add_expr_mapping(hl_sp_rhs, ll_sp_rhs)
+        astree.add_lval_mapping(hl_sp_lhs, ll_sp_lhs)
+        astree.add_expr_reachingdefs(ll_sp_rhs, [sprdef])
+        astree.add_lval_defuses(hl_sp_lhs, spuses)
+        astree.add_lval_defuses_high(hl_sp_lhs, spuseshigh)
+
+        return (hl_instrs, ll_instrs)

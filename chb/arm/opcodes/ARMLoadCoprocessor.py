@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -50,10 +50,11 @@ class ARMLoadCoprocessor(ARMOpcode):
 
     tags[1]: <c>
     args[0]: is-long
-    args[1]: coproc
-    args[2]: CRd
-    args[3]: index of memory address
-    args[4]: optional option
+    args[1]: is-ta2
+    args[2]: coproc
+    args[3]: CRd
+    args[4]: index of memory address
+    args[5]: optional option
     """
 
     def __init__(
@@ -61,7 +62,7 @@ class ARMLoadCoprocessor(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "LoadCoprocessor")
+        self.check_key(2, 6, "LoadCoprocessor")
 
     @property
     def operands(self) -> List[ARMOperand]:

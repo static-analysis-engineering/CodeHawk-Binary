@@ -32,9 +32,10 @@ from typing import (
 
 import chb.api.MIPSLinuxSyscalls as SC
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTNode, ASTInstruction, ASTExpr
 from chb.app.InstrXData import InstrXData
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr, XprCompound
@@ -163,10 +164,10 @@ class MIPSOpcode(MIPSDictionaryRecord):
 
     def assembly_ast(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         msg = (
             iaddr + ": "
             + bytestring
@@ -181,10 +182,10 @@ class MIPSOpcode(MIPSDictionaryRecord):
 
     def assembly_ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Optional[ASTExpr]:
+            xdata: InstrXData) -> Optional[AST.ASTExpr]:
         msg = (
             bytestring
             + "  "
@@ -196,18 +197,18 @@ class MIPSOpcode(MIPSDictionaryRecord):
         raise UF.CHBError("No assembly-ast-condition defined for " + msg)
 
     def ast(self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> List[ASTInstruction]:
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
         return self.assembly_ast(astree, iaddr, bytestring, xdata)
 
     def ast_condition(
             self,
-            astree: AbstractSyntaxTree,
+            astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Optional[ASTExpr]:
+            xdata: InstrXData) -> Optional[AST.ASTExpr]:
         return self.assembly_ast_condition(astree, iaddr, bytestring, xdata)
 
     @property
@@ -234,8 +235,11 @@ class MIPSOpcode(MIPSDictionaryRecord):
     def is_restore_register(self) -> bool:
         return False
 
+    def has_call_target(self, xdata: InstrXData) -> bool:
+        return xdata.has_call_target()
+
     def is_call_instruction(self, xdata: InstrXData) -> bool:
-        if self.tags[0] in call_opcodes:
+        if self.tags[0] in call_opcodes and self.has_call_target(xdata):
             return True
         elif len(xdata.tags) == 2 and xdata.tags[-1] == "call":
             return True

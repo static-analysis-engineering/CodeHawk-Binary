@@ -70,8 +70,20 @@ class NonRelationalValue(FnInvDictionaryRecord):
         return False
 
     @property
+    def is_singleton_value(self) -> bool:
+        return False
+
+    @property
+    def is_symbolic_expression(self) -> bool:
+        return False
+
+    @property
     def singleton_value(self) -> int:
         raise UF.CHBError("Non-relational-value is not a singleton")
+
+    @property
+    def expr(self) -> XXpr:
+        raise UF.CHBError("Non-relational-value is not a symbolic expression")
 
     def __str__(self) -> str:
         return 'nrv:' + self.tags[0]
@@ -89,6 +101,10 @@ class NRVSymbolicExpr(NonRelationalValue):
             invd: "FnInvDictionary",
             ixval: IndexedTableValue) -> None:
         NonRelationalValue.__init__(self, invd, ixval)
+
+    @property
+    def is_symbolic_expression(self) -> bool:
+        return True
 
     @property
     def expr(self) -> XXpr:
@@ -141,6 +157,10 @@ class NRVIntervalValue(NonRelationalValue):
     @property
     def is_singleton(self) -> bool:
         return self.is_bounded and self.lowerbound == self.upperbound
+
+    @property
+    def is_singleton_value(self) -> bool:
+        return self.is_singleton
 
     @property
     def singleton_value(self) -> int:

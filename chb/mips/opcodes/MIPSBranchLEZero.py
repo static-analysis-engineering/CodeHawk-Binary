@@ -29,9 +29,6 @@
 
 from typing import cast, List, Optional, Sequence, TYPE_CHECKING
 
-from chb.app.AbstractSyntaxTree import AbstractSyntaxTree
-from chb.app.ASTNode import ASTInstruction, ASTExpr, ASTLval
-
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XXpr import XXpr

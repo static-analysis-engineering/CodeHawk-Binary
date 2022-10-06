@@ -1114,7 +1114,8 @@ class SimSymbolicFilePointer(SimSymbol):
     def __init__(
             self, filename: str,
             simfilename: str,
-            fp: Any, defined: bool = True):
+            fp: Any,
+            defined: bool = True) -> None:
         SimSymbol.__init__(
             self, filename + '_filepointer', type='ptr2FILE', defined=defined)
         self._filename = filename
@@ -1132,18 +1133,18 @@ class SimSymbolicFilePointer(SimSymbol):
         cls.openfiles[name] = fp
 
     @classmethod
-    def has_openfile(cls, name) -> bool:
+    def has_openfile(cls, name: str) -> bool:
         return name in cls.openfiles
 
     @classmethod
-    def openfile(cls, name) -> "SimSymbolicFilePointer":
+    def openfile(cls, name: str) -> "SimSymbolicFilePointer":
         if cls.has_openfile(name):
             return cls.openfiles[name]
         else:
             raise UF.CHBError("No open file found for: " + name)
 
     @classmethod
-    def closefile(cls, name) -> None:
+    def closefile(cls, name: str) -> None:
         if cls.has_openfile(name):
             del cls.openfiles[name]
 
@@ -1217,18 +1218,18 @@ class SimSymbolicFileDescriptor(SimSymbol):
         cls.openfiles[name] = fd
 
     @classmethod
-    def has_openfile(cls, name) -> bool:
+    def has_openfile(cls, name: str) -> bool:
         return name in cls.openfiles
 
     @classmethod
-    def openfile(cls, name) -> "SimSymbolicFileDescriptor":
+    def openfile(cls, name: str) -> "SimSymbolicFileDescriptor":
         if cls.has_openfile(name):
             return cls.openfiles[name]
         else:
             raise UF.CHBError("No open file found for: " + name)
 
     @classmethod
-    def closefile(cls, name) -> None:
+    def closefile(cls, name: str) -> None:
         if cls.has_openfile(name):
             del cls.openfiles[name]
 

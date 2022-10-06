@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -141,6 +141,10 @@ class VConstantValueVariable(FnVarDictionaryRecord):
         return False
 
     @property
+    def is_heap_base_address(self) -> bool:
+        return False
+
+    @property
     def is_argument_value(self) -> bool:
         return False
 
@@ -220,6 +224,10 @@ class VInitialRegisterValue(VConstantValueVariable):
         return r.is_x86_register and r.is_x86_stack_pointer
 
     @property
+    def is_heap_base_address(self) -> bool:
+        return False
+
+    @property
     def is_argument_value(self) -> bool:
         return (self.is_arm_argument_value or self.is_mips_argument_value)
 
@@ -237,8 +245,9 @@ class VInitialRegisterValue(VConstantValueVariable):
         if self.is_argument_value:
             return self.register.argument_index()
         else:
-            raise UF.CHBError("Constant-value-variable is not an argument index: "
-                              + str(self))
+            raise UF.CHBError(
+                "Constant-value-variable is not an argument index: "
+                + str(self))
 
     def __str__(self) -> str:
         if self.level == 0:
@@ -400,6 +409,12 @@ class VFunctionReturnValue(VConstantValueVariable):
     @property
     def is_function_return_value(self) -> bool:
         return True
+
+    @property
+    def is_heap_base_address(self) -> bool:
+        return (
+            self.has_call_target()
+            and str(self.call_target()) == "malloc")
 
     def call_instruction(self) -> "Instruction":
         return self.function.instruction(self.callsite)

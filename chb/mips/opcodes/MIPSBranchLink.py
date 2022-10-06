@@ -75,6 +75,9 @@ class MIPSBranchLink(MIPSOpcode):
     def target(self) -> MIPSOperand:
         return self.mipsd.mips_operand(self.args[0])
 
+    def has_call_target(self, xdata: InstrXData) -> bool:
+        return xdata.has_call_target()
+
     def call_target(self, xdata: InstrXData) -> "CallTarget":
         if xdata.has_call_target():
             return xdata.call_target(self.ixd)
