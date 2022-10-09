@@ -148,7 +148,7 @@ class ARMReverseSubtract(ARMOpcode):
 
         hl_lhs = lhsasts[0]
 
-        rhsasts = XU.xxpr_to_ast_exprs(result, xdata, astree)
+        rhsasts = XU.xxpr_to_ast_def_exprs(result, xdata, iaddr, astree)
         if len(rhsasts) == 0:
             raise UF.CHBError("No result value for ReverseSubtract")
 
@@ -166,6 +166,7 @@ class ARMReverseSubtract(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        astree.add_reg_definition(iaddr, hl_lhs, hl_sub_expr)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_sub_expr, ll_sub_expr)

@@ -127,6 +127,15 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
             annotations=annotations)
         return preinstrs1 + preinstrs2 + [assign1, assign2] + postinstrs1 + postinstrs2
 
+    # --------------------------------------------------------------------------
+    # Operation
+    # result = UInt(R[n]) * UInt(R[m]);
+    # R[dHi] = result<63:32>;
+    # R[dLo] = result<31:0>;
+    # if setflags then
+    #   APSR.N = result<63>;
+    #   APSR.Z = IsZeroBit(result<63:0>);
+    # --------------------------------------------------------------------------
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -146,14 +155,25 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
-        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
-        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        (ll_lhslo, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_lhshi, _, _) = self.opargs[1].ast_lvalue(astree)
+        (ll_op1, _, _) = self.opargs[2].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[3].ast_rvalue(astree)
         ll_result = astree.mk_binary_op("mult", ll_op1, ll_op2)
+        masklo = astree.mk_integer_constant(0xffffffff)
+        shifthi = astree.mk_integer_constant(32)
+        ll_lo_result = astree.mk_binary_op("and", ll_result, masklo)
+        ll_hi_result = astree.mk_binary_op("lsr", ll_result, shifthi)
 
-        ll_assign = astree.mk_assign(
-            ll_lhs,
-            ll_result,
+        ll_assign_lo = astree.mk_assign(
+            ll_lhslo,
+            ll_lo_result,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+        ll_assign_hi = astree.mk_assign(
+            ll_lhshi,
+            ll_hi_result,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
@@ -169,9 +189,10 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
                 "UnsigendMultiplyLong (UMULL): multiple lvals found: "
                 + ", ".join(str(v) for v in lhsasts))
 
-        hl_lhs = lhsasts[0]
+        hl_lhslo = lhsasts[0]
+        hl_lhshi = ll_lhshi
 
-        rhsasts = XU.xxpr_to_ast_exprs(result, xdata, astree)
+        rhsasts = XU.xxpr_to_ast_def_exprs(result, xdata, iaddr, astree)
         if len(rhsasts) == 0:
             raise UF.CHBError(
                 "UnsignedMultiplyLong (UMULL): no rhs value found: "
@@ -182,23 +203,33 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
                 "UnsignedMultiplyLong (UMULL): multiple rhs values found: "
                 + ", ".join(str(v) for v in rhsasts))
 
-        hl_rhs = rhsasts[0]
+        hl_rhslo = rhsasts[0]
+        hl_rhshi = astree.mk_binary_op("lsr", hl_rhslo, astree.mk_integer_constant(32))
 
-        hl_assign = astree.mk_assign(
-            hl_lhs,
-            hl_rhs,
+        hl_assign_lo = astree.mk_assign(
+            hl_lhslo,
+            hl_rhslo,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+        hl_assign_hi = astree.mk_assign(
+            ll_lhshi,
+            hl_rhshi,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
 
-        astree.add_reg_definition(iaddr, str(lhs1), hl_rhs)
-        astree.add_instr_mapping(hl_assign, ll_assign)
-        astree.add_instr_address(hl_assign, [iaddr])
-        astree.add_expr_mapping(hl_rhs, ll_result)
-        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_reg_definition(iaddr, hl_lhslo, hl_rhslo)
+        astree.add_reg_definition(iaddr, ll_lhshi, hl_rhshi)
+        astree.add_instr_mapping(hl_assign_lo, ll_assign_lo)
+        astree.add_instr_address(hl_assign_lo, [iaddr])
+        astree.add_expr_mapping(hl_rhslo, ll_lo_result)
+        astree.add_lval_mapping(hl_lhslo, ll_lhslo)
         astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
         astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
-        astree.add_lval_defuses(hl_lhs, defuses[0])
-        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+        astree.add_lval_defuses(hl_lhslo, defuses[0])
+        astree.add_lval_defuses(ll_lhshi, defuses[1])
+        astree.add_lval_defuses_high(hl_lhslo, defuseshigh[0])
+        astree.add_lval_defuses_high(ll_lhshi, defuseshigh[1])
 
-        return ([hl_assign], [ll_assign])
+        return ([hl_assign_lo, hl_assign_hi], [ll_assign_lo, ll_assign_hi])

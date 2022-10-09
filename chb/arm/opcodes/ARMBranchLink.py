@@ -285,7 +285,7 @@ class ARMBranchLink(ARMOpcode):
         if tgt_xprtype is not None:
             if tgt_xprtype.is_function:
                 tgt_xprtype = cast(AST.ASTTypFun, tgt_xprtype)
-                tgt_returntype = tgt_xprtype.returntyp
+                tgt_returntype = astree.resolve_type(tgt_xprtype.returntyp)
                 if (not tgt_xprtype.is_varargs) and tgt_xprtype.argtypes is not None:
                     argtypes = tgt_xprtype.argtypes.funargs
                     tgt_argcount = len(argtypes)
@@ -326,16 +326,32 @@ class ARMBranchLink(ARMOpcode):
                 else:
                     argxprs.append(astree.mk_register_variable_expr(reg))
             else:
-                astxprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
-                if len(astxprs) == 0:
-                    raise UF.CHBError("No ast value for call argument at " + iaddr)
-                if len(astxprs) > 1:
-                    raise UF.CHBError(
-                        "Multiple rhs values for call argument at "
-                        + iaddr
-                        + ": "
-                        + ", ".join(str(a) for a in argxprs))
-                argxprs.append(astxprs[0])
+                if arg.is_register_variable:
+                    astops = XU.xxpr_to_ast_def_exprs(arg, xdata, iaddr, astree)
+                    if len(astops) == 1:
+                        argxprs.append(astops[0])
+                    else:
+                        astxprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
+                        if len(astxprs) == 0:
+                            raise UF.CHBError("No ast value for call argument at " + iaddr)
+                        if len(astxprs) > 1:
+                            raise UF.CHBError(
+                                "Multiple rhs values for call argument at "
+                                + iaddr
+                                + ": "
+                                + ", ".join(str(a) for a in argxprs))
+                        argxprs.append(astxprs[0])
+                else:
+                    astxprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
+                    if len(astxprs) == 0:
+                        raise UF.CHBError("No ast value for call argument at " + iaddr)
+                    if len(astxprs) > 1:
+                        raise UF.CHBError(
+                            "Multiple rhs values for call argument at "
+                            + iaddr
+                            + ": "
+                            + ", ".join(str(a) for a in argxprs))
+                    argxprs.append(astxprs[0])
 
         hl_call = cast(AST.ASTInstruction, astree.mk_call(
             hl_lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))

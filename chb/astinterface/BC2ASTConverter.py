@@ -252,7 +252,9 @@ class BC2ASTConverter(BCConverter):
         return AST.ASTFunArg(arg.name, arg.typ.convert(self))
 
     def convert_named_typ(self, t: BCT.BCTypNamed) -> AST.ASTTypNamed:
-        namedtype = AST.ASTTypNamed(t.tname, t.typedef.ttype.convert(self))
+        typdef = t.typedef.ttype.convert(self)
+        namedtype = AST.ASTTypNamed(t.tname, typdef)
+        self.symboltable.add_typedef(namedtype)
         return namedtype
 
     def convert_builtin_va_list(

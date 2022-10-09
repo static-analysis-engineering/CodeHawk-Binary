@@ -178,7 +178,7 @@ class ARMSubtract(ARMOpcode):
                         "ARMSubtract: multiple expressions in ast rhs")
 
         else:
-            rhsasts = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
+            rhsasts = XU.xxpr_to_ast_def_exprs(rhs3, xdata, iaddr, astree)
             if len(rhsasts) == 1:
                 rhsast = rhsasts[0]
             else:
@@ -194,6 +194,7 @@ class ARMSubtract(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        astree.add_reg_definition(iaddr, hl_lhs, hl_sub_expr)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_sub_expr, ll_sub_expr)

@@ -151,6 +151,7 @@ class ARMLoadRegisterByte(ARMOpcode):
 
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
+        memaddr = xdata.xprs[4]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -159,18 +160,33 @@ class ARMLoadRegisterByte(ARMOpcode):
         hl_postinstrs: List[AST.ASTInstruction] = []
 
         rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        byteselected = False
         if len(rhsexprs) == 0:
             raise UF.CHBError("No rhs for LoadRegisterByte (LDRB)")
 
-        if len(rhsexprs) > 1:
+        elif len(rhsexprs) == 4:
+            hl_rhs = rhsexprs[0]
+            byteselected = True
+
+        elif len(rhsexprs) == 1:
+            hl_rhs = rhsexprs[0]
+
+        else:
             raise UF.CHBError(
                 "Multiple rhs values for LoadRegisterByte (LDRB): "
                 + ", ".join(str(x) for x in rhsexprs))
 
         hl_rhs = rhsexprs[0]
         if str(hl_rhs).startswith("__asttmp") or str(hl_rhs).startswith("(__asttmp"):
-            addrlval = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, astree)
+            addrlval = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
             hl_rhs = astree.mk_lval_expression(addrlval)
+
+        if str(hl_rhs).startswith("localvar"):
+            deflocs = xdata.reachingdeflocs_for_s(str(rhs))
+            if len(deflocs) == 1:
+                definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
+                if definition is not None:
+                    hl_rhs = definition
 
         hl_lhs = astree.mk_register_variable_lval(str(lhs))
 
@@ -181,6 +197,7 @@ class ARMLoadRegisterByte(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)

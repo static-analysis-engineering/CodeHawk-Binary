@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -36,6 +36,8 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+from chb.invariants.XXpr import XXpr
+import chb.invariants.XXprUtil as XU
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
@@ -99,4 +101,49 @@ class ARMCompareBranchZero(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
+
         return []
+
+    def ast_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData,
+            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+
+        annotations: List[str] = [iaddr, "CBZ"]
+
+        reachingdefs = xdata.reachingdefs
+
+        def default(condition: XXpr) -> AST.ASTExpr:
+            astconds = XU.xxpr_to_ast_def_exprs(condition, xdata, iaddr, astree)
+            if len(astconds) == 0:
+                raise UF.CHBError(
+                    "CompareBranchZero (CBZ): no ast value for condition at "
+                    + iaddr
+                    + " for "
+                    + str(condition))
+
+            if len(astconds) > 1:
+                raise UF.CHBError(
+                    "CompareBranchZero (CBZ): multiple ast values for condition at "
+                    + iaddr
+                    + ": "
+                    + ", ".join(str(c) for c in astconds)
+                    + " for condition "
+                    + str(condition))
+
+            return astconds[0]
+
+        if reverse:
+            hl_astcond = default(xdata.xprs[4])
+            ll_astcond = default(xdata.xprs[2])
+        else:
+            hl_astcond = default(xdata.xprs[3])
+            ll_astcond = default(xdata.xprs[1])
+
+        astree.add_expr_mapping(hl_astcond, ll_astcond)
+        astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+
+        return (hl_astcond, ll_astcond)

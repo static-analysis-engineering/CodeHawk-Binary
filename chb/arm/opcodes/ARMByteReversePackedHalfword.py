@@ -149,7 +149,7 @@ class ARMByteReversePackedHalfword(ARMOpcode):
 
         hl_lhs = lhsasts[0]
 
-        rhsasts = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         if len(rhsasts) == 0:
             raise UF.CHBError("REV16: no argument value found")
 
@@ -160,13 +160,26 @@ class ARMByteReversePackedHalfword(ARMOpcode):
 
         hl_rhs = rhsasts[0]
 
+        vinfo = astree.mk_vinfo(
+            "swapped", vtype=astree.astree.unsigned_short_type)
+        vinfolval = astree.mk_vinfo_lval(vinfo)
+        vinfolvalexpr = astree.mk_lval_expr(vinfolval)
+
         hl_call = astree.mk_call(
-            hl_lhs,
+            vinfolval,
             bswap16tgt,
             [hl_rhs],
             iaddr=iaddr,
             bytestring=bytestring)
 
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            vinfolvalexpr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, hl_lhs, vinfolvalexpr)
         astree.add_instr_mapping(hl_call, ll_call)
         astree.add_instr_address(hl_call, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)
@@ -175,4 +188,4 @@ class ARMByteReversePackedHalfword(ARMOpcode):
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
-        return ([hl_call], [ll_call])
+        return ([hl_call, hl_assign], [ll_call])

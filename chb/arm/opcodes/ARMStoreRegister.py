@@ -151,7 +151,11 @@ class ARMStoreRegister(ARMOpcode):
         hl_preinstrs: List[AST.ASTInstruction] = []
         hl_postinstrs: List[AST.ASTInstruction] = []
 
-        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        if rhs.is_register_variable:
+            rhsexprs = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+        else:
+            rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+
         if len(rhsexprs) == 0:
             raise UF.CHBError("No rhs for StoreRegister (STR) at " + iaddr)
 
@@ -165,7 +169,7 @@ class ARMStoreRegister(ARMOpcode):
         hl_rhs = rhsexprs[0]
 
         if lhs.is_tmp or lhs.has_unknown_memory_base():
-            hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, astree)
+            hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
             astree.add_lval_store(hl_lhs)
 
         else:

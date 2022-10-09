@@ -103,16 +103,27 @@ class ARMLoadRegisterHalfword(ARMOpcode):
         return [xdata.xprs[1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
-
-        vars[0]: lhs
-        xprs[0]: value in memory location
-        xprs[1]: value in memory location (simplified)
-        """
-
         lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[1])
-        return lhs + " := " + rhs
+        rhs = str(xdata.xprs[3])
+
+        xctr = 4
+        if xdata.has_instruction_condition():
+            pcond = "if " + str(xdata.xprs[xctr]) + " then "
+            xctr += 1
+        elif xdata.has_unknown_instruction_condition():
+            pcond = "if ? then "
+        else:
+            pcond = ""
+
+        vctr = 2
+        if xdata.has_base_update():
+            blhs = str(xdata.vars[vctr])
+            brhs = str(xdata.xprs[xctr])
+            pbupd = "; " + blhs + " := " + brhs
+        else:
+            pbupd = ""
+
+        return pcond + lhs + " := " + rhs + pbupd
 
     def ast_prov(
             self,
@@ -155,8 +166,15 @@ class ARMLoadRegisterHalfword(ARMOpcode):
 
         hl_rhs = rhsexprs[0]
         if str(hl_rhs).startswith("__asttmp"):
-            addrlval = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, astree)
+            addrlval = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
             hl_rhs = astree.mk_lval_expression(addrlval)
+
+        elif str(hl_rhs).startswith("localvar"):
+            deflocs = xdata.reachingdeflocs_for_s(str(rhs))
+            if len(deflocs) == 1:
+                definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
+                if definition is not None:
+                    hl_rhs = definition
 
         hl_lhs = astree.mk_register_variable_lval(str(lhs))
 
@@ -167,6 +185,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)

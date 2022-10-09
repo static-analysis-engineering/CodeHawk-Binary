@@ -40,7 +40,7 @@ from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.bctypes.BCTyp import BCTyp
 
-from chb.invariants.XXpr import XXpr
+from chb.invariants.XXpr import XXpr, XprCompound
 import chb.invariants.XXprUtil as XU
 
 from chb.models.ModelsAccess import ModelsAccess
@@ -65,6 +65,19 @@ class ARMBranch(ARMOpcode):
     tags[1]: <c>
     args[0]: index of target operand in armdictionary
     args[1]: is-wide (thumb)
+
+    xdata format: a:xxxxxr..
+    ------------------------
+    xprs[0]: true condition
+    xprs[1]: false condition
+    xprs[2]: true condition (simplified)
+    xprs[3]: false condition (simplified)
+    xprs[4]: target address (absolute)
+
+    or, if no conditions
+
+    xdata format: a:x
+    xprs[0]: target address (absolute)
     """
 
     def __init__(
@@ -76,6 +89,10 @@ class ARMBranch(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[0])]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[0])]
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
@@ -97,19 +114,6 @@ class ARMBranch(ARMOpcode):
         return xdata.xprs
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:x .
-
-        xprs[0]: true condition
-        xprs[1]: false condition
-        xprs[2]: true condition (simplified)
-        xprs[3]: false condition (simplified)
-        xprs[4]: target address (absolute)
-
-        or, if no conditions
-
-        xprs[0]: target address (absolute)
-        """
-
         if self.is_call_instruction(xdata):
             tgt = xdata.call_target(self.ixd)
             args = ", ".join(str(x) for x in self.arguments(xdata))
@@ -237,29 +241,85 @@ class ARMBranch(ARMOpcode):
             xdata: InstrXData,
             reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
 
+        annotations: List[str] = [iaddr, "B"]
+
+        reachingdefs = xdata.reachingdefs
+
+        def default(condition: XXpr) -> AST.ASTExpr:
+            astconds = XU.xxpr_to_ast_exprs(condition, xdata, astree)
+            if len(astconds) == 0:
+                raise UF.CHBError(
+                    "Branch (B): no ast value for condition at "
+                    + iaddr
+                    + " for "
+                    + str(condition))
+
+            if len(astconds) > 1:
+                raise UF.CHBError(
+                    "Branch (B): multiple ast values for condition at "
+                    + iaddr
+                    + ": "
+                    + ", ".join(str(c) for c in astconds)
+                    + " for condition "
+                    + str(condition))
+
+            return astconds[0]
+
         ftconds = self.ft_conditions(xdata)
         if len(ftconds) == 2:
             if reverse:
                 condition = ftconds[0]
             else:
                 condition = ftconds[1]
-            astconds = XU.xxpr_to_ast_exprs(condition, xdata, astree)
-            if len(astconds) == 1:
-                hl_astcond = astconds[0]
-                ll_astcond = self.ast_cc_expr(astree)
 
-                astree.add_expr_mapping(hl_astcond, ll_astcond)
-                astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
-                astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
-                astree.add_condition_address(ll_astcond, [iaddr])
+            if condition.is_register_comparison:
+                condition = cast(XprCompound, condition)
+                xoperator = condition.operator
+                xoperands = condition.operands
+                xop1 = xoperands[0]
+                xop2 = xoperands[1]
 
-                return (hl_astcond, ll_astcond)
+                csetter = xdata.tags[2]
+                astop1s = XU.xxpr_to_ast_def_exprs(xop1, xdata, csetter, astree)
+                astop2s = XU.xxpr_to_ast_def_exprs(xop2, xdata, csetter, astree)
+
+                if len(astop1s) == 1 and len(astop2s) == 1:
+                    hl_astcond = astree.mk_binary_op(xoperator, astop1s[0], astop2s[0])
+
+                else:
+                    raise UF.CHBError(
+                        "Branch at " + iaddr + ": Error in ast condition")
+
+            elif condition.is_compound:
+                condition = cast(XprCompound, condition)
+                xoperator = condition.operator
+                xoperands = condition.operands
+                xop1 = xoperands[0]
+                xop2 = xoperands[1]
+
+                if xop1.is_register_variable:
+                    csetter = xdata.tags[2]
+                    astop1s = XU.xxpr_to_ast_def_exprs(xop1, xdata, csetter, astree)
+                    astop2s = XU.xxpr_to_ast_exprs(xop2, xdata, astree)
+
+                    if len(astop1s) == 1 and len(astop2s) == 1:
+                        hl_astcond = astree.mk_binary_op(
+                            xoperator, astop1s[0], astop2s[0])
+                    else:
+                        hl_astcond = default(condition)
+                else:
+                    hl_astcond = default(condition)
             else:
-                raise UF.CHBError(
-                    "ARMBranch: multiple expressions for condition "
-                    + str(condition)
-                    + " at "
-                    + iaddr)
+                hl_astcond = default(condition)
+
+            ll_astcond = self.ast_cc_expr(astree)
+
+            astree.add_expr_mapping(hl_astcond, ll_astcond)
+            astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+            astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
+            astree.add_condition_address(ll_astcond, [iaddr])
+
+            return (hl_astcond, ll_astcond)
 
         elif len(ftconds) == 0:
             # raise UF.CHBError(

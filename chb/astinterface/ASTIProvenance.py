@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Provenance data structure to provide ast meta data."""
 
-from typing import cast, Dict, List, Optional, TYPE_CHECKING
+from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
 from chb.ast.ASTProvenance import ASTProvenance
@@ -63,6 +63,7 @@ class ASTIProvenance:
         self._instructions: Dict[int, AST.ASTInstruction] = {}
         self._expressions: Dict[int, AST.ASTExpr] = {}
         self._lvals: Dict[int, AST.ASTLval] = {}
+        self._defuses_high_inactivated: Dict[int, Set[str]] = {}
 
     @property
     def instruction_mapping(self) -> Dict[int, List[int]]:
@@ -142,6 +143,10 @@ class ASTIProvenance:
         return self._lval_defuses_high
 
     @property
+    def defuses_high_inactivated(self) -> Dict[int, Set[str]]:
+        return self._defuses_high_inactivated
+
+    @property
     def lval_stores(self) -> List[int]:
         return self._lval_stores
 
@@ -217,6 +222,13 @@ class ASTIProvenance:
         if useshigh is not None:
             self._lval_defuses_high[lval.lvalid] = useshigh
             self.add_lval(lval)
+
+    def inactivate_lval_defuse_high(
+            self,
+            lvalid: int,
+            defuseaddr: str) -> None:
+        self._defuses_high_inactivated.setdefault(lvalid, set([]))
+        self._defuses_high_inactivated[lvalid].add(defuseaddr)
 
     def add_lval_store(self, lval: AST.ASTLval) -> None:
         self._lval_stores.append(lval.lvalid)
@@ -310,6 +322,22 @@ class ASTIProvenance:
 
     def has_lval_defuse_high(self, lvalid: int) -> bool:
         return lvalid in self.lval_defuses_high
+
+    def defuses_high_inactivated_for(self, lvalid: int) -> Set[str]:
+        if lvalid in self.defuses_high_inactivated:
+            return self.defuses_high_inactivated[lvalid]
+        else:
+            return set([])
+
+    def has_active_lval_defuse_high(self, lvalid: int) -> bool:
+        if lvalid in self.lval_defuses_high:
+            defuseshigh = self.lval_defuses_high[lvalid]
+            locations = [str(x) for x in defuseshigh.uselocations]
+            inactivated = self.defuses_high_inactivated_for(lvalid)
+            active = set(locations).difference(inactivated)
+            return len(active) > 0
+
+        return False
 
     def has_lval_store(self, lvalid: int) -> bool:
         return lvalid in self.lval_stores

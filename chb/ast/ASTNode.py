@@ -1978,7 +1978,12 @@ class ASTTyp(ASTNode):
 
     @property
     def is_scalar(self) -> bool:
-        return self.is_integer or self.is_float or self.is_pointer
+        return (
+            self.is_integer
+            or self.is_float
+            or self.is_pointer
+            or self.is_enum
+        )
 
     @property
     def is_function(self) -> bool:
@@ -1990,6 +1995,10 @@ class ASTTyp(ASTNode):
 
     @property
     def is_compound(self) -> bool:
+        return False
+
+    @property
+    def is_typedef(self) -> bool:
         return False
 
 
@@ -2280,6 +2289,10 @@ class ASTTypNamed(ASTTyp):
     @property
     def typdef(self) -> "ASTTyp":
         return self._typdef
+
+    @property
+    def is_typedef(self) -> bool:
+        return True
 
     def accept(self, visitor: "ASTVisitor") -> None:
         return visitor.visit_named_typ(self)

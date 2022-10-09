@@ -110,6 +110,127 @@ def xxpr_to_ast_exprs(
             "AST conversion of xxpr " + str(xpr) + " not yet supported")
 
 
+def xxpr_to_ast_def_exprs(
+        xpr: X.XXpr,
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface) -> List[AST.ASTExpr]:
+    """Convert an XXpr expression into an ASTExpr list using reachingdefs."""
+
+    def default() -> List[AST.ASTExpr]:
+        return xxpr_to_ast_exprs(xpr, xdata, astree)
+
+    if xpr.is_constant:
+        return default()
+
+    def reg_to_ast_def_exprs(xreg: X.XXpr) -> Optional[AST.ASTExpr]:
+        vdefs = xdata.reachingdeflocs_for_s(str(xreg))
+        if len(vdefs) == 0:
+            astree.add_diagnostic(iaddr + ": no definitions for " + str(xreg))
+            return None
+
+        elif len(vdefs) > 1:
+            astree.add_diagnostic(iaddr + ": multiple definitions for " + str(xreg))
+            return None
+
+        else:
+            regdef = astree.regdefinition(str(vdefs[0]), str(xreg))
+            if regdef is None:
+                astree.add_diagnostic(
+                    iaddr
+                    + ": no definition found for "
+                    + str(xreg)
+                    + " at location "
+                    + str(vdefs[0]))
+                return None
+
+            if astree.expr_has_registers(regdef[1]):
+                astree.add_diagnostic(
+                    iaddr
+                    + ": unable to use "
+                    + str(regdef[1])
+                    + " for "
+                    + str(xreg)
+                    + " because of register contained in expr at location "
+                    + str(vdefs[0]))
+                return None
+
+            else:
+                astree.astiprovenance.inactivate_lval_defuse_high(regdef[0], iaddr)
+                return regdef[1]
+
+    def compound_to_ast_def_exprs(xcomp: X.XXpr) -> Optional[AST.ASTExpr]:
+        xcomp = cast(X.XprCompound, xcomp)
+        xoperands = xcomp.operands
+        xoperator = xcomp.operator
+        if len(xoperands) == 1:
+            x1 = xoperands[0]
+            if x1.is_register_variable:
+                regdef = reg_to_ast_def_exprs(x1)
+                if regdef is not None:
+                    return astree.mk_unary_op(xoperator, regdef)
+                else:
+                    return None
+            elif x1.is_compound:
+                regdef = compound_to_ast_def_exprs(x1)
+                if regdef is not None:
+                    return astree.mk_unary_op(xoperator, regdef)
+                else:
+                    return None
+            else:
+                return None
+
+        elif len(xoperands) == 2:
+            x1 = xoperands[0]
+            x2 = xoperands[1]
+            if x1.is_register_variable:
+                regdef1 = reg_to_ast_def_exprs(x1)
+            elif x1.is_compound:
+                regdef1 = compound_to_ast_def_exprs(x1)
+            elif x1.is_constant:
+                regdef1 = xxpr_to_ast_exprs(x1, xdata, astree)[0]
+            else:
+                regdef1 = None
+
+            if x2.is_register_variable:
+                regdef2 = reg_to_ast_def_exprs(x2)
+            elif x2.is_compound:
+                regdef2 = compound_to_ast_def_exprs(x2)
+            elif x2.is_constant:
+                regdef2 = xxpr_to_ast_exprs(x2, xdata, astree)[0]
+            else:
+                regdef2 = None
+
+            if regdef1 is not None and regdef2 is not None:
+                return astree.mk_binary_op(xoperator, regdef1, regdef2)
+            else:
+                astree.add_diagnostic(
+                    iaddr + ": unable to convert " + str(xpr))
+                return None
+
+        else:
+            return None
+
+    if xpr.is_register_variable:
+        regdef = reg_to_ast_def_exprs(xpr)
+        if regdef is not None:
+            return [regdef]
+        else:
+            return default()
+
+    elif xpr.is_compound:
+        regdef = compound_to_ast_def_exprs(xpr)
+        if regdef is not None:
+            return [regdef]
+        else:
+            return default()
+
+    else:
+        astree.add_diagnostic(
+            iaddr + ": unable to convert " + str(xpr) + ": not recognized")
+        return default()
+
+
 def xconstant_to_ast_exprs(
         xc: X.XprConstant,
         xdata: "InstrXData",
@@ -168,36 +289,7 @@ def xprvariable_to_ast_exprs(
 
         else:
             name = str(xv)
-            return default_reg()
-        '''
-            vdefs = xdata.reachingdeflocs_for_s(name)
-            if len(vdefs) == 0:
-                print("DEBUG:Regvar: no definitions for " + str(name))
-                return default()
 
-            if len(vdefs) > 1:
-                print("DEBUG:Regvar: multiple definitions for "
-                      + name
-                      + ": "
-                      + ", ".join(str(d) for d in vdefs))
-                return default()
-
-            regdef = astree.regdefinition(str(vdefs[0]), name)
-            if regdef is None:
-                print("DEBUG:Regvar: No definition found for "
-                      + name
-                      + " at location "
-                      + str(vdefs[0]))
-                return default()
-
-            print("DEBUG:Regvar: return definition "
-                  + str(regdef)
-                  + " for "
-                  + name
-                  + " from location "
-                  + str(vdefs[0]))
-            return [regdef]
-        '''
     return default()
 
 
@@ -771,10 +863,11 @@ def xvar_offset_dereference_lval(
     if len(vdefs) > 1:
         return default()
 
-    regdef = astree.regdefinition(str(vdefs[0]), str(var))
-    if regdef is None:
+    regdefxlval = astree.regdefinition(str(vdefs[0]), str(var))
+    if regdefxlval is None:
         return default()
 
+    regdef = regdefxlval[1]
     vtype = regdef.ctype(astree.ctyper)
     if vtype is None:
         return default()
@@ -808,11 +901,12 @@ def xvar_offset_dereference_lval(
 def xmemory_dereference_lval(
         address: X.XXpr,
         xdata: "InstrXData",
+        iaddr: str,
         astree: ASTInterface) -> AST.ASTLval:
     """Return an lval associated with a memory address."""
 
     def default() -> AST.ASTLval:
-        addrasts = xxpr_to_ast_exprs(address, xdata, astree)
+        addrasts = xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
         if len(addrasts) == 0:
             raise UF.CHBError(
                 "Error in converting address expression: "
@@ -827,6 +921,13 @@ def xmemory_dereference_lval(
 
     if address.is_global_address:
         return default()
+
+    elif address.is_register_variable:
+        addresses = xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
+        if len(addresses) == 1:
+            return astree.mk_memref_lval(addresses[0])
+        else:
+            return default()
 
     elif address.is_var:
         address = cast(X.XprVariable, address)

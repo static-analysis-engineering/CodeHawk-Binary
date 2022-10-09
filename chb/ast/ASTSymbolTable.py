@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Symbol table with a one-to-one mapping from names to locations."""
 
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Set
+from typing import Any, cast, Dict, List, Mapping, Optional, Sequence, Set
 
 from chb.ast.ASTByteSizeCalculator import (
     ASTByteSizeCalculator, ASTByteSizeCalculationException)
@@ -65,7 +65,32 @@ class ASTSymbolTable:
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None) -> AST.ASTVarInfo:
         if vname in self.table:
-            return self.table[vname]
+            varinfo = self.table[vname]
+            if (
+                    varinfo.vtype is None
+                    and vtype is not None
+                    and parameter is None
+                    and globaladdress is None):
+                # create a new ASTVarInfo with the type added
+                vinfodescr: Optional[str] = None
+                if vdescr is not None:
+                    if varinfo.vdescr is not None:
+                        vinfodescr =  vdescr + ";" + varinfo.vdescr
+                    else:
+                        vinfodescr = vdescr
+                else:
+                    if varinfo.vdescr is not None:
+                        vinfodescr = varinfo.vdescr
+                    else:
+                        vinfodescr = None
+                varinfo = AST.ASTVarInfo(
+                    vname,
+                    vtype=vtype,
+                    parameter=varinfo.parameter,
+                    globaladdress=globaladdress,
+                    vdescr=vinfodescr)
+                self._table[vname] = varinfo
+            return varinfo
         else:
             varinfo = AST.ASTVarInfo(
                 vname,
@@ -99,6 +124,7 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         self._typesused: Set[int] = set([])
         self._compinfos: Dict[int, AST.ASTCompInfo] = {}
         self._enuminfos: Dict[str, AST.ASTEnumInfo] = {}
+        self._typedefs: Dict[str, AST.ASTTyp] = {}
         self._lval_counter: int = 1
         self._expr_counter: int = 1
 
@@ -121,6 +147,24 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
     @property
     def enuminfos(self) -> Mapping[str, AST.ASTEnumInfo]:
         return self._enuminfos
+
+    @property
+    def typedefs(self) -> Mapping[str, AST.ASTTyp]:
+        return self._typedefs
+
+    def resolve_typedef(self, name: str) -> AST.ASTTyp:
+        if name in self.typedefs:
+            tdef = self.typedefs[name]
+            if tdef.is_typedef:
+                tdef = cast(AST.ASTTypNamed, tdef)
+                return self.resolve_typedef(tdef.typname)
+            else:
+                return tdef
+        else:
+            raise Exception("Unknown typedef name: " + str(name))
+
+    def add_typedef(self, typedef: AST.ASTTypNamed) -> None:
+        self._typedefs[typedef.typname] = typedef.typdef
 
     def new_lvalid(self) -> int:
         """Return a new lval id for lvalues."""
@@ -249,6 +293,10 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         lines.append("-" * 80)
         for einfo in self.enuminfos.values():
             lines.append(einfo.enumname)
+        lines.append("\nType definitions")
+        lines.append("-" * 80)
+        for name in sorted(self.typedefs):
+            lines.append(name + ": " + str(self.typedefs[name]))
         return "\n".join(lines)
 
 

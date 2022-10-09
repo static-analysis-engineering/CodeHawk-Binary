@@ -338,6 +338,8 @@ class InstrXData(IndexedTableValue):
             lines.append("vars[" + str(i) + "] = " + str(v))
         for (i, x) in enumerate(self.xprs):
             lines.append("xprs[" + str(i) + "] = " + str(x))
+        for (i, r) in enumerate(self.reachingdefs):
+            lines.append("rdefs[" + str(i) + "] = " + str(r))
         for (i, f) in enumerate(self.flag_reachingdefs):
             lines.append("flagrdefs[" + str(i) + "] = " + str(f))
         return "\n".join(lines)
