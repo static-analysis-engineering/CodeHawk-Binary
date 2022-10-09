@@ -105,6 +105,10 @@ class XXpr(FnXprDictionaryRecord):
         return False
 
     @property
+    def is_register_variable(self) -> bool:
+        return False
+
+    @property
     def is_constant(self) -> bool:
         return False
 
@@ -226,6 +230,11 @@ class XXpr(FnXprDictionaryRecord):
     @property
     def is_string_manipulation_condition(self) -> bool:
         """Returns true if this expression manipulates strings."""
+        return False
+
+    @property
+    def is_register_comparison(self) -> bool:
+        """Returns true if this is a comparison that only involves registers."""
         return False
 
     def to_input_constraint(self) -> Optional[IC.InputConstraint]:
@@ -622,9 +631,20 @@ class XprCompound(XXpr):
         """Returns true if the first argument of a comparison is a return value."""
 
         args = self.operands
-        return (args[0].is_var
-                and args[0].is_function_return_value
-                and self.operator in ['eq', 'ne'])
+        return (
+            args[0].is_var
+            and args[0].is_function_return_value
+            and self.operator in ["eq", "ne"])
+
+    @property
+    def is_register_comparison(self) -> bool:
+        """Return true if this is a comparison that involves only registers."""
+
+        args = self.operands
+        return (
+            (args[0].is_register_variable or args[0].is_constant)
+            and (args[1].is_register_variable or args[1].is_constant)
+            and self.operator in ["eq", "le", "ge", "lt", "gt", "ne"])
 
     @property
     def is_returnval_arithmetic_expr(self) -> bool:
