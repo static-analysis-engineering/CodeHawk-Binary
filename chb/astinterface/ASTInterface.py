@@ -178,7 +178,8 @@ class ASTInterface:
         self._diagnostics: List[str] = []
         self._astiprovenance = ASTIProvenance()
         self._ignoredlhs = self.mk_variable_lval("ignored")
-        self._regdefinitions: Dict[str, Dict[str, AST.ASTExpr]] = {}
+        self._regdefinitions: Dict[str, Dict[str, Tuple[int, AST.ASTExpr]]] = {}
+        self._localvardefinitions: Dict[str, Dict[str, AST.ASTExpr]] = {}
         self._initialize_formals()
         if self._srcprototype is not None:
             astprototype = self._srcprototype.convert(self._typconverter)
@@ -250,10 +251,11 @@ class ASTInterface:
         return self.astree.serializer
 
     @property
-    def regdefinitions(self) -> Dict[str, Dict[str, AST.ASTExpr]]:
+    def regdefinitions(self) -> Dict[str, Dict[str, Tuple[int, AST.ASTExpr]]]:
         return self._regdefinitions
 
-    def regdefinition(self, iaddr: str, reg: str) -> Optional[AST.ASTExpr]:
+    def regdefinition(
+            self, iaddr: str, reg: str) -> Optional[Tuple[int, AST.ASTExpr]]:
         if iaddr in self.regdefinitions:
             if reg in self.regdefinitions[iaddr]:
                 return self.regdefinitions[iaddr][reg]
@@ -262,10 +264,36 @@ class ASTInterface:
     def add_reg_definition(
             self,
             iaddr: str,
-            reg: str,
+            lval: AST.ASTLval,
             expr: AST.ASTExpr) -> None:
         self._regdefinitions.setdefault(iaddr, {})
-        self._regdefinitions[iaddr][reg] = expr
+        self._regdefinitions[iaddr][str(lval)] = (lval.lvalid, expr)
+
+    def expr_has_registers(self, expr: AST.ASTExpr) -> bool:
+        for r in ["R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7"]:
+            if r in str(expr):
+                return True
+        return False
+
+    @property
+    def localvardefinitions(self) -> Dict[str, Dict[str, AST.ASTExpr]]:
+        return self._localvardefinitions
+
+    def localvardefinition(
+            self, iaddr: str, var: str) -> Optional[AST.ASTExpr]:
+        if iaddr in self.localvardefinitions:
+            if var in self.localvardefinitions[iaddr]:
+                return self.localvardefinitions[iaddr][var]
+
+        return None
+
+    def add_local_vardefinition(
+            self,
+            iaddr: str,
+            var: str,
+            expr: AST.ASTExpr) -> None:
+        self._localvardefinitions.setdefault(iaddr, {})
+        self._localvardefinitions[iaddr][var] = expr
 
     def set_available_expressions(
             self, aexprs: Dict[str, Dict[str, Tuple[int, int, str]]]) -> None:
@@ -353,6 +381,13 @@ class ASTInterface:
 
     def type_size_in_bytes(self, typ: AST.ASTTyp) -> int:
         return typ.index(self.bytesize_calculator)
+
+    def resolve_type(self, t: AST.ASTTyp) -> AST.ASTTyp:
+        if t.is_typedef:
+            t = cast(AST.ASTTypNamed, t)
+            return self.globalsymboltable.resolve_typedef(t.typname)
+        else:
+            return t
 
     @property
     def spans(self) -> List[ASTSpanRecord]:
