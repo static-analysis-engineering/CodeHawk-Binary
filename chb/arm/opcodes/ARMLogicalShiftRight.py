@@ -145,7 +145,7 @@ class ARMLogicalShiftRight(ARMOpcode):
                 "ARMLogicalShiftRight (LSR): Multiple lhs locations found: "
                 + ", ".join(str(l) for l in hl_lhss))
 
-        hl_rhss = XU.xxpr_to_ast_exprs(rresult, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_def_exprs(rresult, xdata, iaddr, astree)
         if len(hl_rhss) == 0:
             raise UF.CHBError("ARMLogicalShiftRight (LSR): no rhs found")
 
@@ -163,7 +163,7 @@ class ARMLogicalShiftRight(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        astree.add_reg_definition(iaddr, str(lhs), hl_rhs)
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_lsl_expr)

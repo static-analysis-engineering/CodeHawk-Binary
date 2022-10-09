@@ -36,6 +36,7 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+from chb.invariants.XXpr import XprCompound
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
@@ -208,7 +209,7 @@ class ARMAdd(ARMOpcode):
                         "ARMAdd: multiple expressions in ast")
 
         else:
-            rhsasts = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
+            rhsasts = XU.xxpr_to_ast_def_exprs(rhs3, xdata, iaddr, astree)
             if len (rhsasts) == 1:
                 rhsast = rhsasts[0]
             else:
@@ -224,7 +225,7 @@ class ARMAdd(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        astree.add_reg_definition(iaddr, str(lhs), hl_add_expr)
+        astree.add_reg_definition(iaddr, hl_lhs, hl_add_expr)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_add_expr, ll_add_expr)

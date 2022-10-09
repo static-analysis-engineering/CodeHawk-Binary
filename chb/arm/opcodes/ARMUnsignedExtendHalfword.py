@@ -130,7 +130,7 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
         defuseshigh = xdata.defuseshigh
 
         hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         if len(hl_rhss) == 1 and len(hl_lhss) == 1:
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]
@@ -141,6 +141,7 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
                 bytestring=bytestring,
                 annotations=annotations)
 
+            astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
             astree.add_instr_mapping(hl_assign, ll_assign)
             astree.add_instr_address(hl_assign, [iaddr])
             astree.add_expr_mapping(hl_rhs, ll_rhs)

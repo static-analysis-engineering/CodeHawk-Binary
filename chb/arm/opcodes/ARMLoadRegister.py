@@ -151,6 +151,7 @@ class ARMLoadRegister(ARMOpcode):
 
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
+        memaddr = xdata.xprs[4]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -169,8 +170,15 @@ class ARMLoadRegister(ARMOpcode):
 
         hl_rhs = rhsexprs[0]
         if str(hl_rhs).startswith("__asttmp"):
-            addrlval = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, astree)
+            addrlval = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
             hl_rhs = astree.mk_lval_expression(addrlval)
+
+        elif str(hl_rhs).startswith("localvar"):
+            deflocs = xdata.reachingdeflocs_for_s(str(rhs))
+            if len(deflocs) == 1:
+                definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
+                if definition is not None:
+                    hl_rhs = definition
 
         hl_lhs = astree.mk_register_variable_lval(str(lhs))
         hl_assign = astree.mk_assign(
@@ -180,7 +188,7 @@ class ARMLoadRegister(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        astree.add_reg_definition(iaddr, str(lhs), hl_rhs)
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)

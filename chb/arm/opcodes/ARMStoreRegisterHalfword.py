@@ -147,7 +147,11 @@ class ARMStoreRegisterHalfword(ARMOpcode):
         hl_preinstrs: List[AST.ASTInstruction] = []
         hl_postinstrs: List[AST.ASTInstruction] = []
 
-        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        if rhs.is_register_variable:
+            rhsexprs = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+        else:
+            rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+
         if len(rhsexprs) == 0:
             raise UF.CHBError("No rhs for StoreRegisterHalfword (STRH) at " + iaddr)
 
@@ -174,7 +178,7 @@ class ARMStoreRegisterHalfword(ARMOpcode):
 
         hl_lhs = lvals[0]
         if str(hl_lhs).startswith("__asttmp"):
-            hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, astree)
+            hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
