@@ -108,3 +108,16 @@ class ARMFloatingPointRegister(ARMRegisterBase):
             return "Q" + reg
         else:
             return "arm-floating-point-register:" + reg
+
+
+@bdregistry.register_tag("armx", Register)
+class ARMExtensionRegister(ARMRegisterBase):
+
+    def __init__(
+            self,
+            bd: "BDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMRegisterBase.__init__(self, bd, ixval)
+
+    def __str__(self) -> str:
+        return self.tags[1]

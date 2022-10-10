@@ -193,7 +193,7 @@ class ARMAdd(ARMOpcode):
         elif str(rhs1) == "PC" or str(rhs2) == "PC":
             annotations.append("PC-relative")
             if rhs3.is_int_constant:
-                rhsexprs = XU.xxpr_to_ast_exprs(rhssum, xdata, astree)
+                rhsexprs = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
                 if len(rhsexprs) == 1:
                     rhsval = cast("XprConstant", rhs3).intvalue
                     rhsast = astree.mk_global_address_constant(rhsval, rhsexprs[0])

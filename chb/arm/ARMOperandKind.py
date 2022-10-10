@@ -290,6 +290,18 @@ class ARMExtensionRegisterOp(ARMOperandKind):
     def index(self) -> int:
         return self.xregister.regindex
 
+    def ast_lvalue(
+            self,
+            astree: ASTInterface) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (astree.mk_register_variable_lval(str(self.xregister)), [], [])
+
+    def ast_rvalue(
+            self,
+            astree: ASTInterface) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (astree.mk_register_variable_expr(str(self.xregister)), [], [])
+
     def __str__(self) -> str:
         return str(self.xregister)
 
