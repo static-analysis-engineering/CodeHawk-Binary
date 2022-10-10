@@ -246,7 +246,7 @@ class ASTStorageConstructor:
         if self.has_register(name):
             return ASTRegisterStorage(name, self.register_size(name))
         else:
-            raise Exception("No register with name " + name)
+            raise Exception("No register with name " + str(name))
 
     def mk_flag_storage(self, name: str) -> ASTFlagStorage:
         if self.has_flag(name):
