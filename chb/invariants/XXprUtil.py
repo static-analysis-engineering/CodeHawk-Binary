@@ -336,11 +336,17 @@ def xcompound_to_ast_exprs(
 
         if len(op1s) == 1:
             op1 = op1s[0]
-            if op == "lsb":
+            op1type = op1.ctype(astree.ctyper)
+            if (
+                    op == "lsb"
+                    and op1type is not None
+                    and astree.type_size_in_bytes(op1type) == 1):
+                return [op1]
+            elif op == "lsb":
                 mask = astree.mk_integer_constant(0xff)
                 return [astree.mk_binary_op("band", op1, mask)]
-            if op == "lsh":
-                mask = astree.mk_integer_constant(0xff00)
+            elif op == "lsh":
+                mask = astree.mk_integer_constant(0xffff)
                 return [astree.mk_binary_op("band", op1, mask)]
             else:
                 return [astree.mk_unary_op(op, op1, anonymous=anonymous)]
@@ -925,6 +931,20 @@ def xmemory_dereference_lval(
     elif address.is_register_variable:
         addresses = xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
         if len(addresses) == 1:
+            addr = addresses[0]
+            addrtype = addr.ctype(astree.ctyper)
+            if addrtype is not None:
+                if addrtype.is_pointer:
+                    addrtype = cast(AST.ASTTypPtr, addrtype)
+                    addrbasetype = addrtype.tgttyp
+                    if addrbasetype.is_compound:
+                        addrbasetype = cast(AST.ASTTypComp, addrbasetype)
+                        compkey = addrbasetype.compkey
+                        compinfo = astree.compinfo(compkey)
+                        (field, off) = compinfo.field_at_offset(0)
+                        fieldoffset = astree.mk_field_offset(field.fieldname, compkey)
+                        return astree.mk_memref_lval(addr, offset=fieldoffset)
+
             return astree.mk_memref_lval(addresses[0])
         else:
             return default()
