@@ -129,6 +129,11 @@ class ASTIndexer(ABC):
         ...
 
     @abstractmethod
+    def index_floating_point_constant(
+            self, fp: AST.ASTFloatingPointConstant) -> int:
+        ...
+
+    @abstractmethod
     def index_global_address(self, addr: AST.ASTGlobalAddressConstant) -> int:
         ...
 

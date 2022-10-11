@@ -416,6 +416,10 @@ class ASTCPrettyPrinter(ASTVisitor):
         else:
             self.ccode.write(str(c.cvalue))
 
+    def visit_floating_point_constant(
+            self, c: AST.ASTFloatingPointConstant) -> None:
+        self.ccode.write(str(c.fvalue))
+
     def visit_global_address(self, g: AST.ASTGlobalAddressConstant) -> None:
         g.address_expr.accept(self)
 

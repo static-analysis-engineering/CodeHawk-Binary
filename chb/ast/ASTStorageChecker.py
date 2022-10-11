@@ -175,6 +175,10 @@ class ASTStorageChecker(ASTVisitor):
     def visit_integer_constant(self, c: AST.ASTIntegerConstant) -> None:
         pass
 
+    def visit_floating_point_constant(
+            self, c: AST.ASTFloatingPointConstant) -> None:
+        pass
+
     def visit_global_address(self, g: AST.ASTGlobalAddressConstant) -> None:
         g.address_expr.accept(self)
 

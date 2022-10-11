@@ -135,6 +135,11 @@ class ASTTransformer(ABC):
         ...
 
     @abstractmethod
+    def transform_floating_point_constant(
+            self, fp: AST.ASTFloatingPointConstant) -> AST.ASTExpr:
+        ...
+
+    @abstractmethod
     def transform_global_address(
             self, globaladdr: AST.ASTGlobalAddressConstant) -> AST.ASTExpr:
         ...

@@ -149,6 +149,9 @@ class ASTDeserializer:
             elif tag == "int":
                 nodes[id] = astree.mk_integer_ikind_type(r["ikind"])
 
+            elif tag == "float":
+                nodes[id] = astree.mk_float_fkind_type(r["fkind"])
+
             elif tag == "ptr":
                 tgttyp = cast(AST.ASTTyp, mk_node(arg(0)))
                 nodes[id] = astree.mk_pointer_type(tgttyp)
