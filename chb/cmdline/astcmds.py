@@ -163,6 +163,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     symbolicaddrs: Dict[str, str] = userhints.symbolic_addresses()
     revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
     revfunctionnames = userhints.rev_function_names()
+    varintros = userhints.variable_introductions()
 
     globalsymboltable = astapi.globalsymboltable
     typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
@@ -213,6 +214,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 typconverter,
                 xinfo.architecture,
                 srcprototype,
+                varintros=varintros,
                 verbose=verbose)
 
             astfunction = ASTInterfaceFunction(faddr, fname, f, astinterface)

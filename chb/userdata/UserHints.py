@@ -85,6 +85,9 @@ Currently provided:
 - SymbolicAddresses
       map of global-variable addresses to name/type info on the variable
 
+- VariableIntroductions
+      map of instruction address to name of variable
+
 """
 
 import json
@@ -894,6 +897,45 @@ class SymbolicAddressesHints(HintsEntry):
         return "\n".join(lines)
 
 
+class VariableIntroductionsHints(HintsEntry):
+    """Map of instruction address to name of variable.
+
+    Format: { <iaddr>: name }
+
+    The instruction at iaddr should be an assignment to a single variable,
+
+       lhs = rhs,
+
+    which will be replaced by two assignments:
+
+       name = rhs
+       lhs = name
+    """
+
+    def __init__(self, varintros: Dict[str, str]) -> None:
+        HintsEntry.__init__(self, "variable-introductions")
+        self._varintros = varintros
+
+    @property
+    def varintros(self) -> Dict[str, str]:
+        return self._varintros
+
+    def update(self, d: Dict[str, str]) -> None:
+        for iaddr in d:
+            self._varintros[iaddr] = d[iaddr]
+
+    def to_xml(self, node: ET.Element) -> None:
+        pass
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Variable introductions")
+        lines.append("----------------------")
+        for (iaddr, name) in sorted(self.varintros.items()):
+            lines.append(iaddr + ": " + name)
+        return "\n".join(lines)
+
+
 class VariableNamesHints(HintsEntry):
     """Map of local variable names to range-dependent alternative names.
 
@@ -948,6 +990,15 @@ class UserHints:
         else:
             return cast(VariableNamesRec, {})
 
+    def variable_introductions(self) -> Dict[str, str]:
+        if "variable-introductions" in self.astdata:
+            entry = cast(
+                VariableIntroductionsHints,
+                self.astdata["variable-introductions"])
+            return entry.varintros
+        else:
+            return {}
+
     def symbolic_addresses(self) -> Dict[str, str]:
         if "symbolic-addresses" in self.astdata:
             entry = cast(SymbolicAddressesHints, self.astdata["symbolic-addresses"])
@@ -961,15 +1012,6 @@ class UserHints:
             return {k: v[0] for (k, v) in entry.revnames.items()}
         else:
             return {}
-
-    '''
-    def function_summaries(self) -> Dict[str, Any]:
-        if "function-summaries" in self.astdata:
-            entry = cast(FunctionSummariesHints, self.astdata["function-summaries"])
-            return entry.fsummaries
-        else:
-            return {}
-    '''
 
     def add_hints(self, hints: Dict[str, Any]) -> None:
         """Process a user provided dictionary with user hint dictionaries.
@@ -985,6 +1027,7 @@ class UserHints:
         - struct definitions
         - successors
         - symbolic addresses
+        - variable introductions
 
         and ast data (used in ast only):
         - variable-names
@@ -1121,6 +1164,17 @@ class UserHints:
                     self.astdata[tag].update(symbolicaddrs)
                 else:
                     self.astdata[tag] = SymbolicAddressesHints(symbolicaddrs)
+
+        if "variable-introductions" in hints:
+            tag = "variable-introductions"
+            varintros: Dict[str, str] = hints[tag]
+            if self._toxml:
+                pass
+            else:
+                if tag in self.astdata:
+                    self.astdata[tag].update(varintros)
+                else:
+                    self.astdata[tag] = VariableIntroductionsHints(varintros)
 
         if "variable-names" in hints:
             tag = "variable-names"
