@@ -271,7 +271,11 @@ class ARMBranchLink(ARMOpcode):
         else:
             (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
 
-        ll_lhs = astree.mk_register_variable_lval("R0")
+        ll_lhs = (
+            astree.mk_register_variable_lval("S0")
+            if len(xdata.xprs) > 0 and str(xdata.xprs[0]) == "S0"
+            else astree.mk_register_variable_lval("R0"))
+
         ll_call = astree.mk_call(
             ll_lhs,
             tgtxpr,
@@ -366,4 +370,18 @@ class ARMBranchLink(ARMOpcode):
             astree.add_lval_defuses(hl_lhs, defuses[0])
             astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
-        return ([hl_call], [ll_call])
+        if str(ll_lhs) == "S0" and hl_lhs is not None:
+            hl_lhsx = astree.mk_lval_expr(hl_lhs)
+            hl_var_assign = astree.mk_assign(
+                ll_lhs,
+                hl_lhsx,
+                iaddr=iaddr,
+                annotations=annotations)
+
+            astree.add_reg_definition(iaddr, ll_lhs, hl_lhsx)
+            astree.add_instr_mapping(hl_var_assign, ll_call)
+
+            return ([hl_call, hl_var_assign], [ll_call])
+
+        else:
+            return ([hl_call], [ll_call])

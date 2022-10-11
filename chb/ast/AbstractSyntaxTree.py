@@ -966,6 +966,7 @@ class AbstractSyntaxTree:
         and an offset
 
     - mk_integer_constant: create an integer constant from an integer
+    - mk_float_constant: create a floating-point constant from a float
     - mk_string_constant: create a string constant from a string and the
         expression that produced the string address, and the string address
         itself (in hex) (to ensure proper identification)
@@ -1024,6 +1025,13 @@ class AbstractSyntaxTree:
             optexprid: Optional[int] = None) -> AST.ASTIntegerConstant:
         exprid = -1 if optexprid is None else optexprid
         return AST.ASTIntegerConstant(exprid, cvalue)
+
+    def mk_float_constant(
+            self,
+            fvalue: float,
+            optexprid: Optional[int] = None) -> AST.ASTFloatingPointConstant:
+        exprid = -1 if optexprid is None else optexprid
+        return AST.ASTFloatingPointConstant(exprid, fvalue)
 
     def mk_global_address_constant(
             self,

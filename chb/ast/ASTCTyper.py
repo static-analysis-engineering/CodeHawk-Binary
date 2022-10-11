@@ -121,6 +121,11 @@ class ASTCTyper(ABC):
         ...
 
     @abstractmethod
+    def ctype_floating_point_constant(
+            self, fp: AST.ASTFloatingPointConstant) -> Optional[AST.ASTTyp]:
+        ...
+
+    @abstractmethod
     def ctype_global_address(
             self, addr: AST.ASTGlobalAddressConstant) -> Optional[AST.ASTTyp]:
         ...

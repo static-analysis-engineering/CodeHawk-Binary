@@ -111,6 +111,10 @@ class ASTIdentityTransformer(ASTTransformer):
             self, expr: AST.ASTIntegerConstant) -> AST.ASTExpr:
         return expr
 
+    def transform_floating_point_constant(
+            self, expr: AST.ASTFloatingPointConstant) -> AST.ASTExpr:
+        return expr
+
     def transform_global_address(
             self, expr: AST.ASTGlobalAddressConstant) -> AST.ASTExpr:
         return expr

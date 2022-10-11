@@ -24,8 +24,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+from codecs import decode
+import struct
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -36,6 +38,7 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
+from chb.invariants.XXpr import XprConstant
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
@@ -110,10 +113,27 @@ class ARMVectorMove(ARMOpcode):
             annotations=annotations)
 
         hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+
+        if rhs.is_int_constant and str(lhs).startswith("S"):
+            # 32-bit floating-point constant
+            rhs = cast(XprConstant, rhs)
+            rhsvalue = rhs.intvalue
+
+            # from StackOverflow:
+            # https://stackoverflow.com/questions/33483846/how-to-convert-32-bit-binary-to-float
+
+            f = struct.unpack('f', struct.pack('I', rhsvalue))[0]
+            hl_rhss: List[AST.ASTExpr] = [astree.mk_float_constant(f)]
+
+        else:
+            hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+
         if len(hl_lhss) == 1 and len(hl_rhss) == 1:
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]
+
+            if str(hl_lhs).startswith("S") and str(ll_rhs).startswith("R"):
+                hl_rhs = astree.mk_cast_expr(astree.astree.float_type, hl_rhs)
             hl_assign = astree.mk_assign(
                 hl_lhs,
                 hl_rhs,

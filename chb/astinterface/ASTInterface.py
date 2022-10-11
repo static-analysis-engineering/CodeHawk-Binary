@@ -59,6 +59,9 @@ from chb.astinterface.ASTIFormalVarInfo import ASTIFormalVarInfo
 from chb.astinterface.ASTIProvenance import ASTIProvenance
 import chb.astinterface.ASTIUtil as AU
 
+import chb.util.fileutil as UF
+
+
 if TYPE_CHECKING:
     from chb.astinterface.BC2ASTConverter import BC2ASTConverter
     from chb.bctypes.BCConverter import BCConverter
@@ -80,6 +83,10 @@ VariableNamesRec = NewType(
     "VariableNamesRec",
     Dict[str, Dict[str, Dict[str, List[Dict[str, Union[Tuple[str, str], str]]]]]])
 
+variable_intro: Dict[str, str] = {
+    "0x11d46": "size",
+    "0x11d8c": "size"
+}
 
 '''
 class VariableNames:
@@ -162,9 +169,11 @@ class ASTInterface:
             typconverter: "BC2ASTConverter",
             parameter_abi: str,
             srcprototype: Optional["BCVarInfo"] = None,
+            varintros: Dict[str, str] = {},
             verbose: bool = False) -> None:
         self._astree = astree
         self._srcprototype = srcprototype
+        self._varintros = varintros
         self._typconverter = typconverter
         self._verbose = verbose
         self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
@@ -192,6 +201,10 @@ class ASTInterface:
     @property
     def srcprototype(self) -> Optional["BCVarInfo"]:
         return self._srcprototype
+
+    @property
+    def varintros(self) -> Dict[str, str]:
+        return self._varintros
 
     @property
     def ignoredlhs(self) -> AST.ASTLval:
@@ -294,6 +307,15 @@ class ASTInterface:
             expr: AST.ASTExpr) -> None:
         self._localvardefinitions.setdefault(iaddr, {})
         self._localvardefinitions[iaddr][var] = expr
+
+    def has_variable_intro(self, iaddr: str) -> bool:
+        return iaddr in self.varintros
+
+    def get_variable_intro(self, iaddr: str) -> str:
+        if self.has_variable_intro(iaddr):
+            return self.varintros[iaddr]
+        else:
+            raise UF.CHBError("No variable intro found for " + iaddr)
 
     def set_available_expressions(
             self, aexprs: Dict[str, Dict[str, Tuple[int, int, str]]]) -> None:
@@ -905,6 +927,9 @@ class ASTInterface:
 
     def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
         return self.astree.mk_integer_constant(cvalue)
+
+    def mk_float_constant(self, fvalue: float) -> AST.ASTFloatingPointConstant:
+        return self.astree.mk_float_constant(fvalue)
 
     def mk_global_address_constant(
             self,

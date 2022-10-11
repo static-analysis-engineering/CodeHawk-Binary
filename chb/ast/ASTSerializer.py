@@ -523,6 +523,14 @@ class ASTSerializer(ASTIndexer):
             "tag": expr.tag, "exprid": expr.exprid, "value": str(expr.cvalue)}
         return self.add(tags, args, node)
 
+    def index_floating_point_constant(
+            self, expr: AST.ASTFloatingPointConstant) -> int:
+        tags: List[str] = [expr.tag, str(expr.fvalue), str(expr.exprid)]
+        args: List[int] = []
+        node: Dict[str, Any] = {
+            "tag": expr.tag, "exprid": expr.exprid, "value": str(expr.fvalue)}
+        return self.add(tags, args, node)
+
     def index_global_address(self, expr: AST.ASTGlobalAddressConstant) -> int:
         tags: List[str] = [expr.tag, str(expr.cvalue), str(expr.exprid)]
         args: List[int] = [expr.address_expr.index(self)]

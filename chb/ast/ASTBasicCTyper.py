@@ -83,11 +83,16 @@ class ASTBasicCTyper(ASTCTyper):
 
     def ctype_index_offset(
             self, offset: AST.ASTIndexOffset) -> Optional[AST.ASTTyp]:
-        raise NotImplementedError("ctype_index_offset: " + str(offset))
+        return None
+        # raise NotImplementedError("ctype_index_offset: " + str(offset))
 
     def ctype_integer_constant(
             self, expr: AST.ASTIntegerConstant) -> Optional[AST.ASTTyp]:
         return AST.ASTTypInt(expr.ikind)
+
+    def ctype_floating_point_constant(
+            self, expr: AST.ASTFloatingPointConstant) -> Optional[AST.ASTTyp]:
+        return AST.ASTTypFloat(expr.fkind)
 
     def ctype_global_address(
             self, expr: AST.ASTGlobalAddressConstant) -> Optional[AST.ASTTyp]:

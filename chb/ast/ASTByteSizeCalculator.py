@@ -204,6 +204,10 @@ class ASTByteSizeCalculator(ASTIndexer):
     def index_integer_constant(self, expr: AST.ASTIntegerConstant) -> int:
         return self.intsize(expr.ikind)
 
+    def index_floating_point_constant(
+            self, expr: AST.ASTFloatingPointConstant) -> int:
+        return self.floatsize(expr.fkind)
+
     def index_global_address(self, expr: AST.ASTIntegerConstant) -> int:
         return self.address_size
 

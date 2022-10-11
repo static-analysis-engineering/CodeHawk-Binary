@@ -74,8 +74,8 @@ class ARMCompareBranchZero(ARMOpcode):
         xprs[1]: index of target jump address in arm dictionary
         """
 
-        xpr = str(xdata.xprs[0])
-        tgt = str(xdata.xprs[1])
+        xpr = str(xdata.xprs[3])
+        tgt = str(xdata.xprs[5])
         return "if " + xpr + " == 0 goto " + tgt
 
     def assembly_ast_condition(

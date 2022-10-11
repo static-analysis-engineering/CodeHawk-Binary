@@ -1586,6 +1586,46 @@ class ASTGlobalAddressConstant(ASTIntegerConstant):
         return str(self.address_expr)
 
 
+class ASTFloatingPointConstant(ASTConstant):
+
+    def __init__(
+            self,
+            exprid: int,
+            fvalue: float,
+            fkind: str = "float",
+            tag: str = "fp-constant") -> None:
+        ASTConstant.__init__(self, exprid, tag)
+        self._fvalue = fvalue
+        self._fkind = fkind
+
+    @property
+    def is_floating_point_constant(self) -> bool:
+        return True
+
+    @property
+    def fvalue(self) -> float:
+        return self._fvalue
+
+    @property
+    def fkind(self) -> str:
+        return self._fkind
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_floating_point_constant(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_floating_point_constant(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_floating_point_constant(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_floating_point_constant(self)
+
+    def __str__(self) -> str:
+        return str(self.fvalue)
+
+
 class ASTStringConstant(ASTConstant):
 
     def __init__(

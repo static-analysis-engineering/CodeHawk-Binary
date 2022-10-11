@@ -132,6 +132,11 @@ class ASTVisitor(ABC):
         ...
 
     @abstractmethod
+    def visit_floating_point_constant(
+            self, fp: AST.ASTFloatingPointConstant) -> None:
+        ...
+
+    @abstractmethod
     def visit_global_address(
             self, globalddress: AST.ASTGlobalAddressConstant) -> None:
         ...

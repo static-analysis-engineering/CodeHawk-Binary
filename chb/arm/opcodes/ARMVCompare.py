@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -67,7 +67,11 @@ class ARMVCompare(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [1, 2]]
+        return [self.armd.arm_operand(self.args[i]) for i in [2, 3]]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [2, 3]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxxxx.
@@ -82,3 +86,28 @@ class ARMVCompare(ARMOpcode):
         rhs2 = str(xdata.xprs[3])
         comparison = "compare " + rhs1 + " and " + rhs2
         return comparison
+
+    '''
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "VCMPE"]
+
+        (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_expr = astree.mk_binary_op("minus", ll_rhs1, ll_rhs2)
+        ll_assign = astree.mk_assign(
+            astree.ignoredlhs,
+            ll_expr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        hl_rhss1 = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+        hl_rhss2 = XU.xxpr_to_ast_def_exprs(rhs, xdata
+    '''
