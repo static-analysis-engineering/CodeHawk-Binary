@@ -160,8 +160,17 @@ class ARMByteReversePackedHalfword(ARMOpcode):
 
         hl_rhs = rhsasts[0]
 
+        if astree.has_variable_intro(iaddr):
+            vname = astree.get_variable_intro(iaddr)
+            vdescr = "intro"
+        else:
+            vname = "swapped"
+            vdescr = ""
+
         vinfo = astree.mk_vinfo(
-            "swapped", vtype=astree.astree.unsigned_short_type)
+            vname,
+            vtype=astree.astree.unsigned_short_type,
+            vdescr=vdescr)
         vinfolval = astree.mk_vinfo_lval(vinfo)
         vinfolvalexpr = astree.mk_lval_expr(vinfolval)
 
