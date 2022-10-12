@@ -160,6 +160,7 @@ def xxpr_to_ast_def_exprs(
                 return regdef[1]
 
     def compound_to_ast_def_exprs(xcomp: X.XXpr) -> Optional[AST.ASTExpr]:
+
         xcomp = cast(X.XprCompound, xcomp)
         xoperands = xcomp.operands
         xoperator = xcomp.operator
@@ -171,6 +172,27 @@ def xxpr_to_ast_def_exprs(
                     return astree.mk_unary_op(xoperator, regdef)
                 else:
                     return None
+            elif x1.is_var:
+                xvarlvals = xvariable_to_ast_lvals(x1.variable, xdata, astree)
+                if len(xvarlvals) == 1:
+                    xvarlval = xvarlvals[0]
+                    xvarlvaltype = xvarlval.ctype(astree.ctyper)
+                    if xvarlvaltype is not None:
+                        xvarlvalsize = astree.type_size_in_bytes(xvarlvaltype)
+                        if xoperator == "lsb" and xvarlvalsize == 1:
+                            return astree.mk_lval_expr(xvarlval)
+                        else:
+                            return None
+                    else:
+                        return None
+                elif len(xvarlvals) == 4:
+                    if xoperator == "lsb":
+                        return astree.mk_lval_expr(xvarlvals[0])
+                    else:
+                        return None
+                else:
+                    return None
+
             elif x1.is_compound:
                 regdef = compound_to_ast_def_exprs(x1)
                 if regdef is not None:
@@ -913,6 +935,7 @@ def xmemory_dereference_lval(
 
     def default() -> AST.ASTLval:
         addrasts = xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
+
         if len(addrasts) == 0:
             raise UF.CHBError(
                 "Error in converting address expression: "

@@ -78,6 +78,15 @@ class ASTBasicCTyper(ASTCTyper):
             compinfo = self.globalsymboltable.compinfo(ckey)
             fieldinfo = compinfo.fieldinfo(offset.fieldname)
             return fieldinfo.fieldtype
+        elif offset.offset.is_index_offset and offset.offset.offset.is_no_offset:
+            ckey = offset.compkey
+            compinfo = self.globalsymboltable.compinfo(ckey)
+            fieldinfo = compinfo.fieldinfo(offset.fieldname)
+            if fieldinfo.fieldtype.is_array:
+                arraytype = cast(AST.ASTTypArray, fieldinfo.fieldtype)
+                return arraytype.tgttyp
+            else:
+                return None
         else:
             return offset.offset.ctype(self)
 
