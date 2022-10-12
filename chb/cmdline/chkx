@@ -63,10 +63,9 @@ the analysis results:
     results cfgpaths <xname> <fn> ... find paths throug a cfg with a given target
     results branchconditions <xname> <fn>  output branch conditions for the given function
 
-    results appcalls <xname>      output a listing of application calls
+    results appcalls <xname>      output a listing of application calls (PE32 only)
     results dllcalls <xname>      output a listing of dll calls (PE32 only)
-    results stringargs <xname>    output a listing of calls with string arguments
-    results iocs <xname>          output a listing of indicators of compromise encountered
+    results iocs <xname>          output a listing of indicators of compromise encountered (PE32 only)
 
     results extract <xname>       extract tables
 

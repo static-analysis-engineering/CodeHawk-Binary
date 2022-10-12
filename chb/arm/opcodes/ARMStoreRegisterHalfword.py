@@ -179,6 +179,7 @@ class ARMStoreRegisterHalfword(ARMOpcode):
         hl_lhs = lvals[0]
         if str(hl_lhs).startswith("__asttmp"):
             hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
+            astree.add_lval_store(hl_lhs)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
