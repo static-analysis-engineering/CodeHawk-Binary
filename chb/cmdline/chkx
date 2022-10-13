@@ -948,6 +948,17 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="show differences at the instruction level")
     parser_relational.add_argument(
+        "--cfgs_filename",
+        help="name of file to save control flow graphs side-by-side")
+    parser_relational.add_argument(
+        "--calls_in_cfg",
+        action="store_true",
+        help="show calls in cfgs")
+    parser_relational.add_argument(
+        "--predicates_in_cfg",
+        action="store_true",
+        help="show predicates in cfgs")
+    parser_relational.add_argument(
         "--functions1",
         nargs="*",
         default=[],

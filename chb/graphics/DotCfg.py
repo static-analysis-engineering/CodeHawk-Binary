@@ -46,6 +46,10 @@ class DotCfg:
             graphname: str,
             fn: "chb.app.Function.Function",
             looplevelcolors: List[str] = [],     # [ color numbers ]
+            nodecolors: Dict[str, str] = {},   # map from nodes to colors
+            defaultcolor: str = "lightblue",
+            subgraph: bool = False,
+            nodeprefix: str = "",    # prefix the node names to distinguish
             showpredicates: bool = False,   # show branch predicates on edges
             showcalls: bool = False,        # show call instrs on nodes
             showinstr_opcodes: bool = False,  # show all instrs on nodes
@@ -59,6 +63,10 @@ class DotCfg:
         self.fn = fn
         self.graphname = graphname
         self.looplevelcolors = looplevelcolors
+        self.nodecolors = nodecolors
+        self.defaultcolor = defaultcolor
+        self.subgraph = subgraph
+        self.nodeprefix = nodeprefix
         self.showpredicates = showpredicates
         self.showcalls = showcalls
         self.showinstr_opcodes = showinstr_opcodes
@@ -69,7 +77,7 @@ class DotCfg:
         self.segments = segments
         self.replacements = replacements
         self.pathnodes: Set[str] = set([])
-        self.dotgraph = DotGraph(graphname)
+        self.dotgraph = DotGraph(graphname, subgraph=self.subgraph)
 
     def build(self) -> DotGraph:
         if self.sink is not None:
@@ -177,7 +185,7 @@ class DotCfg:
             return
         basicblock = self.fn.block(str(n))
         blocktxt = str(n)
-        color = 'lightblue'
+        color = self.defaultcolor
         if self.showinstr_opcodes:
             instrs = basicblock.instructions.values()
             pinstrs = [i.opcodetext for i in instrs]
@@ -211,7 +219,9 @@ class DotCfg:
                         blocktxt
                         + "\\n"
                         + "\\n".join(pstoreinstrs))
-        if len(self.looplevelcolors) > 0:
+        if n in self.nodecolors:
+            color = self.nodecolors[n]
+        elif len(self.looplevelcolors) > 0:
             looplevels = self.fn.cfg.loop_levels(n)
             if len(looplevels) > 0:
                 level = len(looplevels)
@@ -222,7 +232,8 @@ class DotCfg:
         # if n == self.fn.faddr:
         #    color = 'purple'
         blocktxt = self.replace_text(blocktxt)
-        self.dotgraph.add_node(str(n), labeltxt=str(blocktxt), color=color)
+        nodename = self.nodeprefix + str(n)
+        self.dotgraph.add_node(str(nodename), labeltxt=str(blocktxt), color=color)
 
     def add_cfg_edge(self, e: str) -> None:
         if e not in self.pathnodes:
@@ -230,8 +241,10 @@ class DotCfg:
 
         def default() -> None:
             for tgt in self.fn.cfg.edges[e]:
+                ename = self.nodeprefix + str(e)
                 if tgt in self.pathnodes:
-                    self.dotgraph.add_edge(str(e), str(tgt), labeltxt=None)
+                    tgtname = self.nodeprefix + str(tgt)
+                    self.dotgraph.add_edge(ename, tgtname, labeltxt=None)
 
         labeltxt: Optional[str] = None
         if len(self.fn.cfg.edges[e]) > 1:
@@ -244,8 +257,10 @@ class DotCfg:
                             if tgt in self.pathnodes:
                                 labeltxt = str(ftconditions[i])
                                 labeltxt = self.replace_text(labeltxt)
+                                ename = self.nodeprefix + str(e)
+                                tgtname = self.nodeprefix + str(tgt)
                                 self.dotgraph.add_edge(
-                                    str(e), str(tgt), labeltxt=labeltxt)
+                                    ename, tgtname, labeltxt=labeltxt)
                     else:
                         default()
                 else:

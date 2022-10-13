@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -167,6 +167,15 @@ class RelationalAnalysis:
             if faddr not in self.function_mapping:
                 result.append(faddr)
 
+        return result
+
+    def new_functions(self) -> List[str]:
+        """Return a list of functions in the patched version not in the original"""
+
+        result: List[str] = []
+        for faddr2 in sorted(self.faddrs2):
+            if faddr2 not in self.function_mapping.values():
+                result.append(faddr2)
         return result
 
     def blocks_changed(self, faddr: str) -> List[str]:

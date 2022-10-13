@@ -168,13 +168,18 @@ class DotCluster:
 
 class DotGraph:
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, subgraph: bool = False) -> None:
         self.name = name
         self.nodes: Dict[str, DotNode] = {}
         self.edges: Dict[Tuple[str, str], DotEdge] = {}
         self.rankdir = 'TB'
         self.samerank: List[List[str]] = []
         self._clusters: List[DotCluster] = []
+        self._subgraph: bool = subgraph
+
+    @property
+    def subgraph(self) -> bool:
+        return self._subgraph
 
     def add_node(
             self,
@@ -234,7 +239,13 @@ class DotGraph:
 
     def __str__(self) -> str:
         lines: List[str] = []
-        lines.append('digraph ' + '"' + self.name + '" {')
+        if self.subgraph:
+            lines.append("subgraph cluster_" + self.name + "{")
+            lines.append('fontsize="24";')
+            lines.append('label="' + self.name + '";')
+            lines.append("penwidth=0;")
+        else:
+            lines.append('digraph ' + '"' + self.name + '" {')
         for c in self._clusters:
             lines.append(str(c))
         lines.append(
