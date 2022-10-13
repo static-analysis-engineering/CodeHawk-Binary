@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,8 @@
 """Creates a mapping of basic blocks and edges between two executables."""
 
 from typing import Dict, List, Mapping, Set, Tuple, TYPE_CHECKING
+
+from chb.graphics.DotCfg import DotCfg
 
 import chb.util.fileutil as UF
 
@@ -367,6 +369,37 @@ class CfgMatcher:
                     if len(srcs1) == 1 and srcs1[0] not in self.blockmapping:
                         self._blockmapping[srcs1[0]] = srcs2[0]
                         self._edgemapping[(srcs1[0], tgt1)] = (srcs2[0], tgt2)
+
+    def dot_cfgs(
+            self,
+            showcalls: bool = False,
+            showpredicates: bool = False) -> Tuple[DotCfg, DotCfg]:
+        cfg1 = self.cfg1
+        cfg2 = self.cfg2
+        unmapped1 = self.unmapped_blocks1
+        unmapped2 = self.unmapped_blocks2
+        colors1: Dict[str, str] = {}
+        colors2: Dict[str, str] = {}
+        for n in unmapped1:
+            colors1[n] = "#FFA500"
+        for n in unmapped2:
+            colors2[n] = "#FFA500"
+        dotcfg1 = DotCfg(
+            "vulnerable",
+            self.fn1,
+            nodecolors=colors1,
+            showcalls=showcalls,
+            showpredicates=showpredicates,
+            subgraph=True)
+        dotcfg2 = DotCfg(
+            "patched",
+            self.fn2,
+            nodecolors=colors2,
+            subgraph=True,
+            showcalls=showcalls,
+            showpredicates=showpredicates,
+            nodeprefix="P")
+        return (dotcfg1, dotcfg2)
 
     def __str__(self) -> str:
         lines: List[str] = []

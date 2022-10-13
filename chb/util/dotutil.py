@@ -31,7 +31,7 @@
 import os
 import subprocess
 
-from typing import TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from chb.util.DotGraph import DotGraph
@@ -49,6 +49,50 @@ def print_dot(
     # write graph to dot format
     with open(dotfilename, "w") as fp:
         fp.write(str(g))
+
+    # convert dot file to pdf
+    cmd = ["dot", "-Tpdf", "-o", pdffilename, dotfilename]
+    try:
+        subprocess.call(cmd, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        print("Error in processing dot file: " + dotfilename)
+        print(e.output)
+        print(e.args)
+        exit(1)
+    return pdffilename
+
+
+def print_dot_subgraphs(
+        path: str,
+        gname: str,
+        filename: str,
+        subgraphs: List["DotGraph"]) -> str:
+    if len(subgraphs) == 0:
+        print("No subgraphs supplied")
+        return "error"
+    if len(subgraphs) > 3:
+        print("Too many subgraphs: " + str(len(subgraphs)))
+        return "error"
+
+    invisiblenode: List[str] = [
+        "subgraph cluster_1m {",
+        "  color=invis;",
+        "  a12m [style=invisible]",
+        "}"]
+    lines: List[str] = []
+    lines.append("digraph " + gname + "{")
+    for g in subgraphs:
+        lines.append("")
+        lines.append(str(g))
+        lines.append("")
+    lines.append("}")
+    dotgraph = "\n".join(lines)
+
+    dotfilename = filename + ".dot"
+    pdffilename = filename + ".pdf"
+
+    with open(dotfilename, "w") as fp:
+        fp.write(dotgraph)
 
     # convert dot file to pdf
     cmd = ["dot", "-Tpdf", "-o", pdffilename, dotfilename]

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2022 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -36,9 +36,13 @@ from typing import Dict, List, NoReturn, Optional
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
 
+from chb.graphics.DotCfg import DotCfg
+
 from chb.relational.RelationalAnalysis import RelationalAnalysis
 
+import chb.util.dotutil as UD
 import chb.util.fileutil as UF
+import chb.cmdline.commandutil as UC
 
 
 def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
@@ -50,6 +54,9 @@ def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
     xfunctions2: List[str] = args.functions2
     showfunctions: bool = args.functions
     showinstructions: bool = args.instructions
+    cfgsfilename: str = args.cfgs_filename
+    showcalls: bool = args.calls_in_cfg
+    showpredicates: bool = args.predicates_in_cfg
     usermappingfile: Optional[str] = args.usermapping
     callees: List[str] = args.callees
 
@@ -96,5 +103,57 @@ def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
         callees=callees)
 
     print(relanalysis.report(showfunctions, showinstructions))
+
+    if cfgsfilename is not None:
+        functionschanged = relanalysis.functions_changed()
+        if len(functionschanged) == 0:
+            UC.print_error("Cfg's currently only available for a single function changed")
+            exit(0)
+
+        dotgraphs: List[DotCfg] = []
+
+        for faddr in functionschanged:
+            print("faddr: " + faddr)
+            if faddr in relanalysis.function_mapping:
+                fnanalysis = relanalysis.function_analysis(faddr)
+                cfgmatcher = fnanalysis.cfgmatcher
+                (dotcfg1, dotcfg2) = cfgmatcher.dot_cfgs(
+                    showcalls=showcalls, showpredicates=showpredicates)
+                dotgraphs.extend([dotcfg1, dotcfg2])
+            else:
+                dotcfgremoved = DotCfg(
+                    "removed",
+                    app1.function(faddr),
+                    showcalls=showcalls,
+                    showpredicates=showpredicates,
+                    subgraph=True)
+                dotgraphs.append(dotcfgremoved)
+
+        newfunctions = relanalysis.new_functions()
+        for faddr in newfunctions:
+            dotcfgnew = DotCfg(
+                "new",
+                app2.function(faddr),
+                defaultcolor="orange",
+                showcalls=showcalls,
+                showpredicates=showpredicates,
+                subgraph=True)
+            dotgraphs.append(dotcfgnew)
+
+        pdffilename = UD.print_dot_subgraphs(
+            app1.path,
+            "cfg_comparison",
+            cfgsfilename,
+            [dotcfg.build() for dotcfg in dotgraphs])
+
+        if os.path.isfile(pdffilename):
+            UC.print_info(
+                "Control flow graph for "
+                + "vulnerable/patched"
+                + " has been saved in "
+                + pdffilename)
+        else:
+            UC.print_error("Error in converting dot file to pdf")
+            exit(1)
 
     exit(0)
