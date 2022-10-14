@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,13 +25,20 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.arm.ARMPseudoCode as APC
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -53,6 +60,16 @@ class ARMBitFieldInsert(ARMOpcode):
     args[2]: lsb position
     args[3]: width
     args[4]: msb position
+
+    xdata format: a:vxxrrdh
+    ------------------------
+    vars[0]: lhs
+    xprs[0]: rhs1
+    xprs[1]: rhs2
+    rdefs[0]: rhs1
+    rdefs[1]: rhs2
+    uses[0]: lhs
+    useshigh[0]: lhs
     """
 
     def __init__(
@@ -67,6 +84,10 @@ class ARMBitFieldInsert(ARMOpcode):
         return [self.armd.arm_operand(self.args[0])]
 
     @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[0])]
+
+    @property
     def lsb(self) -> int:
         return self.args[1]
 
@@ -75,4 +96,110 @@ class ARMBitFieldInsert(ARMOpcode):
         return self.args[2]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "pending"
+        lhs = str(xdata.vars[0])
+        rhs1 = str(xdata.xprs[0])
+        rhs2 = str(xdata.xprs[1])
+        return (
+            lhs
+            + " := bit-field-insert("
+            + rhs1
+            + ", "
+            + rhs2
+            + ", lsb:"
+            + str(self.lsb)
+            + ", width:"
+            + str(self.width))
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "BFI"]
+
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        (ll_op1, _, _) = self.operands[0].ast_rvalue(astree)
+        (ll_op2, _, _) = self.operands[0].ast_rvalue(astree)
+        mask1 = int("1" * self.width, 2)
+        mask1const = astree.mk_integer_constant(mask1)
+        ll_rhs2 = astree.mk_binary_op("band", ll_op2, mask1const)
+        mask2 = APC.bitfieldmask(32, self.lsb, self.width)
+        mask2const = astree.mk_integer_constant(mask2)
+        ll_rhs1 = astree.mk_binary_op("band", ll_op1, mask2const)
+        ll_rhs = astree.mk_binary_op("plus", ll_rhs1, ll_rhs2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(lhsasts) == 0:
+            raise UF.CHBError("BitFieldInsert (BFI): no lval found")
+
+        if len(lhsasts) > 1:
+            raise UF.CHBError(
+                "BitFieldInsert (BFI): multiple lvals found: "
+                + ", ".join(str(v) for v in lhsasts))
+
+        hl_lhs = lhsasts[0]
+
+        rhs1asts = XU.xxpr_to_ast_def_exprs(rhs1, xdata, iaddr, astree)
+        if len(rhs1asts) == 0:
+            raise UF.CHBError("BitFieldInsert (BFI): no rhs1 value found")
+
+        if len(rhs1asts) > 1:
+            raise UF.CHBError(
+                "BitFieldInsert (BFI): multiple rhs1 values found: "
+                + ", ".join(str(v) for v in rhs1asts))
+
+        hl_prhs1 = rhs1asts[0]
+
+        rhs2asts = XU.xxpr_to_ast_def_exprs(rhs2, xdata, iaddr, astree)
+        if len(rhs2asts) == 0:
+            raise UF.CHBError("BitFieldInsert (BFI): no rhs2 value found")
+
+        if len(rhs2asts) > 1:
+            raise UF.CHBError(
+                "BitFieldInsert (BFI): multiple rhs2 values found: "
+                + ", ".join(str(v) for v in rhs2asts))
+
+        hl_prhs2 = rhs2asts[0]
+
+        hl_rhs2 = astree.mk_binary_op("band", hl_prhs2, mask1const)
+        hl_rhs1 = astree.mk_binary_op("band", hl_prhs1, mask2const)
+        hl_rhs = astree.mk_binary_op("plus", hl_rhs1, hl_rhs2)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_prhs1, ll_op1)
+        astree.add_expr_mapping(hl_rhs1, ll_rhs1)
+        astree.add_expr_mapping(hl_rhs2, ll_rhs2)
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])
