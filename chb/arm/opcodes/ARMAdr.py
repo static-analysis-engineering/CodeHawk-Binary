@@ -83,7 +83,14 @@ class ARMAdr(ARMOpcode):
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])
         result = str(xdata.xprs[0])
-        return lhs + " := " + result
+        assignment = lhs + " := " + result
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
 
     def ast_prov(
             self,

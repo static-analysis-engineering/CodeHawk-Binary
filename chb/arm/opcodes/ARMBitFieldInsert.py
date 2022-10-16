@@ -99,7 +99,7 @@ class ARMBitFieldInsert(ARMOpcode):
         lhs = str(xdata.vars[0])
         rhs1 = str(xdata.xprs[0])
         rhs2 = str(xdata.xprs[1])
-        return (
+        assignment = (
             lhs
             + " := bit-field-insert("
             + rhs1
@@ -109,6 +109,13 @@ class ARMBitFieldInsert(ARMOpcode):
             + str(self.lsb)
             + ", width:"
             + str(self.width))
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
 
     def ast_prov(
             self,

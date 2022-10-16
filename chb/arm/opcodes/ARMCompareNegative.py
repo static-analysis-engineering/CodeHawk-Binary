@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,13 +25,18 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -50,6 +55,14 @@ class ARMCompareNegative(ARMOpcode):
     tags[1]: <c>
     args[0]: index of Rn in armdictionary
     args[1]: index of Rm in armdictionary
+
+    xdata format: a:xxxrr
+    ----------------------
+    xprs[0]: xrn
+    xprs[1]: xrm
+    xprs[2]: xrn + xrm (simplified)
+    rdefs[0]: xrn
+    rdefs[1]: xrm
     """
 
     def __init__(
@@ -63,13 +76,77 @@ class ARMCompareNegative(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args]
+
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:xx .
-
-        xprs[0]: Rn
-        xprs[1]: Rm
-        """
-
         rhs1 = str(xdata.xprs[0])
         rhs2 = str(xdata.xprs[1])
-        return "compare-negative " + str(rhs1) + " and " + str(rhs2)
+        result = str(xdata.xprs[2])
+        ann = (
+            "compare-negative "
+            + str(rhs1)
+            + " and "
+            + str(rhs2)
+            + " ("
+            + str(result))
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + ann
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + ann
+        else:
+            return ann
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "CMP"]
+
+        rhs = xdata.xprs[2]
+        rdefs = xdata.reachingdefs
+
+        (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_expr = astree.mk_binary_op("minus", ll_rhs1, ll_rhs2)
+
+        ll_assign = astree.mk_assign(
+            astree.ignoredlhs,
+            ll_expr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+        if len(rhsasts) == 0:
+            raise UF.CHBError("CompareNegative (CMN): no value found for condition")
+
+        if len(rhsasts) > 1:
+            raise UF.CHBError(
+                "CompareNegative (CMN: multiple condition values found: "
+                + ", ".join(str(x) for x in rhsasts))
+
+        hl_rhs = rhsasts[0]
+
+        hl_assign = astree.mk_assign(
+            astree.ignoredlhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_expr)
+        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+
+        return ([hl_assign], [ll_assign])
+

@@ -102,7 +102,14 @@ class ARMAddCarry(ARMOpcode):
         result = xdata.xprs[2]
         rresult = xdata.xprs[3]
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
-        return lhs + " := " + xresult
+        assignment = lhs + " := " + xresult
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
 
     def ast_prov(
             self,

@@ -83,16 +83,16 @@ class ARMByteReversePackedHalfword(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs (original rhs)
-        xprs[1]: rhs (original rhs, simplified)
-        """
-
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
-        return lhs + " := byte-reverse_halfwords(" + str(rhs) + ")"
+        assignment = lhs + " := __rev16(" + str(rhs) + ") intrinsic"
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
 
     # --------------------------------------------------------------------------
     # Operation
@@ -111,14 +111,24 @@ class ARMByteReversePackedHalfword(ARMOpcode):
             bytestring: str,
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        """Return the intrinsic funciton call __rev16.
 
-        bswap16sig = astree.mk_function_with_arguments_type(
-            astree.astree.unsigned_short_type, [("x", astree.astree.unsigned_short_type)])
-        bswap16tgt = astree.mk_named_lval_expression(
-            "bswap_16",
-            vtype=bswap16sig,
+        From: ARM C Language Extensions. Release 2.1
+        Date: 24/03/2016
+        Section 9.2
+
+        uint32_t __rev16(uint32_t x);
+        Reverses the byte order within each halfword of a word.
+        """
+
+        rev16sig = astree.mk_function_with_arguments_type(
+            astree.astree.unsigned_int_type,
+            [("x", astree.astree.unsigned_int_type)])
+        rev16tgt = astree.mk_named_lval_expression(
+            "__rev16",
+            vtype=rev16sig,
             globaladdress=0,
-            vdescr="builtin function")
+            vdescr="arm intrinsic")
 
         annotations: List[str] = [iaddr, "REV16"]
 
@@ -133,29 +143,32 @@ class ARMByteReversePackedHalfword(ARMOpcode):
 
         ll_call = astree.mk_call(
             ll_lhs,
-            bswap16tgt,
+            rev16tgt,
             [ll_rhs],
             iaddr=iaddr,
             bytestring=bytestring)
 
         lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(lhsasts) == 0:
-            raise UF.CHBError("REV16: no lval found")
+            raise UF.CHBError(
+                "ByteReversePatckedHalfword (REV16): no lval found")
 
         if len(lhsasts) > 1:
             raise UF.CHBError(
-                "REV16: multiple lvals in ast: "
+                "ByteReversePackedHalfword (REV16): multiple lvals in ast: "
                 + ", ".join(str(v) for v in lhsasts))
 
         hl_lhs = lhsasts[0]
 
         rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         if len(rhsasts) == 0:
-            raise UF.CHBError("REV16: no argument value found")
+            raise UF.CHBError(
+                "ByteReversePackedHalfword (REV16): no argument value found")
 
         if len(rhsasts) > 1:
             raise UF.CHBError(
-                "REV16: multiple argument values in asts: "
+                "ByteReversePackedHalfword (REV16): "
+                + "multiple argument values in asts: "
                 + ", ".join(str(x) for x in rhsasts))
 
         hl_rhs = rhsasts[0]
@@ -164,8 +177,8 @@ class ARMByteReversePackedHalfword(ARMOpcode):
             vname = astree.get_variable_intro(iaddr)
             vdescr = "intro"
         else:
-            vname = "swapped"
-            vdescr = ""
+            vname = "rev16_intrinsic_rtn_" + iaddr
+            vdescr = "return value from intrinsic function"
 
         vinfo = astree.mk_vinfo(
             vname,
@@ -176,7 +189,7 @@ class ARMByteReversePackedHalfword(ARMOpcode):
 
         hl_call = astree.mk_call(
             vinfolval,
-            bswap16tgt,
+            rev16tgt,
             [hl_rhs],
             iaddr=iaddr,
             bytestring=bytestring)

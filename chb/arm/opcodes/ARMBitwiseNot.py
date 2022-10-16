@@ -58,6 +58,16 @@ class ARMBitwiseBitwiseNot(ARMOpcode):
     args[1]: index of op1 in armdictionary
     args[2]: index of op2 in armdictionary
     args[3]: Thumb2 wide
+
+    xdata format: a:vxxxr..dh
+    -------------------------
+    vars[0]: lhs
+    xprs[0]: rhs
+    xprs[1]: bnot rhs
+    xprs[2]: bnot rhs (simplified)
+    rdefs[0]: rhs
+    uses[0]: lhs
+    useshigh[0]: lhs
     """
 
     def __init__(
@@ -69,6 +79,10 @@ class ARMBitwiseBitwiseNot(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[1:-1]]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 
     @property
@@ -84,16 +98,81 @@ class ARMBitwiseBitwiseNot(ARMOpcode):
         return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: not (rhs1) (syntactic)
-        xprs[2]: not (rhs1) (simplified)
-        """
-
         lhs = str(xdata.vars[0])
         result = xdata.xprs[1]
         rresult = xdata.xprs[2]
         xresult = simplify_result(xdata.args[2], xdata.args[1], result, rresult)
-        return lhs + " := " + xresult
+        assignment = lhs + " := " + xresult
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "MVN"]
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[1]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_op, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_rhs = astree.mk_unary_op("bnot", ll_op)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(lhsasts) == 0:
+            raise UF.CHBError("BitwiseNot (MVN): no lval found")
+
+        if len(lhsasts) > 1:
+            raise UF.CHBError(
+                "BitwiseNot (MVN): multiple lvals found: "
+                + ", ".join(str(v) for v in lhsasts))
+
+        hl_lhs = lhsasts[0]
+
+        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+        if len(rhsasts) == 0:
+            raise UF.CHBError("BitwiseNot (MVN: no lval found")
+
+        if len(rhsasts) > 1:
+            raise UF.CHBError(
+                "BitwiseNot (MVN): multiple rhs values found: "
+                + ", ".join(str(v) for v in rhsasts))
+
+        hl_rhs = rhsasts[0]
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_op, [rdefs[0]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

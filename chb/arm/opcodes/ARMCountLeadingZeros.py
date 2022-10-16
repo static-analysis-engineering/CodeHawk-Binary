@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,13 +25,18 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -50,6 +55,15 @@ class ARMCountLeadingZeros(ARMOpcode):
     tags[1]: <c>
     args[0]: index of Rd in armdictionary
     args[1]: index of Rm in armdictionary
+
+    xdata format: a:vxxr..dh
+    ------------------------
+    vars[0]: lhs
+    xprs[0]: rhs
+    xprs[1]: rhs (rewritten)
+    rdefs[0]: rhs
+    uses: lhs
+    useshigh: lhs
     """
 
     def __init__(
@@ -63,14 +77,128 @@ class ARMCountLeadingZeros(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args]
+
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs
-        xprs[1]: rhs (simplified)
-        """
-
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
-        return lhs + " := count-leading-zeros(" + rhs + ")"
+        assignment = lhs + " := __clz(" + rhs + ") (intrinsic)"
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        """Return intrinsic function call __clz.
+
+        From: ARM C Language Extensions. Release 2.1
+        Date: 24/03/2016
+        Section 9.2
+
+        unsigned_int __clz(uint32_t x);
+        Returns the number of leading zero bits in x. When x is zero
+        it returns 32.
+        """
+
+        # Assume 32-bit architecture, that is, unsigned int :: uint32_t
+        clzsig = astree.mk_function_with_arguments_type(
+            astree.astree.unsigned_int_type,
+            [("x", astree.astree.unsigned_int_type)])
+        clztgt = astree.mk_named_lval_expression(
+            "__clz",
+            vtype=clzsig,
+            globaladdress=0,
+            vdescr="arm intrinsic")
+
+        annotations: List[str] = [iaddr, "CLZ"]
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[1]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+
+        ll_call = astree.mk_call(
+            ll_lhs,
+            clztgt,
+            [ll_rhs],
+            iaddr=iaddr,
+            bytestring=bytestring)
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(lhsasts) == 0:
+            raise UF.CHBError(
+                "CountLeadingZeros (CLZ): no lval found")
+
+        if len(lhsasts) > 1:
+            raise UF.CHBError(
+                "CountLeadingZeros (CLZ): multiple lvals in ast: "
+                + ", ".join(str(v) for v in lhsasts))
+
+        hl_lhs = lhsasts[0]
+
+        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+        if len(rhsasts) == 0:
+            raise UF.CHBError(
+                "CountLeadingZeros (CLZ): no argument value found")
+
+        if len(rhsasts) > 1:
+            raise UF.CHBError(
+                "CountLeadingZeros (CLZ): "
+                + "multiple argument values in asts: "
+                + ", ".join(str(x) for x in rhsasts))
+
+        hl_rhs = rhsasts[0]
+
+        if astree.has_variable_intro(iaddr):
+            vname = astree.get_variable_intro(iaddr)
+            vdescr = "intro"
+        else:
+            vname = "clz_intrinsic_rtn_" + iaddr
+            vdescr = "return value from intrinsic function"
+
+        vinfo = astree.mk_vinfo(
+            vname,
+            vtype=astree.astree.unsigned_int_type,
+            vdescr=vdescr)
+        vinfolval = astree.mk_vinfo_lval(vinfo)
+        vinfolvalexpr = astree.mk_lval_expr(vinfolval)
+
+        hl_call = astree.mk_call(
+            vinfolval,
+            clztgt,
+            [hl_rhs],
+            iaddr=iaddr,
+            bytestring=bytestring)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            vinfolvalexpr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, hl_lhs, vinfolvalexpr)
+        astree.add_instr_mapping(hl_call, ll_call)
+        astree.add_instr_address(hl_call, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_call, hl_assign], [ll_call])
