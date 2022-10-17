@@ -30,6 +30,7 @@ from typing import (
 
 from chb.app.InstrXData import InstrXData
 
+from chb.arm.ARMCallOpcode import ARMCallOpcode
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
@@ -56,7 +57,7 @@ if TYPE_CHECKING:
 
 
 @armregistry.register_tag("BLX", ARMOpcode)
-class ARMBranchLinkExchange(ARMOpcode):
+class ARMBranchLinkExchange(ARMCallOpcode):
     """Calls a subroutine at a PC-relative address.
 
     tags[1]: <c>
@@ -67,153 +68,15 @@ class ARMBranchLinkExchange(ARMOpcode):
             self,
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
-        ARMOpcode.__init__(self, d, ixval)
+        ARMCallOpcode.__init__(self, d, ixval)
         self.check_key(2, 1, "BranchLinkExchange")
 
-    @property
-    def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[0])]
-
-    def has_string_arguments(self, xdata: InstrXData) -> bool:
-        return any([x.is_string_reference for x in self.arguments(xdata)])
-
-    def has_stack_arguments(self, xdata: InstrXData) -> bool:
-        return any([x.is_stack_address for x in self.arguments(xdata)])
-
-    def annotated_call_arguments(
-            self, xdata: InstrXData) -> Sequence[Dict[str, Any]]:
-        return [x.to_annotated_value() for x in xdata.xprs]
-
-    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return xdata.xprs
-
-    def is_call(self, xdata: InstrXData) -> bool:
-        return xdata.has_call_target()
-
-    def is_call_instruction(self, xdata: InstrXData) -> bool:
-        return self.is_call(xdata)
-
-    def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:x .
-
-        xprs[0]: target operand
-        """
-
-        if self.is_call(xdata) and xdata.has_call_target():
-            tgt = xdata.call_target(self.ixd)
-            args = ", ".join(str(x) for x in self.arguments(xdata))
-            return "call " + str(tgt) + "(" + args + ")"
-
-        else:
-            ctgt = str(xdata.xprs[0])
-            args = ", ".join(str(xdata.xprs[i]) for i in [1, 2, 3, 4])
-            return "call " + ctgt + "(" + args + ")"
-
-    def call_target(self, xdata: InstrXData) -> "CallTarget":
-        if xdata.has_call_target():
-            return xdata.call_target(self.ixd)
-        else:
-            raise UF.CHBError("Instruction is not a call: " + str(self))
-
-    def target_expr_ast(
-            self,
-            astree: ASTInterface,
-            xdata: InstrXData) -> AST.ASTExpr:
-        calltarget = xdata.call_target(self.ixd)
-        tgtname = calltarget.name
-        if calltarget.is_app_target:
-            apptgt = cast("AppTarget", calltarget)
-            return astree.mk_global_variable_expr(
-                tgtname, globaladdress=int(str(apptgt.address), 16))
-        else:
-            return astree.mk_global_variable_expr(tgtname)
-
-    def lhs_ast(
+    def ast_prov(
             self,
             astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
-
-        def indirect_lhs(
-                rtype: Optional[AST.ASTTyp]) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
-            tmplval = astree.mk_returnval_variable_lval(iaddr, rtype)
-            tmprhs = astree.mk_lval_expr(tmplval)
-            reglval = astree.mk_register_variable_lval("R0")
-            assign = astree.mk_assign(
-                reglval, tmprhs, iaddr=iaddr, bytestring=bytestring)
-            return (tmplval, [assign])
-
-        calltarget = xdata.call_target(self.ixd)
-        tgtname = calltarget.name
-        models = ModelsAccess()
-        if astree.has_symbol(tgtname) and astree.get_symbol(tgtname).vtype:
-            fnsymbol = astree.get_symbol(tgtname)
-            return indirect_lhs(fnsymbol.vtype)
-        else:
-            return indirect_lhs(None)
-
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        lhs = astree.mk_register_variable_lval("R0")
-        tgt = self.operands[0]
-        if tgt.is_absolute:
-            tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
-            if self.app.has_function_name(tgtaddr.address.get_hex()):
-                faddr = tgtaddr.address.get_hex()
-                fnsymbol = self.app.function_name(faddr)
-                tgtxpr: AST.ASTExpr = astree.mk_global_variable_expr(
-                    fnsymbol, globaladdress=int(str(tgtaddr.address), 16))
-            else:
-                (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
-        else:
-            (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
-        call = astree.mk_call(lhs, tgtxpr, [], iaddr=iaddr, bytestring=bytestring)
-        return [call]
-
-    def ast(self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        if self.is_call(xdata) and xdata.has_call_target():
-            tgtxpr = self.target_expr_ast(astree, xdata)
-            (lhs, assigns) = self.lhs_ast(astree, iaddr, bytestring, xdata)
-            args = self.arguments(xdata)
-            argregs = ["R0", "R1", "R2", "R3"]
-            callargs = argregs[:len(args)]
-            argxprs: List[AST.ASTExpr] = []
-            for (reg, arg) in zip(callargs, args):
-                if XU.is_struct_field_address(arg, astree):
-                    addr = XU.xxpr_to_struct_field_address_expr(arg, astree)
-                    argxprs.append(addr)
-                elif arg.is_string_reference:
-                    regast = astree.mk_register_variable_expr(reg)
-                    cstr = arg.constant.string_reference()
-                    saddr = hex(arg.constant.value)
-                    argxprs.append(astree.mk_string_constant(regast, cstr, saddr))
-                elif arg.is_argument_value:
-                    argindex = arg.argument_index()
-                    funargs = astree.function_argument(argindex)
-                    if len(funargs) != 1:
-                        raise UF.CHBError(
-                            "ARMBranchLinkExchange: no or multiple function arguments")
-                    funarg = funargs[0]
-                    if funarg:
-                        argxprs.append(astree.mk_lval_expr(funarg))
-                    else:
-                        argxprs.append(astree.mk_register_variable_expr(reg))
-                else:
-                    argxprs.append(astree.mk_register_variable_expr(reg))
-            if len(args) > 4:
-                for a in args[4:]:
-                    argxprs.extend(XU.xxpr_to_ast_exprs(a, xdata, astree))
-            call = cast(AST.ASTInstruction, astree.mk_call(
-                lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
-            return [call] + assigns
-        else:
-            return self.assembly_ast(astree, iaddr, bytestring, xdata)
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return self.ast_call_prov(
+            astree, iaddr, bytestring, "BranchLinkExchange (BLX)", xdata)

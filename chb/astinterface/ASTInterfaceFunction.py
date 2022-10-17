@@ -117,12 +117,32 @@ class ASTInterfaceFunction(ASTFunction):
     def mk_low_level_ast(
             self,
             support: CustomASTSupport) -> ASTStmt:
-        return self.function.cfg.cfg_ast(self, self.astinterface)
+        try:
+            return self.function.cfg.cfg_ast(self, self.astinterface)
+        except UF.CHBError as e:
+            msg = (
+                "Unable to create low-level ast for "
+                + self.name
+                + " ("
+                + self.address
+                + "):\n  "
+                + str(e))
+            raise UF.CHBError(msg)
 
     def mk_high_level_ast(
             self,
             support: CustomASTSupport) -> List[ASTStmt]:
-        ast = self.function.cfg.ast(self, self.astinterface)
+        try:
+            ast = self.function.cfg.ast(self, self.astinterface)
+        except UF.CHBError as e:
+            msg = (
+                "Unable to create high-level ast for "
+                + self.name
+                + " ("
+                + self.address
+                + "):\n  "
+                + str(e))
+            raise UF.CHBError(msg)
 
         self.complete_instruction_connections()
 

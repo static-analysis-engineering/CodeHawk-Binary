@@ -47,6 +47,7 @@ arm32_register_sizes: Dict[str, int] = {
     "LR": 32,
     "PC": 32,
     "D0": 64,
+    "D6": 64,
     "D7": 64,
     "S0": 32,
     "S14": 32,

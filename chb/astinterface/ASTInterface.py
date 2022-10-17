@@ -459,14 +459,14 @@ class ASTInterface:
                 if (argindex - formal.argindex) < formal.numargs:
                     return (formal, formal.arglocs_for_argindex(argindex))
                 else:
-                    raise Exception(
+                    raise UF.CHBError(
                         "get_formal_locindex: "
                         + str(argindex)
                         + " is too large. Formals:  "
                         + ", ".join(str(f) for f in self.srcformals))
 
         else:
-            raise Exception("No formal found for argindex: " + str(argindex))
+            raise UF.CHBError("No formal found for argindex: " + str(argindex))
 
     def function_argument(self, index: int) -> List[AST.ASTLval]:
         """Return the argument(s) with the given index (zero-based).

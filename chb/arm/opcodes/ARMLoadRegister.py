@@ -60,7 +60,7 @@ class ARMLoadRegister(ARMOpcode):
     args[3]: index of memory location in armdictionary
     args[4]: is-wide (thumb)
 
-    xdata format: a:vxxxxrrrdh
+    xdata format: a:vvxxxxrrrdh
     --------------------------
     vars[0]: lhs
     vars[1]: memory location expressed as a variable
@@ -161,11 +161,12 @@ class ARMLoadRegister(ARMOpcode):
 
         rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
         if len(rhsexprs) == 0:
-            raise UF.CHBError("No rhs for LoadRegister (LDR)")
+            raise UF.CHBError(
+                "LoadRegister (LDR): no rhs value found")
 
         if len(rhsexprs) > 1:
             raise UF.CHBError(
-                "Multiple rhs values for LoadRegister (LDR): "
+                "LoadRegister (LDR): Multiple rhs values: "
                 + ", ".join(str(x) for x in rhsexprs))
 
         hl_rhs = rhsexprs[0]
