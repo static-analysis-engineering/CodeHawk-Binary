@@ -170,12 +170,14 @@ class ASTInterface:
             parameter_abi: str,
             srcprototype: Optional["BCVarInfo"] = None,
             varintros: Dict[str, str] = {},
-            verbose: bool = False) -> None:
+            verbose: bool = False,
+            showdiagnostics: bool = False) -> None:
         self._astree = astree
         self._srcprototype = srcprototype
         self._varintros = varintros
         self._typconverter = typconverter
         self._verbose = verbose
+        self._showdiagnostics = showdiagnostics
         self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
         self._bytesizecalculator = ASTByteSizeCalculator(
             self._ctyper,
@@ -217,6 +219,10 @@ class ASTInterface:
     @property
     def verbose(self) -> bool:
         return self._verbose
+
+    @property
+    def showdiagnostics(self) -> bool:
+        return self._showdiagnostics
 
     @property
     def ctyper(self) -> ASTCTyper:

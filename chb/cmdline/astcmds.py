@@ -111,6 +111,22 @@ def reduce_ast_nodes(
     return result
 
 
+def library_call_targets(app: AppAccess, faddrs: List[str]) -> List[str]:
+    """Return a list of names of dynamically loaded library functions used."""
+
+    result: Set[str] = set([])
+    for faddr in faddrs:
+        if app.has_function(faddr):
+            f = app.function(faddr)
+            fcallees = f.call_instructions()
+            for b in fcallees:
+                for instr in fcallees[b]:
+                    calltgt = instr.call_target
+                    if calltgt.is_so_target:
+                        result.add(calltgt.name)
+    return list(result)
+
+
 def buildast(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -121,6 +137,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     remove_edges: List[str] = args.remove_edges
     add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
+    showdiagnostics: bool = args.showdiagnostics
 
     try:
         (path, xfile) = UC.get_path_filename(xname)
@@ -164,6 +181,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
     revfunctionnames = userhints.rev_function_names()
     varintros = userhints.variable_introductions()
+    library_targets = library_call_targets(app, functions)
 
     globalsymboltable = astapi.globalsymboltable
     typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
@@ -176,12 +194,11 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             gaddr = int(revfunctionnames[vname], 16)
         else:
             gaddr = 0
-        if gaddr > 0:
+        if gaddr > 0 or vname in library_targets:
             globalsymboltable.add_symbol(
                 vname,
                 vtype=vinfo.vtype.convert(typconverter),
                 globaladdress=gaddr)
-            # size=vinfo.vtype.byte_size())
 
     typconverter.initialize_enuminfos(app.bcfiles.genumtags)
     typconverter.initialize_compinfos()
@@ -218,7 +235,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 xinfo.architecture,
                 srcprototype,
                 varintros=varintros,
-                verbose=verbose)
+                verbose=verbose,
+                showdiagnostics=showdiagnostics)
 
             astfunction = ASTInterfaceFunction(faddr, fname, f, astinterface)
 
@@ -233,8 +251,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                     + "\n"
                     + str(e))
                 functions_failed += 1
-                # continue
-                raise
+                continue
+                # raise
 
             if len(asts) >= 2:
                 astapi.add_function_ast(astree, asts, verbose)
