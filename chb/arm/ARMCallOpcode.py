@@ -40,7 +40,7 @@ from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.bctypes.BCTyp import BCTyp
 
-from chb.invariants.XXpr import XXpr
+from chb.invariants.XXpr import XXpr, XprCompound
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
@@ -143,8 +143,12 @@ class ARMCallOpcode(ARMOpcode):
             faddr = tgtaddr.address.get_hex()
             if self.app.has_function_name(tgtaddr.address.get_hex()):
                 fnsymbol = self.app.function_name(faddr)
-                tgtxpr: AST.ASTExpr = astree.mk_global_variable_expr(
-                    fnsymbol, globaladdress=int(str(tgtaddr.address), 16))
+                if astree.globalsymboltable.has_symbol(fnsymbol):
+                    tgtvinfo = astree.globalsymboltable.get_symbol(fnsymbol)
+                    tgtxpr: AST.ASTExpr = astree.mk_vinfo_lval_expression(tgtvinfo)
+                else:
+                    tgtxpr = astree.mk_global_variable_expr(
+                        fnsymbol, globaladdress=int(str(tgtaddr.address), 16))
             else:
                 (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
         else:
@@ -163,6 +167,7 @@ class ARMCallOpcode(ARMOpcode):
             bytestring=bytestring)
 
         tgt_returntype = None
+        tgt_argtypes: Sequence[AST.ASTTyp] = []
         tgt_argcount = -1
         tgt_xprtype = tgtxpr.ctype(astree.ctyper)
         if tgt_xprtype is not None:
@@ -170,16 +175,24 @@ class ARMCallOpcode(ARMOpcode):
                 tgt_xprtype = cast(AST.ASTTypFun, tgt_xprtype)
                 tgt_returntype = astree.resolve_type(tgt_xprtype.returntyp)
                 if (not tgt_xprtype.is_varargs) and tgt_xprtype.argtypes is not None:
-                    argtypes = tgt_xprtype.argtypes.funargs
-                    tgt_argcount = len(argtypes)
+                    tgt_funargs = tgt_xprtype.argtypes.funargs
+                    tgt_argtypes = [f.argtyp for f in tgt_funargs]
+                    tgt_argcount = len(tgt_argtypes)
 
         if tgt_returntype is None:
-            hl_lhs: Optional[AST.ASTLval] = ll_lhs
+            if defuses[0] is None:
+                hl_lhs: Optional[AST.ASTLval]  = None
+            else:
+                hl_lhs = astree.mk_returnval_variable_lval(
+                    iaddr, vtype=None)
+            astree.add_diagnostic(
+                name + ": no type found for " + str(tgtxpr))
         else:
             if tgt_returntype.is_void or defuses[0] is None:
                 hl_lhs = None
             else:
-                hl_lhs = astree.mk_returnval_variable_lval(iaddr, vtype=tgt_returntype) 
+                hl_lhs = astree.mk_returnval_variable_lval(
+                    iaddr, vtype=tgt_returntype)
 
         if not (self.is_call(xdata) and xdata.has_call_target()):
             raise UF.CHBError(name + " at " + iaddr + ": Call without call target")
@@ -187,11 +200,14 @@ class ARMCallOpcode(ARMOpcode):
         callargs = self.arguments(xdata)
         if tgt_argcount == -1:
             argcount = len(callargs)
+            argtypes: Sequence[Optional[AST.ASTTyp]] = [None] * argcount
         else:
             argcount = tgt_argcount
+            argtypes = tgt_argtypes
+
         argregs = ["R0", "R1", "R2", "R3"][:argcount]
         argxprs: List[AST.ASTExpr] = []
-        for (reg, arg) in zip(argregs, callargs):
+        for (reg, arg, argtype) in zip(argregs, callargs, argtypes):
             if arg.is_string_reference:
                 regast = astree.mk_register_variable_expr(reg)
                 cstr = arg.constant.string_reference()
@@ -228,20 +244,29 @@ class ARMCallOpcode(ARMOpcode):
                                 + ", ".join(str(a) for a in argxprs))
                         argxprs.append(astxprs[0])
                 else:
-                    astxprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
-                    if len(astxprs) == 0:
-                        raise UF.CHBError(
-                            name
-                            + ":No ast value for call argument at "
-                            + iaddr)
-                    if len(astxprs) > 1:
-                        raise UF.CHBError(
-                            name
-                            + ": Multiple rhs values for call argument at "
-                            + iaddr
-                            + ": "
-                            + ", ".join(str(a) for a in argxprs))
-                    argxprs.append(astxprs[0])
+                    if arg.is_stack_address and argtype is not None:
+                        arg = cast(XprCompound, arg)
+                        stackoffset = arg.stack_address_offset()
+                        arglval = astree.mk_stack_variable_lval(
+                            stackoffset, vtype=argtype)
+                        argexpr = astree.mk_address_of(arglval)
+                        argxprs.append(argexpr)
+                    else:
+                        astxprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
+                        if len(astxprs) == 0:
+                            raise UF.CHBError(
+                                name
+                                + ":No ast value for call argument at "
+                                + iaddr)
+                        if len(astxprs) > 1:
+                            raise UF.CHBError(
+                                name
+                                + ": Multiple rhs values for call argument at "
+                                + iaddr
+                                + ": "
+                                + ", ".join(str(a) for a in argxprs))
+
+                        argxprs.append(astxprs[0])
 
         hl_call = cast(AST.ASTInstruction, astree.mk_call(
             hl_lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
