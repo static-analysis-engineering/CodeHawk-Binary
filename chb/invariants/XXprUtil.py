@@ -232,7 +232,7 @@ def xxpr_to_ast_def_exprs(
                 return astree.mk_binary_op(xoperator, regdef1, regdef2)
             else:
                 astree.add_diagnostic(
-                    iaddr + ": unable to convert " + str(xpr))
+                    iaddr + ": unable to convert compound expression " + str(xpr))
                 return None
 
         else:
@@ -252,6 +252,17 @@ def xxpr_to_ast_def_exprs(
         else:
             return default()
 
+    elif xpr.is_var:
+        xvarlvals = xvariable_to_ast_lvals(xpr.variable, xdata, astree)
+        if len(xvarlvals) == 1:
+            return [astree.mk_lval_expr(xvarlvals[0])]
+        else:
+            astree.add_diagnostic(
+                iaddr
+                + ": unable to convert "
+                + str(xpr)
+                + ": variable not recognized")
+            return default()
     else:
         astree.add_diagnostic(
             iaddr + ": unable to convert " + str(xpr) + ": not recognized")
