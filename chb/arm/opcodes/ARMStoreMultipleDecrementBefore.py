@@ -63,6 +63,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
     args[4]: thumb-wide
 
     xdata format:vv[n]xxxx[2n]r[n+1]d[n+1][h[n+1]
+    ---------------------------------------------
     vars[0]: base
     vars[1..n]: lhs memory locations where values are stored
     xprs[0]: base
@@ -72,10 +73,10 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
     xprs[n+3..2n+2]: values of the registers being stored (simplified)
     rdefs[0]: reaching def base register
     rdefs[1..n]: reaching defs registers being stored
-    defuse: use of base regster
+    defuse[0]: use of base regster
     defuse[1..n]: use of memory variables
-    defusehigh: use-hign of base register
-    defusehigh: use-high of memory variables
+    defusehigh[0]: use-hign of base register
+    defusehigh[1..n]: use-high of memory variables
     """
 
     def __init__(
@@ -267,7 +268,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
 
             hl_base_lhss = XU.xvariable_to_ast_lvals(baselhs, xdata, astree)
             hl_base_rhss = XU.xxpr_to_ast_exprs(baseresultr, xdata, astree)
-            if len (hl_base_lhss) != 1 or len(hl_base_rhss) != 1:
+            if len(hl_base_lhss) != 1 or len(hl_base_rhss) != 1:
                 raise UF.CHBError(
                     "StoreMultipleDecrementBefore (STMDB): error in wback assign")
             hl_base_lhs = hl_base_lhss[0]
@@ -302,7 +303,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                 rhs = rregrhss[i]
                 hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
                 hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
-                if len(hl_lhss) != 1 and len(hl_rhss) != 1:
+                if len(hl_lhss) != 1 or len(hl_rhss) != 1:
                     raise UF.CHBError(
                         "StoreMultipleDecrementBefore (STMDB): error in assigns")
                 hl_lhs = hl_lhss[0]

@@ -36,7 +36,7 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
-from chb.invariants.XXpr import XprCompound
+from chb.invariants.XXpr import XprCompound, XprConstant
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
@@ -45,7 +45,6 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
-    from chb.invariants.XXpr import XprCompound, XprConstant
 
 
 @armregistry.register_tag("ADD", ARMOpcode)
@@ -68,6 +67,18 @@ class ARMAdd(ARMOpcode):
     args[2]: index of op2 in armdictionary
     args[3]: index of op3 in armdictionary
     args[4]: is-wide (thumb)
+
+    xdata format: a:vxxxxrrdh
+    -------------------------
+    vars[0]: lhs (Rd)
+    xprs[0]: rhs1 (Rn)
+    xprs[1]: rhs2 (Rm)
+    xprs[2]: rhs1 + rhs2
+    xprs[3]: rhs1 + rhs2 (simplified)
+    rdefs[0]: rhs1
+    rdefs[1]: rhs2
+    uses[0]: lhs
+    useshigh[0]: lhs
     """
 
     def __init__(
@@ -95,20 +106,18 @@ class ARMAdd(ARMOpcode):
         return wb + cc
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx .
-
-        vars[0]: lhs (Rd)
-        xprs[0]: rhs1 (Rn)
-        xprs[1]: rhs2 (Rm{..})
-        xprs[2]: rhs1 + rhs2 (syntactic)
-        xprs[3]: rhs1 + rhs2 (simplified)
-        """
-
         lhs = str(xdata.vars[0])
         result = xdata.xprs[2]
         rresult = xdata.xprs[3]
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
-        return lhs + " := " + xresult
+        assignment = lhs + " := " + xresult
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
 
     # --------------------------------------------------------------------------
     # AddWithCarry()
@@ -158,22 +167,22 @@ class ARMAdd(ARMOpcode):
         (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (ll_op1, _, _) = self.operands[1].ast_rvalue(astree)
         (ll_op2, _, _) = self.operands[2].ast_rvalue(astree)
-        ll_add_expr = astree.mk_binary_op("plus", ll_op1, ll_op2)
+        ll_rhs = astree.mk_binary_op("plus", ll_op1, ll_op2)
 
         ll_assign = astree.mk_assign(
             ll_lhs,
-            ll_add_expr,
+            ll_rhs,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
 
         lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(lhsasts) == 0:
-            raise UF.CHBError("ARMAdd: no lval found")
+            raise UF.CHBError("Add: no lval found")
 
         if len(lhsasts) > 1:
             raise UF.CHBError(
-                "ARMAdd: multiple lvals in ast: "
+                "Add: multiple lvals in ast: "
                 + ", ".join(str(v) for v in lhsasts))
 
         hl_lhs = lhsasts[0]
@@ -184,7 +193,7 @@ class ARMAdd(ARMOpcode):
         # resulting expression is a stack address
         if str(rhs1) == "SP" and rhs3.is_stack_address:
             annotations.append("stack address")
-            rhs3 = cast("XprCompound", rhs3)
+            rhs3 = cast(XprCompound, rhs3)
             stackoffset = rhs3.stack_address_offset()
             rhslval = astree.mk_stack_variable_lval(stackoffset)
             rhsast: AST.ASTExpr = astree.mk_address_of(rhslval)
@@ -195,7 +204,7 @@ class ARMAdd(ARMOpcode):
             if rhs3.is_int_constant:
                 rhsexprs = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
                 if len(rhsexprs) == 1:
-                    rhsval = cast("XprConstant", rhs3).intvalue
+                    rhsval = cast(XprConstant, rhs3).intvalue
                     rhsast = astree.mk_global_address_constant(rhsval, rhsexprs[0])
                 else:
                     raise UF.CHBError(
@@ -210,27 +219,27 @@ class ARMAdd(ARMOpcode):
 
         else:
             rhsasts = XU.xxpr_to_ast_def_exprs(rhs3, xdata, iaddr, astree)
-            if len (rhsasts) == 1:
+            if len(rhsasts) == 1:
                 rhsast = rhsasts[0]
             else:
                 raise UF.CHBError(
                     "ARMAdd: multiple expressions in ast")
 
-        hl_add_expr = rhsast
+        hl_rhs = rhsast
 
         hl_assign = astree.mk_assign(
             hl_lhs,
-            hl_add_expr,
+            hl_rhs,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
 
-        astree.add_reg_definition(iaddr, hl_lhs, hl_add_expr)
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
-        astree.add_expr_mapping(hl_add_expr, ll_add_expr)
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
         astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(ll_add_expr, [rdefs[0], rdefs[1]])
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0], rdefs[1]])
         astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
         astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
         astree.add_lval_defuses(hl_lhs, defuses[0])

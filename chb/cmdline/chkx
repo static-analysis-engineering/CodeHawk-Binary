@@ -535,6 +535,10 @@ def parse() -> argparse.Namespace:
     buildast.add_argument(
         "--verbose", "-v",
         action="store_true")
+    buildast.add_argument(
+        "--showdiagnostics",
+        help="print diagnostics to the console",
+        action="store_true")
     buildast.set_defaults(func=AST.buildast)
 
     # -- results decompile (abstract syntax tree) --
@@ -565,6 +569,10 @@ def parse() -> argparse.Namespace:
     showast.add_argument(
         "--verbose", "-v",
         help="print spans and available expressions",
+        action="store_true")
+    showast.add_argument(
+        "--showdiagnostics",
+        help="print diagnostics to the console",
         action="store_true")
     showast.add_argument(
         "--remove_edges",

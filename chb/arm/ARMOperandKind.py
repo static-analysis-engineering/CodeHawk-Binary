@@ -489,19 +489,14 @@ class ARMRegBitSequenceOp(ARMOperandKind):
         rvar = astree.mk_register_variable_expr(self.register)
         width = self.width
         lsb = self.lsb
-        if width == 8:
-            mask = astree.mk_integer_constant(255)
-            if lsb == 0:
-                xpr = astree.mk_binary_op("band", rvar, mask)
-            else:
-                shiftamount = astree.mk_integer_constant(lsb)
-                xprsub = astree.mk_binary_op("lsr", rvar, shiftamount)
-                xpr = astree.mk_binary_op("band", xprsub, mask)
+
+        mask = astree.mk_integer_constant(1 << width)
+        if lsb == 0:
+            xpr = astree.mk_binary_op("band", rvar, mask)
         else:
-            raise UF.CHBError(
-                "Bit sequence operator for width "
-                + str(width)
-                + " not yet supported")
+            shiftamount = astree.mk_integer_constant(lsb)
+            xprsub = astree.mk_binary_op("lsr", rvar, shiftamount)
+            xpr = astree.mk_binary_op("band", xprsub, mask)
 
         return (xpr, [], [])
 

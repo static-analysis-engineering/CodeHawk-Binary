@@ -170,12 +170,14 @@ class ASTInterface:
             parameter_abi: str,
             srcprototype: Optional["BCVarInfo"] = None,
             varintros: Dict[str, str] = {},
-            verbose: bool = False) -> None:
+            verbose: bool = False,
+            showdiagnostics: bool = False) -> None:
         self._astree = astree
         self._srcprototype = srcprototype
         self._varintros = varintros
         self._typconverter = typconverter
         self._verbose = verbose
+        self._showdiagnostics = showdiagnostics
         self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
         self._bytesizecalculator = ASTByteSizeCalculator(
             self._ctyper,
@@ -217,6 +219,10 @@ class ASTInterface:
     @property
     def verbose(self) -> bool:
         return self._verbose
+
+    @property
+    def showdiagnostics(self) -> bool:
+        return self._showdiagnostics
 
     @property
     def ctyper(self) -> ASTCTyper:
@@ -459,14 +465,14 @@ class ASTInterface:
                 if (argindex - formal.argindex) < formal.numargs:
                     return (formal, formal.arglocs_for_argindex(argindex))
                 else:
-                    raise Exception(
+                    raise UF.CHBError(
                         "get_formal_locindex: "
                         + str(argindex)
                         + " is too large. Formals:  "
                         + ", ".join(str(f) for f in self.srcformals))
 
         else:
-            raise Exception("No formal found for argindex: " + str(argindex))
+            raise UF.CHBError("No formal found for argindex: " + str(argindex))
 
     def function_argument(self, index: int) -> List[AST.ASTLval]:
         """Return the argument(s) with the given index (zero-based).

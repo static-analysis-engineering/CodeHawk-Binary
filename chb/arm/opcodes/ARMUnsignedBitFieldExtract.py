@@ -126,7 +126,14 @@ class ARMUnsignedExtractBitField(ARMOpcode):
         defuseshigh = xdata.defuseshigh
 
         hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+
+        try:
+            hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        except UF.CHBError as e:
+            astree.add_diagnostic(
+                iaddr + ": Error in UBFX: " + str(e) + "; use ll_rhs")
+            hl_rhss = [ll_rhs]
+
         if len(hl_rhss) == 1 and len(hl_lhss) == 1:
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,13 +25,21 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+from chb.bctypes.BCTyp import BCTyp
+
+from chb.invariants.XXpr import XXpr, XprCompound
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -49,6 +57,15 @@ class ARMCompareBranchZero(ARMOpcode):
 
     args[0]: index of Rn in arm dictionary
     args[1]: index of label in arm dictionary
+
+    xdata format: a:xxxxxxr..
+    -------------------------
+    xprs[0]: xrn
+    xprs[1]: true condition
+    xprs[2]: false condition
+    xprs[3]: true condition (simplified)
+    xprs[4]: false condition (simplified)
+    xprs[5]: target
     """
 
     def __init__(
@@ -62,13 +79,67 @@ class ARMCompareBranchZero(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args]
+
+    def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
+        if xdata.has_branch_conditions():
+            return [xdata.xprs[4], xdata.xprs[3]]
+        else:
+            return []
+
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:xx .
-
-        xprs[0]: index of Rn in arm dictionary
-        xprs[1]: index of target jump address in arm dictionary
-        """
-
-        xpr = str(xdata.xprs[0])
-        tgt = str(xdata.xprs[1])
+        xpr = str(xdata.xprs[3])
+        tgt = str(xdata.xprs[5])
         return "if " + xpr + " != 0 goto " + tgt
+
+    def ast_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData,
+            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+
+        annotations: List[str] = [iaddr, "CBNZ"]
+
+        rdefs = xdata.reachingdefs
+
+        (ll_op, _, _) = self.opargs[0].ast_rvalue(astree)
+        zero = astree.mk_integer_constant(0)
+        if reverse:
+            ll_cond = astree.mk_binary_op("eq", ll_op, zero)
+        else:
+            ll_cond = astree.mk_binary_op("ne", ll_op, zero)
+
+        ftconds = self.ft_conditions(xdata)
+        if len(ftconds) == 2:
+            if reverse:
+                condition = ftconds[0]
+            else:
+                condition = ftconds[1]
+
+            astconds = XU.xxpr_to_ast_def_exprs(condition, xdata, iaddr, astree)
+            if len(astconds) == 0:
+                raise UF.CHBError(
+                    "CompareBranchNonZero (CBNZ): no rhs values found")
+
+            if len(astconds) > 1:
+                raise UF.CHBError(
+                    "CompareBranchNonZero (CBNZ): multiple rhs values found: "
+                    + ", ".join(str(v) for v in astconds))
+
+            hl_cond = astconds[0]
+
+            astree.add_expr_mapping(hl_cond, ll_cond)
+            astree.add_expr_reachingdefs(hl_cond, rdefs)
+            astree.add_expr_reachingdefs(ll_op, [rdefs[0]])
+            astree.add_condition_address(ll_cond, [iaddr])
+
+            return (hl_cond, ll_cond)
+
+        else:
+            astree.add_diagnostic(
+                iaddr + ": CBNZ: No condition expressions found")
+            return (zero, zero)

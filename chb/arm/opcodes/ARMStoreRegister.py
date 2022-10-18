@@ -206,4 +206,4 @@ class ARMStoreRegister(ARMOpcode):
             memexp = cast(AST.ASTMemRef, ll_lhs.lhost).memexp
             astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
 
-        return ([hl_assign], [ll_assign])
+        return ([hl_assign], (ll_preinstrs + [ll_assign] + ll_postinstrs))

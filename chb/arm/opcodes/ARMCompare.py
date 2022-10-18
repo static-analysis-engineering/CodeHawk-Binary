@@ -86,7 +86,14 @@ class ARMCompare(ARMOpcode):
         rhs1 = str(xdata.xprs[0])
         rhs2 = str(xdata.xprs[1])
         result = str(xdata.xprs[2])
-        return "compare " + str(rhs1) + " and " + str(rhs2) + " (" + result + ")"
+        ann = "compare " + str(rhs1) + " and " + str(rhs2) + " (" + result + ")"
+        if xdata.has_unknown_instruction_condition():
+            return "if ? then " + ann
+        elif xdata.has_instruction_condition():
+            c = str(xdata.xprs[1])
+            return "if " + c + " then " + ann
+        else:
+            return ann
 
     def ast_prov(
             self,
@@ -112,26 +119,29 @@ class ARMCompare(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
-        if len(hl_rhss) == 1:
-            hl_rhs = hl_rhss[0]
-            hl_assign = astree.mk_assign(
-                astree.ignoredlhs,
-                hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
+        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+        if len(rhsasts) == 0:
+            raise UF.CHBError("Compare (CMP): no value found for condition")
 
-            astree.add_instr_mapping(hl_assign, ll_assign)
-            astree.add_instr_address(hl_assign, [iaddr])
-            astree.add_expr_mapping(hl_rhs, ll_expr)
-            astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
-            astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
-            astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
-
-            return ([hl_assign], [ll_assign])
-
-        else:
+        if len(rhsasts) > 1:
             raise UF.CHBError(
-                "ARMCompare: multiple lval/expressions in ast: "
-                + ", ".join(str(x) for x in hl_rhss))
+                "Compare (CMP: multiple condition values found: "
+                + ", ".join(str(x) for x in rhsasts))
+
+        hl_rhs = rhsasts[0]
+
+        hl_assign = astree.mk_assign(
+            astree.ignoredlhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_expr)
+        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+
+        return ([hl_assign], [ll_assign])

@@ -105,13 +105,6 @@ class ARMPop(ARMOpcode):
             return False
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:v...x... .
-
-        vars[0..n-1]: lhs variables
-        xprs[0..n-1]: rhs memory values
-        xprs[n]: conditional expression if TC is set
-        """
-
         vars = xdata.vars
         xprs = xdata.xprs
 

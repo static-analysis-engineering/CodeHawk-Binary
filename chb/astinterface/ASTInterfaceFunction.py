@@ -95,6 +95,10 @@ class ASTInterfaceFunction(ASTFunction):
     def verbose(self) -> bool:
         return self.astinterface.verbose
 
+    @property
+    def showdiagnostics(self) -> bool:
+        return self.astinterface.showdiagnostics
+
     def astblock(self, startaddr: str) -> ASTInterfaceBasicBlock:
         return self.astblocks[startaddr]
 
@@ -117,12 +121,32 @@ class ASTInterfaceFunction(ASTFunction):
     def mk_low_level_ast(
             self,
             support: CustomASTSupport) -> ASTStmt:
-        return self.function.cfg.cfg_ast(self, self.astinterface)
+        try:
+            return self.function.cfg.cfg_ast(self, self.astinterface)
+        except UF.CHBError as e:
+            msg = (
+                "Unable to create low-level ast for "
+                + self.name
+                + " ("
+                + self.address
+                + "):\n  "
+                + str(e))
+            raise UF.CHBError(msg)
 
     def mk_high_level_ast(
             self,
             support: CustomASTSupport) -> List[ASTStmt]:
-        ast = self.function.cfg.ast(self, self.astinterface)
+        try:
+            ast = self.function.cfg.ast(self, self.astinterface)
+        except UF.CHBError as e:
+            msg = (
+                "Unable to create high-level ast for "
+                + self.name
+                + " ("
+                + self.address
+                + "):\n  "
+                + str(e))
+            raise UF.CHBError(msg)
 
         self.complete_instruction_connections()
 
@@ -139,6 +163,10 @@ class ASTInterfaceFunction(ASTFunction):
             prettyprinter = ASTCPrettyPrinter(self.astinterface.symboltable)
             print("\n\nTransformed code")
             print(prettyprinter.to_c(transformedcode))
+            print("\n\nDiagnostics")
+            print("\n".join(self.astinterface.diagnostics))
+
+        elif self.showdiagnostics:
             print("\n\nDiagnostics")
             print("\n".join(self.astinterface.diagnostics))
 

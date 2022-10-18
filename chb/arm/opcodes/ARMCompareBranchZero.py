@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -54,6 +54,15 @@ class ARMCompareBranchZero(ARMOpcode):
 
     args[0]: index of Rn in arm dictionary
     args[1]: index of label in arm dictionary
+
+    xdata format: a:xxxxxxr..
+    -------------------------
+    xprs[0]: xrn
+    xprs[1]: true condition
+    xprs[2]: false condition
+    xprs[3]: true condition (simplified)
+    xprs[4]: false condition (simplified)
+    xprs[5]: target
     """
 
     def __init__(
@@ -67,42 +76,20 @@ class ARMCompareBranchZero(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args]
+
+    def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
+        if xdata.has_branch_conditions():
+            return [xdata.xprs[4], xdata.xprs[3]]
+        else:
+            return []
+
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:xx .
-
-        xprs[0]: index of Rn in arm dictionary
-        xprs[1]: index of target jump address in arm dictionary
-        """
-
         xpr = str(xdata.xprs[3])
         tgt = str(xdata.xprs[5])
         return "if " + xpr + " == 0 goto " + tgt
-
-    def assembly_ast_condition(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData,
-            reverse: bool) -> AST.ASTExpr:
-        reg = str(self.operands[0])
-        regvar = astree.mk_register_variable_expr(reg)
-        zero = astree.mk_integer_constant(0)
-        if reverse:
-            condition = astree.mk_binary_op("ne", regvar, zero)
-        else:
-            condition = astree.mk_binary_op("eq", regvar, zero)
-        # astree.add_instruction_span(condition.id, iaddr, bytestring)
-        return condition
-
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-
-        return []
 
     def ast_condition_prov(
             self,
@@ -114,36 +101,42 @@ class ARMCompareBranchZero(ARMOpcode):
 
         annotations: List[str] = [iaddr, "CBZ"]
 
-        reachingdefs = xdata.reachingdefs
+        rdefs = xdata.reachingdefs
 
-        def default(condition: XXpr) -> AST.ASTExpr:
+        (ll_op, _, _) = self.opargs[0].ast_rvalue(astree)
+        zero = astree.mk_integer_constant(0)
+        if reverse:
+            ll_cond = astree.mk_binary_op("ne", ll_op, zero)
+        else:
+            ll_cond = astree.mk_binary_op("eq", ll_op, zero)
+
+        ftconds = self.ft_conditions(xdata)
+        if len(ftconds) == 2:
+            if reverse:
+                condition = ftconds[0]
+            else:
+                condition = ftconds[1]
+
             astconds = XU.xxpr_to_ast_def_exprs(condition, xdata, iaddr, astree)
             if len(astconds) == 0:
                 raise UF.CHBError(
-                    "CompareBranchZero (CBZ): no ast value for condition at "
-                    + iaddr
-                    + " for "
-                    + str(condition))
+                    "CompareBranchZero (CBZ): no rhs values found")
 
             if len(astconds) > 1:
                 raise UF.CHBError(
-                    "CompareBranchZero (CBZ): multiple ast values for condition at "
-                    + iaddr
-                    + ": "
-                    + ", ".join(str(c) for c in astconds)
-                    + " for condition "
-                    + str(condition))
+                    "CompareBranchZero (CBZ): multiple rhs values found: "
+                    + ", ".join(str(v) for v in astconds))
 
-            return astconds[0]
+            hl_cond = astconds[0]
 
-        if reverse:
-            hl_astcond = default(xdata.xprs[4])
-            ll_astcond = default(xdata.xprs[2])
+            astree.add_expr_mapping(hl_cond, ll_cond)
+            astree.add_expr_reachingdefs(hl_cond, rdefs)
+            astree.add_expr_reachingdefs(ll_op, [rdefs[0]])
+            astree.add_condition_address(ll_cond, [iaddr])
+
+            return (hl_cond, ll_cond)
+
         else:
-            hl_astcond = default(xdata.xprs[3])
-            ll_astcond = default(xdata.xprs[1])
-
-        astree.add_expr_mapping(hl_astcond, ll_astcond)
-        astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
-
-        return (hl_astcond, ll_astcond)
+            astree.add_diagnostic(
+                iaddr + ": CBZ: No condition expressions found")
+            return (zero, zero)

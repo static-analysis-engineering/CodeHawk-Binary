@@ -77,7 +77,7 @@ class ASTApplicationInterface:
         if len(asts) < 2:
             raise Exception(
                 "Found only "
-                + str(len)
+                + str(len(asts))
                 + " asts. Expected at least two asts")
         lifted_ast = asts[0]
         low_level_ast = asts[-1]

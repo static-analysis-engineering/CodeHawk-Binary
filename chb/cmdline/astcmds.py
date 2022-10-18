@@ -111,6 +111,22 @@ def reduce_ast_nodes(
     return result
 
 
+def library_call_targets(app: AppAccess, faddrs: List[str]) -> List[str]:
+    """Return a list of names of dynamically loaded library functions used."""
+
+    result: Set[str] = set([])
+    for faddr in faddrs:
+        if app.has_function(faddr):
+            f = app.function(faddr)
+            fcallees = f.call_instructions()
+            for b in fcallees:
+                for instr in fcallees[b]:
+                    calltgt = instr.call_target
+                    if calltgt.is_so_target:
+                        result.add(calltgt.name)
+    return list(result)
+
+
 def buildast(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -121,6 +137,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     remove_edges: List[str] = args.remove_edges
     add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
+    showdiagnostics: bool = args.showdiagnostics
 
     try:
         (path, xfile) = UC.get_path_filename(xname)
@@ -164,6 +181,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
     revfunctionnames = userhints.rev_function_names()
     varintros = userhints.variable_introductions()
+    library_targets = library_call_targets(app, functions)
 
     globalsymboltable = astapi.globalsymboltable
     typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
@@ -176,15 +194,17 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             gaddr = int(revfunctionnames[vname], 16)
         else:
             gaddr = 0
-        if gaddr > 0:
+        if gaddr > 0 or vname in library_targets:
             globalsymboltable.add_symbol(
                 vname,
                 vtype=vinfo.vtype.convert(typconverter),
                 globaladdress=gaddr)
-            # size=vinfo.vtype.byte_size())
 
     typconverter.initialize_enuminfos(app.bcfiles.genumtags)
     typconverter.initialize_compinfos()
+
+    functions_lifted: int = 0
+    functions_failed: int = 0
 
     for faddr in functions:
         if app.has_function(faddr):
@@ -215,22 +235,43 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 xinfo.architecture,
                 srcprototype,
                 varintros=varintros,
-                verbose=verbose)
+                verbose=verbose,
+                showdiagnostics=showdiagnostics)
 
             astfunction = ASTInterfaceFunction(faddr, fname, f, astinterface)
 
-            asts = astfunction.mk_asts(support)
+            try:
+                asts = astfunction.mk_asts(support)
+            except UF.CHBError as e:
+                UC.print_error(
+                    "Unable to create lifting for "
+                    + faddr
+                    + ":\n"
+                    + ("-" * 80)
+                    + "\n"
+                    + str(e))
+                functions_failed += 1
+                continue
+                # raise
 
-            astapi.add_function_ast(astree, asts, verbose)
+            if len(asts) >= 2:
+                astapi.add_function_ast(astree, asts, verbose)
 
-            print("\nLifted code")
-            print("--------------------------------------------------------")
-            prettyprinter = ASTCPrettyPrinter(
-                localsymboltable, annotations=astinterface.annotations)
-            print(prettyprinter.to_c(asts[0]))
+                print("\nLifted code")
+                print("--------------------------------------------------------")
+                prettyprinter = ASTCPrettyPrinter(
+                    localsymboltable, annotations=astinterface.annotations)
+                print(prettyprinter.to_c(asts[0]))
+                functions_lifted += 1
+
+            else:
+                print("\nUnable to generate a lifting for " + faddr)
+                functions_failed += 1
+                continue
 
         else:
             UC.print_error("Unable to find function " + faddr)
+            functions_failed += 1
             continue
 
     if verbose:
@@ -246,6 +287,10 @@ def buildast(args: argparse.Namespace) -> NoReturn:
         with open(filename, "w") as fp:
             json.dump(astdata, fp, indent=2)
 
+    if functions_lifted > 1:
+        print("Successfully lifted " + str(functions_lifted) + " functions")
+    if functions_failed > 0:
+        print("Failures: " + str(functions_failed) + " functions")
     exit(0)
 
 

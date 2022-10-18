@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs, LLC
+# Copyright (c) 2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,57 +24,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Class that provides third-party users to introduce local support."""
 
-from typing import Dict, List, Optional, Tuple
-
-
-arm32_register_sizes: Dict[str, int] = {
-    "R0": 32,
-    "R1": 32,
-    "R2": 32,
-    "R3": 32,
-    "R4": 32,
-    "R5": 32,
-    "R6": 32,
-    "R7": 32,
-    "R8": 32,
-    "R9": 32,
-    "R10": 32,
-    "R11": 32,
-    "R12": 32,
-    "SP": 32,
-    "LR": 32,
-    "PC": 32,
-    "D0": 64,
-    "D6": 64,
-    "D7": 64,
-    "S0": 32,
-    "S14": 32,
-    "S15": 32
-}
+import chb.util.fileutil as UF
 
 
-arm32_flags: List[str] = ["C", "N", "V", "Z"]
+def bitfieldmask(len: int, lsb: int, width: int) -> int:
+    """Return a mask that clears bits <lsb+width>:<lsb>."""
 
-
-class CustomASTSupport:
-
-    def __init__(
-            self,
-            registersizes: Dict[str, int] = arm32_register_sizes,
-            flagnames: List[str] = arm32_flags) -> None:
-        self._registersizes = registersizes
-        self._flagnames = flagnames
-
-    @property
-    def register_sizes(self) -> Dict[str, int]:
-        return self._registersizes
-
-    @property
-    def flagnames(self) -> List[str]:
-        return self._flagnames
-
-    @property
-    def toolname_and_version(self) -> Optional[Tuple[str, str]]:
-        return None
+    prefixlen = (32 - lsb) - width
+    prefix = ("1" * prefixlen) if prefixlen > 0 else ""
+    mask = "0" * width
+    postfix = ("1" * lsb) if lsb > 0 else ""
+    return int(prefix + mask + postfix, 2)
+    
