@@ -404,15 +404,15 @@ class ASTLoop(ASTStmt):
             locationid: int,
             body: "ASTStmt") -> None:
         ASTStmt.__init__(self, stmtid, locationid, [], "loop")
-        self._stmts = [body]
+        self._body = body
 
     @property
     def is_ast_loop(self) -> bool:
         return True
 
     @property
-    def stmts(self) -> Sequence["ASTStmt"]:
-        return self._stmts
+    def body(self) -> "ASTStmt":
+        return self._body
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_loop_stmt(self)
@@ -427,33 +427,21 @@ class ASTLoop(ASTStmt):
         return ctyper.ctype_loop_stmt(self)
 
     def is_empty(self) -> bool:
-        return all(s.is_empty() for s in self.stmts)
+        return self.body.is_empty()
 
     def address_taken(self) -> Set[str]:
-        if self.is_empty():
-            return set([])
-        else:
-            return self.stmts[0].address_taken().union(
-                *(s.address_taken() for s in self.stmts[1:]))
+        return self.body.address_taken()
 
     def variables_used(self) -> Set[str]:
-        if self.is_empty():
-            return set([])
-        else:
-            return self.stmts[0].variables_used().union(
-                *(s.variables_used() for s in self.stmts[1:]))
+        return self.body.variables_used()
 
     def callees(self) -> Set[str]:
-        if self.is_empty():
-            return set([])
-        else:
-            return self.stmts[0].callees().union(
-                *(s.callees() for s in self.stmts[1:]))
+        return self.body.callees()
 
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append(ASTNode.__str__(self))
-        lines.append("\n".join(str(s) for s in self.stmts))
+        lines.append(str(self.body))
         return "\n".join(lines)
 
 

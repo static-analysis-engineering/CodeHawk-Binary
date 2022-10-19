@@ -18,13 +18,56 @@ For each function, the json structure contains a record with the following items
 - **prototype**: type-index of the function prototype
 - **ast**: a record containing a list of nodes representing the high-level and
   low-level AST, and starting indices for both
-- **spans**: a list of span records that map location ids to addresses in the binary;
+- **spans**: a list of span records that map location ids and expressions ids
+  to addresses in the binary (see [below](#spans))
 - **provenance**: a mapping from the high-level ast representation to the low-level
   ast representation, including reaching definitions and definitions used
   (described [here](./api.md#provenance)).
 - **available-expressions**: a mapping from instruction addresses to expressions
   available in any lvalue visible at that address (see [below](#available-expressions)).
 - **storage**: a mapping from lvalues to locations in the binary (see [below](#storage))
+
+
+### Spans
+
+Spans provide a connection between entities in the AST and (virtual) addresses
+in the assembly code. There are currently two kinds of spans:
+- **instruction spans**: an instruction span record contains the location id
+  of an ASTInstruction, together with a list of spans consisting of a base address
+  and a size that indicates the number of bytes that are related, which should
+  cover an integral number of assembly instructions. A list is provided to allow
+  for multiple non-contigous ranges.
+  ```
+        {
+          "locationid": 6,
+          "spans": [
+            {
+              "base_va": "0xcc6",
+              "size": 2
+            }
+          ]
+        },
+  ```
+- **expression spans**: an expression span record contains the expression id
+  of an ASTExpr, together with a list of of spans as before. Expression spans
+  are intended to provide a connection from AST to assembly code for those
+  assembly instructions that do not have corresponding AST instructions, in
+  particular, return statements and branches. At present these are provided
+  only for return statements that return a value, and for conditional branches,
+  where the return expression and the condition, respectively, are linked, via
+  their id, to the return instruction(s) and conditional branch instruction.
+  An expression span is represented in the json ast file as follows:
+  ```
+        {
+          "exprid": 346,
+          "spans": [
+            {
+              "base_va": "0xd26",
+              "size": 2
+            }
+          ]
+        },
+  ```
 
 
 ### Available Expressions

@@ -60,6 +60,10 @@ class ASTInterfaceInstruction:
         return self.instruction.iaddr
 
     @property
+    def bytestring(self) -> str:
+        return self.instruction.bytestring
+
+    @property
     def is_subsumed(self) -> bool:
         return self.instruction.is_subsumed
 

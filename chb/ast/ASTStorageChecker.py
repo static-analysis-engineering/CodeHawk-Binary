@@ -95,8 +95,7 @@ class ASTStorageChecker(ASTVisitor):
         pass
 
     def visit_loop_stmt(self, stmt: AST.ASTLoop) -> None:
-        for s in stmt.stmts:
-            s.accept(self)
+        stmt.body.accept(self)
 
     def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
         for s in stmt.stmts:

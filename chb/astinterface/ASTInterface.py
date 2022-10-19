@@ -169,11 +169,13 @@ class ASTInterface:
             typconverter: "BC2ASTConverter",
             parameter_abi: str,
             srcprototype: Optional["BCVarInfo"] = None,
+            astprototype: Optional[AST.ASTVarInfo] = None,
             varintros: Dict[str, str] = {},
             verbose: bool = False,
             showdiagnostics: bool = False) -> None:
         self._astree = astree
         self._srcprototype = srcprototype
+        self._astprototype = astprototype
         self._varintros = varintros
         self._typconverter = typconverter
         self._verbose = verbose
@@ -195,6 +197,8 @@ class ASTInterface:
         if self._srcprototype is not None:
             astprototype = self._srcprototype.convert(self._typconverter)
             self.set_asm_function_prototype(astprototype)
+        elif self._astprototype is not None:
+            self.set_asm_function_prototype(self._astprototype)
 
     @property
     def astree(self) -> AbstractSyntaxTree:
@@ -579,7 +583,11 @@ class ASTInterface:
     def mk_return_stmt(
             self,
             expr: Optional[AST.ASTExpr],
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTReturn:
+        if expr is not None and iaddr is not None and bytestring is not None:
+            self.astree.add_expr_span(expr.exprid, iaddr, bytestring)
         return self.astree.mk_return_stmt(expr, labels=labels)
 
     def mk_break_stmt(self) -> AST.ASTBreak:

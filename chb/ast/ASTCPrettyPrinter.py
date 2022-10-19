@@ -39,6 +39,12 @@ if TYPE_CHECKING:
 
 operators = AST.operators
 
+def sanitize(s: str) -> str:
+    if s is not None:
+        return s.replace('\r', "\\r")
+    else:
+        raise Exception("Attempt to sanitize None")
+
 
 class ASTCCode:
 
@@ -236,10 +242,10 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.newline(indent=self.indent)
         self.ccode.write("while (1) {")
         self.increase_indent()
-        for s in stmt.stmts:
-            s.accept(self)
+        stmt.body.accept(self)
         self.decrease_indent()
-        self.ccode.write("}")
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("}  // loop ")
 
     def visit_block_stmt(self, stmt: AST.ASTBlock) -> None:
         for label in stmt.labels:
@@ -288,7 +294,7 @@ class ASTCPrettyPrinter(ASTVisitor):
             stmt.elsestmt.accept(self)
             self.decrease_indent()
         self.ccode.newline(indent=self.indent)
-        self.ccode.write("}")
+        self.ccode.write("} // if ")
 
     def visit_goto_stmt(self, stmt: AST.ASTGoto) -> None:
         for label in stmt.labels:
@@ -424,7 +430,7 @@ class ASTCPrettyPrinter(ASTVisitor):
         g.address_expr.accept(self)
 
     def visit_string_constant(self, s: AST.ASTStringConstant) -> None:
-        self.ccode.write('"' + s.cstr + '"')
+        self.ccode.write('"' + sanitize(s.cstr) + '"')
 
     def visit_lval_expression(self, lvalexpr: AST.ASTLvalExpr) -> None:
         lvalexpr.lval.accept(self)

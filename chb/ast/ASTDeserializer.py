@@ -444,6 +444,19 @@ class ASTDeserializer:
                 nodes[id] = astree.mk_switch_stmt(
                     switchexpr, cases, stmtid, locationid)
 
+            elif tag == "break":
+                stmtid = r["stmtid"]
+                locationid = r["locationid"]
+                nodes[id] = astree.mk_break_stmt(
+                    optstmtid=stmtid, optlocationid=locationid)
+
+            elif tag == "loop":
+                stmtid = r["stmtid"]
+                locationid = r["locationid"]
+                body = cast(AST.ASTStmt, mk_node(arg(0)))
+                nodes[id] = astree.mk_loop(
+                    body, optstmtid=stmtid, optlocationid=locationid)
+
             elif tag == "label":
                 locationid = r["locationid"]
                 name = r["name"]

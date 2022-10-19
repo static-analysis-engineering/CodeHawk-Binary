@@ -218,10 +218,6 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             else:
                 fname = "sub_" + faddr[2:]
 
-            srcprototype: Optional["BCVarInfo"] = None
-            if app.bcfiles.has_vardecl(fname):
-                srcprototype = app.bcfiles.vardecl(fname)
-
             localsymboltable = ASTLocalSymbolTable(globalsymboltable)
             astree = AbstractSyntaxTree(
                 faddr,
@@ -229,11 +225,20 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 localsymboltable,
                 registersizes=support.register_sizes,
                 flagnames=support.flagnames)
+
+            srcprototype: Optional["BCVarInfo"] = None
+            astprototype: Optional[ASTVarInfo] = None
+            if app.bcfiles.has_vardecl(fname):
+                srcprototype = app.bcfiles.vardecl(fname)
+            elif fname == "main":
+                astprototype = astree.mk_vinfo_main_function(faddr)
+
             astinterface = ASTInterface(
                 astree,
                 typconverter,
                 xinfo.architecture,
-                srcprototype,
+                srcprototype=srcprototype,
+                astprototype=astprototype,
                 varintros=varintros,
                 verbose=verbose,
                 showdiagnostics=showdiagnostics)

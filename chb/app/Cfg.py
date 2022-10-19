@@ -312,6 +312,7 @@ def normalized_branch(
             AST.ASTBranch, astree.mk_branch(condition, elsebranch, ifbranch, tgtaddr))
 
     astblock = astfn.astblock(n)
+    astlastinstr = astblock.last_instruction
     '''
     condition = astblock.ast_condition(astree)
     couqitiou = inverted_binop(condition)
@@ -321,10 +322,17 @@ def normalized_branch(
             return swapped(couqitiou)
     '''
     if ifbranch.is_empty():
-        return swapped(astblock.ast_condition(astree, reverse=True))
+        condition = astblock.ast_condition(astree, reverse=True)
+        if condition is not None:
+            astree.astree.add_expr_span(
+                condition.exprid, astlastinstr.iaddr, astlastinstr.bytestring)
+        return swapped(condition)
 
     else:
         condition = astblock.ast_condition(astree)
+        if condition is not None:
+            astree.astree.add_expr_span(
+                condition.exprid, astlastinstr.iaddr, astlastinstr.bytestring)
         return cast(AST.ASTBranch, astree.mk_branch(
             condition, ifbranch, elsebranch, tgtaddr))
 
@@ -571,7 +579,7 @@ class Cfg:
                 else:
                     astexprs = []
                 astexpr = astexprs[0] if len(astexprs) == 1 else None
-                rtnstmt = astree.mk_return_stmt(astexpr)
+                rtnstmt = astree.mk_return_stmt(astexpr, instr.iaddr, instr.bytestring)
                 blocknode = astree.mk_block([blocknode, rtnstmt])
             blockstmts[n] = blocknode
 
