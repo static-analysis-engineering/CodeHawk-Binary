@@ -333,7 +333,7 @@ class ASTSerializer(ASTIndexer):
 
     def index_loop_stmt(self, stmt: AST.ASTLoop) -> int:
         tags: List[str] = [stmt.tag, str(stmt.stmtid), str(stmt.locationid)]
-        args: List[int] = [s.index(self) for s in stmt.stmts]
+        args: List[int] = [stmt.body.index(self)]
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] =  stmt.locationid

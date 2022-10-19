@@ -258,6 +258,7 @@ class AbstractSyntaxTree:
 
     def add_instruction_span(
             self, locationid: int, base: str, bytestring: str) -> None:
+        """Add a span for an ast instruction."""
         span: Dict[str, Union[str, int]] = {}
         span["base_va"] = base
         span["size"] = len(bytestring) // 2
@@ -266,14 +267,50 @@ class AbstractSyntaxTree:
         spanrec["spans"] = [span]
         self.add_span(cast(ASTSpanRecord, spanrec))
 
+    def add_expr_span(
+            self, exprid: int, base: str, bytestring: str) -> None:
+        """Add a span for an assembly instruction without ast instruction.
+
+        The expression span provides a link between assembly instructions
+        that do not (or may not) have an associated instruction in the ast
+        such as return statements and conditional jumps.
+
+        If these assembly instructions involve an expression (such as the
+        return value or the branch condition) then the expression id of the
+        associated ast expression can be used to establish the link to the
+        relevant assembly instruction.
+        """
+
+        if exprid in self.expr_spanmap():
+            return
+        span: Dict[str, Union[str, int]] = {}
+        span["base_va"] = base
+        span["size"] = len(bytestring) // 2
+        spanrec: Dict[str, Any] = {}
+        spanrec["exprid"] = exprid
+        spanrec["spans"] = [span]
+        self.add_span(cast(ASTSpanRecord, spanrec))
+
     def spanmap(self) -> Dict[int, str]:
         """Return mapping from locationid to instruction base address."""
 
         result: Dict[int, str] = {}
         for spanrec in self.spans:
-            spanlocationid = cast(int, spanrec["locationid"])
-            spans_at_xref = cast(List[Dict[str, Any]], spanrec["spans"])
-            result[spanlocationid] = spans_at_xref[0]["base_va"]
+            if "locationid" in spanrec:
+                spanlocationid = cast(int, spanrec["locationid"])
+                spans_at_xref = cast(List[Dict[str, Any]], spanrec["spans"])
+                result[spanlocationid] = spans_at_xref[0]["base_va"]
+        return result
+
+    def expr_spanmap(self) -> Dict[int, str]:
+        """Return mapping from exprid to related instruction base address."""
+
+        result: Dict[int, str] = {}
+        for spanrec in self.spans:
+            if "exprid" in spanrec:
+                spanexprid = cast(int, spanrec["exprid"])
+                spans_at_xref = cast(List[Dict[str, Any]], spanrec["spans"])
+                result[spanexprid] = spans_at_xref[0]["base_va"]
         return result
 
     # ------------------------------------------------------ make statements ---
@@ -667,6 +704,16 @@ class AbstractSyntaxTree:
                 parameter=parameter,
                 vdescr=vdescr)
         return vinfo
+
+    def mk_vinfo_main_function(self, gaddr: str) -> AST.ASTVarInfo:
+        """Return the prototype for the main function."""
+
+        vtype = self.mk_funtyp_main_function()
+        return self.mk_vinfo(
+            "main",
+            vtype=vtype,
+            globaladdress = int(gaddr, 16),
+            vdescr="main function prototype")
 
     def mk_vinfo_variable(self, vinfo: AST.ASTVarInfo) -> AST.ASTVariable:
         return AST.ASTVariable(vinfo)
@@ -1325,6 +1372,12 @@ class AbstractSyntaxTree:
         funargs = AST.ASTFunArgs(
             [AST.ASTFunArg(name, typ) for (name, typ) in arguments])
         return AST.ASTTypFun(returntype, funargs, varargs=varargs)
+
+    def mk_funtyp_main_function(self) -> AST.ASTTyp:
+        arg1 = ("argc", self.int_type)
+        argvtype = self.mk_pointer_type(self.mk_pointer_type(self.char_type))
+        arg2 = ("argv", argvtype)
+        return self.mk_function_with_arguments_type(self.int_type, [arg1, arg2])
 
     def mk_typedef(self, name: str, typ: AST.ASTTyp) -> AST.ASTTypNamed:
         return AST.ASTTypNamed(name, typ)

@@ -60,7 +60,7 @@ class ASTICodeTransformer(ASTIdentityTransformer):
         return stmt.transform(self)
 
     def transform_loop_stmt(self, stmt: AST.ASTLoop) -> AST.ASTStmt:
-        newbody = stmt.stmts[0].transform(self)
+        newbody = stmt.body.transform(self)
         return self.astinterface.mk_loop(
             newbody, optlocationid=stmt.locationid)
 
