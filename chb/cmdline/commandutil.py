@@ -355,6 +355,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     outputfile: str = args.outputfile
     doextract: bool = args.extract
     verbose: bool = args.verbose
+    collectdiagnostics: bool = args.collect_diagnostics
     save_asm: str = args.save_asm
     thumb: List[str] = args.thumb
     preamble_cutoff: int = args.preamble_cutoff
@@ -440,6 +441,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         try:
             am.disassemble(
                 verbose=verbose,
+                collectdiagnostics=collectdiagnostics,
                 preamble_cutoff=preamble_cutoff,
                 save_asm=save_asm)
         except subprocess.CalledProcessError as e:
@@ -472,6 +474,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 analysisrepeats=analysisrepeats,
                 iterations=iterations,
                 verbose=verbose,
+                collectdiagnostics=collectdiagnostics,
                 preamble_cutoff=preamble_cutoff)
         except subprocess.CalledProcessError as e:
             print(e.output)

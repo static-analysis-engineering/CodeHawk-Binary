@@ -75,6 +75,8 @@ class ARMIfThen(ARMOpcode):
             lhs = str(xdata.vars[0])
             rhs = str(xdata.xprs[0])
             return lhs + " := " + rhs
+        elif xdata.has_branch_conditions():
+            return "if " + str(xdata.xprs[3]) + " then goto "
         else:
             return self.tags[0]
 

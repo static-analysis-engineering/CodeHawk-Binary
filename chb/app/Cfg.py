@@ -436,7 +436,7 @@ class Cfg:
         if self._flowgraph is None:
             self._flowgraph = FlowGraph(self.derived_graph_sequence.nodes,
                                     self.derived_graph_sequence.edges,
-                                    self.derived_graph_sequence.graphs[0].nodes[0])
+                                    self.derived_graph_sequence.graphs[-1].nodes[0])
         return self._flowgraph
 
     def stmt_ast(
