@@ -175,6 +175,7 @@ class AnalysisManager(object):
             save_xml: bool = False,
             timeout: Optional[int] = None,
             verbose: bool = False,
+            collectdiagnostics: bool = False,
             preamble_cutoff: int = 12,
             save_asm: str = "yes") -> None:
         os.chdir(self.path)
@@ -186,6 +187,8 @@ class AnalysisManager(object):
             cmd.extend(["-specialization", s])
         if save_asm == "yes":
             cmd.append("-save_asm")
+        if collectdiagnostics:
+            cmd.append("-diagnostics")
         if self.mips:
             cmd.append("-mips")
         if self.arm:
@@ -231,6 +234,7 @@ class AnalysisManager(object):
             iterations: int = 10,
             extract: bool = False,
             verbose: bool = False,
+            collectdiagnostics: bool = False,
             ignore_stable: bool = False,
             save_asm: bool = False,
             mem: bool = False,
@@ -246,6 +250,7 @@ class AnalysisManager(object):
             mem=mem,
             timeout=timeout,
             verbose=verbose,
+            collectdiagnostics=collectdiagnostics,
             preamble_cutoff=preamble_cutoff)
         return result
 
@@ -360,6 +365,7 @@ class AnalysisManager(object):
             mem: bool = False,
             timeout: Optional[int] = None,
             verbose: bool = False,
+            collectdiagnostics: bool = False,
             preamble_cutoff: int = 12) -> int:
         os.chdir(self.path)
         functionsjarfile = UF.get_functionsjar_filename(self.path, self.filename)
@@ -392,6 +398,8 @@ class AnalysisManager(object):
             cmd.append("-ignore_stable")
         if verbose:
             cmd.append("-verbose")
+        if collectdiagnostics:
+            cmd.append("-diagnostics")
         if asm:
             cmd.append("-save_asm")
         cmd.extend(["-analyze", self.filename])

@@ -149,7 +149,11 @@ from chb.util.DotGraph import DotGraph
 
 
 def showversion(args: argparse.Namespace) -> NoReturn:
-    print("Version " + chbversion)
+    print("CodeHawk-Binary Analyzer (python) Version: " + chbversion)
+    config = Config()
+    chx86_analyze = Config().chx86_analyze
+    cmd = [chx86_analyze, "version"]
+    subprocess.call(cmd, stderr=subprocess.STDOUT)
     exit(0)
 
 
@@ -334,14 +338,18 @@ def parse() -> argparse.Namespace:
         action='store_true',
         help='remove extracted binary (chx.tar.gz) and analysis results')
     analyzecmd.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='output intermediate information')
+        "-v", "--verbose",
+        action="store_true",
+        help="output intermediate information")
     analyzecmd.add_argument(
-        '--save_asm',
-        default='yes',
-        choices=['yes', 'no'],
+        "--save_asm",
+        default="yes",
+        choices=["yes", "no"],
         help='save asm listing in analysis directory')
+    analyzecmd.add_argument(
+        "--collect_diagnostics",
+        action="store_true",
+        help="save diagnostics in a separate diagnostics log file")
     analyzecmd.add_argument(
         "--thumb",
         nargs="*",
