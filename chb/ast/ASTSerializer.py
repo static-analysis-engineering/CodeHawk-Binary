@@ -385,6 +385,19 @@ class ASTSerializer(ASTIndexer):
             args.append(label.index(self))
         return self.add(tags, args, node)
 
+    def index_computedgoto_stmt(self, stmt: AST.ASTComputedGoto) -> int:
+        tags: List[str] = [
+            stmt.tag,
+            str(stmt.stmtid),
+            str(stmt.locationid)]
+        args: List[int] = [stmt.target_expr.index(self)]
+        node: Dict[str, Any] = {"tag": stmt.tag}
+        node["stmtid"] = stmt.stmtid
+        node["locationid"] = stmt.locationid
+        for label in stmt.labels:
+            args.append(label.index(self))
+        return self.add(tags, args, node)
+
     def index_break_stmt(self, stmt: AST.ASTBreak) -> int:
         tags: List[str] = [
             stmt.tag, str(stmt.stmtid), str(stmt.locationid), str(stmt.locationid)]

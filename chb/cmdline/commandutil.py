@@ -612,7 +612,10 @@ def results_callgraph(args: argparse.Namespace) -> NoReturn:
         print_info("Call graph for " + xname + " has been saved in " + pdffilename)
 
     else:
-        print_error("Error in converting dot file to pdf")
+        print_error(
+            "Error in converting dot file to pdf: file "
+            + pdffilename
+            + " not found")
         exit(1)
 
     exit(0)
@@ -1206,6 +1209,13 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
             adedges = extract_edges(add_edges)
             f.cfg.modify_edges(rmedges, adedges)
 
+        invariants = f.invariants
+        nodecolors: Dict[str, str] = {}
+        for b in f.blocks:
+            if b in invariants:
+                if any(k.is_unreachable for k in invariants[b]):
+                    nodecolors[b] = "grey"
+
         graphname = "cfg_" + faddr
         if xsink is not None:
             graphname += "_" + xsink
@@ -1216,6 +1226,7 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
             f,
             looplevelcolors=["#FFAAAAFF", "#FF5555FF", "#FF0000FF"],
             showpredicates=xpredicates,
+            nodecolors=nodecolors,
             showcalls=xcalls,
             showinstr_opcodes=xinstr_opcodes,
             showinstr_text=xinstr_text,
@@ -1241,12 +1252,13 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
                 json.dump(edges, fp, indent=2)
 
         if os.path.isfile(pdffilename):
-            print_info("Control flow graph for "
-                       + fname
-                       + " has been saved in "
-                       + pdffilename)
+            print_info(
+                "Control flow graph for "
+                + fname
+                + " has been saved in "
+                + pdffilename)
         else:
-            print_error("Error in converting dot file to pdf")
+            print_error("Error in converting dot file to pdf: " + pdffilename)
             exit(1)
     else:
         print_error("Function " + faddr + " not found")

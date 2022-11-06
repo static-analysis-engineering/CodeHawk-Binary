@@ -463,6 +463,10 @@ class XprConstant(XXpr):
         return self.constant.is_int_constant
 
     @property
+    def is_bool_constant(self) -> bool:
+        return self.constant.is_boolconst
+
+    @property
     def is_string_reference(self) -> bool:
         return self.constant.is_string_reference
 

@@ -148,6 +148,9 @@ class ASTByteSizeCalculator(ASTIndexer):
     def index_goto_stmt(self, stmt: AST.ASTGoto) -> int:
         return 0
 
+    def index_computedgoto_stmt(self, stmt: AST.ASTComputedGoto) -> int:
+        return 0
+
     def index_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> int:
         return 0
 

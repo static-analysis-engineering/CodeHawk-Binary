@@ -97,7 +97,10 @@ class FunctionRelationalAnalysis:
     def address2_align(self, addr2: str) -> str:
         """Return the corresponding address in fn2 by adding the offset."""
 
-        return hex(int(addr2, 16) - self.offset)
+        if addr2.startswith("F"):
+            return "?"
+        else:
+            return hex(int(addr2, 16) - self.offset)
 
     def edge2_align(self, e2: Tuple[str, str]) -> Tuple[str, str]:
         return (self.address2_align(e2[0]), self.address2_align(e2[1]))

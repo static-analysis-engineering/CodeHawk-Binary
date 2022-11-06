@@ -78,7 +78,10 @@ class DotNode:
         if self.shaded:
             shadetxt = 'style=filled,color=".7 .3 1.0"'
         elif self.color is not None:
-            shadetxt = 'style=filled,color="' + self.color + '"'
+            if self.color == "grey":
+                shadetxt = 'style=filled,fillcolor="grey",color="black",penwidth=5'
+            else:
+                shadetxt = 'style=filled,color="' + self.color + '"'
         else:
             shadetxt = 'style=filled,color=".7 .3 1.0"'
         return (

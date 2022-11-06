@@ -63,6 +63,10 @@ class ASTCTyper(ABC):
     def ctype_goto_stmt(self, stmt: AST.ASTGoto) -> Optional[AST.ASTTyp]:
         return None
 
+    def ctype_computedgoto_stmt(
+            self, stmt: AST.ASTComputedGoto) -> Optional[AST.ASTTyp]:
+        return None
+
     def ctype_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> Optional[AST.ASTTyp]:
         return None
 

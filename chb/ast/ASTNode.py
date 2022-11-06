@@ -665,6 +665,34 @@ class ASTGoto(ASTStmt):
         return ctyper.ctype_goto_stmt(self)
 
 
+class ASTComputedGoto(ASTStmt):
+
+    def __init__(
+            self,
+            stmtid: int,
+            locationid: int,
+            tgtexpr: "ASTExpr",
+            labels: List["ASTStmtLabel"] = []) -> None:
+        ASTStmt.__init__(self, stmtid, locationid, labels, "computedgoto")
+        self._tgtexpr = tgtexpr
+
+    @property
+    def target_expr(self) -> "ASTExpr":
+        return self._tgtexpr
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_computedgoto_stmt(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
+        return transformer.transform_computedgoto_stmt(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_computedgoto_stmt(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_computedgoto_stmt(self)
+
+
 class ASTSwitchStmt(ASTStmt):
 
     def __init__(

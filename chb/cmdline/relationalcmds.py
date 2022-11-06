@@ -107,13 +107,12 @@ def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
     if cfgsfilename is not None:
         functionschanged = relanalysis.functions_changed()
         if len(functionschanged) == 0:
-            UC.print_error("Cfg's currently only available for a single function changed")
+            UC.print_error("No functions changed")
             exit(0)
 
         dotgraphs: List[DotCfg] = []
 
         for faddr in functionschanged:
-            print("faddr: " + faddr)
             if faddr in relanalysis.function_mapping:
                 fnanalysis = relanalysis.function_analysis(faddr)
                 cfgmatcher = fnanalysis.cfgmatcher
@@ -153,7 +152,8 @@ def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
                 + " has been saved in "
                 + pdffilename)
         else:
-            UC.print_error("Error in converting dot file to pdf")
+            UC.print_error(
+                "Error in converting dot file to pdf")
             exit(1)
 
     exit(0)

@@ -71,6 +71,10 @@ class ASTVisitor(ABC):
         ...
 
     @abstractmethod
+    def visit_computedgoto_stmt(self, stmt: AST.ASTComputedGoto) -> None:
+        ...
+
+    @abstractmethod
     def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
         ...
 

@@ -30,6 +30,7 @@ from typing import cast, List, Optional, Sequence, Set, TYPE_CHECKING
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+from chb.invariants.XConstant import XBoolConst
 from chb.invariants.XVariable import XVariable
 import chb.invariants.XXpr as X
 
@@ -278,6 +279,13 @@ def xconstant_to_ast_exprs(
 
     if xc.is_int_constant:
         return [astree.mk_integer_constant(xc.intvalue)]
+
+    elif xc.is_bool_constant:
+        xconst = cast(XBoolConst, xc.constant)
+        if xconst.is_false:
+            return [astree.mk_integer_constant(0)]
+        else:
+            return [astree.mk_integer_constant(1)]
 
     else:
         raise UF.CHBError(
