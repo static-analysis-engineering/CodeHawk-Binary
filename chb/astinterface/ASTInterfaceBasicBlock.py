@@ -79,13 +79,13 @@ class ASTInterfaceBasicBlock:
 
     def assembly_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         instrs: List[AST.ASTInstruction] = []
-        for (a, i) in sorted(self.instructions.items(), key=lambda p: int(p[0], 16)):
+        for (a, i) in sorted(self.instructions.items(), key=lambda p: p[0]):
             instrs.extend(i.assembly_ast(astree))
         return astree.mk_instr_sequence(instrs)
 
     def ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         instrs: List[AST.ASTInstruction] = []
-        for (a, i) in sorted(self.instructions.items(), key=lambda p: int(p[0], 16)):
+        for (a, i) in sorted(self.instructions.items(), key=lambda p: p[0]):
             instrs.extend(i.ast(astree))
         return astree.mk_instr_sequence(instrs)
     

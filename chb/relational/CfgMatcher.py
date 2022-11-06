@@ -384,6 +384,16 @@ class CfgMatcher:
             colors1[n] = "#FFA500"
         for n in unmapped2:
             colors2[n] = "#FFA500"
+        fn1invs = self.fn1.invariants
+        fn2invs = self.fn2.invariants
+        for b in self.fn1.blocks:
+            if b in fn1invs:
+                if any(k.is_unreachable for k in fn1invs[b]):
+                    colors1[b] = "grey"
+        for b in self.fn2.blocks:
+            if b in fn2invs:
+                if any(k.is_unreachable for k in fn2invs[b]):
+                    colors2[b] = "grey"
         dotcfg1 = DotCfg(
             "vulnerable",
             self.fn1,

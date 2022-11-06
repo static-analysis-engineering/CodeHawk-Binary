@@ -175,7 +175,7 @@ class AnalysisManager(object):
             save_xml: bool = False,
             timeout: Optional[int] = None,
             verbose: bool = False,
-            collectdiagnostics: bool = False,
+            collectdiagnostics: bool = True,
             preamble_cutoff: int = 12,
             save_asm: str = "yes") -> None:
         os.chdir(self.path)

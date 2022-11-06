@@ -138,6 +138,12 @@ class DotCfg:
             if self.mips:
                 iaddr_i -= 4  # delay slot
             instraddr = 'B:' + ctxtaddr[0] + '_' + hex(iaddr_i)
+        elif instraddr.startswith('F'):
+            ctxtaddr = instraddr[2:].split('_')
+            iaddr_i = int(ctxtaddr[1], 16)
+            if self.mips:
+                iaddr_i -= 4  # delay slot
+            instraddr = 'F:' + ctxtaddr[0] + '_' + hex(iaddr_i)
         else:
             instraddr_i = int(instraddr, 16)
             if self.mips:
