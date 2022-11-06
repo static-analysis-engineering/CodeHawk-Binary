@@ -69,6 +69,10 @@ class ASTIndexer(ABC):
         ...
 
     @abstractmethod
+    def index_computedgoto_stmt(self, stmt: AST.ASTComputedGoto) -> int:
+        ...
+
+    @abstractmethod
     def index_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> int:
         ...
 

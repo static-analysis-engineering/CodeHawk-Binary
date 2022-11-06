@@ -387,7 +387,18 @@ class AbstractSyntaxTree:
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTGoto:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
-        return AST.ASTGoto(stmtid, locationid, destinationlabel, destinationaddr)
+        return AST.ASTGoto(
+            stmtid, locationid, destinationlabel, destinationaddr, labels)
+
+    def mk_computed_goto_stmt(
+            self,
+            targetexpr: AST.ASTExpr,
+            optstmtid: Optional[int] = None,
+            optlocationid: Optional[int] = None,
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTComputedGoto:
+        stmtid = self.get_stmtid(optstmtid)
+        locationid = self.get_locationid(optlocationid)
+        return AST.ASTComputedGoto(stmtid, locationid, targetexpr, labels)
 
     def mk_switch_stmt(
             self,

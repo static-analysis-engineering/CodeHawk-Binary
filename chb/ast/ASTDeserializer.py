@@ -436,6 +436,13 @@ class ASTDeserializer:
                 nodes[id] = astree.mk_goto_stmt(
                     destinationlabel, destinationaddr, stmtid, locationid)
 
+            elif tag == "computedgoto":
+                smtmtid = r["stmtid"]
+                locationid = r["locationid"]
+                tgtexpr = cast(AST.ASTExpr, mk_node(arg(0)))
+                nodes[id] = astree.mk_computed_goto_stmt(
+                    tgtexpr, optstmtid=stmtid, optlocationid=locationid)
+
             elif tag == "switch":
                 stmtid = r["stmtid"]
                 locationid = r["locationid"]

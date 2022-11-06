@@ -136,6 +136,18 @@ not present a new value is generated automatically.
     labels: List[ASTLabel] = []) -> ASTGoto
   ```
 
+- **mk_computed_goto_stmt**: creates a computed goto statement (supported as a
+  GCC and Clang extension, but not in the C standard). It takes any expression
+  as an argument. Ideally this expression should eventually evaluate to the
+  address of a label (high-level) or global-address constant (low-level):
+  ```
+  def mk_computed_goto_stmt(self,
+    targetexpr: ASTExpr,
+    stmtid: Optional[int],
+    locationid: Optional[int],
+    labels: List[ASTLable] = []) -> ASTComputedGoto
+  ```
+
 - **mk_switch_stmt**: creates a switch statement with a switch expression and
   cases as child statements. It is the callers responsibility to make sure that
   the child statements have the appropriate case labels.

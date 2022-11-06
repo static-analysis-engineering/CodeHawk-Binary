@@ -61,6 +61,10 @@ class ASTIdentityTransformer(ASTTransformer):
     def transform_goto_stmt(self, stmt: AST.ASTGoto) -> AST.ASTStmt:
         return stmt
 
+    def transform_computedgoto_stmt(
+            self, stmt: AST.ASTComputedGoto) -> AST.ASTStmt:
+        return stmt
+
     def transform_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> AST.ASTStmt:
         return stmt
 

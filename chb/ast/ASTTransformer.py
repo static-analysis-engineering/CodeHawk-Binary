@@ -70,6 +70,11 @@ class ASTTransformer(ABC):
         ...
 
     @abstractmethod
+    def transform_computedgoto_stmt(
+            self, stmt: AST.ASTComputedGoto) -> AST.ASTStmt:
+        ...
+
+    @abstractmethod
     def transform_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> AST.ASTStmt:
         ...
 

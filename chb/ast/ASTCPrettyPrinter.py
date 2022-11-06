@@ -303,6 +303,13 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write("goto ")
         self.ccode.write(stmt.destination)
 
+    def visit_computedgoto_stmt(self, stmt: AST.ASTComputedGoto) -> None:
+        for label in stmt.labels:
+            label.accept(self)
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("goto ")
+        stmt.target_expr.accept(self)
+
     def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
         for label in stmt.labels:
             label.accept(self)

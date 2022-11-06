@@ -75,6 +75,9 @@ class ASTVariablesReferenced(ASTVisitor):
     def visit_goto_stmt(self, stmt: AST.ASTGoto) -> None:
         pass
 
+    def visit_computedgoto_stmt(self, stmt: AST.ASTComputedGoto) -> None:
+        stmt.target_expr.accept(self)
+
     def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
         stmt.switchexpr.accept(self)
         stmt.cases.accept(self)
