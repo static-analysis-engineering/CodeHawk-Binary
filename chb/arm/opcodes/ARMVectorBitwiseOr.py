@@ -45,9 +45,11 @@ if TYPE_CHECKING:
 class ARMVectorBitwiseOr(ARMOpcode):
     """Performs a bitwise OR on two registers.
 
-    VEOR<c> <Rd>, <Rn>, <Rm>
+    VORR<c> <Rd>, <Rn>, <Rm>
+    VORR<c>.<dt> <Rd>, #<imm>
 
     tags[1]: <c>
+    tags[2]: <dt>
     args[0]: index of Rd in armdictionary
     args[1]: index of Rn in armdictionary
     args[2]: index of Rm in armdictionary
@@ -58,7 +60,7 @@ class ARMVectorBitwiseOr(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 3, "VectorBitwiseOr")
+        self.check_key(3, 3, "VectorBitwiseOr")
 
     @property
     def operands(self) -> List[ARMOperand]:

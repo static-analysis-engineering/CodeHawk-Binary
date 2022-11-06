@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Tuple, TYPE_CHECKING
+from typing import cast, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -36,6 +36,7 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
@@ -70,6 +71,12 @@ class ARMIfThen(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return []
 
+    def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
+        if xdata.has_branch_conditions():
+            return [xdata.xprs[3], xdata.xprs[2]]
+        else:
+            return []
+
     def annotation(self, xdata: InstrXData) -> str:
         if len(xdata.vars) == 1 and len(xdata.xprs) == 1:
             lhs = str(xdata.vars[0])
@@ -79,6 +86,55 @@ class ARMIfThen(ARMOpcode):
             return "if " + str(xdata.xprs[3]) + " then goto "
         else:
             return self.tags[0]
+
+    def ast_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData,
+            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+
+        annotations: List[str] = [iaddr, "IT"]
+
+        reachingdefs = xdata.reachingdefs
+
+        def default(condition: XXpr) -> AST.ASTExpr:
+            astconds = XU.xxpr_to_ast_exprs(condition, xdata, astree)
+            if len(astconds) == 0:
+                raise UF.CHBError(
+                    "IfThen (IT): no ast value for condition at "
+                    + iaddr
+                    + " for "
+                    + str(condition))
+
+            if len(astconds) > 1:
+                raise UF.CHBError(
+                    "IfThen (IT): multiple ast values for condition at "
+                    + iaddr
+                    + ": "
+                    + ", ".join(str(c) for c in astconds)
+                    + " for  condition "
+                    + str(condition))
+
+            return astconds[0]
+
+        ftconds = self.ft_conditions(xdata)
+        if len(ftconds) == 2:
+            if reverse:
+                condition = ftconds[0]
+            else:
+                condition = ftconds[1]
+
+        hl_astcond = default(condition)
+        ll_astcond = self.ast_cc_expr(astree)
+
+        astree.add_expr_mapping(hl_astcond, ll_astcond)
+        astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+        astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
+        astree.add_condition_address(ll_astcond, [iaddr])
+
+        return (hl_astcond, ll_astcond)
 
     def ast_prov(
             self,

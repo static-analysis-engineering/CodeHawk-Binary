@@ -55,6 +55,7 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
     tags[1]: <c>
     args[0]: index of op1 in armdictionary
     args[1]: index of op2 in armdictionary
+    args[2]: thumb wide
 
     xdata format: a:vxxxrdh
     -----------------------
@@ -76,7 +77,7 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
     @property
     def opargs(self) -> List[ARMOperand]:
