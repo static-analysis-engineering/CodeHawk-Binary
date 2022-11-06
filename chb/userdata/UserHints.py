@@ -63,6 +63,9 @@ Currently provided:
 - IndirectJumps
       mapping of function/instr address to list of possible targets
 
+- InlinedFunctions
+      addresses of functions to be inlined
+
 - NonReturningCalls
       list of function/instr addresses with calls that do not return
       (intended for functions that may return in other calls)
@@ -615,6 +618,39 @@ class IndirectJumpsHints(HintsEntry):
         return "\n".join(lines)
 
 
+class InlinedFunctionsHints(HintsEntry):
+    """List of function addresses in hex."""
+
+    def __init__(self, faddrs: List[str]) -> None:
+        HintsEntry.__init__(self, "inlined-functions")
+        self._faddrs = faddrs
+
+    @property
+    def faddrs(self) -> List[str]:
+        return self._faddrs
+
+    def update(self, d: List[str]) -> None:
+        for p in d:
+            if p not in self._faddrs:
+                self._faddrs.append(p)
+
+    def to_xml(self, node: ET.Element) -> None:
+        xinlined = ET.Element(self.name)
+        node.append(xinlined)
+        for a in self.faddrs:
+            xinline = ET.Element("inline")
+            xinline.set("fa", a)
+            xinlined.append(xinline)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Inlined functions")
+        lines.append("-----------------")
+        for a in self.faddrs:
+            lines.append("  " + a)
+        return "\n".join(lines)
+
+
 class NonReturningCallsHints(HintsEntry):
     """Call sites where the call does not return.
 
@@ -1102,6 +1138,14 @@ class UserHints:
                 self.userdata[tag].update(jumps)
             else:
                 self.userdata[tag] = IndirectJumpsHints(jumps)
+
+        if "inlined-functions" in hints:
+            tag = "inlined-functions"
+            faddrs: List[str] = hints[tag]
+            if tag in self.userdata:
+                self.userdata[tag].update(faddrs)
+            else:
+                self.userdata[tag] = InlinedFunctionsHints(faddrs)
 
         if "non-returning-calls" in hints:
             tag = "non-returning-calls"
