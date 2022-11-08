@@ -155,7 +155,7 @@ class ASTIProvenance:
             hl_instr: AST.ASTInstruction,
             ll_instr: AST.ASTInstruction) -> None:
         self._instr_mapping.setdefault(hl_instr.instrid, [])
-        if not ll_instr.instrid in self.instruction_mapping:
+        if ll_instr.instrid not in self.instruction_mapping:
             self.instruction_mapping[hl_instr.instrid].append(ll_instr.instrid)
         self.add_instruction(hl_instr)
         self.add_instruction(ll_instr)
@@ -255,17 +255,17 @@ class ASTIProvenance:
 
     def add_instruction(self, instr: AST.ASTInstruction) -> None:
         instrid = instr.instrid
-        if not instrid in self._instructions:
+        if instrid not in self._instructions:
             self._instructions[instrid] = instr
 
     def add_expr(self, expr: AST.ASTExpr) -> None:
         exprid = expr.exprid
-        if not exprid in self._expressions:
+        if exprid not in self._expressions:
             self._expressions[exprid] = expr
 
     def add_lval(self, lval: AST.ASTLval) -> None:
         lvalid = lval.lvalid
-        if not lvalid in self._lvals:
+        if lvalid not in self._lvals:
             self._lvals[lvalid] = lval
 
     def has_instruction_mapped(self, instrid: int) -> bool:

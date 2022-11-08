@@ -110,7 +110,7 @@ class ASTInterfaceFunction(ASTFunction):
 
     def mk_asts(self, support: CustomASTSupport) -> List[ASTStmt]:
         highlevel = self.mk_high_level_ast(support)
-        lowlevel  = self.mk_low_level_ast(support)
+        lowlevel = self.mk_low_level_ast(support)
 
         # transfer provenance data to the AST abstract syntaxtree
         self.astinterface.set_ast_provenance()

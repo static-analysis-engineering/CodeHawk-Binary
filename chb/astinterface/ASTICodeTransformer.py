@@ -70,7 +70,7 @@ class ASTICodeTransformer(ASTIdentityTransformer):
             newstmts,
             labels=stmt.labels,
             optlocationid=stmt.locationid)
-        
+
     def transform_instruction_sequence_stmt(
             self, stmt: AST.ASTInstrSequence) -> AST.ASTStmt:
         instrs: List[AST.ASTInstruction] = []
@@ -102,6 +102,3 @@ class ASTICodeTransformer(ASTIdentityTransformer):
         newcases = stmt.cases.transform(self)
         return self.astinterface.mk_switch_stmt(
             stmt.switchexpr, newcases, optlocationid=stmt.locationid)
-        
-
-    
