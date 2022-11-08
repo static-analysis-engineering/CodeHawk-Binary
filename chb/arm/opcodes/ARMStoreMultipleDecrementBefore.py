@@ -363,7 +363,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                 + "first variable is not a memory var: " + str(memlhss[0]))
             return default()
 
-        xvar = cast ("VMemoryVariable", memlhss[0].denotation)
+        xvar = cast("VMemoryVariable", memlhss[0].denotation)
         if not xvar.base.is_local_stack_frame:
             astree.add_diagnostic(
                 "StoreMultipleDecrementBefore (STMDB): "

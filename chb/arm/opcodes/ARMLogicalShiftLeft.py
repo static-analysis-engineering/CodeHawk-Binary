@@ -152,7 +152,7 @@ class ARMLogicalShiftLeft(ARMOpcode):
                 "ARMLogicalShiftLeft (LSL): Multiple lhs locations found: "
                 + ", ".join(str(l) for l in hl_lhss))
 
-        hl_rhss = XU.xxpr_to_ast_exprs(rresult,xdata,  astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rresult, xdata, astree)
         if len(hl_rhss) == 0:
             raise UF.CHBError("ARMLogicalShiftLeft (LSL): no rhs found")
 

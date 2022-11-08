@@ -36,7 +36,7 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
-from chb.invariants.XXpr import XXpr
+from chb.invariants.XXpr import XXpr, XprCompound, XprVariable
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
@@ -168,7 +168,59 @@ class ARMStoreRegister(ARMOpcode):
 
         hl_rhs = rhsexprs[0]
 
+        def split_assigns(
+                base: AST.ASTLvalExpr,
+                offsets: List[AST.ASTExpr],
+                rhs: AST.ASTLvalExpr) -> Tuple[List[
+                    AST.ASTInstruction], List[AST.ASTInstruction]]:
+            hl_assigns: List[AST.ASTInstruction] = []
+            for i in range(0, 4):
+                ioffset = cast(AST.ASTExpr, astree.mk_integer_constant(i))
+                offsetsi = [ioffset] + offsets[:]
+                newoffseti = astree.add_index_list_offset(
+                    base.lval.offset, offsetsi)
+                hl_mem_lhsi = astree.mk_lval(base.lval.lhost, newoffseti)
+                newoffseti = astree.add_to_index_offset(rhs.lval.offset, i)
+                rhsi_lval = astree.mk_lval(rhs.lval.lhost, newoffseti)
+                rhsi = astree.mk_lval_expression(rhsi_lval)
+
+                hl_assigni = astree.mk_assign(
+                    hl_mem_lhsi,
+                    rhsi,
+                    iaddr=iaddr,
+                    bytestring=bytestring,
+                    annotations=annotations)
+
+                astree.add_instr_mapping(hl_assigni, ll_assign)
+                astree.add_expr_mapping(rhsi, ll_rhs)
+                astree.add_lval_mapping(hl_mem_lhsi, ll_lhs)
+                astree.add_expr_reachingdefs(ll_rhs, [rdefs[2]])
+                astree.add_lval_defuses(hl_mem_lhsi, defuses[0])
+                astree.add_lval_defuses_high(hl_mem_lhsi, defuseshigh[0])
+
+                astree.add_lval_store(hl_mem_lhsi)
+                hl_assigns.append(hl_assigni)
+
+            return (hl_assigns, [ll_assign])
+
         if lhs.is_tmp or lhs.has_unknown_memory_base():
+            address = xdata.xprs[4]
+            astaddrs = XU.xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
+            if len(astaddrs) == 1:
+                astaddr = astaddrs[0]
+                astaddrtype = astaddr.ctype(astree.ctyper)
+                if astaddrtype is not None:
+                    if astaddrtype.is_pointer:
+                        astaddrtype = cast(AST.ASTTypPtr, astaddrtype)
+                        astaddrtgttype = astaddrtype.tgttyp
+                        if astree.type_size_in_bytes(astaddrtgttype) == 1:
+                            if astaddr.is_ast_binary_op:
+                                (base, offsets) = astree.split_address_int_offset(astaddr)
+                                if base.is_ast_lval_expr and hl_rhs.is_ast_lval_expr:
+                                    base = cast(AST.ASTLvalExpr, base)
+                                    hl_rhs = cast(AST.ASTLvalExpr, hl_rhs)
+                                    return split_assigns(base, offsets, hl_rhs)
+
             hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
             astree.add_lval_store(hl_lhs)
 

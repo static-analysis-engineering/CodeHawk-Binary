@@ -291,22 +291,11 @@ class ARMBranch(ARMOpcode):
                         "Branch at " + iaddr + ": Error in ast condition")
 
             elif condition.is_compound:
-                condition = cast(XprCompound, condition)
-                xoperator = condition.operator
-                xoperands = condition.operands
-                xop1 = xoperands[0]
-                xop2 = xoperands[1]
+                csetter = xdata.tags[2]
+                astconditions = XU.xxpr_to_ast_def_exprs(condition, xdata, csetter, astree)
+                if len(astconditions) == 1:
+                    hl_astcond = astconditions[0]
 
-                if xop1.is_register_variable:
-                    csetter = xdata.tags[2]
-                    astop1s = XU.xxpr_to_ast_def_exprs(xop1, xdata, csetter, astree)
-                    astop2s = XU.xxpr_to_ast_exprs(xop2, xdata, astree)
-
-                    if len(astop1s) == 1 and len(astop2s) == 1:
-                        hl_astcond = astree.mk_binary_op(
-                            xoperator, astop1s[0], astop2s[0])
-                    else:
-                        hl_astcond = default(condition)
                 else:
                     hl_astcond = default(condition)
             else:
@@ -322,8 +311,7 @@ class ARMBranch(ARMOpcode):
             return (hl_astcond, ll_astcond)
 
         elif len(ftconds) == 0:
-            # raise UF.CHBError(
-                # "ARMBranch: no branch condition at " + iaddr)
+            astree.add_diagnostic(iaddr + ": no branch condition found")
             return (astree.mk_integer_constant(0), astree.mk_integer_constant(0))
 
         else:

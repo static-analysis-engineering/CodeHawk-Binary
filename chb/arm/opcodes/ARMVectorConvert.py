@@ -114,7 +114,7 @@ class ARMVectorConvert(ARMOpcode):
             ll_lhs,
             ll_rhs,
             iaddr=iaddr,
-            bytestring = bytestring,
+            bytestring=bytestring,
             annotations=annotations)
 
         hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)

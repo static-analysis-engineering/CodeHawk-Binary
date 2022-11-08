@@ -149,4 +149,3 @@ class ARMCompareNegative(ARMOpcode):
         astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
 
         return ([hl_assign], [ll_assign])
-

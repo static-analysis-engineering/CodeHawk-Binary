@@ -36,4 +36,3 @@ def bitfieldmask(len: int, lsb: int, width: int) -> int:
     mask = "0" * width
     postfix = ("1" * lsb) if lsb > 0 else ""
     return int(prefix + mask + postfix, 2)
-    
