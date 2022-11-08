@@ -144,6 +144,7 @@ class ARMUnsignedExtractBitField(ARMOpcode):
                 bytestring=bytestring,
                 annotations=annotations)
 
+            astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
             astree.add_instr_mapping(hl_assign, ll_assign)
             astree.add_instr_address(hl_assign, [iaddr])
             astree.add_expr_mapping(hl_rhs, ll_rhs)

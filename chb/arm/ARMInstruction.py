@@ -211,7 +211,7 @@ class ARMInstruction(Instruction):
             astree, self.iaddr, self.bytestring, self.xdata)
 
     def ast_prov(self, astree: ASTInterface) -> Tuple[
-            List[ASTInstruction],List[ASTInstruction]]:
+            List[ASTInstruction], List[ASTInstruction]]:
         """Return instruction ast with provenance."""
 
         return self.opcode.ast_prov(

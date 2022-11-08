@@ -29,8 +29,8 @@
 Corresponds to attrparam in CIL
 
                                                                  tags[0] tags args
-type b_attrparam_t =                                            
-| AInt of int                                                     "aint"   1   1                                     
+type b_attrparam:
+| AInt of int                                                     "aint"   1   1
 | AStr of string                                                  "astr"   1   1
 | ACons of string * b_attrparam_t list                            "acons"  2   n
 | ASizeOf of btype_t                                            "asizeof"  1   1
@@ -40,7 +40,7 @@ type b_attrparam_t =
 | AAlignOfE of b_attrparam_t                                  "aalignofe"  1   1
 | AAlignOfS of btypsig_t                                      "aalignofs"  1   1
 | AUnOp of unop_t * b_attrparam_t                                 "aunop"  2   1
-| ABinOp of binop_t * b_attrparam_t * b_attrparam_t              "abinop"  2   2 
+| ABinOp of binop_t * b_attrparam_t * b_attrparam_t              "abinop"  2   2
 | ADot of b_attrparam_t * string                                   "adot"  2   1
 | AStar of b_attrparam_t                                          "astar"  1   1
 | AAddrOf of b_attrparam_t                                      "aaddrof"  1   1
@@ -226,7 +226,7 @@ class BCAttrParamAlignOfE(BCAttrParam):
             bcd: "BCDictionary",
             ixval: IT.IndexedTableValue) -> None:
         BCAttrParam.__init__(self, bcd, ixval)
-    
+
     @property
     def param(self) -> "BCAttrParam":
         return self.bcd.attrparam(self.args[0])
@@ -266,11 +266,11 @@ class BCAttrParamUnOp(BCAttrParam):
     @property
     def operator(self) -> str:
         return self.tags[1]
-    
+
     @property
     def param(self) -> "BCAttrParam":
         return self.bcd.attrparam(self.args[0])
-    
+
     def __str__(self) -> str:
         return "aunop(" + self.operator + ", " + str(self.param) + ")"
 

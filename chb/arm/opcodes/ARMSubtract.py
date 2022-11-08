@@ -121,7 +121,8 @@ class ARMSubtract(ARMOpcode):
         xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return lhs + " := " + xresult
 
-    def ast_prov(self,
+    def ast_prov(
+            self,
             astree: ASTInterface,
             iaddr: str,
             bytestring: str,

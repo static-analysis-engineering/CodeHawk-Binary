@@ -1,1 +1,1 @@
-chbversion: str = "0.3.0-20221105"
+chbversion: str = "0.3.0-20221107"

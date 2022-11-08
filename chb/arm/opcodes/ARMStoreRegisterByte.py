@@ -177,8 +177,29 @@ class ARMStoreRegisterByte(ARMOpcode):
 
         hl_lhs = lvals[0]
 
-        if str(hl_lhs).startswith("__asttmp"):
-            hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
+        if lhs.is_tmp or lhs.has_unknown_memory_base():
+            hl_mem_lhs = None
+            address = xdata.xprs[4]
+            astaddrs = XU.xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
+            if len(astaddrs) == 1:
+                astaddr = astaddrs[0]
+                astaddrtype = astaddr.ctype(astree.ctyper)
+                if astaddrtype is not None:
+                    if astaddrtype.is_pointer:
+                        astaddrtype = cast(AST.ASTTypPtr, astaddrtype)
+                        astaddrtgttype = astaddrtype.tgttyp
+                        if astree.type_size_in_bytes(astaddrtgttype) == 1:
+                            if astaddr.is_ast_binary_op:
+                                (base, offsets) = astree.split_address_int_offset(astaddr)
+                                if base.is_ast_lval_expr:
+                                    base = cast(AST.ASTLvalExpr, base)
+                                    newoffset = astree.add_index_list_offset(
+                                        base.lval.offset, offsets)
+                                    hl_mem_lhs = astree.mk_lval(base.lval.lhost, newoffset)
+            if hl_mem_lhs is None:
+                hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
+            else:
+                hl_lhs = hl_mem_lhs
             astree.add_lval_store(hl_lhs)
 
         hl_assign = astree.mk_assign(

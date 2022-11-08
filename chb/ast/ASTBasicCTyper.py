@@ -54,7 +54,7 @@ class ASTBasicCTyper(ASTCTyper):
             if lval.offset.is_index_offset and lval.offset.offset.is_no_offset:
                 return cast(AST.ASTTypArray, hosttype).tgttyp
             else:
-                return lval.offset.offset.offset.ctype(self)                
+                return lval.offset.offset.offset.ctype(self)
         else:
             return lval.offset.ctype(self)
 
@@ -145,7 +145,3 @@ class ASTBasicCTyper(ASTCTyper):
 
     def ctype_fieldinfo(self, finfo: AST.ASTFieldInfo) -> Optional[AST.ASTTyp]:
         return finfo.fieldtype
-
-    
-        
-                

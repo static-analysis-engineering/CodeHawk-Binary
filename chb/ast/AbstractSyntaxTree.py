@@ -77,11 +77,11 @@ class AbstractSyntaxTree:
             localsymboltable: ASTLocalSymbolTable,
             registersizes: Dict[str, int] = {},
             flagnames: List[str] = [],
-            defaultsize: Optional[int] =  None) -> None:
+            defaultsize: Optional[int] = None) -> None:
         self._faddr = faddr
         self._fname = fname  # same as faddr if no name provided
         self._stmtid_counter = 1
-        self._instrid_counter =  1
+        self._instrid_counter = 1
         self._locationid_counter = 1
         self._lval_counter = 1
         self._expr_counter = 1
@@ -344,7 +344,6 @@ class AbstractSyntaxTree:
         locationid = self.get_locationid(optlocationid)
         return AST.ASTLoop(stmtid, locationid, body)
 
-
     def mk_break_stmt(
             self,
             optstmtid: Optional[int] = None,
@@ -425,7 +424,6 @@ class AbstractSyntaxTree:
         locationid = self.get_locationid(optlocationid)
         return AST.ASTInstrSequence(stmtid, locationid, instrs, labels=labels)
 
-
     """Labels
     Labels can be associated with statements. They represent both to mark
     a location in the control-flow, for example serving as the destination
@@ -448,14 +446,15 @@ class AbstractSyntaxTree:
     """
 
     def mk_label(
-            self, name: str, optlocationid: Optional[int]=None) -> AST.ASTLabel:
+            self, name: str,
+            optlocationid: Optional[int] = None) -> AST.ASTLabel:
         locationid = self.get_locationid(optlocationid)
         return AST.ASTLabel(locationid, name)
 
     def mk_case_label(
             self,
             expr: Optional[AST.ASTExpr],
-            optlocationid: Optional[int]=None) -> AST.ASTCaseLabel:
+            optlocationid: Optional[int] = None) -> AST.ASTCaseLabel:
         locationid = self.get_locationid(optlocationid)
         if expr is None:
             # create an (uninitialized) temporary variable
@@ -466,12 +465,12 @@ class AbstractSyntaxTree:
             self,
             lowexpr: AST.ASTExpr,
             highexpr: AST.ASTExpr,
-            optlocationid: Optional[int]=None) -> AST.ASTCaseRangeLabel:
+            optlocationid: Optional[int] = None) -> AST.ASTCaseRangeLabel:
         locationid = self.get_locationid(optlocationid)
         return AST.ASTCaseRangeLabel(locationid, lowexpr, highexpr)
 
     def mk_default_label(
-            self, optlocationid: Optional[int]=None) -> AST.ASTDefaultLabel:
+            self, optlocationid: Optional[int] = None) -> AST.ASTDefaultLabel:
         locationid = self.get_locationid(optlocationid)
         return AST.ASTDefaultLabel(locationid)
 
@@ -485,10 +484,10 @@ class AbstractSyntaxTree:
     represent the arguments to the call (preferably in conformance with the
     arity of the function type, but this is not checked).
 
-    Instructions are assigned a unique assembly cross reference, assembly_xref. 
-    This cross reference can then be used to create a link with the instruction 
-    address (via the span) if desired. If an assembly_xref was assigned earlier 
-    (e.g., when constructing an ast from an existing ast json file) it can be 
+    Instructions are assigned a unique assembly cross reference, assembly_xref.
+    This cross reference can then be used to create a link with the instruction
+    address (via the span) if desired. If an assembly_xref was assigned earlier
+    (e.g., when constructing an ast from an existing ast json file) it can be
     given as an optional argument.
 
     Construction methods provided:
@@ -723,7 +722,7 @@ class AbstractSyntaxTree:
         return self.mk_vinfo(
             "main",
             vtype=vtype,
-            globaladdress = int(gaddr, 16),
+            globaladdress=int(gaddr, 16),
             vdescr="main function prototype")
 
     def mk_vinfo_variable(self, vinfo: AST.ASTVarInfo) -> AST.ASTVariable:
@@ -960,7 +959,6 @@ class AbstractSyntaxTree:
             self, address: str, size: Optional[int]) -> ASTGlobalStorage:
         return self.storageconstructor.mk_global_storage(address, size)
 
-
     """Offsets
 
     The default offset in lval creation is NoOffset, provided as constant
@@ -1177,7 +1175,6 @@ class AbstractSyntaxTree:
         exprid = self.get_exprid(optexprid)
         return AST.ASTSizeOfExpr(exprid, tgttyp)
 
-
     """Types
 
     Integer and Float types
@@ -1213,7 +1210,7 @@ class AbstractSyntaxTree:
         specify the type of the data pointed at
 
     - mk_array_type
-        specify the element type and, optionally, an expression for the 
+        specify the element type and, optionally, an expression for the
         number of elements
     - mk_int_sized_array_type
         specify the element type and a numerical value for the number of
@@ -1233,7 +1230,7 @@ class AbstractSyntaxTree:
     Struct types are specified by the compinfo data structure. Compinfo data
     structures are uniquely identified by an integer key (ckey) to be provided
     by the user. When a new compinfo is created it is registered in the global
-    symbol table; subsequent attempts to create a compinfo with the same ckey 
+    symbol table; subsequent attempts to create a compinfo with the same ckey
     value will just return the one created earlier. It is also possible to
     pre-populate the global symbol table with compinfo data structures, if they
     are available up front. Struct types are thus global and shared by different

@@ -242,7 +242,7 @@ class BCTSBase(BCTypSig):
 
     def __str__(self) -> str:
         return "tsbase(" + str(self.typ) + ")"
-                            
+
 
 class BCTypSigList(BCDictionaryRecord):
 

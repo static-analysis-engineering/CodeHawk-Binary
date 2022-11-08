@@ -230,7 +230,7 @@ class ASTStorageConstructor:
     def has_flag(self, name: str) -> bool:
         return name in self.flagnames
 
-    def register_size(self, name:str) -> int:
+    def register_size(self, name: str) -> int:
         if self.has_register(name):
             return self.register_sizes[name]
         else:
@@ -268,4 +268,3 @@ class ASTStorageConstructor:
             self, address: str, size: Optional[int]) -> ASTGlobalStorage:
         size = self.get_default_size(size)
         return ASTGlobalStorage(address, size)
-        

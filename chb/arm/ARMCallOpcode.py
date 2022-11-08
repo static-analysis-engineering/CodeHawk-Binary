@@ -73,7 +73,7 @@ class ARMCallOpcode(ARMOpcode):
     xprs[4]: target expression
     rdefs[0]: target reaching definition
     """
-    
+
     def __init__(
             self,
             d: "ARMDictionary",
@@ -181,7 +181,7 @@ class ARMCallOpcode(ARMOpcode):
 
         if tgt_returntype is None:
             if defuses[0] is None:
-                hl_lhs: Optional[AST.ASTLval]  = None
+                hl_lhs: Optional[AST.ASTLval] = None
             else:
                 hl_lhs = astree.mk_returnval_variable_lval(
                     iaddr, vtype=None)
@@ -207,12 +207,14 @@ class ARMCallOpcode(ARMOpcode):
 
         argregs = ["R0", "R1", "R2", "R3"][:argcount]
         argxprs: List[AST.ASTExpr] = []
-        for (reg, arg, argtype) in zip(argregs, callargs, argtypes):
+        for (i, (reg, arg, argtype)) in enumerate(zip(argregs, callargs, argtypes)):
             if arg.is_string_reference:
                 regast = astree.mk_register_variable_expr(reg)
                 cstr = arg.constant.string_reference()
                 saddr = hex(arg.constant.value)
                 argxprs.append(astree.mk_string_constant(regast, cstr, saddr))
+                if len(rdefs) > i:
+                    astree.add_expr_reachingdefs(regast, [rdefs[i]])
             elif arg.is_argument_value:
                 argindex = arg.argument_index()
                 funargs = astree.function_argument(argindex)
@@ -230,7 +232,7 @@ class ARMCallOpcode(ARMOpcode):
                     if len(astops) == 1:
                         argxprs.append(astops[0])
                     else:
-                        astxprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
+                        astxprs = XU.xxpr_to_ast_def_exprs(arg, xdata, iaddr, astree)
                         if len(astxprs) == 0:
                             raise UF.CHBError(
                                 name +
@@ -296,4 +298,3 @@ class ARMCallOpcode(ARMOpcode):
 
         else:
             return ([hl_call], [ll_call])
-        

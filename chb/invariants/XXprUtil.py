@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Optional, Sequence, Set, TYPE_CHECKING
+from typing import cast, List, Optional, Sequence, Set, Tuple, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
@@ -131,7 +131,32 @@ def xxpr_to_ast_def_exprs(
             return None
 
         elif len(vdefs) > 1:
-            astree.add_diagnostic(iaddr + ": multiple definitions for " + str(xreg))
+            # check if all definitions use the same lhs
+            # if so, return that lhs
+            vregdefs: List[Tuple[int, AST.ASTExpr]] = []
+            vdefined = True
+            for vdef in vdefs:
+                vregdef = astree.regdefinition(str(vdef), str(xreg))
+                if vregdef is None:
+                    vdefined = False
+                    break
+                else:
+                    vregdefs.append(vregdef)
+            if vdefined:
+                vregdef0 = vregdefs[0][1]
+                if all(str(vr[1]) == str(vregdef0) for vr in vregdefs):
+                    for vregdef in vregdefs:
+                        astree.astiprovenance.inactivate_lval_defuse_high(vregdef[0], iaddr)
+                    return vregdef0
+
+            astree.add_diagnostic(
+                iaddr
+                + ": multiple definitions for "
+                + str(xreg)
+                + ": "
+                + ", ".join(str(d) for d in vdefs)
+                + "; "
+                + ", ".join(str(v) for v in vregdefs))
             return None
 
         else:
@@ -435,7 +460,7 @@ def xcompound_to_ast_exprs(
                         op1type = op1.ctype(astree.ctyper)
                         return xtyped_expr_to_ast_exprs(
                             op, op1, op2, xdata, astree, anonymous=anonymous)
-                    except:
+                    except Exception:
                         return [astree.mk_binary_expression(
                             op, op1, op2, anonymous=anonymous)]
                 elif op in AST.operators:

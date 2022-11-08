@@ -111,7 +111,7 @@ operators = {
     "mod": " % ",    # modulo
     "mult": " * ",   # multiplication
     "ne": " != ",    # not equal
-    "neg": " -" ,    # unary minus
+    "neg": " -",     # unary minus
     "plus": " + "
     }
 
@@ -221,7 +221,7 @@ class ASTStmt(ASTNode):
         ASTNode.__init__(self, tag)
         self._stmtid = stmtid
         self._locationid = locationid
-        self._labels = labels.copy() # avoid unwanted aliasing
+        self._labels = labels.copy()   # avoid unwanted aliasing
 
     @property
     def stmtid(self) -> int:
@@ -344,6 +344,7 @@ class ASTReturn(ASTStmt):
         else:
             return set([])
 
+
 class ASTBreak(ASTStmt):
 
     def __init__(
@@ -362,7 +363,7 @@ class ASTBreak(ASTStmt):
 
     def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
         return transformer.transform_break_stmt(self)
-        
+
     def index(self, indexer: "ASTIndexer") -> int:
         return indexer.index_break_stmt(self)
 
@@ -419,7 +420,7 @@ class ASTLoop(ASTStmt):
 
     def transform(self, transformer: "ASTTransformer") -> "ASTStmt":
         return transformer.transform_loop_stmt(self)
-    
+
     def index(self, indexer: "ASTIndexer") -> int:
         return indexer.index_loop_stmt(self)
 
@@ -1803,7 +1804,7 @@ class ASTUnaryOp(ASTExpr):
 
     def __init__(self, exprid: int, op: str,  exp: "ASTExpr") -> None:
         ASTExpr.__init__(self, exprid, "unary-op")
-        if not op in operators:
+        if op not in operators:
             raise Exception("Unary operator " + op + " not recognized")
         self._op = op
         self._exp = exp
@@ -1854,7 +1855,7 @@ class ASTBinaryOp(ASTExpr):
             exp1: "ASTExpr",
             exp2: "ASTExpr") -> None:
         ASTExpr.__init__(self, exprid, "binary-op")
-        if not op in operators:
+        if op not in operators:
             raise Exception("Binary operator " + op + " not recognized")
         self._op = op
         self._exp1 = exp1

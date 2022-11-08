@@ -340,7 +340,7 @@ class CfgMatcher:
         for (s2, t2) in self.edges2:
             if (s2, t2) not in self.edges1:
                 result.append((s2, t2))
-        return result                                       
+        return result
 
     def propagate_post(self) -> None:
         for src1 in sorted(self.basic_blocks1):

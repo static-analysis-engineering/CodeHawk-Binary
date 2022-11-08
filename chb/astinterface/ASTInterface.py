@@ -706,7 +706,7 @@ class ASTInterface:
         return self.astree.mk_vinfo_lval_expression(
             vinfo, offset=offset, optexprid=optexprid)
 
-    def mk_lval_expr(self, lval: AST.ASTLval, anonymous:bool = False) -> AST.ASTExpr:
+    def mk_lval_expr(self, lval: AST.ASTLval, anonymous: bool = False) -> AST.ASTExpr:
         return self.mk_lval_expression(lval, anonymous=anonymous)
 
     def mk_variable_lval(
@@ -939,6 +939,80 @@ class ASTInterface:
             offset: AST.ASTOffset = nooffset) -> AST.ASTFieldOffset:
         return self.astree.mk_field_offset(fieldname, compkey, offset=offset)
 
+    def split_address_int_offset(
+            self,
+            address: AST.ASTExpr) -> Tuple[AST.ASTExpr, List[AST.ASTExpr]]:
+        if address.is_ast_binary_op:
+            address = cast(AST.ASTBinaryOp, address)
+            op = address.op
+            base = address.exp1
+            off = address.exp2
+            (x, y) = self.split_address_int_offset(base)
+            if op == "minus":
+                offset = self.mk_unary_op("neg", address.exp2)
+            else:
+                offset = address.exp2
+            newlist = [offset] + y[:]
+            return (x, newlist)
+        else:
+            return (address, [])
+
+    def add_index_list_offset(
+            self,
+            baseoffset: AST.ASTOffset,
+            indexlist: List[AST.ASTExpr]) -> AST.ASTOffset:
+        if len(indexlist) == 0:
+            indexoffset = self.mk_scalar_index_offset(0)
+            return self.add_offset(baseoffset, indexoffset)
+        elif len(indexlist) == 1:
+            indexoffset = self.mk_expr_index_offset(indexlist[0])
+            return self.add_offset(baseoffset, indexoffset)
+        else:
+            exp1 = indexlist[0]
+            exp2 = indexlist[1]
+            sumexp = self.mk_simplified_binary_op("plus", exp1, exp2)
+            ilist = [sumexp] + indexlist[2:]
+            return self.add_index_list_offset(baseoffset, ilist)
+
+    def add_offset(
+            self,
+            baseoffset: AST.ASTOffset,
+            suboffset: AST.ASTOffset) -> AST.ASTOffset:
+        if baseoffset.is_no_offset:
+            return suboffset
+        elif baseoffset.is_field_offset:
+            baseoffset = cast(AST.ASTFieldOffset, baseoffset)
+            return self.mk_field_offset(
+                baseoffset.fieldname,
+                baseoffset.compkey,
+                self.add_offset(baseoffset.offset, suboffset))
+        else:
+            baseoffset = cast(AST.ASTIndexOffset, baseoffset)
+            return self.mk_expr_index_offset(
+                baseoffset.index_expr,
+                self.add_offset(baseoffset.offset, suboffset))
+
+    def add_to_index_offset(
+            self,
+            baseoffset: AST.ASTOffset,
+            increm: int) -> AST.ASTOffset:
+        if baseoffset.is_no_offset:
+            raise UF.CHBError("Cannot add increment to no-offset")
+        elif baseoffset.is_field_offset:
+            baseoffset = cast(AST.ASTFieldOffset, baseoffset)
+            return self.mk_field_offset(
+                baseoffset.fieldname,
+                baseoffset.compkey,
+                self.add_to_index_offset(baseoffset.offset, increm))
+        else:
+            baseoffset = cast(AST.ASTIndexOffset, baseoffset)
+            if baseoffset.index_expr.is_integer_constant and baseoffset.offset.is_no_offset:
+                baseindex = cast(AST.ASTIntegerConstant, baseoffset.index_expr)
+                newindex = baseindex.cvalue + increm
+                return self.mk_scalar_index_offset(newindex)
+            else:
+                raise UF.CHBError("add_ot_index_offset: not yet supported")
+
     def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
         return self.astree.mk_integer_constant(cvalue)
 
@@ -1011,6 +1085,29 @@ class ASTInterface:
             exp1: AST.ASTExpr,
             exp2: AST.ASTExpr) -> AST.ASTExpr:
         return self.mk_binary_expression(op, exp1, exp2)
+
+    def mk_simplified_binary_op(
+            self,
+            op: str,
+            exp1: AST.ASTExpr,
+            exp2: AST.ASTExpr) -> AST.ASTExpr:
+        if exp1.is_integer_constant and exp2.is_integer_constant:
+            if op == "plus":
+                exp1 = cast(AST.ASTIntegerConstant, exp1)
+                exp2 = cast(AST.ASTIntegerConstant, exp2)
+                return self.mk_integer_constant(exp1.cvalue + exp2.cvalue)
+            else:
+                return self.mk_binary_op(op, exp1, exp2)
+        elif exp1.is_integer_constant and exp2.is_ast_unary_op:
+            exp2 = cast(AST.ASTUnaryOp, exp2)
+            if exp2.op == "neg" and exp2.exp1.is_integer_constant:
+                exp1 = cast(AST.ASTIntegerConstant, exp1)
+                exp2 = cast(AST.ASTIntegerConstant, exp2.exp1)
+                return self.mk_integer_constant(exp1.cvalue - exp2.cvalue)
+            else:
+                return self.mk_binary_op(op, exp1, exp2)
+        else:
+            return self.mk_binary_op(op, exp1, exp2)
 
     '''
     def mk_binary_op(

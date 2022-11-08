@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Basic block in an abstract syntax tree."""
 
-from typing import Dict, List, Optional,Set,  TYPE_CHECKING
+from typing import Dict, List, Optional, Set, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
 
@@ -88,6 +88,3 @@ class ASTInterfaceBasicBlock:
         for (a, i) in sorted(self.instructions.items(), key=lambda p: p[0]):
             instrs.extend(i.ast(astree))
         return astree.mk_instr_sequence(instrs)
-    
-
-        

@@ -304,7 +304,7 @@ class ASTSerializer(ASTIndexer):
         args: List[int] = []
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
-        node["locationid"] =  stmt.locationid
+        node["locationid"] = stmt.locationid
         for label in stmt.labels:
             args.append(label.index(self))
         if stmt.has_return_value():
@@ -323,12 +323,14 @@ class ASTSerializer(ASTIndexer):
             node["labelcount"] = len(stmt.labels)
             for label in stmt.labels:
                 args.append(label.index(self))
+
         def is_empty_instr_sequence(s: AST.ASTStmt) -> bool:
             if not s.is_ast_instruction_sequence:
                 return False
             return len(cast(AST.ASTInstrSequence, s).instructions) == 0
-        args.extend(s.index(self) for s in stmt.stmts \
-                        if not is_empty_instr_sequence(s))
+
+        args.extend(s.index(self) for s in stmt.stmts
+                    if not is_empty_instr_sequence(s))
         return self.add(tags, args, node)
 
     def index_loop_stmt(self, stmt: AST.ASTLoop) -> int:
@@ -336,7 +338,7 @@ class ASTSerializer(ASTIndexer):
         args: List[int] = [stmt.body.index(self)]
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
-        node["locationid"] =  stmt.locationid
+        node["locationid"] = stmt.locationid
         return self.add(tags, args, node)
 
     def index_branch_stmt(self, stmt: AST.ASTBranch) -> int:

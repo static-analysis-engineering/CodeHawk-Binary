@@ -110,7 +110,6 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
 
         ASTCPrettyPrinter.visit_branch_stmt(self, stmt)
 
-
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         ASTCPrettyPrinter.visit_assign_instr(self, instr)
         if self.provenance.has_instruction_mapped(instr.instrid):
@@ -118,7 +117,7 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                 self.provenance.get_instructions_mapped(instr.instrid))
             for (i, mapped_instr) in enumerate(mapped_instrs):
                 if i > 0:
-                    self.ccode.newline(indent = self.indent)
+                    self.ccode.newline(indent=self.indent)
                 self.ccode.write(" " * (60 - self.ccode.pos))
                 self.ccode.write("// ")
                 if mapped_instr.is_ast_assign:
@@ -146,7 +145,7 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                     self.ccode.write(";")
 
             for rdefstring in self.instr_reachingdefs:
-                self.ccode.newline(indent = self.indent + 4)
+                self.ccode.newline(indent=self.indent + 4)
                 self.ccode.write("  // " + rdefstring)
             self.reset_reachingdefs()
             if self.provenance.has_lval_defuse(instr.lhs.lvalid):
@@ -168,7 +167,7 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
             for (i, mapped_instr) in enumerate(mapped_instrs):
                 mapped_instr = cast(AST.ASTCall, mapped_instr)
                 if i > 0:
-                    self.ccode.newline(indent = self.indent)
+                    self.ccode.newline(indent=self.indent)
                 self.ccode.write(" " * (60 - self.ccode.pos))
                 self.ccode.write("// ")
                 if self.provenance.has_instruction_address(instr.instrid):
@@ -182,12 +181,12 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                 mapped_instr.tgt.accept(self)
                 self.ccode.write(";")
             for rdefstring in self.instr_reachingdefs:
-                self.ccode.newline(indent = self.indent + 5)
+                self.ccode.newline(indent=self.indent + 5)
                 self.ccode.write("  / " + rdefstring)
             self.reset_reachingdefs()
             if instr.lhs is not None:
                 if self.provenance.has_lval_defuse(instr.lhs.lvalid):
-                    self.ccode.newline(indent = self.indent + 4)
+                    self.ccode.newline(indent=self.indent + 4)
                     defuse = self.provenance.get_lval_defuse(instr.lhs.lvalid)
                     self.ccode.write("  // ")
                     self.ccode.write(str(defuse))
@@ -214,5 +213,3 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
             rdefs = self.provenance.get_reaching_defs(memref.memexp.exprid)
             self.add_reachingdefs(rdefs)
         ASTCPrettyPrinter.visit_memref(self, memref)
-
-            
