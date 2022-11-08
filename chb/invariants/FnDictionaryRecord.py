@@ -306,4 +306,5 @@ class VarInvDictionaryRegistry:
         instance = self.register[(superclass, tag)](varinvd, ixval)
         return cast(VIdR, instance)
 
+
 varinvregistry: VarInvDictionaryRegistry = VarInvDictionaryRegistry()

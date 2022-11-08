@@ -131,5 +131,5 @@ class CallgraphMatcher:
         self.match_md5s()
         self.match_names()
         for faddr1 in self.faddrs1:
-           if faddr1 not in self._fnmapping and faddr1 in self.faddrs2:
-               self._fnmapping[faddr1] = faddr1
+            if faddr1 not in self._fnmapping and faddr1 in self.faddrs2:
+                self._fnmapping[faddr1] = faddr1

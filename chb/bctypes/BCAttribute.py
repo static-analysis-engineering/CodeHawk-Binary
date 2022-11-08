@@ -55,7 +55,7 @@ class BCAttribute(BCDictionaryRecord):
 
     def __str__(self) -> str:
         return self.name + "(" + ", ".join(str(p) for p in self.params) + ")"
-    
+
 
 class BCAttributes(BCDictionaryRecord):
 
