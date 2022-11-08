@@ -49,7 +49,7 @@ intsizes: Dict[str, int] = {
 }
 
 
-floatsizes: Dict[str, int]  = {
+floatsizes: Dict[str, int] = {
     "float": 4,
     "fdouble": 8,
     "flongdouble": 8

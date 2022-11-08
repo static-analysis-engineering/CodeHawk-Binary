@@ -65,7 +65,7 @@ class ASTProvenance:
 
     def add_instruction_mapping(self, hl_instrid: int, ll_instrid: int) -> None:
         self._instruction_mapping.setdefault(hl_instrid, [])
-        if not ll_instrid in self.instruction_mapping[hl_instrid]:
+        if ll_instrid not in self.instruction_mapping[hl_instrid]:
             self._instruction_mapping[hl_instrid].append(ll_instrid)
 
     def add_expression_mapping(self, hl_exprid: int, ll_exprid: int) -> None:
@@ -102,4 +102,3 @@ class ASTProvenance:
         result["flag-reaching-definitions"] = self.flag_reaching_definitions
         result["definitions-used"] = self.definitions_used
         return result
-        

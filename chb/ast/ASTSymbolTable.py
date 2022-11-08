@@ -75,7 +75,7 @@ class ASTSymbolTable:
                 vinfodescr: Optional[str] = None
                 if vdescr is not None:
                     if varinfo.vdescr is not None:
-                        vinfodescr =  vdescr + ";" + varinfo.vdescr
+                        vinfodescr = vdescr + ";" + varinfo.vdescr
                     else:
                         vinfodescr = vdescr
                 else:

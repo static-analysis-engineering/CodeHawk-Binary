@@ -128,7 +128,7 @@ class ASTDeserializer:
 
         records: Dict[int, Dict[str, Any]] = {}
         for r in recordlist:
-            if not "id" in r:
+            if "id" not in r:
                 print(str(r))
             records[r["id"]] = r
 
@@ -210,7 +210,7 @@ class ASTDeserializer:
             elif tag == "compinfo":
                 finfos = [
                     cast(AST.ASTFieldInfo, mk_node(records[i]))
-                         for i in r["args"]]
+                    for i in r["args"]]
                 name = r["name"]
                 compkey = int(r["compkey"])
                 is_union = r["union"] == "yes"
@@ -437,7 +437,7 @@ class ASTDeserializer:
                     destinationlabel, destinationaddr, stmtid, locationid)
 
             elif tag == "computedgoto":
-                smtmtid = r["stmtid"]
+                stmtid = r["stmtid"]
                 locationid = r["locationid"]
                 tgtexpr = cast(AST.ASTExpr, mk_node(arg(0)))
                 nodes[id] = astree.mk_computed_goto_stmt(

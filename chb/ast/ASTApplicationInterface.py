@@ -161,14 +161,3 @@ class ASTApplicationInterface:
                 print(pp.to_c(ast))
 
         return ast_output
-                  
-
-    
-
-        
-
-        
-
-        
-
-        

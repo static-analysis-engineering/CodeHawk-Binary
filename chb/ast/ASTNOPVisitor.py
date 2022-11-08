@@ -122,7 +122,7 @@ class ASTNOPVisitor(ASTVisitor):
 
     def visit_sizeof_expression(self, expr: AST.ASTSizeOfExpr) -> None:
         pass
-    
+
     def visit_unary_expression(self, expr: AST.ASTUnaryOp) -> None:
         pass
 
