@@ -113,6 +113,9 @@ class ASTInterfaceInstruction:
             self.ast_condition_prov(astree, reverse=reverse)
         return self.ll_ast_condition
 
+    def is_condition_true(self) -> bool:
+        return self.instruction.is_condition_true()
+
     def ast_condition(
             self,
             astree: "ASTInterface",

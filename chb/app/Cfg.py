@@ -535,6 +535,11 @@ class Cfg:
                     return xstmts + do_branch(x, succs[0], ctx)
 
                 assert nsuccs == 2
+                astblock = astfn.astblock(x)
+                astlastinstr = astblock.last_instruction
+                if astlastinstr.is_condition_true():
+                    return xstmts + do_branch(x, succs[1], ctx)
+
                 ifbranch = mk_block(do_branch(x, succs[1], ctx))
                 elsebranch = mk_block(do_branch(x, succs[0], ctx))
                 tgtaddr = succs[1]

@@ -109,7 +109,7 @@ class ARMPop(ARMOpcode):
         xprs = xdata.xprs
 
         xctr = len(vars)
-        pairs = zip(vars, xprs[:xctr])
+        pairs = zip(vars, xprs[2:])
         assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
 
         if xdata.has_instruction_condition():
@@ -171,9 +171,22 @@ class ARMPop(ARMOpcode):
                     "ARMPop: more than one lhs or ths in assignments")
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]
-            hl_assign = astree.mk_assign(hl_lhs, hl_rhs, iaddr=iaddr)
+
+            if str(hl_rhs).startswith("localvar"):
+                deflocs = xdata.reachingdeflocs_for_s(str(rhs))
+                if len(deflocs) == 1:
+                    definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
+                    if definition is not None:
+                        hl_rhs = definition
+
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                annotations=annotations)
             hl_instrs.append(hl_assign)
 
+            astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
             astree.add_instr_mapping(hl_assign, ll_assign)
             astree.add_instr_address(hl_assign, [iaddr])
             astree.add_expr_mapping(hl_rhs, ll_rhs)

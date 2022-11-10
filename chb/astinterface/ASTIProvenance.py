@@ -64,6 +64,7 @@ class ASTIProvenance:
         self._expressions: Dict[int, AST.ASTExpr] = {}
         self._lvals: Dict[int, AST.ASTLval] = {}
         self._defuses_high_inactivated: Dict[int, Set[str]] = {}
+        self._diagnostics: List[str] = []
 
     @property
     def instruction_mapping(self) -> Dict[int, List[int]]:
@@ -149,6 +150,10 @@ class ASTIProvenance:
     @property
     def lval_stores(self) -> List[int]:
         return self._lval_stores
+
+    @property
+    def diagnostics(self) -> List[str]:
+        return self._diagnostics
 
     def add_instr_mapping(
             self,
@@ -425,7 +430,8 @@ class ASTIProvenance:
                     for instrid in instrids:
                         self.add_definition_used(lvalid, instrid)
                 else:
-                    print("  DU: instruction address missing: " + addr)
+                    self._diagnostics.append(
+                        "DU: instruction address missing: " + addr)
 
     def resolve_definitions_used_high(self) -> None:
         for (lvalid, defuse) in self.lval_defuses_high.items():
@@ -437,4 +443,5 @@ class ASTIProvenance:
                     for instrid in instrids:
                         self.add_definition_used(lvalid, instrid)
                 else:
-                    print("  DH: instruction address missing: " + addr)
+                    self._diagnostics.append(
+                        "DH: instruction address missing: " + addr)

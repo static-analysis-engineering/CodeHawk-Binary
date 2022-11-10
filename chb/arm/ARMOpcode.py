@@ -167,6 +167,9 @@ class ARMOpcode(ARMDictionaryRecord):
         instrs = self.ast(astree, iaddr, bytestring, xdata)
         return (instrs, instrs)
 
+    def is_condition_true(self, xdata: InstrXData) -> bool:
+        return False
+
     def ast_condition(
             self,
             astree: ASTInterface,
@@ -288,7 +291,7 @@ class ARMOpcode(ARMDictionaryRecord):
 
     @property
     def is_branch_instruction(self) -> bool:
-        return self.tags[0] in branch_opcodes
+        return (self.tags[0] in branch_opcodes) or self.tags[0].startswith("IT")
 
     def is_return_instruction(self, xdata: InstrXData) -> bool:
         return False

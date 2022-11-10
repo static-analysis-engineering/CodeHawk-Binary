@@ -975,6 +975,10 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="show predicates in cfgs")
     parser_relational.add_argument(
+        "--invariants",
+        action="store_true",
+        help="show invariant comparison")
+    parser_relational.add_argument(
         "--functions1",
         nargs="*",
         default=[],

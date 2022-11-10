@@ -178,7 +178,9 @@ class NRVIntervalValue(NonRelationalValue):
             lb = cast(int, self.lowerbound)
             return hex(lb)
         elif self.is_bounded:
-            return "[" + str(self.lowerbound) + ";" + str(self.upperbound) + "]"
+            lb = cast(int, self.lowerbound)
+            ub = cast(int, self.upperbound)
+            return "[" + hex(lb) + ";" + hex(ub) + "]"
         elif self.is_lower_bounded:
             return "[" + str(self.lowerbound) + "; ->"
         elif self.is_upper_bounded:
@@ -241,7 +243,7 @@ class NRVBaseOffsetValue(NonRelationalValue):
 
     def __str__(self) -> str:
         if self.is_singleton and self.lowerbound == 0:
-            return str(self.base)
+            return str(self.base.name)
         if self.is_singleton:
             return str(self.base) + " + " + str(self.lowerbound)
         elif self.is_bounded:

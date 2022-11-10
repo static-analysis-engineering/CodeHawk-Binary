@@ -31,12 +31,15 @@ import importlib
 import json
 import os
 
-from typing import Dict, List, NoReturn, Optional
+from typing import cast, Dict, List, NoReturn, Optional, Tuple
 
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
 
 from chb.graphics.DotCfg import DotCfg
+
+from chb.invariants.InvariantFact import NRVFact
+from chb.invariants.NonRelationalValue import NonRelationalValue
 
 from chb.relational.RelationalAnalysis import RelationalAnalysis
 
@@ -55,6 +58,7 @@ def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
     showfunctions: bool = args.functions
     showinstructions: bool = args.instructions
     cfgsfilename: str = args.cfgs_filename
+    invariants: bool = args.invariants
     showcalls: bool = args.calls_in_cfg
     showpredicates: bool = args.predicates_in_cfg
     usermappingfile: Optional[str] = args.usermapping
@@ -156,4 +160,66 @@ def relational_analysis_cmd(args: argparse.Namespace) -> NoReturn:
                 "Error in converting dot file to pdf")
             exit(1)
 
+    if invariants:
+        functionschanged = relanalysis.functions_changed()
+        f1fn = app1.function(functionschanged[0])
+        f2fn = app2.function(functionschanged[0])
+
+        f1invariants = f1fn.invariants
+        f2invariants = f2fn.invariants
+
+        f1table: Dict[str, Dict[str, NonRelationalValue]] = {}
+        f2table: Dict[str, Dict[str, NonRelationalValue]] = {}
+        for loc in f1invariants:
+            for fact in f1invariants[loc]:
+                if fact.is_nonrelational:
+                    fact = cast(NRVFact, fact)
+                    f1table.setdefault(loc, {})
+                    f1table[loc][str(fact.variable)] = fact.value
+        for loc in f2invariants:
+            for fact in f2invariants[loc]:
+                if fact.is_nonrelational:
+                    fact = cast(NRVFact, fact)
+                    f2table.setdefault(loc, {})
+                    f2table[loc][str(fact.variable)] = fact.value
+        comparison: Dict[str, Dict[
+            str, Tuple[Optional[NonRelationalValue], Optional[NonRelationalValue]]]] = {}
+        for loc in f1table:
+            comparison.setdefault(loc, {})
+            if loc in f2table:
+                f1values = f1table[loc]
+                f2values = f2table[loc]
+                for v1 in f1values:
+                    if v1 in f2values:
+                        f1value = f1table[loc][v1]
+                        f2value = f2table[loc][v1]
+                        comparison[loc][v1] = (f1value, f2value)
+                    else:
+                        f1value = f1table[loc][v1]
+                        comparison[loc][v1] = (f1value, None)
+            else:
+                for v1 in f1values:
+                    comparison[loc][v1] = (f1values[v1], None)
+
+        counter: int = 0
+        print("\nInvariants modified or missing:")
+        print("===================================")
+        for loc in sorted(comparison):
+            for v in sorted(comparison[loc]):
+                values = comparison[loc][v]
+                if str(values[0]) == str(values[1]):
+                    counter += 1
+                else:
+                    print(
+                        loc.ljust(12)
+                        + v.ljust(32)
+                        + str(values[0]).ljust(20)
+                        + str(values[1]))
+
+        print(
+            "\nInvariants not modified: "
+            + str(counter)
+            + " (in "
+            + str(len(f1table))
+            + " locations)")
     exit(0)
