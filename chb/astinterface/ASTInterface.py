@@ -1219,7 +1219,7 @@ class ASTInterface:
             tgttyp: AST.ASTTyp,
             exp: AST.ASTExpr,
             anonymous: bool = False) -> AST.ASTExpr:
-        optexprid = -1 if anonymous else False
+        optexprid = -1 if anonymous else None
         return self.astree.mk_cast_expression(tgttyp, exp, optexprid=optexprid)
 
     # ---------------------------------------------------- types -----------

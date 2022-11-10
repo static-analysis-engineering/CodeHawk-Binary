@@ -66,6 +66,10 @@ class BasicBlock(ABC):
         return _baddr
 
     @property
+    def lastaddr(self) -> str:
+        return sorted(self.instructions.keys())[-1]
+
+    @property
     def last_instruction(self) -> Instruction:
         lastaddr = sorted(self.instructions.keys())[-1]
         return self.instructions[lastaddr]

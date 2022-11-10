@@ -217,6 +217,9 @@ class ARMInstruction(Instruction):
         return self.opcode.ast_prov(
             astree, self.iaddr, self.bytestring, self.xdata)
 
+    def is_condition_true(self) -> bool:
+        return self.opcode.is_condition_true(self.xdata)
+
     def ast_condition(
             self, astree: ASTInterface, reverse: bool = False) -> Optional[ASTExpr]:
         return self.opcode.ast_condition(

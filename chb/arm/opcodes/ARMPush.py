@@ -103,7 +103,7 @@ class ARMPush(ARMOpcode):
         vars = xdata.vars
         xprs = xdata.xprs
         assigns = '; '.join(
-            str(v) + " := " + str(x) for (v, x) in zip(vars, xprs))
+            str(v) + " := " + str(x) for (v, x) in zip(vars, xprs[2:]))
         return assigns
 
     def ast_prov(
@@ -149,15 +149,20 @@ class ARMPush(ARMOpcode):
             lhs = memlhss[i]
             rhs = regrhss[i]
             hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-            hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+            hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
             if len(hl_lhss) != 1 and len(hl_rhss) != 1:
                 raise UF.CHBError(
                     "ARMPush: more than one lhs or rhs in assignments")
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]
-            hl_assign = astree.mk_assign(hl_lhs, hl_rhs, iaddr=iaddr)
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                annotations=annotations)
             hl_instrs.append(hl_assign)
 
+            astree.add_local_vardefinition(iaddr, str(hl_assign.lhs), hl_assign.rhs)
             astree.add_instr_mapping(hl_assign, ll_assign)
             astree.add_instr_address(hl_assign, [iaddr])
             astree.add_expr_mapping(hl_rhs, ll_rhs)

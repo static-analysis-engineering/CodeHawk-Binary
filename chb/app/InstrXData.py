@@ -241,10 +241,13 @@ class InstrXData(IndexedTableValue):
                 return len(self.args) == len(keyletters) + 1
             else:
                 return False
-        elif len(self.tags) == 2 and self.tags[1] == "call":
+        elif len(self.tags) >= 2 and self.tags[1] == "call":
             return True
         else:
             return False
+
+    def has_inlined_call_target(self) -> bool:
+        return len(self.tags) >= 3 and self.tags[2] == "inlined"
 
     def has_indirect_call_target_exprs(self) -> bool:
         """data format: ["a:...", "u"],[<args> + opx, ropx]"""

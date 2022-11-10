@@ -101,6 +101,12 @@ class ARMBranch(ARMOpcode):
         else:
             return []
 
+    def is_condition_true(self, xdata: InstrXData) -> bool:
+        ftconds = self.ft_conditions(xdata)
+        if len(ftconds) == 2:
+            return ftconds[1].is_true
+        return False
+
     def is_call_instruction(self, xdata: InstrXData) -> bool:
         return xdata.has_call_target()
 

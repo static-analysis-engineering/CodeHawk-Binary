@@ -102,7 +102,7 @@ class ARMCallOpcode(ARMOpcode):
         return xdata.xprs
 
     def is_call(self, xdata: InstrXData) -> bool:
-        return len(xdata.tags) == 2 and xdata.tags[1] == "call"
+        return len(xdata.tags) >= 2 and xdata.tags[1] == "call"
 
     def is_call_instruction(self, xdata: InstrXData) -> bool:
         return xdata.has_call_target()
@@ -130,6 +130,10 @@ class ARMCallOpcode(ARMOpcode):
             name: str,
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        if xdata.has_inlined_call_target():
+            astree.add_diagnostic("Inlined call omitted at " + iaddr)
+            return ([], [])
 
         annotations: List[str] = [iaddr, "BL"]
 
@@ -220,7 +224,12 @@ class ARMCallOpcode(ARMOpcode):
                 funargs = astree.function_argument(argindex)
                 if len(funargs) != 1:
                     raise UF.CHBError(
-                        name + ": no or multiple function arguments")
+                        name
+                        + ": no or multiple function arguments: "
+                        + str(tgtxpr)
+                        + ": "
+                        + ", ".join(str(x) for x in funargs)
+                    )
                 funarg = funargs[0]
                 if funarg:
                     argxprs.append(astree.mk_lval_expr(funarg))
