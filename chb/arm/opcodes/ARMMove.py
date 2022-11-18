@@ -80,7 +80,10 @@ class ARMMove(ARMOpcode):
 
     @property
     def mnemonic(self) -> str:
-        return self.tags[0] + ("W" if self.args[3] == 1 else "")
+        return (
+            self.tags[0]
+            + ("W" if self.args[3] == 1 else "")
+            + ("S" if self.args[0] == 1 else ""))
 
     @property
     def operands(self) -> List[ARMOperand]:
