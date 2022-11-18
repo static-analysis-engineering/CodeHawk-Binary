@@ -41,7 +41,7 @@ from chb.ast.CustomASTSupport import CustomASTSupport
 from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 
 
-pirversion: str = "0.1.0-20221105"
+pirversion: str = "0.1.0-20221118"
 
 
 class ASTApplicationInterface:
@@ -148,7 +148,7 @@ class ASTApplicationInterface:
             print("-----------------------")
             deserializer = ASTDeserializer(ast_output)
             for (symtable, ast) in deserializer.functions.values():
-                pp = ASTCPrettyPrinter(symtable)
+                pp = ASTCPrettyPrinter(symtable, annotations=deserializer.annotations)
                 print("\n")
                 print(pp.to_c(ast))
 
@@ -156,8 +156,11 @@ class ASTApplicationInterface:
             print("-----------------------")
             deserializer = ASTDeserializer(ast_output)
             for (symtable, ast) in deserializer.lifted_functions.values():
-                pp = ASTCPrettyPrinter(symtable)
+                pp = ASTCPrettyPrinter(symtable, annotations=deserializer.annotations)
                 print("\n")
                 print(pp.to_c(ast))
+
+            print("\nCheck expression node parentage")
+            deserializer.check_expr_node_parentage()
 
         return ast_output

@@ -44,6 +44,7 @@ class ASTDeserializer:
             serialization: Dict[str, Any]) -> None:
         self._serialization = serialization
         self._globalsymboltable: ASTGlobalSymbolTable = ASTGlobalSymbolTable()
+        self._annotations: Dict[int, List[str]] = {}
         self._initialize_global_symboltable()
         self._functions: Dict[str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]] = {}
         self._lifted_functions: Dict[
@@ -67,6 +68,126 @@ class ASTDeserializer:
     def lifted_functions(self) -> Dict[
             str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]]:
         return self._lifted_functions
+
+    @property
+    def annotations(self) -> Dict[int, List[str]]:
+        return self._annotations
+
+    def print_node_descendants(self, id: int) -> None:
+        nodes: Dict[int, Dict[str, Any]] = {}
+        for fdata in self.serialization["functions"]:
+            for r in fdata["ast"]["nodes"]:
+                nodes[r["id"]] = r
+
+        def aux(p: int, level: int = 0) -> None:
+            pnode = nodes[p]
+            if pnode["tag"] == "binary-op":
+                tag = "binary-op:" + pnode["op"] + ":" + str(pnode["exprid"])
+            elif pnode["tag"] == "integer-constant":
+                tag = "integer-constant:" + pnode["value"]
+            elif pnode["tag"] == "varinfo":
+                tag = "varinfo:" + pnode["name"]
+            else:
+                tag = pnode["tag"]
+            print((" " * level) + str(pnode["id"]).rjust(5) + " " + tag)
+            for c in pnode["args"]:
+                if c >= 0:
+                    aux(c, level + 2)
+
+        print("\nDescendants of node: " + str(id))
+        aux(id)
+
+    def print_node_ancestors(self, id: int) -> None:
+        parents: Dict[int, List[int]] = {}
+        nodes: Dict[int, Dict[str, Any]] = {}
+        for fdata in self.serialization["functions"]:
+            for r in fdata["ast"]["nodes"]:
+                nodes[r["id"]] = r
+                args = r["args"]
+                for a in args:
+                    if a >= 0:
+                        parents.setdefault(a, [])
+                        parents[a].append(r["id"])
+
+        def aux(c: int, level: int = 0, baselevel: int = 0) -> None:
+            cnode = nodes[c]
+            if cnode["tag"] == "binary-op":
+                tag = "binary-op:" + cnode["op"] + ":" + str(cnode["exprid"])
+            else:
+                tag = cnode["tag"]
+            prefix = (" " * baselevel) + "|" + (" " * (level - baselevel))
+            print(prefix + str(cnode["id"]).rjust(5) + " " + tag)
+            if c in parents:
+                baselevel = level + 2 if len(parents[c]) > 1 else baselevel
+                for p in parents[c]:
+                    aux(p, level + 2, baselevel)
+
+        print("\nAncestors of node: " + str(id))
+        aux(id)
+
+    def node_ancestors(self, nodeid: int) -> List[List[str]]:
+        parents: Dict[int, List[int]] = {}
+        nodes: Dict[int, Dict[str, Any]] = {}
+        paths: List[List[str]] = []
+
+        for fdata in self.serialization["functions"]:
+            for r in fdata["ast"]["nodes"]:
+                id = r["id"]
+                nodes[id] = r
+                args = r["args"]
+                for a in args:
+                    if a >= 0:
+                        parents.setdefault(a, [])
+                        parents[a].append(r["id"])
+
+        def aux(c: int, prefix: List[str]) -> None:
+            cnode = nodes[c]
+            name = str(c) + ":" + cnode["tag"]
+            if "exprid" in cnode:
+                name += "(" + str(cnode["exprid"]) + ")"
+            elif "instrid" in cnode:
+                name += "(" + str(cnode["instrid"]) + ")"
+            prefix.append(name)
+            if c in parents:
+                for p in parents[c]:
+                    aux(p, prefix)
+            else:
+                paths.append(prefix[:])
+            prefix.pop()
+
+        aux(nodeid, [])
+        return paths
+
+    def check_expr_node_parentage(self) -> None:
+        parents: Dict[int, List[int]] = {}
+        nodes: Dict[int, Dict[str, Any]] = {}
+        freq: Dict[str, Tuple[int, int]] = {}
+        for fdata in self.serialization["functions"]:
+            for r in fdata["ast"]["nodes"]:
+                id = r["id"]
+                nodes[id] = r
+                args = r["args"]
+                for a in args:
+                    parents.setdefault(a, [])
+                    parents[a].append(id)
+        for (child, pars) in sorted(parents.items()):
+            if child >= 0 and len(pars) > 1:
+                tag = nodes[child]["tag"]
+                freq.setdefault(tag, (0, 0))
+                freq[tag] = (freq[tag][0] + 1, freq[tag][1] + len(pars))
+                if "exprid" in nodes[child] and "value" not in nodes[child]:
+                    self.print_node_descendants(child)
+                    self.print_node_ancestors(child)
+                    self.node_ancestors(child)
+
+        print("\nNode sharing statistics")
+        print("---------------------------------------------------------------")
+        for tag in sorted(freq):
+            print(
+                tag.ljust(20)
+                + str(freq[tag][0]).rjust(8)
+                + str(freq[tag][1]).rjust(8))
+        print("---------------------------------------------------------------")
 
     def _initialize_global_symboltable(self) -> None:
         globaltable = self.serialization["global-symbol-table"]
@@ -366,6 +487,10 @@ class ASTDeserializer:
                 rhs = cast(AST.ASTExpr, mk_node(arg(1)))
                 nodes[id] = astree.mk_assign(
                     lhs, rhs, optinstrid=instrid, optlocationid=locationid)
+                self._annotations[instrid] = [
+                    "instrid:" + str(instrid),
+                    "lhs:" + str(lhs.lvalid),
+                    "rhs:" + str(rhs.exprid)]
 
             elif tag == "call":
                 instrid = r["instrid"]
@@ -455,6 +580,12 @@ class ASTDeserializer:
                 stmtid = r["stmtid"]
                 locationid = r["locationid"]
                 nodes[id] = astree.mk_break_stmt(
+                    optstmtid=stmtid, optlocationid=locationid)
+
+            elif tag == "continue":
+                stmtid = r["stmtid"]
+                locationid = r["locationid"]
+                nodes[id] = astree.mk_continue_stmt(
                     optstmtid=stmtid, optlocationid=locationid)
 
             elif tag == "loop":
