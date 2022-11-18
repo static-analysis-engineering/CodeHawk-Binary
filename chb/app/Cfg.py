@@ -343,10 +343,12 @@ class ControlFlowContext:
     continue_to: Optional[str]
     fallthrough: Optional[str]
 
-    def in_loop(self, x: str) -> 'ControlFlowContext':
-        return ControlFlowContext(self.fallthrough, x, x)
+    def in_loop(self, x: str, break_to: str) -> 'ControlFlowContext':
+        return ControlFlowContext(break_to, x, x)
 
     def with_fallthrough(self, f: str) -> 'ControlFlowContext':
+        if f == self.break_to:
+            f = self.continue_to  # A loop can never fall through to the break target
         return ControlFlowContext(self.break_to, self.continue_to, f)
 
 
@@ -482,10 +484,11 @@ class Cfg:
             # Results for irreducible CFGs will be correct but not necessarily pretty.
 
             def do_tree(x: str, ctx: ControlFlowContext) -> List[AST.ASTStmt]:
-                children = domtree_adj[x] if x in domtree_adj else []
+                children = domtree_adj.get(x, [])
                 merges = [c for c in children if is_merge_node(c)]
                 if is_loop_header(x):
-                    return [astree.mk_loop(mk_block(node_within(x, merges, ctx.in_loop(x))))]
+                    break_to = merges[0] if len(merges) == 1 else self.fallthrough
+                    return [astree.mk_loop(mk_block(node_within(x, merges, ctx.in_loop(x, break_to))))]
                 return node_within(x, merges, ctx)
 
             def do_branch(src: str, tgt: str, ctx: ControlFlowContext) -> List[AST.ASTStmt]:
