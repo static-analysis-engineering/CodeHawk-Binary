@@ -346,7 +346,7 @@ class ControlFlowContext:
     def in_loop(self, x: str, break_to: str) -> 'ControlFlowContext':
         return ControlFlowContext(break_to, x, x)
 
-    def with_fallthrough(self, f: str) -> 'ControlFlowContext':
+    def with_fallthrough(self, f: Optional[str]) -> 'ControlFlowContext':
         if f == self.break_to:
             f = self.continue_to  # A loop can never fall through to the break target
         return ControlFlowContext(self.break_to, self.continue_to, f)
