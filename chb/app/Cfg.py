@@ -343,7 +343,7 @@ class ControlFlowContext:
     continue_to: Optional[str]
     fallthrough: Optional[str]
 
-    def in_loop(self, x: str, break_to: str) -> 'ControlFlowContext':
+    def in_loop(self, x: str, break_to: Optional[str]) -> 'ControlFlowContext':
         return ControlFlowContext(break_to, x, x)
 
     def with_fallthrough(self, f: Optional[str]) -> 'ControlFlowContext':
