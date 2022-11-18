@@ -487,7 +487,7 @@ class Cfg:
                 children = domtree_adj.get(x, [])
                 merges = [c for c in children if is_merge_node(c)]
                 if is_loop_header(x):
-                    break_to = merges[0] if len(merges) == 1 else self.fallthrough
+                    break_to = merges[0] if len(merges) == 1 else ctx.fallthrough
                     return [astree.mk_loop(mk_block(node_within(x, merges, ctx.in_loop(x, break_to))))]
                 return node_within(x, merges, ctx)
 
