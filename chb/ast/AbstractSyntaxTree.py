@@ -1120,16 +1120,19 @@ class AbstractSyntaxTree:
         # we may need to insert a cast to ensure that serialization
         # through C code preserves the AST. 
 
-        t = e.ctype(ASTBasicCTyper(self.globalsymboltable))
-        force_cast = t is None
-        if t is None:
+        mb_t = e.ctype(ASTBasicCTyper(self.globalsymboltable))
+        force_cast = mb_t is None
+        if mb_t is None:
           # Pick int as a default size
           ikind = "iuint" if opunsigned else "iint"
-          t = self.mk_integer_ikind_type(ikind)
-        while t.is_typedef:
-          t = t.typdef
+          t: AST.ASTTyp = self.mk_integer_ikind_type(ikind)
+        else:
+          t = mb_t
+          while t.is_typedef:
+            t = cast(AST.ASTTypNamed, t).typdef
 
         assert t.is_integer, "type of shift LHS (expected integer): {}".format(t)
+        t = cast(AST.ASTTypInt, t)
         same_signedness = t.ikind.startswith("iu") == opunsigned
         if same_signedness and not force_cast:
            return e # No cast needed
