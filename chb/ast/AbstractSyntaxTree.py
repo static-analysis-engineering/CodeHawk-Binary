@@ -1153,7 +1153,8 @@ class AbstractSyntaxTree:
           t = self.mk_integer_ikind_type(sanssign(t.ikind))
         else:
           t = self.mk_integer_ikind_type(withsign(t.ikind))
-        return self.mk_cast_expression(t, t)
+        return self.mk_cast_expression(t, e)
+
 
     def mk_binary_expression(
             self,
