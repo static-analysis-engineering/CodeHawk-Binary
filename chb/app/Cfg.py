@@ -489,7 +489,8 @@ class Cfg:
                 if is_loop_header(x):
                     if len(merges) == 1:
                         loopstmts = node_within(x, [], ctx.in_loop(x, break_to=merges[0]))
-                        return [astree.mk_loop(mk_block(loopstmts))] + do_tree(merges[0], ctx)
+                        loop = cast(AST.ASTStmt, astree.mk_loop(mk_block(loopstmts)))
+                        return [loop] + do_tree(merges[0], ctx)
                     else:
                         loopstmts = node_within(x, merges, ctx.in_loop(x, break_to=ctx.fallthrough))
                         return [astree.mk_loop(mk_block(loopstmts))]
