@@ -46,6 +46,7 @@ from typing import (
 import chb.ast.ASTNode as AST
 from chb.ast.ASTProvenance import ASTProvenance
 from chb.ast.ASTSerializer import ASTSerializer
+from chb.ast.ASTBasicCTyper import ASTBasicCTyper
 
 from chb.ast.ASTStorage import (
     ASTStorage,
@@ -1132,6 +1133,51 @@ class AbstractSyntaxTree:
         exprid = self.get_exprid(optexprid)
         return AST.ASTAddressOf(exprid, lval)
 
+    def _cast_if_needed(self, e: AST.ASTExpr, opunsigned: bool) -> AST.ASTExpr:
+        # CIL encodes signedness in the shift operator but C infers
+        # the operator flavor from the type of the left operand, so
+        # we may need to insert a cast to ensure that serialization
+        # through C code preserves the AST. 
+
+        mb_t = e.ctype(ASTBasicCTyper(self.globalsymboltable))
+        force_cast = mb_t is None
+        if mb_t is None:
+          # Pick int as a default size
+          ikind = "iuint" if opunsigned else "iint"
+          t: AST.ASTTyp = self.mk_integer_ikind_type(ikind)
+        else:
+          t = mb_t
+          while t.is_typedef:
+            t = cast(AST.ASTTypNamed, t).typdef
+
+        assert t.is_integer, "type of shift LHS (expected integer): {}".format(t)
+        t = cast(AST.ASTTypInt, t)
+        same_signedness = t.ikind.startswith("iu") == opunsigned
+        if same_signedness and not force_cast:
+           return e # No cast needed
+
+        # Helpers to get a signed/unsigned version of a type
+        def withsign(ikind):
+          if ikind.endswith("char"):
+            return "ischar"
+          if ikind.startswith("iu"):
+            return "i" + ikind[2:]
+          return ikind # already signed
+        def sanssign(ikind):
+          if ikind.endswith("char"):
+            return "iuchar"
+          if not ikind.startswith("iu"):
+            return "iu" + ikind[1:]
+          return ikind # already unsigned
+
+        # Insert a cast to a type that matches the operation.
+        if opunsigned:
+          t = self.mk_integer_ikind_type(sanssign(t.ikind))
+        else:
+          t = self.mk_integer_ikind_type(withsign(t.ikind))
+        return self.mk_cast_expression(t, e)
+
+
     def mk_binary_expression(
             self,
             op: str,
@@ -1139,6 +1185,8 @@ class AbstractSyntaxTree:
             exp2: AST.ASTExpr,
             optexprid: Optional[int] = None) -> AST.ASTExpr:
         exprid = self.get_exprid(optexprid)
+        if op in ["asr", "lsr"]:
+            exp1 = self._cast_if_needed(exp1, op == "lsr")
         return AST.ASTBinaryOp(exprid, op, exp1, exp2)
 
     def mk_plus_expression(
