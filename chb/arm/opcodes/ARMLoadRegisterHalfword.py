@@ -88,6 +88,11 @@ class ARMLoadRegisterHalfword(ARMOpcode):
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
 
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        wide = ".W" if self.args[4] == 1 else ""
+        return cc + wide
+
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 3]]

@@ -560,9 +560,12 @@ class ASTInterface:
         # return self.symboltable.get_struct_field_address(gaddr)
 
     def mk_global_variable_expr(
-            self, name: str, globaladdress: int = 0) -> AST.ASTExpr:
+            self,
+            name: str,
+            vtype: Optional[AST.ASTTyp] = None,
+            globaladdress: int = 0) -> AST.ASTExpr:
         return self.astree.mk_named_lval_expression(
-            name, globaladdress=globaladdress)
+            name, vtype=vtype,globaladdress=globaladdress)
 
     # ------------------------------------------------------ make statements ---
 

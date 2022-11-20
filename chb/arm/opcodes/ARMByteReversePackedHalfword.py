@@ -33,6 +33,7 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
+from chb.ast.ARMIntrinsics import ARMIntrinsics
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
@@ -121,14 +122,8 @@ class ARMByteReversePackedHalfword(ARMOpcode):
         Reverses the byte order within each halfword of a word.
         """
 
-        rev16sig = astree.mk_function_with_arguments_type(
-            astree.astree.unsigned_int_type,
-            [("x", astree.astree.unsigned_int_type)])
-        rev16tgt = astree.mk_named_lval_expression(
-            "__rev16",
-            vtype=rev16sig,
-            globaladdress=0,
-            vdescr="arm intrinsic")
+        rev16vinfo = ARMIntrinsics().rev16
+        rev16tgt = astree.mk_vinfo_lval_expression(rev16vinfo)
 
         annotations: List[str] = [iaddr, "REV16"]
 

@@ -529,6 +529,13 @@ ARM32/Thumb2 or x86).
   def mk_register_storage(self, name: str) -> ASTRegisterStorage
   ```
 
+- **mk_double_register_storage**: create a storage record for a combination
+  of two registers that are assigned to in a single instruction (like,
+  e.g., <code>UMULL</code>).
+  ```
+  def mk_double_register_storage(self, name1: str, name2: str) -> ASTDoubleRegisterStorage
+  ```
+
 - **mk_flag_storage**: create a storage record for a flag with a known
   (registered) flag name.
 
@@ -612,6 +619,30 @@ Several kinds of other expressions can be created, some with operators defined
 - **mk_lval_expression**: create an lval expression for a generic lhost and offset
   ```
   def mk_lval_expression(self, lval: ASTLval) -> ASTLvalExpr
+  ```
+
+- **mk_register_lval_expression**: create an lval expression for a register
+  ```
+  def mk_register_variable_lval_expression(
+            self,
+            name: str,
+            registername: Optional[str] = None,
+            vtype: Optional[AST.ASTTyp] = None,
+            parameter: Optional[int] = None,
+            vdescr: Optional[str] = None,
+            optlvalid: Optional[int] = None,
+            optexprid: Optional[int] = None) -> AST.ASTLvalExpr
+  ```
+
+- **mk_flag_variable_lval_expression**: create an lval expression for a flag variable
+  ```
+  def mk_flag_variable_lval_expression(
+            self,
+            name: str,
+            flagname: Optional[str] = None,
+            vdescr: Optional[str] = None,
+            optlvalid: Optional[int] = None,
+            optexprid: Optional[int] = None) -> AST.ASTLvalExpr
   ```
 
 - **mk_memref**: create an lhs base value (lhost) from an expression

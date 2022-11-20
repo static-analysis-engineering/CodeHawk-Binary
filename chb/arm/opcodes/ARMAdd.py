@@ -103,7 +103,8 @@ class ARMAdd(ARMOpcode):
     def mnemonic_extension(self) -> str:
         wb = "S" if self.writeback else ""
         cc = ARMOpcode.mnemonic_extension(self)
-        return wb + cc
+        wide = ".W" if self.args[4] == 1 else ""
+        return wb + cc + wide
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])

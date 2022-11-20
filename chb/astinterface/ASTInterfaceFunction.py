@@ -153,7 +153,8 @@ class ASTInterfaceFunction(ASTFunction):
         if self.verbose:
             iprettyprinter = ASTICPrettyPrinter(
                 self.astinterface.symboltable,
-                self.astinterface.astiprovenance)
+                self.astinterface.astiprovenance,
+                annotations=self.astinterface.annotations)
             print(iprettyprinter.to_c(ast))
 
         codetransformer = ASTICodeTransformer(self.astinterface)

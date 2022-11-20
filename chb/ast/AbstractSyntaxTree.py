@@ -823,6 +823,25 @@ class AbstractSyntaxTree:
             storage=storage,
             optlvalid=optlvalid)
 
+    def mk_register_variable_lval_expression(
+            self,
+            name: str,
+            registername: Optional[str] = None,
+            vtype: Optional[AST.ASTTyp] = None,
+            parameter: Optional[int] = None,
+            vdescr: Optional[str] = None,
+            optlvalid: Optional[int] = None,
+            optexprid: Optional[int] = None) -> AST.ASTLvalExpr:
+        lval = self.mk_register_variable_lval(
+            name,
+            registername=registername,
+            vtype=vtype,
+            parameter=parameter,
+            vdescr=vdescr,
+            optlvalid=optlvalid)
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTLvalExpr(exprid, lval)
+
     def mk_flag_variable_lval(
             self,
             name: str,

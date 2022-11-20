@@ -107,13 +107,15 @@ class ARMOperand(ARMDictionaryRecord, Operand):
 
     def ast_lvalue(
             self,
-            astree: ASTInterface) -> Tuple[
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return self.opkind.ast_lvalue(astree)
 
     def ast_rvalue(
             self,
-            astree: ASTInterface) -> Tuple[
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return self.opkind.ast_rvalue(astree)
 
