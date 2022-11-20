@@ -319,16 +319,22 @@ class ASTSerializer(ASTIndexer):
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] = stmt.locationid
-        if len(stmt.labels) > 0:
-            node["labelcount"] = len(stmt.labels)
-            for label in stmt.labels:
-                args.append(label.index(self))
+        labels = list(stmt.labels)
 
         def is_empty_instr_sequence(s: AST.ASTStmt) -> bool:
             if not s.is_ast_instruction_sequence:
                 return False
             return len(cast(AST.ASTInstrSequence, s).instructions) == 0
 
+        # Make sure we don't drop labels from empty instr sequences. 
+        for s in stmt.stmts:
+            if is_empty_instr_sequence(s):
+                labels.extend(s.labels)
+
+        if len(labels) > 0:
+            node["labelcount"] = len(labels)
+            for label in labels:
+                args.append(label.index(self))
         args.extend(s.index(self) for s in stmt.stmts
                     if not is_empty_instr_sequence(s))
         return self.add(tags, args, node)
