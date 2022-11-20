@@ -44,6 +44,10 @@ class ASTStorage:
         return False
 
     @property
+    def is_double_register(self) -> bool:
+        return False
+
+    @property
     def is_flag(self) -> bool:
         return False
 
@@ -98,6 +102,38 @@ class ASTRegisterStorage(ASTStorage):
         return self._name
 
 
+class ASTDoubleRegisterStorage(ASTStorage):
+
+    def __init__(self, name1: str, name2: str, size: Optional[int]) -> None:
+        ASTStorage.__init__(self,"doubleregister", size)
+        self._name1 = name1
+        self._name2 = name2
+
+    @property
+    def is_double_register(self) -> bool:
+        return True
+
+    @property
+    def name1(self) -> str:
+        return self._name1
+
+    @property
+    def name2(self) -> str:
+        return self._name2
+
+    @property
+    def name(self) -> str:
+        return self.name1 + "_" + self.name2
+
+    def serialize(self)-> Dict[str, Union[str, int]]:
+        result = ASTStorage.serialize(self)
+        result["name"] = self.name
+        return result
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class ASTFlagStorage(ASTStorage):
 
     def __init__(self, name: str) -> None:
@@ -118,7 +154,7 @@ class ASTFlagStorage(ASTStorage):
         return result
 
     def __str__(self) -> str:
-        return self._name
+        return self.name
 
 
 class ASTStackStorage(ASTStorage):
@@ -247,6 +283,14 @@ class ASTStorageConstructor:
             return ASTRegisterStorage(name, self.register_size(name))
         else:
             raise Exception("No register with name " + str(name))
+
+    def mk_double_register_storage(
+            self, name1: str, name2:str) -> ASTDoubleRegisterStorage:
+        if self.has_register(name1) and self.has_register(name2):
+            return ASTDoubleRegisterStorage(
+                name1, name2, self.register_size(name1) + self.register_size(name2))
+        else:
+            raise Exception("No register with name " + name1 + " or " + name2)
 
     def mk_flag_storage(self, name: str) -> ASTFlagStorage:
         if self.has_flag(name):

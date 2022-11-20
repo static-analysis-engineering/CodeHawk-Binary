@@ -6,6 +6,15 @@ The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### Version 0.1.0-2022-11-19
+
+- Added ASTDoubleRegister as a new ASTStorage class to represent two registers
+  used in a single assignment, such as in the ARM instruction <code>UMULL</code>.
+- Added ARMIntrinsics with pre-constructed varinfos for some ARM intrinsic function
+  call targets.
+
+---
+
 ### Version 0.1.0-2022-11-18
 
 - Added some diagnostic methods to the deserializer for checking multiple parent nodes
