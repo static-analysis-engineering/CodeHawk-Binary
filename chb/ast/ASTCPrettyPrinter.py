@@ -297,12 +297,19 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.newline(indent=self.indent)
         self.ccode.write("} // if ")
 
+    def _fmt_label(self, name: str) -> str:
+        assert len(name) > 0
+        if name[0] in "0123456789":
+          return "L" + name  # Labels in C cannot start with a digit.
+        return name
+
     def visit_goto_stmt(self, stmt: AST.ASTGoto) -> None:
         for label in stmt.labels:
             label.accept(self)
         self.ccode.newline(indent=self.indent)
         self.ccode.write("goto ")
-        self.ccode.write(stmt.destination)
+        self.ccode.write(self._fmt_label(stmt.destination))
+        self.ccode.write(";")
 
     def visit_computedgoto_stmt(self, stmt: AST.ASTComputedGoto) -> None:
         for label in stmt.labels:
@@ -310,6 +317,7 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.newline(indent=self.indent)
         self.ccode.write("goto ")
         stmt.target_expr.accept(self)
+        self.ccode.write(";")
 
     def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
         for label in stmt.labels:
@@ -326,7 +334,7 @@ class ASTCPrettyPrinter(ASTVisitor):
 
     def visit_label(self, label: AST.ASTLabel) -> None:
         self.ccode.newline(indent=self.indent)
-        self.ccode.write(" " + label.name)
+        self.ccode.write(" " + self._fmt_label(label.name))
         self.ccode.write(":")
 
     def visit_case_label(self, label: AST.ASTCaseLabel) -> None:
