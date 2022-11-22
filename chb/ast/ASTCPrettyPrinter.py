@@ -148,7 +148,7 @@ class ASTCPrettyPrinter(ASTVisitor):
             if (
                     vinfo.vname in referenced
                     and not self.localsymboltable.is_formal(vinfo.vname)):
-                self.ccode.newline()
+                self.ccode.newline(indent=self.indent)
                 if vinfo.vtype is not None:
                     vinfo.vtype.accept(self)
                     self.ccode.write(" " + vinfo.vname + ";")
@@ -178,9 +178,8 @@ class ASTCPrettyPrinter(ASTVisitor):
         if self.signature is not None:
             self.ccode.newline()
             self.write_signature()
-            self.ccode.write("{")
+            self.ccode.write(" {")
             self.increase_indent()
-            self.ccode.newline()
             self.write_local_declarations(varsreferenced)
             self.ccode.newline()
             self.stmt_to_c(stmt)
