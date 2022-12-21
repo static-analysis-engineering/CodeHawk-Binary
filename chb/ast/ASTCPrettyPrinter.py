@@ -148,12 +148,42 @@ class ASTCPrettyPrinter(ASTVisitor):
             if (
                     vinfo.vname in referenced
                     and not self.localsymboltable.is_formal(vinfo.vname)):
-                self.ccode.newline()
+                self.ccode.newline(indent=self.indent)
                 if vinfo.vtype is not None:
                     vinfo.vtype.accept(self)
                     self.ccode.write(" " + vinfo.vname + ";")
                 else:
                     self.ccode.write("? " + vinfo.vname)
+
+    def write_global_declarations(self) -> None:
+        """Generates code representing the contents of the global symbol table"""
+        for vinfo in self.globalsymboltable.symbols:
+            self.ccode.newline(indent=self.indent)
+            if vinfo.vtype is None:
+                self.ccode.write("? " + vinfo.vname)
+                continue
+
+            if vinfo.vtype.is_function:
+                ftype = cast(AST.ASTTypFun, vinfo.vtype)
+                ftype.returntyp.accept(self)
+                self.ccode.write(" ")
+                self.ccode.write(vinfo.vname)
+                self.ccode.write("(")
+                if ftype.argtypes is not None:
+                    ftype.argtypes.accept(self)
+                self.ccode.write(");")
+            elif vinfo.vtype.is_array:
+                atype = cast(AST.ASTTypArray, vinfo.vtype)
+                atype.tgttyp.accept(self)
+                self.ccode.write(" ")
+                self.ccode.write(vinfo.vname)
+                self.ccode.write("[")
+                if atype.size_expr is not None:
+                    atype.size_expr.accept(self)
+                self.ccode.write("];")
+            else:
+                vinfo.vtype.accept(self)
+                self.ccode.write(" " + vinfo.vname + ";")
 
     def write_signature(self) -> None:
         if self.signature is not None:
@@ -173,14 +203,21 @@ class ASTCPrettyPrinter(ASTVisitor):
                 self.ccode.write(self.signature.vname)
                 self.ccode.write("(?)")
 
-    def to_c(self, stmt: AST.ASTStmt, sp: int = 0) -> str:
+    def to_c(self,
+             stmt: AST.ASTStmt,
+             sp: int = 0,
+             include_globals: bool = False) -> str:
+        if include_globals:
+            self.ccode.newline()
+            self.ccode.write("// Globals")
+            self.write_global_declarations()
+            self.ccode.newline()
         varsreferenced = ASTVariablesReferenced().variables_referenced(stmt)
         if self.signature is not None:
             self.ccode.newline()
             self.write_signature()
-            self.ccode.write("{")
+            self.ccode.write(" {")
             self.increase_indent()
-            self.ccode.newline()
             self.write_local_declarations(varsreferenced)
             self.ccode.newline()
             self.stmt_to_c(stmt)
