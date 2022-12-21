@@ -662,7 +662,7 @@ def parse() -> argparse.Namespace:
     resultsfunctions = resultsparsers.add_parser('functions')
     resultsfunctions.add_argument('xname', help='name of executable')
     resultsfunctions.add_argument(
-        '--functions',
+        "--functions",
         nargs='*',
         default=[],
         help="list of function addresses (in hex) (all will print all) ")
@@ -671,18 +671,22 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="include instruction bytes")
     resultsfunctions.add_argument(
-        '--hash',
+        "--hash",
         action='store_true',
         help='show md5 hash')
     resultsfunctions.add_argument(
-        '--bytestring',
+        "--bytestring",
         action='store_true',
         help='show bytes as a string')
     resultsfunctions.add_argument(
-        '--opcodewidth',
+        "--opcodewidth",
         type=int,
         default=40,
         help='number of characters for opcode text')
+    resultsfunctions.add_argument(
+        "--stacklayout",
+        action="store_true",
+        help="include stacklayout at the top of the function")
     resultsfunctions.set_defaults(func=UCC.results_functions)
 
     # --- results function ---
@@ -706,6 +710,10 @@ def parse() -> argparse.Namespace:
         type=int,
         default=32,
         help="number of characters for opcode text")
+    resultsfunction.add_argument(
+        "--stacklayout",
+        action="store_true",
+        help="include stacklayout at the top of the function")
     resultsfunction.set_defaults(func=UCC.results_function)
 
     # --- results callback tables ---

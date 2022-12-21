@@ -30,6 +30,7 @@
 from typing import cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess
 
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
@@ -75,6 +76,15 @@ class MIPSStoreByte(MIPSOpcode):
     @property
     def operands(self) -> Sequence[MIPSOperand]:
         return [self.mipsd.mips_operand(i) for i in self.args]
+
+    def is_stack_access(self, xdata: InstrXData) -> bool:
+        return xdata.xprs[2].is_stack_address
+
+    def is_store_instruction(self, xdata: InstrXData) -> bool:
+        return True
+
+    def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        return [MemoryAccess(xdata.xprs[2], "W", size=1)]
 
     def global_variables(self, xdata: InstrXData) -> Mapping[str, int]:
         return xdata.xprs[0].global_variables()

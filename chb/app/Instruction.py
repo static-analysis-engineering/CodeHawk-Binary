@@ -53,6 +53,7 @@ import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.app.InstrXData import InstrXData
+    from chb.app.MemoryAccess import MemoryAccess
     from chb.app.Operand import Operand
     from chb.app.StackPointerOffset import StackPointerOffset
     from chb.invariants.XVariable import XVariable
@@ -187,6 +188,10 @@ class Instruction(ABC):
         ...
 
     @property
+    def memory_accesses(self) -> Sequence["MemoryAccess"]:
+        return []
+
+    @property
     @abstractmethod
     def is_branch_instruction(self) -> bool:
         ...
@@ -196,6 +201,24 @@ class Instruction(ABC):
         """Return true if something about this instruction is unresolved."""
 
         return False
+
+    @property
+    def is_stack_access(self) -> bool:
+        """Return true if this instruction reads from or writes to the stack."""
+
+        return False
+
+    @property
+    def is_register_spill(self) -> Optional[str]:
+        """Return true if this instruction saves an incoming register to the stack."""
+
+        return None
+
+    @property
+    def is_register_restore(self) -> Optional[str]:
+        """Return true if this instruction restores the original value of a register."""
+
+        return None
 
     @property
     def is_subsumed(self) -> bool:

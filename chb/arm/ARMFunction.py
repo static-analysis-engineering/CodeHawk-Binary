@@ -173,7 +173,8 @@ class ARMFunction(Function):
             hash: bool = False,
             opcodetxt: bool = True,
             opcodewidth: int = 40,
-            sp: bool = True) -> str:
+            sp: bool = True,
+            stacklayout: bool = False) -> str:
         lines: List[str] = []
         for b in sorted(self.blocks):
             lines.append(
@@ -184,5 +185,5 @@ class ARMFunction(Function):
                     sp=sp))
             lines.append("-" * 80)
         if bytestring:
-            lines.append(self.byte_string(chunksize=32))
+            lines.append(self.byte_string(chunksize=80))
         return "\n".join(lines)

@@ -689,6 +689,7 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
     bytestring: bool = args.bytestring
     bytes: bool = args.bytes
     opcodewidth: int = args.opcodewidth
+    stacklayout: bool = args.stacklayout
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -725,7 +726,8 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
                     hash=hash,
                     sp=True,
                     opcodetxt=True,
-                    opcodewidth=opcodewidth))
+                    opcodewidth=opcodewidth,
+                    stacklayout=stacklayout))
             except UF.CHBError as e:
                 print(str(e.wrap()))
             # except Exception as e:
@@ -746,6 +748,7 @@ def results_function(args: argparse.Namespace) -> NoReturn:
     bytestring: bool = args.bytestring
     bytes: bool = args.bytes
     opcodewidth: int = args.opcodewidth
+    stacklayout: bool = args.stacklayout
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -777,7 +780,8 @@ def results_function(args: argparse.Namespace) -> NoReturn:
                 hash=hash,
                 sp=True,
                 opcodetxt=True,
-                opcodewidth=opcodewidth))
+                opcodewidth=opcodewidth,
+                stacklayout=stacklayout))
         except UF.CHBError as e:
             print(str(e.wrap()))
     else:

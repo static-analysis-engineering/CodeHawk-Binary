@@ -95,7 +95,8 @@ class MIPSRegister(MIPSRegisterBase):
 
     @property
     def is_mips_callee_saved_register(self) -> bool:
-        return self.tags[1] in ["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7"]
+        return self.tags[1] in [
+            "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "ra", "fp"]
 
     @property
     def is_mips_global_pointer(self) -> bool:

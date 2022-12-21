@@ -51,6 +51,7 @@ if TYPE_CHECKING:
 
 
 @mipsregistry.register_tag("c.eq.d", MIPSOpcode)
+@mipsregistry.register_tag("c.eq.s", MIPSOpcode)
 @mipsregistry.register_tag("c.f.d", MIPSOpcode)
 @mipsregistry.register_tag("c.f.w", MIPSOpcode)
 @mipsregistry.register_tag("c.olt.d", MIPSOpcode)
