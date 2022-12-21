@@ -29,6 +29,7 @@
 
 from typing import cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
+from chb.app.MemoryAccess import MemoryAccess
 from chb.app.InstrXData import InstrXData
 
 from chb.invariants.XXpr import XXpr
@@ -69,6 +70,12 @@ class MIPSLoadHalfWord(MIPSOpcode):
     @property
     def operands(self) -> Sequence[MIPSOperand]:
         return [self.mipsd.mips_operand(i) for i in self.args]
+
+    def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        return [MemoryAccess(xdata.xprs[1], "R", size=2)]
+
+    def is_load_instruction(self, xdata: InstrXData) -> bool:
+        return True
 
     def global_variables(self, xdata: InstrXData) -> Mapping[str, int]:
         return xdata.xprs[0].global_variables()

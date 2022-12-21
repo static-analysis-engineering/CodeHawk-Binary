@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,57 +24,60 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Stack pointer offset from position at start of function."""
+"""Represents an instruction's access to memory."""
 
-from typing import List, TYPE_CHECKING
+from typing import Optional
 
-from chb.util.IndexedTable import IndexedTableValue
-
-if TYPE_CHECKING:
-    import chb.app.FunctionDictionary
-    import chb.app.Instruction
-    import chb.invariants.FnVarDictionary
-    import chb.invariants.FnXprDictionary
-    import chb.invariants.XInterval
+from chb.bctypes.BCTyp import BCTyp
+from chb.invariants.XXpr import XXpr
 
 
-class StackPointerOffset(IndexedTableValue):
+class MemoryAccess:
 
     def __init__(
             self,
-            d: "chb.app.FunctionDictionary.FunctionDictionary",
-            ixval: IndexedTableValue) -> None:
-        IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
-        self._d = d
+            memaddr: XXpr,
+            mode: str,               # R/W/RW
+            size: Optional[int] = None,    # size in bytes
+            memtype: Optional[BCTyp] = None) -> None:
+        self._memaddr = memaddr
+        self._mode = mode
+        self._size = size
+        self._memtype = memtype
 
     @property
-    def function(self) -> "chb.app.Function.Function":
-        return self._d.function
+    def address(self) -> XXpr:
+        return self._memaddr
 
     @property
-    def vd(self) -> "chb.invariants.FnVarDictionary.FnVarDictionary":
-        return self.function.vardictionary
+    def mode(self) -> str:
+        return self._mode
 
     @property
-    def xd(self) -> "chb.invariants.FnXprDictionary.FnXprDictionary":
-        return self.function.xprdictionary
+    def is_read(self) -> bool:
+        return self.mode in ["R", "RW"]
 
     @property
-    def level(self) -> int:
-        return self.args[0]
+    def is_write(self) -> bool:
+        return self.mode in ["W", "RW"]
 
     @property
-    def offset(self) -> "chb.invariants.XInterval.XInterval":
-        return self.xd.interval(self.args[1])
+    def is_read_write(self) -> bool:
+        return self.mode == "RW"
 
     @property
-    def is_closed(self) -> bool:
-        return self.offset.is_closed
+    def size(self) -> Optional[int]:
+        return self._size
+
+    @property
+    def memtype(self) -> Optional[BCTyp]:
+        return self._memtype
+
+    @property
+    def is_stack_address(self) -> bool:
+        return self.address.is_stack_address
 
     def __str__(self) -> str:
-        level = self.level + 1
-        return (("[" * level)
-                + " "
-                + str(self.offset).rjust(4)
-                + " "
-                + ("]" * level))
+        ptype = str(self.memtype) if self.memtype is not None else ""
+        psize = " (" + str(self.size) + ") " if self.size is not None else ""
+        return ptype + psize + str(self.address)

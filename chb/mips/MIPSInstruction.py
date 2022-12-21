@@ -38,6 +38,7 @@ from chb.api.CallTarget import CallTarget
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.Instruction import Instruction
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess
 from chb.app.StackPointerOffset import StackPointerOffset
 
 import chb.ast.ASTNode as AST
@@ -132,11 +133,27 @@ class MIPSInstruction(Instruction):
         return self.functiondictionary.read_xml_sp_offset(self.xnode)
 
     @property
+    def is_stack_access(self) -> bool:
+        return self.opcode.is_stack_access(self.xdata)
+
+    @property
+    def is_register_spill(self) -> Optional[str]:
+        return self.opcode.is_register_spill(self.xdata)
+
+    @property
+    def is_register_restore(self) -> Optional[str]:
+        return self.opcode.is_register_restore(self.xdata)
+
+    @property
     def annotation(self) -> str:
         return self.opcode.annotation(self.xdata)
 
     def operand_values(self) -> Sequence[XXpr]:
         return self.opcode.operand_values(self.xdata)
+
+    @property
+    def memory_accesses(self) -> Sequence[MemoryAccess]:
+        return self.opcode.memory_accesses(self.xdata)
 
     def assembly_ast(
             self, astree: ASTInterface) -> List[AST.ASTInstruction]:
@@ -207,11 +224,11 @@ class MIPSInstruction(Instruction):
 
     @property
     def is_load_instruction(self) -> bool:
-        return False
+        return self.opcode.is_load_instruction(self.xdata)
 
     @property
     def is_store_instruction(self) -> bool:
-        return False
+        return self.opcode.is_store_instruction(self.xdata)
 
     @property
     def is_load_word_instruction(self) -> bool:

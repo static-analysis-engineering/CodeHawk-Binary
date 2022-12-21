@@ -31,6 +31,7 @@
 from typing import cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess
 
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
@@ -75,6 +76,15 @@ class MIPSLoadByte(MIPSOpcode):
     @property
     def operands(self) -> Sequence[MIPSOperand]:
         return [self.mipsd.mips_operand(i) for i in self.args]
+
+    def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        return [MemoryAccess(xdata.xprs[1], "R", size=1)]
+
+    def is_stack_access(self, xdata: InstrXData) -> bool:
+        return xdata.xprs[1].is_stack_address
+
+    def is_load_instruction(self, xdata: InstrXData) -> bool:
+        return True
 
     def global_variables(self, xdata: InstrXData) -> Mapping[str, int]:
         return xdata.xprs[0].global_variables()

@@ -27,9 +27,10 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
+from typing import cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess
 
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
@@ -80,6 +81,15 @@ class MIPSStoreWord(MIPSOpcode):
     def operands(self) -> Sequence[MIPSOperand]:
         return [self.mipsd.mips_operand(i) for i in self.args]
 
+    def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        return [MemoryAccess(xdata.xprs[2], "W", size=4)]
+
+    def is_stack_access(self, xdata: InstrXData) -> bool:
+        return xdata.xprs[2].is_stack_address
+
+    def is_store_instruction(self, xdata: InstrXData) -> bool:
+        return True
+
     def global_variables(self, xdata: InstrXData) -> Mapping[str, int]:
         return xdata.xprs[0].global_variables()
 
@@ -100,7 +110,7 @@ class MIPSStoreWord(MIPSOpcode):
             lhs = derefstr(xdata.xprs[2])
         return lhs + ' := ' + xrhs
 
-    def is_spill(self, xdata: InstrXData) -> bool:
+    def is_register_spill(self, xdata: InstrXData) -> Optional[str]:
         swaddr = xdata.xprs[2]
         if swaddr.is_stack_address:
             rhs = xdata.xprs[1]
@@ -111,11 +121,12 @@ class MIPSStoreWord(MIPSOpcode):
                     if v.auxvar.is_initial_register_value:
                         vx = cast("VInitialRegisterValue", v.auxvar)
                         r = cast("MIPSRegister", vx.register)
-                        return (
-                            r.is_mips_callee_saved_register
-                            or r.is_mips_global_pointer
-                            or r.is_mips_return_address_register)
-        return False
+                        if (
+                                r.is_mips_callee_saved_register
+                                or r.is_mips_global_pointer
+                                or r.is_mips_return_address_register):
+                            return str(r)
+        return None
 
     def ast(
             self,
@@ -123,7 +134,7 @@ class MIPSStoreWord(MIPSOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        if self.is_spill(xdata):
+        if self.is_register_spill(xdata):
             return []
         else:
             rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], xdata, astree)

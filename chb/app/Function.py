@@ -57,6 +57,7 @@ from chb.app.BDictionary import BDictionary
 from chb.app.Cfg import Cfg
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.Instruction import Instruction
+from chb.app.StackLayout import StackLayout
 from chb.app.StringXRefs import StringsXRefs
 
 import chb.ast.ASTNode as AST
@@ -101,6 +102,7 @@ class Function(ABC):
         self._varinvd: Optional[FnVarInvDictionary] = None
         self._invariants: Dict[str, List[InvariantFact]] = {}
         self._varinvariants: Dict[str, List[VarInvariantFact]] = {}
+        self._stacklayout: Optional[StackLayout] = None
 
     @property
     def path(self) -> str:
@@ -343,6 +345,19 @@ class Function(ABC):
         else:
             raise UF.CHBError("No instruction found at address " + iaddr)
 
+    def stacklayout(self) -> StackLayout:
+        if self._stacklayout is None:
+            stacklayout = StackLayout()
+            for (iaddr, instr) in self.instructions.items():
+                stacklayout.add_instr_offset(
+                    iaddr, instr.stackpointer_offset)
+                if instr.is_stack_access:
+                    stacklayout.add_access(instr)
+                if instr.is_call_instruction:
+                    stacklayout.add_access(instr)
+            self._stacklayout = stacklayout
+        return self._stacklayout
+
     @abstractmethod
     def to_string(
             self,
@@ -351,5 +366,6 @@ class Function(ABC):
             hash: bool = False,           # md5 of the bytestring
             opcodetxt: bool = True,       # instruction opcode text
             opcodewidth: int = 25,        # alignment width for opcode text
-            sp: bool = True) -> str:
+            sp: bool = True,
+            stacklayout: bool = False) -> str:
         ...

@@ -184,6 +184,10 @@ class XXpr(FnXprDictionaryRecord):
         """Returns true if this expression involves the stack pointer."""
         return False
 
+    def stack_address_offset(self) -> int:
+        raise UF.CHBError(
+            "Expression is not a stack address with stack address offset")
+
     @property
     def is_heap_address(self) -> bool:
         return self.is_heap_base_address
@@ -603,8 +607,8 @@ class XprCompound(XXpr):
             else:
                 return stackoffset.intvalue
         else:
-            raise UF.CHBError("Expression is not a stack address: "
-                              + str(self))
+            raise UF.CHBError(
+                "Expression is not a stack address: " + str(self))
 
     def is_heap_address(self) -> bool:
         args = self.operands

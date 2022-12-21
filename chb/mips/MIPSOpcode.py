@@ -33,6 +33,7 @@ from typing import (
 import chb.api.MIPSLinuxSyscalls as SC
 
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess
 
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
@@ -123,8 +124,29 @@ class MIPSOpcode(MIPSDictionaryRecord):
         """Return all operands from the instruction."""
         return []
 
+    def is_stack_access(self, xdata: InstrXData) -> bool:
+        return False
+
+    def is_register_spill(self, xdata: InstrXData) -> Optional[str]:
+        return None
+
+    def is_register_restore(self, xdata: InstrXData) -> Optional[str]:
+        return None
+
+    def is_load_instruction(self, xdata: InstrXData) -> bool:
+        return False
+
+    def is_store_instruction(self, xdata: InstrXData) -> bool:
+        return False
+
     def operand_values(self, xdata: InstrXData) -> Sequence[XXpr]:
         """Return all operand values as expressions."""
+
+        return []
+
+    def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        """Return memory access of memory operands (in order of appearance)."""
+
         return []
 
     def strings(self, xdata: InstrXData) -> Sequence[str]:

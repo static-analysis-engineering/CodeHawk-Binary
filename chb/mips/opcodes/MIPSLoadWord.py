@@ -27,15 +27,16 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, Dict, List, Mapping, Sequence, TYPE_CHECKING
+from typing import cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess
 
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
-from chb.invariants.XXpr import XXpr
+from chb.invariants.XXpr import XXpr, XprVariable
 
 from chb.mips.MIPSDictionaryRecord import mipsregistry
 from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
@@ -52,7 +53,10 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    from chb.invariants.VAssemblyVariable import VAuxiliaryVariable, VRegisterVariable
+    from chb.invariants.VConstantValueVariable import VInitialRegisterValue
     from chb.mips.MIPSDictionary import MIPSDictionary
+    from chb.mips.MIPSRegister import MIPSRegister
     from chb.simulation.SimulationState import SimulationState
 
 
@@ -75,6 +79,15 @@ class MIPSLoadWord(MIPSOpcode):
     @property
     def operands(self) -> Sequence[MIPSOperand]:
         return [self.mipsd.mips_operand(i) for i in self.args]
+
+    def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        return [MemoryAccess(xdata.xprs[1], "R", size=4)]
+
+    def is_stack_access(self, xdata: InstrXData) -> bool:
+        return xdata.xprs[1].is_stack_address
+
+    def is_load_instruction(self, xdata: InstrXData) -> bool:
+        return True
 
     def load_address(self, xdata: InstrXData) -> XXpr:
         return xdata.xprs[1]
@@ -117,9 +130,27 @@ class MIPSLoadWord(MIPSOpcode):
                 + "], ["
                 + ", ".join(str(rhs) for rhs in rhss))
 
-    def is_restore_register(self) -> bool:
-        return (self.dst_operand.is_mips_register
-                and self.src_operand.is_mips_indirect_register_with_reg('sp'))
+    def is_register_restore(self, xdata: InstrXData) -> Optional[str]:
+        if (
+                self.dst_operand.is_mips_register
+                and self.src_operand.is_mips_indirect_register_with_reg("sp")):
+            r = cast("MIPSRegister", cast("VRegisterVariable", xdata.vars[0].denotation).register)
+            if r.is_mips_callee_saved_register:
+                rhs = xdata.xprs[0]
+                if rhs.is_var:
+                    rhsv = cast("XprVariable", rhs).variable
+                    if rhsv.has_denotation():
+                        rhsa = rhsv.denotation
+                        if rhsa.is_auxiliary_variable:
+                            rhsaux = cast("VAuxiliaryVariable", rhsa).auxvar
+                            if rhsaux.is_initial_register_value:
+                                rhsreg = cast(
+                                    "MIPSRegister",
+                                    cast("VInitialRegisterValue", rhsaux).register)
+                                if str(rhsreg) == str(r):
+                                    return str(r)
+
+        return None
 
     @property
     def src_operand(self) -> MIPSOperand:
