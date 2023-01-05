@@ -494,6 +494,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     nocallees: bool = args.nocallees
     sortby: str = args.sortby
     timeshare: int = args.timeshare
+    opcodes: str = args.opcodes
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -533,6 +534,12 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
             print(s.ljust(14) + "{:4.2f}".format(100.0 * t).rjust(6))
         print("-----------------------")
         print("Total".ljust(14) + "{:4.2f}".format(100.0 * toptotal).rjust(6))
+
+    if opcodes:
+        filename = opcodes + ".json"
+        with open(filename, "w") as fp:
+            json.dump(app.mnemonic_stats(), fp, sort_keys=True, indent=2)
+
     exit(0)
 
 

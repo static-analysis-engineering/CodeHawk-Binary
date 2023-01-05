@@ -29,12 +29,15 @@
 import argparse
 import json
 
-from typing import Any, Dict, NoReturn, Optional
+from typing import Any, cast, Dict, NoReturn, Optional, TYPE_CHECKING
 
 import chb.app.AppAccess as AP
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
 import chb.util.fileutil as UF
+
+if TYPE_CHECKING:
+    from chb.arm.ARMAssembly import ARMAssembly
 
 
 def pedatacmd(args: argparse.Namespace) -> NoReturn:
@@ -102,6 +105,7 @@ def elfdatacmd(args: argparse.Namespace) -> NoReturn:
     savesectionheaders: str = args.save_section_headers
     showlibs: bool = args.libs
     showheader: bool = args.header
+    opcodestats: str = args.opcodestats
 
     try:
         (path, xfile) = UC.get_path_filename(xname)
@@ -152,5 +156,30 @@ def elfdatacmd(args: argparse.Namespace) -> NoReturn:
         with open(filename, "w") as fp:
             json.dump(result, fp, indent=3)
         UC.print_info("Saved section headers in " + filename)
+
+    if opcodestats:
+        asm = UC.get_asm(app)
+
+        if xinfo.is_arm:
+            asm = cast("ARMAssembly", asm)
+            print("Number of instructions: " + str(len(asm.instructions)))
+            iresult: Dict[str, int] = {}
+            xresult: Dict[str, int] = {}
+            for instr in asm.instructions.values():
+                mn = instr.mnemonic
+                iresult.setdefault(mn, 0)
+                iresult[mn] += 1
+                extension = instr.mnemonic_extension()
+                if len(extension) > 0 and not extension.startswith("error"):
+                    xresult.setdefault(extension, 0)
+                    xresult[extension] += 1
+
+            stats: Dict[str, Dict[str, int]] = {}
+            stats["mnemonics"] = iresult
+            stats["extensions"] = xresult
+
+            filename = opcodestats + ".json"
+            with open(filename, "w") as fp:
+                json.dump(stats, fp, sort_keys=True, indent=2)
 
     exit(0)
