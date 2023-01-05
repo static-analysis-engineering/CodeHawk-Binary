@@ -41,6 +41,9 @@ type xpr_t =
 from typing import Any, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
+
+from chb.app.Register import Register
+
 from chb.invariants.FnDictionaryRecord import FnXprDictionaryRecord, xprregistry
 
 import chb.invariants.InputConstraint as IC
@@ -106,6 +109,12 @@ class XXpr(FnXprDictionaryRecord):
 
     @property
     def is_register_variable(self) -> bool:
+        return False
+
+    @property
+    def is_initial_register_value(self) -> bool:
+        """Return true if this expression is the initial value of a register."""
+
         return False
 
     @property
@@ -187,6 +196,11 @@ class XXpr(FnXprDictionaryRecord):
     def stack_address_offset(self) -> int:
         raise UF.CHBError(
             "Expression is not a stack address with stack address offset")
+
+    def initial_register_value_register(self) -> Register:
+        """Returns the register of which this expression represents the initial value."""
+        raise UF.CHBError(
+            "Expression is not an initial register value")
 
     @property
     def is_heap_address(self) -> bool:
@@ -284,6 +298,10 @@ class XprVariable(XXpr):
         return self.variable.is_register_variable
 
     @property
+    def is_initial_register_value(self) -> bool:
+        return self.variable.is_initial_register_value
+
+    @property
     def is_var(self) -> bool:
         return True
 
@@ -349,6 +367,9 @@ class XprVariable(XXpr):
             return self.variable.denotation.is_heap_base_address
         else:
             return False
+
+    def initial_register_value_register(self) -> Register:
+        return self.variable.initial_register_value_register()
 
     def command_line_argument_value_index(self) -> int:
         if self.is_command_line_argument_value:

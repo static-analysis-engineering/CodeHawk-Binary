@@ -159,6 +159,10 @@ class VConstantValueVariable(FnVarDictionaryRecord):
     def variable(self) -> "XVariable":
         raise UF.CHBError("Variable property not available on " + str(self))
 
+    @property
+    def register(self) -> "Register":
+        raise UF.CHBError("Constant value is not an initial register value")
+
     def argument_deref_arg_offset(self, inbytes: bool = False) -> Tuple[int, int]:
         raise UF.CHBError("argument_deref_arg_offset not supported on "
                           + str(self))

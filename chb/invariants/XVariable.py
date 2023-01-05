@@ -30,6 +30,8 @@
 
 from typing import Dict, List, Tuple, TYPE_CHECKING
 
+from chb.app.Register import Register
+
 from chb.invariants.FnDictionaryRecord import FnXprDictionaryRecord
 from chb.invariants.VAssemblyVariable import VAssemblyVariable
 from chb.invariants.XSymbol import XSymbol
@@ -77,15 +79,27 @@ class XVariable(FnXprDictionaryRecord):
 
     @property
     def is_register_variable(self) -> bool:
-        return self.has_denotation and self.denotation.is_register_variable
+        return self.has_denotation() and self.denotation.is_register_variable
+
+    @property
+    def is_initial_register_value(self) -> bool:
+        return (
+            self.has_denotation()
+            and self.denotation.is_auxiliary_variable
+            and self.denotation.auxvar.is_initial_register_value)
+
+    def initial_register_value_register(self) -> Register:
+        if self.is_initial_register_value:
+            return self.denotation.auxvar.register
+        raise UF.CHBError("Variable is not an initial register value")
 
     @property
     def is_memory_variable(self) -> bool:
-        return self.has_denotation and self.denotation.is_memory_variable
+        return self.has_denotation() and self.denotation.is_memory_variable
 
     @property
     def is_auxiliary_variable(self) -> bool:
-        return self.has_denotation and self.denotation.is_auxiliary_variable
+        return self.has_denotation() and self.denotation.is_auxiliary_variable
 
     def has_denotation(self) -> bool:
         return self.seqnr > 0
