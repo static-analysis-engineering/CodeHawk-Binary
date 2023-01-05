@@ -437,11 +437,15 @@ class ELFHeader:
             if self.is_object_file():
                 attributes = objectfileheader_attributes
             for p in attributes:
-                propertyvalue = fileheader.get(p)
-                if propertyvalue is None:
-                    raise UF.CHBError("Property " + p + " not found in file-header")
-                if p in valuedescriptor:
-                    propertyvalue = valuedescriptor[p](propertyvalue)
+                propvalue = fileheader.get(p)
+                if propvalue is None:
+                    print("Property " + p + " not found in file-header")
+                if p in valuedescriptor and propvalue is not None:
+                    propertyvalue = valuedescriptor[p](propvalue)
+                elif propvalue is not None:
+                    propertyvalue = propvalue
+                else:
+                    propertyvalue = "unspecified"
                 result["fileheader"][p] = {}
                 result["fileheader"][p]["value"] = propertyvalue
                 result["fileheader"][p]["heading"] = localetable["elfheader"][p]
