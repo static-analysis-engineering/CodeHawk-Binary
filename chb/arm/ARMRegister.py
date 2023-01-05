@@ -71,6 +71,11 @@ class ARMRegister(ARMRegisterBase):
     def is_arm_argument_register(self) -> bool:
         return self.register in ["R0", "R1", "R2", "R3"]
 
+    @property
+    def is_arm_callee_saved_register(self) -> bool:
+        return self.tags[1] in [
+            "R4", "R5", "R6", "R7", "R8", "R9", "R10", "R11", "LR"]
+
     def argument_index(self) -> int:
         if self.is_arm_argument_register:
             return int(self.register[1:])
