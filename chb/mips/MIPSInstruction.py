@@ -133,18 +133,6 @@ class MIPSInstruction(Instruction):
         return self.functiondictionary.read_xml_sp_offset(self.xnode)
 
     @property
-    def is_stack_access(self) -> bool:
-        return self.opcode.is_stack_access(self.xdata)
-
-    @property
-    def is_register_spill(self) -> Optional[str]:
-        return self.opcode.is_register_spill(self.xdata)
-
-    @property
-    def is_register_restore(self) -> Optional[str]:
-        return self.opcode.is_register_restore(self.xdata)
-
-    @property
     def annotation(self) -> str:
         return self.opcode.annotation(self.xdata)
 
