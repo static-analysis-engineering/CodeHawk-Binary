@@ -187,7 +187,35 @@
 		"VLE32": {
 		    "mnemonic": "e_lhz",
 		    "format": "D",
-		    "E": "010110<rd><ra><-------d------>"
+		    "E": "< 5>10<rd><ra><------D------->"
+		}
+	    }
+	},
+	"li": {
+	    "name": "LoadImmediate",
+	    "encodings": {
+		"VLE16": {
+		    "mnemonic": "se_li",
+		    "format": "UI7",
+		    "E": "< 4>1<-ui7-><rx>",
+		    "D": "Y"
+		},
+		"VLE32": {
+		    "mnemonic": "e_li",
+		    "format": "LI20",
+		    "E": "< 7>00<rd><li2>0<li><---li---->",
+		    "D": "Y"
+		}
+	    }
+	},
+	"lis": {
+	    "name": "LoadImmediate [Shifted]",
+	    "encodings": {
+		"VLE32": {
+		    "mnemonic": "e_lis",
+		    "format": "LI20",
+		    "E": "< 7>00<rd><ui1>1<12><---ui---->",
+		    "D": "Y"
 		}
 	    }
 	},
@@ -440,6 +468,12 @@
 		    "mnemonic": "se_stw",
 		    "format": "SD4",
 		    "E": "<13><sd><rz><rx>",
+		    "D": "Y"
+		},
+		"VLE32": {
+		    "mnemonic": "e_stw",
+		    "format": "D",
+		    "E": "< 5>01<rs><ra><------D------->",
 		    "D": "Y"
 		}
 	    }
