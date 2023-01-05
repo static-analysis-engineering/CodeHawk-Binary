@@ -176,6 +176,9 @@ class ARMFunction(Function):
             sp: bool = True,
             stacklayout: bool = False) -> str:
         lines: List[str] = []
+        if stacklayout:
+            lines.append(str(self.stacklayout()))
+            lines.append(" ")
         for b in sorted(self.blocks):
             lines.append(
                 self.blocks[b].to_string(

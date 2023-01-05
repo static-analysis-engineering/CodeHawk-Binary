@@ -35,6 +35,7 @@ from chb.api.CallTarget import CallTarget
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.Instruction import Instruction
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess
 from chb.app.Operand import Operand
 from chb.app.StackPointerOffset import StackPointerOffset
 
@@ -96,6 +97,10 @@ class ARMInstruction(Instruction):
         if self._xdata is None:
             self._xdata = self.armfunctiondictionary.read_xml_instrx(self.xnode)
         return self._xdata
+
+    @property
+    def mnemonic_stem(self) -> str:
+        return self.opcode.mnemonic
 
     @property
     def mnemonic(self) -> str:
@@ -196,6 +201,10 @@ class ARMInstruction(Instruction):
     @property
     def annotation(self) -> str:
         return self.opcode.annotation(self.xdata).ljust(40)
+
+    @property
+    def memory_accesses(self) -> Sequence[MemoryAccess]:
+        return self.opcode.memory_accesses(self.xdata)
 
     def assembly_ast(self, astree: ASTInterface) -> List[ASTInstruction]:
         return self.opcode.assembly_ast(

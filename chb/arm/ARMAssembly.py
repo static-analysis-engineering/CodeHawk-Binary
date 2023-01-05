@@ -64,6 +64,9 @@ class ARMAssemblyInstruction(AssemblyInstruction):
     def mnemonic(self) -> str:
         return self.opcode.mnemonic
 
+    def mnemonic_extension(self) -> str:
+        return self.opcode.mnemonic_extension()
+
     def unknown_hint(self) -> str:
         if self.mnemonic == "unknown":
             return cast("ARMNotRecognized", self.opcode).unknown_hint

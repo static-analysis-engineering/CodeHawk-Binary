@@ -31,6 +31,7 @@ from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 from chb.api.CallTarget import CallTarget
 
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess
 
 from chb.arm.ARMDictionaryRecord import ARMDictionaryRecord
 from chb.arm.ARMOperand import ARMOperand
@@ -281,6 +282,9 @@ class ARMOpcode(ARMDictionaryRecord):
     def operandstring(self) -> str:
         return ", ".join(str(op) for op in self.operands)
 
+    def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        return []
+
     def lhs(self, xdata: InstrXData) -> List[XVariable]:
         """Return lhs variables."""
         return xdata.vars
@@ -288,6 +292,9 @@ class ARMOpcode(ARMDictionaryRecord):
     def rhs(self, xdata: InstrXData) -> List[XXpr]:
         """Return rhs expressions."""
         return xdata.xprs
+
+    def is_stack_access(self, xdata: InstrXData) -> bool:
+        return False
 
     @property
     def is_branch_instruction(self) -> bool:
