@@ -29,10 +29,10 @@
 
 from abc import ABC, abstractmethod
 
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import cast, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.Instruction import Instruction
-from chb.app.MemoryAccess import MemoryAccess
+from chb.app.MemoryAccess import MemoryAccess, RegisterSpill, RegisterRestore
 from chb.app.Register import Register
 from chb.app.StackPointerOffset import StackPointerOffset
 
@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
 
 class StackAccess:
+    """Collects reads, writes, and escapes at a particular offset."""
 
     def __init__(self, offset: int, size: Optional[int] = None) -> None:
         self._offset = offset
@@ -143,6 +144,49 @@ class SavedRegister:
         return "\n".join(lines)
 
 
+class StackBuffer:
+    """A contiguous stack region that can be read/written as a unit."""
+
+    def __init__(
+            self,
+            offset: int,
+            lb: Optional[int] = None,
+            ub: Optional[int] = None) -> None:
+        self._offset = offset
+        self._lb = lb
+        self._ub = ub
+        self._accesses: List[StackAccess] = []
+
+    @property
+    def offset(self) -> int:
+        return self._offset
+
+    @property
+    def upperbound(self) -> Optional[int]:
+        return self._ub
+
+    @property
+    def lowerbound(self) -> Optional[int]:
+        return self._lb
+
+    def maxsize(self) -> Optional[int]:
+        if self.upperbound is not None:
+            return self.upperbound - self.offset
+        return None
+
+    def minsize(self) -> Optional[int]:
+        if self.lowerbound is not None:
+            return self.lowerbound - self.offset
+        return None
+
+    def size(self) -> Optional[int]:
+        if self.upperbound is None or self.lowerbound is None:
+            return None
+        if self.upperbound != self.lowerbound:
+            return None
+        return self.maxsize()
+
+
 class StackLayout:
 
     def __init__(self) -> None:
@@ -178,6 +222,30 @@ class StackLayout:
             self._compute_saved_registers()
         return list(self._saved_registers.values())
 
+    def is_saved_register_slot(self, offset: int) -> bool:
+        for r in self.saved_registers:
+            if offset == r.offset:
+                return True
+        else:
+            return False
+
+    def stackbuffer(self, offset: int) -> Optional[StackBuffer]:
+        if offset in self.layout:
+            if self.is_saved_register_slot(offset):
+                return StackBuffer(offset, lb=offset + 4, ub=offset + 4)
+            else:
+                for off in sorted(self.layout):
+                    if off <= offset:
+                        continue
+                    lb = off
+                    if self.is_saved_register_slot(off):
+                        ub = off
+                        return StackBuffer(offset, lb=lb, ub=ub)
+                else:
+                    return None
+        else:
+            return None
+
     def retrieve_saved_register(self, name: str, offset: int) -> SavedRegister:
         if (name, offset) in self._saved_registers:
             return self._saved_registers[(name, offset)]
@@ -202,6 +270,7 @@ class StackLayout:
 
     def add_access(self, instr: Instruction) -> None:
         self._accesses.append(instr)
+        self.add_instr_offset(instr.iaddr, instr.stackpointer_offset)
 
     def _compute_size(self) -> None:
         upperbounds: Dict[str, XBound] = {}
@@ -228,20 +297,19 @@ class StackLayout:
 
     def _compute_saved_registers(self) -> None:
         for instr in self.accesses:
-            regspill = instr.is_register_spill
-            if regspill is not None:
-                xaddrs = instr.memory_accesses
-                if len(xaddrs) == 1 and xaddrs[0].is_stack_address:
-                    stackoffset = xaddrs[0].address.stack_address_offset()
-                    savedreg = self.retrieve_saved_register(regspill, stackoffset)
-                    savedreg.add_spill(instr)
-            else:
-                regrestore = instr.is_register_restore
-                if regrestore is not None:
-                    xaddrs = instr.memory_accesses
-                    if len(xaddrs) == 1 and xaddrs[0].is_stack_address:
-                        stackoffset = xaddrs[0].address.stack_address_offset()
-                        savedreg = self.retrieve_saved_register(regrestore, stackoffset)
+            for mem in instr.memory_accesses:
+                if mem.is_stack_address:
+                    if mem.is_register_spill:
+                        stackoffset = mem.address.stack_address_offset()
+                        mem = cast(RegisterSpill, mem)
+                        savedreg = self.retrieve_saved_register(
+                            mem.register, stackoffset)
+                        savedreg.add_spill(instr)
+                    elif mem.is_register_restore:
+                        stackoffset = mem.address.stack_address_offset()
+                        mem = cast(RegisterRestore, mem)
+                        savedreg = self.retrieve_saved_register(
+                            mem.register, stackoffset)
                         savedreg.add_restore(instr)
 
     def _compute_layout(self) -> None:
@@ -277,7 +345,6 @@ class StackLayout:
             lines.append(str(self.layout[offset]))
         lines.append("-" * 80)
         return "\n".join(lines)
-            
                 
             
                 

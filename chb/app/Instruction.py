@@ -80,6 +80,12 @@ class Instruction(ABC):
         ...
 
     @property
+    def mnemonic_stem(self) -> str:
+        """Return the core part of the mnemonic without extensions."""
+
+        return self.mnemonic
+
+    @property
     @abstractmethod
     def opcodetext(self) -> str:
         ...
@@ -201,24 +207,6 @@ class Instruction(ABC):
         """Return true if something about this instruction is unresolved."""
 
         return False
-
-    @property
-    def is_stack_access(self) -> bool:
-        """Return true if this instruction reads from or writes to the stack."""
-
-        return False
-
-    @property
-    def is_register_spill(self) -> Optional[str]:
-        """Return true if this instruction saves an incoming register to the stack."""
-
-        return None
-
-    @property
-    def is_register_restore(self) -> Optional[str]:
-        """Return true if this instruction restores the original value of a register."""
-
-        return None
 
     @property
     def is_subsumed(self) -> bool:
