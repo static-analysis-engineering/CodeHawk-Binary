@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -41,14 +41,15 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("VBIC", ARMOpcode)
-class ARMVectorBitwiseBitClear(ARMOpcode):
-    """Performs a bitwise AND between a register and an immediate.
+@armregistry.register_tag("VSRA", ARMOpcode)
+class ARMVectorShiftRightAccumulate(ARMOpcode):
+    """Right shifts each element in a vector and accumulates the result.
 
     tags[1]: <c>
     args[0]: index of datatype in armdictionary
-    args[1]: index of source / destination in armdictionary
-    args[2]: index of immediate in armdictionary
+    args[1]: index of destination in armdictionary
+    args[2]: index of source 1 in armdictionary
+    args[3]: index of source 2 in armdictionary
     """
 
     def __init__(
@@ -56,7 +57,7 @@ class ARMVectorBitwiseBitClear(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "VectorBitwiseBitClear")
+        self.check_key(2, 4, "VectorShiftRightAccumulate")
 
     @property
     def operands(self) -> List[ARMOperand]:

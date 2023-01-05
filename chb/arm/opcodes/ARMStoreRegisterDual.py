@@ -25,13 +25,15 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess, RegisterSpill
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+from chb.arm.ARMRegister import ARMRegister
 
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
@@ -57,6 +59,19 @@ class ARMStoreRegisterDual(ARMOpcode):
     args[3]: index of index register / immediate in armdictionary
     args[4]: index of memory location in armdictionary
     args[5]: index of second memory location in armdictionary
+
+    xdata format: a:vvxxxxxxxxrrrrrrddhh
+    ------------------------------------
+    vars[0]: lhs1
+    vars[1]: lhs2
+    xprs[0]: xrn (base register)
+    xprs[1]: xrm (index)
+    xprs[2]: xrt (rhs1, source register 1)
+    xprs[3]: xxrt (rhs1, simplified)
+    xprs[4]: xrt2 (rhs2, source register 2)
+    xprs[5]: xxrt2 (rhs2, simplified)
+    xprs[6]: lhs1 address
+    xprs[7]: lhs2 address
     """
 
     def __init__(
@@ -68,26 +83,47 @@ class ARMStoreRegisterDual(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 4, 5]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 4]]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2, 3, 4, 5]]
+
+    def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        spills = self.register_spills(xdata)
+        if len(spills) == 2:
+            return [
+                RegisterSpill(xdata.xprs[6], spills[0]),
+                RegisterSpill(xdata.xprs[7], spills[1])]
+        else:
+            return [
+                MemoryAccess(xdata.xprs[6], "W", size=4),
+                MemoryAccess(xdata.xprs[7], "W", size=4)]
 
     def is_store_instruction(self, xdata: InstrXData) -> bool:
         return True
 
+    def register_spills(self, xdata: InstrXData) -> List[str]:
+        swaddr = xdata.xprs[6]
+        result: List[str] = []
+        if swaddr.is_stack_address:
+            rhs1 = xdata.xprs[3]
+            rhs2 = xdata.xprs[5]
+            if rhs1.is_initial_register_value:
+                r1 = cast("ARMRegister", rhs1.initial_register_value_register())
+                if r1.is_arm_callee_saved_register:
+                    result.append(str(r1))
+            if rhs2.is_initial_register_value:
+                r2 = cast("ARMRegister", rhs2.initial_register_value_register())
+                if r2.is_arm_callee_saved_register:
+                    result.append(str(r2))
+        return result
+
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vvxxxx .
-
-        vars[0]: lhs1
-        vars[1]: lhs2
-        xprs[0]: value in first register
-        xprs[1]: value in first register (simplified)
-        xprs[2]: value in second register
-        xprs[3]: value in second register (simplified)
-        """
-
         lhs1 = str(xdata.vars[0])
         lhs2 = str(xdata.vars[1])
-        rhs = str(xdata.xprs[1])
-        rhs2 = str(xdata.xprs[3])
+        rhs = str(xdata.xprs[3])
+        rhs2 = str(xdata.xprs[5])
         return lhs1 + " := " + rhs + "; " + lhs2 + " := " + rhs2
 
     def assembly_ast(

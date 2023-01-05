@@ -60,7 +60,7 @@ class ARMVectorBitwiseOr(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(3, 3, "VectorBitwiseOr")
+        self.check_key(2, 4, "VectorBitwiseOr")
 
     @property
     def operands(self) -> List[ARMOperand]:

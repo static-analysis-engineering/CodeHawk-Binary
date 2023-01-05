@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -38,29 +38,25 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    from chb.arm.ARMDictionary import ARMDictionary
+    import chb.arm.ARMDictionary
 
 
-@armregistry.register_tag("VBIC", ARMOpcode)
-class ARMVectorBitwiseBitClear(ARMOpcode):
-    """Performs a bitwise AND between a register and an immediate.
+@armregistry.register_tag("UNDEFINED", ARMOpcode)
+class ARMPermanentlyUndefined(ARMOpcode):
+    """Undefined as per ARM specification.
 
-    tags[1]: <c>
-    args[0]: index of datatype in armdictionary
-    args[1]: index of source / destination in armdictionary
-    args[2]: index of immediate in armdictionary
     """
 
     def __init__(
             self,
-            d: "ARMDictionary",
+            d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "VectorBitwiseBitClear")
+        self.check_key(1, 1, "UNDEFINED")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:]]
+        return [self.armd.arm_operand(self.args[0])]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "pending"
+        return "UNDEFINED"
