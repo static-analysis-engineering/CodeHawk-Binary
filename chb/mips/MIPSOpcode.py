@@ -124,15 +124,6 @@ class MIPSOpcode(MIPSDictionaryRecord):
         """Return all operands from the instruction."""
         return []
 
-    def is_stack_access(self, xdata: InstrXData) -> bool:
-        return False
-
-    def is_register_spill(self, xdata: InstrXData) -> Optional[str]:
-        return None
-
-    def is_register_restore(self, xdata: InstrXData) -> Optional[str]:
-        return None
-
     def is_load_instruction(self, xdata: InstrXData) -> bool:
         return False
 

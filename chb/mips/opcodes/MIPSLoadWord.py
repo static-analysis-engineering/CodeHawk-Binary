@@ -30,7 +30,7 @@
 from typing import cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
-from chb.app.MemoryAccess import MemoryAccess
+from chb.app.MemoryAccess import MemoryAccess, RegisterRestore
 
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
@@ -81,10 +81,11 @@ class MIPSLoadWord(MIPSOpcode):
         return [self.mipsd.mips_operand(i) for i in self.args]
 
     def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
-        return [MemoryAccess(xdata.xprs[1], "R", size=4)]
-
-    def is_stack_access(self, xdata: InstrXData) -> bool:
-        return xdata.xprs[1].is_stack_address
+        restore = self.register_restore(xdata)
+        if restore is not None:
+            return [RegisterRestore(xdata.xprs[1], restore)]
+        else:
+            return [MemoryAccess(xdata.xprs[1], "R", size=4)]
 
     def is_load_instruction(self, xdata: InstrXData) -> bool:
         return True
@@ -130,25 +131,19 @@ class MIPSLoadWord(MIPSOpcode):
                 + "], ["
                 + ", ".join(str(rhs) for rhs in rhss))
 
-    def is_register_restore(self, xdata: InstrXData) -> Optional[str]:
+    def register_restore(self, xdata: InstrXData) -> Optional[str]:
         if (
                 self.dst_operand.is_mips_register
                 and self.src_operand.is_mips_indirect_register_with_reg("sp")):
-            r = cast("MIPSRegister", cast("VRegisterVariable", xdata.vars[0].denotation).register)
+            r = cast(
+                "MIPSRegister",
+                cast("VRegisterVariable", xdata.vars[0].denotation).register)
             if r.is_mips_callee_saved_register:
                 rhs = xdata.xprs[0]
-                if rhs.is_var:
-                    rhsv = cast("XprVariable", rhs).variable
-                    if rhsv.has_denotation():
-                        rhsa = rhsv.denotation
-                        if rhsa.is_auxiliary_variable:
-                            rhsaux = cast("VAuxiliaryVariable", rhsa).auxvar
-                            if rhsaux.is_initial_register_value:
-                                rhsreg = cast(
-                                    "MIPSRegister",
-                                    cast("VInitialRegisterValue", rhsaux).register)
-                                if str(rhsreg) == str(r):
-                                    return str(r)
+                if rhs.is_initial_register_value:
+                    rr = rhs.initial_register_value_register()
+                    if str(rr) == str(r):
+                        return str(r)
 
         return None
 
