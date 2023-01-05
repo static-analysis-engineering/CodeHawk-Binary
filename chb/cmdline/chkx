@@ -130,6 +130,7 @@ from typing import NoReturn
 from chb.app.CHVersion import chbversion
 
 import chb.cmdline.AnalysisManager as AM
+import chb.cmdline.aprcmds as APR
 import chb.cmdline.astcmds as AST
 import chb.cmdline.commandutil as UCC
 import chb.cmdline.runcmds as UR
@@ -453,6 +454,9 @@ def parse() -> argparse.Namespace:
         "--header",
         action="store_true",
         help="only show elf header and dynamically linked libraries")
+    elfdatacmd.add_argument(
+        "--opcodestats",
+        help=("json filename (without extension) to save opcode statistics"))
     elfdatacmd.set_defaults(func=FF.elfdatacmd)
 
     # ----------------------------------------------------------------- results --
@@ -477,6 +481,11 @@ def parse() -> argparse.Namespace:
         type=int,
         help="list percentage of time used by <n> most expensive functions",
         default=0)
+    resultsstats.add_argument(
+        "--opcodes",
+        help=(
+            "json filename (without extension) to save opcode distribution "
+            + "stats (for instructions within analyzed functions)"))
     resultsstats.set_defaults(func=UCC.results_stats)
 
     # -- results callgraph --
@@ -715,6 +724,19 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="include stacklayout at the top of the function")
     resultsfunction.set_defaults(func=UCC.results_function)
+
+    # --- results apr ---
+    resultsapr = resultsparsers.add_parser("apr")
+    resultsapr.add_argument("xname", help="name of executable")
+    resultsapr.add_argument(
+        "outputfile",
+        help="name of json outputfile (without extension)")
+    resultsapr.add_argument(
+        "--callees",
+        nargs="*",
+        default=[],
+        help="callees to be repaired")
+    resultsapr.set_defaults(func=APR.patchdata)
 
     # --- results callback tables ---
     resultscallbacktables = resultsparsers.add_parser("callbacktables")
