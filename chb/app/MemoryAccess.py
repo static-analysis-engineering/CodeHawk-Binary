@@ -74,6 +74,14 @@ class MemoryAccess:
         return self._memtype
 
     @property
+    def is_register_spill(self) -> bool:
+        return False
+
+    @property
+    def is_register_restore(self) -> bool:
+        return False
+
+    @property
     def is_stack_address(self) -> bool:
         return self.address.is_stack_address
 
@@ -81,3 +89,39 @@ class MemoryAccess:
         ptype = str(self.memtype) if self.memtype is not None else ""
         psize = " (" + str(self.size) + ") " if self.size is not None else ""
         return ptype + psize + str(self.address)
+
+
+class RegisterSpill(MemoryAccess):
+
+    def __init__(self, memaddr: XXpr, register: str) -> None:
+        MemoryAccess.__init__(self, memaddr, "W", size=4)
+        self._register = register
+
+    @property
+    def register(self) -> str:
+        return self._register
+
+    @property
+    def is_register_spill(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return (MemoryAccess.__str__(self) + "  " + self.register + " saved")
+
+
+class RegisterRestore(MemoryAccess):
+
+    def __init__(self, memaddr: XXpr, register: str) -> None:
+        MemoryAccess.__init__(self, memaddr, "R", size=4)
+        self._register = register
+
+    @property
+    def register(self) -> str:
+        return self._register
+
+    @property
+    def is_register_restore(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return (MemoryAccess.__str__(self) + "  " + self.register + " restored")

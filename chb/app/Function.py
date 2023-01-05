@@ -273,6 +273,14 @@ class Function(ABC):
             m.update(instr.bytestring.encode("utf-8"))
         return m.hexdigest()
 
+    def mnemonic_stats(self) -> Dict[str, int]:
+        result: Dict[str, int] = {}
+        for i in self.instructions.values():
+            mnemonic = i.mnemonic_stem
+            result.setdefault(mnemonic, 0)
+            result[mnemonic] += 1
+        return result
+
     def mnemonic_string(self) -> str:
         s: str = ""
         for (iaddr, i) in sorted(self.instructions.items()):
@@ -349,9 +357,8 @@ class Function(ABC):
         if self._stacklayout is None:
             stacklayout = StackLayout()
             for (iaddr, instr) in self.instructions.items():
-                stacklayout.add_instr_offset(
-                    iaddr, instr.stackpointer_offset)
-                if instr.is_stack_access:
+                memaccesses = instr.memory_accesses
+                if any(a.is_stack_address for a in memaccesses):
                     stacklayout.add_access(instr)
                 if instr.is_call_instruction:
                     stacklayout.add_access(instr)

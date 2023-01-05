@@ -299,6 +299,15 @@ class AppAccess(ABC, Generic[HeaderTy]):
 
     # Instructions -----------------------------------------------------------
 
+    def mnemonic_stats(self) -> Dict[str, int]:
+        result: Dict[str, int] = {}
+        for fn in self.functions.values():
+            fnstats = fn.mnemonic_stats()
+            for (mn, count) in fnstats.items():
+                result.setdefault(mn, 0)
+                result[mn] += count
+        return result
+
     def load_instructions(self) -> Mapping[str, Mapping[str, Sequence["Instruction"]]]:
         """Return a mapping from function address to block address to instructions."""
 
