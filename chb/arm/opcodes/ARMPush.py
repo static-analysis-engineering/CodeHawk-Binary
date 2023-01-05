@@ -25,9 +25,10 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Tuple, TYPE_CHECKING
+from typing import cast, List, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess, RegisterSpill
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
@@ -45,6 +46,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
+    from chb.arm.ARMRegister import ARMRegister
 
 
 @armregistry.register_tag("PUSH", ARMOpcode)
@@ -92,6 +94,23 @@ class ARMPush(ARMOpcode):
     @property
     def operandstring(self) -> str:
         return str(self.operands[1])
+
+    def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        spills = self.register_spills(xdata)
+        if len(spills) == 1:
+            return [RegisterSpill(xdata.xprs[2], spills[0])]
+        else:
+            return [MemoryAccess(xdata.xprs[2], "W", size=4)]
+
+    def register_spills(self, xdata: InstrXData) -> List[str]:
+        swaddr = xdata.xprs[2]
+        result: List[str] = []
+        rhs = xdata.xprs[3]
+        if rhs.is_initial_register_value:
+            r = cast("ARMRegister", rhs.initial_register_value_register())
+            if r.is_arm_callee_saved_register:
+                result.append(str(r))
+        return result
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:v...x...

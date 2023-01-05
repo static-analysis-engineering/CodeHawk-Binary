@@ -25,9 +25,10 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Tuple, TYPE_CHECKING
+from typing import cast, List, Sequence, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
+from chb.app.MemoryAccess import MemoryAccess, RegisterSpill
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
@@ -45,7 +46,10 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
-    from chb.invariants.VAssemblyVariable import VMemoryVariable
+    from chb.arm.ARMRegister import ARMRegister
+    from chb.invariants.VAssemblyVariable import VAuxiliaryVariable, VMemoryVariable
+    from chb.invariants.VConstantValueVariable import VInitialRegisterValue
+    from chb.invariants.XXpr import XprVariable
 
 
 @armregistry.register_tag("STR", ARMOpcode)
@@ -97,6 +101,13 @@ class ARMStoreRegister(ARMOpcode):
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2, 3]]
 
+    def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        spill = self.register_spill(xdata)
+        if spill is not None:
+            return [RegisterSpill(xdata.xprs[4], spill)]
+        else:
+            return [MemoryAccess(xdata.xprs[4], "W", size=4)]
+
     @property
     def membase_operand(self) -> ARMOperand:
         return self.opargs[1]
@@ -107,6 +118,21 @@ class ARMStoreRegister(ARMOpcode):
 
     def is_store_instruction(self, xdata: InstrXData) -> bool:
         return True
+
+    def register_spill(self, xdata: InstrXData) -> Optional[str]:
+        swaddr = xdata.xprs[4]
+        if swaddr.is_stack_address:
+            rhs = xdata.xprs[3]
+            if rhs.is_var:
+                rhsv = cast("XprVariable", rhs).variable
+                if rhsv.denotation.is_auxiliary_variable:
+                    v = cast("VAuxiliaryVariable", rhsv.denotation)
+                    if v.auxvar.is_initial_register_value:
+                        vx = cast("VInitialRegisterValue", v.auxvar)
+                        r = cast("ARMRegister", vx.register)
+                        if r.is_arm_callee_saved_register:
+                            return str(r)
+        return None
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = xdata.vars[0]

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2022 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -41,22 +41,15 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
-@armregistry.register_tag("VBIC", ARMOpcode)
-class ARMVectorBitwiseBitClear(ARMOpcode):
-    """Performs a bitwise AND between a register and an immediate.
-
-    tags[1]: <c>
-    args[0]: index of datatype in armdictionary
-    args[1]: index of source / destination in armdictionary
-    args[2]: index of immediate in armdictionary
-    """
+@armregistry.register_tag("SHA1C", ARMOpcode)
+class ARMSHA1HashUpdateChoose(ARMOpcode):
 
     def __init__(
             self,
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "VectorBitwiseBitClear")
+        self.check_key(2, 4, "SHA1HashUpdateChoose")
 
     @property
     def operands(self) -> List[ARMOperand]:
