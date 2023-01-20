@@ -113,3 +113,23 @@ physical storage locations may include:
 The mapping need not be total, since the physical location of an lvalue may not
 be known or may not be constant (e.g., an array element, represented by the
 lvalue a[i], may have many different physical locations).
+
+
+### Code Fragments
+
+Code fragments provides an indexed list of code fragments that can be referenced
+by index in the return sequence mappings provided for individual functions.
+
+**Example**:
+
+```
+  "codefragments": {
+    "0": {
+      "hex": "05b0f0bd",
+      "assembly": [
+        "ADD  SP, SP, #0x14",
+        "POP  {R4,R5,R6,R7,PC}"
+      ]
+    }
+  }
+```

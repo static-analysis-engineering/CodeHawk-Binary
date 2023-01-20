@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -82,7 +82,7 @@ class ARMIntrinsics:
         fsig = AST.ASTTypFun(self.unsigned_int, funargs)
         return AST.ASTVarInfo(
             "__cls", vtype=fsig, globaladdress=0, vdescr="arm intrinsic")
-    
+
     @property
     def rbit(self) -> AST.ASTVarInfo:
         """uint32_t __rbit(uint32_t x);
@@ -94,7 +94,7 @@ class ARMIntrinsics:
         fsig = AST.ASTTypFun(self.uint32_t, funargs)
         return AST.ASTVarInfo(
             "__rbit", vtype=fsig, globaladdress=0, vdescr="arm intrinsic")
-    
+
     @property
     def rev(self) -> AST.ASTVarInfo:
         """uint32_t __rev(uint32_t x);

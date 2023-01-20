@@ -12,6 +12,7 @@
 - [Unary and binary operators](#operators)
 - [Types](#types)
 - [Provenance](#provenance)
+- [Return Sequences](#returnsequences)
 
 
 ### Statements
@@ -1050,3 +1051,37 @@ add_definitions_used(lvalid: int, instrids: List[int]) -> None
 
 The serialization is automatically included in the function serialization
 by the ASTApplicationInterface.
+
+
+#### Return Sequences <a name="returnsequences"></a>
+
+The Abstract Syntax Tree can be provided with an optional **returnsequences**
+property that can be used to associate return sequences with instruction
+addresses. Return sequences are binary code fragments (binary blobs) that can
+be added verbatim to a patch to cause a clean return from the function.
+
+A return sequence should:
+- restore the callee-saved registers, and
+- restore the stack pointer to its original value at function entry, and
+- assign the return address to the program counter
+
+A return sequence is not expected to set the return value.
+
+A return sequence can be added with the function:
+```
+def add_return_sequence(self, hexstring: str, assembly: List[str], address: str) -> None
+```
+where <code>hexstring</code> is a hexadecimal representation of the return
+sequence instruction bytes, <code>assembly</code> is a textual representation
+of the corresponding assembly code (this is for information only), and
+<code>address</code> is the instruction address (in hexadecimal) for which
+this return sequence can be used.
+
+**Example**
+
+```
+add_return_sequence(
+    "05b0f0bd",
+    ["ADD SP, SP, #0x14", "POP {R4,R5,R6,R7,PC}"],
+    "0x11ca0")
+```
