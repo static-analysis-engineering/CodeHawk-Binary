@@ -24,8 +24,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+import re
 
-from typing import Any, cast, Dict, List, Optional, Tuple
+from typing import Any, cast, Dict, List, Optional, Sequence, Tuple
 
 from chb.app.BasicBlock import BasicBlock
 from chb.app.Function import Function
@@ -35,7 +36,7 @@ from chb.app.StackLayout import StackBuffer
 import chb.cmdline.commandutil as UC
 from chb.cmdline.XInfo import XInfo
 
-from chb.invariants.XXpr import XprCompound, XprConstant
+from chb.invariants.XXpr import XXpr, XprCompound, XprConstant
 
 from chb.mips.MIPSInstruction import MIPSInstruction
 
@@ -50,7 +51,7 @@ class PatchRecord:
             spare: Optional[str],
             faddr: str,
             callee: str,
-            args: List[str],
+            args: Sequence[XXpr],
             buffer: StackBuffer,
             fname: Optional[str] = None) -> None:
         self._iaddr = iaddr
@@ -70,7 +71,7 @@ class PatchRecord:
         return self._spare
 
     @property
-    def faddr(self)-> str:
+    def faddr(self) -> str:
         return self._faddr
 
     @property
@@ -85,12 +86,19 @@ class PatchRecord:
             raise UF.CHBError("Function does not have a name: " + self.faddr)
 
     @property
-    def arguments(self) -> List[str]:
+    def arguments(self) -> Sequence[XXpr]:
         return self._args
 
     @property
     def buffer(self) -> StackBuffer:
         return self._buffer
+
+    @property
+    def formatstring(self) -> Optional[str]:
+        if self.callee == "sprintf" and self.arguments[1].is_string_reference:
+            return (cast(XprConstant, self.arguments[1])).constant.string_reference()
+        else:
+            return None
 
     def has_size(self) -> bool:
         return self.buffer.size() is not None
@@ -103,8 +111,13 @@ class PatchRecord:
             result["spare"] = self.spare
         if self.buffer.size() is not None:
             result["buffersize"] = self.buffer.size()
+        fmtstring = self.formatstring
+        if fmtstring is not None:
+            result["fmtstring"] = fmtstring
+            fspecs = [m.start() for m in re.finditer("%", fmtstring)]
+            result["fmtspecs"] = len(fspecs)
         return result
-    
+
 
 def get_stackbuffer(
         fn: Function,
@@ -180,7 +193,7 @@ def get_patch_records(
                             spare,
                             faddr,
                             ctgt,
-                            [str(x) for x in instr.call_arguments],
+                            instr.call_arguments,
                             buffer)
 
     return list(results.values())
