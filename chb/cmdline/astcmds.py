@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs, LLC
+# Copyright (c) 2022-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,6 +42,7 @@ from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
 from chb.ast.ASTDeserializer import ASTDeserializer
 from chb.ast.ASTNode import ASTStmt, ASTExpr, ASTVariable, ASTVarInfo
 from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
+from chb.ast.ASTReturnSequences import ASTReturnSequences
 from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 
@@ -58,7 +59,7 @@ from chb.userdata.UserHints import UserHints
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    from chb.bctypes.BCCompInfo import BCCompInfo    
+    from chb.bctypes.BCCompInfo import BCCompInfo
     from chb.bctypes.BCTyp import BCTypComp
     from chb.bctypes.BCVarInfo import BCVarInfo
 
@@ -184,6 +185,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     library_targets = library_call_targets(app, functions)
 
     globalsymboltable = astapi.globalsymboltable
+    codefragments = astapi.codefragments
     typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
 
     for vinfo in app.bcfiles.globalvars:
@@ -219,10 +221,12 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 fname = "sub_" + faddr[2:]
 
             localsymboltable = ASTLocalSymbolTable(globalsymboltable)
+            returnsequences = ASTReturnSequences(codefragments)
             astree = AbstractSyntaxTree(
                 faddr,
                 fname,
                 localsymboltable,
+                returnsequences=returnsequences,
                 registersizes=support.register_sizes,
                 flagnames=support.flagnames)
 
