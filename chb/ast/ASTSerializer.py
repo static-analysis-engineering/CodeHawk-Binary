@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -326,7 +326,7 @@ class ASTSerializer(ASTIndexer):
                 return False
             return len(cast(AST.ASTInstrSequence, s).instructions) == 0
 
-        # Make sure we don't drop labels from empty instr sequences. 
+        # Make sure we don't drop labels from empty instr sequences.
         for s in stmt.stmts:
             if is_empty_instr_sequence(s):
                 labels.extend(s.labels)

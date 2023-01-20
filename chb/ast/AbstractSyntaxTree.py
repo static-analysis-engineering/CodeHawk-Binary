@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -47,6 +47,7 @@ import chb.ast.ASTNode as AST
 from chb.ast.ASTProvenance import ASTProvenance
 from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTBasicCTyper import ASTBasicCTyper
+from chb.ast.ASTReturnSequences import ASTReturnSequences
 
 from chb.ast.ASTStorage import (
     ASTStorage,
@@ -76,6 +77,7 @@ class AbstractSyntaxTree:
             faddr: str,
             fname: str,
             localsymboltable: ASTLocalSymbolTable,
+            returnsequences: Optional[ASTReturnSequences] = None,
             registersizes: Dict[str, int] = {},
             flagnames: List[str] = [],
             defaultsize: Optional[int] = None) -> None:
@@ -91,6 +93,7 @@ class AbstractSyntaxTree:
         self._storage: Dict[int, ASTStorage] = {}
         self._available_expressions: Dict[str, Dict[str, Tuple[int, int, str]]] = {}
         self._symboltable = localsymboltable
+        self._returnsequences = returnsequences
         self._storageconstructor = ASTStorageConstructor(
             registersizes, defaultsize, flagnames)
         self._provenance = ASTProvenance()
@@ -130,6 +133,10 @@ class AbstractSyntaxTree:
     @property
     def globalsymboltable(self) -> ASTGlobalSymbolTable:
         return self.symboltable.globaltable
+
+    @property
+    def returnsequences(self) -> Optional[ASTReturnSequences]:
+        return self._returnsequences
 
     @property
     def compinfos(self) -> Mapping[int, AST.ASTCompInfo]:
@@ -203,6 +210,22 @@ class AbstractSyntaxTree:
 
     def add_enuminfo(self, einfo: AST.ASTEnumInfo) -> None:
         self.symboltable.add_enuminfo(einfo)
+
+    def add_return_sequence(
+            self,
+            hexstring: str,
+            assembly: List[str],
+            address: str) -> None:
+        if self.returnsequences is None:
+            print("Return sequences not initialized; return sequence ignored")
+        else:
+            self.returnsequences.add_return_sequence(hexstring, assembly, address)
+
+    def serialize_return_sequences(self) -> Dict[str, str]:
+        if self.returnsequences is None:
+            return {}
+        else:
+            return self.returnsequences.serialize()
 
     def new_stmtid(self) -> int:
         """Return a new id for statements."""

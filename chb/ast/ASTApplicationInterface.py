@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs, LLC
+# Copyright (c) 2022-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,17 +31,18 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.ast.ASTCodeFragments import ASTCodeFragments
 from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
 from chb.ast.ASTDeserializer import ASTDeserializer
 from chb.ast.ASTFunction import ASTFunction
+from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTStorageChecker import ASTStorageChecker
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.CustomASTSupport import CustomASTSupport
-from chb.ast.ASTNode import ASTStmt, ASTVarInfo
 
 
-pirversion: str = "0.1.0-20221119"
+pirversion: str = "0.1.0-20230119"
 
 
 class ASTApplicationInterface:
@@ -51,6 +52,7 @@ class ASTApplicationInterface:
             support: CustomASTSupport = CustomASTSupport()) -> None:
         self._support = support
         self._globalsymboltable = ASTGlobalSymbolTable()
+        self._codefragments = ASTCodeFragments()
         self._fnsdata: List[Dict[str, Any]] = []
 
     @property
@@ -60,6 +62,10 @@ class ASTApplicationInterface:
     @property
     def globalsymboltable(self) -> ASTGlobalSymbolTable:
         return self._globalsymboltable
+
+    @property
+    def codefragments(self) -> ASTCodeFragments:
+        return self._codefragments
 
     def add_function_ast(
             self,
@@ -123,6 +129,7 @@ class ASTApplicationInterface:
         fndata["provenance"] = astree.provenance.serialize()
         fndata["available-expressions"] = astree.available_expressions
         fndata["storage"] = astree.storage_records()
+        fndata["return-sequences"] = astree.serialize_return_sequences()
 
         self._fnsdata.append(fndata)
 
@@ -140,6 +147,7 @@ class ASTApplicationInterface:
             ast_output["created-by"]["time"] = str(datetime.now())
         ast_output["pir-version"] = pirversion
         ast_output["global-symbol-table"] = globalserializer.records()
+        ast_output["codefragments"] = self.codefragments.serialize()
         ast_output["functions"] = self._fnsdata
 
         if verbose:
