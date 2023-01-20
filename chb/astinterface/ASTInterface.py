@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -494,6 +494,13 @@ class ASTInterface:
             return lvals
         else:
             return []
+
+    def add_return_sequence(
+            self,
+            hexstring: str,
+            assembly: List[str],
+            address: str) -> None:
+        self.astree.add_return_sequence(hexstring, assembly, address)
 
     def has_symbol(self, name: str) -> bool:
         return self.symboltable.has_symbol(name)

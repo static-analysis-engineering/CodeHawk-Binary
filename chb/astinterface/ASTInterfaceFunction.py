@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs, LLC
+# Copyright (c) 2022-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -115,6 +115,7 @@ class ASTInterfaceFunction(ASTFunction):
         # transfer provenance data to the AST abstract syntaxtree
         self.astinterface.set_ast_provenance()
         self.set_invariants()
+        self.set_return_sequences()
 
         return highlevel + [lowlevel]
 
@@ -215,3 +216,6 @@ class ASTInterfaceFunction(ASTFunction):
                     aexprs.setdefault(loc, {})
                     aexprs[loc][str(var)] = (varindex, aexprindex, str(aexpr))
         self.astinterface.set_available_expressions(aexprs)
+
+    def set_return_sequences(self) -> None:
+        pass
