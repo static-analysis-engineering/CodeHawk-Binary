@@ -918,7 +918,9 @@
 		],
 		"literal": [
 		    {
-			"T": "A1"
+			"T": "A1",
+			"E": "<cc><2>pu0w1<15><rt><--imm12--->",
+			"D": "Y"
 		    },
 		    {
 			"T": "T1",
@@ -1035,7 +1037,7 @@
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>11001<rn><rt><15>1001<15>",
+			"E": "<cc><0><12>1<rn><rt><15>1001<15>",
 			"D": "Y"
 		    },
 		    {
@@ -1279,7 +1281,7 @@
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>0001s<rd><ra><rm>1001<rn>",
+			"E": "<cc><0>< 1>s<rd><ra><rm>1001<rn>",
 			"D": "Y"
 		    },
 		    {
@@ -1297,7 +1299,7 @@
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>00110<rd><ra><rm>1001<rn>",
+			"E": "<cc><0>< 3>0<rd><ra><rm>1001<rn>",
 			"D": "Y"
 		    },
 		    {
@@ -1434,7 +1436,7 @@
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>0000s<rd>< 0><rm>1001<rn>",
+			"E": "<cc><0>< 0>s<rd>< 0><rm>1001<rn>",
 			"D": "Y"
 		    },
 		    {
@@ -1692,6 +1694,69 @@
 	    },
 	    "AST": "Y",
 	    "TC": "Y"
+	},
+	"QADD": {
+	    "name": "SaturatingAdd",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 8>0<rn><rd>< 0>0101<rm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01<  8><rn><15><rd>1000<rm>"
+		    }
+		]
+	    }
+	},
+	"QDADD": {
+	    "name": "SaturatingDoubleAdd",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0><10>0<rn><rd>< 0>0101<rm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01<  8><rn><15><rd>1001<rm>"
+		    }
+		]
+	    }
+	},
+	"QDSUB": {
+	    "name": "SaturatingDoubleSubtract",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0><11><rn><rd>< 0>0101<rm>"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01<  8><rn><15><rd>1011<rm>"
+		    }
+		]
+	    }
+	},
+	"QSUB": {
+	    "name": "SaturatingSubtract",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 9>0<rn><rd>< 0>0101<rm>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01<  8><rn><15><rd>1010<rm>"
+		    }
+		]
+	    }
 	},
 	"RBIT": {
 	    "name": "ReverseBits",
@@ -2114,12 +2179,57 @@
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>< 8>0<rd><ra><rm>1MN0<rn>"
+			"E": "<cc><0>< 8>0<rd><ra><rm>1000<rn>"
 		    },
 		    {
 			"T": "T1",
-			"E": "< 31>01< 17><rn><ra><rd>00NM<rm>",
+			"E": "< 31>01< 17><rn><ra><rd>0000<rm>",
 			"D": "Y"
+		    }
+		]
+	    }
+	},
+	"SMLABT": {
+	    "name": "SignedMultiplyAccumulateBT",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 8>0<rd><ra><rm>1100<rn>"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 17><rn><ra><rd>0001<rm>"
+		    }
+		]
+	    }
+	},
+	"SMLATB": {
+	    "name": "SignedMultiplyAccumulateTB",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 8>0<rd><ra><rm>1010<rn>"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 17><rn><ra><rd>0010<rm>"
+		    }
+		]
+	    }
+	},
+	"SMLATT": {
+	    "name": "SignedMultiplyAccumulateTT",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 8>0<rd><ra><rm>1110<rn>"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 17><rn><ra><rd>0011<rm>"
 		    }
 		]
 	    }
@@ -2130,13 +2240,45 @@
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>0111s<hi><lo><rm>1001<rn>",
+			"E": "<cc><0>< 7>s<hi><lo><rm>1001<rn>",
 			"D": "Y"
 		    },
 		    {
 			"T": "T1",
 			"E": "< 31>01< 28><rn><rd><rd>0000<rm>",
 			"D": "Y"
+		    }
+		]
+	    }
+	},
+	"SMLAWB": {
+	    "name": "SignedMultiplyAccumulateWordB",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 9>0<rd><ra><rm>1000<rn>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 19><rn><ra><rd>0000<rm>"
+		    }
+		]
+	    }
+	},
+	"SMLAWT": {
+	    "name": "SignedMultiplyAccumulateWordT",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 9>0<rd><ra><rm>1100<rn>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 19><rn><ra><rd>0001<rm>"
 		    }
 		]
 	    }
@@ -2172,13 +2314,43 @@
 		]
 	    }
 	},
+	"SMULBB": {
+	    "name": "SignedMultiplyHalfwordsBB",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0><11>0<rd>< 0><rm>1000<rn>"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 17><rn><15><rd>0000<rm>"
+		    }
+		]
+	    }
+	},
+	"SMULBT": {
+	    "name": "SignedMultiplyHalfwordsBT",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0><11>0<rd>< 0><rm>1100<rn>"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 17><rn><15><rd>0010<rm>"
+		    }
+		]
+	    }
+	},
 	"SMULL": {
 	    "name": "SignedMultiplyLong",
 	    "encodings": {
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>0110s<hi><lo><rm>1001<rn>",
+			"E": "<cc><0>< 6>s<hi><lo><rm>1001<rn>",
 			"D": "Y"
 		    },
 		    {
@@ -2189,6 +2361,68 @@
 		]
 	    },
 	    "TC": "DA"
+	},
+	"SMULTB": {
+	    "name": "SignedMultiplyHalfwordsTB",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0><11>0<rd>< 0><rm>1010<rn>"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 17><rn><15><rd>0001<rm>"
+		    }
+		]
+	    }
+	},
+	"SMULTT": {
+	    "name": "SignedMultiplyHalfwordsTT",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0><11>0<rd>< 0><rm>1110<rn>"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 17><rn><15><rd>0011<rm>"
+		    }
+		]
+	    }
+	},
+	"SMULWB": {
+	    "name": "SignedMultiplyWordB",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 9>0<rd>< 0><rm>1010<rn>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 19><rn><15><rd>0000<rm>"
+		    }
+		]
+	    }
+	},
+	"SMULWT": {
+	    "name": "SignedMultiplyWordT",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 9>0<rd>< 0><rm>1110<rn>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 31>01< 19><rn><15><rd>0001<rm>"
+		    }
+		]
+	    }
 	},
 	"STC": {
 	    "name": "StoreCoprocessor",
@@ -2277,6 +2511,17 @@
 		]
 	    },
 	    "TC": "Y"
+	},
+	"STMDA": {
+	    "name": "StoreMultipleDecrementAfter",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><4>000W0<rn><register-list->"
+		    }
+		]
+	    }
 	},
 	"STMDB": {
 	    "name": "StoreMultipleDecrementBefore",
@@ -2441,7 +2686,7 @@
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>11000<rn><rn><15>1001<rt>",
+			"E": "<cc><0><12>0<rn><rn><15>1001<rt>",
 			"D": "Y"
 		    },
 		    {
@@ -2598,7 +2843,7 @@
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>10000<rn><rt>< 0>1001<rt>",
+			"E": "<cc><0>< 8>0<rn><rt>< 0>1001<rt>",
 			"D": "Y"
 		    }
 		]
@@ -2611,7 +2856,7 @@
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>10100<rn><rt>< 0>1001<rt>",
+			"E": "<cc><0><10>0<rn><rt>< 0>1001<rt>",
 			"D": "Y"
 		    }
 		]
@@ -2833,7 +3078,9 @@
 	    "encodings": {
 		"all": [
 		    {
-			"T": "A1"
+			"T": "A1",
+			"E": "<cc><0>< 5>s<hi><lo><rm>1001<rm>",
+			"D": "Y"
 		    },
 		    {
 			"T": "T1",
@@ -2850,7 +3097,7 @@
 		"all": [
 		    {
 			"T": "A1",
-			"E": "<cc><0>0100s<hi><lo><rm>1001<rn>",
+			"E": "<cc><0>< 4>s<hi><lo><rm>1001<rn>",
 			"D": "Y"
 		    },
 		    {
