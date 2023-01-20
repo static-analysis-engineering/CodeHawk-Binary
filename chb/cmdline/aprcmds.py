@@ -67,6 +67,7 @@ def patchdata(args: argparse.Namespace) -> NoReturn:
     results: Dict[str, Any] = {}
     results["file"] = xfile
     results["path"] = path
+    results["md5"] = xinfo.md5
     results["patch-records"] = []
     for p in patchinfo:
         if p.has_size():
@@ -77,4 +78,3 @@ def patchdata(args: argparse.Namespace) -> NoReturn:
         json.dump(results, fp, indent=2)
 
     exit(0)
-    

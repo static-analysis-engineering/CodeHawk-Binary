@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,57 +24,54 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Stack pointer offset from position at start of function."""
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, TYPE_CHECKING
+
+from chb.app.InstrXData import InstrXData
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+from chb.invariants.XXpr import XXpr
+
+from chb.mips.MIPSDictionaryRecord import mipsregistry
+from chb.mips.MIPSOpcode import MIPSOpcode, simplify_result
+from chb.mips.MIPSOperand import MIPSOperand
+
+import chb.simulation.SimSymbolicValue as SSV
+import chb.simulation.SimUtil as SU
+import chb.simulation.SimValue as SV
+
+import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.app.FunctionDictionary
-    import chb.app.Instruction
-    import chb.invariants.FnVarDictionary
-    import chb.invariants.FnXprDictionary
-    import chb.invariants.XInterval
+    from chb.mips.MIPSDictionary import MIPSDictionary
+    from chb.simulation.SimulationState import SimulationState
 
 
-class StackPointerOffset(IndexedTableValue):
+@mipsregistry.register_tag("unknown", MIPSOpcode)
+class MIPSNoOperation(MIPSOpcode):
+    """NOP"""
 
     def __init__(
             self,
-            d: "chb.app.FunctionDictionary.FunctionDictionary",
+            mipsd: "MIPSDictionary",
             ixval: IndexedTableValue) -> None:
-        IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
-        self._d = d
+        MIPSOpcode.__init__(self, mipsd, ixval)
 
-    @property
-    def function(self) -> "chb.app.Function.Function":
-        return self._d.function
+    def annotation(self, xdata: InstrXData) -> str:
+        return "unknown"
 
-    @property
-    def vd(self) -> "chb.invariants.FnVarDictionary.FnVarDictionary":
-        return self.function.vardictionary
+    def assembly_ast(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> List[AST.ASTInstruction]:
+        return []
 
-    @property
-    def xd(self) -> "chb.invariants.FnXprDictionary.FnXprDictionary":
-        return self.function.xprdictionary
-
-    @property
-    def level(self) -> int:
-        return self.args[0]
-
-    @property
-    def offset(self) -> "chb.invariants.XInterval.XInterval":
-        return self.xd.interval(self.args[1])
-
-    @property
-    def is_closed(self) -> bool:
-        return self.offset.is_closed
-
-    def __str__(self) -> str:
-        level = self.level + 1
-        return (("[" * level)
-                + " "
-                + str(self.offset).rjust(4)
-                + " "
-                + ("]" * level))
+    def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
+        simstate.increment_programcounter()
+        return ""
