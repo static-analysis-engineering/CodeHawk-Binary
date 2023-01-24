@@ -260,8 +260,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                     + "\n"
                     + str(e))
                 functions_failed += 1
-                continue
-                # raise
+                # continue
+                raise
 
             if len(asts) >= 2:
                 astapi.add_function_ast(astree, asts, verbose)

@@ -239,8 +239,12 @@ class ARMInstruction(Instruction):
                 Optional[ASTExpr], Optional[ASTExpr]]:
         """Return conditional branch instruction with provenance."""
 
-        return self.opcode.ast_condition_prov(
-            astree, self.iaddr, self.bytestring, self.xdata, reverse)
+        try:
+            return self.opcode.ast_condition_prov(
+                astree, self.iaddr, self.bytestring, self.xdata, reverse)
+        except Exception:
+            expr = astree.mk_integer_constant(0)
+            return (expr, expr)
 
     @property
     def stackpointer_offset(self) -> StackPointerOffset:
