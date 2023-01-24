@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -46,7 +46,9 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
+    from chb.arm.ARMOperandKind import ARMRegListOp
     from chb.arm.ARMRegister import ARMRegister
+
 
 
 @armregistry.register_tag("PUSH", ARMOpcode)
@@ -68,6 +70,7 @@ class ARMPush(ARMOpcode):
     xprs[1]: SP updated
     xprs[2]: SP updated, simplified
     xprs[3..n+2]: x(r) for r: register pushed
+    xprs[n+3..2n+3]: xaddr for register pushed
     rdefs[0]: SP
     rdefs[1..n]: rdef(r) for r: register pushed
     uses[0]: SP
@@ -95,21 +98,31 @@ class ARMPush(ARMOpcode):
     def operandstring(self) -> str:
         return str(self.operands[1])
 
+    @property
+    def register_count(self) -> int:
+        return cast("ARMRegListOp", self.operands[1].opkind).count
+
     def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
         spills = self.register_spills(xdata)
-        if len(spills) == 1:
-            return [RegisterSpill(xdata.xprs[2], spills[0])]
+        regcount = self.register_count
+        if len(spills) > 1:
+            result: List[RegisterSpill] = []
+            for (i, spill) in enumerate(spills):
+                result.append(RegisterSpill(xdata.xprs[regcount+3+i], spill))
+            return result
         else:
             return [MemoryAccess(xdata.xprs[2], "W", size=4)]
 
     def register_spills(self, xdata: InstrXData) -> List[str]:
         swaddr = xdata.xprs[2]
         result: List[str] = []
-        rhs = xdata.xprs[3]
-        if rhs.is_initial_register_value:
-            r = cast("ARMRegister", rhs.initial_register_value_register())
-            if r.is_arm_callee_saved_register:
-                result.append(str(r))
+        regcount = self.register_count
+        # rhs = xdata.xprs[3]
+        for rhs in xdata.xprs[3:3+regcount]:
+            if rhs.is_initial_register_value:
+                r = cast("ARMRegister", rhs.initial_register_value_register())
+                if r.is_arm_callee_saved_register:
+                    result.append(str(r))
         return result
 
     def annotation(self, xdata: InstrXData) -> str:

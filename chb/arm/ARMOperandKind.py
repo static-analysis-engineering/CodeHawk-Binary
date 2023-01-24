@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -336,6 +336,10 @@ class ARMRegListOp(ARMOperandKind):
     @property
     def registers(self) -> List[str]:
         return self.tags[1:]
+
+    @property
+    def count(self) -> int:
+        return len(self.registers)
 
     @property
     def is_register_list(self) -> bool:

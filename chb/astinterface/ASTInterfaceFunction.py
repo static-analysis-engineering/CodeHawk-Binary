@@ -28,6 +28,7 @@
 
 from typing import cast, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
+from chb.arm.ARMCodeGenerator import ARMCodeGenerator
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTFunction import ASTFunction
@@ -218,4 +219,48 @@ class ASTInterfaceFunction(ASTFunction):
         self.astinterface.set_available_expressions(aexprs)
 
     def set_return_sequences(self) -> None:
-        pass
+        """Currently only supports Thumb-2 stack-adjustment, pop return sequence."""
+
+        stacklayout = self.function.stacklayout()
+        savedregisters = stacklayout.saved_registers
+        reglayout: Dict[int, int] = {}
+        for r in savedregisters:
+            reg = r.register
+            offset = r.offset
+            if reg.startswith("R"):
+                reglayout[offset] = int(reg[1:])
+            elif reg == "LR":
+                reglayout[offset] = 15
+
+        setpc = False
+        reglist: List[int] = []
+        if len(reglayout) > 0:
+            codegenerator = ARMCodeGenerator()
+            startoff = sorted(reglayout.keys())[0]
+            curroff = startoff
+            for (off, index) in sorted(reglayout.items()):
+                if off == curroff:
+                    if index == 15:
+                        setpc = True
+                    else:
+                        reglist.append(index)
+                curroff += 4
+            (popinstr, popassembly) = codegenerator.pop_registers_t1(reglist, setpc)
+
+            for (addr, instr) in self.function.instructions.items():
+                ioffset = instr.stackpointer_offset.offset
+                if ioffset.is_singleton:
+                    offsetval = ioffset.lower_bound.bound.value
+                    if offsetval < startoff:
+                        (adjustspinstr, adjustspassembly) = (
+                            codegenerator.add_sp_plus_immediate_t2(startoff - offsetval))
+                        instrseq = adjustspinstr + popinstr
+                        assembly = [adjustspassembly, popassembly]
+                    elif offsetval == startoff:
+                        instrseq = popinstr
+                        assembly = [popassembly]
+                    else:
+                        instrseq = ""
+                        assembly = []
+                    if len(assembly) > 0:
+                        self.astinterface.add_return_sequence(instrseq, assembly, addr)
