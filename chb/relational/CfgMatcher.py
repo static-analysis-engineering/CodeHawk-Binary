@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs, LLC
+# Copyright (c) 2021-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -277,6 +277,8 @@ class CfgMatcher:
                 self._unmapped_blocks1.append(b1s[0])
             elif len(b1s) == 0 and len(b2s) == 1:
                 self._unmapped_blocks2.append(b2s[0])
+            elif len(b1s) == 0 and len(b2s) > 1:
+                self._unmapped_blocks2.extend(b2s)
             else:
                 self._multiple_mapping.append((b1s, b2s))
 
