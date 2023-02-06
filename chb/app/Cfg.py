@@ -337,6 +337,11 @@ def normalized_branch(
             condition, ifbranch, elsebranch, tgtaddr))
 
 
+# Hex addresses are not valid C labels...
+def labelize(s: str) -> str:
+    return "L" + s
+
+
 @dataclass
 class ControlFlowContext:
     break_to: Optional[str]
@@ -510,8 +515,8 @@ class Cfg:
                 if tgt == ctx.break_to:
                     return [astree.mk_break_stmt()]
 
-                gotolabels.add(tgt)
-                return [astree.mk_goto_stmt(tgt, tgt)]
+                gotolabels.add(labelize(tgt))
+                return [astree.mk_goto_stmt(labelize(tgt), tgt)]
 
             def is_loop_header(x: str) -> bool:
                 return any(is_backward(pred, x) for pred in self.flowgraph.pre(x))
@@ -611,7 +616,7 @@ class Cfg:
                 successors = self.edges[b]
             else:
                 successors = []
-            label = astree.mk_label(b)
+            label = astree.mk_label(labelize(b))
             blocknode = astfn.astblock(b)
             block = blocknode.assembly_ast(astree)
             succblock: AST.ASTStmt
