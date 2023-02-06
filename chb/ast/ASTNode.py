@@ -742,6 +742,8 @@ class ASTStmtLabel(ASTNode, ABC):
 class ASTLabel(ASTStmtLabel):
 
     def __init__(self, locationid: int, name: str) -> None:
+        assert len(name) > 0
+        assert name[0] not in "0123456789", "C label names cannot start with a digit"
         ASTStmtLabel.__init__(self, locationid, "label")
         self._name = name
 
