@@ -530,8 +530,9 @@ class Cfg:
 
             def labeled_if_needed(x: str) -> AST.ASTStmt:
                 xstmt = blockstmts[x]
-                if x in gotolabels and apply_labels:
-                    xstmt.add_label(x)
+                xlabel = labelize(x)
+                if xlabel in gotolabels and apply_labels:
+                    xstmt.add_label(xlabel)
                 return xstmt
 
             def node_within(x: str, merges: List[str], ctx: ControlFlowContext) -> List[AST.ASTStmt]:
