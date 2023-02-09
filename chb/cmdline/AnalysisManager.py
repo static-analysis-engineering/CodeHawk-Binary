@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -59,6 +59,7 @@ class AnalysisManager(object):
             deps: List[str] = [],
             so_libraries: List[str] = [],
             specializations: List[str] = [],
+            exclude_debug: bool = False,
             elf: bool = False,
             mips: bool = False,
             arm: bool = False,
@@ -90,6 +91,7 @@ class AnalysisManager(object):
         self.arm = arm
         self.power = power
         self.thumb = thumb
+        self.exclude_debug = exclude_debug
         self.savedatablocks = savedatablocks
         self.hints = hints
         self.ifilenames = ifilenames
@@ -133,6 +135,8 @@ class AnalysisManager(object):
             cmd.append("-power")
         if self.elf:
             cmd.append("-elf")
+        if self.exclude_debug:
+            cmd.append("-exclude_debug")
         if verbose:
             cmd.append("-verbose")
         for d in self.deps:
