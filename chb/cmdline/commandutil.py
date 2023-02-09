@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs, LLC
+# Copyright (c) 2021-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -257,6 +257,7 @@ def prepare_executable(
         doreset: bool,
         doresetx: bool,
         verbose: bool = False,
+        exclude_debug: bool = False,
         hints: List[str] = [],
         thumb: List[str] = []) -> None:
     """Extracts executable and sets up necessary directory structure. """
@@ -330,7 +331,8 @@ def prepare_executable(
             mips=xinfo.is_mips,
             arm=xinfo.is_arm,
             power=xinfo.is_powerpc,
-            elf=xinfo.is_elf)
+            elf=xinfo.is_elf,
+            exclude_debug=exclude_debug)
 
         print("Extracting executable content into xml ...")
         result = am.extract_executable(
@@ -350,6 +352,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     xname: str = args.xname
     doreset: bool = args.reset
     doresetx: bool = args.resetx
+    exclude_debug: bool = args.exclude_debug
     dodisassemble: bool = args.disassemble
     savedatablocks: str = args.save_datablocks
     outputfile: str = args.outputfile
@@ -395,6 +398,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
             doresetx,
             verbose=verbose,
             hints=hints,
+            exclude_debug=exclude_debug,
             thumb=thumb)
     except UF.CHBError as e:
         print(str(e.wrap()))
