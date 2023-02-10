@@ -7,6 +7,12 @@ The format is based on
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+### Version 0.1.0-2023-02-09
+
+- Fixed printing of array index expression offset in pretty printer.
+
+---
+
 ### Version 0.1.0-2023-02-08
 
 - Added example for creating a struct field assignment.
