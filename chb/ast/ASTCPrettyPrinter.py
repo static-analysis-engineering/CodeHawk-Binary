@@ -420,11 +420,6 @@ class ASTCPrettyPrinter(ASTVisitor):
                 memexp.accept(self)
                 self.ccode.write("->" + fieldname)
                 suboffset.accept(self)
-            elif lval.offset.is_index_offset:
-                indexoffset = cast(AST.ASTIndexOffset, lval.offset)
-                memexp.accept(self)
-                self.ccode.write(" + ")
-                indexoffset.accept(self)
             else:
                 lval.lhost.accept(self)
                 lval.offset.accept(self)
@@ -512,8 +507,9 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write(")")
 
     def visit_address_of_expression(self, addressof: AST.ASTAddressOf) -> None:
-        self.ccode.write("&")
+        self.ccode.write("&(")
         addressof.lval.accept(self)
+        self.ccode.write(")")
 
     def visit_void_typ(self, t: AST.ASTTypVoid) -> None:
         self.ccode.write("void")
