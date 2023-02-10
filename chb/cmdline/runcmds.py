@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs, LLC
+# Copyright (c) 2021-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -115,6 +115,13 @@ def run_commands(args: argparse.Namespace) -> NoReturn:
     for tgt in targets:
 
         print("Target: " + tgt)
+        if tgt not in cmdtargets:
+            UC.print_error(
+                "Target specified: " + tgt + " not found\n"
+                + "Targets available:\n"
+                + "\n".join(("  " + tgt) for tgt in sorted(cmdtargets)))
+            exit(1)
+
         tgts = cmdtargets[tgt]
 
         if "cmd" not in tgts:
