@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -124,6 +124,9 @@ def xxpr_to_ast_def_exprs(
     if xpr.is_constant:
         return default()
 
+    if xpr.is_function_return_value:
+        return default()
+
     def reg_to_ast_def_exprs(xreg: X.XXpr) -> Optional[AST.ASTExpr]:
         vdefs = xdata.reachingdeflocs_for_s(str(xreg))
         if len(vdefs) == 0:
@@ -149,6 +152,25 @@ def xxpr_to_ast_def_exprs(
                         astree.astiprovenance.inactivate_lval_defuse_high(vregdef[0], iaddr)
                     return vregdef0
 
+                # temporary fix: assume that reaching definitions from allocations do
+                # not conflict with the types of alternate reaching definitions; log
+                # the fact that these are filtered out.
+                nonallocdefs: List[Tuple[int, AST.ASTExpr]] = []
+                for vregdef in vregdefs:
+                    if str(vregdef[1]).endswith("calloc"):
+                        continue
+                    nonallocdefs.append(vregdef)
+                if len(nonallocdefs) == 1:
+                    astree.add_diagnostic(
+                        iaddr
+                        + " filter out alloc return values for definitions of "
+                        + str(xreg)
+                        + ": "
+                        + ", ".join(str(d) for d in vdefs)
+                        + "; "
+                        + ", ".join("(" + str(v[0]) + "," + str(v[1]) + ")" for v in vregdefs))
+                    return nonallocdefs[0][1]
+
             astree.add_diagnostic(
                 iaddr
                 + ": multiple definitions for "
@@ -156,7 +178,7 @@ def xxpr_to_ast_def_exprs(
                 + ": "
                 + ", ".join(str(d) for d in vdefs)
                 + "; "
-                + ", ".join(str(v) for v in vregdefs))
+                + ", ".join("(" + str(v[0]) + "," + str(v[1]) + ")" for v in vregdefs))
             return None
 
         else:
@@ -255,7 +277,16 @@ def xxpr_to_ast_def_exprs(
                 regdef2 = None
 
             if regdef1 is not None and regdef2 is not None:
-                return astree.mk_binary_op(xoperator, regdef1, regdef2)
+                regdef1type = regdef1.ctype(astree.ctyper)
+                if regdef1type is not None and regdef1type.is_pointer:
+                    return xtyped_expr_to_ast_exprs(
+                        xoperator,
+                        regdef1,
+                        regdef2,
+                        xdata,
+                        astree)[0]
+                else:
+                    return astree.mk_binary_op(xoperator, regdef1, regdef2)
             else:
                 astree.add_diagnostic(
                     iaddr + ": unable to convert compound expression " + str(xpr))
@@ -360,6 +391,17 @@ def xprvariable_to_ast_exprs(
 
         else:
             name = str(xv)
+
+    if xv.variable.denotation.is_function_return_value:
+        fr = cast("VFunctionReturnValue", xv.variable.denotation.auxvar)
+        if str(fr.call_target()) in ["calloc", "malloc", "realloc"]:
+            lvalexpr = astree.mk_named_lval_expression(
+                str(xv),
+                vtype=astree.astree.mk_pointer_type(AST.ASTTypVoid()),
+                vdescr="function return value")
+            return [lvalexpr]
+        else:
+            return default()
 
     return default()
 

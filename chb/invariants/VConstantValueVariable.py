@@ -433,7 +433,10 @@ class VFunctionReturnValue(VConstantValueVariable):
         return self.finfo.call_target(self.callsite)
 
     def __str__(self) -> str:
-        return "rtn_" + self.callsite
+        if str(self.call_target()) in ["calloc", "malloc", "realloc"]:
+            return "rtn_" + self.callsite + "_" + str(self.call_target())
+        else:
+            return "rtn_" + self.callsite
 
 
 @varregistry.register_tag("fp", VConstantValueVariable)
