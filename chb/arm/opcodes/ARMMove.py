@@ -36,6 +36,7 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+import chb.invariants.XXpr as X
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF

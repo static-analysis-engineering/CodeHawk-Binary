@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,13 +25,18 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -56,6 +61,13 @@ class ARMVCompare(ARMOpcode):
     args[1]: index of destination datatype in armdictionary
     args[2]: index of d in armdictionary
     args[3]: index of m in armdictionary
+
+    xdata format: axxxxrr
+    ---------------------
+    xprs[0]: xd
+    xprs[1]: xm
+    xprs[2]: xd (simplified)
+    xprs[3]: xm (simplified)
     """
 
     def __init__(
@@ -74,20 +86,11 @@ class ARMVCompare(ARMOpcode):
         return [self.armd.arm_operand(self.args[i]) for i in [2, 3]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx.
-
-        xprs[0]: d
-        xprs[1]: m
-        xprs[2]: d (rewritten)
-        xprs[3]: m (rewritten)
-        """
-
         rhs1 = str(xdata.xprs[2])
         rhs2 = str(xdata.xprs[3])
         comparison = "compare " + rhs1 + " and " + rhs2
         return comparison
 
-    '''
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -97,6 +100,10 @@ class ARMVCompare(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "VCMPE"]
+
+        rhs1 = xdata.xprs[2]
+        rhs2 = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
 
         (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
         (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(astree)
@@ -108,6 +115,23 @@ class ARMVCompare(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        hl_rhss1 = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        hl_rhss2 = XU.xxpr_to_ast_def_exprs(rhs, xdata
-    '''
+        hl_rhss1 = XU.xxpr_to_ast_def_exprs(rhs1, xdata, iaddr, astree)
+        hl_rhss2 = XU.xxpr_to_ast_def_exprs(rhs2, xdata, iaddr, astree)
+        hl_rhs = astree.mk_binary_op("minus", hl_rhss1[0], hl_rhss2[0])
+
+        hl_assign = astree.mk_assign(
+            astree.ignoredlhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_expr)
+        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+
+        return ([hl_assign], [ll_assign])
+

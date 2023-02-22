@@ -102,7 +102,9 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         return True
 
     def annotation(self, xdata: InstrXData) -> str:
-        regcount = len(xdata.vars) - 1
+        # regcount = len(xdata.vars) - 1
+        regcount = len(xdata.reachingdefs) - 1
+
         wb = ""
         if self.writeback:
             wb = "; " + str(xdata.vars[0]) + " := " + str(xdata.xprs[2])
