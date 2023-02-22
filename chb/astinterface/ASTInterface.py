@@ -293,7 +293,7 @@ class ASTInterface:
         self._regdefinitions[iaddr][str(lval)] = (lval.lvalid, expr)
 
     def expr_has_registers(self, expr: AST.ASTExpr) -> bool:
-        for r in ["R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7"]:
+        for r in ["R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"]:
             if r in str(expr):
                 return True
         return False
@@ -1021,7 +1021,7 @@ class ASTInterface:
                 newindex = baseindex.cvalue + increm
                 return self.mk_scalar_index_offset(newindex)
             else:
-                raise UF.CHBError("add_ot_index_offset: not yet supported")
+                raise UF.CHBError("add_to_index_offset: not yet supported")
 
     def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
         return self.astree.mk_integer_constant(cvalue)
