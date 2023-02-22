@@ -249,6 +249,22 @@ class ARMSpecialRegisterOp(ARMOperandKind):
     def is_special_register(self) -> bool:
         return True
 
+    def ast_lvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (
+            astree.mk_register_variable_lval(self.register, vtype=vtype), [], [])
+
+    def ast_rvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (
+            astree.mk_register_variable_expr(self.register, vtype=vtype), [], [])
+
     def __str__(self) -> str:
         return self.register
 
