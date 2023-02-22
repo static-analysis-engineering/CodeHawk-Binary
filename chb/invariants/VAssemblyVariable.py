@@ -179,7 +179,8 @@ class VMemoryVariable(VAssemblyVariable):
     """Memory variable with known-location base.
 
     args[0]: index of memory base in vardictionary
-    args[1]: index of memory offset in vardictionary
+    args[1]: size in bytes
+    args[2]: index of memory offset in vardictionary
     """
 
     def __init__(
@@ -194,7 +195,7 @@ class VMemoryVariable(VAssemblyVariable):
 
     @property
     def offset(self) -> VMemoryOffset:
-        return self.vd.memory_offset(self.args[1])
+        return self.vd.memory_offset(self.args[2])
 
     @property
     def is_memory_variable(self) -> bool:
