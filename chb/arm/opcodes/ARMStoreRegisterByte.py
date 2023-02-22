@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -183,19 +183,22 @@ class ARMStoreRegisterByte(ARMOpcode):
             astaddrs = XU.xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
             if len(astaddrs) == 1:
                 astaddr = astaddrs[0]
-                astaddrtype = astaddr.ctype(astree.ctyper)
-                if astaddrtype is not None:
-                    if astaddrtype.is_pointer:
-                        astaddrtype = cast(AST.ASTTypPtr, astaddrtype)
-                        astaddrtgttype = astaddrtype.tgttyp
-                        if astree.type_size_in_bytes(astaddrtgttype) == 1:
-                            if astaddr.is_ast_binary_op:
-                                (base, offsets) = astree.split_address_int_offset(astaddr)
-                                if base.is_ast_lval_expr:
-                                    base = cast(AST.ASTLvalExpr, base)
-                                    newoffset = astree.add_index_list_offset(
-                                        base.lval.offset, offsets)
-                                    hl_mem_lhs = astree.mk_lval(base.lval.lhost, newoffset)
+                if astaddr.is_ast_addressof:
+                    hl_mem_lhs = cast(AST.ASTAddressOf, astaddr).lval
+                else:
+                    astaddrtype = astaddr.ctype(astree.ctyper)
+                    if astaddrtype is not None:
+                        if astaddrtype.is_pointer:
+                            astaddrtype = cast(AST.ASTTypPtr, astaddrtype)
+                            astaddrtgttype = astaddrtype.tgttyp
+                            if astree.type_size_in_bytes(astaddrtgttype) == 1:
+                                if astaddr.is_ast_binary_op:
+                                    (base, offsets) = astree.split_address_int_offset(astaddr)
+                                    if base.is_ast_lval_expr:
+                                        base = cast(AST.ASTLvalExpr, base)
+                                        newoffset = astree.add_index_list_offset(
+                                            base.lval.offset, offsets)
+                                        hl_mem_lhs = astree.mk_lval(base.lval.lhost, newoffset)
             if hl_mem_lhs is None:
                 hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
             else:

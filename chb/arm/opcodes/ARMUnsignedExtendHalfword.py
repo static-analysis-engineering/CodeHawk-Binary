@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -163,6 +163,8 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
                 astree.add_reg_definition(iaddr, hl_lhs, vinfolvalexpr)
                 astree.add_instr_mapping(hl_intro_assign, ll_assign)
                 astree.add_instr_mapping(hl_assign, ll_assign)
+                astree.add_instr_address(hl_intro_assign, [iaddr])
+                astree.add_instr_address(hl_assign, [iaddr])
                 astree.add_expr_mapping(hl_rhs, ll_rhs)
                 astree.add_expr_mapping(vinfolvalexpr, ll_rhs)
                 astree.add_lval_mapping(hl_lhs, ll_lhs)
