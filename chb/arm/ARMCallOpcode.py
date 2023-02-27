@@ -35,6 +35,7 @@ from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 from chb.arm.ARMOperandKind import ARMOperandKind, ARMAbsoluteOp
 
+from chb.ast.AbstractSyntaxTree import nooffset
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
@@ -50,6 +51,7 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget, StaticStubTarget
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.VConstantValueVariable import VFunctionReturnValue
 
 
 class ARMCallOpcode(ARMOpcode):
@@ -69,6 +71,7 @@ class ARMCallOpcode(ARMOpcode):
     or (if call target is not known):
     xdata format: a:xxxxx
     ---------------------
+    vars[0]: return value variable
     xprs[0..3]: expressions for R0-R3
     xprs[4]: target expression
     rdefs[0]: target reaching definition
@@ -187,16 +190,29 @@ class ARMCallOpcode(ARMOpcode):
             if defuses[0] is None:
                 hl_lhs: Optional[AST.ASTLval] = None
             else:
-                hl_lhs = astree.mk_returnval_variable_lval(
-                    iaddr, vtype=None)
-            astree.add_diagnostic(
-                name + ": no type found for " + str(tgtxpr))
+                if len(xdata.vars) > 0:
+                    returnvar = xdata.vars[0]
+                    returnval = cast("VFunctionReturnValue", returnvar.denotation.auxvar)
+                    hl_lhs = XU.vfunctionreturn_value_to_ast_lvals(
+                        returnval, xdata, astree)[0]
+                else:
+                    returnvarname = "rtn_" + iaddr
+                    astreturnvar = astree.mk_named_variable(returnvarname)
+                    hl_lhs = astree.mk_lval(astreturnvar, nooffset)
+
         else:
             if tgt_returntype.is_void or defuses[0] is None:
                 hl_lhs = None
             else:
-                hl_lhs = astree.mk_returnval_variable_lval(
-                    iaddr, vtype=tgt_returntype)
+                if len(xdata.vars) > 0:
+                    returnvar = xdata.vars[0]
+                    returnval = cast("VFunctionReturnValue", returnvar.denotation.auxvar)
+                    hl_lhs = XU.vfunctionreturn_value_to_ast_lvals(
+                        returnval, xdata, astree)[0]
+                else:
+                    returnvarname = "rtn_" + iaddr
+                    astreturnvar = astree.mk_named_variable(returnvarname, vtype=tgt_returntype)
+                    hl_lhs = astree.mk_lval(astreturnvar, nooffset)
 
         if not (self.is_call(xdata) and xdata.has_call_target()):
             raise UF.CHBError(name + " at " + iaddr + ": Call without call target")

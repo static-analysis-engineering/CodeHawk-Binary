@@ -144,6 +144,7 @@ class ARMBranch(ARMOpcode):
         else:
             return astree.mk_global_variable_expr(tgtname)
 
+    '''
     def lhs_ast(
             self,
             astree: ASTInterface,
@@ -238,7 +239,7 @@ class ARMBranch(ARMOpcode):
             return [call] + assigns
         else:
             return []
-
+    '''
     def ast_condition_prov(
             self,
             astree: ASTInterface,
