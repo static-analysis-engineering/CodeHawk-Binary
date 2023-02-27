@@ -651,6 +651,40 @@ class InlinedFunctionsHints(HintsEntry):
         return "\n".join(lines)
 
 
+class TrampolinesHints(HintsEntry):
+    """List of start, end addresses of a trampoline, in hex."""
+
+    def __init__(self, trampolines: List[Tuple[str, str]]) -> None:
+        HintsEntry.__init__(self, "trampolines")
+        self._trampolines = trampolines
+
+    @property
+    def trampolines(self) -> List[Tuple[str, str]]:
+        return self._trampolines
+
+    def update(self, d: List[Tuple[str, str]]) -> None:
+        for (s, e) in d:
+            if (s, e) not in self.trampolines:
+                self._trampolines.append((s, e))
+
+    def to_xml(self, node: ET.Element) -> None:
+        xts = ET.Element(self.name)
+        node.append(xts)
+        for (s, e) in self.trampolines:
+            xt = ET.Element("trampoline")
+            xt.set("start", s)
+            xt.set("end", e)
+            xts.append(xt)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Trampolines")
+        lines.append("-----------")
+        for (s, e) in self.trampolines:
+            lines.append("  (" + s + ", " + e + ")")
+        return "\n".join(lines)
+
+
 class NonReturningCallsHints(HintsEntry):
     """Call sites where the call does not return.
 
@@ -1146,6 +1180,14 @@ class UserHints:
                 self.userdata[tag].update(faddrs)
             else:
                 self.userdata[tag] = InlinedFunctionsHints(faddrs)
+
+        if "trampolines" in hints:
+            tag = "trampolines"
+            entries: List[Tuple[str, str]] = hints[tag]
+            if tag in self.userdata:
+                self.userdata[tag].update(entries)
+            else:
+                self.userdata[tag] = TrampolinesHints(entries)
 
         if "non-returning-calls" in hints:
             tag = "non-returning-calls"
