@@ -198,7 +198,7 @@ def setup_user_data(
         xfile: str,
         hints: List[str],
         thumb: List[str],
-        md5: str) -> None:
+        md5: str) -> UserHints:
     """Convert hints and command-line options to xml user data."""
 
     userhints = UserHints()
@@ -249,6 +249,7 @@ def setup_user_data(
                 exit(1)
 
     userhints.save_userdata(path, xfile)
+    return userhints
 
 
 def prepare_executable(
@@ -259,7 +260,7 @@ def prepare_executable(
         verbose: bool = False,
         exclude_debug: bool = False,
         hints: List[str] = [],
-        thumb: List[str] = []) -> None:
+        thumb: List[str] = []) -> UserHints:
     """Extracts executable and sets up necessary directory structure. """
     xtargz = UF.get_executable_targz_filename(path, xfile)
     xfilename = os.path.join(path, xfile)
@@ -283,7 +284,7 @@ def prepare_executable(
         chdir = UF.get_ch_dir(path, xfile)
         if os.path.isdir(chdir) and not doreset:
             # everything is in place
-            return
+            return UserHints()     # TODO: to be changed
 
         if os.path.isdir(chdir) and (doreset or doresetx):
             # remove existing x.ch directory
@@ -298,8 +299,8 @@ def prepare_executable(
         xinfo = XI.XInfo()
         xinfo.load(path, xfile)
         setup_directories(path, xfile)
-        setup_user_data(path, xfile, hints, thumb, xinfo.md5)
-        return
+        userhints = setup_user_data(path, xfile, hints, thumb, xinfo.md5)
+        return userhints
 
     # executable content has to be extracted
     else:
@@ -320,7 +321,7 @@ def prepare_executable(
 
         # set up directories and user data
         setup_directories(path, xfile)
-        setup_user_data(path, xfile, hints, thumb, xinfo.md5)
+        userhints = setup_user_data(path, xfile, hints, thumb, xinfo.md5)
         xinfo.save(path, xfile)
 
         # extract executable content
@@ -342,7 +343,7 @@ def prepare_executable(
 
         # save the targz file
         am.save_extract()
-        return
+        return userhints
 
 
 def analyzecmd(args: argparse.Namespace) -> NoReturn:

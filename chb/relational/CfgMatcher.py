@@ -416,19 +416,31 @@ class CfgMatcher:
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append("Block mapping (" + str(len(self.blockmapping)) + ")")
+        blockcount: int = 0
         for (b1, b2) in sorted(self.blockmapping.items()):
-            lines.append("  " + b1.ljust(10) + "-- " + b2.ljust(10))
+            if str(b1) == str(b2):
+                blockcount += 1
+            else:
+                lines.append("  " + b1.ljust(10) + "-- " + b2.ljust(10))
+        lines.append("  " + str(blockcount) + " blocks unchanged\n")
         if len(self.unmapped_blocks1) > 0:
             lines.append(
-                "Unmapped blocks original (" + str(len(self.unmapped_blocks1)) + ")")
+                "Blocks in original version that are changed or not found in "
+                + "patched version ("
+                + str(len(self.unmapped_blocks1))
+                + "):")
             for b in sorted(self.unmapped_blocks1):
                 lines.append("  " + b)
         if len(self.unmapped_blocks2) > 0:
             lines.append(
-                "Unmapped blocks patched (" + str(len(self.unmapped_blocks2)) + ")")
+                "\nBlocks in patched version changed from original or not "
+                + "present in original ("
+                + str(len(self.unmapped_blocks2))
+                + "):")
             for b in sorted(self.unmapped_blocks2):
                 lines.append("  " + b)
         if len(self.edgemapping) > 0:
+            changecount: int = 0
             lines.append(
                 "\nEdge mapping ("
                 + str(len(self.edgemapping))
@@ -440,11 +452,22 @@ class CfgMatcher:
                     changed = " (changed)"
                 else:
                     changed = ""
-                lines.append(
-                    "  " + src1 + ", " + tgt1
-                    + "  -->  " + src2 + ", " + tgt2 + changed)
+                if changed == "":
+                    changecount += 1
+                else:
+                    lines.append(
+                        "  " + src1 + ", " + tgt1
+                        + "  -->  " + src2 + ", " + tgt2 + changed)
+            lines.append("  " + str(changecount) + " edges unchanged\n")
         if len(self.unmatched_edges()) > 0:
-            lines.append("\nNew edges (" + str(len(self.unmatched_edges())) + ")")
-            for (s, t) in self.unmatched_edges():
-                lines.append(s + ", " + t)
+            lines.append(
+                "New edges in patched version ("
+                + str(len(self.unmatched_edges()))
+                + "):")
+            for (s, t) in sorted(self.unmatched_edges()):
+                lines.append("  " + s.rjust(20) + " --> " + t)
+
+        lines.append("\n\nFor a visual representation of the CFG please use")
+        lines.append("   > chkx relational compare cfgs <xname1> <xname2> <outputfile> ")
+        lines.append("=" * 80)
         return "\n".join(lines)

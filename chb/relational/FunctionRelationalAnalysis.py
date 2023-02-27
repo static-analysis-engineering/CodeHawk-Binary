@@ -350,7 +350,6 @@ class FunctionRelationalAnalysis:
                 self.cfg2,
                 {},
                 {})
-            lines.append("\nCfg matching")
             for baddr1 in sorted(self.basic_blocks1):
                 if baddr1 in cfgmatcher.blockmapping:
                     baddr2 = cfgmatcher.blockmapping[baddr1]
@@ -381,11 +380,12 @@ class FunctionRelationalAnalysis:
                             insch = str(instrs_changed) + "/" + str(instrcount)
                     else:
                         insch = "-"
-                    lines.append(
-                        baddr1.ljust(12)
-                        + moved.ljust(16)
-                        + md5eq.ljust(18)
-                        + insch.ljust(20))
+                    if md5eq == "no":
+                        lines.append(
+                            baddr1.ljust(12)
+                            + moved.ljust(16)
+                            + md5eq.ljust(18)
+                            + insch.ljust(20))
                 else:
                     lines.append(baddr1)
             blocksmatched = len(cfgmatcher.blockmapping)
@@ -425,8 +425,8 @@ class FunctionRelationalAnalysis:
                             lines.append(blra.report(callees))
                             lines.append("")
 
-                print("\n\nCfg matcher")
-                print("=" * 40)
+                lines.append("\n\nCfg matcher")
+                lines.append("=" * 40)
                 lines.append(str(cfgmatcher))
 
         return "\n".join(lines)
