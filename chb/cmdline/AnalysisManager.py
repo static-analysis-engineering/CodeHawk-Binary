@@ -110,7 +110,8 @@ class AnalysisManager(object):
             chcmd: str = "-extract",
             verbose: bool = False) -> int:
         """Extracts executable content into xml; returns error code."""
-        os.chdir(self.path)
+        cwd = os.getcwd()
+        os.chdir(self.path)    # temporary change in directory
         xdir = UF.get_executable_dir(self.path, self.filename)
         self._makedir(xdir)
 
@@ -161,16 +162,19 @@ class AnalysisManager(object):
         self._makedir(rdir)
         self._makedir(fndir)
 
+        os.chdir(cwd)    # return to original directory
         return p
 
     def save_extract(self) -> None:
-        os.chdir(self.path)
+        cwd = os.getcwd()
+        os.chdir(self.path)   # temporary change in directory
         xdir = os.path.join(self.filename + ".ch", "x")
         tarfilename = self.filename + ".chx.tar.gz"
         if os.path.isfile(tarfilename):
             os.remove(tarfilename)
         tarcmd: List[str] = ["tar", "cfz", tarfilename, xdir]
         subprocess.call(tarcmd, cwd=self.path, stderr=subprocess.STDOUT)
+        os.chdir(cwd)    # return to original directory
 
     # Disassembly --------------------------------------------------------------
 
@@ -182,7 +186,8 @@ class AnalysisManager(object):
             collectdiagnostics: bool = True,
             preamble_cutoff: int = 12,
             save_asm: str = "yes") -> None:
-        os.chdir(self.path)
+        cwd = os.getcwd()
+        os.chdir(self.path)     # temporary change in directory
         cmd: List[str] = [self.chx86_analyze, "-summaries", self.chsummaries]
         cmd.extend(["-preamble_cutoff", str(preamble_cutoff)])
         for d in self.deps:
@@ -229,6 +234,8 @@ class AnalysisManager(object):
         else:
             result = subprocess.call(cmd, stderr=subprocess.STDOUT)
             print(result)
+
+        os.chdir(cwd)    # return to original directory
 
     # Analysis -----------------------------------------------------------------
 
@@ -371,7 +378,8 @@ class AnalysisManager(object):
             verbose: bool = False,
             collectdiagnostics: bool = False,
             preamble_cutoff: int = 12) -> int:
-        os.chdir(self.path)
+        cwd = os.getcwd()
+        os.chdir(self.path)   # temporary change in directory
         functionsjarfile = UF.get_functionsjar_filename(self.path, self.filename)
         analysisdir = UF.get_analysis_dir(self.path, self.filename)
         cmd = [self.chx86_analyze, "-summaries", self.chsummaries]
@@ -420,6 +428,7 @@ class AnalysisManager(object):
             firstcmd.extend(["-ifile", ifile])
         result = self._call_analysis(firstcmd, timeout=timeout)
         if result != 0:
+            os.chdir(cwd)   # return to original directory
             return result
         (isstable, results) = self._get_results()
         print(results)
@@ -427,14 +436,17 @@ class AnalysisManager(object):
         count = 2
         while True:
             if isstable == "yes" and not ignore_stable and len(self.fns_include) == 0:
+                os.chdir(cwd)   # return to original directory
                 return True
 
             subprocess.call(jarcmd, stderr=subprocess.STDOUT)
             if count > iterations:
+                os.chdir(cwd)    # return to original directory
                 return False
 
             result = self._call_analysis(cmd, timeout=timeout)
             if result != 0:
+                os.chdir(cwd)    # return to original directory
                 return result
 
             count += 1

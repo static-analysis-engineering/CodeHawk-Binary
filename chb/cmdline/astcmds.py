@@ -151,7 +151,6 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     xinfo.load(path, xfile)
 
     # read hints files
-    os.chdir(path)
     userhints = UserHints(toxml=False)
     filenames = [os.path.abspath(s) for s in hints]
     if len(filenames) > 0:
@@ -344,7 +343,6 @@ def showast(args: argparse.Namespace) -> NoReturn:
     xinfo.load(path, xfile)
 
     # read hints files
-    os.chdir(path)
     userhints = UserHints(toxml=False)
     filenames = [os.path.abspath(s) for s in hints]
     if len(filenames) > 0:

@@ -237,8 +237,8 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         print(str(e.wrap()))
         exit(1)
 
-    print("Change directory to " + path1)
-    os.chdir(path1)
+    # print("Change directory to " + path1)
+    # os.chdir(path1)
     is_thumb: bool = check_hints_for_thumb(hints)
     userhints = UC.prepare_executable(path2, xfile2, True, False, hints=hints)
 
@@ -270,16 +270,21 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
 
     # preprocess c files
     ifilenames: List[str] = []
+    headerfilenames = [os.path.abspath(s) for s in headers]
     if len(headers) > 0:
-        for f in headers:
+        for f in headerfilenames:
             if os.path.isfile(f):
+                print("Use header file: " + f)
                 ifilename = f[:-2] + ".i"
                 ifilenames.append(ifilename)
                 gcccmd = ["gcc", "-std=gnu99", "-m32", "-E", "-o", ifilename, f]
-                p = subprocess.call(gcccmd, cwd=path1, stderr=subprocess.STDOUT)
+                p = subprocess.call(gcccmd, cwd=path2, stderr=subprocess.STDOUT)
                 if not (p == 0):
                     UC.print_error("Error in " + str(gcccmd))
                     exit(1)
+            else:
+                UC.print_error("Header file " + f + " not found")
+                exit(1)
 
     am = AnalysisManager(
         path2,
