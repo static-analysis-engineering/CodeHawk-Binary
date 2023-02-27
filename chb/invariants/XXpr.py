@@ -441,21 +441,7 @@ class XprVariable(XXpr):
         return result
 
     def __str__(self) -> str:
-        if self.is_function_return_value:
-            tgtval = self.returnval_target()
-            if tgtval:
-                if str(tgtval) == "getenv":
-                    if len(self.returnval_arguments()) > 0:
-                        args = str(self.returnval_arguments()[0])
-                        return "rtn_getenv(" + args + ")"
-                    else:
-                        return "rtn_" + str(tgtval)
-                else:
-                    return 'rtn_' + str(tgtval)
-            else:
-                return str(self.variable)
-        else:
-            return str(self.variable)
+        return str(self.variable)
 
 
 @xprregistry.register_tag("c", XXpr)
