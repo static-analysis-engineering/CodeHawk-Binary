@@ -433,8 +433,16 @@ class VFunctionReturnValue(VConstantValueVariable):
         return self.finfo.call_target(self.callsite)
 
     def __str__(self) -> str:
-        if str(self.call_target()) in ["calloc", "malloc", "realloc"]:
-            return "rtn_" + self.callsite + "_" + str(self.call_target())
+        if self.has_call_target():
+            tgtval = self.call_target()
+            if str(tgtval) == "getenv":
+                if len(self.call_arguments()) > 0:
+                    args = str(self.call_arguments()[0])
+                    return "rtn_" + self.callsite + "_getenv(" + args + ")"
+                else:
+                    return "rtn_" + self.callsite + "_" + str(tgtval)
+            else:
+                return "rtn_" + self.callsite + "_" + str(tgtval)
         else:
             return "rtn_" + self.callsite
 

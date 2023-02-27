@@ -27,6 +27,7 @@
 
 from typing import cast, List, Optional, Sequence, Set, Tuple, TYPE_CHECKING
 
+from chb.ast.AbstractSyntaxTree import nooffset
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
@@ -849,12 +850,14 @@ def vfunctionreturn_value_to_ast_lvals(
 
     if vconstvar.has_call_target():
         calltarget = str(vconstvar.call_target())
-        if astree.has_symbol(calltarget):
-            vinfo = astree.get_symbol(calltarget)
-            vtype = vinfo.vtype
+        if astree.globalsymboltable.has_symbol(calltarget):
+            vinfo = astree.globalsymboltable.get_symbol(calltarget)
+            if vinfo.vtype is not None:
+                vinfotype = cast(AST.ASTTypFun, vinfo.vtype)
+                vtype = vinfotype.returntyp
 
-    return [astree.mk_returnval_variable_lval(
-        vconstvar.callsite, vtype, anonymous=anonymous)]
+    returnvar = astree.mk_named_variable(str(vconstvar), vtype=vtype)
+    return [astree.mk_lval(returnvar, nooffset, anonymous=anonymous)]
 
 
 def vauxiliary_variable_list_to_ast_lvals(
