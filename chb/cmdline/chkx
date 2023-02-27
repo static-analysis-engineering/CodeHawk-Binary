@@ -177,6 +177,24 @@ def resultscommand(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def relationalcommand(args: argparse.Namespace) -> NoReturn:
+    print("The relational command can be followed by the following subcommands:")
+    print("")
+    print("  prepare <xname1> <xname2> ... prepare executable for relational analysis")
+    print("  compare functions <xname1> <xname2>")
+    print("  compare function <xname1> <xname2> <fn1> <fn2>")
+    print("  compare invariants <xname1> <xname2> <fn1> <fn2>")
+    print("  compare cfg <xname1> <xname2> <fn1> <fn2>")
+    exit(0)
+
+
+def relationalcomparecommand(args: argparse.Namespace) -> NoReturn:
+    print("The relational compare command command can be followed by the following:")
+    print("")
+    print("  functions <xname1> <xname2> ... compare at the function level")
+    exit(0)
+
+
 def reportcommand(args: argparse.Namespace) -> NoReturn:
     print('The report command can be followed by the following subcommands:')
     print('All commands take the name of the executable as first argument')
@@ -230,11 +248,6 @@ def summariesviewcommand(args: argparse.Namespace) -> NoReturn:
 
 def simulatecommand(args: argparse.Namespace) -> NoReturn:
     print("The simulate command allows simulation of a single function.")
-    exit(0)
-
-
-def relationalcommand(args: argparse.Namespace) -> NoReturn:
-    print("The relational commands relates two executables at different levels of precision")
     exit(0)
 
 
@@ -984,53 +997,99 @@ def parse() -> argparse.Namespace:
     summaries_ioc_roles.set_defaults(func=SC.summaries_ioc_roles_cmd)
 
     # ---------------------------------------------------- relational subcommand
-    parser_relational = subparsers.add_parser("relational")
-    parser_relational.add_argument(
-        "xname1", help="name of first executable")
-    parser_relational.add_argument(
-        "xname2", help="name of second executable")
-    parser_relational.add_argument(
-        "--functions",
-        action="store_true",
-        help="show differences at the function level (basic blocks)")
-    parser_relational.add_argument(
-        "--instructions",
-        action="store_true",
-        help="show differences at the instruction level")
-    parser_relational.add_argument(
-        "--cfgs_filename",
-        help="name of file to save control flow graphs side-by-side")
-    parser_relational.add_argument(
-        "--calls_in_cfg",
-        action="store_true",
-        help="show calls in cfgs")
-    parser_relational.add_argument(
-        "--predicates_in_cfg",
-        action="store_true",
-        help="show predicates in cfgs")
-    parser_relational.add_argument(
-        "--invariants",
-        action="store_true",
-        help="show invariant comparison")
-    parser_relational.add_argument(
-        "--functions1",
+    relationalcmd = subparsers.add_parser("relational")
+    relationalcmd.set_defaults(func=relationalcommand)
+    relationalparsers = relationalcmd.add_subparsers(title="show options")
+
+    # --- relational prepare --
+    relationalprepare = relationalparsers.add_parser("prepare")
+    relationalprepare.add_argument(
+        "xname1", help="name of first (original) executable (assumed analyzed)")
+    relationalprepare.add_argument(
+        "xname2", help="name of second (patched) executable to be prepared for comparison")
+    relationalprepare.add_argument(
+        "--save_aux_userdata",
+        help="name of json file (without extension) to save auxiliary userdata")
+    relationalprepare.add_argument(
+        "--hints",
         nargs="*",
         default=[],
-        help="restrict relational analysis to these functions for the first binary")
-    parser_relational.add_argument(
-        "--functions2",
+        help="names of files with userdata for the original application (xname1)")
+    relationalprepare.add_argument(
+        "--headers",
         nargs="*",
         default=[],
-        help="restrict relational analysis to these functions for the second binary")
-    parser_relational.add_argument(
-        "--usermapping",
-        help="name of json file with initial function mapping")
-    parser_relational.add_argument(
-        "--callees",
-        help="names of function calls of interest",
-        nargs="*",
-        default=[])
-    parser_relational.set_defaults(func=R.relational_analysis_cmd)
+        help="names of c header files with summaries/data structures")
+    relationalprepare.set_defaults(func=R.relational_prepare_command)
+
+    # --- relational compare --
+    relationalcompare = relationalparsers.add_parser("compare")
+    relationalcompare.set_defaults(func=relationalcomparecommand)
+    relationalcompareparsers = relationalcompare.add_subparsers(title="show options")
+
+    # --- relational compare functions --
+    relationalcomparefns = relationalcompareparsers.add_parser("functions")
+    relationalcomparefns.add_argument(
+        "xname1", help="name of first (original) executable (assumed analyzed)")
+    relationalcomparefns.add_argument(
+        "xname2", help="name of second (patched) executable (assumed analyzed)")
+    relationalcomparefns.add_argument(
+        "--usermapping", help="name of json file with initial function mapping")
+    relationalcomparefns.set_defaults(func=R.relational_compare_functions_cmd)
+
+    # --- relational compare function --
+    relationalcomparefn = relationalcompareparsers.add_parser("function")
+    relationalcomparefn.add_argument(
+        "xname1", help="name of first (original) executable (assumed analyzed)")
+    relationalcomparefn.add_argument(
+        "xname2", help="name of second (patched) executable (assumed analyzed)")
+    relationalcomparefn.add_argument(
+        "--addresses",
+        default=[],
+        help="list of hex addresses of (original) functions to be included")
+    relationalcomparefn.add_argument(
+        "--blocks",
+        action="store_true",
+        help="give details on all functions that were modified at the block level")
+    relationalcomparefn.add_argument(
+        "--details",
+        action="store_true",
+        help="give details on all functions that were modified at the instruction level")
+    relationalcomparefn.add_argument(
+        "--usermapping", help="name of json file with initial function mapping")
+    relationalcomparefn.set_defaults(func=R.relational_compare_function_cmd)
+
+
+    # --- relational compare cfgs --
+    relationalcomparecfgs = relationalcompareparsers.add_parser("cfgs")
+    relationalcomparecfgs.add_argument(
+        "xname1", help="name of first (original) executable (assumed analyzed)")
+    relationalcomparecfgs.add_argument(
+        "xname2", help="name of second (patched) executable (assumed analyzed)")
+    relationalcomparecfgs.add_argument(
+        "outputfilename",
+        help="pdf/dot output filename (without extension)")
+    relationalcomparecfgs.add_argument(
+        "--show_calls",
+        action="store_true",
+        help="show functions called in cfg basic blocks")
+    relationalcomparecfgs.add_argument(
+        "--show_predicates",
+        action="store_true",
+        help="show predicates on the edges of the cfg")
+    relationalcomparecfgs.add_argument(
+        "--usermapping", help="name of json file with initial function mapping")
+    relationalcomparecfgs.set_defaults(func=R.relational_compare_cfgs_cmd)
+
+    # --- relational compare invariants --
+    relationalcompareinvs = relationalcompareparsers.add_parser("invariants")
+    relationalcompareinvs.add_argument(
+        "xname1", help="name of first (original) executable (assumed analyzed)")
+    relationalcompareinvs.add_argument(
+        "xname2", help="name of second (patched) executable (assumed analyzed)")
+    relationalcompareinvs.add_argument(
+        "--usermapping", help="name of json file with initial function mapping")
+    relationalcompareinvs.set_defaults(func=R.relational_compare_invs_cmd)
 
     # ------------------------------------------------------ simulate subcommand
     parser_simulate = subparsers.add_parser("simulate")
