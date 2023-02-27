@@ -2302,7 +2302,6 @@ class ASTFunArgs(ASTNode):
     def __str__(self) -> str:
         return ", ".join(str(a) for a in self.funargs)
 
-
 class ASTFunArg(ASTNode):
 
     def __init__(self, argname: str, argtyp: "ASTTyp") -> None:

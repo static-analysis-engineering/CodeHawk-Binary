@@ -796,21 +796,6 @@ class ASTInterface:
         optexprid = -1 if anonymous else None
         return self.astree.mk_lval_expression(lval, optexprid=optexprid)
 
-    def mk_returnval_variable(
-            self,
-            iaddr: str,
-            vtype: Optional[AST.ASTTyp]) -> AST.ASTVariable:
-        name = "rtn_" + iaddr
-        return self.mk_named_variable(name, vtype=vtype)
-
-    def mk_returnval_variable_lval(
-            self,
-            iaddr: str,
-            vtype: Optional[AST.ASTTyp],
-            anonymous: bool = False) -> AST.ASTLval:
-        var = self.mk_returnval_variable(iaddr, vtype)
-        return self.mk_lval(var, nooffset, anonymous=anonymous)
-
     def mk_register_variable(
             self,
             name: str,
