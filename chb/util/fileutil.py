@@ -936,14 +936,17 @@ def unpack_tar_file(path: str, xfile: str) -> bool:
         return False
 
     # unpack the tar.gz.file
-    os.chdir(path)
+    cwd = os.getcwd()
+    os.chdir(path)              # temporary change in directory
     cmd: List[str] = ["tar", "xfz", targzfile]
     result = subprocess.call(cmd, cwd=path, stderr=subprocess.STDOUT)
+    os.chdir(cwd)
     if result != 0:
-        raise CHBError("Error in extracting tar.gz file: "
-                       + " ".join(cmd)
-                       + ". return code: "
-                       + str(result))
+        raise CHBError(
+            "Error in extracting tar.gz file: "
+            + " ".join(cmd)
+            + ". return code: "
+            + str(result))
     else:
         print('Successfully extracted ' + targzfile)
     return os.path.isdir(xdir)
@@ -1191,11 +1194,12 @@ def save_test_files(
     with open(xinfoname, "w") as fp:
         json.dump(xinfo, fp, indent=2)
 
-    os.chdir(suitedir)
+    cwd = os.getcwd()
+    os.chdir(suitedir)   # temporary change directory
     targzfile = testname + ".chx.tar.gz"
     cmd: List[str] = ["tar", "cfz", targzfile, testname + ".ch"]
     result = subprocess.call(cmd, cwd=suitedir, stderr=subprocess.STDOUT)
-
+    os.chdir(cwd)
     return (
         "Saved "
         + ", ".join(files.keys())

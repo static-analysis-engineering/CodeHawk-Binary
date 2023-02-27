@@ -229,10 +229,10 @@ def setup_user_data(
         userhints.add_hints(cmdarmuserdata)
 
     # read hints files
-    os.chdir(path)
+    # os.chdir(path)
     filenames = [os.path.abspath(s) for s in hints]
     if len(filenames) > 0:
-        print("use hints files: " + ", ".join(filenames))
+        print("Use hints files: " + ", ".join(filenames))
         for f in filenames:
             try:
                 with open(f, "r") as fp:
@@ -413,10 +413,13 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     xinfo.load(path, xfile)
 
     # preprocess c files
+    print("Preprocessing c header files from directory " + os.getcwd())
     ifilenames: List[str] = []
+    headerfilenames = [os.path.abspath(s) for s in headers]
     if len(headers) > 0:
-        for f in headers:
+        for f in headerfilenames:
             if os.path.isfile(f):
+                print("Use header file: " + f)
                 ifilename = f[:-2] + ".i"
                 ifilenames.append(ifilename)
                 gcccmd = ["gcc", "-std=gnu99", "-m32", "-E", "-o", ifilename, f]
@@ -424,6 +427,9 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 if not (p == 0):
                     print_error("Error in " + str(gcccmd))
                     exit(1)
+            else:
+                print_error("Header file " + f + " not found")
+                exit(1)
 
     am = AnalysisManager(
         path,
