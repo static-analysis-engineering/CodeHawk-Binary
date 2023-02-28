@@ -27,6 +27,7 @@
 """Initiate relational analysis of two binaries."""
 
 import argparse
+import datetime
 import importlib
 import json
 import os
@@ -50,6 +51,19 @@ from chb.relational.RelationalAnalysis import RelationalAnalysis
 import chb.util.dotutil as UD
 import chb.util.fileutil as UF
 import chb.cmdline.commandutil as UC
+
+
+def relational_header(xname1: str, xname2: str, header: str) -> str:
+    lines: List[str] = []
+    lines.append("=" * 80)
+    lines.append(
+        "||"
+        + ("CodeHawk Relational Analysis: " + header).ljust(76)
+        + "||")
+    lines.append("||" + "  - " + str(xname1).ljust(72) + "||")
+    lines.append("||" + "  - " + str(xname2).ljust(72) + "||")
+    lines.append("=" * 80)
+    return "\n".join(lines)
 
 
 class XComparison:
@@ -157,7 +171,7 @@ def compare_executable_content(
         return xcomparison
 
     xcomparison.add_text(
-        "The number of sections in the patched file is the same as in the original file.")
+        " - The number of sections in the patched file is the same as in the original file\n")
 
     comparison: Dict[
         str, Tuple[Optional[ELFSectionHeader], Optional[ELFSectionHeader]]] = {}
@@ -173,7 +187,7 @@ def compare_executable_content(
             comparison[sh2.name] = (None, sh2)
 
     if len(comparison) == len(sectionheaders1):
-        xcomparison.add_text("All section names match.")
+        xcomparison.add_text(" - All section names match.\n")
     else:
         for (name, (optsh1, optsh2)) in comparison.items():
             if optsh1 is None:
@@ -191,7 +205,7 @@ def compare_executable_content(
         if optsh1 is not None and optsh2 is not None:
             if optsh1.vaddr != optsh2.vaddr:
                 xcomparison.add_text(
-                    "  The starting address of section "
+                    " - The starting address of section "
                     + name
                     + " changed from "
                     + optsh1.vaddr
@@ -201,7 +215,7 @@ def compare_executable_content(
 
             if optsh1.size != optsh2.size:
                 xcomparison.add_text(
-                    "  The size of section "
+                    " - The size of section "
                     + name
                     + " changed from "
                     + optsh1.size
@@ -227,8 +241,6 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     headers: List[str] = args.headers
     save_aux_userdata: str = args.save_aux_userdata
 
-    print("Prepare executables " + xname1 + " and " + xname2)
-
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
         UF.check_analysis_results(path1, xfile1)
@@ -237,29 +249,27 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         print(str(e.wrap()))
         exit(1)
 
-    # print("Change directory to " + path1)
-    # os.chdir(path1)
     is_thumb: bool = check_hints_for_thumb(hints)
     userhints = UC.prepare_executable(path2, xfile2, True, False, hints=hints)
 
     xcomparison = compare_executable_content(
         path1, xfile1, path2, xfile2, is_thumb)
 
-    print("\nComparison of executable content")
-    print("----------------------------------")
+    print(relational_header(xname1, xname2, "executable sections"))
     print(str(xcomparison))
-    print("=" * 80)
 
     newuserdata: Dict[str, Any] = {}
 
+    print("\nAdditions to user data:")
+    print("~" * 80)
     if len(xcomparison.switchpoints) > 0:
-        print("\nNew arm-thumb switch points: " + ", ".join(xcomparison.switchpoints))
+        print(" - New arm-thumb switch points: " + ", ".join(xcomparison.switchpoints) + "\n")
         newuserdata["arm-thumb"] = xcomparison.switchpoints
 
     if len(xcomparison.newcode) > 0:
-        print("\nNew code inserted in the following memory regions:")
+        print(" - New code inserted in the following memory regions:")
         for (x, y) in xcomparison.newcode:
-            print("  From " + x + " to " + y)
+            print("    * From " + x + " to " + y)
             newuserdata["trampolines"] = xcomparison.newcode
 
     userhints.add_hints(newuserdata)
@@ -274,7 +284,6 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     if len(headers) > 0:
         for f in headerfilenames:
             if os.path.isfile(f):
-                print("Use header file: " + f)
                 ifilename = f[:-2] + ".i"
                 ifilenames.append(ifilename)
                 gcccmd = ["gcc", "-std=gnu99", "-m32", "-E", "-o", ifilename, f]
@@ -286,6 +295,11 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
                 UC.print_error("Header file " + f + " not found")
                 exit(1)
 
+    print("=" * 80)
+    print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
+    print("=" * 80)
+
+    print("\n\nAnalyzing patched version with updated user data ...")
     am = AnalysisManager(
         path2,
         xfile2,
@@ -314,8 +328,6 @@ def relational_compare_functions_cmd(args: argparse.Namespace) -> NoReturn:
     xname1: str = args.xname1
     xname2: str = args.xname2
     usermappingfile: Optional[str] = args.usermapping
-
-    print("Compare " + xname1 + " and " + xname2 + " at the function level")
 
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -346,7 +358,11 @@ def relational_compare_functions_cmd(args: argparse.Namespace) -> NoReturn:
 
     relanalysis = RelationalAnalysis(app1, app2, usermapping=usermapping)
 
+    print(relational_header(xname1, xname2, "functions comparison"))
     print(relanalysis.report(False, False))
+    print("=" * 80)
+    print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
+    print("=" * 80)
 
     exit(0)
 
@@ -360,8 +376,6 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
     details: bool = args.details
     addresses: List[str] = args.addresses
     usermappingfile: Optional[str] = args.usermapping
-
-    print("Compare " + xname1 + " and " + xname2 + " at the function level")
 
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -392,7 +406,12 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
 
     relanalysis = RelationalAnalysis(app1, app2, faddrs1=addresses, usermapping=usermapping)
 
+    print(relational_header(
+        xname1, xname2, "function comparison of " + ", ".join(addresses)))
     print(relanalysis.report(True, args.details))
+    print("=" * 80)
+    print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
+    print("=" * 80)
 
     exit(0)
 
@@ -479,6 +498,7 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
         outputfilename,
         [dotcfg.build() for dotcfg in dotgraphs])
 
+    print(relational_header(xname1, xname2, "control-flow-graph comparison"))
     if os.path.isfile(pdffilename):
         UC.print_info(
             "Control flow graph comparison for "
@@ -491,6 +511,10 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
         UC.print_error(
             "Error in converting dot file to pdf")
         exit(1)
+
+    print("=" * 80)
+    print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
+    print("=" * 80)
 
     exit(0)
 
@@ -587,9 +611,10 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
                 for v2 in f2values:
                     newblocks[loc][v2] = f2values[v2]
 
+        print(relational_header(xname1, xname2, "invariant comparison"))
         counter: int = 0
         print("\nInvariants modified or missing:")
-        print("===================================")
+        print("~" * 80)
         for loc in sorted(comparison):
             for v in sorted(comparison[loc]):
                 values = comparison[loc][v]
@@ -602,26 +627,26 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
                         + str(values[0]).ljust(20)
                         + str(values[1]))
 
+        print("\n\n")
+        print("~" * 80)
         print(
-            "\nInvariants not modified: "
+            "Invariants not modified: "
             + str(counter)
             + " (in "
             + str(len(f1table))
             + " locations)")
-        print("=" * 80)
+        print("~" * 80)
 
         print("\nInvariants of newly added blocks:")
-        print("===================================")
+        print("~" * 80)
         for loc in sorted(newblocks):
             print("\n" + loc)
             for v in sorted(newblocks[loc]):
                 newvalue = newblocks[loc][v]
                 print("  " + v.ljust(32) + str(newvalue))
 
-        print(
-            "\nInvariants not modified: "
-            + str(counter)
-            + " (in "
-            + str(len(f1table))
-            + " locations)")
+    print("=" * 80)
+    print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
+    print("=" * 80)
+
     exit(0)

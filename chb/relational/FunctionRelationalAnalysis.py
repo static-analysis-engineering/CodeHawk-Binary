@@ -425,8 +425,8 @@ class FunctionRelationalAnalysis:
                             lines.append(blra.report(callees))
                             lines.append("")
 
-                lines.append("\n\nCfg matcher")
-                lines.append("=" * 40)
+                lines.append("\n\nCfgs are not isomorphic; performing general cfg matching")
+                lines.append("-" * 80)
                 lines.append(str(cfgmatcher))
 
         return "\n".join(lines)

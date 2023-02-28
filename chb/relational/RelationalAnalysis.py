@@ -187,9 +187,6 @@ class RelationalAnalysis:
 
     def report(self, showfunctions: bool, showinstructions: bool) -> str:
         lines: List[str] = []
-        lines.append("Summary Report")
-        lines.append("=" * 80)
-        lines.append("")
 
         fnames: Dict[str, str] = {}
         for faddr in self.functions_changed():
@@ -246,20 +243,23 @@ class RelationalAnalysis:
             else:
                 fnotfound.append(faddr)
 
-        lines.append("\nTotal blocks changed: " + str(totalblocks))
-        lines.append("")
+        lines.append("\n\nSummary")
+        lines.append("-" * 80)
+        lines.append("  Total number of blocks changed: " + str(totalblocks))
 
         if len(self.function_mapping) < len(self.faddrs2):
             for faddr2 in sorted(self.faddrs2):
                 if faddr2 not in self.function_mapping.values():
                     fnotmapped.append(faddr2)
             lines.append(
-                "\nFunctions mapped from original to patched: "
+                "  Total number of functions mapped from original to patched: "
                 + str(len(self.function_mapping)))
             lines.append(
-                "Functions not found in patched version: " + str(len(fnotfound)))
+                "  Number of functions in original not found in patched version: "
+                + str(len(fnotfound)))
             lines.append(
-                "Functions in patched version not mapped: " + str(len(fnotmapped)))
+                "  Number of new functions in patched version: "
+                + str(len(fnotmapped)))
 
         if showfunctions or showinstructions:
             lines.append("")

@@ -1046,6 +1046,7 @@ def parse() -> argparse.Namespace:
     relationalcomparefn.add_argument(
         "--addresses",
         default=[],
+        nargs="*",
         help="list of hex addresses of (original) functions to be included")
     relationalcomparefn.add_argument(
         "--blocks",
