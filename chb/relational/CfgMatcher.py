@@ -467,7 +467,9 @@ class CfgMatcher:
             for (s, t) in sorted(self.unmatched_edges()):
                 lines.append("  " + s.rjust(20) + " --> " + t)
 
-        lines.append("\n\nFor a visual representation of the CFG please use")
+        lines.append("\n\n")
+        lines.append("~" * 80)
+        lines.append("For a visual representation of the CFG please use")
         lines.append("   > chkx relational compare cfgs <xname1> <xname2> <outputfile> ")
-        lines.append("=" * 80)
+        lines.append("~" * 80)
         return "\n".join(lines)
