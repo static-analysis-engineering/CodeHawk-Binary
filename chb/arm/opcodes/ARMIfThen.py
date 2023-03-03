@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -78,9 +78,9 @@ class ARMIfThen(ARMOpcode):
             return []
 
     def annotation(self, xdata: InstrXData) -> str:
-        if len(xdata.vars) == 1 and len(xdata.xprs) == 1:
+        if len(xdata.vars) == 1 and len(xdata.xprs) == 2:
             lhs = str(xdata.vars[0])
-            rhs = str(xdata.xprs[0])
+            rhs = str(xdata.xprs[1])
             return lhs + " := " + rhs
         elif xdata.has_branch_conditions():
             return "if " + str(xdata.xprs[3]) + " then goto "
@@ -150,13 +150,13 @@ class ARMIfThen(ARMOpcode):
             return ([], [])
 
         lhs = xdata.vars[0]
-        rhs = xdata.xprs[0]
+        rhs = xdata.xprs[1]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
         hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         if len(hl_lhss) == 1 and len(hl_rhss) == 1:
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]
@@ -169,6 +169,7 @@ class ARMIfThen(ARMOpcode):
 
             subsumes = xdata.subsumes()
 
+            astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
             astree.add_instr_address(hl_assign, [iaddr] + subsumes)
             astree.add_expr_reachingdefs(hl_rhs, rdefs)
             astree.add_lval_defuses(hl_lhs, defuses[0])
