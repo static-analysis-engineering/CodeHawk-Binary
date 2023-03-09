@@ -1069,7 +1069,7 @@ def parse() -> argparse.Namespace:
         "xname2", help="name of second (patched) executable (assumed analyzed)")
     relationalcomparecfgs.add_argument(
         "outputfilename",
-        help="pdf/dot output filename (without extension)")
+        help="output filename (without extension)")
     relationalcomparecfgs.add_argument(
         "--show_calls",
         action="store_true",
@@ -1080,6 +1080,11 @@ def parse() -> argparse.Namespace:
         help="show predicates on the edges of the cfg")
     relationalcomparecfgs.add_argument(
         "--usermapping", help="name of json file with initial function mapping")
+    relationalcomparecfgs.add_argument(
+        "--format",
+        choices=["pdf", "png"],
+        default="pdf",
+        help="format for the generated file")
     relationalcomparecfgs.set_defaults(func=R.relational_compare_cfgs_cmd)
 
     # --- relational compare invariants --

@@ -426,6 +426,7 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     showcalls: bool = args.show_calls
     showpredicates: bool = args.show_predicates
     outputfilename: str = args.outputfilename
+    fileformat: str = args.format
 
     print("Visual comparison of the cfgs for " + xname1 + " and " + xname2)
 
@@ -496,6 +497,7 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
         app1.path,
         "cfg_comparison",
         outputfilename,
+        fileformat,
         [dotcfg.build() for dotcfg in dotgraphs])
 
     print(relational_header(xname1, xname2, "control-flow-graph comparison"))

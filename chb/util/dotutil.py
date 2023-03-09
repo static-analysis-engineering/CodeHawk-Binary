@@ -66,6 +66,7 @@ def print_dot_subgraphs(
         path: str,
         gname: str,
         filename: str,
+        fileformat: str,
         subgraphs: List["DotGraph"]) -> str:
     if len(subgraphs) == 0:
         print("No subgraphs supplied")
@@ -89,13 +90,13 @@ def print_dot_subgraphs(
     dotgraph = "\n".join(lines)
 
     dotfilename = filename + ".dot"
-    pdffilename = filename + ".pdf"
+    outputfilename = filename + ".%s" % fileformat
 
     with open(dotfilename, "w") as fp:
         fp.write(dotgraph)
 
-    # convert dot file to pdf
-    cmd = ["dot", "-Tpdf", "-o", pdffilename, dotfilename]
+    # convert dot file to the desired format
+    cmd = ["dot", "-T%s" % fileformat, "-o", outputfilename, dotfilename]
     try:
         subprocess.call(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
@@ -103,7 +104,7 @@ def print_dot_subgraphs(
         print(e.output)
         print(e.args)
         exit(1)
-    return pdffilename
+    return outputfilename
 
 
 def save_dot(path: str, filename: str, g: "DotGraph") -> None:
