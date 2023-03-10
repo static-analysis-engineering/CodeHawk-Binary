@@ -31,6 +31,8 @@ from typing import Any, cast, Dict, List, NewType, Optional, Tuple, Union
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree, nooffset, voidtype
 import chb.ast.ASTNode as AST
 from chb.ast.ASTSymbolTable import ASTLocalSymbolTable, ASTGlobalSymbolTable
+from chb.ast.ASTReturnSequences import ASTReturnSequences
+from chb.ast.ASTCodeFragments import ASTCodeFragments
 
 
 ASTSpanRecord = NewType(
@@ -634,3 +636,20 @@ class ASTDeserializer:
                 mk_node(r)
 
         return nodes
+
+    def return_sequences_for(self, addr: str) -> ASTReturnSequences:
+        fdata = None
+        for _fdata in self.serialization["functions"]:
+            if addr == _fdata["va"]:
+                fdata = _fdata
+                break
+        if fdata is None:
+            raise ValueError("Function %s not found in serialization" % addr)
+
+        code_fragments = ASTCodeFragments()
+        code_fragments.deserialize(self.serialization["codefragments"])
+
+        return_sequences = ASTReturnSequences(code_fragments)
+        return_sequences.deserialize(fdata["return-sequences"])
+
+        return return_sequences
