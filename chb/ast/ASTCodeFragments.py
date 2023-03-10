@@ -75,11 +75,19 @@ class ASTCodeFragments:
             self._codefragments[index] = ASTCodeFragment(hexstring, assembly)
             return index
 
+    def is_valid_index(self, index: int) -> bool:
+        return index in self.codefragments
+
     def serialize(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {}
         for (index, frag) in sorted(self.codefragments.items()):
             result[str(index)] = frag.serialize()
         return result
+
+    def deserialize(self, serialization: Dict[str, Any]) -> None:
+        for (index, fragment) in serialization.items():
+            self._codefragments[int(index)] = ASTCodeFragment(fragment["hex"],
+                                                              fragment["assembly"])
 
     def __str__(self) -> str:
         lines: List[str] = []

@@ -28,7 +28,7 @@
 
 from datetime import datetime
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTCodeFragments import ASTCodeFragments
@@ -49,10 +49,14 @@ class ASTApplicationInterface:
 
     def __init__(
             self,
-            support: CustomASTSupport = CustomASTSupport()) -> None:
+            support: CustomASTSupport = CustomASTSupport(),
+            codefragments: Optional[ASTCodeFragments] = None) -> None:
         self._support = support
         self._globalsymboltable = ASTGlobalSymbolTable()
-        self._codefragments = ASTCodeFragments()
+        if codefragments:
+            self._codefragments = codefragments
+        else:
+            self._codefragments = ASTCodeFragments()
         self._fnsdata: List[Dict[str, Any]] = []
 
     @property

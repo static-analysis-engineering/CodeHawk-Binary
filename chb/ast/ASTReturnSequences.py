@@ -68,8 +68,16 @@ class ASTReturnSequences:
             result[address] = str(index)
         return result
 
+    def deserialize(self, serialization: Dict[str, str]) -> None:
+        for (addr, str_index) in serialization.items():
+            index = int(str_index)
+            if not self.codefragments.is_valid_index(index):
+                raise Exception("Index %s not found in codefragments" % index)
+
+            self.addressmap[addr] = index
+
     def __str__(self) -> str:
         lines: List[str] = []
-        for (address, index) in sorted(self.addressmap):
+        for (address, index) in sorted(self.addressmap.items()):
             lines.append(address + ": " + str(self.get_return_sequence(address)))
         return "\n".join(lines)
