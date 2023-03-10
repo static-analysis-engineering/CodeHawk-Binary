@@ -1179,6 +1179,11 @@ class AbstractSyntaxTree:
         if same_signedness and not force_cast:
            return e # No cast needed
 
+        if not same_signedness and t.ikind.startswith("iu") and not force_cast:
+            if t.ikind.endswith("char") or t.ikind.endswith("short"):
+                # unsigned char/short promote to signed int!
+                return e
+
         # Helpers to get a signed/unsigned version of a type
         def withsign(ikind):
           if ikind.endswith("char"):
