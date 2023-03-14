@@ -1201,6 +1201,12 @@ def parse() -> argparse.Namespace:
     parser_test.set_defaults(func=testcommand)
     testparsers = parser_test.add_subparsers(title="show options")
 
+    # --- arm_opcodes ---
+    test_arm_opcodes = testparsers.add_parser("arm_opcodes")
+    test_arm_opcodes.add_argument("path", help="path to test arm-opcode testfile")
+    test_arm_opcodes.add_argument("filename", help="name of arm-opcode testfile")
+    test_arm_opcodes.set_defaults(func=TC.test_arm_opcodes)
+
     # --- run ---
     test_run = testparsers.add_parser("run")
     test_run.add_argument(
