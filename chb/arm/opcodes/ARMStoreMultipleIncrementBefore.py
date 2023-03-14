@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -52,7 +52,6 @@ class ARMStoreMultipleIncrementBefore(ARMOpcode):
     args[1]: index of Rn in arm dictionary
     args[2]: index of registers in arm dictionary
     args[3]: index of base memory address
-    args[4]: thumb-wide
     """
 
     def __init__(
@@ -60,11 +59,11 @@ class ARMStoreMultipleIncrementBefore(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "StoreMultipleIncrementBefore")
+        self.check_key(2, 4, "StoreMultipleIncrementBefore")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2]]
 
     def is_store_instruction(self, xdata: InstrXData) -> bool:
         return True

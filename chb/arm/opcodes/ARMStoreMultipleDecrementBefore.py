@@ -60,7 +60,6 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
     args[1]: index of Rn in arm dictionary
     args[2]: index of registers in arm dictionary
     args[3]: index of base memory address
-    args[4]: thumb-wide
 
     xdata format:vv[n]xxxx[2n]r[n+1]d[n+1][h[n+1]
     ---------------------------------------------
@@ -84,15 +83,15 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "StoreMultipleDecrementBefore")
+        self.check_key(2, 4, "StoreMultipleDecrementBefore")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2]]
 
     @property
     def opargs(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
 
     @property
     def writeback(self) -> bool:

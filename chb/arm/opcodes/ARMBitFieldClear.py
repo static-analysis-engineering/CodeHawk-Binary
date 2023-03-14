@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -79,6 +79,15 @@ class ARMBitFieldClear(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[0])]
+
+    @property
+    def operandstring(self) -> str:
+        return (
+            str(self.armd.arm_operand(self.args[0]))
+            + ", "
+            + str(self.args[1])
+            + ", "
+            + str(self.args[2]))
 
     @property
     def opargs(self) -> List[ARMOperand]:

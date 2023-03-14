@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -43,6 +43,16 @@ if TYPE_CHECKING:
 
 @armregistry.register_tag("VSTMDB", ARMOpcode)
 class ARMVectorStoreMultipleDecrementBefore(ARMOpcode):
+    """Stores multiple extension registers to consecutive memory locations.
+
+    VSTMDB<c> <Rn>{!}, <list>
+
+    tags[1]: <c>
+    args[0]: writeback
+    args[1]: index of rn in armdictionary
+    args[2]: index of list in armdictionary
+    args[2]: index of memory operand
+    """
 
     def __init__(
             self,
@@ -52,16 +62,8 @@ class ARMVectorStoreMultipleDecrementBefore(ARMOpcode):
         self.check_key(2, 4, "VectorStoreMultipleDecrementBefore")
 
     @property
-    def mnemonic(self) -> str:
-        return self.tags[0]
-
-    @property
-    def operandstring(self) -> str:
-        return ", ".join(str(self.operands[i]) for i in [0, 2])
-
-    @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[2:]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2]]
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

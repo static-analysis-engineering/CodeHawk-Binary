@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -65,6 +65,20 @@ class ARMMoveTwoRegisterCoprocessor(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [2, 3]]
+
+    @property
+    def operandstring(self) -> str:
+        coproc = "p" + str(self.args[0])
+        opc = str(self.args[1])
+        crm = "c" + str(self.args[4])
+        return (
+            coproc
+            + ", "
+            + opc
+            + ", "
+            + ", ".join(str(op) for op in self.operands)
+            + ", "
+            + crm)
 
     def annotation(self, xdata: InstrXData) -> str:
         """format a:vv

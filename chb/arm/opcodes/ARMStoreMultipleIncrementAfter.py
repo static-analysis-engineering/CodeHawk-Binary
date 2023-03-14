@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -69,7 +69,16 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        wide = ".W" if self.args[4] == 1 else ""
+        return cc + wide
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
 
     @property
     def operandstring(self) -> str:
@@ -109,8 +118,8 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        baseop = self.operands[0]
-        regsop = self.operands[1]
+        baseop = self.opargs[0]
+        regsop = self.opargs[1]
         if not regsop.is_register_list:
             raise UF.CHBError("Argument to STM is not a register list")
 

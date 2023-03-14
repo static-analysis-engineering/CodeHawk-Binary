@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -43,6 +43,18 @@ if TYPE_CHECKING:
 
 @armregistry.register_tag("SMLABB", ARMOpcode)
 class ARMSignedMultiplyAccumulateBB(ARMOpcode):
+    """Performs a signed multiply accumulate operation on two signed 16-bit quantities.
+
+    SMLABB<c> <Rd>, <Rn>, <Rm>, <Ra>
+
+    The operands are taken from the lower half of Rn and Rm.
+
+    tags[1]: <cc>
+    args[0]: index of rd in armdictionary
+    args[1]: index of rn in armdictionary
+    args[2]: index of rm in armdictionary
+    args[3]: index of ra in armdictionary
+    """
 
     def __init__(
             self,
@@ -53,7 +65,7 @@ class ARMSignedMultiplyAccumulateBB(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

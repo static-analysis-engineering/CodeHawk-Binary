@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,16 +39,24 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
 
 
 @armregistry.register_tag("VBIC", ARMOpcode)
 class ARMVectorBitwiseBitClear(ARMOpcode):
     """Performs a bitwise AND between a register and an immediate.
 
+    VBIC<c> <Qd>, <Qn>, <Qm>
+    VBIC<c> <Dd>, <Dn>, <Dm>
+
+    VBIC<c>.<dt> <Qd>, #<imm>
+    VBIC<c>.<dt> <Dd>, #<imm>
+
     tags[1]: <c>
     args[0]: index of datatype in armdictionary
-    args[1]: index of source / destination in armdictionary
-    args[2]: index of immediate in armdictionary
+    args[1]: index of qd in arm dictionary
+    args[2]: index of qn in arm dictionary
+    args[3]: index of qm/imm in arm dictionary
     """
 
     def __init__(
@@ -60,7 +68,22 @@ class ARMVectorBitwiseBitClear(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:]]
+        if self.vfp_datatype.is_vfpnone:
+            return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
+        else:
+            return [self.armd.arm_operand(self.args[i]) for i in [1, 3]]
+
+    def mnemonic_extension(self) -> str:
+        if self.vfp_datatype.is_vfpnone:
+            return ARMOpcode.mnemonic_extension(self)
+        else:
+            cc = ARMOpcode.mnemonic_extension(self)
+            vfpdt = str(self.vfp_datatype)
+            return cc + vfpdt
+
+    @property
+    def vfp_datatype(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[0])
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

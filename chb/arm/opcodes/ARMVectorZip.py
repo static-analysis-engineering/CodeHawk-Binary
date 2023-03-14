@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,10 +39,21 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
 
 
 @armregistry.register_tag("VZIP", ARMOpcode)
 class ARMVectorZip(ARMOpcode):
+    """Interleaves the elements of two vectors.
+
+    VZIP<c>.<size> <Qd>, <Qm>
+    VZIP<c>.<size> <Dd>, <Dm>
+
+    tags[1]: <c>
+    args[0]: index of datatype in armdictionary
+    args[1]: index of qd in armdictionary
+    args[2]: index of qm in armdictionary
+    """
 
     def __init__(
             self,
@@ -53,7 +64,16 @@ class ARMVectorZip(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        vfpdt = str(self.vfp_datatype)
+        return cc + vfpdt
+
+    @property
+    def vfp_datatype(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[0])
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

@@ -84,23 +84,17 @@ class ARMSubtract(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -2]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
 
     @property
     def opargs(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1: -2]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
 
-    @property
-    def mnemonic(self) -> str:
-        mnem = self.tags[0]
-        if self.is_writeback:
-            mnem = mnem + "S"
-        if self.is_thumb_wide:
-            return mnem + ".W"
-        elif self.is_wide:
-            return mnem + "W"
-        else:
-            return mnem
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        wb = "S" if self.is_writeback else ""
+        wide = ".W" if self.is_thumb_wide else ""
+        return wb + cc + wide
 
     @property
     def is_thumb_wide(self) -> bool:

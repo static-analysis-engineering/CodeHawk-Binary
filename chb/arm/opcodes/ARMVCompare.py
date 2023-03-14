@@ -44,10 +44,9 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
 
 
-@armregistry.register_tag("VCMPE.F64", ARMOpcode)
-@armregistry.register_tag("VCMP.F64", ARMOpcode)
 @armregistry.register_tag("VCMPE", ARMOpcode)
 @armregistry.register_tag("VCMP", ARMOpcode)
 class ARMVCompare(ARMOpcode):
@@ -55,6 +54,9 @@ class ARMVCompare(ARMOpcode):
 
     VCMP{E}<c>.F64 <Dd> <Dm>
     VCMP{E}<c>.F32 <Sd> <Sm>
+
+    VCMP{E}<c>.F64 <Dd>, #0.0
+    VCMP{E}<c>.F32 <Sd>, #0.0
 
     tags[1]: <c>
     args[0]: nan (1 = raise Invalid Operation when one of the operands is NaN)
@@ -80,6 +82,15 @@ class ARMVCompare(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [2, 3]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        vfpdt = str(self.vfp_datatype)
+        return cc + vfpdt
+
+    @property
+    def vfp_datatype(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[1])
 
     @property
     def opargs(self) -> List[ARMOperand]:
@@ -134,4 +145,3 @@ class ARMVCompare(ARMOpcode):
         astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
 
         return ([hl_assign], [ll_assign])
-

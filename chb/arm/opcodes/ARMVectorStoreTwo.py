@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,6 +39,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
 
 
 @armregistry.register_tag("VST2", ARMOpcode)
@@ -63,7 +64,16 @@ class ARMVectorStoreTwo(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:]]
+        return [self.armd.arm_operand(self.args[i]) for i in [2, 4]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        vfpdt = str(self.vfp_datatype)
+        return cc + vfpdt
+
+    @property
+    def vfp_datatype(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[1])
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -54,6 +54,11 @@ class ARMSHA1HashUpdateChoose(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        vfpdt = str(self.armd.arm_vfp_datatype(self.args[0]))
+        return cc + vfpdt
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

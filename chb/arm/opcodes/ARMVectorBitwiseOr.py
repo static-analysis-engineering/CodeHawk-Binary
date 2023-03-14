@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,10 +49,10 @@ class ARMVectorBitwiseOr(ARMOpcode):
     VORR<c>.<dt> <Rd>, #<imm>
 
     tags[1]: <c>
-    tags[2]: <dt>
-    args[0]: index of Rd in armdictionary
-    args[1]: index of Rn in armdictionary
-    args[2]: index of Rm in armdictionary
+    args[0]: index of <dt>
+    args[1]: index of Rd in armdictionary
+    args[2]: index of Rn in armdictionary
+    args[3]: index of Rm in armdictionary
     """
 
     def __init__(
@@ -64,7 +64,7 @@ class ARMVectorBitwiseOr(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"
