@@ -49,6 +49,7 @@ import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.app.AppResultFunctionMetrics import AppResultFunctionMetrics
+    from chb.arm.ARMAccess import ARMAccess
     from chb.arm.ARMAssembly import ARMAssemblyInstruction
     from chb.app.Function import Function
 
@@ -143,6 +144,57 @@ def check_test_case(filename: str) -> int:
         result = 0
 
     return result
+
+
+def test_arm_opcodes(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    path: str = args.path
+    filename: str = args.filename
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, filename)
+
+    app = cast("ARMAccess", UC.get_app(path, filename, xinfo))
+    armd = app.armdictionary
+
+    print("Checking " + str(armd.opcode_table.size()) + " opcodes")
+
+    opcodestrings: Dict[int, str] = {}
+    xopcodes = UF.get_arm_dictionary_opcode_tests_xnode(path, filename)
+    for opcnode in xopcodes.findall("opc"):
+        iopc = int(str(opcnode.get("iopc")))
+        opc = opcnode.get("opc")
+        if opc is not None:
+            if opc.startswith("NOP") or opc.startswith("IT"):
+                opc = opc.strip()
+            opcodestrings[iopc] = opc
+
+    errorcount: int = 0
+    printmismatch: int = 0
+    for i in range(1, armd.opcode_table.size() + 1):
+        try:
+            opcode = armd.arm_opcode(i)
+            enc_opcode = opcodestrings[i]
+            print(str(opcode.index).rjust(6) + "  " + opcode.tags[0])
+            p = opcode.mnemonic + opcode.mnemonic_extension()
+            dec_opcode = (str(p).ljust(13) + opcode.operandstring).strip()
+            if enc_opcode != dec_opcode:
+                printmismatch += 1
+                print("  Mismatch: ")
+                print("    " + enc_opcode)
+                print("    " + dec_opcode)
+                print("")
+        except UF.CHBError as e:
+            errorcount += 1
+            print("Error: " + str(e))
+        except IndexError as e:
+            errorcount += 1
+            print("IndexError: " + str(e))
+
+    print("\nEncountered " + str(errorcount) + " errors.")
+    print("Print mismatches: " + str(printmismatch))
+    exit(0)
 
 
 def test_run(args: argparse.Namespace) -> NoReturn:

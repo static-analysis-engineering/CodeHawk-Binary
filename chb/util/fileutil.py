@@ -734,6 +734,11 @@ def get_arm_dictionary_xnode(path: str, xfile: str) -> ET.Element:
     return get_chb_xnode(filename, "arm-dictionary")
 
 
+def get_arm_dictionary_opcode_tests_xnode(path: str, xfile: str) -> ET.Element:
+    filename = get_arm_dictionary_filename(path, xfile)
+    return get_chb_xnode(filename, "arm_opcode_strings")
+
+
 def get_arm_asm_filename(path: str, xfile: str) -> str:
     fdir = get_results_dir(path, xfile)
     return get_chb_filename(fdir, xfile, "arm_asm.xml")
