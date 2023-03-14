@@ -50,7 +50,12 @@ if TYPE_CHECKING:
 class ARMCompare(ARMOpcode):
     """Subtracts a register or immediate value from a register value and sets flags.
 
+    CMP<c> <Rn>, #<imm8>
+    CMP<c>.W <Rn>, #<const>
+    CMP<c> <Rn>, #<const>
     CMP<c> <Rn>, <Rm>
+    CMP<c>.W <Rn>, <Rm> {, <shift>}
+    CMP<c> <Rn>, <Rm>, <type> <Rs>
 
     tags[1]: <c>
     args[0]: index of rn in armdictionary
@@ -76,7 +81,12 @@ class ARMCompare(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        wide = ".W" if self.args[2] == 1 else ""
+        return cc + wide
 
     @property
     def opargs(self) -> List[ARMOperand]:

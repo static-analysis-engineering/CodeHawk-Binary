@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -45,7 +45,9 @@ if TYPE_CHECKING:
 class ARMReverseSubtractCarry(ARMOpcode):
     """Subtracts a value from a register and saves the result in a register.
 
+    RSC{S}<c> <Rd>, <Rn>, #<const>
     RSC{S}<c> <Rd>, <Rn>, <Rm>{, <shift>}
+    RSC{S}<c> <rd>, <Rn>, <Rm>, <type <Rs>
 
     tags[1]: <c>
     args[0]: {S}
@@ -62,20 +64,17 @@ class ARMReverseSubtractCarry(ARMOpcode):
         self.check_key(2, 4, "ReverseSubtractCarry")
 
     @property
-    def mnemonic(self) -> str:
-        mnem = self.tags[0]
-        if self.is_writeback:
-            return mnem + "S"
-        else:
-            return mnem
-
-    @property
     def is_writeback(self) -> bool:
         return self.args[0] == 1
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
+
+    def mnemonic_extension(self) -> str:
+        wb = "S" if self.is_writeback else ""
+        cc = ARMOpcode.mnemonic_extension(self)
+        return wb + cc
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"
