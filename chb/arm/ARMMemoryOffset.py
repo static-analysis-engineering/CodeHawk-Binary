@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -98,6 +98,10 @@ class ARMImmOffset(ARMMemoryOffset):
     def is_immediate(self) -> bool:
         return True
 
+    @property
+    def is_zero(self) -> bool:
+        return self.immediate == 0
+
     def ast_rvalue(self, astree: ASTInterface) -> AST.ASTExpr:
         return astree.mk_integer_constant(self.immediate)
 
@@ -129,7 +133,7 @@ class ARMIndexOffset(ARMMemoryOffset):
     def ast_rvalue(self, astree: ASTInterface) -> AST.ASTExpr:
         return astree.mk_register_variable_expr(self.register)
 
-    def __str(self) -> str:
+    def __str__(self) -> str:
         return self.register
 
 

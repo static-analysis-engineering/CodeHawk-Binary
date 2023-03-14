@@ -78,9 +78,10 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.app.BDictionary import BDictionary, AsmAddress
-    from chb.app.ARMExtensionRegister import ARMExtensionRegister
+    from chb.app.ARMExtensionRegister import (
+        ARMExtensionRegister, ARMExtensionRegisterElement)
     from chb.arm.ARMDictionary import ARMDictionary
-    from chb.arm.ARMMemoryOffset import ARMMemoryOffset
+    from chb.arm.ARMMemoryOffset import ARMMemoryOffset, ARMImmOffset
     from chb.arm.ARMShiftRotate import ARMShiftRotate, ARMImmSRT
     from chb.arm.ARMSIMD import ARMSIMDWriteback, ARMSIMDListElement
 
@@ -334,6 +335,27 @@ class ARMExtensionRegisterOp(ARMOperandKind):
 
     def __str__(self) -> str:
         return str(self.xregister)
+
+
+@armregistry.register_tag("xre", ARMOperandKind)
+class ARMExtensionRegElementOp(ARMOperandKind):
+    """ARM extension register element.
+
+    args[0]: index of arm-extension-register element
+    """
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def xregelement(self) -> "ARMExtensionRegisterElement":
+        return self.bd.arm_extension_register_element(self.args[0])
+
+    def __str__(self) -> str:
+        return str(self.xregelement)
 
 
 @armregistry.register_tag("l", ARMOperandKind)
@@ -643,6 +665,16 @@ class ARMOffsetAddressOp(ARMOperandKind):
     def memory_offset(self) -> "ARMMemoryOffset":
         return self.armd.arm_memory_offset(self.args[1])
 
+    def has_immediate_memory_offset(self) -> bool:
+        return self.memory_offset.is_immediate
+
+    def has_zero_immediate_memory_offset(self) -> bool:
+        if self.has_immediate_memory_offset():
+            offset = cast("ARMImmOffset", self.memory_offset)
+            return offset.is_zero
+        else:
+            return False
+
     @property
     def is_indirect_register(self) -> bool:
         return True
@@ -698,11 +730,17 @@ class ARMOffsetAddressOp(ARMOperandKind):
             memoffset = "-" + memoffset
         if self.is_write_back:
             if self.is_index:
-                return "[" + self.register + ", " + memoffset + "]!"
+                if self.has_zero_immediate_memory_offset():
+                    return "[" + self.register + "]!"
+                else:
+                    return "[" + self.register + "," + memoffset + "]!"
             else:
-                return "[" + self.register + "], " + memoffset
+                return "[" + self.register + "]," + memoffset
         else:
-            return "[" + self.register + ", " + memoffset + "]"
+            if self.has_zero_immediate_memory_offset():
+                return "[" + self.register + "]"
+            else:
+                return "[" + self.register + "," + memoffset + "]"
 
 
 @armregistry.register_tag("i", ARMOperandKind)
@@ -743,7 +781,10 @@ class ARMImmediateOp(ARMOperandKind):
         return (astree.mk_integer_constant(self.value), [], [])
 
     def __str__(self) -> str:
-        return "#" + hex(self.value)
+        if self.value >= 10 or self.value <= -10:
+            return "#" + hex(self.value)
+        else:
+            return "#" + str(self.value)
 
 
 @armregistry.register_tag("x", ARMOperandKind)
@@ -794,7 +835,7 @@ class ARMSIMDList(ARMOperandKind):
         return [self.armd.arm_simd_list_element(i) for i in self.args]
 
     def __str__(self) -> str:
-        return "{" + ", ".join(str(e) for e in self.elements) + "}"
+        return "{" + ",".join(str(e) for e in self.elements) + "}"
 
 
 @armregistry.register_tag("simda", ARMOperandKind)

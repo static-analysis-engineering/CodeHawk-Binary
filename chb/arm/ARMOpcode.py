@@ -268,13 +268,19 @@ class ARMOpcode(ARMDictionaryRecord):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        """Return the operands that appear in the assembly instruction."""
+        """Return the operands that appear in the printed assembly instruction.
+
+        Note that this is often a subset of the operands present.
+        """
 
         return []
 
     @property
     def opargs(self) -> List[ARMOperand]:
-        """Return all operand types in the assembly instruction arguments."""
+        """Return all operand types in the assembly instruction arguments.
+
+        This excludes items in the operand list that are integers or booleans.
+        """
 
         return []
 
