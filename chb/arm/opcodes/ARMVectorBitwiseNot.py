@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -60,7 +60,7 @@ class ARMVectorBitwiseNot(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2]]
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

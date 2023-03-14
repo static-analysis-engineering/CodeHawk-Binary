@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -50,6 +50,7 @@ class ARMRotateRight(ARMOpcode):
     args[1]: index of op1 in armdictionary
     args[2]: index of op2 in armdictionary
     args[3]: index of op3 in armdictionary
+    args[4]: t.w.
     """
 
     def __init__(
@@ -57,11 +58,16 @@ class ARMRotateRight(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "RotateRight")
+        self.check_key(2, 5, "RotateRight")
 
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1: -1]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        wide = ".W" if self.args[4] == 1 else ""
+        return cc + wide
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -81,7 +81,13 @@ class ARMBitFieldInsert(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[0])]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
+
+    @property
+    def operandstring(self) -> str:
+        ops = ", ".join(str(op) for op in self.operands)
+        pos = ", #" + str(self.args[2]) + ", #" + str(self.args[3])
+        return ops + pos
 
     @property
     def opargs(self) -> List[ARMOperand]:

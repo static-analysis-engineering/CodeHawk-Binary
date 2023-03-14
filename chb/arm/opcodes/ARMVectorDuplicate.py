@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,18 +39,25 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
 
 
 @armregistry.register_tag("VDUP", ARMOpcode)
 class ARMVectorDuplicate(ARMOpcode):
     """Duplicates a scalar into every element of a destination register.
 
+    VDUP<c>.<size> <Qd>, <Dm[x]>
+    VDUP<c>.<size> <Dd>, <Dm[x]>
+
+    VDUP<c>.<size> <Qd>, <Rt>
+    VDUP<c>.<size> <Dd>, <Rt>
+
     tags[1]: <c>
     args[0]: index of destination datatype in armdictionary
     args[1]: number of registers
     args[2]: number of elements
-    args[3]: index of destination in armdictionary
-    args[4]: index of source in armdictionary
+    args[3]: index of qd in armdictionary
+    args[4]: index of rt/dm[x] in armdictionary
     """
 
     def __init__(
@@ -63,6 +70,15 @@ class ARMVectorDuplicate(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [3, 4]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        vfpdt = str(self.vfp_datatype)
+        return cc + vfpdt
+
+    @property
+    def vfp_datatype(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[0])
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:xx .

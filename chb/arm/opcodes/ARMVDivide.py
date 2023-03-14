@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -44,17 +44,21 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
 
 
 @armregistry.register_tag("VDIV", ARMOpcode)
 class ARMVDivide(ARMOpcode):
     """Divides one floating point value by another floating point value.
 
+    VDIV<c>.F64 <Dd>, <Dn>, <Dm>
+    VDIV<c>.F32 <Sd>, <Sn>, <Sm>
+
     tags[1]: <c>
     args[0]: index of datatype in armdictionary
-    args[1]: index of destination in armdictionary
-    args[2]: index of source 1 in armdictionary
-    args[3]: index of source 2 in armdictionary
+    args[1]: index of dd in armdictionary
+    args[2]: index of dn in armdictionary
+    args[3]: index of dm in armdictionary
     """
 
     def __init__(
@@ -67,6 +71,15 @@ class ARMVDivide(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        vfpdt = str(self.vfp_datatype)
+        return cc + vfpdt
+
+    @property
+    def vfp_datatype(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[0])
 
     @property
     def opargs(self) -> List[ARMOperand]:

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -82,20 +82,22 @@ class ARMArithmeticShiftRight(ARMOpcode):
         self.check_key(2, 5, "ArithmeticShiftRight")
 
     @property
-    def mnemonic(self) -> str:
-        mnem = self.tags[0]
-        if self.args[0] == 1:
-            return mnem + "S"
-        else:
-            return mnem
-
-    @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 
     @property
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:-1]]
+
+    @property
+    def writeback(self) -> bool:
+        return self.args[0] == 1
+
+    def mnemonic_extension(self) -> str:
+        wb = "S" if self.writeback else ""
+        cc = ARMOpcode.mnemonic_extension(self)
+        wide = ".W" if self.args[4] == 1 else ""
+        return wb + cc + wide
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])

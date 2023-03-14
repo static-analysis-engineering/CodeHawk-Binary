@@ -50,7 +50,6 @@ if TYPE_CHECKING:
     from chb.arm.ARMRegister import ARMRegister
 
 
-
 @armregistry.register_tag("PUSH", ARMOpcode)
 class ARMPush(ARMOpcode):
     """Stores multiple registers to the stack, and updates the stackpointer.

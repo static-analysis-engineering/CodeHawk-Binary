@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -43,6 +43,14 @@ if TYPE_CHECKING:
 
 @armregistry.register_tag("SHA1M", ARMOpcode)
 class ARMSHA1HashUpdateMajority(ARMOpcode):
+    """ARMv8 crypto extension instruction.
+
+    tags[1]: <c>
+    args[0]: index of dt in armdictionary
+    args[1]: index of vd in armdictionary
+    args[2]: index of vn in armdictionary
+    args[3]: index of vm in armdictionary
+    """
 
     def __init__(
             self,
@@ -53,7 +61,12 @@ class ARMSHA1HashUpdateMajority(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        vfpdt = str(self.armd.arm_vfp_datatype(self.args[0]))
+        return cc + vfpdt
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

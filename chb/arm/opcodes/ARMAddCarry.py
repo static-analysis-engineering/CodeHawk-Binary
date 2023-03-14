@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -95,7 +95,8 @@ class ARMAddCarry(ARMOpcode):
     def mnemonic_extension(self) -> str:
         wb = "S" if self.writeback else ""
         cc = ARMOpcode.mnemonic_extension(self)
-        return wb + cc
+        wide = ".W" if self.args[4] == 1 else ""
+        return wb + cc + wide
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])

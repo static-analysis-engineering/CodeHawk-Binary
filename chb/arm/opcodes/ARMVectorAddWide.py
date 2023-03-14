@@ -61,7 +61,12 @@ class ARMVectorAddWide(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        vfpdt = str(self.armd.arm_vfp_datatype(self.args[0]))
+        return cc + vfpdt
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

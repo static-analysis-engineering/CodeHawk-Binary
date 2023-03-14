@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -53,7 +53,8 @@ class ARMLoadRegisterSignedByte(ARMOpcode):
     args[0]: index of destination operand in armdictionary
     args[1]: index of base register in armdictionary
     args[2]: index of memory location in armdictionary
-    args[3]: is-wide (thumb)
+    args[3]: index of index in armdictionary
+    args[4]: is-wide (thumb)
     """
 
     def __init__(
@@ -65,7 +66,7 @@ class ARMLoadRegisterSignedByte(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[:-1]]
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 3]]
 
     def is_load_instruction(self, xdata: InstrXData) -> bool:
         return True

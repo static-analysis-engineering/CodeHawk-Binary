@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -45,12 +45,12 @@ if TYPE_CHECKING:
 class ARMVectorStoreMultipleIncrementAfter(ARMOpcode):
     """Stores multiple floating-point registers to consecutive memory locations.
 
-    VSTM<c> <Rn>, <registers>
+    VSTM<c> <Rn>{!}, <list>
 
     tags[1]: <c>
     args[0]: writeback
     args[1]: index of Rn in arm dictionary
-    args[2]: index of registers in arm dictionary
+    args[2]: index of list in arm dictionary
     args[3]: index of base memory address
     """
 
@@ -63,7 +63,7 @@ class ARMVectorStoreMultipleIncrementAfter(ARMOpcode):
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(i) for i in self.args[1:]]
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2]]
 
     def is_load_instruction(self, xdata: InstrXData) -> bool:
         return True
