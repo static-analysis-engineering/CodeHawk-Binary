@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -44,12 +44,37 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
 
 
 @armregistry.register_tag("VCVTR", ARMOpcode)
 @armregistry.register_tag("VCVT", ARMOpcode)
 class ARMVectorConvert(ARMOpcode):
     """Converts between floating point and integer.
+
+    VCVT<c>.<Td>.<Tm> <Qd>, <Qm>
+    VCVT<c>.<Td>.<Tm> <Dd>, <Dm>
+
+    VCVT{R}<c>.S32.F64 <Sd>, <Dm>
+    VCVT{R}<c>.S32.F32 <Sd>, <Sm>
+    VCVT{R}<c>.U32.F64 <Sd>, <Dm>
+    VCVT{R}<c>.U32.F32 <Sd>, <Sm>
+    VCVT{R}<c>.F64.<Tm> <Dd>, <Sm>
+    VCVT{R}<c>.F32.<Tm> <Sd>, <Sm>
+
+    VCVT<c>.<Td>.<Tm> <Qd>, <Qm>, #<fbits>
+    VCVT<c>.<Td>.<Tm> <Dd>, <Dm>, #<fbits>
+
+    VCVT<c>.<Td>.F64 <Dd>, <Dd>, #<fbits>
+    VCVT<c>.<Td>.F32 <Sd>, <Sd>, #<fbits>
+    VCVT<c>.F64.<Td> <Dd>, <Dd>, #<fbits>
+    VCVT<c>.F32.<Td> <Sd>, <Sd>, #<fbits>
+
+    VCVT<c>.F64.F32 <Dd>, <Sm>
+    VCVT<c>.F32.F64 <Sd>, <Dm>
+
+    VCVT<c>.F32.F16 <Qd>, <Dm>
+    VCVT<c>.F16.F32 <Dd>, <Qm>
 
     tags[1]: <c>
     args[0]: round (0 or 1)
@@ -70,15 +95,23 @@ class ARMVectorConvert(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [3, 4]]
 
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        vfpdt1 = str(self.vfp_datatype1)
+        vfpdt2 = str(self.vfp_datatype2)
+        return cc + vfpdt1 + vfpdt2
+
+    @property
+    def vfp_datatype1(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[1])
+
+    @property
+    def vfp_datatype2(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[2])
+
     @property
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [3, 4]]
-
-    @property
-    def mnemonic(self) -> str:
-        dt1 = str(self.armd.arm_vfp_datatype(self.args[1]))
-        dt2 = str(self.armd.arm_vfp_datatype(self.args[2]))
-        return self.tags[0] + dt1 + dt2
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .
