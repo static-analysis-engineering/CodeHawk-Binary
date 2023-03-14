@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -60,6 +60,10 @@ class ARMVfpDatatype(ARMDictionaryRecord):
         ARMDictionaryRecord.__init__(self, d, ixval)
 
     @property
+    def is_vfpnone(self) -> bool:
+        return False
+
+    @property
     def size(self) -> int:
         if len(self.args) > 0:
             return self.args[0]
@@ -81,6 +85,10 @@ class ARMVfpNone(ARMVfpDatatype):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMVfpDatatype.__init__(self, d, ixval)
+
+    @property
+    def is_vfpnone(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return ""
