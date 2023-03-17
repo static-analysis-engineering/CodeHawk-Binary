@@ -1,6 +1,7 @@
 # CodeHawk-specific files
 ConfigLocal.py
 *.ch
+chb/bin/binaries/*/chx86_analyze
 
 # MacOS
 .DS_Store

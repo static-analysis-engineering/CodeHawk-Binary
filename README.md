@@ -23,18 +23,11 @@ development and thus somewhat experimental.
 The command-line interface requires python3.5 or higher. The analyzer
 requires a Java runtime environment.
 
-A linux
-and macOS executable of the CodeHawk Binary Analyzer is available for
-direct use in the directory chb/bin/binaries; it may not always be
-the most recent version, however, or it may not be compatible with locally available
-libraries. It is therefore also possible to
-build your own from the source code available in
-the [codehawk repository](https://github.com/static-analysis-engineering/codehawk).
-Build instructions are available
+Build instructions for the CodeHawk Binary Analyzer are available
 [here](https://github.com/static-analysis-engineering/codehawk/tree/master/CodeHawk).
-Upon completion copy the analyzer, chx86_analyze, from the CodeHawk/CHB/bchcmdline
-directory to the appropriate directory in chb/bin/binaries, or point the Config.py
-(or ConfigLocal.py) in chb/util/ to its location. You can check the configuration
+Upon completion copy the analyzer, `chx86_analyze`, from the `CodeHawk/CHB/bchcmdline`
+directory to the appropriate directory in `chb/bin/binaries`, or point the Config.py
+(or ConfigLocal.py) in `chb/util/` to its location. You can check the configuration
 with
 ```
 > chkx info

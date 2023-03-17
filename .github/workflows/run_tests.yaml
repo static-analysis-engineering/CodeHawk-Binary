@@ -11,5 +11,7 @@ jobs:
     - uses: actions/checkout@v1
     - name: Run tests
       run: |
+        curl https://images.aarno-labs.com/amp/chx86_analyze-0.6.0_20220208-linux -o chb/bin/binaries/linux/chx86_analyze
+        chmod +x chb/bin/binaries/linux/chx86_analyze
         PYTHONPATH=$PWD chb/cmdline/chkx test runall
 
