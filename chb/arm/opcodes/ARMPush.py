@@ -100,7 +100,7 @@ class ARMPush(ARMOpcode):
 
     @property
     def register_count(self) -> int:
-        return cast("ARMRegListOp", self.operands[1].opkind).count
+        return cast("ARMRegListOp", self.opargs[1].opkind).count
 
     def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
         spills = self.register_spills(xdata)

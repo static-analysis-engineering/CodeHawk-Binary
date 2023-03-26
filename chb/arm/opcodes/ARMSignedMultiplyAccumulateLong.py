@@ -60,7 +60,16 @@ class ARMSignedMultiplyAccumulateLong(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "SsignedMultiplyAccumulateLong")
+        self.check_key(2, 5, "SignedMultiplyAccumulateLong")
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        wb = "S" if self.is_writeback else ""
+        return wb + cc
+
+    @property
+    def is_writeback(self) -> bool:
+        return self.args[0] == 1
 
     @property
     def operands(self) -> List[ARMOperand]:
