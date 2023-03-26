@@ -45,14 +45,14 @@ if TYPE_CHECKING:
 class ARMVectorBitwiseOr(ARMOpcode):
     """Performs a bitwise OR on two registers.
 
-    VORR<c> <Rd>, <Rn>, <Rm>
-    VORR<c>.<dt> <Rd>, #<imm>
+    VORR<c> <Qd>, <Qn>, <Qm>
+    VORR<c>.<dt> <Qd>, #<imm>
 
     tags[1]: <c>
-    args[0]: index of <dt>
-    args[1]: index of Rd in armdictionary
-    args[2]: index of Rn in armdictionary
-    args[3]: index of Rm in armdictionary
+    args[0]: index of <dt> (ignored for register variant)
+    args[1]: index of Qd in armdictionary
+    args[2]: index of Qn/Qd in armdictionary
+    args[3]: index of Qm/imm in armdictionary
     """
 
     def __init__(
@@ -65,6 +65,18 @@ class ARMVectorBitwiseOr(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
+
+    def mnemonic_extension(self) -> str:
+        if self.vfp_datatype.is_vfpnone:
+            return ARMOpcode.mnemonic_extension(self)
+        else:
+            cc = ARMOpcode.mnemonic_extension(self)
+            vfpdt = str(self.vfp_datatype)
+            return cc + vfpdt
+
+    @property
+    def vfp_datatype(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[0])
 
     def annotation(self, xdata: InstrXData) -> str:
         return "pending"

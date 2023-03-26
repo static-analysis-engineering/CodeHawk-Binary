@@ -78,10 +78,12 @@ class ARMVectorConvert(ARMOpcode):
 
     tags[1]: <c>
     args[0]: round (0 or 1)
-    args[1]: index of destination datatype in armdictionary
-    args[2]: index of source datatype in armdictionary
-    args[3]: index of destination in armdictionary
-    args[4]: index of source in armdictionary
+    args[1]: fixed-point (0 or 1)
+    args[2]: index of destination datatype in armdictionary
+    args[3]: index of source datatype in armdictionary
+    args[4]: index of destination in armdictionary
+    args[5]: index of source in armdictionary
+    args[6]: fbits
     """
 
     def __init__(
@@ -89,11 +91,11 @@ class ARMVectorConvert(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 5, "VectorConvert")
+        self.check_key(2, 7, "VectorConvert")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [3, 4]]
+        return [self.armd.arm_operand(self.args[i]) for i in [4, 5]]
 
     def mnemonic_extension(self) -> str:
         cc = ARMOpcode.mnemonic_extension(self)
@@ -103,15 +105,15 @@ class ARMVectorConvert(ARMOpcode):
 
     @property
     def vfp_datatype1(self) -> "ARMVfpDatatype":
-        return self.armd.arm_vfp_datatype(self.args[1])
-
-    @property
-    def vfp_datatype2(self) -> "ARMVfpDatatype":
         return self.armd.arm_vfp_datatype(self.args[2])
 
     @property
+    def vfp_datatype2(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[3])
+
+    @property
     def opargs(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [3, 4]]
+        return [self.armd.arm_operand(self.args[i]) for i in [4, 5]]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:vxx .
