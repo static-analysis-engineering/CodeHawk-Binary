@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -178,7 +178,7 @@ def test_arm_opcodes(args: argparse.Namespace) -> NoReturn:
             enc_opcode = opcodestrings[i]
             print(str(opcode.index).rjust(6) + "  " + opcode.tags[0])
             p = opcode.mnemonic + opcode.mnemonic_extension()
-            dec_opcode = (str(p).ljust(13) + opcode.operandstring).strip()
+            dec_opcode = (str(p).ljust(12) + " " + opcode.operandstring).strip()
             if enc_opcode != dec_opcode:
                 printmismatch += 1
                 print("  Mismatch: ")

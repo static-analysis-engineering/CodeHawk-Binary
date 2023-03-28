@@ -187,7 +187,7 @@ class ARMCallOpcode(ARMOpcode):
                     tgt_argcount = len(tgt_argtypes)
 
         if tgt_returntype is None:
-            if defuses[0] is None:
+            if len(defuses) == 0 or defuses[0] is None:
                 hl_lhs: Optional[AST.ASTLval] = None
             else:
                 if len(xdata.vars) > 0:

@@ -868,4 +868,4 @@ class ARMSIMDAddress(ARMOperandKind):
         elif wb.is_bytes_transferred:
             return "[" + pbase + palign + "]!"
         else:
-            return "[" + pbase + palign + "]," + str(wb)
+            return "[" + pbase + palign + "], " + str(wb)
