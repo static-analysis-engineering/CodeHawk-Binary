@@ -39,6 +39,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
 
 
 @armregistry.register_tag("VORR", ARMOpcode)
