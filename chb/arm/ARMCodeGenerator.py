@@ -45,7 +45,8 @@ class ARMCodeGenerator:
                 assembly = "ADD".ljust(8) + "SP, SP, #" + hex(offset)
                 return (hexval + "b0", assembly)
             else:
-                raise Exception("instruction not supported; offset is too large")
+                raise Exception(
+                    "instruction not supported; offset is too large: " + str(offset))
         else:
             raise Exception("instruction not supported; offset not multiple of four")
 

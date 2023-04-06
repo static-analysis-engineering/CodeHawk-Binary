@@ -49,6 +49,7 @@ class ASTDeserializer:
         self._annotations: Dict[int, List[str]] = {}
         self._initialize_global_symboltable()
         self._functions: Dict[str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]] = {}
+        self._reachingdefinitions: Dict[str, List[Tuple[str, List[str]]]] = {}
         self._lifted_functions: Dict[
             str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]] = {}
         self._initialize_functions()
@@ -70,6 +71,11 @@ class ASTDeserializer:
     def lifted_functions(self) -> Dict[
             str, Tuple[ASTLocalSymbolTable, AST.ASTStmt]]:
         return self._lifted_functions
+
+    @property
+    def reaching_definitions(self) -> Dict[
+            str, List[Tuple[str, List[str]]]]:
+        return self._reachingdefinitions
 
     @property
     def annotations(self) -> Dict[int, List[str]]:
@@ -231,6 +237,7 @@ class ASTDeserializer:
     def _initialize_lifted_functions(self) -> None:
         for fdata in self.serialization["functions"]:
             self._initialize_lifted_function(fdata)
+            self._initialize_provenance(fdata)
 
     def _initialize_lifted_function(self, fdata: Dict[str, Any]) -> None:
         fname = fdata["name"]
@@ -243,6 +250,69 @@ class ASTDeserializer:
             self._initialize_function_prototype(fprototypeix, astree, nodes)
         astnode = cast(AST.ASTStmt, nodes[int(fdata["ast"]["ast-startnodes"][0])])
         self._lifted_functions[faddr] = (localsymboltable, astnode)
+
+    def _initialize_provenance(self, fdata: Dict[str, Any]) -> None:
+        fname = fdata["name"]
+        faddr = fdata["va"]
+        localsymboltable = ASTLocalSymbolTable(self.global_symboltable)
+        astree = AbstractSyntaxTree(faddr, fname, localsymboltable)
+        nodes = self.mk_ast_nodes(astree, fdata["ast"]["nodes"])
+        prov = fdata["provenance"]
+        spans = fdata["spans"]
+        rds = prov["reaching-definitions"]
+
+        def find_expr_by_id(nodes: Dict[int, AST.ASTNode], exprid: int) -> AST.ASTNode:
+            for node in fdata["ast"]["nodes"]:
+                if "exprid" in node and int(node["exprid"]) == exprid:
+                    return nodes[int(node["id"])]
+            else:
+                raise Exception(
+                    "Exprid: "
+                    + str(exprid)
+                    + " not found")
+
+        def find_instr_by_id(nodes: Dict[int, AST.ASTNode], instrid: int) -> AST.ASTNode:
+            for node in fdata["ast"]["nodes"]:
+                if "instrid" in node and int(node["instrid"]) == instrid:
+                    return nodes[int(node["id"])]
+            else:
+                raise Exception(
+                    "Instrid: "
+                    + str(instrid)
+                    + " not found")
+
+        def find_instr_address_by_locationid(locationid: int) -> str:
+            for node in fdata["spans"]:
+                if "locationid" in node and int(node["locationid"]) == locationid:
+                    return node["spans"][0]["base_va"]
+            else:
+                raise Exception(
+                    "No span found for locationid: " + str(locationid))
+
+        def find_expr_address_by_exprid(exprid: int) -> str:
+            for node in fdata["spans"]:
+                if "exprid" in node and int(node["exprid"]) == exprid:
+                    return node["spans"][0]["base_va"]
+            else:
+                raise Exception(
+                    "No span found for exprid: " + str(exprid))
+
+        print("\nReaching definitions")
+        result: List[Tuple[str, List[str]]] = []
+        for (exprid, instrids) in rds.items():
+            exprnode = find_expr_by_id(nodes, exprid)
+            for instrid in instrids:
+                p_instrs: List[str] = []
+                instrnode = cast(AST.ASTInstruction, find_instr_by_id(nodes, instrid))
+                try:
+                    address = find_instr_address_by_locationid(instrnode.locationid)
+                except Exception as e:
+                    p_instrs.append(str(instrnode) + ": " + str(e))
+                    address = "?"
+                p_instrs.append(
+                    "  <" + str(instrid) + "> " + str(instrnode) + " (" + address + ")")
+            result.append((str(exprnode), p_instrs))
+        self._reachingdefinitions[faddr] = result
 
     def mk_ast_nodes(
             self,

@@ -409,6 +409,11 @@ class ASTIProvenance:
                                     instr = cast(AST.ASTAssign, instr)
                                     if str(instr.lhs) == v:
                                         self.add_reaching_definition(xid, instrid)
+                                elif instr.is_ast_call:
+                                    instr = cast(AST.ASTCall, instr)
+                                    # Allow for change of name of return value
+                                    if str(instr.lhs) == v or v == "R0" or v == "S0":
+                                        self.add_reaching_definition(xid, instrid)
 
     def resolve_flag_reaching_defs(self) -> None:
         for (xid, frds) in self.flag_expr_rdefs.items():
