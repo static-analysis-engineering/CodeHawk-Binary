@@ -221,6 +221,9 @@ class ASTInterfaceFunction(ASTFunction):
     def set_return_sequences(self) -> None:
         """Currently only supports Thumb-2 stack-adjustment, pop return sequence."""
 
+        if True:
+            return
+
         stacklayout = self.function.stacklayout()
         savedregisters = stacklayout.saved_registers
         reglayout: Dict[int, int] = {}

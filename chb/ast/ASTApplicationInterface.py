@@ -172,7 +172,15 @@ class ASTApplicationInterface:
                 print("\n")
                 print(pp.to_c(ast))
 
-            print("\nCheck expression node parentage")
-            deserializer.check_expr_node_parentage()
+            print("\nReaching definitions")
+            print("----------------------")
+            for freachingdefs in deserializer.reaching_definitions.values():
+                for (expr, rds) in freachingdefs:
+                    print("\n" + expr)
+                    for rd in rds:
+                        print("  " + rd)
+
+            # print("\nCheck expression node parentage")
+            # deserializer.check_expr_node_parentage()
 
         return ast_output

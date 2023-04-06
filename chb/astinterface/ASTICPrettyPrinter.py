@@ -182,7 +182,7 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                 self.ccode.write(";")
             for rdefstring in self.instr_reachingdefs:
                 self.ccode.newline(indent=self.indent + 5)
-                self.ccode.write("  / " + rdefstring)
+                self.ccode.write("  // " + rdefstring)
             self.reset_reachingdefs()
             if instr.lhs is not None:
                 if self.provenance.has_lval_defuse(instr.lhs.lvalid):

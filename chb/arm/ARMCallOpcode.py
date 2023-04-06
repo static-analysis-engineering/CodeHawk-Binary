@@ -241,9 +241,13 @@ class ARMCallOpcode(ARMOpcode):
                 if len(funargs) != 1:
                     raise UF.CHBError(
                         name
+                        + "; "
+                        + iaddr
                         + ": no or multiple function arguments: "
                         + str(tgtxpr)
-                        + ": "
+                        + " (index: "
+                        + str(argindex)
+                        + "): "
                         + ", ".join(str(x) for x in funargs)
                     )
                 funarg = funargs[0]
