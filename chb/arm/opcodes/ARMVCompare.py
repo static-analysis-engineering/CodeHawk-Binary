@@ -61,8 +61,9 @@ class ARMVCompare(ARMOpcode):
     tags[1]: <c>
     args[0]: nan (1 = raise Invalid Operation when one of the operands is NaN)
     args[1]: index of destination datatype in armdictionary
-    args[2]: index of d in armdictionary
-    args[3]: index of m in armdictionary
+    args[2]: index of FPSCR in armdictionary
+    args[3]: index of d in armdictionary
+    args[4]: index of m in armdictionary
 
     xdata format: axxxxrr
     ---------------------
@@ -77,11 +78,11 @@ class ARMVCompare(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "VCompare")
+        self.check_key(2, 5, "VCompare")
 
     @property
     def operands(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [2, 3]]
+        return [self.armd.arm_operand(self.args[i]) for i in [3, 4]]
 
     def mnemonic_extension(self) -> str:
         cc = ARMOpcode.mnemonic_extension(self)
@@ -94,7 +95,7 @@ class ARMVCompare(ARMOpcode):
 
     @property
     def opargs(self) -> List[ARMOperand]:
-        return [self.armd.arm_operand(self.args[i]) for i in [2, 3]]
+        return [self.armd.arm_operand(self.args[i]) for i in [2, 3, 4]]
 
     def annotation(self, xdata: InstrXData) -> str:
         rhs1 = str(xdata.xprs[2])
@@ -115,12 +116,14 @@ class ARMVCompare(ARMOpcode):
         rhs1 = xdata.xprs[2]
         rhs2 = xdata.xprs[3]
         rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
 
-        (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
-        (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
         ll_expr = astree.mk_binary_op("minus", ll_rhs1, ll_rhs2)
         ll_assign = astree.mk_assign(
-            astree.ignoredlhs,
+            ll_lhs,
             ll_expr,
             iaddr=iaddr,
             bytestring=bytestring,
@@ -131,17 +134,19 @@ class ARMVCompare(ARMOpcode):
         hl_rhs = astree.mk_binary_op("minus", hl_rhss1[0], hl_rhss2[0])
 
         hl_assign = astree.mk_assign(
-            astree.ignoredlhs,
+            ll_lhs,
             hl_rhs,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
 
+        astree.add_reg_definition(iaddr, ll_lhs, hl_rhs)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_expr)
         astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
         astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
         astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_lval_defuses(ll_lhs, defuses[0])
 
         return ([hl_assign], [ll_assign])
