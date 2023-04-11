@@ -374,6 +374,7 @@ class CfgMatcher:
 
     def dot_cfgs(
             self,
+            blockschanged: List[str] = [],
             showcalls: bool = False,
             showpredicates: bool = False) -> Tuple[DotCfg, DotCfg]:
         cfg1 = self.cfg1
@@ -382,9 +383,15 @@ class CfgMatcher:
         unmapped2 = self.unmapped_blocks2
         colors1: Dict[str, str] = {}
         colors2: Dict[str, str] = {}
+        print("Unmapped 1: ")
         for n in unmapped1:
+            print("  " + n)
             colors1[n] = "#FFA500"
+        print("\nUnmapped 2:")
         for n in unmapped2:
+            colors2[n] = "#FFA500"
+        for n in blockschanged:
+            print("  " + n)
             colors2[n] = "#FFA500"
         fn1invs = self.fn1.invariants
         fn2invs = self.fn2.invariants
