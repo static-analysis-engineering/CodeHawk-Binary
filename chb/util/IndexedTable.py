@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2017-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -86,18 +86,18 @@ class IndexedTableValueMismatchError(UF.CHBError):
 
 def get_rep(
         node: ET.Element,
-        indextag: str = 'ix') -> Tuple[int, List[str], List[int]]:
+        indextag: str = "ix") -> Tuple[int, List[str], List[int]]:
     tags: Optional[str] = node.get('t')
     args: Optional[str] = node.get('a')
     try:
         if tags is None:
             taglist: List[str] = []
         else:
-            taglist = tags.split(',')
-        if args is None or args == '':
+            taglist = tags.split(",")
+        if args is None or args == "":
             arglist: List[int] = []
         else:
-            arglist = [int(x) for x in args.split(',')]
+            arglist = [int(x) for x in args.split(",")]
         nodeindex: Optional[str] = node.get(indextag)
         if nodeindex is None:
             raise UF.CHBError("Error in indextable representation: "
@@ -105,14 +105,14 @@ def get_rep(
         index = int(nodeindex)
         return (index, taglist, arglist)
     except Exception as e:
-        print('tags: ' + str(tags))
-        print('args: ' + str(args))
+        print("tags: " + str(tags))
+        print("args: " + str(args))
         print(str(e))
         raise
 
 
 def get_key(tags: List[str], args: List[int]) -> Tuple[str, str]:
-    return (','.join(tags), ','.join([str(x) for x in args]))
+    return (",".join(tags), ",".join([str(x) for x in args]))
 
 
 class IndexedTableValue:
@@ -223,8 +223,8 @@ class IndexedTable(IndexedTableSuperclass):
         if self.checkpoint is None:
             self.checkpoint = self.next
             return self.next
-        raise IndexedTableError("Checkpoint has already been set at "
-                                + str(self.checkpoint))
+        raise IndexedTableError(
+            "Checkpoint has already been set at " + str(self.checkpoint))
 
     def iter(self, f: Callable[[int, IndexedTableValue], None]) -> None:
         for (i, v) in self.items():
@@ -305,19 +305,19 @@ class IndexedTable(IndexedTableSuperclass):
             return self.indextable[index]
         else:
             msg = (
-                'Unable to retrieve item '
+                "Unable to retrieve item "
                 + str(index)
-                + ' from table '
+                + " from table "
                 + self.name
-                + ' (size: '
+                + " (size: "
                 + str(self.size())
-                + ')')
+                + ")")
             items = self.items()
             raise IndexedTableError(
                 msg
-                + '\n'
+                + "\n"
                 + self.name
-                + ', size: '
+                + ", size: "
                 + str(self.size()),
                 itemlist=items)
 
@@ -341,15 +341,16 @@ class IndexedTable(IndexedTableSuperclass):
             f(snode, self.indextable[key])
             node.append(snode)
 
-    def read_xml(self,
-                 node: Optional[ET.Element],
-                 tag: str,
-                 get_value: Callable[
-                     [ET.Element], IndexedTableValue] = lambda x: get_value(x),
-                 get_key: Callable[
-                     [IndexedTableValue], Tuple[str, str]] = lambda x: x.key,
-                 get_index: Callable[
-                     [IndexedTableValue], int] = lambda x: x.index) -> None:
+    def read_xml(
+            self,
+            node: Optional[ET.Element],
+            tag: str,
+            get_value: Callable[
+                [ET.Element], IndexedTableValue] = lambda x: get_value(x),
+            get_key: Callable[
+                [IndexedTableValue], Tuple[str, str]] = lambda x: x.key,
+            get_index: Callable[
+                [IndexedTableValue], int] = lambda x: x.index) -> None:
         if node is None:
             print('Xml node not present in ' + self.name)
             raise IndexedTableError(self.name)
@@ -364,11 +365,11 @@ class IndexedTable(IndexedTableSuperclass):
 
     def __str__(self) -> str:
         lines: List[str] = []
-        lines.append('\n' + self.name)
+        lines.append("\n" + self.name)
         for ix in sorted(self.indextable):
-            lines.append(str(ix).rjust(4) + '  ' + str(self.indextable[ix]))
+            lines.append(str(ix).rjust(4) + "  " + str(self.indextable[ix]))
         if len(self.reserved) > 0:
-            lines.append('Reserved: ' + str(self.reserved))
+            lines.append("Reserved: " + str(self.reserved))
         if self.checkpoint is not None:
-            lines.append('Checkpoint: ' + str(self.checkpoint))
-        return '\n'.join(lines)
+            lines.append("Checkpoint: " + str(self.checkpoint))
+        return "\n".join(lines)

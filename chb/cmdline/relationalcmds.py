@@ -469,8 +469,10 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     for faddr in functionschanged:
         if faddr in relanalysis.function_mapping:
             fnanalysis = relanalysis.function_analysis(faddr)
+            blockschanged = fnanalysis.blocks_changed()
             cfgmatcher = fnanalysis.cfgmatcher
             (dotcfg1, dotcfg2) = cfgmatcher.dot_cfgs(
+                blockschanged=blockschanged,
                 showcalls=showcalls, showpredicates=showpredicates)
             dotgraphs.extend([dotcfg1, dotcfg2])
         else:
