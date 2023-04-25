@@ -1121,16 +1121,18 @@ class AbstractSyntaxTree:
     def mk_integer_constant(
             self,
             cvalue: int,
+            ikind: str = "iint",
             optexprid: Optional[int] = None) -> AST.ASTIntegerConstant:
         exprid = -1 if optexprid is None else optexprid
-        return AST.ASTIntegerConstant(exprid, cvalue)
+        return AST.ASTIntegerConstant(exprid, cvalue, ikind=ikind)
 
     def mk_float_constant(
             self,
             fvalue: float,
+            fkind: str = "float",
             optexprid: Optional[int] = None) -> AST.ASTFloatingPointConstant:
         exprid = -1 if optexprid is None else optexprid
-        return AST.ASTFloatingPointConstant(exprid, fvalue)
+        return AST.ASTFloatingPointConstant(exprid, fvalue, fkind=fkind)
 
     def mk_global_address_constant(
             self,

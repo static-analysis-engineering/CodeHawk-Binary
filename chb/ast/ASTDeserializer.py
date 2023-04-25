@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -301,8 +301,8 @@ class ASTDeserializer:
         result: List[Tuple[str, List[str]]] = []
         for (exprid, instrids) in rds.items():
             exprnode = find_expr_by_id(nodes, exprid)
+            p_instrs: List[str] = []
             for instrid in instrids:
-                p_instrs: List[str] = []
                 instrnode = cast(AST.ASTInstruction, find_instr_by_id(nodes, instrid))
                 try:
                     address = find_instr_address_by_locationid(instrnode.locationid)
