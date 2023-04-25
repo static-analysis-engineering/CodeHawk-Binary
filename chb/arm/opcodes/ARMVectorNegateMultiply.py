@@ -42,36 +42,26 @@ if TYPE_CHECKING:
     from chb.arm.ARMVfpDatatype import ARMVfpDatatype
 
 
-@armregistry.register_tag("VSUB", ARMOpcode)
-class ARMVectorSubtract(ARMOpcode):
-    """Subtracts elements from one vector from elements of another vector.
+@armregistry.register_tag("VNMUL", ARMOpcode)
+class ARMVectorNegateMultiply(ARMOpcode):
+    """Multiplies corresponding elements in two vectors.
 
-    VSUB<c>.<dt> <Qd>, <Qn>, <Qm>
-    VSUB<c>.<dt> <Dd>, <Dn>, <Dm>
-
-    VSUB<c>.F64 <Dd>, <Dn>, <Dm>
-    VSUB<c>.F32 <Sd>, <Sn>, <Sm>
+    VNMUL<c>.<dt> <Qd>, <Qn>, <Qm>
+    VNMUL<c>.<dt> <Dd>, <Dn>, <Dm>
 
     tags[1]: <c>
     args[0]: index of datatype in armdictionary
     args[1]: index of qd in armdictionary
     args[2]: index of qn in armdictionary
     args[3]: index of qm in armdictionary
-
-    xdata format:
-    -------------
-    vars[0]: lhs
-    xprs[0]: first source value
-    xprs[1]: second source value
-    xprs[2]: destination register value
-    xprs[3]: first source value rewritten
-    xprs[4]: second source value rewritten
-    xprs[5]: destination register value rewritten
     """
 
-    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 4, "VectorSubtract")
+        self.check_key(2, 4, "VectorNegateMultiply")
 
     @property
     def operands(self) -> List[ARMOperand]:
@@ -87,8 +77,4 @@ class ARMVectorSubtract(ARMOpcode):
         return self.armd.arm_vfp_datatype(self.args[0])
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        rhs1 = str(xdata.xprs[3])
-        rhs2 = str(xdata.xprs[4])
-        rhsd = str(xdata.xprs[5])
-        return lhs + " := " + rhs1 + " - " + rhs2
+        return "pending"

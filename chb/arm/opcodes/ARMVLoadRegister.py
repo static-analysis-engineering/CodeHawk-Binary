@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -63,11 +63,13 @@ class ARMVLoadRegister(ARMOpcode):
     --------------------------
     vars[0]: lhs
     vars[1]: memory location expressed as a variable
-    xprs[0]: value in Rn
-    xprs[1]: value in memory location
-    xprs[2]: address of memory location
-    rdefs[0]: reaching definition rn
-    rdefs[1]: reaching definition memory location
+    xprs[0]: value in memory location
+    xprs[1]: value in memory location rewritten
+    xprs[2]: value in base register
+    xprs[3]: value in base register rewritten
+    xprs[4]: address of memory location
+    rdefs[0]: reaching definition memory value
+    rdefs[1]: reaching definition base register
     uses[0]: lhs
     useshigh[0]: lhs
     """
@@ -89,7 +91,7 @@ class ARMVLoadRegister(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[0])
+        rhs = str(xdata.xprs[1])
         assignment = lhs + " := " + rhs
         if xdata.has_unknown_instruction_condition():
             return "if ? then " + assignment
@@ -157,7 +159,7 @@ class ARMVLoadRegister(ARMOpcode):
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)
         astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(hl_rhs, [rdefs[1]])
+        astree.add_expr_reachingdefs(hl_rhs, [rdefs[0]])
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 

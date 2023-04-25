@@ -57,12 +57,19 @@ class ARMVectorMultiplySubtract(ARMOpcode):
     args[1]: index of qd in armdictionary
     args[2]: index of qn in armdictionary
     args[3]: index of qm/dm[x] in armdictionary
+
+    xdata format:
+    -------------
+    vars[0]: lhs
+    xprs[0]: first source value
+    xprs[1]: second source value
+    xprs[2]: destination register value
+    xprs[3]: first source value rewritten
+    xprs[4]: second source value rewritten
+    xprs[5]: destination register value rewritten
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 4, "VectorMultiplySubtract")
 
@@ -80,4 +87,8 @@ class ARMVectorMultiplySubtract(ARMOpcode):
         return self.armd.arm_vfp_datatype(self.args[0])
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "pending"
+        lhs = str(xdata.vars[0])
+        rhs1 = str(xdata.xprs[3])
+        rhs2 = str(xdata.xprs[4])
+        rhsd = str(xdata.xprs[5])
+        return lhs + " := " + rhsd + " - (" + rhs1 + " * " + rhs2 + ")"
