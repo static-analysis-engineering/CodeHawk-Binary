@@ -2110,7 +2110,7 @@
 	},
 	"SHA1C": {
 	    "name": "SHA1HashUpdateChoose",
-	    "ref": "ARMv8:F6.1.7"
+	    "ref": "ARMv8:F6.1.7",
 	    "encodings": {
 		"all": [
 		    {
@@ -4086,7 +4086,8 @@
 		    {
 			"T": "T2-double",
 			"E": "< 29><6>0D00<vn><vd><11>N0M0<vm>",
-			"D": "Y"
+			"D": "Y",
+			"U": ["07ee052b"]
 		    }
 		]
 	    }
@@ -4180,6 +4181,8 @@
 	},
 	"VMOV": {
 	    "name": "VectorMove",
+	    "subdivision": [
+		"VectorMoveDS", "VectorMoveDDSS", "VectorMoveDSS", "VectorMoveDDS"],
 	    "encodings": {
 		"ARM core - sp register": [
 		    {
@@ -4301,7 +4304,8 @@
 		    {
 			"T": "T2-single",
 			"E": "< 29><6>1D11< 0><vd><10>01M0<vm>",
-			"D": "Y"
+			"D": "Y",
+			"U": ["f0ee418a"]
 		    },
 		    {
 			"T": "T2-double",
@@ -4338,12 +4342,14 @@
 		    {
 			"T": "T1-from",
 			"E": "< 29><4>0100<t2><rt><11>00M1<vm>",
-			"D": "Y"
+			"D": "Y",
+			"U": ["41ec170b"]
 		    },
 		    {
 			"T": "T1-to",
 			"E": "< 29><4>0101<t2><rt><11>00M1<vm>",
-			"D": "Y"
+			"D": "Y",
+			"U": ["53ec172b"]
 		    }
 		]
 	    }
@@ -4452,7 +4458,8 @@
 		    {
 			"T": "T2-double",
 			"E": "< 29><6>0D10<vn><vd><11>N0M0<vm>",
-			"D": "Y"
+			"D": "Y",
+			"U": ["27ee0bbb"]
 		    }
 		],
 		"integer": [
@@ -4625,6 +4632,63 @@
 	    },
 	    "TC": "NA"
 	},
+	"VNMLA": {
+	    "name": "VectorNegateMultiplyAccumulate",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><7>00D01<vn><vd><5>sN1M0<vm>"
+		    },
+		    {
+			"T": "T1-single",
+			"E": "< 29><6>0D01<vn><vd><10>N1M0<vm>"
+		    },
+		    {
+			"T": "T1-double",
+			"E": "< 29><6>0D01<vn><vd><11>N1M0<vm>"
+		    }
+		]
+	    }
+	},
+	"VNMLS": {
+	    "name": "VectorNegateMultiplySubtract",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><7>00D01<vn><vd><5>sN0M0<vm>"
+		    },
+		    {
+			"T": "T1-single",
+			"E": "< 29><6>0D01<vn><vd><10>N0M0<vm>"
+		    },
+		    {
+			"T": "T1-double",
+			"E": "< 29><6>0D01<vn><vd><11>N0M0<vm>"
+		    }
+		]
+	    }
+	},
+	"VNMUL": {
+	    "name": "VectorNegateMultiply",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A2",
+			"E": "<cc><7>00D10<vn><vd><5>sN1M0<vm>"
+		    },
+		    {
+			"T": "T2-single",
+			"E": "< 29><6>0D10<vn><vd><10>N1M0<vm>"
+		    },
+		    {
+			"T": "T2-double",
+			"E": "< 29><6>0D10<vn><vd><11>N1M0<vm>"
+		    }
+		]
+	    }
+	},
 	"VORN": {
 	    "name": "VectorBitwiseOrNot",
 	    "encodings": {
@@ -4703,7 +4767,8 @@
 		    {
 			"T": "T1",
 			"E": "< 29><4>1D11<13><vd><11><-imm8->",
-			"D": "Y"
+			"D": "Y",
+			"U": ["bdec0a8b"]
 		    },
 		    {
 			"T": "T2",
@@ -5315,7 +5380,8 @@
 		    {
 			"T": "T2-double",
 			"E": "< 29><6>0D11<vn><vd><11>N1M0<vm>",
-			"D": "Y"
+			"D": "Y",
+			"U": ["3cee47cb"]
 		    }
 		]
 	    },

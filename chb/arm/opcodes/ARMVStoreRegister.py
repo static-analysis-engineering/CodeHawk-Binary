@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -62,19 +62,18 @@ class ARMVStoreRegister(ARMOpcode):
     xdata format: a:vxxxrrdh
     ------------------------
     vars[0]: lhs (vmem)
-    xprs[0]: xrn
-    xprs[1]: rhs
-    xprs[2]: address
-    rdefs[0]: xrn
-    rdefs[1]: xvd
+    xprs[0]: expression to be stored
+    xprs[1]: expression to be stored rewritten
+    xprs[2]: base register expression
+    xprs[3]: base register expression rewritten
+    xprs[4]: address expression
+    rdefs[0]: reaching def of src expression
+    rdefs[1]: reaching def of base expression
     uses[0]: lhs
     useshigh[0]: lhs
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 3, "VStore")
 
@@ -88,7 +87,7 @@ class ARMVStoreRegister(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[0])
+        rhs = str(xdata.xprs[1])
         assignment = lhs + " := " + rhs
         if xdata.has_unknown_instruction_condition():
             return "if ? then " + assignment
