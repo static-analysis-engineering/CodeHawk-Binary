@@ -24,7 +24,29 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Representation of ARM registers."""
+"""Representation of ARM registers.
+
+Subclass of chb.app.Register
+
+ARM specific register types:
+
+    Corresponding type in bCHLibTypes:
+                                                   tags[0]     tags   args
+    ----------------------------------------------------------------------------
+    type register_t =
+    | ARMRegister of arm_reg_t                       "a"         2      0
+    | ARMDoubleRegister of arm_reg_t * arm_reg_t     "armd"      3      0
+    | ARMSpecialRegister of arm_special_reg_t        "as"        2      0
+    | ARMExtensionR of                               "armx"      1      1
+        arm_extension_register_t 
+    | ARMDoubleExtensionReg of                       "armdx"     1      2
+        arm_extension_register_t
+        * arm_extension_register_t
+    | ARMExtensionRegElement of                      "armxe"     1      1
+        arm_extension_register_element_t
+    | ARMExtensionRegReplicatedElement of            "armxr"     1      1
+        arm_extension_register_replicated_element_t
+"""
 
 from typing import TYPE_CHECKING
 
@@ -36,24 +58,14 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.app.BDictionary import BDictionary
-
-
-class ARMRegisterBase(Register):
-
-    def __init__(
-            self,
-            bd: "BDictionary",
-            ixval: IndexedTableValue) -> None:
-        Register.__init__(self, bd, ixval)
+    from chb.app.ARMExtensionRegister import ARMExtensionRegister
 
 
 @bdregistry.register_tag("a", Register)
-class ARMRegister(ARMRegisterBase):
+class ARMRegister(Register):
 
-    def __init__(self,
-                 bd: "BDictionary",
-                 ixval: IndexedTableValue) -> None:
-        ARMRegisterBase.__init__(self, bd, ixval)
+    def __init__(self, bd: "BDictionary", ixval: IndexedTableValue) -> None:
+        Register.__init__(self, bd, ixval)
 
     @property
     def register(self) -> str:
@@ -87,42 +99,33 @@ class ARMRegister(ARMRegisterBase):
         return self.tags[1]
 
 
-@bdregistry.register_tag("afp", Register)
-class ARMFloatingPointRegister(ARMRegisterBase):
+@bdregistry.register_tag("armd", Register)
+class ARMDoubleRegister(Register):
 
-    def __init__(self,
-                 bd: "BDictionary",
-                 ixval: IndexedTableValue) -> None:
-        ARMRegisterBase.__init__(self, bd, ixval)
+    def __init__(self, bd: "BDictionary", ixval: IndexedTableValue) -> None:
+        Register.__init__(self, bd, ixval)
 
     @property
-    def size(self) -> int:
-        return self.args[0]
+    def register1(self) -> str:
+        return self.tags[1]
 
     @property
-    def register_index(self) -> int:
-        return self.args[1]
+    def register2(self) -> str:
+        return self.tags[2]
 
     def __str__(self) -> str:
-        reg = str(self.register_index)
-        if self.size == 32:
-            return "S" + reg
-        elif self.size == 64:
-            return "D" + reg
-        elif self.size == 128:
-            return "Q" + reg
-        else:
-            return "arm-floating-point-register:" + reg
+        return self.register1 + "_" + self.register2
 
 
 @bdregistry.register_tag("armx", Register)
-class ARMExtensionRegister(ARMRegisterBase):
+class ARMExtensionReg(Register):
 
-    def __init__(
-            self,
-            bd: "BDictionary",
-            ixval: IndexedTableValue) -> None:
-        ARMRegisterBase.__init__(self, bd, ixval)
+    def __init__(self, bd: "BDictionary", ixval: IndexedTableValue) -> None:
+        Register.__init__(self, bd, ixval)
+
+    @property
+    def xregister(self) -> "ARMExtensionRegister":
+        return self.bd.arm_extension_register(self.args[0])
 
     def __str__(self) -> str:
-        return self.tags[1]
+        return str(self.xregister)

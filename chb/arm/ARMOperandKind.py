@@ -32,9 +32,13 @@ Corresponds to arm_operand_kind_t in bchlibarm32/BCHARMTypes
 type arm_operand_kind_t =
   | ARMDMBOption of dmb_option_t                      "d"       2            0
   | ARMReg of arm_reg_t                               "r"       2            0
+  | ARMDoubleReg of arm_reg_t * arm_reg_t             "dr"      3            0
   | ARMWritebackReg of bool * arm_reg_t * int option "wr"       2            2
   | ARMSpecialReg of arm_special_reg_t               "sr"       2            0
   | ARMExtensionReg of arm_extension_register_t      "xr"       1            1
+  | ARMDoubleExtensionReg of                         "dxr"      1            2
+       arm_extension_register_t 
+       * arm_extension_register_t
   | ARMExtensionRegElement of
        arm_extension_register_element_t              "xre"      1            1
   | ARMRegList of arm_reg_t list                      "l"     1+len(regs)    0
@@ -47,7 +51,6 @@ type arm_operand_kind_t =
   | ARMRegBitSequence of arm_reg_t * int * int        "b"       2            2
      (* lsb, widthm1 *)
   | ARMImmediate of immediate_int                     "i"       2            0
-  | ARMFPConstant of float                            "x"       2            0
   | ARMAbsolute of doubleword_int                     "a"       1            1
   | ARMLiteralAddress of doubleword_int               "p"       1            1
   | ARMMemMultiple of arm_reg_t * int                 "m"       2            1
@@ -112,6 +115,18 @@ class ARMOperandKind(ARMDictionaryRecord):
 
     @property
     def is_register(self) -> bool:
+        return False
+
+    @property
+    def is_double_register(self) -> bool:
+        return False
+
+    @property
+    def is_extension_register(self) -> bool:
+        return False
+
+    @property
+    def is_double_extension_register(self) -> bool:
         return False
 
     @property
@@ -195,10 +210,7 @@ class ARMRegisterOp(ARMOperandKind):
     tags[1]: name of register
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOperandKind.__init__(self, d, ixval)
 
     @property
@@ -227,6 +239,53 @@ class ARMRegisterOp(ARMOperandKind):
 
     def __str__(self) -> str:
         return self.register
+
+
+@armregistry.register_tag("dr", ARMOperandKind)
+class ARMDoubleRegisterOp(ARMOperandKind):
+    """Two registers that act as a single operand.
+
+    tags[1]: name of first register
+    tags[2]: name of second register
+    """
+
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def register1(self) -> str:
+        return self.tags[1]
+
+    @property
+    def register2(self) -> str:
+        return self.tags[2]
+
+    @property
+    def is_double_register(self) -> bool:
+        return True
+
+    @property
+    def name(self) -> str:
+        return self.register1 + "_" + self.register2
+
+    def ast_lvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (
+            astree.mk_register_variable_lval(self.name, vtype=vtype), [], [])
+
+    def ast_rvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (
+            astree.mk_register_variable_expr(self.name, vtype=vtype), [], [])
+
+    def __str__(self) -> str:
+        return self.name
 
 
 @armregistry.register_tag("sr", ARMOperandKind)
@@ -278,10 +337,7 @@ class ARMExtensionRegisterOp(ARMOperandKind):
     args[0]: index register index (0..31)
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOperandKind.__init__(self, d, ixval)
 
     @property
@@ -335,6 +391,80 @@ class ARMExtensionRegisterOp(ARMOperandKind):
 
     def __str__(self) -> str:
         return str(self.xregister)
+
+
+
+@armregistry.register_tag("dxr", ARMOperandKind)
+class ARMDoubleExtensionRegisterOp(ARMOperandKind):
+    """ARM extension register (floating point or vector)
+
+    tags[1]: arm_extension_reg_type (S, D, or Q)
+    args[0]: index of first register in bdictionary
+    args[1]: index of second register in bdictionary
+    """
+
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def xregister1(self) -> "ARMExtensionRegister":
+        return self.bd.arm_extension_register(self.args[0])
+
+    @property
+    def xregister2(self) -> "ARMExtensionRegister":
+        return self.bd.arm_extension_register(self.args[0])
+
+    @property
+    def is_single(self) -> bool:
+        return self.xregister1.is_single
+
+    @property
+    def is_double(self) -> bool:
+        return self.xregister1.is_double
+
+    @property
+    def is_quad(self) -> bool:
+        return self.xregister1.is_quad
+
+    @property
+    def size(self) -> int:
+        if self.is_single:
+            return 64
+        elif self.is_double:
+            return 128
+        else:
+            return 256
+
+    @property
+    def index1(self) -> int:
+        return self.xregister1.regindex
+
+    @property
+    def index2(self) -> int:
+        return self.xregister2.regindex
+
+    @property
+    def name(self) -> str:
+        return str(self.xregister1) + "_" + str(self.xregister2)
+
+    def ast_lvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (
+            astree.mk_register_variable_lval(self.name, vtype=vtype), [], [])
+
+    def ast_rvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (
+            astree.mk_register_variable_expr(self.name, vtype=vtype), [], [])
+
+    def __str__(self) -> str:
+        return str(self.name)
 
 
 @armregistry.register_tag("xre", ARMOperandKind)
@@ -787,7 +917,7 @@ class ARMImmediateOp(ARMOperandKind):
             return "#" + str(self.value)
 
 
-@armregistry.register_tag("x", ARMOperandKind)
+@armregistry.register_tag("c", ARMOperandKind)
 class ARMFPConstant(ARMOperandKind):
 
     def __init__(
@@ -805,7 +935,7 @@ class ARMFPConstant(ARMOperandKind):
         return True
 
     def __str__(self) -> str:
-        return str(self.value)
+        return str(self.floatvalue)
 
 
 @armregistry.register_tag("d", ARMOperandKind)
