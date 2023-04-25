@@ -46,10 +46,7 @@ if TYPE_CHECKING:
 
 class ARMOperand(ARMDictionaryRecord, Operand):
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMDictionaryRecord.__init__(self, d, ixval)
         Operand.__init__(self)
 
