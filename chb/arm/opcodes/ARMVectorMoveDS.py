@@ -38,7 +38,7 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-from chb.invariants.XXpr import XprConstant
+from chb.invariants.XXpr import XXpr, XprConstant
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
@@ -47,20 +47,52 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
 
 
-@armregistry.register_tag("VMOV", ARMOpcode)
-class ARMVectorMove(ARMOpcode):
-    """Transfers a floating point register to a core register or v.v.
+@armregistry.register_tag("VMOVDS", ARMOpcode)
+class ARMVectorMoveDS(ARMOpcode):
+    """Transfers a floating point value/register to a core register or v.v.
 
-    VMOV<c>.<dt> <Sn> <Rt> or VMOV<c> <Rt> <Sn> or VMOV<c> <S/Qn> #<imm>
+    This variant covers the following cases:
 
+    Immediate:
+    - VMOV<c>.<dt> <Qd>, #<imm>
+    - VMOV<c>.<dt> <Dd>, #<imm>
+    - VMOV<c>.F64 <Dd>, #<imm>
+    - VMOV<c>.F32 <Sd>, #<imm>
+
+    Register:
+    - VMOV<c> <Qd>, <Qm>
+    - VMOV<c> <Dd>, <Dm>
+    - VMOV<c>.F64 <Dd>, <Dm>
+    - VMOV<c>.F32 <Sd>, <Sm>
+
+    ARM core register to scalar:
+    - VMOV<c>.<size> <Dd[x]>, <Rt>
+
+    Scalar to ARM core register:
+    - VMOV<c>.<dt> <Rt>, <Dn[x]>
+
+    Between ARM core register and signle-precision register:
+    - VMOV<c> <Sn>, <Rt>
+    - VMOV<c> <Rt>, <Sn>
+
+    Opcode representation:
+    ----------------------
     tags[1]: <c>
-    tags[2]: <dt>
-    args[0]: index of op1 in armdictionary
-    args[1]: index of op2 in armdictionary
-    args[2]: index of op3 in armdictionary (optional)
-    args[3]: index of op4 in armdictionary (optional)
+    args[0]: index of data type in armdictionary
+    args[1]: index of destination operand in armdictionary
+    args[2]: index of source operand in armdictionary
+
+    xdata format:
+    -------------
+    vars[0]: destination operand
+    xprs[0]: source operand
+    xprs[1]: source operand rewritten
+    rdefs[0]: reaching definitions for source operand
+    uses[0]: uses of destination operand
+    useshigh[0]: uses of destination operand in high-level expressions
     """
 
     def __init__(
@@ -70,22 +102,51 @@ class ARMVectorMove(ARMOpcode):
         ARMOpcode.__init__(self, d, ixval)
 
     @property
+    def mnemonic(self) -> str:
+        return "VMOV"
+
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        vfpdt = str(self.vfp_datatype)
+        return cc + vfpdt
+
+    @property
+    def vfp_datatype(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[0])    
+
+    @property
     def operands(self) -> List[ARMOperand]:
-        return [
-            self.armd.arm_operand(i)
-            for i in self.args[1:len(self.args)]]
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
 
     @property
     def opargs(self) -> List[ARMOperand]:
-        return [
-            self.armd.arm_operand(i)
-            for i in self.args[1:len(self.args)]]
+        return [self.armd.arm_operand(i) for i in self.args]
+
+    def _unpack_imm32(self, x: XXpr) -> float:
+        # from StackOverflow:
+        # https://stackoverflow.com/questions/33483846/how-to-convert-32-bit-binary-to-float
+
+        ci = cast(XprConstant, x).intvalue
+        return struct.unpack('f', struct.pack('I', ci))[0]
+
+    def _unpack_imm64(self, x: XXpr) -> float:
+        # from StackOverflow:
+        # https://stackoverflow.com/questions/8751653/how-to-convert-a-binary-string-into-a-float-value
+        ci = cast(XprConstant, x).intvalue
+        b8 = struct.pack('Q', ci)
+        return struct.unpack('d', b8)[0]
 
     def annotation(self, xdata: InstrXData) -> str:
-        if len(xdata.vars) == 1 and len(xdata.xprs) == 1:
-            return str(xdata.vars[0]) + " := " + str(xdata.xprs[0])
+        rhs = xdata.xprs[1]
+        lhs = xdata.vars[0]
+        if rhs.is_int_constant and str(lhs).startswith("S"):
+            f = self._unpack_imm32(rhs)
+            return str(lhs) + " := #" + str(f)
+        elif rhs.is_int_constant and str(lhs).startswith("D"):
+            d = self._unpack_imm64(rhs)
+            return str(lhs) + " := #" + str(d)
         else:
-            return "pending"
+            return str(xdata.vars[0]) + " := " + str(xdata.xprs[1])
 
     def ast_prov(
             self,
@@ -98,13 +159,13 @@ class ARMVectorMove(ARMOpcode):
         annotations: List[str] = [iaddr, "VMOV"]
 
         lhs = xdata.vars[0]
-        rhs = xdata.xprs[0]
+        rhs = xdata.xprs[1]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
-        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[1].ast_lvalue(astree)
+        (ll_rhs, _, _) = self.opargs[2].ast_rvalue(astree)
         ll_assign = astree.mk_assign(
             ll_lhs,
             ll_rhs,
@@ -116,14 +177,13 @@ class ARMVectorMove(ARMOpcode):
 
         if rhs.is_int_constant and str(lhs).startswith("S"):
             # 32-bit floating-point constant
-            rhs = cast(XprConstant, rhs)
-            rhsvalue = rhs.intvalue
-
-            # from StackOverflow:
-            # https://stackoverflow.com/questions/33483846/how-to-convert-32-bit-binary-to-float
-
-            f = struct.unpack('f', struct.pack('I', rhsvalue))[0]
+            f = self._unpack_imm32(rhs)
             hl_rhss: List[AST.ASTExpr] = [astree.mk_float_constant(f)]
+
+        elif rhs.is_int_constant and str(lhs).startswith("D"):
+            # 64-bit floating-point constant
+            f = self._unpack_imm64(rhs)
+            hl_rhss = [astree.mk_float_constant(f, fkind="fdouble")]
 
         else:
             hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
@@ -155,4 +215,4 @@ class ARMVectorMove(ARMOpcode):
 
         else:
             raise UF.CHBError(
-                "VectorMove (VMOV): multiple lval/expressions in ast")
+                "VectorMoveDS (VMOV): multiple lval/expressions in ast")
