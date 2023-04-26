@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +33,9 @@ from chb.app.AppAccess import AppAccess, HeaderTy
 
 from chb.elfformat.ELFHeader import ELFHeader
 
+from chb.pwr.PowerDictionary import PowerDictionary
+from chb.pwr.PowerFunction import PowerFunction
+
 import chb.util.fileutil as UF
 
 
@@ -45,13 +48,44 @@ class PowerAccess(AppAccess[HeaderTy]):
             fileformat: Type[HeaderTy],
             deps: List[str] = []) -> None:
         AppAccess.__init__(self, path, filename, fileformat, deps)
+        self._pwrd: Optional[PowerDictionary] = None
+        self._functions: Dict[str, PowerFunction] = {}
+        self._callgraph: Optional[Callgraph] = None
 
     @property
     def is_power(self) -> bool:
         return True
 
     @property
-    def functions(self):
+    def pwrdictionary(self) -> PowerDictionary:
+        if self._pwrd is None:
+            x = UF.get_pwr_dictionary_xnode(self.path, self.filename)
+            self._pwrd = PowerDictionary(self, x)
+        return self._pwrd
+
+    @property
+    def functions(self) -> Mapping[str, PowerFunction]:
+        if len(self._functions) == 0:
+            for faddr in self.appfunction_addrs:
+                xnode = UF.get_function_results_xnode(
+                    self.path, self.filename, faddr)
+                self._functions[faddr] = PowerFunction(
+                    self.path,
+                    self.filename,
+                    self.bdictionary,
+                    self.interfacedictionary,
+                    self.function_info(faddr),
+                    self.pwrdictionary,
+                    self.stringsxrefs,
+                    self.function_names(faddr),
+                    xnode)
+        return self._functions
+
+    def iter_functions(self, f: Callable[[str, PowerFunction], None]) -> None:
+        for (faddr, fn) in sorted(self.functions.items()):
+            f(faddr, fn)
+
+    def call_edges(self) -> Mapping[str, Mapping[str, int]]:
         return {}
 
     @property
