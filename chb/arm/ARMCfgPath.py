@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,13 +33,10 @@ import chb.util.fileutil as UF
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import chb.arm.ARMCfg
+    from chb.arm.ARMCfg import ARMCfg
 
 
 class ARMCfgPath:
 
-    def __init__(
-            self,
-            cfg: "chb.arm.ARMCfg.ARMCfg",
-            xnode: ET.Element) -> None:
+    def __init__(self, cfg: "ARMCfg", xnode: ET.Element) -> None:
         self.armcfg = cfg

@@ -41,10 +41,7 @@ if TYPE_CHECKING:
 
 class ARMDictionaryRecord(IndexedTableValue):
 
-    def __init__(
-            self,
-            armd: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, armd: "ARMDictionary", ixval: IndexedTableValue) -> None:
         IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
         self._armd = armd
 
@@ -91,7 +88,7 @@ class ARMDictionaryRegistry:
             ixval: IndexedTableValue,
             anchor: Type[AdR]) -> AdR:
         tag = ixval.tags[0]
-        if tag.startswith("IT"):
+        if tag.startswith("IT"):                # covers all variations of if-then
             tag = "IT"
         if (anchor, tag) not in self.register:
             raise UF.CHBError(

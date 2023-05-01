@@ -34,7 +34,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.app.BDictionary
+    from chb.app.BDictionary import BDictionary
 
 
 class Register(BDictionaryRecord):
@@ -60,15 +60,11 @@ class Register(BDictionaryRecord):
     | MIPSRegister of mips_reg_t                     "p"         2      0
     | MIPSSpecialRegister of mips_special_reg_t      "ps         2      0
     | MIPSFloatingPointRegister of int               "pfp        1      1
-    | ARMRegister of arm_reg_t                       "a"         2      0
-    | ARMFloatingPointRegister of int * int          "afp"
+    ... shown in chb.arm.ARMRegister
 
     """
 
-    def __init__(
-            self,
-            bd: "chb.app.BDictionary.BDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, bd: "BDictionary", ixval: IndexedTableValue) -> None:
         BDictionaryRecord.__init__(self, bd, ixval)
 
     @property

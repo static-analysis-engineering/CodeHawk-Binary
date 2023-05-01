@@ -29,52 +29,49 @@
 from typing import Dict, List, Optional, Tuple
 
 
+# ARM32 regular registers
 arm32_register_sizes: Dict[str, int] = {
-    "R0": 32,
-    "R1": 32,
-    "R2": 32,
-    "R2_R3": 64,
-    "R3": 32,
-    "R4": 32,
-    "R5": 32,
-    "R6": 32,
-    "R7": 32,
-    "R8": 32,
-    "R9": 32,
-    "R10": 32,
-    "R11": 32,
-    "R12": 32,
-    "SP": 32,
-    "LR": 32,
-    "PC": 32,
-    "D0": 64,
-    "D6": 64,
-    "D7": 64,
-    "S0": 32,
-    "S1": 32,
-    "S2": 32,
-    "S12": 32,
-    "S13": 32,
-    "S14": 32,
-    "S15": 32,
-    "S16": 32,
-    "S17": 32,
-    "S18": 32,
-    "S19": 32,
-    "S20": 32,
-    "S21": 32,
-    "FPSCR": 32
-}
+    "R" + str(i): 32 for i in range(0, 13)}
+arm32_register_sizes["SP"] = 32   # stack pointer
+arm32_register_sizes["LR"] = 32   # link register
+arm32_register_sizes["PC"] = 32   # program counter
 
+# ARM32 double registers
+arm32_register_sizes["R2_R3"] =  64
 
+# ARM32 floating point / adv simd registers
+arm_fp_sp_register_sizes: Dict[str, int] = {
+    "S" + str(i): 32 for i in range(0, 31)}
+
+arm_fp_dp_register_sizes: Dict[str, int] = {
+    "D" + str(i): 64 for i in range(0, 31)}
+
+arm32_register_sizes["FPSCR"] = 32  # floating point status control register
+
+# ARM32 flags
 arm32_flags: List[str] = ["C", "N", "V", "Z"]
+
+
+# Power32 registers
+pwr32_register_sizes: Dict[str, int] = {
+    "r" + str(i): 32 for i in range(0, 32)}
+pwr32_register_sizes["lr"] = 32
+pwr32_register_sizes["ctr"] = 32
+pwr32_register_sizes["cr"] = 32
+
+
+all_register_sizes = {
+    **arm32_register_sizes,
+    **arm_fp_sp_register_sizes,
+    **arm_fp_dp_register_sizes,
+    **pwr32_register_sizes}
 
 
 class CustomASTSupport:
 
     def __init__(
             self,
-            registersizes: Dict[str, int] = arm32_register_sizes,
+            registersizes: Dict[str, int] = all_register_sizes,
             flagnames: List[str] = arm32_flags) -> None:
         self._registersizes = registersizes
         self._flagnames = flagnames

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,8 @@
 
 import xml.etree.ElementTree as ET
 
-import chb.app.CfgBlock as B
+from chb.app.CfgBlock import CfgBlock
+
 import chb.util.fileutil as UF
 
 from typing import Dict, List, Optional, TYPE_CHECKING
@@ -37,11 +38,8 @@ if TYPE_CHECKING:
     from chb.arm.ARMCfg import ARMCfg
 
 
-class ARMCfgBlock(B.CfgBlock):
+class ARMCfgBlock(CfgBlock):
 
-    def __init__(
-            self,
-            cfg: "ARMCfg",
-            xnode: ET.Element) -> None:
-        B.CfgBlock.__init__(self, xnode)
+    def __init__(self, cfg: "ARMCfg", xnode: ET.Element) -> None:
+        CfgBlock.__init__(self, xnode)
         self._armcfg = cfg

@@ -39,6 +39,7 @@ from chb.app.ARMExtensionRegister import (
 
 from chb.app.Register import Register
 from chb.arm.ARMRegister import ARMRegister
+from chb.pwr.PowerRegister import PowerGPRegister
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
