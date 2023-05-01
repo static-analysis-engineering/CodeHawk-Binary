@@ -392,6 +392,8 @@ class AnalysisManager(object):
             cmd.append("-arm")
         if self.thumb:
             cmd.append("-thumb")
+        if self.power:
+            cmd.append("-power")
         for d in self.deps:
             cmd.extend(["-summaries", d])
         for s in self.so_libraries:

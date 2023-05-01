@@ -60,10 +60,7 @@ if TYPE_CHECKING:
 
 class ARMInstruction(Instruction):
 
-    def __init__(
-            self,
-            armblock: "ARMBlock",
-            xnode: ET.Element) -> None:
+    def __init__(self, armblock: "ARMBlock", xnode: ET.Element) -> None:
         Instruction.__init__(self, xnode)
         self._armblock = armblock
         self._opcode: Optional[ARMOpcode] = None

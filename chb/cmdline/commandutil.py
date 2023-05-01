@@ -74,7 +74,7 @@ from chb.mips.MIPSCfgPath import MIPSCfgPath
 from chb.mips.MIPSFunction import MIPSFunction
 from chb.mips.MIPSInstruction import MIPSInstruction
 
-from chb.power.PowerAccess import PowerAccess
+from chb.pwr.PowerAccess import PowerAccess
 
 import chb.cmdline.XInfo as XI
 import chb.graphics.DotCfg as DC

@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -747,6 +747,26 @@ def get_arm_asm_filename(path: str, xfile: str) -> str:
 def get_arm_asm_xnode(path: str, xfile: str) -> ET.Element:
     filename = get_arm_asm_filename(path, xfile)
     return get_chb_xnode(filename, "arm-assembly-instructions")
+
+
+def get_pwr_dictionary_filename(path: str, xfile: str) -> str:
+    fdir = get_results_dir(path, xfile)
+    return get_chb_filename(fdir, xfile, "pwrdict.xml")
+
+
+def get_pwr_dictionary_xnode(path: str, xfile: str) -> ET.Element:
+    filename = get_pwr_dictionary_filename(path, xfile)
+    return get_chb_xnode(filename, "pwr-dictionary")
+
+
+def get_pwr_asm_filename(path: str, xfile: str) -> str:
+    fdir = get_results_dir(path, xfile)
+    return get_chb_filename(fdir, xfile, "pwr_asm.xml")
+
+
+def get_pwr_asm_xnode(path: str, xfile: str) -> ET.Element:
+    filename = get_pwr_asm_filename(path, xfile)
+    return get_chb_xnode(filename, "pwr-assembly-instructions")
 
 
 def get_resultmetrics_filename(path: str, xfile: str) -> str:

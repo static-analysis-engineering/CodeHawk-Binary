@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,86 +24,83 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""ARM extension registers used for vectors and floating point values."""
+"""Representation of Power registers (in bdictionary).
+
+Subclass of chb.app.Register
+
+Power specific register types:
+
+Corresponding type in bCHLibTypes:
+                                                tag[0]    tags    args
+--------------------------------------------------------------------------------
+| PowerGPRegister of int                       "pwrgpr"    1       1
+| PowerSPRegister of pwr_special_reg_t         "pwrspr"    2       0
+| PowerCRField of pwr_register_field_t         "pwrcrf"    2       0
+"""
 
 from typing import TYPE_CHECKING
 
-from chb.app.BDictionaryRecord import BDictionaryRecord
+from chb.app.BDictionaryRecord import bdregistry
+from chb.app.Register import Register
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.app.BDictionary import BDictionary
 
 
-class ARMExtensionRegister(BDictionaryRecord):
+@bdregistry.register_tag("pwrgpr", Register)
+class PowerGPRegister(Register):
 
     def __init__(self, bd: "BDictionary", ixval: IndexedTableValue) -> None:
-        BDictionaryRecord.__init__(self, bd, ixval)
+        Register.__init__(self, bd, ixval)
 
     @property
-    def regtype(self) -> str:
-        return self.tags[0]
+    def register(self) -> str:
+        return "r" + str(self.args[0])
 
     @property
-    def regindex(self) -> int:
+    def rindex(self) -> int:
         return self.args[0]
 
     @property
-    def is_single(self) -> bool:
-        return self.regtype == "S"
+    def is_pwr_gp_register(self) -> bool:
+        return True
 
     @property
-    def is_double(self) -> bool:
-        return self.regtype == "D"
+    def is_pwr_stack_pointer(self) -> bool:
+        return self.rindex == 1
 
     @property
-    def is_quad(self) -> bool:
-        return self.regtype == "Q"
+    def is_pwr_argument_register(self) -> bool:
+        return self.rindex >= 3 and self.rindex <= 10
+
+    @property
+    def argument_index(self) -> int:
+        if self.is_pwr_argument_register:
+            return self.rindex - 3
+        else:
+            raise UF.CHBError(
+                "Register is not an argument register: " + str(self))
 
     def __str__(self) -> str:
-        return self.regtype + str(self.regindex)
+        return self.register
 
 
-class ARMExtensionRegisterElement(BDictionaryRecord):
+@bdregistry.register_tag("pwrspr", Register)
+class PowerSPRegister(Register):
 
     def __init__(self, bd: "BDictionary", ixval: IndexedTableValue) -> None:
-        BDictionaryRecord.__init__(self, bd, ixval)
+        Register.__init__(self, bd, ixval)
 
     @property
-    def xregister(self) -> "ARMExtensionRegister":
-        return self.bd.arm_extension_register(self.args[0])
+    def register(self) -> str:
+        return self.tags[1]
 
     @property
-    def element_index(self) -> int:
-        return self.args[1]
-
-    @property
-    def element_size(self) -> int:
-        return self.args[2]
+    def is_pwr_sp_register(self) -> bool:
+        return True
 
     def __str__(self) -> str:
-        return str(self.xregister) + "[" + str(self.element_index) + "]"
-
-
-class ARMExtensionRegisterReplicatedElement(BDictionaryRecord):
-
-    def __init__(self, bd: "BDictionary", ixval: IndexedTableValue) -> None:
-        BDictionaryRecord.__init__(self, bd, ixval)
-
-    @property
-    def xregister(self) -> "ARMExtensionRegister":
-        return self.bd.arm_extension_register(self.args[0])
-
-    @property
-    def element_size(self) -> int:
-        return self.args[1]
-
-    @property
-    def element_count(self) -> int:
-        return self.args[2]
-
-    def __str__(self) -> str:
-        return str(self.xregister) + "[]"
+        return self.register

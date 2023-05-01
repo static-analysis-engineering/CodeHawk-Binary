@@ -1008,11 +1008,12 @@ class ASTInterface:
             else:
                 raise UF.CHBError("add_to_index_offset: not yet supported")
 
-    def mk_integer_constant(self, cvalue: int) -> AST.ASTIntegerConstant:
-        return self.astree.mk_integer_constant(cvalue)
+    def mk_integer_constant(self, cvalue: int, ikind: str = "iint") -> AST.ASTIntegerConstant:
+        return self.astree.mk_integer_constant(cvalue, ikind=ikind)
 
-    def mk_float_constant(self, fvalue: float) -> AST.ASTFloatingPointConstant:
-        return self.astree.mk_float_constant(fvalue)
+    def mk_float_constant(
+            self, fvalue: float, fkind: str = "float") -> AST.ASTFloatingPointConstant:
+        return self.astree.mk_float_constant(fvalue, fkind=fkind)
 
     def mk_global_address_constant(
             self,
