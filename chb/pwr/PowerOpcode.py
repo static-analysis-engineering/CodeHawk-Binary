@@ -122,5 +122,26 @@ class PowerOpcode(PowerDictionaryRecord):
     def is_store_instruction(self, xdata: InstrXData) -> bool:
         return False
 
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+            List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return ([], [])
+
+    def ast_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData,
+            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+        """Return default; should be overridden by instruction opcodes."""
+
+        expr = astree.mk_integer_constant(0)
+        return (None, None)
+
     def __str__(self) -> str:
         return self.tags[0] + ":pending"
