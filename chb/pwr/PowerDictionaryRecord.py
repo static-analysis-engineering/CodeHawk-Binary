@@ -43,6 +43,7 @@ class PowerDictionaryRecord(IndexedTableValue):
 
     def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue
     ) -> None:
+        IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
         self._pwrd = pwrd
 
     @property

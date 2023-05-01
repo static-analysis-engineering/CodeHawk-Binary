@@ -76,4 +76,5 @@ class PowerCfg(Cfg):
                 baddr = b.get("ba")
                 if baddr is None:
                     raise UF.CHBError("Block address is missing from power cfg")
+                self._blocks[baddr] = PowerCfgBlock(self, b)
         return self._blocks

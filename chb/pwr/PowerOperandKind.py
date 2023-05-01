@@ -85,6 +85,10 @@ class PowerOperandKind(PowerDictionaryRecord):
         return False
 
     @property
+    def is_condition_register_bit(self) -> bool:
+        return False
+
+    @property
     def is_indirect_register(self) -> bool:
         return False
 
@@ -107,6 +111,26 @@ class PowerOperandKind(PowerDictionaryRecord):
     @property
     def value(self) -> int:
         raise UF.CHBError("Operand does not have a value: " + str(self))
+
+    def ast_lvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (
+            astree.mk_register_variable_lval(str(self.register), vtype=vtype),
+            [],
+            [])
+
+    def ast_rvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (
+            astree.mk_register_variable_expr(str(self.register), vtype=vtype),
+            [],
+            [])
 
     def __str__(self) -> str:
         return "operandkind: " + self.tags[0]
@@ -241,3 +265,102 @@ class PowerRegisterFieldOp(PowerOperandKind):
     def __str__(self) -> str:
         return self.register
     
+
+@pwrregistry.register_tag("c", PowerOperandKind)
+class PowerConditionRegisterBitOp(PowerOperandKind):
+    """A given bit in the condition register.
+
+    args[0]: index of bit in condition register
+    """
+
+    def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
+        PowerOperandKind.__init__(self, pwrd, ixval)
+
+    @property
+    def index(self) -> int:
+        return self.args[0]
+
+    @property
+    def is_condition_register_bit(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return "cr" + str(self.index)
+
+
+@pwrregistry.register_tag("i", PowerOperandKind)
+class PowerImmediateOp(PowerOperandKind):
+    """Immediate value (signed/unsigned).
+
+    tags[1]: immediate value (represented as string)
+    """
+
+    def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
+        PowerOperandKind.__init__(self, pwrd, ixval)
+
+    @property
+    def value(self) -> int:
+        return int(self.tags[1])
+
+    @property
+    def is_immediate(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
+@pwrregistry.register_tag("a", PowerOperandKind)
+class PowerAbsoluteOp(PowerOperandKind):
+    """Absolute address.
+
+    args[0]: index of address in bdictionary
+    """
+
+    def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
+        PowerOperandKind.__init__(self, pwrd, ixval)
+
+    @property
+    def address(self) -> "AsmAddress":
+        return self.bd.address(self.args[0])
+
+    @property
+    def is_absolute(self) -> bool:
+        return True
+
+    def ast_rvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (astree.mk_integer_constant(self.address.get_int()), [], [])
+
+    def __str__(self) -> str:
+        return str(self.address)
+
+
+@pwrregistry.register_tag("ir", PowerOperandKind)
+class PowerIndRegOp(PowerOperandKind):
+    """Indirect register
+
+    tags[1]: offset (string representation)
+    args[0]: index of general-purpose register
+    """
+
+    def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
+        PowerOperandKind.__init__(self, pwrd, ixval)
+
+    @property
+    def register(self) -> str:
+        return "r" + str(self.args[0])
+
+    @property
+    def offset(self) -> int:
+        return int(self.tags[1])
+
+    @property
+    def is_indirect_register(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return hex(self.offset) + "(" + self.register + ")"

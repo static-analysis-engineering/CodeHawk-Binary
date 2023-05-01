@@ -88,8 +88,7 @@ class PowerDictionary:
             self, self.opkind_table.retrieve(ix), PowerOperandKind)
 
     def pwr_operand(self, ix: int) -> PowerOperand:
-        return pwrregistry.mk_instance(
-            self, self.operand_table.retrieve(ix), PowerOperand)
+        return PowerOperand(self, self.operand_table.retrieve(ix))
 
     def pwr_opcode(self, ix: int) -> PowerOpcode:
         try:

@@ -89,3 +89,20 @@ class PowerOperand(PowerDictionaryRecord, Operand):
     @property
     def value(self) -> int:
         return self.opkind.value
+
+    def ast_lvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return self.opkind.ast_lvalue(astree)
+
+    def ast_rvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return self.opkind.ast_rvalue(astree)
+
+    def __str__(self) -> str:
+        return str(self.opkind)

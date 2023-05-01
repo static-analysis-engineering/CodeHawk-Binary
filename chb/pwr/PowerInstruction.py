@@ -39,7 +39,7 @@ from chb.app.MemoryAccess import MemoryAccess
 from chb.app.Operand import Operand
 from chb.app.StackPointerOffset import StackPointerOffset
 
-from chb.ast.ASTNode import ASTNode, ASTInstruction, ASTExpr
+import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XVariable import XVariable
@@ -197,6 +197,23 @@ class PowerInstruction(Instruction):
 
     def string_pointer_loaded(self) -> Optional[Tuple[str, str]]:
         return None
+
+    def ast_prov(self, astree: ASTInterface) -> Tuple[
+            List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return self.opcode.ast_prov(
+            astree, self.iaddr, self.bytestring, self.xdata)
+
+    def ast_condition_prov(
+            self, astree: ASTInterface, reverse: bool = False) -> Tuple[
+                Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+        """Return conditional branch instruction with provenance."""
+
+        try:
+            return self.opcode.ast_condition_prov(
+                astree, self.iaddr, self.bytestring, self.xdata, reverse)
+        except Exception:
+            expr = astree.mk_integer_constant(0)
+            return (expr, expr)
 
     @property
     def call_target(self) -> CallTarget:
