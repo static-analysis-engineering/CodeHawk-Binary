@@ -587,16 +587,21 @@ def field_at_offset(
         astree: ASTInterface) -> AST.ASTOffset:
     (finfo, r) = compinfo.field_at_offset(offsetvalue)
 
-    if finfo.fieldtype.is_compound:
-        fieldfkey = cast(AST.ASTTypComp, finfo.fieldtype).compkey
+    ftype = finfo.fieldtype
+    if ftype.is_typedef:
+        ftype = cast(AST.ASTTypNamed, ftype)
+        ftype = astree.globalsymboltable.resolve_typedef(ftype.typname)
+
+    if ftype.is_compound:
+        fieldfkey = cast(AST.ASTTypComp, ftype).compkey
         fcompinfo = astree.compinfo(fieldfkey)
         foffset = field_at_offset(fcompinfo, r, xdata, astree)
         return astree.mk_field_offset(
             finfo.fieldname, finfo.compkey, offset=foffset)
     elif r == 0:
         return astree.mk_field_offset(finfo.fieldname, finfo.compkey)
-    elif finfo.fieldtype.is_array:
-        ftype = cast(AST.ASTTypArray, finfo.fieldtype)
+    elif ftype.is_array:
+        ftype = cast(AST.ASTTypArray, ftype)
         elsize = astree.type_size_in_bytes(ftype.tgttyp)
         index = r // elsize
         ioffset = astree.mk_scalar_index_offset(index)
@@ -637,6 +642,7 @@ def basevar_variable_to_ast_lvals(
                 + ", ".join(str(b) for b in baselvals))
         baselval = baselvals[0]
         basetype = baselval.ctype(astree.ctyper)
+
         if basetype is not None:
             if basetype.is_array:
                 elttype = cast(AST.ASTTypArray, basetype).tgttyp
@@ -672,6 +678,9 @@ def basevar_variable_to_ast_lvals(
                     indexoffset = astree.mk_scalar_index_offset(index)
                     return [astree.mk_lval(
                         baselval.lhost, indexoffset, anonymous=anonymous)]
+                elif tgttype.is_typedef:
+                    tgttype = cast(AST.ASTTypNamed, tgttype)
+                    tgttype = tgttype.typdef
                 elif offsetvalue == 0:
                     return [astree.mk_memref_lval(basexpr, anonymous=anonymous)]
         else:

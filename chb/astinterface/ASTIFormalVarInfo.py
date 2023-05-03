@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -138,6 +138,8 @@ class ASTIFormalVarInfo:
                 return self._initialize_arm_arguments(argtype)
             elif callingconvention == "mips":
                 return self._initialize_mips_arguments(argtype)
+            elif callingconvention == "power":
+                return self._initialize_power_arguments(argtype)
             else:
                 raise Exception(
                     "Calling convention "
@@ -200,6 +202,15 @@ class ASTIFormalVarInfo:
     def _initialize_mips_arguments(self, argtype: "BCT.BCTyp") -> int:
         if argtype.is_scalar or argtype.is_pointer:
             argloc = get_arg_loc("mips", self.argindex * 4, 4)
+            self._arglocs.append((argloc, AST.ASTNoOffset(), 4))
+            return self.argindex + 1
+        else:
+            print("Argument type is not a scalar: " + str(argtype))
+            return 0
+
+    def _initialize_power_arguments(self, argtype: "BCT.BCTyp") -> int:
+        if argtype.is_scalar or argtype.is_pointer:
+            argloc = get_arg_loc("power", self.argindex * 4, 4)
             self._arglocs.append((argloc, AST.ASTNoOffset(), 4))
             return self.argindex + 1
         else:

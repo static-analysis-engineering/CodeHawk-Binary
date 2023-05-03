@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -75,6 +75,23 @@ def get_mips_arg_loc(bytecounter: int, size: int) -> str:
         return "stack:" + str(bytecounter)
 
 
+def get_power_arg_loc(bytecounter: int, size: int) -> str:
+    index = bytecounter // 4
+    rem = bytecounter % 4
+    if index < 8:
+        if size == 4:
+            if rem == 0:
+                return "r" + str(index + 3)
+            else:
+                raise UF.CHBError(
+                    "Unexpected alignment in power argument location")
+        else:
+            return "r" + str(index + 3) + ":" + str(rem)
+    else:
+        raise UF.CHBError(
+            "More than eight arguments not yet supported")
+
+
 def get_arg_loc(callingconvention: str, bytecounter: int, size: int) -> str:
     """Return a string that denotes the location of a given function argument."""
 
@@ -86,5 +103,7 @@ def get_arg_loc(callingconvention: str, bytecounter: int, size: int) -> str:
         return get_arm_arg_loc(bytecounter, size)
     elif callingconvention == "mips":
         return get_mips_arg_loc(bytecounter, size)
+    elif callingconvention == "power":
+        return get_power_arg_loc(bytecounter, size)
     else:
         return "?"

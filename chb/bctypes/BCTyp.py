@@ -579,6 +579,9 @@ class BCTypNamed(BCTyp):
     def byte_size(self) -> int:
         return self.typedef.ttype.byte_size()
 
+    def alignment(self) -> int:
+        return self.typedef.ttype.alignment()
+
     def convert(self, converter: "BCConverter") -> AST.ASTTypNamed:
         return converter.convert_named_typ(self)
 

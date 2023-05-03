@@ -69,16 +69,19 @@ class PowerGPRegister(Register):
         return True
 
     @property
-    def is_pwr_stack_pointer(self) -> bool:
+    def is_power_register(self) -> bool:
+        return True
+
+    @property
+    def is_power_stack_pointer(self) -> bool:
         return self.rindex == 1
 
     @property
-    def is_pwr_argument_register(self) -> bool:
+    def is_power_argument_register(self) -> bool:
         return self.rindex >= 3 and self.rindex <= 10
 
-    @property
     def argument_index(self) -> int:
-        if self.is_pwr_argument_register:
+        if self.is_power_argument_register:
             return self.rindex - 3
         else:
             raise UF.CHBError(
