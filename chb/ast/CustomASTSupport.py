@@ -59,12 +59,17 @@ pwr32_register_sizes["lr"] = 32
 pwr32_register_sizes["ctr"] = 32
 pwr32_register_sizes["cr"] = 32
 
+# Power32 condition register fields
+pwr32_crf_sizes: Dict[str, int] = {
+    "cr" + str(i): 4 for i in range(0, 8)}
+
 
 all_register_sizes = {
     **arm32_register_sizes,
     **arm_fp_sp_register_sizes,
     **arm_fp_dp_register_sizes,
-    **pwr32_register_sizes}
+    **pwr32_register_sizes,
+    **pwr32_crf_sizes}
 
 
 class CustomASTSupport:

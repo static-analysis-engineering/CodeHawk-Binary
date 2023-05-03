@@ -6,6 +6,19 @@ The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+### Version 0.1.0-2023-05-02
+
+- Add typedef expansion to ASTBasicCTyper
+
+---
+
+### Version 0.1.0-2023-04-30
+
+- Add power32 registers to CustomSupport
+
+---
+
 ### Version 0.1.0-2023-04-20
 
 - Add ikind and fkind attributes to integer/floating-point constant serialization
