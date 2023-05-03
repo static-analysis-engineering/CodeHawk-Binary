@@ -29,6 +29,11 @@ from typing import cast, List, Sequence, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
+
 from chb.pwr.PowerDictionaryRecord import pwrregistry
 from chb.pwr.PowerOpcode import PowerOpcode
 from chb.pwr.PowerOperand import PowerOperand
@@ -73,3 +78,72 @@ class PWRStoreByte(PowerOpcode):
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
         return lhs + " := " + rhs
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "stw"]
+
+        (ll_rhs, _, _) = self.opargs[0].ast_rvalue(astree)
+        (ll_lhs, ll_preinstrs, ll_postinstrs) = self.opargs[2].ast_lvalue(astree)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[1]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_rhs = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)[0]
+
+        if lhs.is_tmp or lhs.has_unknown_memory_base():
+            hl_lhs = None
+            address = xdata.xprs[4]
+            astaddrs = XU.xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
+            if len(astaddrs) == 1:
+                astaddr = astaddrs[0]
+                if astaddr.is_ast_addressof:
+                    hl_lhs = cast(AST.ASTAddressOf, astaddr).lval
+
+            if hl_lhs is None:
+                hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
+            astree.add_lval_store(hl_lhs)
+
+        else:
+            lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+            if len(lvals) != 1:
+                raise UF.CHBError(
+                    "no or multiple lhs values for storeword at " + iaddr)
+
+            hl_lhs = lvals[0]
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if ll_lhs.lhost.is_memref:
+            memexp = cast(AST.ASTMemRef, ll_lhs.lhost).memexp
+            astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
+
+        return ([hl_assign], ll_preinstrs + [ll_assign] + ll_postinstrs)

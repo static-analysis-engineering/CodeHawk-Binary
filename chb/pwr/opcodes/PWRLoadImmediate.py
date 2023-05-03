@@ -29,6 +29,11 @@ from typing import cast, List, Sequence, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
+
 from chb.pwr.PowerDictionaryRecord import pwrregistry
 from chb.pwr.PowerOpcode import PowerOpcode
 from chb.pwr.PowerOperand import PowerOperand
@@ -58,6 +63,8 @@ class PWRLoadImmediate(PowerOpcode):
     -------------
     vars[0]: rD
     xprs[0]: value
+    uses[0]: uses of rD
+    useshigh[0]: uses of rD in high-level expresions
     """
 
     def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
@@ -75,3 +82,56 @@ class PWRLoadImmediate(PowerOpcode):
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[0])
         return lhs + " := " + rhs
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "li"]
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[0]
+        uses = xdata.defuses
+        useshigh = xdata.defuseshigh
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(lhsasts) != 1:
+            raise UF.CHBError("LoadImmediate: zero or multiple lvals at " + iaddr)
+
+        hl_lhs = lhsasts[0]
+
+        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+        if len(rhsasts) != 1:
+            raise UF.CHBError("LoadImmediate: zero or multiple rhs values at " + iaddr)
+
+        hl_rhs = rhsasts[0]
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_lval_defuses(hl_lhs, uses[0])
+        astree.add_lval_defuses_high(hl_lhs, useshigh[0])
+
+        return ([hl_assign], [ll_assign])

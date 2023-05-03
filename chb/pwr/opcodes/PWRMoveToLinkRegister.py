@@ -29,6 +29,11 @@ from typing import cast, List, Sequence, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
+
 from chb.pwr.PowerDictionaryRecord import pwrregistry
 from chb.pwr.PowerOpcode import PowerOpcode
 from chb.pwr.PowerOperand import PowerOperand
@@ -75,3 +80,55 @@ class PWRMoveToLinkRegister(PowerOpcode):
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
         return lhs + " := " + rhs
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "mtlr"]
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[0]
+        rdefs = xdata.reachingdefs[0]
+        defuses = xdata.defuses[0]
+        defuseshigh = xdata.defuseshigh[0]
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        hl_lhss = XU.xvariable_to_ast_lvals (lhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+
+        if len(hl_lhss) != 1 or len(hl_rhss) != 1:
+            raise UF.CHBError(
+                "PWRMove: multiple lval/expressions in ast")
+
+        hl_lhs = hl_lhss[0]
+        hl_rhs = hl_rhss[0]
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs])
+        astree.add_lval_defuses(hl_lhs, defuses)
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh)
+
+        return ([hl_assign], [ll_assign])
