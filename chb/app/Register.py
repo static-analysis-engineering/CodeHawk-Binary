@@ -100,6 +100,18 @@ class Register(BDictionaryRecord):
         return False
 
     @property
+    def is_power_register(self) -> bool:
+        return False
+
+    @property
+    def is_power_stack_pointer(self) -> bool:
+        return False
+
+    @property
+    def is_power_argument_register(self) -> bool:
+        return False
+
+    @property
     def is_x86_register(self) -> bool:
         return False
 

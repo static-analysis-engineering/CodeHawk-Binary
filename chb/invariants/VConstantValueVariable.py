@@ -208,9 +208,11 @@ class VInitialRegisterValue(VConstantValueVariable):
 
     @property
     def is_stack_base_address(self) -> bool:
-        return (self.is_arm_stack_base_address
-                or self.is_mips_stack_base_address
-                or self.is_x86_stack_base_address)
+        return (
+            self.is_arm_stack_base_address
+            or self.is_mips_stack_base_address
+            or self.is_power_stack_base_address
+            or self.is_x86_stack_base_address)
 
     @property
     def is_mips_stack_base_address(self) -> bool:
@@ -223,6 +225,11 @@ class VInitialRegisterValue(VConstantValueVariable):
         return r.is_arm_register and r.is_arm_stack_pointer
 
     @property
+    def is_power_stack_base_address(self) -> bool:
+        r = self.register
+        return r.is_power_register and r.is_power_stack_pointer
+
+    @property
     def is_x86_stack_base_address(self) -> bool:
         r = self.register
         return r.is_x86_register and r.is_x86_stack_pointer
@@ -233,7 +240,10 @@ class VInitialRegisterValue(VConstantValueVariable):
 
     @property
     def is_argument_value(self) -> bool:
-        return (self.is_arm_argument_value or self.is_mips_argument_value)
+        return (
+            self.is_arm_argument_value
+            or self.is_mips_argument_value
+            or self.is_power_argument_value)
 
     @property
     def is_arm_argument_value(self) -> bool:
@@ -244,6 +254,11 @@ class VInitialRegisterValue(VConstantValueVariable):
     def is_mips_argument_value(self) -> bool:
         r = self.register
         return r.is_mips_register and r.is_mips_argument_register
+
+    @property
+    def is_power_argument_value(self) -> bool:
+        r = self.register
+        return r.is_power_register and r.is_power_argument_register
 
     def argument_index(self) -> int:
         if self.is_argument_value:

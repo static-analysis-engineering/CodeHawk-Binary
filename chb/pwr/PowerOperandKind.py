@@ -306,6 +306,20 @@ class PowerImmediateOp(PowerOperandKind):
     def is_immediate(self) -> bool:
         return True
 
+    def ast_lvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        raise UF.CHBError("Immediate operand cannot be an lvalue")
+
+    def ast_rvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (astree.mk_integer_constant(self.value), [], [])
+
     def __str__(self) -> str:
         return str(self.value)
 
@@ -361,6 +375,26 @@ class PowerIndRegOp(PowerOperandKind):
     @property
     def is_indirect_register(self) -> bool:
         return True
+
+    def ast_lvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        xreg = astree.mk_register_variable_expr(self.register, vtype=vtype)
+        xoffset = astree.mk_integer_constant(self.offset)
+        xindex = astree.mk_binary_op("plus", xreg, xoffset)
+        memexp = astree.mk_memref_lval(xindex)
+        return (memexp, [], [])
+
+    def ast_rvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        (lval, preinstrs, postinstrs) = self.ast_lvalue(astree, vtype=vtype)
+        rval = astree.mk_lval_expr(lval)
+        return (rval, preinstrs, postinstrs)
 
     def __str__(self) -> str:
         return hex(self.offset) + "(" + self.register + ")"

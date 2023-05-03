@@ -148,7 +148,7 @@ def get_app(path: str, xfile: str, xinfo: XI.XInfo) -> AppAccess:
         return MIPSAccess(path, xfile, fileformat=format)
     elif arch == "arm":
         return ARMAccess(path, xfile, fileformat=format)
-    elif arch == "powerpc":
+    elif arch == "power":
         return PowerAccess(path, xfile, fileformat=format)
     else:
         raise UF.CHBError("Archicture " + arch + " not yet supported")
@@ -308,7 +308,7 @@ def prepare_executable(
 
         # check architecture and file format
         if not (xinfo.is_x86
-                or xinfo.is_powerpc
+                or xinfo.is_power
                 or xinfo.is_mips
                 or xinfo.is_arm):
             raise UF.CHBError("Architecture "
@@ -331,7 +331,7 @@ def prepare_executable(
             xinfo.size,
             mips=xinfo.is_mips,
             arm=xinfo.is_arm,
-            power=xinfo.is_powerpc,
+            power=xinfo.is_power,
             elf=xinfo.is_elf,
             exclude_debug=exclude_debug)
 
@@ -437,7 +437,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         xinfo.size,
         mips=xinfo.is_mips,
         arm=xinfo.is_arm,
-        power=xinfo.is_powerpc,
+        power=xinfo.is_power,
         elf=xinfo.is_elf,
         savedatablocks=(savedatablocks is not None),
         deps=deps,
