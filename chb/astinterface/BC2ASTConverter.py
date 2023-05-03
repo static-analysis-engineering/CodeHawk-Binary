@@ -122,6 +122,9 @@ class BC2ASTConverter(BCConverter):
             self._newcompinfos = {}
         for cinfo in self.compinfos_referenced.values():
             cinfo.convert(self)
+
+        # to capture new compinfos that were encountered in the process of
+        # converting compinfos (fields with struct types)
         self.initialize_compinfos()
 
     def initialize_enuminfos(self, startset: List[BCEnumInfo] = []) -> None:

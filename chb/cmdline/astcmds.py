@@ -187,12 +187,20 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     codefragments = astapi.codefragments
     typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
 
+    fnames: Dict[str, str] = {}
+    for faddr in functions:
+        if app.has_function_name(faddr):
+            fname = app.function_name(faddr)
+            fnames[fname] = faddr
+
     for vinfo in app.bcfiles.globalvars:
         vname = vinfo.vname
         if vname in revsymbolicaddrs:
             gaddr = int(revsymbolicaddrs[vname], 16)
         elif vname in revfunctionnames:
             gaddr = int(revfunctionnames[vname], 16)
+        elif vname in fnames:
+            gaddr = int(fnames[vname], 16)
         else:
             gaddr = 0
         if gaddr > 0 or vname in library_targets:

@@ -457,7 +457,7 @@ class VFunctionReturnValue(VConstantValueVariable):
                 else:
                     return "rtn_" + self.callsite + "_" + str(tgtval)
             else:
-                return "rtn_" + self.callsite + "_" + str(tgtval)
+                return "rtn_" + self.callsite + "_" + tgtval.name
         else:
             return "rtn_" + self.callsite
 
