@@ -45,36 +45,32 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.pwr.PowerDictionary import PowerDictionary
 
-@pwrregistry.register_tag("ori", PowerOpcode)
-@pwrregistry.register_tag("oris", PowerOpcode)
-@pwrregistry.register_tag("e_ori", PowerOpcode)
-@pwrregistry.register_tag("e_ori.", PowerOpcode)
-@pwrregistry.register_tag("e_or2i", PowerOpcode)
-@pwrregistry.register_tag("e_or2is", PowerOpcode)
-class PWROrImmediate(PowerOpcode):
-    """Bitwise or immediate value to a register
+@pwrregistry.register_tag("or", PowerOpcode)
+@pwrregistry.register_tag("or.", PowerOpcode)
+@pwrregistry.register_tag("se_or", PowerOpcode)
+class PWROr(PowerOpcode):
+    """Bitwise or of two register values
 
-    ori rA,rS,UIMM
+    or rA,rS,rB
 
     tags[1]: pit: instruction type
     args[0]: rc: record condition
-    args[1]: s: shifted if 1
-    args[2]: op2: only two operands if 1
-    args[3]: ra: index of destination register in pwrdictionary
-    args[4]: rs: index of source register in pwrdictionary
-    args[5]: uimm: index of unsigned immediate value in pwrdictionary
-    args[6]: cr: index of condition register field in pwrdictionary
+    args[1]: ra: index of destination register in pwrdictionary
+    args[2]: rs: index of first source register in pwrdictionary
+    args[3]: rb: index of second source register in pwrdictionary
+    args[4]: cr: index of condition register field in pwrdictionary
 
     xdata format:
     -------------
-    vars[0]: rD
-    xprs[0]: rA
-    xprs[1]: SIMM
-    xprs[2]: rA | UIMM
-    xprs[3]: (rA | UIMM) rewritten
-    rdefs[0]: reaching definition for ra
-    uses[0]: uses of rD
-    useshigh[0] = uses of rD in high-level expressions
+    vars[0]: rA
+    xprs[0]: rS
+    xprs[1]: rB
+    xprs[2]: rS | rB
+    xprs[3]: (rA | rB) rewritten
+    rdefs[0]: reaching definition for rS
+    rdefs[1]: reaching definition for rB
+    uses[0]: uses of rA
+    useshigh[0] = uses of rA in high-level expressions
 
     """
 
@@ -83,11 +79,11 @@ class PWROrImmediate(PowerOpcode):
 
     @property
     def operands(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args[4:]]
+        return [self.pwrd.pwr_operand(self.args[i]) for i in [1, 2, 3]]
 
     @property
     def opargs(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args[4:]]
+        return [self.pwrd.pwr_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])
@@ -103,7 +99,7 @@ class PWROrImmediate(PowerOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "ori"]
+        annotations: List[str] = [iaddr, "or"]
 
         (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (ll_op1, _, _) = self.operands[1].ast_rvalue(astree)
@@ -125,13 +121,13 @@ class PWROrImmediate(PowerOpcode):
 
         lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(lhsasts) != 1:
-            raise UF.CHBError("OrImmediate: zero or multiple lvals at " + iaddr)
+            raise UF.CHBError("Or: zero or multiple lvals at " + iaddr)
 
         hl_lhs = lhsasts[0]
 
         rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         if len(rhsasts) != 1:
-            raise UF.CHBError("OrImmediate: zero or multiple rhs values at " + iaddr)
+            raise UF.CHBError("Or: zero or multiple rhs values at " + iaddr)
 
         hl_rhs = rhsasts[0]
 

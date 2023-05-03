@@ -45,37 +45,28 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.pwr.PowerDictionary import PowerDictionary
 
-@pwrregistry.register_tag("ori", PowerOpcode)
-@pwrregistry.register_tag("oris", PowerOpcode)
-@pwrregistry.register_tag("e_ori", PowerOpcode)
-@pwrregistry.register_tag("e_ori.", PowerOpcode)
-@pwrregistry.register_tag("e_or2i", PowerOpcode)
-@pwrregistry.register_tag("e_or2is", PowerOpcode)
-class PWROrImmediate(PowerOpcode):
-    """Bitwise or immediate value to a register
+@pwrregistry.register_tag("clrlwi", PowerOpcode)
+@pwrregistry.register_tag("clrlwi.", PowerOpcode)
+class PWRClearLeftWordImmediate(PowerOpcode):
+    """Add immediate value to a register
 
-    ori rA,rS,UIMM
+    clrlwi rA,rS,mb
 
     tags[1]: pit: instruction type
-    args[0]: rc: record condition
-    args[1]: s: shifted if 1
-    args[2]: op2: only two operands if 1
-    args[3]: ra: index of destination register in pwrdictionary
-    args[4]: rs: index of source register in pwrdictionary
-    args[5]: uimm: index of unsigned immediate value in pwrdictionary
-    args[6]: cr: index of condition register field in pwrdictionary
+    args[0]: rc: record condition if 1
+    args[1]: ra: index of destination register in pwrdictionary
+    args[2]: rs: index of source register in pwrdictionary
+    args[3]: mb: index of mask in pwrdictionary
 
     xdata format:
     -------------
-    vars[0]: rD
-    xprs[0]: rA
-    xprs[1]: SIMM
-    xprs[2]: rA | UIMM
-    xprs[3]: (rA | UIMM) rewritten
-    rdefs[0]: reaching definition for ra
-    uses[0]: uses of rD
-    useshigh[0] = uses of rD in high-level expressions
-
+    vars[0]: rA
+    xprs[0]: rS
+    xprs[1]: rS rewritten
+    xprs[2]: mb
+    rdefs[0]: reaching definition for rS
+    uses[0]: uses of rA
+    useshigh[0] = uses of rA in high-level expressions
     """
 
     def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
@@ -83,17 +74,17 @@ class PWROrImmediate(PowerOpcode):
 
     @property
     def operands(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args[4:]]
+        return [self.pwrd.pwr_operand(self.args[i]) for i in [1, 2, 3]]
 
     @property
     def opargs(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args[4:]]
+        return [self.pwrd.pwr_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[2])
-        rrhs = str(xdata.xprs[3])
-        return lhs + " := " + rhs + " (= " + rrhs + ")"
+        rhs = str(xdata.xprs[1])
+        mb = str(xdata.xprs[2])
+        return lhs + " := clear-left-word-immediate(" + rhs + ", " + mb + ")"
 
     def ast_prov(
             self,
@@ -103,12 +94,12 @@ class PWROrImmediate(PowerOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "ori"]
+        annotations: List[str] = [iaddr, "clrlwi"]
 
         (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (ll_op1, _, _) = self.operands[1].ast_rvalue(astree)
         (ll_op2, _, _) = self.operands[2].ast_rvalue(astree)
-        ll_rhs = astree.mk_binary_op("bor", ll_op1, ll_op2)
+        ll_rhs = astree.mk_binary_op("plus", ll_op1, ll_op2)
 
         ll_assign = astree.mk_assign(
             ll_lhs,
@@ -118,20 +109,20 @@ class PWROrImmediate(PowerOpcode):
             annotations=annotations)
 
         lhs = xdata.vars[0]
-        rhs = xdata.xprs[3]
+        rhs = xdata.xprs[1]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
         lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(lhsasts) != 1:
-            raise UF.CHBError("OrImmediate: zero or multiple lvals at " + iaddr)
+            raise UF.CHBError("ClearLeftWordImmediate: zero or multiple lvals at " + iaddr)
 
         hl_lhs = lhsasts[0]
 
         rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         if len(rhsasts) != 1:
-            raise UF.CHBError("OrImmediate: zero or multiple rhs values at " + iaddr)
+            raise UF.CHBError("ClearLeftWordImmediate: zero or multiple rhs values at " + iaddr)
 
         hl_rhs = rhsasts[0]
 
