@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import cast, Optional
+from typing import cast, List, Optional
 
 from chb.ast.ASTCTyper import ASTCTyper
 import chb.ast.ASTNode as AST
@@ -43,11 +43,42 @@ class ASTBasicCTyper(ASTCTyper):
     def globalsymboltable(self) -> "ASTGlobalSymbolTable":
         return self._globalsymboltable
 
+    def expand_type(self, t: AST.ASTTyp) -> AST.ASTTyp:
+        if t.is_typedef:
+            t = cast(AST.ASTTypNamed, t)
+            return self.globalsymboltable.resolve_typedef(t.typname)
+
+        if t.is_pointer:
+            t = cast(AST.ASTTypPtr, t)
+            return AST.ASTTypPtr(self.expand_type(t.tgttyp))
+
+        if t.is_scalar:
+            return t
+
+        if t.is_array:
+            t = cast(AST.ASTTypArray, t)
+            return AST.ASTTypArray(self.expand_type(t.tgttyp), t.size_expr)
+
+        if t.is_function:
+            t = cast(AST.ASTTypFun, t)
+            xrt = self.expand_type(t.returntyp)
+            xargtypes: Optional[AST.ASTFunArgs]
+            if t.argtypes is not None:
+                xargs: List[AST.ASTFunArg] = []
+                for arg in t.argtypes.funargs:
+                    xarg = AST.ASTFunArg(arg.argname, self.expand_type(arg.argtyp))
+                    xargs.append(xarg)
+                xargtypes = AST.ASTFunArgs(xargs)
+            return AST.ASTTypFun(xrt, xargtypes, t.is_varargs)
+
+        return t
+
     def ctype_lval(self, lval: AST.ASTLval) -> Optional[AST.ASTTyp]:
         hosttype = lval.lhost.ctype(self)
         if hosttype is None:
             return None
 
+        hosttype = self.expand_type(hosttype)
         if lval.offset.is_no_offset:
             return hosttype
         elif hosttype.is_array:
@@ -77,7 +108,7 @@ class ASTBasicCTyper(ASTCTyper):
             ckey = offset.compkey
             compinfo = self.globalsymboltable.compinfo(ckey)
             fieldinfo = compinfo.fieldinfo(offset.fieldname)
-            return fieldinfo.fieldtype
+            return self.expand_type(fieldinfo.fieldtype)
         elif offset.offset.is_index_offset and offset.offset.offset.is_no_offset:
             ckey = offset.compkey
             compinfo = self.globalsymboltable.compinfo(ckey)
@@ -88,7 +119,11 @@ class ASTBasicCTyper(ASTCTyper):
             else:
                 return None
         else:
-            return offset.offset.ctype(self)
+            ct = offset.offset.ctype(self)
+            if ct is not None:
+                return self.expand_type(ct)
+            else:
+                return None
 
     def ctype_index_offset(
             self, offset: AST.ASTIndexOffset) -> Optional[AST.ASTTyp]:
