@@ -667,12 +667,17 @@ def basevar_variable_to_ast_lvals(
                     return [astree.mk_lval(
                         baselval.lhost, indexoffset, anonymous=anonymous)]
                 elif tgttype.is_compound:
-                    fcompkey = cast(AST.ASTTypComp, tgttype).compkey
-                    compinfo = astree.compinfo(fcompkey)
-                    fieldoffset = field_at_offset(
-                        compinfo, offsetvalue, xdata, astree)
-                    return [astree.mk_memref_lval(
-                        basexpr, fieldoffset, anonymous=anonymous)]
+                    try:
+                        fcompkey = cast(AST.ASTTypComp, tgttype).compkey
+                        compinfo = astree.compinfo(fcompkey)
+                        fieldoffset = field_at_offset(
+                            compinfo, offsetvalue, xdata, astree)
+                        return [astree.mk_memref_lval(
+                            basexpr, fieldoffset, anonymous=anonymous)]
+                    except Exception as e:
+                        astree.add_diagnostic(
+                            "Compkey not found for " + str(tgttype) + ": " + str(e))
+
                 elif tgttype.is_void:
                     index = offsetvalue
                     indexoffset = astree.mk_scalar_index_offset(index)
