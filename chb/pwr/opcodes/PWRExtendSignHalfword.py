@@ -32,6 +32,7 @@ from chb.app.InstrXData import InstrXData
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+import chb.invariants.XXpr as X
 import chb.invariants.XXprUtil as XU
 
 from chb.pwr.PowerDictionaryRecord import pwrregistry
@@ -45,37 +46,25 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.pwr.PowerDictionary import PowerDictionary
 
-@pwrregistry.register_tag("ori", PowerOpcode)
-@pwrregistry.register_tag("oris", PowerOpcode)
-@pwrregistry.register_tag("e_ori", PowerOpcode)
-@pwrregistry.register_tag("e_ori.", PowerOpcode)
-@pwrregistry.register_tag("e_or2i", PowerOpcode)
-@pwrregistry.register_tag("e_or2is", PowerOpcode)
-class PWROrImmediate(PowerOpcode):
-    """Bitwise or immediate value to a register
 
-    ori rA,rS,UIMM
+@pwrregistry.register_tag("extsh", PowerOpcode)
+@pwrregistry.register_tag("se_extsh", PowerOpcode)
+class PWRExtendSignHalfword(PowerOpcode):
+    """Extend half word to word, preserving the sign
 
-    tags[1]: pit: instruction type
-    args[0]: rc: record condition
-    args[1]: s: shifted if 1
-    args[2]: op2: only two operands if 1
-    args[3]: ra: index of destination register in pwrdictionary
-    args[4]: rs: index of source register in pwrdictionary
-    args[5]: uimm: index of unsigned immediate value in pwrdictionary
-    args[6]: cr: index of condition register field in pwrdictionary
+    extsh rA, rS
+
+    tags[1]: instruction type
+    args[0]: set condition register bit if 1
+    args[1]: index of rA in pwrdictionary
+    args[2]: index of rS in pwrdictionary
+    args[3]: index of cr in pwrdictionary
 
     xdata format:
     -------------
-    vars[0]: rD
-    xprs[0]: rA
-    xprs[1]: SIMM
-    xprs[2]: rA | UIMM
-    xprs[3]: (rA | UIMM) rewritten
-    rdefs[0]: reaching definition for ra
-    uses[0]: uses of rD
-    useshigh[0] = uses of rD in high-level expressions
-
+    vars[0]: rA
+    xprs[0]: rS
+    xprs[1]: rS rewritten
     """
 
     def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
@@ -83,17 +72,16 @@ class PWROrImmediate(PowerOpcode):
 
     @property
     def operands(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args[4:]]
+        return [self.pwrd.pwr_operand(self.args[i]) for i in [1, 2]]
 
     @property
     def opargs(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args[4:]]
+        return [self.pwrd.pwr_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[2])
-        rrhs = str(xdata.xprs[3])
-        return lhs + " := " + rhs + " (= " + rrhs + ")"
+        rhs = str(xdata.xprs[1])
+        return lhs + " := " + rhs
 
     def ast_prov(
             self,
@@ -103,13 +91,16 @@ class PWROrImmediate(PowerOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "ori"]
+        annotations: List[str] = [iaddr, "extsh"]
 
-        (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
-        (ll_op1, _, _) = self.operands[1].ast_rvalue(astree)
-        (ll_op2, _, _) = self.operands[2].ast_rvalue(astree)
-        ll_rhs = astree.mk_binary_op("bor", ll_op1, ll_op2)
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[0]
+        rdefs = xdata.reachingdefs[0]
+        defuses = xdata.defuses[0]
+        defuseshigh = xdata.defuseshigh[0]
 
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
         ll_assign = astree.mk_assign(
             ll_lhs,
             ll_rhs,
@@ -117,24 +108,15 @@ class PWROrImmediate(PowerOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[3]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+        hl_lhss = XU.xvariable_to_ast_lvals (lhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lhsasts) != 1:
-            raise UF.CHBError("OrImmediate: zero or multiple lvals at " + iaddr)
+        if len(hl_lhss) != 1 or len(hl_rhss) != 1:
+            raise UF.CHBError(
+                "PWRExtendSignHalfword: multiple lval/expressions in ast")
 
-        hl_lhs = lhsasts[0]
-
-        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        if len(rhsasts) != 1:
-            raise UF.CHBError("OrImmediate: zero or multiple rhs values at " + iaddr)
-
-        hl_rhs = rhsasts[0]
-
+        hl_lhs = hl_lhss[0]
+        hl_rhs = hl_rhss[0]
         hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
@@ -147,9 +129,8 @@ class PWROrImmediate(PowerOpcode):
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)
         astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
-        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
-        astree.add_lval_defuses(hl_lhs, defuses[0])
-        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs])
+        astree.add_lval_defuses(hl_lhs, defuses)
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh)
 
         return ([hl_assign], [ll_assign])

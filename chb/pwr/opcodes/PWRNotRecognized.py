@@ -32,9 +32,9 @@ from chb.app.InstrXData import InstrXData
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
-from chb.invariants.XXpr import XXpr
+import chb.invariants.XXpr as X
+import chb.invariants.XXprUtil as XU
 
-from chb.pwr.PowerCallOpcode import PowerCallOpcode
 from chb.pwr.PowerDictionaryRecord import pwrregistry
 from chb.pwr.PowerOpcode import PowerOpcode
 from chb.pwr.PowerOperand import PowerOperand
@@ -44,23 +44,15 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    from chb.api.CallTarget import CallTarget
     from chb.pwr.PowerDictionary import PowerDictionary
 
-@pwrregistry.register_tag("bl", PowerOpcode)
-@pwrregistry.register_tag("e_bl", PowerOpcode)
-@pwrregistry.register_tag("se_bl", PowerOpcode)
-class PWRBranchLink(PowerCallOpcode):
-    """Call instruction
 
-    tags[1]: pit: instruction type
-    args[0]: index of target address in pwrdictionary
-    args[1]: index of link register in pwrdictionary
+@pwrregistry.register_tag("not_recognized", PowerOpcode)
+class PWRNotRecognized(PowerOpcode):
+    """Opcode generated for bit pattern not recognized by the disassembler.
 
-    xdata format:
-    -------------
-    vars: returnvalue
-    xprs[0..n-1] :  argument expressions
+    tags[1]: description
+    tags[2]: instruction address
     """
 
     def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
@@ -68,31 +60,14 @@ class PWRBranchLink(PowerCallOpcode):
 
     @property
     def operands(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(self.args[0])]
+        return []
 
     @property
     def opargs(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args]
-
-    def is_call(self, xdata: InstrXData) -> bool:
-        return len(xdata.tags) >= 2 and xdata.tags[1] == "call"
-
-    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return xdata.xprs
-
-    def call_target(self, xdata: InstrXData) -> "CallTarget":
-        if self.is_call(xdata):
-            return xdata.call_target(self.ixd)
-        else:
-            raise UF.CHBError("Instruction is not a call: " + str(self))
+        return []
 
     def annotation(self, xdata: InstrXData) -> str:
-        if self.is_call(xdata) and xdata.has_call_target():
-            tgt = xdata.call_target(self.ixd)
-            args = ", ".join(str(x) for x in self.arguments(xdata))
-            return "call " + str(tgt) + "(" + args + ")"
-        ctgt = str(xdata.xprs[0])
-        return "call " + ctgt
+        return "Not-recognized: " + self.tags[1]
 
     def ast_prov(
             self,
@@ -101,5 +76,5 @@ class PWRBranchLink(PowerCallOpcode):
             bytestring: str,
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        return self.ast_call_prov(
-            astree, iaddr, bytestring, "BranchLink (bl)", xdata)
+
+        return ([], [])
