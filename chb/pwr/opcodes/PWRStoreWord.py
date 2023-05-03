@@ -104,7 +104,7 @@ class PWRStoreWord(PowerOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "stw"]
+        annotations: List[str] = [iaddr, "stb"]
 
         (ll_rhs, _, _) = self.opargs[0].ast_rvalue(astree)
         (ll_lhs, ll_preinstrs, ll_postinstrs) = self.opargs[2].ast_lvalue(astree)
@@ -140,9 +140,10 @@ class PWRStoreWord(PowerOpcode):
             lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
             if len(lvals) != 1:
                 raise UF.CHBError(
-                    "no or multiple lhs values for storeword at " + iaddr)
+                    "no or multiple lhs values for storebyte at " + iaddr)
 
             hl_lhs = lvals[0]
+            astree.add_lval_store(hl_lhs)
 
         hl_assign = astree.mk_assign(
             hl_lhs,

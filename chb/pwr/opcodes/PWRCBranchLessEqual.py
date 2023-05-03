@@ -29,6 +29,12 @@ from typing import cast, List, Sequence, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+from chb.invariants.XXpr import XXpr, XprCompound
+import chb.invariants.XXprUtil as XU
+
 from chb.pwr.PowerDictionaryRecord import pwrregistry
 from chb.pwr.PowerOpcode import PowerOpcode
 from chb.pwr.PowerOperand import PowerOperand
@@ -43,7 +49,7 @@ if TYPE_CHECKING:
 @pwrregistry.register_tag("ble", PowerOpcode)
 @pwrregistry.register_tag("e_ble", PowerOpcode)
 @pwrregistry.register_tag("se_ble", PowerOpcode)
-class PWRCompareImmediate(PowerOpcode):
+class PWRBranchLessEqual(PowerOpcode):
     """Conditional branch if less-equal
 
     tags[1]: pit: instruction type
@@ -74,8 +80,101 @@ class PWRCompareImmediate(PowerOpcode):
     def opargs(self) -> List[PowerOperand]:
         return [self.pwrd.pwr_operand(i) for i in self.args[3:]]
 
+    def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
+        if xdata.has_branch_conditions():
+            return [xdata.xprs[3], xdata.xprs[2]]
+        else:
+            return []
+
+    def is_condition_true(self, xdata: InstrXData) -> bool:
+        ftconds = self.ft_conditions(xdata)
+        if len(ftconds) == 2:
+            return ftconds[1].is_true
+        return False
+
     def annotation(self, xdata: InstrXData) -> str:
         if xdata.has_branch_conditions():
             return "if " + str(xdata.xprs[2]) + " then goto " + str(xdata.xprs[4])
         else:
             return "?"
+
+    def ast_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData,
+            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+
+        annotations: List[str] =  [iaddr, "ble"]
+
+        rdefs = xdata.reachingdefs
+
+        def default(condition: XXpr) -> AST.ASTExpr:
+            astconds = XU.xxpr_to_ast_exprs(condition, xdata, astree)
+            if len(astconds) == 0:
+                raise UF.CHBError(
+                    "CBranchLessEqual (ble): no ast value for condition at "
+                    + iaddr
+                    + " for "
+                    + str(condition))
+
+            if len(astconds) > 1:
+                raise UF.CHBError(
+                    "CBranchLessEqual (ble)): multiple ast values for condition at "
+                    + iaddr
+                    + ": "
+                    + ", ".join(str(c) for c in astconds)
+                    + " for condition "
+                    + str(condition))
+
+            return astconds[0]
+
+        ftconds = self.ft_conditions(xdata)
+        if len(ftconds) == 2:
+            if reverse:
+                condition = ftconds[0]
+            else:
+                condition = ftconds[1]
+
+            if condition.is_register_comparison:
+                condition = cast(XprCompound, condition)
+                xoperator = condition.operator
+                xoperands = condition.operands
+                xop1 = xoperands[0]
+                xop2 = xoperands[1]
+
+                csetter = xdata.tags[2]
+                astop1s = XU.xxpr_to_ast_def_exprs(xop1, xdata, csetter, astree)
+                astop2s = XU.xxpr_to_ast_def_exprs(xop2, xdata, csetter, astree)
+
+                if len(astop1s) == 1 and len(astop2s) == 1:
+                    hl_astcond = astree.mk_binary_op(xoperator, astop1s[0], astop2s[0])
+
+                else:
+                    raise UF.CHBError(
+                        "Branch at " + iaddr + ": Error in ast condition")
+
+            elif condition.is_compound:
+                csetter = xdata.tags[2]
+                astconditions = XU.xxpr_to_ast_def_exprs(condition, xdata, csetter, astree)
+                if len(astconditions) == 1:
+                    hl_astcond = astconditions[0]
+
+                else:
+                    hl_astcond = default(condition)
+            else:
+                hl_astcond = default(condition)
+
+            astree.add_expr_mapping(hl_astcond, hl_astcond)
+            astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+
+            return (hl_astcond, hl_astcond)
+
+        elif len(ftconds) == 0:
+            astree.add_diagnostic(iaddr + ": no branch condition found")
+            return (astree.mk_integer_constant(0), astree.mk_integer_constant(0))
+
+        else:
+            raise UF.CHBError(
+                "PWRCBranchLessEqual: one or more than two conditions at " + iaddr)
