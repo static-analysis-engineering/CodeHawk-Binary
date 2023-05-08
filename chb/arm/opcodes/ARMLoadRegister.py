@@ -72,6 +72,7 @@ class ARMLoadRegister(ARMOpcode):
     rdefs[0]: reaching definitions rn
     rdefs[1]: reaching definitions rm
     rdefs[2]: reaching definitions memory location
+    rdefs[3..]: reaching definitions for memory value
     uses[0]: use of lhs
     useshigh[0]: use of lhs at high level
 
@@ -141,19 +142,6 @@ class ARMLoadRegister(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "LDR"]
-
-        (ll_rhs, ll_preinstrs, ll_postinstrs) = self.opargs[3].ast_rvalue(astree)
-        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
-        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
-        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
-        ll_assign = astree.mk_assign(
-            ll_lhs,
-            ll_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
         memaddr = xdata.xprs[4]
@@ -161,53 +149,60 @@ class ARMLoadRegister(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_preinstrs: List[AST.ASTInstruction] = []
-        hl_postinstrs: List[AST.ASTInstruction] = []
+        annotations: List[str] = [iaddr, "LDR", "addr:" + str(memaddr)]
 
-        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
-        if len(rhsexprs) == 0:
-            raise UF.CHBError(
-                "LoadRegister (LDR): no rhs value found")
+        (ll_rhs, _, _) = self.opargs[3].ast_rvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
 
-        if len(rhsexprs) > 1:
-            raise UF.CHBError(
-                "LoadRegister (LDR): Multiple rhs values: "
-                + ", ".join(str(x) for x in rhsexprs))
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        if len(hl_rhss) == 0:
+            astree.add_diagnostic("LDR (" + iaddr + "): no rhs value found")
 
-        hl_rhs = rhsexprs[0]
+        if len(hl_rhss) > 1:
+            astree.add_diagnostic(
+                "LDR ("
+                + iaddr
+                + "): Multiple rhs values: "
+                + ", ".join(str(x) for x in hl_rhss))
+            hl_rhs = None
 
-        if str(hl_rhs).startswith("__asttmp"):
-            addrlval = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
+        if len(hl_rhss) != 1 or rhs.is_tmp_variable or rhs.has_unknown_memory_base():
+            addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
             hl_rhs = astree.mk_lval_expression(addrlval)
 
-        elif str(hl_rhs).startswith("localvar"):
-            deflocs = xdata.reachingdeflocs_for_s(str(rhs))
-            if len(deflocs) == 1:
-                definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
-                if definition is not None:
-                    hl_rhs = definition
+        else:
+            hl_rhs = hl_rhss[0]
+            if str(hl_rhs).startswith("localvar"):
+                deflocs = xdata.reachingdeflocs_for_s(str(rhs))
+                if len(deflocs) == 1:
+                    definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
+                    if definition is not None:
+                        hl_rhs = definition
 
-        hl_lhs = astree.mk_register_variable_lval(str(lhs))
-        hl_assign = astree.mk_assign(
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(hl_lhss) == 0:
+            raise UF.CHBError("LDR: no lval found")
+        if len(hl_lhss) > 1:
+            raise UF.CHBError(
+                "LDR: multiple lvals: "
+                + ", ".join(str(v) for v in hl_lhss))
+
+        hl_lhs = hl_lhss[0]
+
+        return self.ast_variable_intro(
+            astree,
+            hl_rhs.ctype(astree.ctyper),
             hl_lhs,
             hl_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-
-        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-        astree.add_instr_mapping(hl_assign, ll_assign)
-        astree.add_instr_address(hl_assign, [iaddr])
-        astree.add_expr_mapping(hl_rhs, ll_rhs)
-        astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(hl_rhs, [rdefs[2]])
-        astree.add_lval_defuses(hl_lhs, defuses[0])
-        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-
-        if ll_rhs.is_ast_lval_expr:
-            lvalexpr = cast(AST.ASTLvalExpr, ll_rhs)
-            if lvalexpr.lval.lhost.is_memref:
-                memexp = cast(AST.ASTMemRef, lvalexpr.lval.lhost).memexp
-                astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
-
-        return ([hl_assign], [ll_assign])
+            ll_lhs,
+            ll_rhs,
+            rdefs[3:],
+            rdefs[:2],
+            defuses[0],
+            defuseshigh[0],
+            True,
+            iaddr,
+            annotations,
+            bytestring)

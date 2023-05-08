@@ -67,7 +67,8 @@ class ARMStoreRegisterByte(ARMOpcode):
     xprs[1]: xrm (index)
     xprs[2]: xrt (rhs, source register)
     xprs[3]: xrt (rhs, simplified)
-    xprs[4]: condition (if TC is set)
+    xprs[4]: xaddr (memory address)
+    xprs[5]: condition (if TC is set)
     rdefs[0]: rn
     rdefs[1]: rm
     rdefs[2]: rt
@@ -112,7 +113,7 @@ class ARMStoreRegisterByte(ARMOpcode):
         rhs = str(xdata.xprs[3])
         assign = lhs + " := " + rhs
 
-        xctr = 4
+        xctr = 5
         if xdata.has_instruction_condition():
             pcond = "if " + str(xdata.xprs[xctr]) + " then "
             xctr += 1

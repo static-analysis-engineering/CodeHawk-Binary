@@ -136,6 +136,9 @@ class ARMBitwiseOr(ARMOpcode):
         (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
         ll_rhs = astree.mk_binary_op("bor", ll_op1, ll_op2)
 
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+
         ll_assign = astree.mk_assign(
             ll_lhs,
             ll_rhs,
