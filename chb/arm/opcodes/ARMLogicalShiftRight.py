@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -106,9 +106,9 @@ class ARMLogicalShiftRight(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])
-        result = xdata.xprs[1]
-        rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
+        result = xdata.xprs[2]
+        rresult = xdata.xprs[3]
+        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         assignment = lhs + " := " + xresult
         if xdata.has_unknown_instruction_condition():
             return "if ? then " + assignment
@@ -131,60 +131,52 @@ class ARMLogicalShiftRight(ARMOpcode):
         lhs = xdata.vars[0]
         rhs1 = xdata.xprs[0]
         rhs2 = xdata.xprs[1]
-        rresult = xdata.xprs[3]
+        result = xdata.xprs[3]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
-        (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
-        (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
-        ll_lsl_expr = astree.mk_binary_op("lsr", ll_rhs1, ll_rhs2)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_rhs = astree.mk_binary_op("lsr", ll_op1, ll_op2)
 
-        ll_assign = astree.mk_assign(
-            ll_lhs,
-            ll_lsl_expr,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
 
         hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(hl_lhss) == 0:
-            raise UF.CHBError("ARMLogicalShiftRight (LSR): no lhs found")
+            raise UF.CHBError("LSR): no lhs found")
 
         if len(hl_lhss) > 1:
             raise UF.CHBError(
-                "ARMLogicalShiftRight (LSR): Multiple lhs locations found: "
+                "LSR: Multiple lhs locations found: "
                 + ", ".join(str(l) for l in hl_lhss))
 
-        hl_rhss = XU.xxpr_to_ast_def_exprs(rresult, xdata, iaddr, astree)
+        hl_rhss = XU.xxpr_to_ast_def_exprs(result, xdata, iaddr, astree)
         if len(hl_rhss) == 0:
-            raise UF.CHBError("ARMLogicalShiftRight (LSR): no rhs found")
+            raise UF.CHBError("LSR: no rhs found")
 
         if len(hl_rhss) > 1:
             raise UF.CHBError(
-                "ARMLogicalShiftRight (LSR): Multiple rhs values found: "
+                "LSR: Multiple rhs values found: "
                 + ", ".join(str(v) for v in hl_rhss))
 
         hl_lhs = hl_lhss[0]
         hl_rhs = hl_rhss[0]
-        hl_assign = astree.mk_assign(
+
+        return self.ast_variable_intro(
+            astree,
+            astree.astree.unsigned_int_type,
             hl_lhs,
             hl_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-
-        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-        astree.add_instr_mapping(hl_assign, ll_assign)
-        astree.add_instr_address(hl_assign, [iaddr])
-        astree.add_expr_mapping(hl_rhs, ll_lsl_expr)
-        astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(ll_lsl_expr, [rdefs[0], rdefs[1]])
-        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
-        astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
-        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
-        astree.add_lval_defuses(hl_lhs, defuses[0])
-        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-
-        return ([hl_assign], [ll_assign])
+            ll_lhs,
+            ll_rhs,
+            rdefs[2:],
+            rdefs[:2],
+            defuses[0],
+            defuseshigh[0],
+            True,
+            iaddr,
+            annotations,
+            bytestring)

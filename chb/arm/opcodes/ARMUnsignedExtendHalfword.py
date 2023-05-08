@@ -120,89 +120,42 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
 
         annotations: List[str] = [iaddr, "UXTH"]
 
-        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
-        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
-        ll_assign = astree.mk_assign(
-            ll_lhs,
-            ll_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-
         lhs = xdata.vars[0]
         rhs = xdata.xprs[2]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+
         hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        if len(hl_rhss) == 1 and len(hl_lhss) == 1:
 
-            hl_lhs = hl_lhss[0]
-            hl_rhs = hl_rhss[0]
+        if len(hl_lhss) == 0:
+            raise UF.CHBError("UXTH: no lvals in ast")
+        if len(hl_lhss) > 1:
+            raise UF.CHBError("UXTH: multiple lvals in ast")
+        if len(hl_rhss) == 0:
+            raise UF.CHBError("UXTH: no rhs expressions in ast")
+        if len(hl_rhss) > 1:
+            raise UF.CHBError("UXTH: multiplve rhs expressions in ast")
 
-            if astree.has_variable_intro(iaddr):
-                vname = astree.get_variable_intro(iaddr)
-                vinfo = astree.mk_vinfo(
-                    vname,
-                    vtype=astree.astree.unsigned_short_type,
-                    vdescr="intro")
-                vinfolval = astree.mk_vinfo_lval(vinfo)
-                vinfolvalexpr = astree.mk_lval_expr(vinfolval)
+        hl_lhs = hl_lhss[0]
+        hl_rhs = hl_rhss[0]
 
-                hl_intro_assign = astree.mk_assign(
-                    vinfolval,
-                    hl_rhs,
-                    iaddr=iaddr,
-                    bytestring=bytestring,
-                    annotations=annotations)
-
-                hl_assign = astree.mk_assign(
-                    hl_lhs,
-                    vinfolvalexpr,
-                    iaddr=iaddr,
-                    bytestring=bytestring,
-                    annotations=annotations)
-
-                astree.add_reg_definition(iaddr, hl_lhs, vinfolvalexpr)
-                astree.add_instr_mapping(hl_intro_assign, ll_assign)
-                astree.add_instr_mapping(hl_assign, ll_assign)
-                astree.add_instr_address(hl_intro_assign, [iaddr])
-                astree.add_instr_address(hl_assign, [iaddr])
-                astree.add_expr_mapping(hl_rhs, ll_rhs)
-                astree.add_expr_mapping(vinfolvalexpr, ll_rhs)
-                astree.add_lval_mapping(hl_lhs, ll_lhs)
-                astree.add_lval_mapping(vinfolval, ll_lhs)
-                astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
-                astree.add_lval_defuses(hl_lhs, defuses[0])
-                astree.add_lval_defuses(vinfolval, defuses[0])
-                astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-                astree.add_lval_defuses_high(vinfolval, defuseshigh[0])
-
-                return ([hl_intro_assign, hl_assign], [ll_assign])
-
-            else:
-
-                hl_assign = astree.mk_assign(
-                    hl_lhs,
-                    hl_rhs,
-                    iaddr=iaddr,
-                    bytestring=bytestring,
-                    annotations=annotations)
-
-                astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-                astree.add_instr_mapping(hl_assign, ll_assign)
-                astree.add_instr_address(hl_assign, [iaddr])
-                astree.add_expr_mapping(hl_rhs, ll_rhs)
-                astree.add_lval_mapping(hl_lhs, ll_lhs)
-                astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
-                astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
-                astree.add_lval_defuses(hl_lhs, defuses[0])
-                astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-
-                return ([hl_assign], [ll_assign])
-
-        else:
-            raise UF.CHBError(
-                "ARMUnsignedExtendHalfword: multiple expressions/lvals in ast")
+        return self.ast_variable_intro(
+            astree,
+            astree.astree.unsigned_short_type,
+            hl_lhs,
+            hl_rhs,
+            ll_lhs,
+            ll_rhs,
+            rdefs[1:],
+            [rdefs[0]],
+            defuses[0],
+            defuseshigh[0],
+            False,
+            iaddr,
+            annotations,
+            bytestring)

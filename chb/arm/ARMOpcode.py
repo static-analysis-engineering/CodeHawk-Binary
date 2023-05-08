@@ -39,6 +39,7 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+from chb.invariants.VarInvariantFact import DefUse, DefUseHigh, ReachingDefFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
@@ -192,6 +193,91 @@ class ARMOpcode(ARMDictionaryRecord):
 
         expr = self.ast_condition(astree, iaddr, bytestring, xdata, reverse)
         return (expr, expr)
+
+    def ast_variable_intro(
+            self,
+            astree: ASTInterface,
+            ctype: Optional[AST.ASTTyp],
+            hl_lhs: AST.ASTLval,
+            hl_rhs: AST.ASTExpr,
+            ll_lhs: AST.ASTLval,
+            ll_rhs: AST.ASTExpr,
+            hl_rdefs: List[Optional[ReachingDefFact]],
+            ll_rdefs: List[Optional[ReachingDefFact]],
+            defuses: Optional[DefUse],
+            defuseshigh: Optional[DefUseHigh],
+            addregdef: bool,
+            iaddr: str,
+            annotations: List[str],
+            bytestring: str) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        hl_assigns: List[AST.ASTInstruction] = []
+        if astree.has_variable_intro(iaddr):
+            vname = astree.get_variable_intro(iaddr)
+            vinfo = astree.mk_vinfo(vname, vtype=ctype, vdescr="intro")
+            vinfolval = astree.mk_vinfo_lval(vinfo)
+            vinfolvalexpr = astree.mk_lval_expr(vinfolval)
+
+            annotations = annotations + ["lhs-intro"]
+
+            hl_intro_assign = astree.mk_assign(
+                vinfolval,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                vinfolvalexpr,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            if addregdef:
+                astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
+            else:
+                astree.add_reg_definition(iaddr, hl_lhs, vinfolvalexpr)
+            astree.add_instr_mapping(hl_intro_assign, ll_assign)
+            astree.add_instr_address(hl_intro_assign, [iaddr])
+            astree.add_expr_mapping(vinfolvalexpr, ll_rhs)
+            astree.add_lval_mapping(vinfolval, ll_lhs)
+            astree.add_lval_defuses(vinfolval, defuses)
+            astree.add_lval_defuses_high(vinfolval, defuseshigh)
+
+            hl_assigns = [hl_intro_assign, hl_assign]
+
+        else:
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            if addregdef:
+                astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
+
+            hl_assigns = [hl_assign]
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, hl_rdefs)
+        astree.add_expr_reachingdefs(ll_rhs, ll_rdefs)
+        astree.add_lval_defuses(hl_lhs, defuses)
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh)
+
+        return (hl_assigns, [ll_assign])
 
     def ast_cc_expr(self, astree: ASTInterface) -> AST.ASTExpr:
         cc = self.mnemonic_extension()

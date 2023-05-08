@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -110,25 +110,19 @@ class ARMUnsignedExtractBitField(ARMOpcode):
 
         annotations: List[str] = [iaddr, "UBFX"]
 
-        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
-        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
-        ll_assign = astree.mk_assign(
-            ll_lhs,
-            ll_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-
         lhs = xdata.vars[0]
         rhs = xdata.xprs[1]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+
         hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
 
         try:
-            hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+            hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         except UF.CHBError as e:
             astree.add_diagnostic(
                 iaddr + ": Error in UBFX: " + str(e) + "; use ll_rhs")
@@ -137,24 +131,22 @@ class ARMUnsignedExtractBitField(ARMOpcode):
         if len(hl_rhss) == 1 and len(hl_lhss) == 1:
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]
-            hl_assign = astree.mk_assign(
+
+            return self.ast_variable_intro(
+                astree,
+                astree.astree.unsigned_char_type,
                 hl_lhs,
                 hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-
-            astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-            astree.add_instr_mapping(hl_assign, ll_assign)
-            astree.add_instr_address(hl_assign, [iaddr])
-            astree.add_expr_mapping(hl_rhs, ll_rhs)
-            astree.add_lval_mapping(hl_lhs, ll_lhs)
-            astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
-            astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
-            astree.add_lval_defuses(hl_lhs, defuses[0])
-            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-
-            return ([hl_assign], [ll_assign])
+                ll_lhs,
+                ll_rhs,
+                rdefs[1:],
+                [rdefs[0]],
+                defuses[0],
+                defuseshigh[0],
+                False,
+                iaddr,
+                annotations,
+                bytestring)
 
         else:
             raise UF.CHBError(

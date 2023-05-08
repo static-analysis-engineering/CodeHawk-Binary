@@ -122,7 +122,7 @@ class ARMBitwiseAnd(ARMOpcode):
         lhs = xdata.vars[0]
         rhs1 = xdata.xprs[0]
         rhs2 = xdata.xprs[1]
-        rhs3 = xdata.xprs[3]
+        result = xdata.xprs[3]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -132,52 +132,41 @@ class ARMBitwiseAnd(ARMOpcode):
         (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
         ll_rhs = astree.mk_binary_op("band", ll_op1, ll_op2)
 
-        ll_assign = astree.mk_assign(
-            ll_lhs,
-            ll_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
 
         lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(lhsasts) == 0:
-            raise UF.CHBError("BitwiseAnd (AND): no lval found")
+            raise UF.CHBError("AND: no lhs value")
 
         if len(lhsasts) > 1:
             raise UF.CHBError(
-                "BitwiseAnd (AND): multiple lvals found: "
+                "AND: muliple lhs values: "
                 + ", ".join(str(v) for v in lhsasts))
 
-        hl_lhs = lhsasts[0]
-
-        rhsasts = XU.xxpr_to_ast_def_exprs(rhs3, xdata, iaddr, astree)
+        rhsasts = XU.xxpr_to_ast_def_exprs(result, xdata, iaddr, astree)
         if len(rhsasts) == 0:
-            raise UF.CHBError("BitwiseAnd (AND): no lval found")
+            raise UF.CHBError("AND: no rhs value")
 
         if len(rhsasts) > 1:
             raise UF.CHBError(
-                "BitwiseAnd (AND): multiple rhs values found: "
+                "AND: multiple rhs values: "
                 + ", ".join(str(v) for v in rhsasts))
 
+        hl_lhs = lhsasts[0]
         hl_rhs = rhsasts[0]
-
-        hl_assign = astree.mk_assign(
+        return self.ast_variable_intro(
+            astree,
+            astree.astree.unsigned_int_type,
             hl_lhs,
             hl_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-
-        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-        astree.add_instr_mapping(hl_assign, ll_assign)
-        astree.add_instr_address(hl_assign, [iaddr])
-        astree.add_expr_mapping(hl_rhs, ll_rhs)
-        astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0], rdefs[1]])
-        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
-        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
-        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
-        astree.add_lval_defuses(hl_lhs, defuses[0])
-        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-
-        return ([hl_assign], [ll_assign])
+            ll_lhs,
+            ll_rhs,
+            rdefs[2:],
+            rdefs[:2],
+            defuses[0],
+            defuseshigh[0],
+            True,
+            iaddr,
+            annotations,
+            bytestring)
