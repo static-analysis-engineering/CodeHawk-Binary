@@ -118,6 +118,15 @@ class XXpr(FnXprDictionaryRecord):
         return False
 
     @property
+    def is_tmp_variable(self) -> bool:
+        return False
+
+    def has_unknown_memory_base(self) -> bool:
+        """Return true if this expression is a memory variable with unknown base."""
+
+        return False
+
+    @property
     def is_constant(self) -> bool:
         return False
 
@@ -304,6 +313,13 @@ class XprVariable(XXpr):
     @property
     def is_var(self) -> bool:
         return True
+
+    @property
+    def is_tmp_variable(self) -> bool:
+        return self.variable.is_tmp
+
+    def has_unknown_memory_base(self) -> bool:
+        return self.variable.has_unknown_memory_base()
 
     @property
     def is_structured_expr(self) -> bool:

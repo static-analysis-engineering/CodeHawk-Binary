@@ -59,7 +59,7 @@ class AnalysisManager(object):
             deps: List[str] = [],
             so_libraries: List[str] = [],
             specializations: List[str] = [],
-            exclude_debug: bool = False,
+            exclude_debug: bool = True,
             elf: bool = False,
             mips: bool = False,
             arm: bool = False,

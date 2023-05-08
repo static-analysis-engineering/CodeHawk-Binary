@@ -273,7 +273,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             if len(asts) >= 2:
                 astapi.add_function_ast(astree, asts, verbose)
 
-                print("\nLifted code")
+                print("\nLifted code for function " + faddr)
                 print("--------------------------------------------------------")
                 prettyprinter = ASTCPrettyPrinter(
                     localsymboltable, annotations=astinterface.annotations)
@@ -311,34 +311,16 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
 
 def showast(args: argparse.Namespace) -> NoReturn:
-
+    print("still under construction ..")
     exit(1)
 
     '''
-
     # arguments
     xname: str = args.xname
-    outputfile: str = args.outputfile
-    decompile: bool = args.decompile
     exclude: List[str] = args.exclude
     functions: List[str] = args.functions
     hints: List[str] = args.hints  # names of json files
-    remove_edges: List[str] = args.remove_edges
-    add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
-    available_exprs: List[str] = args.show_available_exprs
-
-    if (not decompile) and len(functions) == 0:
-        UC.print_error(
-            "Please specify at least one function address\n"
-            + "with the --functions command-line option.")
-        exit(1)
-
-    rmedges: Dict[str, List[Tuple[str, str]]] = {}
-    adedges: Dict[str, List[Tuple[str, str]]] = {}
-    if len(remove_edges) + len(add_edges) > 0:
-        rmedges = UC.extract_function_edges(remove_edges)
-        adedges = UC.extract_function_edges(add_edges)
 
     try:
         (path, xfile) = UC.get_path_filename(xname)
@@ -375,17 +357,14 @@ def showast(args: argparse.Namespace) -> NoReturn:
         userdata = UF.get_file_registered_userdata(xinfo.md5)
         userhints.add_hints(userdata)
 
-    jsonfilenames: Dict[str, str] = {}
-
     app = UC.get_app(path, xfile, xinfo)
 
     excluded: int = 0
-    if decompile:
-        for (faddr, fn) in app.functions.items():
-            if faddr in exclude or fn.cfg.has_loops():
-                excluded += 1
-                continue
-            functions.append(faddr)
+    for (faddr, fn) in app.functions.items():
+        if faddr in exclude:
+            excluded += 1
+            continue
+        functions.append(faddr)
 
     functioncount: int = 0
     failedfunctions: int = 0
@@ -400,12 +379,20 @@ def showast(args: argparse.Namespace) -> NoReturn:
     globalsymboltable = ASTGlobalSymbolTable()    
     typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
 
+    fnames: Dict[str, str] = {}
+    for faddr in functions:
+        if app.has_function_name(faddr):
+            fname = app.function_name(faddr)
+            fnames[fname] = faddr    
+
     for vinfo in app.bcfiles.globalvars:
         vname = vinfo.vname
         if vname in revsymbolicaddrs:
             gaddr = int(revsymbolicaddrs[vname], 16)
         elif vname in revfunctionnames:
             gaddr = int(revfunctionnames[vname], 16)
+        elif vname in fnames:
+            gaddr = int(fnames[vname], 16)            
         else:
             gaddr = 0
         if gaddr > 0:
@@ -413,15 +400,12 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 vname,
                 vtype=vinfo.vtype.convert(typconverter),
                 globaladdress=gaddr)
-            # size=vinfo.vtype.byte_size())
+
+    typconverter.initialize_enuminfos(app.bcfiles.genumtags)
     typconverter.initialize_compinfos()
 
-    # ------------------------------------------- initialize json ast output ---
-
-    if outputfile is not None:
-        ast_output: Dict[str, Any] = {}
-        ast_output["functions"] = []
-        astfunctions = ast_output["functions"]
+    functions_lifted: int = 0
+    functions_failed: int = 0
 
     # ------------------------------------ generate ast / decompile functions ---
 
@@ -433,36 +417,57 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 UC.print_error("Unable to find function " + faddr)
                 continue
 
-            fnrmedges: List[Tuple[str, str]] = []
-            fnadedges: List[Tuple[str, str]] = []
-            if faddr in rmedges:
-                fnrmedges = rmedges[faddr]
-                print("Remove " + str(len(fnrmedges)) + " edge(s) from cfg")
-            if faddr in adedges:
-                fnadedges = adedges[faddr]
-                print("Add " + str(len(fnadedges)) + " edge(s) to cfg")
-            if len(fnrmedges) + len(fnadedges) > 0:
-                f.cfg.modify_edges(fnrmedges, fnadedges)
-
             fname = faddr
             if app.has_function_name(faddr):
                 fname = app.function_name(faddr)
             else:
                 fname = "sub_" + faddr[2:]
 
-            localsymboltable = ASTLocalSymbolTable(
-                globalsymboltable)
-            ctyper = ASTBasicCTyper(globalsymboltable)
-            typesizer = ASTByteSizeCalculator(ctyper)
+            localsymboltable = ASTLocalSymbolTable(globalsymboltable)
+            # ctyper = ASTBasicCTyper(globalsymboltable)
+            # typesizer = ASTByteSizeCalculator(ctyper)
 
-            astree = ASTInterface(
+            astree = AbstractSyntaxTree(
                 faddr,
                 fname,
                 localsymboltable,
+                registersizes=support.register_sizes,
+                flagnames=support.flagnames)
+
+            srcprototype: Optional["BCVarInfo"] = None
+            astprototype: Optional[ASTVarInfo] = None
+            if app.bcfiles.has_vardecl(fname):
+                srcprototype = app.bcfiles.vardecl(fname)
+            elif fname == "main":
+                astprototype = astree.mk_vinfo_main_function(faddr)
+
+            astinterface = ASTInterface(
+                astree,
                 typconverter,
-                typesizer,
-                ctyper,
-                xinfo.architecture)
+                xinfo.architecture,
+                srcprototype=srcprototype,
+                astprototype=astprototype,
+                varintros=varintros,
+                verbose=verbose,
+                showdiagnostics=showdiagnostics)
+
+            astfunction = ASTInterfaceFunction(faddr, fname, f, astinterface)
+
+            try:
+                asts = astfunction.mk_asts(support)
+            except UF.CHBError as e:
+                UC.print_error(
+                    "Unable to create lifting for "
+                    + faddr
+                    + ":\n"
+                    + ("-" * 80)
+                    + "\n"
+                    + str(e))
+                functions_failed += 1
+                # continue
+                raise
+
+
             gvars: List[ASTVariable] = []
 
             if app.bcfiles.has_functiondef(fname):

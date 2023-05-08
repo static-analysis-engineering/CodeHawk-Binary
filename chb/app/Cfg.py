@@ -549,6 +549,12 @@ class Cfg:
                 if nsuccs == 1:
                     return xstmts + do_branch(x, succs[0], ctx)
 
+                if nsuccs > 2:
+                    raise UF.CHBError(
+                        "Encountered more than two successors: "
+                        + str(nsuccs)
+                        + " in do_branch in run_with_goto_labels in cfg conversion")
+
                 assert nsuccs == 2
                 astblock = astfn.astblock(x)
                 astlastinstr = astblock.last_instruction

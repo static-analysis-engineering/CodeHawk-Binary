@@ -457,6 +457,11 @@ class ASTInterface:
         return []
         # return self.symboltable.global_symbols()
 
+    def get_formal_binary_argcount(self) -> int:
+        """Return the total number of (binary) 4-byte argument slots."""
+
+        return sum(f.numargs for f in self.srcformals)
+
     def get_formal_locindices(
             self, argindex: int) -> Tuple[ASTIFormalVarInfo, List[int]]:
         """Return the indices of the arg location(s) for argindex.
@@ -673,10 +678,12 @@ class ASTInterface:
             tgt: AST.ASTExpr,
             args: List[AST.ASTExpr],
             iaddr: Optional[str] = None,
-            bytestring: Optional[str] = None) -> AST.ASTCall:
+            bytestring: Optional[str] = None,
+            annotations: List[str] = []) -> AST.ASTCall:
         call = self.astree.mk_call(lval, tgt, args)
         if iaddr is not None and bytestring is not None:
             self.add_instruction_span(call.locationid, iaddr, bytestring)
+        self._annotations[call.instrid] = annotations
         return call
 
     # ----------------------------------------------------- make lvals/exprs ---

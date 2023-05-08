@@ -815,13 +815,14 @@ def vinitregister_value_to_ast_lvals(
 
     if vconstvar.is_argument_value:
         argindex = vconstvar.argument_index()
-        arglvals = astree.function_argument(argindex)
-        if len(arglvals) > 0:
-            return arglvals
-        else:
-            register = str(vconstvar.register)
-            return [astree.mk_register_variable_lval(
-                register + "_in", registername=register, anonymous=anonymous)]
+        if argindex < astree.get_formal_binary_argcount():
+            arglvals = astree.function_argument(argindex)
+            if len(arglvals) > 0:
+                return arglvals
+
+        register = str(vconstvar.register)
+        return [astree.mk_register_variable_lval(
+            register + "_in", registername=register, anonymous=anonymous)]
 
     elif vconstvar.register.is_stack_pointer:
         return [astree.mk_register_variable_lval("base_sp", anonymous=anonymous)]
@@ -849,7 +850,8 @@ def vinitmemory_value_to_ast_lvals(
                 if offsetval >= 0 and (offsetval % 4) == 0:
                     argindex = 4 + (offsetval // 4)
                     flvals = astree.function_argument(argindex)
-                    return flvals
+                    if len(flvals) > 0:
+                        return flvals
 
     return xvariable_to_ast_lvals(xvar, xdata, astree, anonymous=anonymous)
 
