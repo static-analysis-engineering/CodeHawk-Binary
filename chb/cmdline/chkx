@@ -579,13 +579,6 @@ def parse() -> argparse.Namespace:
     showast = resultsparsers.add_parser("decompile")
     showast.add_argument("xname", help="name of executable")
     showast.add_argument(
-        "--decompile",
-        help="attempt to decompile all functions without loops",
-        action="store_true")
-    showast.add_argument(
-        "--outputfile", "-o",
-        help="filename to save symboltables and asts in json format")
-    showast.add_argument(
         "--exclude",
         help="exclude from decompilation",
         nargs="*",
@@ -608,21 +601,6 @@ def parse() -> argparse.Namespace:
         "--showdiagnostics",
         help="print diagnostics to the console",
         action="store_true")
-    showast.add_argument(
-        "--remove_edges",
-        nargs="*",
-        default=[],
-        help="list of edges to be removed (in the form faddr:src-addr:tgt-addr in hex)")
-    showast.add_argument(
-        "--add_edges",
-        nargs="*",
-        default=[],
-        help="list of edges to be added (in the form faddr:src-addr:tgt-addr in hex)")
-    showast.add_argument(
-        "--show_available_exprs",
-        nargs="*",
-        default=[],
-        help="list of left-hand sides for which to show available expressions (e.g., R5)")
     showast.set_defaults(func=AST.showast)
 
     # -- results cfg (control flow graph) --

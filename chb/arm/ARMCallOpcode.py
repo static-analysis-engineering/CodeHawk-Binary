@@ -138,8 +138,6 @@ class ARMCallOpcode(ARMOpcode):
             astree.add_diagnostic("Inlined call omitted at " + iaddr)
             return ([], [])
 
-        annotations: List[str] = [iaddr, "BL"]
-
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -225,6 +223,8 @@ class ARMCallOpcode(ARMOpcode):
             argcount = tgt_argcount
             argtypes = tgt_argtypes
 
+        annotations: List[str] = [iaddr, "BL"]
+
         argregs = ["R0", "R1", "R2", "R3"][:argcount]
         argxprs: List[AST.ASTExpr] = []
         for (i, (reg, arg, argtype)) in enumerate(zip(argregs, callargs, argtypes)):
@@ -237,21 +237,35 @@ class ARMCallOpcode(ARMOpcode):
                     astree.add_expr_reachingdefs(regast, [rdefs[i]])
             elif arg.is_argument_value:
                 argindex = arg.argument_index()
-                funargs = astree.function_argument(argindex)
-                if len(funargs) != 1:
-                    raise UF.CHBError(
-                        name
-                        + "; "
+                try:
+                    funargs = astree.function_argument(argindex)
+                except UF.CHBError as e:
+                    break
+                if len(funargs) == 0:
+                    astree.add_diagnostic(
+                        "BL ("
                         + iaddr
-                        + ": no or multiple function arguments: "
-                        + str(tgtxpr)
-                        + " (index: "
+                        + "): no function argument for index "
                         + str(argindex)
-                        + "): "
-                        + ", ".join(str(x) for x in funargs)
-                    )
-                funarg = funargs[0]
-                if funarg:
+                        + " in call to "
+                        + str(tgtxpr))
+                    funarg: Optional[AST.ASTLval] = None
+
+                elif len(funargs) > 1:
+                    astree.add_diagnostic(
+                        "BL ("
+                        + iaddr
+                        + "): multiple values for function argument for index "
+                        + str(argindex)
+                        + " in call to "
+                        + str(tgtxpr)
+                        + ": "
+                        + ", ".join(str(x) for x in funargs))
+                    funarg = None
+                else:
+                    funarg = funargs[0]
+
+                if funarg is not None:
                     argxprs.append(astree.mk_lval_expr(funarg))
                 else:
                     argxprs.append(astree.mk_register_variable_expr(reg))
@@ -300,7 +314,12 @@ class ARMCallOpcode(ARMOpcode):
                         argxprs.append(astxprs[0])
 
         hl_call = cast(AST.ASTInstruction, astree.mk_call(
-            hl_lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
+            hl_lhs,
+            tgtxpr,
+            argxprs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations))
 
         astree.add_instr_mapping(hl_call, ll_call)
         astree.add_instr_address(hl_call, [iaddr])
