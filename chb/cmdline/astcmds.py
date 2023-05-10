@@ -188,7 +188,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
 
     fnames: Dict[str, str] = {}
-    for faddr in functions:
+    for faddr in app.appfunction_addrs:
         if app.has_function_name(faddr):
             fname = app.function_name(faddr)
             fnames[fname] = faddr

@@ -869,7 +869,7 @@ def vfunctionreturn_value_to_ast_lvals(
     vtype: Optional[AST.ASTTyp] = None
 
     if vconstvar.has_call_target():
-        calltarget = str(vconstvar.call_target())
+        calltarget = vconstvar.call_target().name
         if astree.globalsymboltable.has_symbol(calltarget):
             vinfo = astree.globalsymboltable.get_symbol(calltarget)
             if vinfo.vtype is not None:
@@ -996,7 +996,13 @@ def xvar_offset_dereference_lval(
                 "Multiple expressions in convertine address expression: "
                 + ", ".join(str(x) for x in addrasts))
 
-        return astree.mk_memref_lval(addrasts[0])
+        addrast = addrasts[0]
+        if offset is not None:
+            offsetasts = xxpr_to_ast_exprs(offset, xdata, astree)
+            if len(offsetasts) == 1:
+                addrast = astree.mk_binary_op("plus", addrast, offsetasts[0])
+
+        return astree.mk_memref_lval(addrast)
 
     vdefs = xdata.reachingdeflocs_for_s(str(var))
     if len(vdefs) == 0:

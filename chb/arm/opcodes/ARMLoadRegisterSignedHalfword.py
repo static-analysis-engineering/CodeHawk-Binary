@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -156,6 +156,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
 
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
+        memaddr = xdata.xprs[4]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -165,6 +166,11 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
         rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
         if len(rhsexprs) == 1:
             hl_rhs = rhsexprs[0]
+
+            if rhs.is_tmp_variable or rhs.has_unknown_memory_base():
+                addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+                hl_rhs = astree.mk_lval_expression(addrlval)
+
             hl_lhs = astree.mk_register_variable_lval(str(lhs))
             if str(hl_rhs).startswith("temp"):
                 (hl_rhs,
