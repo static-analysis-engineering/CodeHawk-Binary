@@ -640,8 +640,10 @@ class Cfg:
             elif len(successors) == 1:
                 succblock = astree.mk_goto_stmt(successors[0], successors[0])
             elif len(successors) == 2:
-                falsebranch = astree.mk_goto_stmt(successors[0], successors[0])
-                truebranch = astree.mk_goto_stmt(successors[1], successors[1])
+                falsebranch = astree.mk_goto_stmt(
+                    successors[0], successors[0], wrapgoto=True)
+                truebranch = astree.mk_goto_stmt(
+                    successors[1], successors[1], wrapgoto=True)
                 instr = blocknode.last_instruction
                 expr = instr.assembly_ast_condition(astree)
                 tgtaddr = successors[1]

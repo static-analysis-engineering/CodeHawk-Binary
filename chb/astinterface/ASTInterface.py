@@ -637,8 +637,13 @@ class ASTInterface:
             self,
             name: str,
             destaddr: str,
-            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTGoto:
-        return self.astree.mk_goto_stmt(name, destaddr, labels=labels)
+            wrapgoto: bool = False,
+            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTStmt:
+        if wrapgoto:
+            gotostmt = self.astree.mk_goto_stmt(name, destaddr)
+            return self.mk_block([gotostmt], labels=labels)
+        else:
+            return self.astree.mk_goto_stmt(name, destaddr, labels=labels)
 
     def mk_switch_stmt(
             self,
