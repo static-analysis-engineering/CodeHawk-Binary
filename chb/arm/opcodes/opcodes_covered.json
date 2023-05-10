@@ -3189,7 +3189,10 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"E": "< 31><3><11><rn><15><rd><15><rm>",
+			"D": "Y",
+			"U": ["b6fbf1f2"]
 		    }
 		]
 	    },
@@ -3269,6 +3272,22 @@
 		]
 	    },
 	    "TC": "DA"
+	},
+	"USAT": {
+	    "name": "UnsignedSaturate",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 30>0< 28>0<rn>0<i><rd>i20<imm>",
+			"D": "Y",
+			"U": ["80f30100"]
+		    }
+		]
+	    }
 	},
 	"UXTAB": {
 	    "name": "UnsignedExtendAddByte",

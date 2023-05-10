@@ -344,6 +344,10 @@ def xconstant_to_ast_exprs(
         else:
             return [astree.mk_integer_constant(1)]
 
+    elif xc.is_random_constant:
+        astree.add_diagnostic("Unknown random constant")
+        return [astree.mk_integer_constant(0)]
+
     else:
         raise UF.CHBError(
             "AST conversion of xconstant " + str(xc) + " not yet supported")

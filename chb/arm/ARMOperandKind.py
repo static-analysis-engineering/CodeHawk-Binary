@@ -934,6 +934,20 @@ class ARMFPConstant(ARMOperandKind):
     def is_fp_constant(self) -> bool:
         return True
 
+    def ast_lvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        raise UF.CHBError("Floating point constant cannot be an lvalue")
+
+    def ast_rvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> Tuple[
+                AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        return (astree.mk_float_constant(self.floatvalue), [], [])
+
     def __str__(self) -> str:
         return str(self.floatvalue)
 

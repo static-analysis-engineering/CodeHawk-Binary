@@ -545,6 +545,10 @@ class XprConstant(XXpr):
             result['t'] = 'i'
         return result
 
+    @property
+    def is_random_constant(self) -> bool:
+        return self.constant.is_random
+
     def __str__(self) -> str:
         return str(self.constant)
 

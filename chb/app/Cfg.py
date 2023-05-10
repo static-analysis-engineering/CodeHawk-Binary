@@ -553,7 +553,8 @@ class Cfg:
                     raise UF.CHBError(
                         "Encountered more than two successors: "
                         + str(nsuccs)
-                        + " in do_branch in run_with_goto_labels in cfg conversion")
+                        + " in do_branch in run_with_goto_labels in cfg conversion: "
+                        + ", ".join(str(s) for s in succs))
 
                 assert nsuccs == 2
                 astblock = astfn.astblock(x)
