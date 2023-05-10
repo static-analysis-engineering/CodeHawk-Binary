@@ -998,6 +998,11 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help="names of c header files with summaries/data structures")
+    relationalprepare.add_argument(
+        "--fns_include",
+        nargs="*",
+        default=[],
+        help="restrict analysis to these functions")
     relationalprepare.set_defaults(func=R.relational_prepare_command)
 
     # --- relational compare --

@@ -240,6 +240,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     hints: List[str] = args.hints
     headers: List[str] = args.headers
     save_aux_userdata: str = args.save_aux_userdata
+    fns_include: List[str] = args.fns_include
 
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -307,6 +308,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         arm=True,
         elf=True,
         ifilenames=ifilenames,
+        fns_include=fns_include,
         thumb=True)
 
     try:
