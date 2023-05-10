@@ -369,18 +369,24 @@ def xprvariable_to_ast_exprs(
         xdata: "InstrXData",
         astree: ASTInterface,
         size: int = 4,
+        ispointer: bool = False,
         anonymous: bool = False) -> List[AST.ASTExpr]:
     """Convert a variable to an AST Expr node."""
 
     def default() -> List[AST.ASTExpr]:
         lvals = xvariable_to_ast_lvals(
-            xv.variable, xdata, astree, size=size, anonymous=anonymous)
+            xv.variable, xdata, astree, ispointer=ispointer, size=size, anonymous=anonymous)
         return [astree.mk_lval_expression(
             lval, anonymous=anonymous) for lval in lvals]
 
-    def default_reg() -> List[AST.ASTExpr]:
-        lval = astree.mk_register_variable_lval(
-            name, anonymous=anonymous)
+    def default_reg(name: str) -> List[AST.ASTExpr]:
+        if ispointer:
+            vtype = astree.astree.mk_pointer_type(AST.ASTTypVoid())
+            lval = astree.mk_register_variable_lval(
+                name, vtype=vtype,anonymous=anonymous)
+        else:
+            lval = astree.mk_register_variable_lval(
+                name, anonymous=anonymous)
         return [astree.mk_lval_expression(lval, anonymous=anonymous)]
 
     if xv.variable.is_tmp:
@@ -392,10 +398,11 @@ def xprvariable_to_ast_exprs(
         if reg.is_mips_register:
             mipsreg = cast("MIPSRegister", reg)
             name = "mips_" + mipsreg.name
-            return default_reg()
+            return default_reg(name)
 
         else:
             name = str(xv)
+            return default_reg(name)
 
     if xv.variable.denotation.is_function_return_value:
         fr = cast("VFunctionReturnValue", xv.variable.denotation.auxvar)
@@ -946,6 +953,7 @@ def xvariable_to_ast_lvals(
         xdata: "InstrXData",
         astree: ASTInterface,
         size: int = 4,
+        ispointer: bool = False,
         ctype: Optional[AST.ASTTyp] = None,
         anonymous: bool = False) -> List[AST.ASTLval]:
     """Convert a CHIF variable to an AST Lval node."""
@@ -961,7 +969,12 @@ def xvariable_to_ast_lvals(
             name = "mips_" + mipsreg.name
         else:
             name = str(xv)
-        return [astree.mk_register_variable_lval(name, anonymous=anonymous)]
+        if ispointer:
+            vtype = astree.astree.mk_pointer_type(AST.ASTTypVoid())
+            astlval = astree.mk_register_variable_lval(name, vtype=vtype, anonymous=anonymous)
+        else:
+            astlval = astree.mk_register_variable_lval(name, anonymous=anonymous)
+        return [astlval]
 
     elif xv.is_memory_variable:
         xvmem = cast("VMemoryVariable", xv.denotation)
@@ -985,7 +998,7 @@ def xvar_offset_dereference_lval(
     """Return an lval associated with a base variable + offset."""
 
     def default() -> AST.ASTLval:
-        addrasts = xprvariable_to_ast_exprs(var, xdata, astree)
+        addrasts = xprvariable_to_ast_exprs(var, xdata, astree, ispointer=True)
         if len(addrasts) == 0:
             raise UF.CHBError(
                 "Error in converting address expression: "

@@ -203,7 +203,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             gaddr = int(fnames[vname], 16)
         else:
             gaddr = 0
-        if gaddr > 0 or vname in library_targets:
+        # if gaddr > 0 or vname in library_targets:
+        if True:
             globalsymboltable.add_symbol(
                 vname,
                 vtype=vinfo.vtype.convert(typconverter),
