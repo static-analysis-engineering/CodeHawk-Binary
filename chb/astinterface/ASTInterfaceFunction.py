@@ -251,11 +251,11 @@ class ASTInterfaceFunction(ASTFunction):
                 ioffset = instr.stackpointer_offset.offset
                 if ioffset.is_singleton:
                     offsetval = ioffset.lower_bound.bound.value
-                    if offsetval < startoff and (startoff - offsetval) < 512:
+                    if offsetval < startoff:
                         (adjustspinstr, adjustspassembly) = (
-                            codegenerator.add_sp_plus_immediate_t2(startoff - offsetval))
+                            codegenerator.get_stack_adjustment(startoff - offsetval))
                         instrseq = adjustspinstr + popinstr
-                        assembly = [adjustspassembly, popassembly]
+                        assembly = adjustspassembly + [popassembly]
                     elif offsetval == startoff:
                         instrseq = popinstr
                         assembly = [popassembly]
