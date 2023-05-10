@@ -33,6 +33,20 @@ class ARMCodeGenerator:
     def __init__(self) -> None:
         pass
 
+    def get_stack_adjustment(self, offset: int) -> Tuple[str, List[str]]:
+        hexstring: str = ""
+        assemblies: List[str] = []
+        while offset > 0:
+            if offset < 512:
+                sp_offset = offset
+            else:
+                sp_offset = 508
+            (instr, assembly) = self.add_sp_plus_immediate_t2(sp_offset)
+            offset = offset - sp_offset
+            hexstring = hexstring + instr
+            assemblies.append(assembly)
+        return (hexstring, assemblies)
+
     def add_sp_plus_immediate_t2(self, offset: int) -> Tuple[str, str]:
         if offset % 4 == 0:
             imm = offset // 4
