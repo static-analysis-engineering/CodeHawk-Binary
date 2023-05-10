@@ -541,6 +541,13 @@ class Cfg:
                     return node_within(x, ys, ctx.with_fallthrough(y_n)) + do_tree(y_n, ctx)
 
                 succs = self.successors(x)
+
+                #  TESTING TESTING TESTING
+                #  Forcibly limit successors to 2
+                if len(succs) > 2:
+                    succs = succs[:2]
+                #  TESTING TESTING TESTING
+
                 nsuccs = len(succs)
                 xstmts = [labeled_if_needed(x)]
                 if nsuccs == 0:
