@@ -132,6 +132,9 @@ class ARMLoadRegister(ARMOpcode):
         else:
             pbupd = ""
 
+        if rhs == "??":
+            return pcond + lhs + " := *(" + str(xdata.xprs[4]) + ")"
+
         return pcond + lhs + " := " + rhs + pbupd
 
     def ast_prov(
