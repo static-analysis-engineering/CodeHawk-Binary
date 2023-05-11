@@ -461,6 +461,14 @@ class ASTSerializer(ASTIndexer):
         node["locationid"] = label.locationid
         return self.add(tags, args, node)
 
+    def index_nop_instr(self, instr: AST.ASTNOPInstruction) -> int:
+        tags: List[str] = [instr.tag, str(instr.locationid)]
+        args: List[int] = []
+        node: Dict[str, Any] = {"tag": instr.tag}
+        node["descr"] = instr.description
+        node["locationid"] = instr.locationid
+        return self.add(tags, args, node)
+
     def index_assign_instr(self, instr: AST.ASTAssign) -> int:
         tags: List[str] = [instr.tag, str(instr.instrid), str(instr.locationid)]
         args: List[int] = [instr.lhs.index(self), instr.rhs.index(self)]

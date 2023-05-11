@@ -166,6 +166,9 @@ class ASTByteSizeCalculator(ASTIndexer):
     def index_default_label(self, label: AST.ASTDefaultLabel) -> int:
         return 0
 
+    def index_nop_instr(self, instr: AST.ASTNOPInstruction) -> int:
+        return 0
+
     def index_assign_instr(self, instr: AST.ASTAssign) -> int:
         return 0
 

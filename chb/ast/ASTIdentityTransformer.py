@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -81,6 +81,10 @@ class ASTIdentityTransformer(ASTTransformer):
     def transform_default_label(
             self, label: AST.ASTDefaultLabel) -> AST.ASTStmtLabel:
         return label
+
+    def transform_nop_instr(
+            self, instr: AST.ASTNOPInstruction) -> AST.ASTInstruction:
+        return instr
 
     def transform_assign_instr(self, instr: AST.ASTAssign) -> AST.ASTInstruction:
         return instr
