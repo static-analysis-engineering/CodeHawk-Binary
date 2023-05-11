@@ -42,6 +42,7 @@ from chb.app.InstrXData import InstrXData
 
 from chb.app.StackPointerOffset import StackPointerOffset
 
+from chb.invariants.InvariantFact import InvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
@@ -123,6 +124,10 @@ class X86Instruction(Instruction):
     @property
     def stackpointer_offset(self) -> StackPointerOffset:
         return self.x86functiondictionary.read_xml_sp_offset(self.xnode)
+
+    @property
+    def invariants(self) -> Sequence[InvariantFact]:
+        return []
 
     @property
     def is_return_instruction(self) -> bool:

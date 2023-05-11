@@ -47,6 +47,7 @@ from chb.arm.ARMOpcode import ARMOpcode
 from chb.arm.ARMOperand import ARMOperand
 from chb.arm.opcodes.ARMBranch import ARMBranch
 
+from chb.invariants.InvariantFact import InvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
@@ -165,6 +166,14 @@ class ARMInstruction(Instruction):
     @property
     def is_branch_instruction(self) -> bool:
         return self.opcode.is_branch_instruction
+
+    @property
+    def invariants(self) -> Sequence[InvariantFact]:
+        fn_invariants = self.armfunction.invariants
+        if self.iaddr in fn_invariants:
+            return fn_invariants[self.iaddr]
+        else:
+            return []
 
     @property
     def is_unresolved(self) -> bool:
