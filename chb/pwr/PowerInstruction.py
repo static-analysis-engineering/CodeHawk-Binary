@@ -42,6 +42,7 @@ from chb.app.StackPointerOffset import StackPointerOffset
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+from chb.invariants.InvariantFact import InvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
@@ -173,6 +174,10 @@ class PowerInstruction(Instruction):
     @property
     def memory_accesses(self) -> Sequence[MemoryAccess]:
         return self.opcode.memory_accesses(self.xdata)
+
+    @property
+    def invariants(self) -> Sequence[InvariantFact]:
+        return []
 
     @property
     def ft_conditions(self) -> Sequence[XXpr]:

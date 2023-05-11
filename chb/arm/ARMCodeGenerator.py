@@ -76,3 +76,6 @@ class ARMCodeGenerator:
             regstring += ",PC"
         assembly = "POP".ljust(8) + "{" + regstring + "}"
         return (byte1 + byte2, assembly)
+
+    def bx_lr(self) -> Tuple[str, str]:
+        return ("7047", "BX".ljust(8) + "LR")

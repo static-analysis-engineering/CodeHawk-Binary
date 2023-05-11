@@ -105,7 +105,7 @@ class ARMPush(ARMOpcode):
     def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
         spills = self.register_spills(xdata)
         regcount = self.register_count
-        if len(spills) > 1:
+        if len(spills) > 0:
             result: List[RegisterSpill] = []
             for (i, spill) in enumerate(spills):
                 result.append(RegisterSpill(xdata.xprs[regcount+3+i], spill))

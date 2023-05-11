@@ -262,5 +262,24 @@ class ASTInterfaceFunction(ASTFunction):
                     else:
                         instrseq = ""
                         assembly = []
-                    if len(assembly) > 0:
-                        self.astinterface.add_return_sequence(instrseq, assembly, addr)
+
+                    if setpc:
+                        if len(assembly) > 0:
+                            self.astinterface.add_return_sequence(
+                                instrseq, assembly, addr)
+
+                    # if the pc was not included in the POP statement, add BX LR
+                    # as a return if the LR has its original value, otherwise skip
+                    else:
+                        originalLR = False
+                        for inv in instr.invariants:
+                            if str(inv.variable) == "LR" and inv.is_initial_var_equality:
+                                originalLR = True
+                                break
+
+                        if originalLR:
+                            (bxlrinstr, bxlrassembly) = codegenerator.bx_lr()
+                            instrseq = instrseq + bxlrinstr
+                            assembly = assembly + [bxlrassembly]
+                            self.astinterface.add_return_sequence(
+                                instrseq, assembly, addr)

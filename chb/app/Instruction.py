@@ -46,6 +46,7 @@ from chb.app.FunctionDictionary import FunctionDictionary
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+from chb.invariants.InvariantFact import InvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
@@ -138,6 +139,11 @@ class Instruction(ABC):
         m = hashlib.md5()
         m.update(self.rev_bytestring.encode("utf-8"))
         return m.hexdigest()
+
+    @property
+    @abstractmethod
+    def invariants(self) -> Sequence[InvariantFact]:
+        ...
 
     @property
     @abstractmethod
