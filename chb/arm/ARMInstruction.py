@@ -252,6 +252,17 @@ class ARMInstruction(Instruction):
             expr = astree.mk_integer_constant(0)
             return (expr, expr)
 
+    def ast_switch_condition_prov(self, astree: ASTInterface) -> Tuple[
+            Optional[ASTExpr], Optional[ASTExpr]]:
+
+        try:
+            return self.opcode.ast_switch_condition_prov(
+                astree, self.iaddr, self.bytestring, self.xdata)
+        except Exception as e:
+            astree.add_diagnostic("No switch condition available at " + self.iaddr)
+            expr = astree.mk_integer_constant(0)
+            return (expr, expr)
+
     @property
     def stackpointer_offset(self) -> StackPointerOffset:
         return self.armfunctiondictionary.read_xml_sp_offset(self.xnode)

@@ -29,7 +29,7 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import chb.util.fileutil as UF
 
@@ -45,6 +45,14 @@ class JumpTable:
         return self.xnode.get("start", "?")
 
     @property
+    def indexed_targets(self) -> Dict[str, List[int]]:
+        return {}
+
+    @property
+    def va(self) -> str:
+        return self.base
+
+    @property
     def targets(self) -> List[str]:
         if len(self._tgts) == 0:
             for n in self.xnode.findall("tgt"):
@@ -54,6 +62,15 @@ class JumpTable:
                 else:
                     raise UF.CHBError("tgt element missing in jumptable")
         return self._tgts
+
+    def has_target(self, tgt: str) -> bool:
+        return tgt in self.indexed_targets
+
+    def get_target(self, tgt: str) -> List[int]:
+        if self.has_target(tgt):
+            return self.indexed_targets[tgt]
+        else:
+            return []
 
     def __str__(self) -> str:
         lines: List[str] = []

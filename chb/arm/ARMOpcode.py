@@ -194,6 +194,16 @@ class ARMOpcode(ARMDictionaryRecord):
         expr = self.ast_condition(astree, iaddr, bytestring, xdata, reverse)
         return (expr, expr)
 
+    def ast_switch_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+        """ Return default; should be overridden by instruction opcodes."""
+
+        return (None, None)
+
     def ast_variable_intro(
             self,
             astree: ASTInterface,

@@ -28,6 +28,8 @@
 
 from typing import cast, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
+from chb.app.JumpTables import JumpTable
+
 from chb.arm.ARMCodeGenerator import ARMCodeGenerator
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
@@ -51,6 +53,7 @@ import chb.util.fileutil as UF
 if TYPE_CHECKING:
     from chb.app.BasicBlock import BasicBlock
     from chb.app.Function import Function
+    from chb.app.JumpTables import JumpTable
     from chb.invariants.InvariantFact import NRVFact
 
 
@@ -83,6 +86,20 @@ class ASTInterfaceFunction(ASTFunction):
                 for (iaddr, instr) in block.instructions.items():
                     self._astinstructions[iaddr] = instr
         return self._astinstructions
+
+    @property
+    def jumptables(self) -> Dict[str,JumpTable]:
+        return self.function.jumptables
+
+    def has_jumptable(self, tgt) -> bool:
+        return tgt in self.jumptables
+
+    def get_jumptable(self, tgt) -> JumpTable:
+        if self.has_jumptable(tgt):
+            return self.jumptables[tgt]
+        else:
+            raise UF.CHBError(
+                "Function " + self.name + " does not have a jumptable at address " + tgt)
 
     @property
     def astinterface(self) -> ASTInterface:
