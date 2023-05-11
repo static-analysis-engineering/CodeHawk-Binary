@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -74,3 +74,19 @@ class ARMNoOperation(ARMOpcode):
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         return []
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "NOP"]
+
+        nopinstr = astree.mk_nop_instruction(
+            "NOP", iaddr=iaddr, bytestring=bytestring, annotations=annotations)
+        astree.add_instr_address(nopinstr, [iaddr])
+
+        return ([], [nopinstr])

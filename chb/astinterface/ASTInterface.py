@@ -691,6 +691,18 @@ class ASTInterface:
         self._annotations[call.instrid] = annotations
         return call
 
+    def mk_nop_instruction(
+            self,
+            descr: str,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
+            annotations: List[str] = []) -> AST.ASTNOPInstruction:
+        nopinstr = self.astree.mk_nop_instruction(descr)
+        if iaddr is not None and bytestring is not None:
+            self.add_instruction_span(nopinstr.locationid, iaddr, bytestring)
+        self._annotations[nopinstr.instrid] = annotations
+        return nopinstr
+
     # ----------------------------------------------------- make lvals/exprs ---
 
     def mk_vinfo(
