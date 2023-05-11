@@ -864,6 +864,10 @@ class ASTInstruction(ASTNode, ABC):
     def is_ast_call(self) -> bool:
         return False
 
+    @property
+    def is_ast_nop(self) -> bool:
+        return False
+
     @abstractmethod
     def transform(self, transformer: "ASTTransformer") -> "ASTInstruction":
         ...
@@ -879,6 +883,42 @@ class ASTInstruction(ASTNode, ABC):
 
     def use(self) -> List[str]:
         return []
+
+
+class ASTNOPInstruction(ASTInstruction):
+    """Instruction without semantic content to hold location information."""
+
+    def __init__(
+            self,
+            instrid: int,
+            locationid: int,
+            descr: str) -> None:
+        ASTInstruction.__init__(self, instrid, locationid, "nop")
+        self._descr = descr
+
+    @property
+    def description(self) -> str:
+        return self._descr
+
+    @property
+    def is_ast_nop(self) -> bool:
+        return True
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_nop_instr(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTInstruction":
+        return transformer.transform_nop_instr(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_nop_instr(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_nop_instr(self)
+
+    def __str__(self) -> str:
+        return "NOP:" + self.description
+
 
 
 class ASTAssign(ASTInstruction):

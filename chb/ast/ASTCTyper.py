@@ -84,6 +84,9 @@ class ASTCTyper(ABC):
             self, label: AST.ASTDefaultLabel) -> Optional[AST.ASTTyp]:
         return None
 
+    def ctype_nop_instr(self, instr: AST.ASTNOPInstruction) -> Optional[AST.ASTTyp]:
+        return None
+
     def ctype_assign_instr(self, instr: AST.ASTAssign) -> Optional[AST.ASTTyp]:
         return None
 

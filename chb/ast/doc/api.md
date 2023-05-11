@@ -209,7 +209,7 @@ The sole exception is a call to a non-returning function that also
 acts as a return statement. Instructions are always grouped as a
 sequence within an instruction sequence statement.
 
-There are two types of instructions: an assignment and a call. An
+There are two types of semantic instructions: an assignment and a call. An
 assignment consists of a left-hand-side (lval) and a right-hand-side
 (expression). A call consists
 of an optional left-hand-side (lval) to which the return value from the call is
@@ -218,6 +218,13 @@ of a variable of type function in case of a direct call, or any other
 expression in case of an indirect call), and a list of expressions that
 represent the arguments to the call (preferably in conformance with the
 arity of the function type, but this is not checked).
+
+In addition to the two semantic instructions there is a so-called
+NOP instruction that does not have semantic content, but that serves as a
+placeholder within an instruction sequence to be able to provide the
+location relationship with the binary. This instruction can also be
+used by tools to indicate the presence of assembly instructions not
+recognized or not implemented.
 
 Instructions have an instrid that uniquely identifies the instruction
 and that is used in expressing provenance relationships.
@@ -313,6 +320,12 @@ directly with the method <code>addto_instruction_mapping</code>.
     optinstrid: Optional[int] = None,
     optlocationid: Optional[int] = None,
     low_level_instrids: List[int] = []) -> ASTCall
+  ```
+
+- **mk_nop_instruction**: creates a NOP instruction with a (free-form)
+  description of its role or content.
+  ```
+  def mk_nop_instruction(self, descr: str) -> ASTNOPInstruction
   ```
 
 - **addto_instruction_mapping**: creates an explicit link between a

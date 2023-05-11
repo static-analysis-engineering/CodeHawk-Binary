@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -90,6 +90,10 @@ class ASTIndexer(ABC):
 
     @abstractmethod
     def index_default_label(self, label: AST.ASTDefaultLabel) -> int:
+        ...
+
+    @abstractmethod
+    def index_nop_instr(self, instr: AST.ASTNOPInstruction) -> int:
         ...
 
     @abstractmethod

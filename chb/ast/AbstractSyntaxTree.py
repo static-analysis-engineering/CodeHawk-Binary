@@ -659,6 +659,18 @@ class AbstractSyntaxTree:
             optlocationid=optlocationid,
             low_level_instrids=low_level_instrids)
 
+    def mk_nop_instruction(
+            self,
+            descr: str,
+            optinstrid: Optional[int] = None,
+            optlocationid: Optional[int] = None,
+            low_level_instrids: List[int] = []) -> AST.ASTNOPInstruction:
+        instrid = self.get_instrid(optinstrid)
+        locationid = self.get_locationid(optlocationid)
+        for ll_instrid in low_level_instrids:
+            self.provenance.add_instruction_mapping(instrid, ll_instrid)
+        return AST.ASTNOPInstruction(instrid, locationid, descr)
+
     """Variables
 
     Variables have a name. For named variables it is the user's responsibility
