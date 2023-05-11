@@ -270,6 +270,11 @@ class Instruction(ABC):
             self, target: str, astree: ASTInterface) -> Optional[AST.ASTExpr]:
         return None
 
+    def ast_switch_condition_prov(
+            self, astree: ASTInterface) -> Tuple[
+            Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+        raise UF.CHBError("ast-switch-condition-prov not defined")
+
     @abstractmethod
     def to_string(
             self,

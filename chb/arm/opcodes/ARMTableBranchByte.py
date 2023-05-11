@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -33,12 +33,18 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
+
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
+    from chb.astinterface.ASTInterface import ASTInterface
 
 
 @armregistry.register_tag("TBB", ARMOpcode)
@@ -64,9 +70,30 @@ class ARMTableBranchByte(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [2]]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args]
+
     def annotation(self, xdata: InstrXData) -> str:
         """format: a:x .
 
         xprs[0]: value of index register
         """
         return "branch on " + str(xdata.xprs[0])
+
+    def ast_switch_condition_prov(
+            self,
+            astree: "ASTInterface",
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+
+        condition = xdata.xprs[0]
+
+        (ll_cond, _, _) = self.opargs[1].ast_rvalue(astree)
+
+        hl_conds = XU.xxpr_to_ast_def_exprs(condition, xdata, iaddr, astree)
+        if len(hl_conds) == 1:
+            return (hl_conds[0], ll_cond)
+        else:
+            return (None, ll_cond)

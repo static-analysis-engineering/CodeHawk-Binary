@@ -738,6 +738,10 @@ class ASTStmtLabel(ASTNode, ABC):
     def locationid(self) -> int:
         return self._locationid
 
+    @property
+    def is_ast_instruction_sequence(self) -> bool:
+        return False
+
 
 class ASTLabel(ASTStmtLabel):
 

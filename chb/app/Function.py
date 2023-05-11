@@ -57,6 +57,7 @@ from chb.app.BDictionary import BDictionary
 from chb.app.Cfg import Cfg
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.Instruction import Instruction
+from chb.app.JumpTables import JumpTable
 from chb.app.StackLayout import StackLayout
 from chb.app.StringXRefs import StringsXRefs
 
@@ -217,6 +218,19 @@ class Function(ABC):
                         self._varinvariants[xaddr].append(
                             self.varinvdictionary.var_invariant_fact(ix))
         return self._varinvariants
+
+    @property
+    def jumptables(self) -> Dict[str, JumpTable]:
+        return {}
+
+    def has_jumptable(self, va: str) -> bool:
+        return va in self.jumptables
+
+    def get_jumptable(self, va: str) -> JumpTable:
+        if self.has_jumptable(va):
+            return self.jumptables[va]
+        else:
+            raise UF.CHBError("No jumptable found at address " + va)
 
     def global_refs(self) -> Tuple[Sequence[XVariable], Sequence[XXpr]]:
         lhsresult: List[XVariable] = []

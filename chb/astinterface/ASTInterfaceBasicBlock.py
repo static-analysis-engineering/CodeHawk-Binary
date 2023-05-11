@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -76,6 +76,12 @@ class ASTInterfaceBasicBlock:
             astree: "ASTInterface",
             reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.last_instruction.ast_condition(astree, reverse=reverse)
+
+    '''
+    def ast_switch_condition(
+            self, astree: "ASTInterface") -> Optional[AST.ASTExpr]:
+        return self.last_instruction.ast_switch_condition(astree)
+    '''
 
     def assembly_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         instrs: List[AST.ASTInstruction] = []

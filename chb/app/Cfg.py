@@ -542,14 +542,8 @@ class Cfg:
 
                 succs = self.successors(x)
 
-                #  TESTING TESTING TESTING
-                #  Forcibly limit successors to 2
-                if len(succs) > 2:
-                    succs = succs[:2]
-                #  TESTING TESTING TESTING
-
                 nsuccs = len(succs)
-                xstmts = [labeled_if_needed(x)]
+                xstmts: List[AST.ASTStmt] = [labeled_if_needed(x)]
                 if nsuccs == 0:
                     return xstmts # TODO(brk): and return statement?
 
@@ -557,11 +551,30 @@ class Cfg:
                     return xstmts + do_branch(x, succs[0], ctx)
 
                 if nsuccs > 2:
-                    raise UF.CHBError(
-                        "Encountered more than two successors: "
-                        + str(nsuccs)
-                        + " in do_branch in run_with_goto_labels in cfg conversion: "
-                        + ", ".join(str(s) for s in succs))
+                    astblock = astfn.astblock(x)
+                    astlastinstr = astblock.last_instruction
+
+                    if astfn.has_jumptable(astlastinstr.iaddr):
+                        jumptable = astfn.get_jumptable(astlastinstr.iaddr)
+                        succlabels: Dict[str, List[AST.ASTStmtLabel]] = {}
+                        for succ in succs:
+                            if jumptable.has_target(succ) and succ not in succlabels:
+                                cvs = jumptable.get_target(succ)
+                                labels = [cast(AST.ASTStmtLabel, astree.mk_case_label(
+                                    astree.mk_integer_constant(c))) for c in cvs]
+                                succlabels[succ] = labels
+
+                    switchcondition = astlastinstr.ast_switch_condition(astree)
+
+                    def switch_case(succ):
+                        return astree.mk_block(do_branch(x, succ, ctx), labels=succlabels[succ])
+
+                    defaultcase = astree.mk_block(
+                        do_branch(x, succs[0], ctx),
+                        labels=[astree.mk_default_label()])
+                    cases = astree.mk_block([switch_case(succ) for succ in succs[1:]] + [defaultcase])
+                    switchstmt = cast(AST.ASTSwitchStmt, astree.mk_switch_stmt(switchcondition, cases))
+                    return (xstmts + [switchstmt])
 
                 assert nsuccs == 2
                 astblock = astfn.astblock(x)

@@ -662,6 +662,9 @@ class ASTInterface:
     def mk_case_label(self, expr: Optional[AST.ASTExpr]) -> AST.ASTCaseLabel:
         return self.astree.mk_case_label(expr)
 
+    def mk_default_label(self) -> AST.ASTDefaultLabel:
+        return self.astree.mk_default_label()
+
     # ---------------------------------------------------- make instructions ---
 
     def mk_assign(

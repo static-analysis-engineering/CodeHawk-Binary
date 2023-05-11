@@ -37,6 +37,7 @@ from chb.app.Function import Function
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.Cfg import Cfg
+from chb.app.JumpTables import JumpTable
 from chb.app.StringXRefs import StringsXRefs
 
 from chb.invariants.FnVarDictionary import FnVarDictionary
@@ -45,6 +46,7 @@ from chb.invariants.FnXprDictionary import FnXprDictionary
 from chb.arm.ARMBlock import ARMBlock
 from chb.arm.ARMDictionary import ARMDictionary
 from chb.arm.ARMInstruction import ARMInstruction
+from chb.arm.ARMJumpTable import ARMJumpTable
 from chb.arm.ARMCfg import ARMCfg
 
 import chb.util.fileutil as UF
@@ -67,6 +69,7 @@ class ARMFunction(Function):
             self, path, filename, bd, ixd, finfo, stringsxrefs, names, xnode)
         self._armd = armd
         self._cfg: Optional[ARMCfg] = None
+        self._jumptables: Dict[str, JumpTable] = {}
         self._blocks: Dict[str, ARMBlock] = {}
         self._instructions: Dict[str, ARMInstruction] = {}
         self._armfnd: Optional[FunctionDictionary] = None
@@ -83,6 +86,18 @@ class ARMFunction(Function):
                 raise UF.CHBError("Element instr-dictionary missing from xml")
             self._armfnd = FunctionDictionary(self, xfnd)
         return self._armfnd
+
+    @property
+    def jumptables(self) -> Dict[str, JumpTable]:
+        if len(self._jumptables) == 0:
+            xjts = self.xnode.find("jump-tables")
+            if xjts is None:
+                pass
+            else:
+                for xjt in xjts.findall("jt"):
+                    jumptable = cast(JumpTable, ARMJumpTable(xjt))
+                    self._jumptables[jumptable.va] = jumptable
+        return self._jumptables
 
     @property
     def blocks(self) -> Mapping[str, ARMBlock]:
