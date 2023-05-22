@@ -63,7 +63,7 @@ def jsonok(fschema: JSONSchema, content: Dict[str, Any]) -> Dict[str, Any]:
         schema["$defs"] = fschema.defs
     jresult["content"] = content
     return jresult
-    
+
 
 def location_invariant_to_json_result(
         loc: str, facts: Sequence["InvariantFact"]) -> JSONResult:

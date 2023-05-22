@@ -42,6 +42,8 @@ from chb.app.StringXRefs import StringsXRefs
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnXprDictionary import FnXprDictionary
 
+from chb.jsoninterface.JSONResult import JSONResult
+
 from chb.pwr.PowerBlock import PowerBlock
 from chb.pwr.PowerDictionary import PowerDictionary
 from chb.pwr.PowerInstruction import PowerInstruction
@@ -192,3 +194,7 @@ class PowerFunction(Function):
         if bytestring:
             lines.append(self.byte_string(chunksize=80))
         return "\n".join(lines)
+
+    def to_json_result(sefl) -> JSONResult:
+        return JSONResult(
+            "assemblyfunction", {}, "fail", "not yet implemented for power32")

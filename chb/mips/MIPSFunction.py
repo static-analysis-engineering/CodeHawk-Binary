@@ -48,6 +48,8 @@ from chb.invariants.FnInvariants import FnInvariants
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
+from chb.jsoninterface.JSONResult import JSONResult
+
 from chb.mips.MIPSDictionary import MIPSDictionary
 from chb.mips.MIPSBlock import MIPSBlock
 from chb.mips.MIPSCfg import MIPSCfg
@@ -341,3 +343,7 @@ class MIPSFunction(Function):
 
     def __str__(self) -> str:
         return self.to_string()
+
+    def to_json_result(self) -> JSONResult:
+        return JSONResult(
+            "assemblyfunction", {}, "fail", "not yet implemented for MIPS")

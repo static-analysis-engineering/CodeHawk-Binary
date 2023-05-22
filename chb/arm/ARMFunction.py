@@ -27,7 +27,7 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, cast, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Callable, cast, Dict, List, Mapping, Optional, Sequence
 
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
@@ -40,14 +40,16 @@ from chb.app.Cfg import Cfg
 from chb.app.JumpTables import JumpTable
 from chb.app.StringXRefs import StringsXRefs
 
-from chb.invariants.FnVarDictionary import FnVarDictionary
-from chb.invariants.FnXprDictionary import FnXprDictionary
-
 from chb.arm.ARMBlock import ARMBlock
 from chb.arm.ARMDictionary import ARMDictionary
 from chb.arm.ARMInstruction import ARMInstruction
 from chb.arm.ARMJumpTable import ARMJumpTable
 from chb.arm.ARMCfg import ARMCfg
+
+from chb.invariants.FnVarDictionary import FnVarDictionary
+from chb.invariants.FnXprDictionary import FnXprDictionary
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -202,6 +204,21 @@ class ARMFunction(Function):
                     opcodewidth=opcodewidth,
                     sp=sp))
             lines.append("-" * 80)
+        if hash:
+            lines.append("hash: " + self.md5)
         if bytestring:
             lines.append(self.byte_string(chunksize=80))
         return "\n".join(lines)
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["faddr"] = self.faddr
+        content["md5hash"] = self.md5
+        content["basicblocks"] = blocks = []
+        for b in self.blocks.values():
+            bresult = b.to_json_result()
+            if not bresult.is_ok:
+                return JSONResult("assemblyfunction", {}, "fail", bresult.reason)
+            else:
+                blocks.append(bresult.content)
+        return JSONResult("assemblyfunction", content, "ok")

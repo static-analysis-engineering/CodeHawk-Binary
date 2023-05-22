@@ -73,6 +73,8 @@ from chb.invariants.VarInvariantFact import VarInvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
+from chb.jsoninterface.JSONResult import JSONResult
+
 from chb.userdata.UserHints import UserHints
 
 import chb.util.fileutil as UF
@@ -389,4 +391,8 @@ class Function(ABC):
             opcodewidth: int = 25,        # alignment width for opcode text
             sp: bool = True,
             stacklayout: bool = False) -> str:
+        ...
+
+    @abstractmethod
+    def to_json_result(self) -> JSONResult:
         ...
