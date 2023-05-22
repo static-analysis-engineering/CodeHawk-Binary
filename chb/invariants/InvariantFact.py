@@ -53,12 +53,14 @@ type invariant_fact_t =
 
 """
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from chb.invariants.FnDictionaryRecord import FnInvDictionaryRecord, invregistry
 from chb.invariants.LinearEquality import LinearEquality
 from chb.invariants.NonRelationalValue import NonRelationalValue
 from chb.invariants.XVariable import XVariable
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -110,6 +112,13 @@ class InvariantFact(FnInvDictionaryRecord):
     @property
     def value(self) -> NonRelationalValue:
         raise UF.CHBError("value not applicable to " + str(self))
+
+    def to_json_result(self) -> JSONResult:
+        return JSONResult(
+            "invariantfact",
+            {},
+            "fail",
+            "invariantfact: not yet implemented (" + self.tags[0] + ")")
 
 
 @invregistry.register_tag("u", InvariantFact)
@@ -163,6 +172,27 @@ class NRVFact(InvariantFact):
     def value(self) -> NonRelationalValue:
         return self.invd.non_relational_value(self.args[1])
 
+    def to_json_result(self) -> JSONResult:
+        jvar = self.variable.to_json_result()
+        if not jvar.is_ok:
+            return JSONResult(
+                "invariantfact",
+                {},
+                "fail",
+                "invariantfact: " + str(jvar.reason))
+        jval = self.value.to_json_result()
+        if not jval.is_ok:
+            return JSONResult(
+                "invariantfact",
+                {},
+                "fail",
+                "invariantfact: " + str(jval.reason))
+        content: Dict[str, Any] = {}
+        content["var"] = jvar.content
+        content["symbolic-value"] = jval.content
+        content["txtrep"] = self.__str__()
+        return JSONResult("invariantfact", content, "ok")
+
     def __str__(self) -> str:
         return str(self.variable) + ' == ' + str(self.value)
 
@@ -193,6 +223,28 @@ class InitialVarEqualityFact(InvariantFact):
     def initial_value(self) -> XVariable:
         return self.xd.variable(self.args[1])
 
+    def to_json_result(self) -> JSONResult:
+        jvar = self.variable.to_json_result()
+        if not jvar.is_ok:
+            return JSONResult(
+                "invariantfact",
+                {},
+                "fail",
+                "invariantfact: " + str(jvar.reason))
+        jval = self.initial_value.to_json_result()
+        if not jval.is_ok:
+            return JSONResult(
+                "invariantfact",
+                {},
+                "fail",
+                "invariantfact: " + str(jval.reason))
+        content: Dict[str, Any] = {}
+        content["relation"] = "equals"
+        content["var"] = jvar.content
+        content["initial-value"] = jval.content
+        content["txtrep"] = self.__str__()
+        return JSONResult("invariantfact", content, "ok")
+
     def __str__(self) -> str:
         return str(self.variable) + ' == ' + str(self.initial_value)
 
@@ -222,6 +274,28 @@ class InitialVarDisEqualityFact(InvariantFact):
     @property
     def initial_value(self) -> XVariable:
         return self.xd.variable(self.args[1])
+
+    def to_json_result(self) -> JSONResult:
+        jvar = self.variable.to_json_result()
+        if not jvar.is_ok:
+            return JSONResult(
+                "invariantfact",
+                {},
+                "fail",
+                "invariantfact: " + str(jvar.reason))
+        jval = self.initial_value.to_json_result()
+        if not jval.is_ok:
+            return JSONResult(
+                "invariantfact",
+                {},
+                "fail",
+                "invariantfact: " + str(jval.reason))
+        content: Dict[str, Any] = {}
+        content["relation"] = "not-equals"
+        content["var"] = jvar.content
+        content["initial-value"] = jval.content
+        content["txtrep"] = self.__str__()
+        return JSONResult("invariantfact", content, "ok")
 
     def __str__(self) -> str:
         return str(self.variable) + ' != ' + str(self.initial_value)
@@ -263,6 +337,29 @@ class TestVarEqualityFact(InvariantFact):
     def jumpaddr(self) -> str:
         return self.tags[2]
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["testaddr"] = self.testaddr
+        content["jumpaddr"] = self.jumpaddr
+        jtestvar = self.testvariable.to_json_result()
+        if not jtestvar.is_ok:
+            return JSONResult(
+                "testvarequality",
+                {},
+                "fail",
+                "testvarequality:testvar: " + str(jtestvar.reason))
+        content["testvar"] = jtestvar.content
+        jtestval = self.testvalue.to_json_result()
+        if not jtestval.is_ok:
+            return JSONResult(
+                "testvarequality",
+                {},
+                "fail",
+                "testvarequality:testval: " + str(jtestval.reason))
+        content["testval"] = jtestval.content
+        content["txtrep"] = str(self)
+        return JSONResult("testvarequality", content, "ok")
+
     def __str__(self) -> str:
         return (str(self.testvariable)
                 + "@"
@@ -289,6 +386,19 @@ class RelationalFact(InvariantFact):
     @property
     def equality(self) -> LinearEquality:
         return self.invd.linear_equality(self.args[0])
+
+    def to_json_result(self) -> JSONResult:
+        jlineq = self.equality.to_json_result()
+        if not jlineq.is_ok:
+            return JSONResult(
+                "linearequality",
+                {},
+                "fail",
+                "linear equality: " + str(jlineq.reason))
+        content: Dict[str, Any] = {}
+        content["lineq"] = jlineq.content
+        content["txtrep"] = str(self)
+        return JSONResult("linearequality", content, "ok")
 
     def __str__(self) -> str:
         return str(self.equality)

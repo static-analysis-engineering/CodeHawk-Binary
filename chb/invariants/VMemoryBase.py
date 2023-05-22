@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,18 +31,20 @@
 Based on memory_base_t in bCHLibTypes:
 
 type memory_base_t =
-| BLocalStackFrame   (* local stack frame *)   "l"
+| BLocalStackFrame      (* local stack frame *)                    "l"
 | BRealignedStackFrame  (* local stack frame after realignment *)  "r"
 | BAllocatedStackFrame  (* extended stack frame from alloca *)     "a"
-| BGlobal   (* global data *)                                      "g"
+| BGlobal               (* global data *)                          "g"
 | BaseVar of variable_t (* base provided by an externally controlled variable *) "v"
 | BaseUnknown of string (* address without interpretation *)  "u"
 
 """
 
-from typing import List, TYPE_CHECKING
+from typing import Any, Dict, List, TYPE_CHECKING
 
 from chb.invariants.FnDictionaryRecord import FnVarDictionaryRecord, varregistry
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -89,6 +91,13 @@ class VMemoryBase(FnVarDictionaryRecord):
     def basevar(self) -> "XVariable":
         raise UF.CHBError("Basevar not supported for " + str(self))
 
+    def to_json_result(self) -> JSONResult:
+        return JSONResult(
+            "memorybase",
+            {},
+            "fail",
+            "memorybase: not yet implemented (" + self.tags[0] + ")")
+
     def __str__(self) -> str:
         return "memorybase:" + self.tags[0]
 
@@ -105,6 +114,11 @@ class VMemoryBaseLocalStackFrame(VMemoryBase):
     @property
     def is_local_stack_frame(self) -> bool:
         return True
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, str] = {}
+        content["stack"] = "local"
+        return JSONResult("memorybase", content, "ok")
 
     def __str__(self) -> str:
         return "stack:"
@@ -123,6 +137,11 @@ class VMemoryBaseAllocatedStackFrame(VMemoryBase):
     def is_allocated_stack_frame(self) -> bool:
         return True
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, str] = {}
+        content["stack"] = "allocated"
+        return JSONResult("memorybase", content, "ok")
+
     def __str__(self) -> str:
         return "allocated-stack:"
 
@@ -139,6 +158,11 @@ class VMemoryBaseRealignedStackFrame(VMemoryBase):
     @property
     def is_realigned_stack_frame(self) -> bool:
         return True
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, str] = {}
+        content["stack"] = "realigned"
+        return JSONResult("memorybase", content, "ok")
 
     def __str__(self) -> str:
         return "realigned-stack:"
@@ -165,6 +189,16 @@ class VMemoryBaseBaseVar(VMemoryBase):
     def basevar(self) -> "XVariable":
         return self.xd.variable(self.args[0])
 
+    def to_json_result(self) -> JSONResult:
+        ptrvar = self.basevar.to_json_result()
+        if ptrvar.is_ok:
+            content: Dict[str, Any] = {}
+            content["ptrvar"] = ptrvar.content
+            return JSONResult("memorybase", content, "ok")
+        else:
+            return JSONResult(
+                "memorybase", {}, "fail", "memorybase: " + str(ptrvar.reason))
+
     def __str__(self) -> str:
         return str(self.basevar)
 
@@ -181,6 +215,11 @@ class VMemoryBaseGlobal(VMemoryBase):
     @property
     def is_global(self) -> bool:
         return True
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, str] = {}
+        content["global"] = "realigned"
+        return JSONResult("memorybase", content, "ok")
 
     def __str__(self) -> str:
         return "base:global"

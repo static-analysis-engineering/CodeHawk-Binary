@@ -28,13 +28,15 @@
 # ------------------------------------------------------------------------------
 """Symbolic value, identified by name and sequence number"""
 
-from typing import Dict, List, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 
 from chb.app.Register import Register
 
 from chb.invariants.FnDictionaryRecord import FnXprDictionaryRecord
 from chb.invariants.VAssemblyVariable import VAssemblyVariable
 from chb.invariants.XSymbol import XSymbol
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -178,6 +180,15 @@ class XVariable(FnXprDictionaryRecord):
             return self.denotation.argument_index()
         else:
             raise UF.CHBError("Variable " + self.name + " is not an argument value")
+
+    def to_json_result(self) -> JSONResult:
+        if self.has_denotation():
+            return self.denotation.to_json_result()
+        else:
+            content: Dict[str, Any] = {}
+            content["temp"] = self.name
+            content["txtrep"] = self.name
+            return JSONResult("variable", content, "ok")
 
     def __str__(self) -> str:
         if self.has_denotation():

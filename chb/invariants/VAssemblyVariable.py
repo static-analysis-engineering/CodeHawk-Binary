@@ -39,7 +39,7 @@ type assembly_variable_denotation_t =
 
 """
 
-from typing import List, Sequence, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.Register import Register
 
@@ -47,6 +47,8 @@ from chb.invariants.FnDictionaryRecord import FnVarDictionaryRecord, varregistry
 from chb.invariants.VConstantValueVariable import VConstantValueVariable
 from chb.invariants.VMemoryBase import VMemoryBase
 from chb.invariants.VMemoryOffset import VMemoryOffset
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -170,6 +172,13 @@ class VAssemblyVariable(FnVarDictionaryRecord):
     def call_arguments(self) -> Sequence["XXpr"]:
         raise UF.CHBError("Get_call_arguments not supported for " + str(self))
 
+    def to_json_result(self) -> JSONResult:
+        return JSONResult(
+            "variable",
+            {},
+            "fail",
+            "vassemblyvar: not yet implemented (" + str(self.tags[0]) + ")")
+
     def __str__(self) -> str:
         return "assembly-variable:" + self.tags[0]
 
@@ -192,6 +201,10 @@ class VMemoryVariable(VAssemblyVariable):
     @property
     def base(self) -> VMemoryBase:
         return self.vd.memory_base(self.args[0])
+
+    @property
+    def size(self) -> int:
+        return self.args[1]
 
     @property
     def offset(self) -> VMemoryOffset:
@@ -240,8 +253,9 @@ class VMemoryVariable(VAssemblyVariable):
         if self.is_stack_argument:
             return self.offset.offsetvalue() // 4
         else:
-            raise UF.CHBError("Assembly variable is not a stack argument: "
-                              + str(self))
+            raise UF.CHBError(
+                "Assembly variable is not a stack argument: "
+                + str(self))
 
     @property
     def is_local_stack_variable(self) -> bool:
@@ -266,6 +280,20 @@ class VMemoryVariable(VAssemblyVariable):
 
     def has_unknown_base(self) -> bool:
         return self.base.is_unknown
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        membase = self.base.to_json_result()
+        memoffset = self.offset.to_json_result()
+        if not membase.is_ok:
+            return JSONResult("variable", {}, "fail", membase.reason)
+        if not memoffset.is_ok:
+            return JSONResult("variable", {}, "fail", memoffset.reason)
+        content["base"] = membase.content
+        content["offset"] = memoffset.content
+        content["size"] = self.size
+        content["txtrep"] = self.__str__()
+        return JSONResult("variable", content, "ok")
 
     def __str__(self) -> str:
         if self.is_global_variable:
@@ -305,6 +333,12 @@ class VRegisterVariable(VAssemblyVariable):
     @property
     def is_register_variable(self) -> bool:
         return True
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["register"] = str(self.register)
+        content["txtrep"] = self.__str__()
+        return JSONResult("variable", content, "ok")
 
     def __str__(self) -> str:
         return str(self.register)
@@ -404,6 +438,20 @@ class VAuxiliaryVariable(VAssemblyVariable):
     @property
     def is_structured_value(self) -> bool:
         return self.auxvar.is_structured_value
+
+    def to_json_result(self) -> JSONResult:
+        jauxvar = self.auxvar.to_json_result()
+        if jauxvar.is_ok:
+            content: Dict[str, Any] = {}
+            content["fixed-value"] = jauxvar.content
+            content["txtrep"] = str(self)
+            return JSONResult("xvariable", content, "ok")
+        else:
+            return JSONResult(
+                "xvariable",
+                {},
+                "fail",
+                "xvariable:auxvar: " + str(jauxvar.reason))
 
     def __str__(self) -> str:
         return str(self.auxvar)

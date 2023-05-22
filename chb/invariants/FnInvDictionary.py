@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -94,16 +94,16 @@ class FnInvDictionary:
             return LinearEquality(
                 self, self.linear_equality_table.retrieve(ix))
         else:
-            raise UF.CHBError("Illegal linear-equality index value: "
-                              + str(ix))
+            raise UF.CHBError(
+                "Illegal linear-equality index value: " + str(ix))
 
     def invariant_fact(self, ix: int) -> InvariantFact:
         if ix > 0:
             return invregistry.mk_instance(
                 self, self.invariant_fact_table.retrieve(ix), InvariantFact)
         else:
-            raise UF.CHBError("Illegal invariant-fact index value: "
-                              + str(ix))
+            raise UF.CHBError(
+                "Illegal invariant-fact index value: " + str(ix))
 
     # ---------------------------- Initialize dictionary from file -------------
 
@@ -114,9 +114,10 @@ class FnInvDictionary:
                 t.reset()
                 t.read_xml(xtable, "n")
             else:
-                raise UF.CHBError("Table "
-                                  + t.name
-                                  + " is missing from invariant dictionary")
+                raise UF.CHBError(
+                    "Table "
+                    + t.name
+                    + " is missing from invariant dictionary")
 
     # ---------------------------- Printing ------------------------------------
 
