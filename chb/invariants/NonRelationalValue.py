@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -43,11 +43,13 @@ type non_relational_value_t =
     * bool
 """
 
-from typing import cast, List, Optional, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
 
 from chb.invariants.FnDictionaryRecord import FnInvDictionaryRecord, invregistry
 from chb.invariants.XSymbol import XSymbol
 from chb.invariants.XXpr import XXpr
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -85,6 +87,13 @@ class NonRelationalValue(FnInvDictionaryRecord):
     def expr(self) -> XXpr:
         raise UF.CHBError("Non-relational-value is not a symbolic expression")
 
+    def to_json_result(self) -> JSONResult:
+        return JSONResult(
+            "nonrelationalvalue",
+            {},
+            "fail",
+            "nonrelationalvalue: not yet implemented (" + self.tags[0] + ")")
+
     def __str__(self) -> str:
         return 'nrv:' + self.tags[0]
 
@@ -109,6 +118,20 @@ class NRVSymbolicExpr(NonRelationalValue):
     @property
     def expr(self) -> XXpr:
         return self.xd.xpr(self.args[0])
+
+    def to_json_result(self) -> JSONResult:
+        jxpr = self.expr.to_json_result()
+        if jxpr.is_ok:
+            content: Dict[str, Any] = {}
+            content["sym-expr"] = jxpr.content
+            content["txtrep"] = self.__str__()
+            return JSONResult("nonrelationalvalue", content, "ok")
+        else:
+            return JSONResult(
+                "nonrelationalvalue",
+                {},
+                "fail",
+                "nonrelationalvalue: " + str(jxpr.reason))
 
     def __str__(self) -> str:
         return str(self.expr)
@@ -172,6 +195,15 @@ class NRVIntervalValue(NonRelationalValue):
                 raise UF.CHBError("NRVIntervalValue: internal error")
         else:
             raise UF.CHBError("Non-relational-value is not a singleton")
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        if self.lowerbound is not None:
+            content["lowerbound"] = self.lowerbound
+        if self.upperbound is not None:
+            content["upperbound"] = self.upperbound
+        content["txtrep"] = self.__str__()
+        return JSONResult("nonrelationalvalue", content, "ok")
 
     def __str__(self) -> str:
         if self.is_singleton:
@@ -240,6 +272,16 @@ class NRVBaseOffsetValue(NonRelationalValue):
     @property
     def is_singleton(self) -> bool:
         return self.is_bounded and self.lowerbound == self.upperbound
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["base"] = str(self.base)
+        if self.lowerbound is not None:
+            content["lowerbound"] = self.lowerbound
+        if self.upperbound is not None:
+            content["upperbound"] = self.upperbound
+        content["txtrep"] = self.__str__()
+        return JSONResult("nonrelationalvalue", content, "ok")
 
     def __str__(self) -> str:
         if self.is_singleton and self.lowerbound == 0:

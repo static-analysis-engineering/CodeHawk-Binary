@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,12 +28,14 @@
 # ------------------------------------------------------------------------------
 """Invariant expressed by a linear equality."""
 
-from typing import Iterator, List, Sequence, Tuple, TYPE_CHECKING
+from typing import Any, Dict, Iterator, List, Sequence, Tuple, TYPE_CHECKING
 
 from chb.invariants.FnDictionaryRecord import FnInvDictionaryRecord
 from chb.invariants.XSymbol import XSymbol
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -68,6 +70,24 @@ class LinearEquality(FnInvDictionaryRecord):
     @property
     def factors(self) -> Sequence[XVariable]:
         return [self.xd.variable(i) for i in self.args]
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["constant"] = self.constant
+        content["coefficients"] = self.coefficients
+        content["factors"] = jfactors = []
+        for factor in self.factors:
+            fresult = factor.to_json_result()
+            if not fresult.is_ok:
+                reason = (
+                    "linear equality: failure for factor "
+                    + str(factor)
+                    + ": "
+                    + str(fresult.reason))
+                return JSONResult("linearequality", {}, "fail", reason)
+            else:
+                jfactors.append(fresult.content)
+        return JSONResult("linearequality", content, "ok")
 
     def __str__(self) -> str:
         cfs: Iterator[Tuple[int, XVariable]] = zip(self.coefficients, self.factors)

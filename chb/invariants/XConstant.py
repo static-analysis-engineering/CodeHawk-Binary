@@ -41,11 +41,13 @@ type xcst_t =
 
 """
 
-from typing import List, TYPE_CHECKING
+from typing import Any, Dict, List, TYPE_CHECKING
 
 from chb.invariants.FnDictionaryRecord import FnXprDictionaryRecord, xprregistry
 from chb.invariants.XNumerical import XNumerical
 from chb.invariants.XSymbol import XSymbol
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -111,6 +113,13 @@ class XConstant(FnXprDictionaryRecord):
     def value(self) -> int:
         raise UF.CHBError("Value not supported by " + str(self))
 
+    def to_json_result(self) -> JSONResult:
+        return JSONResult(
+            "xconstant",
+            {},
+            "fail",
+            "xconstant: not yet implemented (" + self.tags[0] + ")")
+
     def __str__(self) -> str:
         return 'basexcst:' + self.tags[0]
 
@@ -170,6 +179,14 @@ class XIntConst(XConstant):
 
     def string_reference(self) -> str:
         return self.vd.stringsxrefs.string(str(hex(self.value)))
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["value"] = self.value
+        if self.is_string_reference:
+            content["stringref"] = self.string_reference()
+        content["txtrep"] = str(self)
+        return JSONResult("xconstant", content, "ok")
 
     def __str__(self) -> str:
         if (

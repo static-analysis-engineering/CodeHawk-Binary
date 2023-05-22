@@ -38,9 +38,11 @@ type memory_offset_t =
 
 """
 
-from typing import List, TYPE_CHECKING
+from typing import Any, Dict, List, TYPE_CHECKING
 
 from chb.invariants.FnDictionaryRecord import FnVarDictionaryRecord, varregistry
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -90,6 +92,13 @@ class VMemoryOffset(FnVarDictionaryRecord):
             + self.tags[0]
             + ")")
 
+    def to_json_result(self) -> JSONResult:
+        return JSONResult(
+            "memoryoffset",
+            {},
+            "fail",
+            "memoryoffset: not yet implemented (" + self.tags[0] + ")")
+
     def __str__(self) -> str:
         return "memory-offset:" + self.tags[0]
 
@@ -110,6 +119,9 @@ class VMemoryOffsetNoOffset(VMemoryOffset):
     @property
     def is_no_offset(self) -> bool:
         return True
+
+    def to_json_result(self) -> JSONResult:
+        return JSONResult("memoryoffset", {"offsetvalue": 0}, "ok")
 
     def __str__(self) -> str:
         return ""
@@ -149,6 +161,11 @@ class VMemoryOffsetConstantOffset(VMemoryOffset):
 
     def has_no_offset(self) -> bool:
         return self.offset.is_no_offset
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["offsetvalue"] = self.offsetvalue()
+        return JSONResult("memoryoffset", content, "ok")
 
     def __str__(self) -> str:
         if self.has_no_offset():

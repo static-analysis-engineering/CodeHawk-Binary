@@ -383,7 +383,7 @@ def xprvariable_to_ast_exprs(
         if ispointer:
             vtype = astree.astree.mk_pointer_type(AST.ASTTypVoid())
             lval = astree.mk_register_variable_lval(
-                name, vtype=vtype,anonymous=anonymous)
+                name, vtype=vtype, anonymous=anonymous)
         else:
             lval = astree.mk_register_variable_lval(
                 name, anonymous=anonymous)

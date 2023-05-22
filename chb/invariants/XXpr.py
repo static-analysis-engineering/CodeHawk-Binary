@@ -52,6 +52,8 @@ import chb.invariants.InputConstraintValue as ICV
 from chb.invariants.XConstant import XConstant, XBoolConst
 from chb.invariants.XVariable import XVariable
 
+from chb.jsoninterface.JSONResult import JSONResult
+
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
@@ -278,8 +280,15 @@ class XXpr(FnXprDictionaryRecord):
 
     @property
     def variable(self) -> XVariable:
-        raise UF.CHBError("Expression does not have a variable property: "
-                          + str(self))
+        raise UF.CHBError(
+            "Expression does not have a variable property: " + str(self))
+
+    def to_json_result(self) -> JSONResult:
+        return JSONResult(
+            "xexpression",
+            {},
+            "fail",
+            "xexpression: not yet implemented (" + self.tags[0] + ")")
 
     def __str__(self) -> str:
         return 'basexpr:' + self.tags[0]
@@ -456,6 +465,20 @@ class XprVariable(XXpr):
                     a.to_annotated_value() for a in self.returnval_arguments()]
         return result
 
+    def to_json_result(self) -> JSONResult:
+        jvar = self.variable.to_json_result()
+        if jvar.is_ok:
+            content: Dict[str, Any] = {}
+            content["var"] = jvar.content
+            content["txtrep"] = str(self)
+            return JSONResult("xexpression", content, "ok")
+        else:
+            return JSONResult(
+                "xexpression",
+                {},
+                "fail",
+                "xexpression: " + str(jvar.reason))
+
     def __str__(self) -> str:
         return str(self.variable)
 
@@ -478,8 +501,8 @@ class XprConstant(XXpr):
         if self.is_int_constant:
             return self.constant.value
         else:
-            raise UF.CHBError("Constant is not an integer constant: "
-                              + str(self))
+            raise UF.CHBError(
+                "Constant is not an integer constant: " + str(self))
 
     @property
     def is_constant(self) -> bool:
@@ -548,6 +571,19 @@ class XprConstant(XXpr):
     @property
     def is_random_constant(self) -> bool:
         return self.constant.is_random
+
+    def to_json_result(self) -> JSONResult:
+        jcst = self.constant.to_json_result()
+        if not jcst.is_ok:
+            return JSONResult(
+                "xexpression",
+                {},
+                "fail",
+                "xexpression: " + str(jcst.reason))
+        content: Dict[str, Any] = {}
+        content["cst"] = jcst.content
+        content["txtrep"] = str(self)
+        return JSONResult("xexpression", content, "ok")
 
     def __str__(self) -> str:
         return str(self.constant)
@@ -844,6 +880,22 @@ class XprCompound(XXpr):
         result['op'] = self.operator
         result['args'] = [a.to_annotated_value() for a in self.operands]
         return result
+
+    def to_json_result(self) -> JSONResult:
+        jops: List[Dict[str, Any]] = []
+        for opr in self.operands:
+            jopr = opr.to_json_result()
+            if not jopr.is_ok:
+                return JSONResult(
+                    "xexpression",
+                    {},
+                    "fail",
+                    "xexpression: " + str(jopr.reason))
+            jops.append(jopr.content)
+        content: Dict[str, Any] = {}
+        content["operator"] = self.operator
+        content["operands"] = jops
+        return JSONResult("xexpression", content, "ok")
 
     def __str__(self) -> str:
         args = self.operands

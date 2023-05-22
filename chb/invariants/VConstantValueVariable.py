@@ -59,7 +59,7 @@ and constant_value_variable_t =
   | ChifTemp                                 "chiftemp"       1      0
 """
 
-from typing import List, Sequence, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Sequence, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
 
@@ -68,6 +68,8 @@ from chb.app.Register import Register
 from chb.invariants.FnDictionaryRecord import FnVarDictionaryRecord, varregistry
 from chb.invariants.VMemoryBase import VMemoryBase
 from chb.invariants.VMemoryOffset import VMemoryOffset
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -176,6 +178,13 @@ class VConstantValueVariable(FnVarDictionaryRecord):
     def call_arguments(self) -> Sequence["XXpr"]:
         raise UF.CHBError("call_arguments not supported on " + str(self))
 
+    def to_json_result(self) -> JSONResult:
+        return JSONResult(
+            "auxvariable",
+            {},
+            "fail",
+            "not yet implemented (" + self.tags[0] + ")")
+
     def __str__(self) -> str:
         return "constant-value-variable:" + self.tags[0]
 
@@ -268,6 +277,12 @@ class VInitialRegisterValue(VConstantValueVariable):
                 "Constant-value-variable is not an argument index: "
                 + str(self))
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["register"] = str(self.register)
+        content["txtrep"] = self.__str__()
+        return JSONResult("auxvariable", content, "ok")
+
     def __str__(self) -> str:
         if self.level == 0:
             return str(self.register) + "_in"
@@ -341,6 +356,16 @@ class VInitialMemoryValue(VConstantValueVariable):
     def is_structured_value(self) -> bool:
         return self.variable.is_structured_var
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        memvar = self.variable.to_json_result()
+        if memvar.is_ok:
+            content["memvar"] = memvar.content
+            content["txtrep"] = self.__str__()
+            return JSONResult("auxvariable", content, "ok")
+        else:
+            return JSONResult("auxvariable", {}, "fail", memvar.reason)
+
     def __str__(self) -> str:
         return str(self.variable.denotation) + '_in'
 
@@ -375,6 +400,22 @@ class VFrozenTestValue(VConstantValueVariable):
     @property
     def is_frozen_test_value(self) -> bool:
         return True
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["testaddr"] = self.test_addr
+        content["jumpaddr"] = self.jump_addr
+        jtestvar = self.variable.to_json_result()
+        if jtestvar.is_ok:
+            content["testvar"] = jtestvar.content
+            content["txtrep"] = str(self)
+            return JSONResult("frozentestvar", content, "ok")
+        else:
+            return JSONResult(
+                "frozentestvar",
+                {},
+                "fail",
+                "frozentestvar: " + str(jtestvar.reason))
 
     def __str__(self) -> str:
         return (str(self.variable)
@@ -446,6 +487,13 @@ class VFunctionReturnValue(VConstantValueVariable):
 
     def call_target(self) -> CallTarget:
         return self.finfo.call_target(self.callsite)
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["callsite"] = self.callsite
+        content["calltarget"] = str(self.call_target())
+        content["txtrep"] = self.__str__()
+        return JSONResult("auxvariable", content, "ok")
 
     def __str__(self) -> str:
         if self.has_call_target():
@@ -642,6 +690,16 @@ class SymbolicValue(VConstantValueVariable):
     @property
     def is_symbolic_value(self) -> bool:
         return True
+
+    def to_json_result(self) -> JSONResult:
+        jexp = self.expr.to_json_result()
+        if jexp.is_ok:
+            content: Dict[str, Any] = {}
+            content["symbolic-expr"] = jexp.content
+            content["txtrep"] = str(self)
+            return JSONResult("auxvariable", content, "ok")
+        else:
+            return JSONResult("auxvariable", {}, "fail", str(jexp.reason))
 
     def __str__(self) -> str:
         return str(self.expr)
