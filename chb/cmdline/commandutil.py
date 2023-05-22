@@ -30,10 +30,12 @@
 import argparse
 from chb.elfformat.ELFHeader import ELFHeader
 from chb.peformat.PEHeader import PEHeader
+import datetime
 import json
 import os
 import shutil
 import subprocess
+import sys
 
 from typing import (
     Any,
@@ -68,6 +70,8 @@ from chb.cmdline.AnalysisManager import AnalysisManager
 from chb.invariants.InputConstraint import InputConstraint
 from chb.invariants.XXpr import XXpr
 
+from chb.jsoninterface.JSONSchemaRegistry import json_schema_registry
+
 from chb.mips.MIPSAccess import MIPSAccess
 from chb.mips.MIPSAssembly import MIPSAssembly
 from chb.mips.MIPSCfgPath import MIPSCfgPath
@@ -76,6 +80,7 @@ from chb.mips.MIPSInstruction import MIPSInstruction
 
 from chb.pwr.PowerAccess import PowerAccess
 
+import chb.cmdline.jsonresultutil as JU
 import chb.cmdline.XInfo as XI
 import chb.graphics.DotCfg as DC
 from chb.graphics.DotCallgraph import DotCallgraph
@@ -103,9 +108,9 @@ if TYPE_CHECKING:
 
 
 def print_error(m: str) -> None:
-    print("*" * 80)
-    print(m)
-    print("*" * 80)
+    sys.stderr.write(("*" * 80) + "\n")
+    sys.stderr.write(m + "\n")
+    sys.stderr.write(("*" * 80) + "\n")
 
 
 def print_info(m: str) -> None:
@@ -761,18 +766,20 @@ def results_function(args: argparse.Namespace) -> NoReturn:
 
     # arguments
     xname: str = str(args.xname)
-    function: str = args.function
-    hash: bool = args.hash
+    xfaddr: str = args.faddr
+    xjson: bool = args.json
+    xoutput: str = args.output
+    hash: bool = args.md5hash
     bytestring: bool = args.bytestring
     bytes: bool = args.bytes
     opcodewidth: int = args.opcodewidth
-    stacklayout: bool = args.stacklayout
+    txtoutput: bool = not xjson
 
     try:
         (path, xfile) = get_path_filename(xname)
         UF.check_analysis_results(path, xfile)
     except UF.CHBError as e:
-        print(str(e.wrap()))
+        print_error(str(e.wrap()))
         exit(1)
 
     xinfo = XI.XInfo()
@@ -780,32 +787,71 @@ def results_function(args: argparse.Namespace) -> NoReturn:
 
     app = get_app(path, xfile, xinfo)
 
-    if app.has_function(function):
-        f = app.function(function)
-        try:
-            if app.has_function_name(function):
-                print("\nFunction "
-                      + function
-                      + " ("
-                      + app.function_name(function)
-                      + ")")
+    if not app.has_function(xfaddr):
+        msg = "Function " + xfaddr + " not found"
+        if xjson:
+            jsonfresult = JU.jsonfail(msg)
+            if xoutput is not None:
+                with open(xoutput, "w") as fp:
+                    json.dump(jsonfresult, fp)
             else:
-                print("\nFunction " + function)
-            print("-" * 80)
-            print(f.to_string(
+                print(json.dumps(jsonfresult))
+
+        print_error(msg)
+        exit(1)
+
+    f = app.function(xfaddr)
+    if txtoutput:
+        lines: List[str] = []
+        try:
+            if app.has_function_name(xfaddr):
+                lines.append(
+                    "\nFunction "
+                    + xfaddr
+                    + " ("
+                    + app.function_name(xfaddr)
+                    + ")")
+            else:
+                lines.append("\nFunction " + xfaddr)
+            lines.append("-" * 80)
+            lines.append(f.to_string(
                 bytestring=bytestring,
                 bytes=bytes,
                 hash=hash,
                 sp=True,
                 opcodetxt=True,
-                opcodewidth=opcodewidth,
-                stacklayout=stacklayout))
+                opcodewidth=opcodewidth))
         except UF.CHBError as e:
-            print(str(e.wrap()))
-    else:
-        print_error("Function " + function + " not found")
+            print_error(str(e.wrap()))
+            exit(1)
 
-    exit(0)
+        if xoutput:
+            with open(xoutput, "w") as fp:
+                fp.write("\n".join(lines))
+        else:
+            print("\n".join(lines))
+        exit(0)
+
+    else:
+        fresult = f.to_json_result()
+        if fresult.is_ok:
+            fschema = json_schema_registry.get_definition("assemblyfunction")
+            jsonokresult = JU.jsonok(fschema, fresult.content)
+            if xoutput:
+                with open(xoutput, "w") as fp:
+                    json.dump(jsonokresult, fp)
+            else:
+                print(json.dumps(jsonokresult))
+            exit(0)
+
+        else:
+            jsonfresult = JU.jsonfail(fresult.reason)
+            if xoutput:
+                with open(xoutput, "w") as fp:
+                    json.dump(jsonfresult, fp)
+            else:
+                print(json.dumps(jsonfresult))
+            exit(1)
 
 
 def results_callbacktables(args: argparse.Namespace) -> NoReturn:
@@ -864,9 +910,12 @@ def results_invariants(args: argparse.Namespace) -> NoReturn:
 
     # arguments
     xname: str = str(args.xname)
-    function: str = args.function
+    xfaddr: str = args.faddr
+    xjson: bool = args.json
+    xoutput: str = args.output
     xinclude: List[str] = args.include
     xexclude: List[str] = args.exclude
+    txtoutput: bool = not xjson
 
     def in_include(f: str) -> bool:
         for s in xinclude:
@@ -892,33 +941,75 @@ def results_invariants(args: argparse.Namespace) -> NoReturn:
 
     app = get_app(path, xfile, xinfo)
 
-    if app.has_function(function):
-        f = app.function(function)
-        if f is None:
-            print_error("Unable to find function " + function)
+    if not app.has_function(xfaddr):
+        msg = "Function " + xfaddr + " not found"
+        if xjson:
+            jsonfresult = JU.jsonfail(msg)
+            if xoutput is not None:
+                with open(xoutput, "w") as fp:
+                    json.dump(jsonfresult, fp)
+            else:
+                print(json.dumps(jsonfresult))
+
+        print_error(msg)
+        exit(1)
+
+    f = app.function(xfaddr)
+    if txtoutput:
+        lines: List[str] = []
+
+        try:
+            invariants = f.invariants
+            for loc in sorted(invariants):
+                if any(f.is_unreachable for f in invariants[loc]):
+                    lines.append(loc + ": unreachable")
+                else:
+                    lines.append(loc)
+                    for fact in invariants[loc]:
+                        if (
+                                fact.is_initial_var_disequality
+                                or fact.is_initial_var_equality):
+                            continue
+                        pfact = str(fact)
+                        if len(xinclude) == 0:
+                            if in_exclude(pfact):
+                                continue
+                            else:
+                                lines.append("  " + pfact)
+                        else:
+                            if (in_include(pfact) and not in_exclude(pfact)):
+                                lines.append("  " + pfact)
+        except UF.CHBError as e:
+            print_error(str(e.wrap()))
             exit(1)
 
-        invariants = f.invariants
-        for loc in sorted(invariants):
-            if any(f.is_unreachable for f in invariants[loc]):
-                print(loc + ": unreachable")
+        if xoutput:
+            with open(xoutput, "w") as fp:
+                fp.write("\n".join(lines))
+        else:
+            print("\n".join(lines))
+        exit(0)
+
+    else:
+        fresult = JU.function_invariants_to_json_result(f.invariants)
+        if fresult.is_ok:
+            fschema = json_schema_registry.get_definition("functioninvariants")
+            jsonokresult = JU.jsonok(fschema, fresult.content)
+            if xoutput:
+                with open(xoutput, "w") as fp:
+                    json.dump(jsonokresult, fp)
             else:
-                print(loc)
-                for fact in invariants[loc]:
-                    if (
-                            fact.is_initial_var_disequality
-                            or fact.is_initial_var_equality):
-                        continue
-                    pfact = str(fact)
-                    if len(xinclude) == 0:
-                        if in_exclude(pfact):
-                            continue
-                        else:
-                            print("  " + pfact)
-                    else:
-                        if (in_include(pfact) and not in_exclude(pfact)):
-                            print("  " + pfact)
-    exit(0)
+                print(json.dumps(jsonokresult))
+            exit(0)
+
+        else:
+            jsonfresult = JU.jsonfail(fresult.reason)
+            if xoutput:
+                with open(xoutput, "w") as fp:
+                    json.dump(jsonfresult, fp)
+            else:
+                print(json.dumps(jsonfresult))
+            exit(1)
 
 
 def results_branchconditions(args: argparse.Namespace) -> NoReturn:

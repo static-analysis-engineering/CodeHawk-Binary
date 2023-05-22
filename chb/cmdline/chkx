@@ -694,15 +694,23 @@ def parse() -> argparse.Namespace:
     resultsfunctions.set_defaults(func=UCC.results_functions)
 
     # --- results function ---
-    resultsfunction = resultsparsers.add_parser("function")
+    resultsfunction = resultsparsers.add_parser(
+        "function",
+        description="Outputs the annotated assembly listing of a function")
     resultsfunction.add_argument("xname", help="name of executable")
-    resultsfunction.add_argument("function", help="hex address of function")
+    resultsfunction.add_argument("faddr", help="hex address of function")
+    resultsfunction.add_argument(
+        "--json",
+        action="store_true",
+        help="produce output in json format (note: this may be large)")
+    resultsfunction.add_argument(
+        "--output", "-o", help="save output in file")
     resultsfunction.add_argument(
         "--bytes",
         action="store_true",
         help="include instruction bytes")
     resultsfunction.add_argument(
-        "--hash",
+        "--md5hash",
         action="store_true",
         help="show function md5 hash")
     resultsfunction.add_argument(
@@ -714,10 +722,6 @@ def parse() -> argparse.Namespace:
         type=int,
         default=32,
         help="number of characters for opcode text")
-    resultsfunction.add_argument(
-        "--stacklayout",
-        action="store_true",
-        help="include stacklayout at the top of the function")
     resultsfunction.set_defaults(func=UCC.results_function)
 
     # --- results apr ---
@@ -753,19 +757,36 @@ def parse() -> argparse.Namespace:
     resultscallbacktables.set_defaults(func=UCC.results_callbacktables)
 
     # --- results invariants ---
-    resultsinvariants = resultsparsers.add_parser("invariants")
+    resultsinvariants = resultsparsers.add_parser(
+        "invariants",
+        description=(
+            "Lists the invariants at every instruction address in the function. "
+            + "Invariants are assertions about the program state at a particular "
+            + "location before that instruction is executed"))
     resultsinvariants.add_argument("xname", help="name of executable")
-    resultsinvariants.add_argument("function", help="hex address of function")
+    resultsinvariants.add_argument("faddr", help="hex address of function")
+    resultsinvariants.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "produce output in json format (--include and --exclude "
+            + "arguments are ignored in this case)"))
+    resultsinvariants.add_argument(
+        "--output", "-o", help="save output in file")
     resultsinvariants.add_argument(
         "--include",
         nargs="*",
         default=[],
-        help="only include invariants that contain this string")
+        help=(
+            "only include invariants that contain this string (only applies "
+            + "for text output)"))
     resultsinvariants.add_argument(
         "--exclude",
         nargs="*",
         default=[],
-        help="exclude invariants that contain this string")
+        help=(
+            "exclude invariants that contain this string (only applies "
+            + " for text output)"))
     resultsinvariants.set_defaults(func=UCC.results_invariants)
 
     # --- results branchconditions ---
