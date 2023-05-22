@@ -58,6 +58,8 @@ from chb.invariants.FnInvariants import FnInvariants
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
+from chb.jsoninterface.JSONResult import JSONResult
+
 import chb.simulation.SimUtil as SU
 
 import chb.util.fileutil as UF
@@ -433,3 +435,7 @@ class X86Function(Function):
 
     def __str__(self) -> str:
         return self.to_string()
+
+    def to_json_result(self) -> JSONResult:
+        return JSONResult(
+            "assemblyfunction", {}, "fail", "not yet implemented for x86")

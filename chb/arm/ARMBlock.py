@@ -27,9 +27,11 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, Dict, List, Mapping, Sequence, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Mapping, Sequence, TYPE_CHECKING
 
 from chb.app.BasicBlock import BasicBlock
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -82,3 +84,18 @@ class ARMBlock(BasicBlock):
                 sp=sp)
             lines.append(str(ia).rjust(10) + "  " + pinstr)
         return "\n".join(lines)
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["startaddr"] = self.baddr
+        content["endaddr"] = self.lastaddr
+        content["instructions"] = instrs = []
+        for (iaddr, instr) in self.instructions.items():
+            iresult = instr.to_json_result()
+            if not iresult.is_ok:
+                reason = (
+                    "failure at " + iaddr + ": " + str(iresult.reason))
+                return JSONResult("assemblyblock", {}, "fail", reason)
+            else:
+                instrs.append(iresult.content)
+        return JSONResult("assemblyblock", content, "ok")

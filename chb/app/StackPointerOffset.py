@@ -26,7 +26,9 @@
 # ------------------------------------------------------------------------------
 """Stack pointer offset from position at start of function."""
 
-from typing import List, TYPE_CHECKING
+from typing import Any, Dict, List, TYPE_CHECKING
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 from chb.util.IndexedTable import IndexedTableValue
 
@@ -78,3 +80,18 @@ class StackPointerOffset(IndexedTableValue):
                 + str(self.offset).rjust(4)
                 + " "
                 + ("]" * level))
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        if self.offset.is_singleton:
+            content["value"] = self.offset.lower_bound.bound.value
+        elif self.offset.is_closed:
+            content["range"] = [
+                self.offset.lower_bound.bound.value, self.offset.upper_bound.bound.value]
+        elif self.offset.lower_bound.is_bounded:
+            content["lowerbound"] = self.offset.lower_bound.bound.value
+        elif self.offset.upper_bound.is_bounded:
+            content["upperbound"] = self.offset.upper_bound.bound.value
+        else:
+            content["novalue"] = "unbounded"
+        return JSONResult("stackpointeroffset", content, "ok")

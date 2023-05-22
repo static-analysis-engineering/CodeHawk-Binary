@@ -28,7 +28,7 @@
 import xml.etree.ElementTree as ET
 
 from typing import (
-    Callable, cast, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING)
+    Any, Callable, cast, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING)
 
 from chb.api.CallTarget import CallTarget
 
@@ -50,6 +50,8 @@ from chb.arm.opcodes.ARMBranch import ARMBranch
 from chb.invariants.InvariantFact import InvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
@@ -206,7 +208,7 @@ class ARMInstruction(Instruction):
 
     @property
     def annotation(self) -> str:
-        return self.opcode.annotation(self.xdata).ljust(40)
+        return self.opcode.annotation(self.xdata)
 
     @property
     def memory_accesses(self) -> Sequence[MemoryAccess]:
@@ -319,3 +321,18 @@ class ARMInstruction(Instruction):
                 + str(e))
             raise
             # return "??"
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        status: Dict[str, str] = {"status": "Ok"}
+        spresult = self.stackpointer_offset.to_json_result()
+        content["addr"] = [self.iaddr]
+        if spresult.is_ok:
+            content["stackpointer"] = spresult.content
+        content["bytes"] = self.bytestring
+        try:
+            content["opcode"] = [self.mnemonic, self.operandstring]
+            content["annotation"] = self.annotation
+            return JSONResult("assemblyinstruction", content, "ok")
+        except UF.CHBError as e:
+            return JSONResult("assemblyinstruction", content, "fail", str(e))
