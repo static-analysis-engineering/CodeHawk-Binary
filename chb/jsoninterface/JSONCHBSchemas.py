@@ -26,65 +26,103 @@
 # ------------------------------------------------------------------------------
 """Common schemas used throughout the binary analyzer python api."""
 
-from typing import Any, Dict, TYPE_CHECKING
+from typing import Any, Dict, Optional, TYPE_CHECKING
+
+
+def prop_kind(name: str) -> Dict[str, Any]:
+    kprop: Dict[str, Any] = {}
+    kprop["type"] = "string"
+    kprop["enum"] = [name]
+    return kprop
+
+
+def txtrep() -> Dict[str, str]:
+    t: Dict[str, str] = {}
+    t["type"] = "string"
+    t["description"] = "suggested textual representation"
+    return t
+
+
+def refdef(name: str) -> Dict[str, str]:
+    r: Dict[str, str] = {}
+    r["$ref"] = "#/$defs/" + name
+    return r
+
+
+def strtype(desc: Optional[str] = None) -> Dict[str, str]:
+    s: Dict[str, str] = {}
+    s["type"] = "string"
+    if desc is not None:
+        s["description"] = desc
+    return s
+
+
+def intvalue(desc: Optional[str] = None) -> Dict[str, Any]:
+    v: Dict[str, str] = {}
+    v["type"] = "integer"
+    if desc is not None:
+        v["description"] = desc
+    return v
 
 
 stackpointeroffset = {
     "name": "stackpointeroffset",
     "title": "stackpointer offset",
-    "description": ("value or range of values of the stack pointer "
-                    + "relative to the value at the function entry, "
-                    + "as determined by the analysis, or unknown"),
+    "description": (
+        "value or range of values of the stack pointer "
+        + "relative to the value at the function entry, "
+        + "as determined by the analysis, or unknown"),
     "type": "object",
     "oneOf": [
         {
             "type": "object",
             "description": "typically used for unknown value",
+            "required": ["kind", "txtrep"],
             "properties": {
-                "novalue": {
-                    "type": "string",
-                    "enum": ["unbounded", "not-analyzed"]
-                }
+                "kind": prop_kind("unb-itv"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "description": "single (usually negative) value",
+            "required": ["kind", "value", "txtrep"],
             "properties": {
-                "value": {
-                    "type": "number",
-                }
+                "kind": prop_kind("civ"),
+                "value": intvalue(),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
-            "description": ("closed interval specified by minimum and "
-                            + "maximum value"),
+            "description": (
+                "closed interval specified by minimum and maximum value"),
+            "required": ["kind", "lb", "ub", "txtrep"],
             "properties": {
-                "range": {
-                    "type": "array",
-                    "items": {
-                        "type": "number"
-                    }
-                }
+                "kind": prop_kind("itv"),
+                "lb": intvalue(desc="lower-bound of offset value"),
+                "ub": intvalue(desc="upper-bound of offset value"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "description": ("right open interval specified by lower bound"),
+            "required": ["kind", "lb", "txtrep"],
             "properties": {
-                "lowerbound": {
-                    "type": "number"
-                }
+                "kind": prop_kind("lb-itv"),
+                "lb": intvalue(desc="lower-bound on offset value"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "descripotion": ("left open interval specified by upper bound"),
+            "required": ["kind", "ub", "txtrep"],
             "properties": {
-                "upperbound": {
-                    "type": "number"
-                }
+                "kind": prop_kind("ub-itv"),
+                "ub": intvalue(desc="upper-bound on offset value"),
+                "txtrep": txtrep()
             }
         }
     ]
@@ -101,35 +139,23 @@ assemblyinstruction = {
     "properties": {
         "addr": {
             "type": "array",
-            "description": ("list of context addresses within the function "
-                            + "instruction address last"),
-            "items": {
-                "type": "string",
-                "description": "hex address"
-            }
-        },
-        "stackpointer": {
-            "$ref": "stackpointeroffset"
-        },
-        "bytes": {
-            "type": "string",
             "description": (
-                "hexadecimal representation of bytes constituting the instruction"),
+                "list of context addresses within the function "
+                + "instruction address last"),
+            "items": strtype(desc="hex address")
         },
+        "stackpointer": refdef("stackpointeroffset"),
+        "bytes": strtype(
+            desc="hexadecimal representation of the instruction bytes"),
         "opcode": {
             "type": "array",
             "description": (
                 "standard assembly instruction representation, possibly broken in "
                 + "opcode part and operands part for better formatting"),
-            "items": {
-                "type": "string"
-            }
+            "items": strtype()
         },
-        "annotation": {
-            "type": "string",
-            "description": (
-                "representation of instruction semantics using analysis results")
-        }
+        "annotation": strtype(
+            desc="representation of instruction semantics using invariants")
     }
 }
 
@@ -141,24 +167,18 @@ assemblyblock = {
         "Range of instructions within a function that form a basic block"),
     "type": "object",
     "properties": {
-        "startaddr": {
-            "type": "string",
-            "description": "hexaddress of the first instruction of the block"
-        },
-        "endaddr": {
-            "type": "string",
-            "description": (
+        "startaddr": strtype(
+            desc="hexaddress of the first instruction of the block"),
+        "endaddr": strtype(
+            desc=(
                 "hexaddress of the (syntactically) last instruction of the "
                 + "block. Note that this would be the address of the delay "
                 + "slot for a MIPS assembly block, which is not the last "
-                + "instruction to be executed")
-        },
+                + "instruction to be executed")),
         "instructions": {
             "type": "array",
             "description": "list of assembly instructions contained in the block",
-            "items": {
-                "$ref": "assemblyinstruction"
-            }
+            "items": refdef("assemblyinstruction")
         }
     }
 }
@@ -170,29 +190,21 @@ assemblyfunction = {
     "description": ("Collection of basic blocks that make up a function"),
     "type": "object",
     "properties": {
-        "name": {
-            "type": "string",
-            "description": (
+        "name": strtype(
+            desc=(
                 "(optional) name of the function from symbol information "
-                + "or user-provided")
-        },
-        "faddr": {
-            "type": "string",
-            "description": (
+                + "or user-provided")),
+        "faddr": strtype(
+            desc=(
                 "hexaddress of function entry point. Note that this address "
-                + "is not necessarily the lowest address of the function.")
-        },
-        "md5hash": {
-            "type": "string",
-            "description": (
-                "md5 hash of the hex-encoded bytes of the function instructions")
-        },
+                + "is not necessarily the lowest address of the function.")),
+        "md5hash": strtype(
+            desc=(
+                "md5 hash of the hex-encoded bytes of the function instructions")),
         "basicblocks": {
             "type": "array",
             "description": ("list of basic blocks included in the function"),
-            "items": {
-                "$ref": "assemblyblock"
-            }
+            "items": refdef("assemblyblock")
         }
     }
 }
@@ -206,15 +218,54 @@ memoryoffset = {
     "oneOf": [
         {
             "type": "object",
-            "description": "constant numerical offset",
+            "description": "no offset",
+            "required": ["kind"],
             "properties": {
-                "offsetvalue": {
-                    "type": "number",
-                    "description": "offset value in bytes"
-                },
-                "suboffset": {
-                    "$ref": "memoryoffset"
-                }
+                "kind": prop_kind("none")
+            }
+        },
+        {
+            "type": "object",
+            "description": "constant numerical offset",
+            "required": ["kind", "value", "txtrep"],
+            "properties": {
+                "kind": prop_kind("cv"),
+                "value": intvalue(desc="offset value in bytes"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "constant numerical offset with suboffset",
+            "required": ["kind", "value", "suboffset", "txtrep"],
+            "properties": {
+                "kind": prop_kind("cvo"),
+                "value": intvalue(desc="offset value in bytes"),
+                "suboffset": {"$ref": "#"},
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "index offset with variable and element size",
+            "required": ["kind", "ixvar", "elsize", "txtrep"],
+            "properties": {
+                "kind": prop_kind("iv"),
+                "ixvar": refdef("xvariable"),
+                "elsize": intvalue(desc="size of element indexed"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "index offset with suboffset",
+            "required": ["kind", "ixvar", "elsize", "suboffset", "txtrep"],
+            "properties": {
+                "kind": prop_kind("ivo"),
+                "ixvar": refdef("xvariable"),
+                "elsize": intvalue(desc="size of element indexed"),
+                "suboffset": {"$ref": "#"},
+                "txtrep": txtrep()
             }
         }
     ]
@@ -230,6 +281,7 @@ memorybase = {
         {
             "type": "object",
             "description": "known base: function stack frame or global",
+            "required": ["stack"],
             "properties": {
                 "stack": {
                     "type": "string",
@@ -240,9 +292,19 @@ memorybase = {
         {
             "type": "object",
             "description": "pointer contained in fixed-value variable",
+            "required": ["ptrvar"],
             "properties": {
-                "ptrvar": {
-                    "$ref": "xvariable"
+                "ptrvar": refdef("xvariable")
+            }
+        },
+        {
+            "type": "object",
+            "description": "global base or unknown",
+            "required": ["other"],
+            "properties": {
+                "other": {
+                    "type": "string",
+                    "enum": ["global", "unknown"]
                 }
             }
         }
@@ -259,68 +321,65 @@ auxvariable = {
         {
             "type": "object",
             "description": "value of the register upon function entry",
+            "required": ["kind", "register", "txtrep"],
             "properties": {
-                "register": {
-                    "type": "string",
-                    "description": "name of register"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("irv"),
+                "register": strtype(desc="name of register"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "description": "value of memory location upon function entry",
+            "required": ["kind", "memvar", "txtrep"],
             "properties": {
-                "memvar": {
-                    "$ref": "xvariable"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
-            }
-        },
-        {
-            "type": "object",
-            "description": "value of return value from a function call",
-            "properties": {
-                "callsite": {
-                    "type": "string",
-                    "description": "hexaddress of function call site"
-                },
-                "calltarget": {
-                    "type": "string",
-                    "description": (
-                        "name of the function called that returned the value")
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested text representation"
-                }
+                "kind": prop_kind("imv"),
+                "memvar": refdef("xvariable"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "description": "value of variable frozen at test location",
+            "required": ["kind", "testaddr", "jumpaddr", "testvar", "txtrep"],
             "properties": {
-                "testaddr": {
-                    "type": "string",
-                    "description": "hex address of test location"
-                },
-                "jumpaddr": {
-                    "type": "string",
-                    "description": "hex address of conditional branch"
-                },
-                "testvar": {
-                    "$ref": "xvariable"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("ftv"),
+                "testaddr": strtype(desc="hex address of test location"),
+                "jumpaddr": strtype(desc="hex address of conditional branch"),
+                "testvar": refdef("xvariable"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "value of return value from a function call",
+            "required": ["kind", "callsite", "calltarget", "txtrep"],
+            "properties": {
+                "kind": prop_kind("frv"),
+                "callsite": strtype(desc="hexaddress of function call site"),
+                "calltarget": strtype(desc="name of function called"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "memory address",
+            "required": ["kind", "base", "offset", "txtrep"],
+            "properties": {
+                "kind": prop_kind("ma"),
+                "base": refdef("memorybase"),
+                "offset": refdef("memoryoffset"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "symbolic representation of expression",
+            "required": ["kind", "expr", "txtrep"],
+            "properties": {
+                "kind": prop_kind("svx"),
+                "expr": refdef("xexpression"),
+                "txtrep": txtrep()
             }
         }
     ]
@@ -336,19 +395,20 @@ xconstant = {
         {
             "type": "object",
             "description": "integer constant",
+            "required": ["kind", "value"],
             "properties": {
-                "value": {
-                    "type": "number",
-                    "description": "numerical value"
-                },
-                "stringref": {
-                    "type": "string",
-                    "description": "(optional) string at numerical address"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("icst"),
+                "value": intvalue()
+            }
+        },
+        {
+            "type": "object",
+            "description": "integer constant string address",
+            "required": ["kind", "value", "stringref"],
+            "properties": {
+                "kind": prop_kind("strcst"),
+                "value": intvalue(),
+                "stringref": strtype(desc="string at numerical address")
             }
         }
     ]
@@ -364,61 +424,43 @@ xvariable = {
         {
             "type": "object",
             "description": "temporary variable without denotation",
+            "required": ["kind", "temp", "txtrep"],
             "properties": {
-                "temp": {
-                    "type": "string"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
-            }
-        },
-        {
-            "type": "object",
-            "description": "variable with a fixed (possibly symbolic) value",
-            "properties": {
-                "fixed-value": {
-                    "$ref": "auxvariable"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("temp"),
+                "temp": strtype(),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "description": "memory variable",
+            "required": ["kind", "base", "offset", "size", "txtrep"],
             "properties": {
-                "base": {
-                    "$ref": "memorybase"
-                },
-                "offset": {
-                    "$ref": "memoryoffset"
-                },
-                "size": {
-                    "type": "number",
-                    "description": "(optional) size of variable in bytes"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("memvar"),
+                "base": refdef("memorybase"),
+                "offset": refdef("memoryoffset"),
+                "size": intvalue(desc="size of variable in bytes"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "description": "register variable",
+            "required": ["kind", "register", "txtrep"],
             "properties": {
-                "register": {
-                    "type": "string",
-                    "description": "name of register"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("regvar"),
+                "register": strtype(desc="name of register"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "variable with a fixed (possibly symbolic) value",
+            "required": ["kind", "fxdval", "txtrep"],
+            "properties": {
+                "kind": prop_kind("fxd"),
+                "fxdval": refdef("auxvariable"),
+                "txtrep": txtrep()
             }
         }
     ]
@@ -434,44 +476,36 @@ xexpression = {
         {
             "type": "object",
             "description": "constant expression",
+            "required": ["kind", "cst", "txtrep"],
             "properties": {
-                "cst": {
-                    "$ref": "xconstant"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("xcst"),
+                "cst": refdef("xconstant"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "description": "variable",
+            "required": ["var", "txtrep"],
             "properties": {
-                "var": {
-                    "$ref": "xvariable"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("xvar"),
+                "var": refdef("xvariable"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "description": "compound expression",
+            "required": ["kind", "operator", "operands", "txtrep"],
             "properties": {
-                "operator": {
-                    "type": "string",
-                    "description": "operation performed"
-                },
+                "kind": prop_kind("xop"),
+                "operator": strtype(desc="operation performed"),
                 "operands": {
                     "type": "array",
                     "description": "list of operands (usually one or two)",
-                    "items": {
-                        "$ref": "xexpression"
-                    }
-                }
+                    "items": {"$ref": "#/$defs/xexpression"}
+                },
+                "txtrep": txtrep()
             }
         }
     ]
@@ -483,25 +517,19 @@ linearequality = {
     "title": "linear equality",
     "description": "linear equality of the form sum(a_i . x_i) = c",
     "type": "object",
+    "required": ["constant", "coeffs", "factors", "txtrep"],
     "properties": {
-        "constant": {
-            "type": "int",
-            "description": "constant factor"
-        },
-        "coefficients": {
+        "constant": intvalue(desc="constant factor"),
+        "coeffs": {
             "type": "array",
-            "items": {
-                "type": "int",
-                "description": "coefficient a_i (may be 0)"
-            }
+            "items": intvalue(desc="coefficient a_i (may be 0)")
         },
         "factors": {
             "description": "factors x_i",
             "type": "array",
-            "items": {
-                "$ref": "xvariable"
-            }
-        }
+            "items": refdef("xvariable")
+        },
+        "txtrep": txtrep()
     }
 }
 
@@ -514,37 +542,109 @@ nonrelationalvalue = {
     "oneOf": [
         {
             "type": "object",
-            "description": "range of values",
+            "description": "numeric value",
+            "required": ["kind", "value", "txtrep"],
             "properties": {
-                "base": {
-                    "type": "string",
-                    "description": "(optional) name of a base variable"
-                },
-                "lowerbound": {
-                    "type": "number",
-                    "description": "(optional) lower-bound of the range"
-                },
-                "upperbound": {
-                    "type": "number",
-                    "description": "(optional) upper-bound of the range"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("civ"),
+                "value": intvalue(desc="constant singleton value"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "closed range of values",
+            "required": ["kind", "lb", "ub", "txtrep"],
+            "properties": {
+                "kind": prop_kind("itv"),
+                "lb": intvalue(desc="lowerbound (inclusive) of range"),
+                "ub": intvalue(desc="upperbound (inclusive) of range"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "lower-bounded, half-open range of values",
+            "required": ["kind", "lb", "txtrep"],
+            "properties": {
+                "kind": prop_kind("lb-itv"),
+                "lb": intvalue(desc="lowerbound of half-open range"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "upper-bounded, half-open range of values",
+            "required": ["kind", "ub", "txtrep"],
+            "properties": {
+                "kind": prop_kind("ub-itv"),
+                "ub": intvalue(desc="upperbound of half-open range"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "base with numeric constant offset",
+            "required": ["kind", "base", "value", "txtrep"],
+            "properties": {
+                "kind": prop_kind("b-civ"),
+                "base": strtype(desc="symbolic base address"),
+                "value": intvalue(desc="offset (in bytes) from base address"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "base with bounded range of numeric offsets",
+            "required": ["kind", "base", "lb", "ub", "txtrep"],
+            "properties": {
+                "kind": prop_kind("b-itv"),
+                "base": strtype(desc="symbolic base address"),
+                "lb": intvalue(desc=(
+                    "lowerbound (inclusive) of offset range (in bytes)")),
+                "ub": intvalue(desc=(
+                    "upperbound (inclusive) of offset range (in bytes)")),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "half-open range of address values",
+            "required": ["kind", "base", "lb", "txtrep"],
+            "properties": {
+                "kind": prop_kind("b-lb-itv"),
+                "base": strtype(desc="name of a base variable"),
+                "lb": intvalue(desc="lower-bound of the range"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "half-open range of values",
+            "required": ["kind", "base", "ub", "txtrep"],
+            "properties": {
+                "kind": prop_kind("b-ub-itv"),
+                "base": strtype(desc="name of a base variable"),
+                "ub": intvalue(desc="upper-bound of the range"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": "base only with unbounded interval",
+            "required": ["kind", "txtrep"],
+            "properties": {
+                "kind": prop_kind("b-unb"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "description": "symbolic expression",
+            "required": ["kind", "sym-expr", "txtrep"],
             "properties": {
-                "sym-expr": {
-                    "$ref": "xexpression"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("sx"),
+                "sym-expr": refdef("xexpression"),
+                "txtrep": txtrep()
             }
         }
     ]
@@ -561,23 +661,31 @@ invariantfact = {
         {
             "type": "object",
             "description": (
+                "assertion that location is unreachable, with domain that "
+                + "reached that conclusion"),
+            "required": ["kind", "domain", "txtrep"],
+            "properties": {
+                "kind": prop_kind("unr"),
+                "domain": strtype(desc="domain with bottom result"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
+            "description": (
                 "variable has or does not have the same value as the value at "
                 "function entry"),
+            "required": [
+                "kind", "relation", "var", "initval", "txtrep"],
             "properties": {
+                "kind": prop_kind("ival"),
                 "relation": {
                     "type": "string",
                     "enum": ["equals", "not-equals"]
                 },
-                "var": {
-                    "$ref": "xvariable"
-                },
-                "initial-value": {
-                    "$ref": "auxvariable"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "var": refdef("xvariable"),
+                "initval": refdef("xvariable"),
+                "txtrep": txtrep()
             }
         },
         {
@@ -585,43 +693,28 @@ invariantfact = {
             "description": (
                 "relationship between value of testvariable at test location "
                 + "and jump location (for evaluation of branch predicate)"),
+            "required": [
+                "kind", "testaddr", "jumpaddr", "testvar", "testval", "txtrep"],
             "properties": {
-                "testaddr": {
-                    "type": "string",
-                    "description": (
-                        "hex address of instruction setting the condition codes")
-                },
-                "jumpaddr": {
-                    "type": "string",
-                    "description": (
-                        "hex address of conditional branch instruction")
-                },
-                "testvar": {
-                    "$ref": "xvariable"
-                },
-                "testval": {
-                    "$ref": "xvariable"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("tst"),
+                "testaddr": strtype(
+                    desc="hex address of instruction setting the condition codes"),
+                "jumpaddr": strtype(
+                    desc="hex address of conditional branch instruction"),
+                "testvar": refdef("xvariable"),
+                "testval": refdef("xvariable"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
-            "description": "variable equality with symbolic expression",
+            "description": "variable equality with non-relational value",
+            "required": ["kind", "nrv", "var", "nrv", "txtrep"],
             "properties": {
-                "var": {
-                    "$ref": "xvariable"
-                },
-                "symbolic-value": {
-                    "$ref": "nonrelationalvalue"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual represention"
-                }
+                "kind": prop_kind("nrv"),
+                "var": refdef("xvariable"),
+                "nrv": refdef("nonrelationalvalue"),
+                "txtrep": txtrep()
             }
         },
         {
@@ -629,23 +722,21 @@ invariantfact = {
             "description": (
                 "location is unreachable; name of domain indicates the abstract "
                 + "domain that reaches this conclusion"),
+            "required": ["kind", "domain", "txtrep"],
             "properties": {
-                "unreachable": {
-                    "type": "string"
-                }
+                "kind": prop_kind("unr"),
+                "domain": strtype(desc="domain that signals unreachability"),
+                "txtrep": txtrep()
             }
         },
         {
             "type": "object",
             "description": ("linear equality over program variables"),
+            "required": ["kind", "lineq", "txtrep"],
             "properties": {
-                "lineq": {
-                    "$ref": "linearequality"
-                },
-                "txtrep": {
-                    "type": "string",
-                    "description": "suggested textual representation"
-                }
+                "kind": prop_kind("lineq"),
+                "lineq": refdef("linearequality"),
+                "txtrep": txtrep()
             }
         }
     ]
@@ -658,18 +749,14 @@ locationinvariant = {
     "description": ("All invariant facts associated with a location"),
     "type": "object",
     "properties": {
-        "location": {
-            "type": "string",
-            "description": (
+        "location": strtype(
+            desc=(
                 "instruction hexaddress at which the assertions hold before "
-                + "execution of the instruction at that address")
-        },
+                + "execution of the instruction at that address")),
         "invariants": {
             "type": "array",
-            "items": {
-                "$ref": "invariantfact"
-            },
-            "description": ("list of invariants that hold at this location")
+            "items": refdef("invariantfact"),
+            "description": "list of invariants that hold at this location"
         }
     }
 }
@@ -682,8 +769,100 @@ functioninvariants = {
     "properties": {
         "invariants": {
             "type": "array",
+            "items": refdef("locationinvariant")
+        }
+    }
+}
+
+
+sectionheaderdata = {
+    "name": "sectionheaderdata",
+    "title": "section header data",
+    "description": "name, address and size of an ELF section",
+    "properties": {
+        "name": strtype(desc="name of the section"),
+        "vaddr": strtype(desc="virtual address of section (in hex)"),
+        "size": strtype(desc="size, in bytes, of section (in memory) (in hex)")
+    }
+}
+
+
+xcomparison = {
+    "name": "xcomparison",
+    "title": "binary comparison",
+    "description": "Structural differences between two binaries",
+    "type": "object",
+    "required": ["file1", "file2"],
+    "properties": {
+        "file1": {
+            "type": "object",
+            "description": "path and filename of first file",
+            "required": ["path", "filename"],
+            "properties": {
+                "path": strtype(),
+                "filename": strtype()
+            }
+        },
+        "file2": {
+            "type": "object",
+            "description": "path and filename of second file",
+            "required": ["path", "filename"],
+            "properties": {
+                "path": strtype(),
+                "filename": strtype()
+            }
+        },
+        "newsections": {
+            "type": "array",
+            "description": (
+                "name, address and size of sections added in patched file"),
+            "items": refdef("sectionheaderdata")
+        },
+        "missingsections": {
+            "type": "array",
+            "description": "names of sections removed compared to original file",
+            "items": strtype(desc="section name")
+        },
+        "thumb-switchpoints": {
+            "type": "array",
+            "description": (
+                "list of thumb switchpoints addede to userdata of patched file"),
+            "items": strtype(desc="switch-point (in CodeHawk form)")
+        },
+        "newcode": {
+            "type": "array",
+            "description": (
+                "start and end address of newly added chunks of code in "
+                + "patched file"),
             "items": {
-                "$ref": "locationinvariant"
+                "type": "object",
+                "description": (
+                    "start and end virtual address of new code region (hex)"),
+                "properties": {
+                    "startaddr": strtype(),
+                    "endaddr": strtype()
+                }
+            }
+        },
+        "section-differences": {
+            "type": "array",
+            "description": (
+                "list of differences in size or starting address of existing "
+                + "sections"),
+            "items": {
+                "type": "object",
+                "description": "difference in size or virtual address",
+                "properties": {
+                    "name": strtype(desc="name of the section"),
+                    "vaddr1": strtype(
+                        desc="virtual address of section in original binary"),
+                    "vaddr2": strtype(
+                        desc="virtual address of section in patched binary"),
+                    "size1": strtype(
+                        desc="size (in hex) of section in original binary"),
+                    "size2": strtype(
+                        desc="size (in hex) of section in patched binary")
+                }
             }
         }
     }

@@ -26,6 +26,8 @@
 # ------------------------------------------------------------------------------
 """Registry for json schemas that can be referred to by JSONResult objects."""
 
+import json
+
 from typing import Any, Dict, List
 
 import chb.jsoninterface.JSONCHBSchemas as S
@@ -56,11 +58,13 @@ class JSONSchemaRegistry:
                         aux(d["properties"][p])
                 elif key == "items":
                     aux(d["items"])
-                elif key == "oneOf":
+                elif key in ["oneOf", "anyOf"]:
                     for choice in d[key]:
                         aux(choice)
                 elif key == "$ref":
-                    defname = d[key]
+                    if d[key] == "#":
+                        continue
+                    defname = d[key][8:]
                     if defname in defs:
                         continue
                     elif self.has_definition(defname):
@@ -106,7 +110,9 @@ chb_schemas: List[Dict[str, Any]] = [
     S.memorybase,
     S.memoryoffset,
     S.nonrelationalvalue,
+    S.sectionheaderdata,
     S.stackpointeroffset,
+    S.xcomparison,
     S.xconstant,
     S.xexpression,
     S.xvariable
@@ -116,3 +122,72 @@ chb_schemas: List[Dict[str, Any]] = [
 for s in chb_schemas:
     json_schema_registry.add_schema(s["name"], s)
 json_schema_registry.add_schemas_defs()
+
+
+def schema_metadata(name: str) -> Dict[str, Any]:
+    metadata: Dict[str, Any] = {
+        "description": "CodeHawk json result metadata",
+        "type": "object",
+        "required": ["status", "date", "time", "version"],
+        "properties": {
+            "status": {
+                "type": "string",
+                "enum": ["ok", "fail"],
+                "description": "indication if data gathering was successful"
+            },
+            "date": {
+                "type": "string",
+                "format": "date",
+                "description": "date (YYYY-MM-DD) of result"
+            },
+            "time": {
+                "type": "string",
+                "description": "time (HH:MM:SS) of result"
+            },
+            "schema": {
+                "type": "string",
+                "enum": [name],
+                "description": "name of json result schema"
+            },
+            "version": {
+                "type": "string",
+                "description": "CodeHawk-Binary version number"
+            },
+            "reason": {
+                "type": "string",
+                "description": "Reason for failure"
+            }
+        }
+    }
+    return metadata
+
+
+def save_schema(name: str, title: str) -> None:
+    (schema, defs) = json_schema_registry.get_definition(name).to_json()
+    filename = name + ".json"
+    result: Dict[str, Any] = {}
+    result["name"] = name
+    result["title"] = title
+    result["type"] = "object"
+    result["required"] = ["meta"]
+    result["properties"] = properties = {}
+    properties["meta"] = schema_metadata(name)
+    properties["content"] = schema
+    if len(defs) > 0:
+        result["$defs"] = defs
+    with open(filename, "w") as fp:
+        json.dump(result, fp)
+    print("Saved schema for " + name + " in file " + filename)
+
+
+if __name__ == "__main__":
+
+    save_schema(
+        "assemblyfunction",
+        "json result file for an assembly function")
+    save_schema(
+        "functioninvariants",
+        "json result file for the location invariants within a function")
+    save_schema(
+        "xcomparison",
+        "json result file for the structural differences between two binaries")

@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Schema to describe json data."""
 
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from chb.jsoninterface.JSONSchemaRegistry import JSONSchemaRegistry
@@ -57,3 +57,6 @@ class JSONSchema:
 
     def set_defs(self, defs: Dict[str, Dict[str, Any]]) -> None:
         self._defs = defs
+
+    def to_json(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        return (self.base_schema, self.defs)
