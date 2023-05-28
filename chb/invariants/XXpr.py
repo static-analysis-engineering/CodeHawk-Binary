@@ -229,6 +229,21 @@ class XXpr(FnXprDictionaryRecord):
     def intvalue(self) -> int:
         raise UF.CHBError("Intvalue property not supported for " + str(self))
 
+    @property
+    def is_string_manipulation_condition(self) -> bool:
+        """Returns true if this expression manipulates strings."""
+        return False
+
+    @property
+    def is_register_comparison(self) -> bool:
+        """Returns true if this is a comparison that only involves registers."""
+        return False
+
+    @property
+    def variable(self) -> XVariable:
+        raise UF.CHBError(
+            "Expression does not have a variable property: " + str(self))
+
     def returnval_target(self) -> CallTarget:
         raise UF.CHBError("Get_returnval_target not supported for " + str(self))
 
@@ -256,16 +271,6 @@ class XXpr(FnXprDictionaryRecord):
         """Returns the factors in this expression."""
         return [self]
 
-    @property
-    def is_string_manipulation_condition(self) -> bool:
-        """Returns true if this expression manipulates strings."""
-        return False
-
-    @property
-    def is_register_comparison(self) -> bool:
-        """Returns true if this is a comparison that only involves registers."""
-        return False
-
     def to_input_constraint(self) -> Optional[IC.InputConstraint]:
         """Returns an input constraint if this expression can be converted."""
         return None
@@ -277,11 +282,6 @@ class XXpr(FnXprDictionaryRecord):
     def to_annotated_value(self) -> Dict[str, Any]:
         """Returns a dictionary containing value and meta information."""
         return {'v': str(self)}
-
-    @property
-    def variable(self) -> XVariable:
-        raise UF.CHBError(
-            "Expression does not have a variable property: " + str(self))
 
     def to_json_result(self) -> JSONResult:
         return JSONResult(
@@ -338,18 +338,6 @@ class XprVariable(XXpr):
     def is_global_variable(self) -> bool:
         return self.variable.is_global_variable
 
-    def global_variables(self) -> Mapping[str, int]:
-        result: Dict[str, int] = {}
-        if self.is_global_variable:
-            result[str(self.variable.global_variable_base())] = 1
-        return result
-
-    def has_global_variables(self) -> bool:
-        return len(self.global_variables()) > 0
-
-    def has_global_references(self) -> bool:
-        return self.has_global_variables()
-
     @property
     def is_function_return_value(self) -> bool:
         return (self.variable.has_denotation()
@@ -359,12 +347,6 @@ class XprVariable(XXpr):
     def is_argument_value(self) -> bool:
         return (self.variable.has_denotation()
                 and self.variable.is_argument_value)
-
-    def argument_index(self) -> int:
-        if self.is_argument_value:
-            return self.variable.denotation.argument_index()
-        else:
-            raise UF.CHBError("Xpr is not an argument value: " + str(self))
 
     @property
     def is_argument_deref_value(self) -> bool:
@@ -392,6 +374,24 @@ class XprVariable(XXpr):
             return self.variable.denotation.is_heap_base_address
         else:
             return False
+
+    def global_variables(self) -> Mapping[str, int]:
+        result: Dict[str, int] = {}
+        if self.is_global_variable:
+            result[str(self.variable.global_variable_base())] = 1
+        return result
+
+    def has_global_variables(self) -> bool:
+        return len(self.global_variables()) > 0
+
+    def has_global_references(self) -> bool:
+        return self.has_global_variables()
+
+    def argument_index(self) -> int:
+        if self.is_argument_value:
+            return self.variable.denotation.argument_index()
+        else:
+            raise UF.CHBError("Xpr is not an argument value: " + str(self))
 
     def initial_register_value_register(self) -> Register:
         return self.variable.initial_register_value_register()
@@ -469,6 +469,7 @@ class XprVariable(XXpr):
         jvar = self.variable.to_json_result()
         if jvar.is_ok:
             content: Dict[str, Any] = {}
+            content["kind"] = "xvar"
             content["var"] = jvar.content
             content["txtrep"] = str(self)
             return JSONResult("xexpression", content, "ok")
@@ -538,6 +539,10 @@ class XprConstant(XXpr):
     def is_boolconst(self) -> bool:
         return self.constant.is_boolconst
 
+    @property
+    def is_random_constant(self) -> bool:
+        return self.constant.is_random
+
     def is_false(self) -> bool:
         if self.is_boolconst:
             c = cast(XBoolConst, self.constant)
@@ -568,10 +573,6 @@ class XprConstant(XXpr):
             result['t'] = 'i'
         return result
 
-    @property
-    def is_random_constant(self) -> bool:
-        return self.constant.is_random
-
     def to_json_result(self) -> JSONResult:
         jcst = self.constant.to_json_result()
         if not jcst.is_ok:
@@ -581,6 +582,7 @@ class XprConstant(XXpr):
                 "fail",
                 "xexpression: " + str(jcst.reason))
         content: Dict[str, Any] = {}
+        content["kind"] = "xcst"
         content["cst"] = jcst.content
         content["txtrep"] = str(self)
         return JSONResult("xexpression", content, "ok")
@@ -605,6 +607,7 @@ class XprCompound(XXpr):
         self._terms: List[XXpr] = []
         self._factors: List[XXpr] = []
 
+    @property
     def is_compound(self) -> bool:
         return True
 
@@ -673,6 +676,7 @@ class XprCompound(XXpr):
             raise UF.CHBError(
                 "Expression is not a stack address: " + str(self))
 
+    @property
     def is_heap_address(self) -> bool:
         args = self.operands
         if len(args) == 2:
@@ -893,8 +897,10 @@ class XprCompound(XXpr):
                     "xexpression: " + str(jopr.reason))
             jops.append(jopr.content)
         content: Dict[str, Any] = {}
+        content["kind"] = "xop"
         content["operator"] = self.operator
         content["operands"] = jops
+        content["txtrep"] = str(self)
         return JSONResult("xexpression", content, "ok")
 
     def __str__(self) -> str:
@@ -909,8 +915,12 @@ class XprCompound(XXpr):
                 + str(args[1])
                 + ')')
         else:
-            return ('(' + xpr_operator_strings[self.operator]
-                    + '(' + ','.join(str(x) for x in args) + ')')
+            return (
+                '('
+                + xpr_operator_strings[self.operator]
+                + '('
+                + ','.join(str(x) for x in args)
+                + ')')
 
 
 @xprregistry.register_tag("a", XXpr)

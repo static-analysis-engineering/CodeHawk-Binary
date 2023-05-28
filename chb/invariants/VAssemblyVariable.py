@@ -218,22 +218,6 @@ class VMemoryVariable(VAssemblyVariable):
     def is_global_variable(self) -> bool:
         return self.base.is_global
 
-    def has_global_base(self) -> bool:
-        if self.is_global_variable:
-            return True
-        if self.is_basevar_variable:
-            cval = self.basevar.denotation.auxvar
-            if cval.is_initial_memory_value:
-                return cval.variable.denotation.has_global_base
-        return False
-
-    def global_base(self) -> VAssemblyVariable:
-        if self.is_global_variable:
-            return self
-        else:
-            cval = self.basevar.denotation.auxvar
-            return cval.variable.denotation.global_base()
-
     @property
     def is_basevar_variable(self) -> bool:
         return self.base.is_basevar
@@ -248,14 +232,6 @@ class VMemoryVariable(VAssemblyVariable):
             self.base.is_local_stack_frame
             and self.offset.is_constant_value_offset
             and self.offset.offsetvalue() > 0)
-
-    def argument_index(self) -> int:
-        if self.is_stack_argument:
-            return self.offset.offsetvalue() // 4
-        else:
-            raise UF.CHBError(
-                "Assembly variable is not a stack argument: "
-                + str(self))
 
     @property
     def is_local_stack_variable(self) -> bool:
@@ -278,6 +254,30 @@ class VMemoryVariable(VAssemblyVariable):
             and self.offset.is_constant_offset
             and self.offset.offsetvalue() <= 0)
 
+    def has_global_base(self) -> bool:
+        if self.is_global_variable:
+            return True
+        if self.is_basevar_variable:
+            cval = self.basevar.denotation.auxvar
+            if cval.is_initial_memory_value:
+                return cval.variable.denotation.has_global_base
+        return False
+
+    def global_base(self) -> VAssemblyVariable:
+        if self.is_global_variable:
+            return self
+        else:
+            cval = self.basevar.denotation.auxvar
+            return cval.variable.denotation.global_base()
+
+    def argument_index(self) -> int:
+        if self.is_stack_argument:
+            return self.offset.offsetvalue() // 4
+        else:
+            raise UF.CHBError(
+                "Assembly variable is not a stack argument: "
+                + str(self))
+
     def has_unknown_base(self) -> bool:
         return self.base.is_unknown
 
@@ -289,6 +289,7 @@ class VMemoryVariable(VAssemblyVariable):
             return JSONResult("variable", {}, "fail", membase.reason)
         if not memoffset.is_ok:
             return JSONResult("variable", {}, "fail", memoffset.reason)
+        content["kind"] = "memvar"
         content["base"] = membase.content
         content["offset"] = memoffset.content
         content["size"] = self.size
@@ -336,6 +337,7 @@ class VRegisterVariable(VAssemblyVariable):
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
+        content["kind"] = "regvar"
         content["register"] = str(self.register)
         content["txtrep"] = self.__str__()
         return JSONResult("variable", content, "ok")
@@ -386,13 +388,6 @@ class VAuxiliaryVariable(VAssemblyVariable):
     def auxvar(self) -> VConstantValueVariable:
         return self.vd.constant_value_variable(self.args[0])
 
-    def argument_deref_arg_offset(
-            self, inbytes: bool = False) -> Tuple[int, int]:
-        return self.auxvar.argument_deref_arg_offset(inbytes)
-
-    def call_arguments(self) -> Sequence["XXpr"]:
-        return self.auxvar.call_arguments()
-
     @property
     def is_auxiliary_variable(self) -> bool:
         return True
@@ -412,12 +407,6 @@ class VAuxiliaryVariable(VAssemblyVariable):
     @property
     def is_argument_value(self) -> bool:
         return self.auxvar.is_argument_value
-
-    def argument_index(self) -> int:
-        if self.is_argument_value:
-            return self.auxvar.argument_index()
-        else:
-            raise UF.CHBError("Variable is not an argument index: " + str(self))
 
     @property
     def is_argument_deref_value(self) -> bool:
@@ -439,11 +428,25 @@ class VAuxiliaryVariable(VAssemblyVariable):
     def is_structured_value(self) -> bool:
         return self.auxvar.is_structured_value
 
+    def argument_deref_arg_offset(
+            self, inbytes: bool = False) -> Tuple[int, int]:
+        return self.auxvar.argument_deref_arg_offset(inbytes)
+
+    def call_arguments(self) -> Sequence["XXpr"]:
+        return self.auxvar.call_arguments()
+
+    def argument_index(self) -> int:
+        if self.is_argument_value:
+            return self.auxvar.argument_index()
+        else:
+            raise UF.CHBError("Variable is not an argument index: " + str(self))
+
     def to_json_result(self) -> JSONResult:
         jauxvar = self.auxvar.to_json_result()
         if jauxvar.is_ok:
             content: Dict[str, Any] = {}
-            content["fixed-value"] = jauxvar.content
+            content["kind"] = "fxd"
+            content["fxdval"] = jauxvar.content
             content["txtrep"] = str(self)
             return JSONResult("xvariable", content, "ok")
         else:

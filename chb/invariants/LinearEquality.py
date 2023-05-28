@@ -74,7 +74,7 @@ class LinearEquality(FnInvDictionaryRecord):
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
         content["constant"] = self.constant
-        content["coefficients"] = self.coefficients
+        content["coeffs"] = self.coefficients
         content["factors"] = jfactors = []
         for factor in self.factors:
             fresult = factor.to_json_result()
@@ -87,6 +87,7 @@ class LinearEquality(FnInvDictionaryRecord):
                 return JSONResult("linearequality", {}, "fail", reason)
             else:
                 jfactors.append(fresult.content)
+        content["txtrep"] = str(self)
         return JSONResult("linearequality", content, "ok")
 
     def __str__(self) -> str:
