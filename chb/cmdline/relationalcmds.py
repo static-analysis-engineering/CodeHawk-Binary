@@ -37,6 +37,8 @@ from typing import Any, cast, Dict, List, NoReturn, Optional, Tuple
 
 from chb.cmdline.AnalysisManager import AnalysisManager
 import chb.cmdline.commandutil as UC
+import chb.cmdline.jsonresultutil as JU
+from chb.cmdline.XComparison import XComparison
 import chb.cmdline.XInfo as XI
 
 from chb.elfformat.ELFSectionHeader import ELFSectionHeader
@@ -64,34 +66,6 @@ def relational_header(xname1: str, xname2: str, header: str) -> str:
     lines.append("||" + "  - " + str(xname2).ljust(72) + "||")
     lines.append("=" * 80)
     return "\n".join(lines)
-
-
-class XComparison:
-
-    def __init__(self) -> None:
-        self._switchpoints: List[str] = []
-        self._newcode: List[Tuple[str, str]] = []
-        self._report: List[str] = []
-
-    @property
-    def switchpoints(self) -> List[str]:
-        return self._switchpoints
-
-    def add_switchpoint(self, s: str) -> None:
-        self._switchpoints.append(s)
-
-    @property
-    def newcode(self) -> List[Tuple[str, str]]:
-        return self._newcode
-
-    def add_newcode(self, start: str, endc: str) -> None:
-        self._newcode.append((start, endc))
-
-    def add_text(self, s: str) -> None:
-        self._report.append(s)
-
-    def __str__(self) -> str:
-        return "\n".join(self._report)
 
 
 def check_hints_for_thumb(hints: List[str]) -> bool:
@@ -139,15 +113,13 @@ def compare_executable_content(
     sectionheaders1 = app1.header.sectionheaders
     sectionheaders2 = app2.header.sectionheaders
 
-    xcomparison = XComparison()
+    xcomparison = XComparison(is_thumb, path1, xfile1, path2, xfile2)
 
     if len(sectionheaders1) > len(sectionheaders2):
-        xcomparison.add_text("The patched file has fewer sections")
         for sh1 in sectionheaders1:
             sh2 = app2.header.get_sectionheader_by_name(sh1.name)
             if sh2 is None:
-                xcomparison.add_text(
-                    "  Section " + sh1.name + " is missing from the patched file")
+                xcomparison.add_missing_section(sh1.name)
         return xcomparison
 
     elif len(sectionheaders1) < len(sectionheaders2):
@@ -156,22 +128,10 @@ def compare_executable_content(
             if sh1 is None:
                 vaddr2 = sh2.vaddr
                 size2 = int(sh2.size, 16)
-                xcomparison.add_text(
-                    "  Section " + sh2.name + " was added to the patched file:")
-                xcomparison.add_text(
-                    "    vaddr: "
-                    + vaddr2
-                    + "; size: "
-                    + str(size2)
-                    + " ("
-                    + hex(size2)
-                    + ") bytes")
+                xcomparison.add_new_section(sh2)
                 if is_thumb:
                     xcomparison.add_switchpoint(vaddr2 + ":T")
         return xcomparison
-
-    xcomparison.add_text(
-        " - The number of sections in the patched file is the same as in the original file\n")
 
     comparison: Dict[
         str, Tuple[Optional[ELFSectionHeader], Optional[ELFSectionHeader]]] = {}
@@ -181,53 +141,13 @@ def compare_executable_content(
             sh2 = app2.header.get_sectionheader_by_name(name)
             comparison[name] = (sh1, sh2)
         else:
-            print("Duplicate section name: " + name)
+            UC.print_status_update("Duplicate section name: " + name)
     for sh2 in sectionheaders2:
         if not sh2.name in comparison:
             comparison[sh2.name] = (None, sh2)
 
-    if len(comparison) == len(sectionheaders1):
-        xcomparison.add_text(" - All section names match.\n")
-    else:
-        for (name, (optsh1, optsh2)) in comparison.items():
-            if optsh1 is None:
-                xcomparison.add_text(
-                    "  A new section with name "
-                    + name
-                    + " was added to the patched file")
-            elif optsh2 is None:
-                xcomparison.add_text(
-                    "  Section with name "
-                    + name
-                    + " is missing from the patched file")
-
-    for (name, (optsh1, optsh2)) in comparison.items():
-        if optsh1 is not None and optsh2 is not None:
-            if optsh1.vaddr != optsh2.vaddr:
-                xcomparison.add_text(
-                    " - The starting address of section "
-                    + name
-                    + " changed from "
-                    + optsh1.vaddr
-                    + " in the original file to "
-                    + optsh2.vaddr
-                    + " in the patched file")
-
-            if optsh1.size != optsh2.size:
-                xcomparison.add_text(
-                    " - The size of section "
-                    + name
-                    + " changed from "
-                    + optsh1.size
-                    + " in the original file to "
-                    + optsh2.size
-                    + " in the patched file")
-            if int(optsh2.size, 16) > int(optsh1.size, 16):
-                newvaddr = hex(int(optsh1.vaddr, 16) + int(optsh1.size, 16))
-                if is_thumb:
-                    xcomparison.add_switchpoint(newvaddr + ":T")
-                newvend = hex(int(optsh1.vaddr, 16) + int(optsh2.size, 16))
-                xcomparison.add_newcode(newvaddr, newvend)
+    xcomparison.set_sectionheader_pairs(comparison)
+    xcomparison.compare_sections()
 
     return xcomparison
 
@@ -239,8 +159,10 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     xname2: str = args.xname2
     hints: List[str] = args.hints
     headers: List[str] = args.headers
+    xjson: bool = args.json
+    xoutput: str = args.output
     save_aux_userdata: str = args.save_aux_userdata
-    fns_include: List[str] = args.fns_include
+    xprint: bool = not args.json
 
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -256,25 +178,50 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     xcomparison = compare_executable_content(
         path1, xfile1, path2, xfile2, is_thumb)
 
-    print(relational_header(xname1, xname2, "executable sections"))
-    print(str(xcomparison))
+    newuserdata = xcomparison.new_userdata()
 
-    newuserdata: Dict[str, Any] = {}
+    if xjson:
+        jresult = xcomparison.to_json_result()
+        jsonokresult = JU.jsonok("xcomparison", jresult.content)
+        if xoutput:
+            UC.print_status_update("Structural difference report saved in " + xoutput)
+            with open(xoutput, "w") as fp:
+                json.dump(jsonokresult, fp)
+        else:
+            print(json.dumps(jsonokresult))
 
-    print("\nAdditions to user data:")
-    print("~" * 80)
-    if len(xcomparison.switchpoints) > 0:
-        print(" - New arm-thumb switch points: " + ", ".join(xcomparison.switchpoints) + "\n")
-        newuserdata["arm-thumb"] = xcomparison.switchpoints
+    else:
+        lines: List[str] = []
+        lines.append(relational_header(xname1, xname2, "executable sections"))
+        lines.append(str(xcomparison))
 
-    if len(xcomparison.newcode) > 0:
-        print(" - New code inserted in the following memory regions:")
-        for (x, y) in xcomparison.newcode:
-            print("    * From " + x + " to " + y)
-            newuserdata["trampolines"] = xcomparison.newcode
+        lines.append("\nAdditions to user data:")
+        lines.append("~" * 80)
+        if len(xcomparison.switchpoints) > 0:
+            lines.append(
+                " - New arm-thumb switch points: "
+                + ", ".join(xcomparison.switchpoints) + "\n")
+
+        if len(xcomparison.newcode) > 0:
+            lines.append(" - New code inserted in the following memory regions:")
+            for (x, y) in xcomparison.newcode:
+                lines.append("    * From " + x + " to " + y)
+        lines.append("=" * 80)
+        lines.append("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
+        lines.append("=" * 80)
+
+        if xoutput:
+            UC.print_status_update("Structural difference report saved in " + xoutput)
+            with open(xoutput, "w") as fp:
+                fp.write("\n".join(lines))
+        else:
+            print("\n".join(lines))
 
     userhints.add_hints(newuserdata)
     userhints.save_userdata(path2, xfile2)
+
+    xinfo1 = XI.XInfo()
+    xinfo1.load(path1, xfile1)
 
     xinfo2 = XI.XInfo()
     xinfo2.load(path2, xfile2)
@@ -296,11 +243,23 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
                 UC.print_error("Header file " + f + " not found")
                 exit(1)
 
-    print("=" * 80)
-    print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
-    print("=" * 80)
+    # Determine functions analyzed in original binary
+    fns_include: List[str] = []
+    app1 = UC.get_app(path1, xfile1, xinfo1)
+    stats1 = app1.result_metrics
+    fncount1 = stats1.function_count
+    fnsanalyzed = app1.appfunction_addrs
+    if len(fnsanalyzed) < fncount1:
+        fns_include = list(fnsanalyzed)
+        UC.print_status_update(
+            "Only analyzing "
+            + str(len(fnsanalyzed))
+            + " out of "
+            + str(fncount1)
+            + " functions")
 
-    print("\n\nAnalyzing patched version with updated user data ...")
+    UC.print_status_update(
+        "Analyzing patched version with updated user data ...")
     am = AnalysisManager(
         path2,
         xfile2,

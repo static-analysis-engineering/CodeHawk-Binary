@@ -30,6 +30,8 @@ import datetime
 from typing import (
     Any, Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING)
 
+from chb.app.CHVersion import chbversion
+
 from chb.jsoninterface.JSONResult import JSONResult
 from chb.jsoninterface.JSONSchema import JSONSchema
 
@@ -50,17 +52,17 @@ def jsonfail(msg: Optional[str]) -> Dict[str, Any]:
     jmeta["status"] = "fail"
     jmeta["reason"] = str(msg)
     (jmeta["date"], jmeta["time"]) = jsondate()
+    jmeta["version"] = chbversion
     return jresult
 
 
-def jsonok(fschema: JSONSchema, content: Dict[str, Any]) -> Dict[str, Any]:
+def jsonok(schemaname: str, content: Dict[str, Any]) -> Dict[str, Any]:
     jresult: Dict[str, Any] = {}
     jresult["meta"] = jmeta = {}
     jmeta["status"] = "ok"
     (jmeta["date"], jmeta["time"]) = jsondate()
-    jresult["schema"] = schema = fschema.base_schema
-    if len(fschema.defs) > 0:
-        schema["$defs"] = fschema.defs
+    jmeta["schema"] = schemaname
+    jmeta["version"] = chbversion
     jresult["content"] = content
     return jresult
 

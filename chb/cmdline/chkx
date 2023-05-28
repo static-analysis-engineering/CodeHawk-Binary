@@ -181,17 +181,39 @@ def relationalcommand(args: argparse.Namespace) -> NoReturn:
     print("The relational command can be followed by the following subcommands:")
     print("")
     print("  prepare <xname1> <xname2> ... prepare executable for relational analysis")
+    print("")
     print("  compare functions <xname1> <xname2>")
-    print("  compare function <xname1> <xname2> <fn1> <fn2>")
-    print("  compare invariants <xname1> <xname2> <fn1> <fn2>")
-    print("  compare cfg <xname1> <xname2> <fn1> <fn2>")
+    print("  compare function <xname1> <xname2> <faddr1> <faddr2>")
+    print("  compare invariants <xname1> <xname2> <faddr1> <faddr2>")
+    print("  compare cfg <xname1> <xname2> <faddr1> <faddr2>")
+    print("")
+    print("The prepare subcommand will analyze the binary <xname2>, possibly")
+    print("adding hints for added ELF sections or trampolines to be inlined.")
+    print("Note that for some binaries this may take a long time")
+    print("")
+    print("For more information on the compare subcommand type")
+    print("  chkx relational compare")
     exit(0)
 
 
 def relationalcomparecommand(args: argparse.Namespace) -> NoReturn:
-    print("The relational compare command command can be followed by the following:")
+    print(
+        "The relational compare command command can be followed by the following "
+        + "subcommands:")
     print("")
-    print("  functions <xname1> <xname2> ... compare at the function level")
+    print("  functions <xname1> <xname2>")
+    print("     list which functions have changed or have been deleted or added")
+    print("")
+    print("  function <xname1> <xnam2> <faddr1> <faddr2>")
+    print("     only compare the functions faddr1 in xname1 and faddr2 in xname2")
+    print("")
+    print("  invariants <xname1> <xname2> <faddr1> <faddr2>")
+    print("     list which location invariants have changed/disappeared/appeared")
+    print("     at corresponding locations in faddr1 in xname1 and faddr2 in xname2")
+    print("")
+    print("  cfg <xname1> <xname2> <faddr1> <faddr2>")
+    print("     render the cfgs of faddr1 in xname1 and faddr2 in xname2")
+    print("     side-by-side, with changed basic blocks colored differently")
     exit(0)
 
 
@@ -1001,11 +1023,30 @@ def parse() -> argparse.Namespace:
     relationalparsers = relationalcmd.add_subparsers(title="show options")
 
     # --- relational prepare --
-    relationalprepare = relationalparsers.add_parser("prepare")
+    relationalprepare = relationalparsers.add_parser(
+        "prepare",
+        description=(
+            "This command will compare the section headers of binary <xname2> "
+            + "with those of binary <xname1> to identify added or removed sections, "
+            + "and changes in starting address or size of the sections. "
+            + "In addition, if the userdata of <xname1> has arm-thumb switchpoints, "
+            + "these are added to the userdata of <xname2>. If new code was inserted, "
+            + "it is assumed that this code includes a trampoline, which is added to "
+            + "the userdata as well. It is assumed that the same c header files "
+            + "apply as for <xname1>. If only a subset of the functions in the "
+            + "original binary, <xname1> were analyzed, only those will be analyzed "
+            + "in the patched version, <xname2>, to avoid the analysis reporting "
+            + "them as added functions"))
     relationalprepare.add_argument(
         "xname1", help="name of first (original) executable (assumed analyzed)")
     relationalprepare.add_argument(
         "xname2", help="name of second (patched) executable to be prepared for comparison")
+    relationalprepare.add_argument(
+        "--json",
+        action="store_true",
+        help="produce output in json format")
+    relationalprepare.add_argument(
+        "-output", "-o", help="save output in file")
     relationalprepare.add_argument(
         "--save_aux_userdata",
         help="name of json file (without extension) to save auxiliary userdata")
@@ -1019,11 +1060,6 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help="names of c header files with summaries/data structures")
-    relationalprepare.add_argument(
-        "--fns_include",
-        nargs="*",
-        default=[],
-        help="restrict analysis to these functions")
     relationalprepare.set_defaults(func=R.relational_prepare_command)
 
     # --- relational compare --

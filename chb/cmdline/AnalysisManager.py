@@ -48,6 +48,10 @@ import chb.util.fileutil as UF
 import chb.util.xmlutil as UX
 
 
+def print_progress_update(m: str) -> None:
+    sys.stderr.write("[chkx] " + m + "\n")
+
+
 class AnalysisManager(object):
     """Sets up the command-line arguments for and invokes the Binary Analyzer."""
 
@@ -221,19 +225,19 @@ class AnalysisManager(object):
         if save_xml:
             cmd.append("-save_disassembly_status_in_xml")
         cmd.extend(["-disassemble", self.filename])
-        print(cmd)
+        print_progress_update(" ".join(cmd))
         if sys.version_info > (3, 0) and timeout:
             try:
                 result = subprocess.call(
                     cmd,
-                    stderr=subprocess.STDOUT,
+                    stderr=sys.stderr,
                     timeout=timeout)
-                print(result)
+                print_progress_update("Exit code: " + str(result))
             except subprocess.TimeoutExpired:
-                print(str(cmd) + " timed out!")
+                print_progress_update(str(cmd) + " timed out!")
         else:
             result = subprocess.call(cmd, stderr=subprocess.STDOUT)
-            print(result)
+            print_progress_update("Exit code: " + str(result))
 
         os.chdir(cwd)    # return to original directory
 
@@ -276,12 +280,13 @@ class AnalysisManager(object):
         tree = ET.ElementTree(root)
         snode = ET.Element("system-info")
         root.append(snode)
-        tags = ["settings",
-                "data-blocks",
-                "function-entry-points",
-                "function-names",
-                "non-returning-functions",
-                "esp-adjustments"]
+        tags = [
+            "settings",
+            "data-blocks",
+            "function-entry-points",
+            "function-names",
+            "non-returning-functions",
+            "esp-adjustments"]
         children = [ET.Element(t) for t in tags]
         snode.extend(children)
         snode.extend(UX.create_xml_userdata(self.hints))
@@ -292,14 +297,15 @@ class AnalysisManager(object):
         if extract:
             self.extract_executable()
 
-    def _get_results(self) -> Tuple[str, str]:
+    def _get_results(self) -> Tuple[str, str, str]:
         xresults = UF.get_resultmetrics_xnode(self.path, self.filename)
 
         def rm_error_msg(msg: str) -> str:
-            return ("Error in result metrics file for "
-                    + os.path.join(self.path, self.filename)
-                    + ": "
-                    + msg)
+            return (
+                "Error in result metrics file for "
+                + os.path.join(self.path, self.filename)
+                + ": "
+                + msg)
         isstable = xresults.get("stable", "no")
         runs = xresults.find("runs")
         if not runs:
@@ -333,20 +339,35 @@ class AnalysisManager(object):
                 isstable = "yes"
             else:
                 self.fnsanalyzed = self.fnsanalyzed[1:]
-        return (isstable, line)
+        r_update = (
+            "iteration: "
+            + str(index).rjust(2)
+            + "; functions: "
+            + str(fnsanalyzed).rjust(4)
+            + "; rtime: "
+            + str(rtime).rjust(6)
+            + "; total-time: "
+            + str(ttime).rjust(6))
+        return (isstable, line, r_update)
 
-    def _print_analysis_header(self) -> None:
+    def _analysis_header(self) -> str:
+        lines: List[str] = []
         columnwidths = [6, 10, 10, 10, 10, 10, 10, 10]
-        header1 = ["run", "functions", "esp", "reads", "writes", "%coverage",
-                   "time", "total time"]
-        header2 = ["", "analyzed", "%prec", "%prec", "%prec", "", "(sec)",
-                   "(sec)"]
-        print("-" * 80)
-        print("".join([header1[i].center(columnwidths[i])
-                       for i in range(len(columnwidths))]))
-        print("".join([header2[i].center(columnwidths[i])
-                       for i in range(len(columnwidths))]))
-        print("-" * 80)
+        header1 = [
+            "run", "functions", "esp", "reads", "writes", "%coverage",
+            "time", "total time"]
+        header2 = [
+            "", "analyzed", "%prec", "%prec", "%prec", "", "(sec)",
+            "(sec)"]
+        lines.append("-" * 80)
+        lines.append(
+            "".join([header1[i].center(columnwidths[i])
+                     for i in range(len(columnwidths))]))
+        lines.append(
+            "".join([header2[i].center(columnwidths[i])
+                     for i in range(len(columnwidths))]))
+        lines.append("-" * 80)
+        return "\n".join(lines)
 
     def _call_analysis(self, cmd: List[str], timeout: Optional[int] = None) -> int:
         if sys.version_info < (3, 0) and timeout is not None:
@@ -354,7 +375,7 @@ class AnalysisManager(object):
                 result = subprocess.call(
                     cmd,
                     cwd=self.path,
-                    stderr=subprocess.STDOUT,
+                    stderr=sys.stderr,
                     timeout=timeout)
                 return result
             except subprocess.TimeoutExpired:
@@ -364,7 +385,7 @@ class AnalysisManager(object):
             result = subprocess.check_call(
                 cmd,
                 cwd=self.path,
-                stderr=subprocess.STDOUT)
+                stderr=sys.stderr)
             return result
 
     def _analyze_until_stable(
@@ -418,13 +439,15 @@ class AnalysisManager(object):
             cmd.append("-save_asm")
         cmd.extend(["-analyze", self.filename])
         jarcmd = ["jar", "cf",  functionsjarfile, "-C", analysisdir, "functions"]
-        print("Analyzing "
+        print_progress_update("Analyzing "
               + self.filename
               + " (max "
               + str(iterations)
               + " iterations)")
-        print(" ".join(cmd))
-        self._print_analysis_header()
+        print_progress_update("executing: " + " ".join(cmd))
+
+        lines: List[str] = []
+        lines.append(self._analysis_header())
         firstcmd = cmd[:]
         for ifile in self.ifilenames:
             firstcmd.extend(["-ifile", ifile])
@@ -432,25 +455,30 @@ class AnalysisManager(object):
         if result != 0:
             os.chdir(cwd)   # return to original directory
             return result
-        (isstable, results) = self._get_results()
-        print(results)
+        (isstable, results, r_update) = self._get_results()
+        print_progress_update(r_update + "  " + self.filename)
+        lines.append(results)
 
         count = 2
         while True:
             if isstable == "yes" and not ignore_stable and len(self.fns_include) == 0:
                 os.chdir(cwd)   # return to original directory
+                print("\n".join(lines))
                 return True
 
             subprocess.call(jarcmd, stderr=subprocess.STDOUT)
             if count > iterations:
                 os.chdir(cwd)    # return to original directory
+                print("\n".join(lines))
                 return False
 
             result = self._call_analysis(cmd, timeout=timeout)
             if result != 0:
                 os.chdir(cwd)    # return to original directory
+                print("\n".join(lines))
                 return result
 
             count += 1
-            (isstable, results) = self._get_results()
-            print(results)
+            (isstable, results, r_update) = self._get_results()
+            print_progress_update(r_update + "  " + self.filename)
+            lines.append(results)
