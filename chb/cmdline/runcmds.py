@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import time
 
 from contextlib import contextmanager
@@ -46,7 +47,7 @@ if TYPE_CHECKING:
 
 
 def do_cmd(cmd: Tuple[Optional[str], List[str]]) -> Tuple[List[str], int]:
-    result = subprocess.run(cmd[1], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    result = subprocess.run(cmd[1], stdout=subprocess.PIPE, stderr=sys.stderr)
     resultcode = result.returncode
     resultoutput = result.stdout.decode("utf-8")
     filename = cmd[0]

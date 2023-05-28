@@ -113,6 +113,10 @@ def print_error(m: str) -> None:
     sys.stderr.write(("*" * 80) + "\n")
 
 
+def print_status_update(m: str) -> None:
+    sys.stderr.write("[chkx] " + m + "\n")
+
+
 def print_info(m: str) -> None:
     print("-" * 80)
     print(m)
@@ -210,7 +214,7 @@ def setup_user_data(
 
     # check for registered userdata
     if UF.file_has_registered_userdata(md5):
-        print("Use registered userdata.")
+        print_status_update("Use registered userdata.")
         userdata = UF.get_file_registered_userdata(md5)
         userhints.add_hints(userdata)
 
@@ -219,16 +223,16 @@ def setup_user_data(
         cmdline_options = UF.get_file_registered_options(md5)
         if "thumb" in cmdline_options["options"]:
             thumb = cmdline_options["options"]["thumb"]
-            print("Use command-line options for " + cmdline_options["name"] + ": ")
-            print(" --thumb " + " ".join(thumb))
+            print_status_update("Use command-line options for " + cmdline_options["name"] + ": ")
+            print_status_update(" --thumb " + " ".join(thumb))
             armuserdata: Dict[str, List[str]] = {}
             armuserdata["arm-thumb"] = thumb
             userhints.add_hints(armuserdata)
 
     # check direct command-line options
     if len(thumb) > 0:
-        print("Use command-line options for thumb: ")
-        print(" --thumb " + " ".join(thumb))
+        print_status_update("Use command-line options for thumb: ")
+        print_status_update(" --thumb " + " ".join(thumb))
         cmdarmuserdata: Dict[str, List[str]] = {}
         cmdarmuserdata["arm-thumb"] = thumb
         userhints.add_hints(cmdarmuserdata)
@@ -237,7 +241,7 @@ def setup_user_data(
     # os.chdir(path)
     filenames = [os.path.abspath(s) for s in hints]
     if len(filenames) > 0:
-        print("Use hints files: " + ", ".join(filenames))
+        print_status_update("Use hints files: " + ", ".join(filenames))
         for f in filenames:
             try:
                 with open(f, "r") as fp:
@@ -278,7 +282,7 @@ def prepare_executable(
                     + "Not removing the extracted content file.")
             else:
                 chdir = UF.get_ch_dir(path, xfile)
-                print("Remove " + xtargz)
+                print_status_update("Remove " + xtargz)
                 os.remove(xtargz)
                 shutil.rmtree(chdir)
 
@@ -293,11 +297,15 @@ def prepare_executable(
 
         if os.path.isdir(chdir) and (doreset or doresetx):
             # remove existing x.ch directory
-            print("Removing " + chdir)
+            print_status_update("Removing " + chdir)
             shutil.rmtree(chdir)
 
         # unpack existing targz file
-        if not UF.unpack_tar_file(path, xfile):
+        if UF.unpack_tar_file(path, xfile):
+            print_status_update(
+                "Successfully extracted "
+                + UF.get_executable_targz_filename(path, xfile))
+        else:
             raise UF.CHBError("Error in unpacking tar.gz file")
 
         # set up user data from hints files
@@ -340,7 +348,7 @@ def prepare_executable(
             elf=xinfo.is_elf,
             exclude_debug=exclude_debug)
 
-        print("Extracting executable content into xml ...")
+        print_status_update("Extracting executable content into xml ...")
         result = am.extract_executable(
             chcmd="-extract", verbose=verbose)
         if not (result == 0):
@@ -388,12 +396,12 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
 
     if skip_if_asm and UF.has_asm_results(path, xfile):
         # we have what we need
-        print("Skip disassembly of " + xname)
+        print_status_update("Skip disassembly of " + xname)
         exit(0)
 
     if skip_if_metrics and UF.has_analysis_results(path, xfile):
         # we have what we need
-        print("Skip analysis of " + xname)
+        print_status_update("Skip analysis of " + xname)
         exit(0)
 
     try:
@@ -407,7 +415,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
             exclude_debug=exclude_debug,
             thumb=thumb)
     except UF.CHBError as e:
-        print(str(e.wrap()))
+        print_error(str(e.wrap()))
         exit(1)
 
     if doextract:
@@ -418,13 +426,14 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     xinfo.load(path, xfile)
 
     # preprocess c files
-    print("Preprocessing c header files from directory " + os.getcwd())
+    print_status_update(
+        "Preprocessing c header files from directory " + os.getcwd())
     ifilenames: List[str] = []
     headerfilenames = [os.path.abspath(s) for s in headers]
     if len(headers) > 0:
         for f in headerfilenames:
             if os.path.isfile(f):
-                print("Use header file: " + f)
+                print_status_update("Use header file: " + f)
                 ifilename = f[:-2] + ".i"
                 ifilenames.append(ifilename)
                 gcccmd = ["gcc", "-std=gnu99", "-m32", "-E", "-o", ifilename, f]
@@ -461,11 +470,11 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 preamble_cutoff=preamble_cutoff,
                 save_asm=save_asm)
         except subprocess.CalledProcessError as e:
-            print(e.output)
-            print(e.args)
+            print_error(str(e.output))
+            print_error(str(e.args))
             exit(1)
         except UF.CHBError as e:
-            print(str(e.wrap()))
+            print_error(str(e.wrap()))
             exit(1)
 
         if savedatablocks is not None and outputfile is not None:
@@ -493,11 +502,11 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 collectdiagnostics=collectdiagnostics,
                 preamble_cutoff=preamble_cutoff)
         except subprocess.CalledProcessError as e:
-            print(e.output)
-            print(e.args)
+            print_error(str(e.output))
+            print_error(str(e.args))
             exit(1)
         except UF.CHBError as e:
-            print(str(e.wrap()))
+            print_error(str(e.wrap()))
             exit(1)
         exit(0)
 
@@ -516,7 +525,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
         (path, xfile) = get_path_filename(xname)
         UF.check_analysis_results(path, xfile)
     except UF.CHBError as e:
-        print(str(e.wrap()))
+        print_error(str(e.wrap()))
         exit(1)
 
     xinfo = XI.XInfo()
@@ -835,8 +844,7 @@ def results_function(args: argparse.Namespace) -> NoReturn:
     else:
         fresult = f.to_json_result()
         if fresult.is_ok:
-            fschema = json_schema_registry.get_definition("assemblyfunction")
-            jsonokresult = JU.jsonok(fschema, fresult.content)
+            jsonokresult = JU.jsonok("assemblyfunction", fresult.content)
             if xoutput:
                 with open(xoutput, "w") as fp:
                     json.dump(jsonokresult, fp)
@@ -993,8 +1001,8 @@ def results_invariants(args: argparse.Namespace) -> NoReturn:
     else:
         fresult = JU.function_invariants_to_json_result(f.invariants)
         if fresult.is_ok:
-            fschema = json_schema_registry.get_definition("functioninvariants")
-            jsonokresult = JU.jsonok(fschema, fresult.content)
+            # fschema = json_schema_registry.get_definition("functioninvariants")
+            jsonokresult = JU.jsonok("functioninvariants", fresult.content)
             if xoutput:
                 with open(xoutput, "w") as fp:
                     json.dump(jsonokresult, fp)
