@@ -54,7 +54,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.invariants.FnXprDictionary
+    from chb.invariants.FnXprDictionary import FnXprDictionary
 
 
 class XConstant(FnXprDictionaryRecord):
@@ -62,7 +62,7 @@ class XConstant(FnXprDictionaryRecord):
 
     def __init__(
             self,
-            xd: "chb.invariants.FnXprDictionary.FnXprDictionary",
+            xd: "FnXprDictionary",
             ixval: IndexedTableValue) -> None:
         FnXprDictionaryRecord.__init__(self, xd, ixval)
 
@@ -129,7 +129,7 @@ class XSymSet(XConstant):
 
     def __init__(
             self,
-            xd: "chb.invariants.FnXprDictionary.FnXprDictionary",
+            xd: "FnXprDictionary",
             ixval: IndexedTableValue) -> None:
         XConstant.__init__(self, xd, ixval)
 
@@ -153,7 +153,7 @@ class XIntConst(XConstant):
 
     def __init__(
             self,
-            xd: "chb.invariants.FnXprDictionary.FnXprDictionary",
+            xd: "FnXprDictionary",
             ixval: IndexedTableValue) -> None:
         XConstant.__init__(self, xd, ixval)
 
@@ -184,7 +184,10 @@ class XIntConst(XConstant):
         content: Dict[str, Any] = {}
         content["value"] = self.value
         if self.is_string_reference:
+            content["kind"] = "strcst"
             content["stringref"] = self.string_reference()
+        else:
+            content["kind"] = "icst"
         content["txtrep"] = str(self)
         return JSONResult("xconstant", content, "ok")
 
@@ -208,7 +211,7 @@ class XBoolConst(XConstant):
 
     def __init__(
             self,
-            xd: "chb.invariants.FnXprDictionary.FnXprDictionary",
+            xd: "FnXprDictionary",
             ixval: IndexedTableValue) -> None:
         XConstant.__init__(self, xd, ixval)
 
@@ -234,7 +237,7 @@ class XRandom(XConstant):
 
     def __init__(
             self,
-            xd: "chb.invariants.FnXprDictionary.FnXprDictionary",
+            xd: "FnXprDictionary",
             ixval: IndexedTableValue) -> None:
         XConstant.__init__(self, xd, ixval)
 
@@ -252,7 +255,7 @@ class XUnknownInt(XConstant):
 
     def __init__(
             self,
-            xd: "chb.invariants.FnXprDictionary.FnXprDictionary",
+            xd: "FnXprDictionary",
             ixval: IndexedTableValue) -> None:
         XConstant.__init__(self, xd, ixval)
 
@@ -269,7 +272,7 @@ class BXUnknownSet(XConstant):
 
     def __init__(
             self,
-            xd: "chb.invariants.FnXprDictionary.FnXprDictionary",
+            xd: "FnXprDictionary",
             ixval: IndexedTableValue) -> None:
         XConstant.__init__(self, xd, ixval)
 

@@ -123,8 +123,9 @@ class NRVSymbolicExpr(NonRelationalValue):
         jxpr = self.expr.to_json_result()
         if jxpr.is_ok:
             content: Dict[str, Any] = {}
+            content["kind"] = "sx"
             content["sym-expr"] = jxpr.content
-            content["txtrep"] = self.__str__()
+            content["txtrep"] = str(self)
             return JSONResult("nonrelationalvalue", content, "ok")
         else:
             return JSONResult(
@@ -198,11 +199,20 @@ class NRVIntervalValue(NonRelationalValue):
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
-        if self.lowerbound is not None:
-            content["lowerbound"] = self.lowerbound
-        if self.upperbound is not None:
-            content["upperbound"] = self.upperbound
-        content["txtrep"] = self.__str__()
+        if self.is_singleton_value:
+            content["value"] = self.singleton_value
+            content["kind"] = "civ"
+        elif self.lowerbound is None:
+            content["ub"] = self.upperbound
+            content["kind"] = "ub-itv"
+        elif self.upperbound is None:
+            content["lb"] = self.lowerbound
+            content["kind"] = "lb-itv"
+        else:
+            content["lb"] = self.lowerbound
+            content["ub"] = self.upperbound
+            content["kind"] = "itv"
+        content["txtrep"] = str(self)
         return JSONResult("nonrelationalvalue", content, "ok")
 
     def __str__(self) -> str:
@@ -276,11 +286,22 @@ class NRVBaseOffsetValue(NonRelationalValue):
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
         content["base"] = str(self.base)
-        if self.lowerbound is not None:
-            content["lowerbound"] = self.lowerbound
-        if self.upperbound is not None:
-            content["upperbound"] = self.upperbound
-        content["txtrep"] = self.__str__()
+        if self.is_singleton:
+            content["value"] = self.lowerbound
+            content["kind"] = "b-civ"
+        elif self.lowerbound is None and self.upperbound is None:
+            content["kind"] = "b-unb"
+        elif self.upperbound is None:
+            content["lb"] = self.lowerbound
+            content["kind"] = "b-lb-itv"
+        elif self.lowerbound is None:
+            content["ub"] = self.upperbound
+            content["kind"] = "b-ub-itv"
+        else:
+            content["lb"] = self.lowerbound
+            content["ub"] = self.upperbound
+            content["kind"] = "b-itv"
+        content["txtrep"] = str(self)
         return JSONResult("nonrelationalvalue", content, "ok")
 
     def __str__(self) -> str:

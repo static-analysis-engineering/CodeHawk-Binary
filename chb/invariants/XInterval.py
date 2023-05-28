@@ -33,6 +33,7 @@ from typing import List, TYPE_CHECKING
 from chb.invariants.FnDictionaryRecord import FnXprDictionaryRecord
 from chb.invariants.XBound import XBound
 
+import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
@@ -56,6 +57,14 @@ class XInterval(FnXprDictionaryRecord):
         return self.xd.bound(self.args[1])
 
     @property
+    def is_lower_bounded(self) -> bool:
+        return self.lower_bound.is_bounded
+
+    @property
+    def is_upper_bounded(self) -> bool:
+        return self.upper_bound.is_bounded
+
+    @property
     def is_closed(self) -> bool:
         return self.lower_bound.is_bounded and self.upper_bound.is_bounded
 
@@ -65,17 +74,38 @@ class XInterval(FnXprDictionaryRecord):
             self.is_closed
             and str(self.lower_bound.bound) == str(self.upper_bound.bound))
 
+    def lowerbound(self) -> int:
+        if self.is_lower_bounded:
+            return self.lower_bound.bound.value
+        else:
+            raise UF.CHBError(
+                "interval does not have a lower bound: " + str(self))
+
+    def upperbound(self) -> int:
+        if self.is_upper_bounded:
+            return self.upper_bound.bound.value
+        else:
+            raise UF.CHBError(
+                "interval does not have an upper bound: " + str(self))
+
+    def value(self) -> int:
+        if self.is_singleton:
+            return self.lower_bound.bound.value
+        else:
+            raise UF.CHBError(
+                "interval is not a singleton value: " + str(self))
+
     def __str__(self) -> str:
         if self.is_singleton:
-            return str(self.lower_bound.bound.value)
+            return str(self.value())
         elif self.is_closed:
             return (
-                str(self.lower_bound.bound.value)
+                str(self.lowerbound())
                 + ';'
-                + str(self.upper_bound.bound.value))
-        elif self.lower_bound.is_bounded:
-            return str(self.lower_bound.bound.value) + '; oo'
-        elif self.upper_bound.is_bounded:
-            return 'oo + ;' + str(self.upper_bound.bound.value)
+                + str(self.upperbound()))
+        elif self.is_lower_bounded:
+            return str(self.lowerbound()) + '; oo'
+        elif self.is_upper_bounded:
+            return 'oo + ;' + str(self.upperbound())
         else:
             return 'oo ; oo'

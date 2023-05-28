@@ -279,6 +279,7 @@ class VInitialRegisterValue(VConstantValueVariable):
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
+        content["kind"] = "irv"
         content["register"] = str(self.register)
         content["txtrep"] = self.__str__()
         return JSONResult("auxvariable", content, "ok")
@@ -358,13 +359,14 @@ class VInitialMemoryValue(VConstantValueVariable):
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
-        memvar = self.variable.to_json_result()
-        if memvar.is_ok:
-            content["memvar"] = memvar.content
+        jmemvar = self.variable.to_json_result()
+        if jmemvar.is_ok:
+            content["kind"] = "imv"
+            content["memvar"] = jmemvar.content
             content["txtrep"] = self.__str__()
             return JSONResult("auxvariable", content, "ok")
         else:
-            return JSONResult("auxvariable", {}, "fail", memvar.reason)
+            return JSONResult("auxvariable", {}, "fail", jmemvar.reason)
 
     def __str__(self) -> str:
         return str(self.variable.denotation) + '_in'
@@ -407,6 +409,7 @@ class VFrozenTestValue(VConstantValueVariable):
         content["jumpaddr"] = self.jump_addr
         jtestvar = self.variable.to_json_result()
         if jtestvar.is_ok:
+            content["kind"] = "ftv"
             content["testvar"] = jtestvar.content
             content["txtrep"] = str(self)
             return JSONResult("frozentestvar", content, "ok")
@@ -490,6 +493,7 @@ class VFunctionReturnValue(VConstantValueVariable):
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
+        content["kind"] = "frv"
         content["callsite"] = self.callsite
         content["calltarget"] = str(self.call_target())
         content["txtrep"] = self.__str__()
@@ -566,6 +570,20 @@ class MemoryAddress(VConstantValueVariable):
     @property
     def offset(self) -> VMemoryOffset:
         return self.vd.memory_offset(self.args[1])
+
+    def to_json_result(self) -> JSONResult:
+        jbase = self.base.to_json_result()
+        if not jbase.is_ok:
+            return JSONResult("auxvariable", {}, "fail", jbase.reason)
+        joffset = self.offset.to_json_result()
+        if not joffset.is_ok:
+            return JSONResult("auxvariable", {}, "fail", joffset.reason)
+        content: Dict[str, Any] = {}
+        content["kind"] = "ma"
+        content["base"] = jbase.content
+        content["offset"] = joffset.content
+        content["txtrep"] = str(self)
+        return JSONResult("auxvariable", content, "ok")
 
     def __str__(self) -> str:
         return str(self.base) + " + " + str(self.offset)
@@ -695,7 +713,8 @@ class SymbolicValue(VConstantValueVariable):
         jexp = self.expr.to_json_result()
         if jexp.is_ok:
             content: Dict[str, Any] = {}
-            content["symbolic-expr"] = jexp.content
+            content["kind"] = "svx"
+            content["expr"] = jexp.content
             content["txtrep"] = str(self)
             return JSONResult("auxvariable", content, "ok")
         else:

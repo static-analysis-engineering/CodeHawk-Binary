@@ -51,7 +51,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.invariants.FnVarDictionary
+    from chb.invariants.FnVarDictionary import FnVarDictionary
     from chb.invariants.XVariable import XVariable
 
 
@@ -59,7 +59,7 @@ class VMemoryBase(FnVarDictionaryRecord):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         FnVarDictionaryRecord.__init__(self, vd, ixval)
 
@@ -107,7 +107,7 @@ class VMemoryBaseLocalStackFrame(VMemoryBase):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         VMemoryBase.__init__(self, vd, ixval)
 
@@ -129,7 +129,7 @@ class VMemoryBaseAllocatedStackFrame(VMemoryBase):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         VMemoryBase.__init__(self, vd, ixval)
 
@@ -151,7 +151,7 @@ class VMemoryBaseRealignedStackFrame(VMemoryBase):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         VMemoryBase.__init__(self, vd, ixval)
 
@@ -177,7 +177,7 @@ class VMemoryBaseBaseVar(VMemoryBase):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         VMemoryBase.__init__(self, vd, ixval)
 
@@ -208,7 +208,7 @@ class VMemoryBaseGlobal(VMemoryBase):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         VMemoryBase.__init__(self, vd, ixval)
 
@@ -218,7 +218,7 @@ class VMemoryBaseGlobal(VMemoryBase):
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, str] = {}
-        content["global"] = "realigned"
+        content["other"] = "global"
         return JSONResult("memorybase", content, "ok")
 
     def __str__(self) -> str:
@@ -234,7 +234,7 @@ class VMemoryBaseUnknown(VMemoryBase):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         VMemoryBase.__init__(self, vd, ixval)
 
@@ -245,6 +245,11 @@ class VMemoryBaseUnknown(VMemoryBase):
     @property
     def is_unknown(self) -> bool:
         return True
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, str] = {}
+        content["other"] = "unknown"
+        return JSONResult("memorybase", content, "ok")
 
     def __str__(self) -> str:
         return "unknownbase(" + self.desc + "):"

@@ -142,6 +142,13 @@ class UnreachableFact(InvariantFact):
     def domain(self) -> str:
         return self.tags[1]
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["domain"] = self.domain
+        content["kind"] = "unr"
+        content["txtrep"] = str(self)
+        return JSONResult("invariantfact", content, "ok")
+
     def __str__(self) -> str:
         return "unreachable[" + self.domain + "]"
 
@@ -188,8 +195,9 @@ class NRVFact(InvariantFact):
                 "fail",
                 "invariantfact: " + str(jval.reason))
         content: Dict[str, Any] = {}
+        content["kind"] = "nrv"
         content["var"] = jvar.content
-        content["symbolic-value"] = jval.content
+        content["nrv"] = jval.content
         content["txtrep"] = self.__str__()
         return JSONResult("invariantfact", content, "ok")
 
@@ -239,9 +247,10 @@ class InitialVarEqualityFact(InvariantFact):
                 "fail",
                 "invariantfact: " + str(jval.reason))
         content: Dict[str, Any] = {}
+        content["kind"] = "ival"
         content["relation"] = "equals"
         content["var"] = jvar.content
-        content["initial-value"] = jval.content
+        content["initval"] = jval.content
         content["txtrep"] = self.__str__()
         return JSONResult("invariantfact", content, "ok")
 
@@ -291,9 +300,10 @@ class InitialVarDisEqualityFact(InvariantFact):
                 "fail",
                 "invariantfact: " + str(jval.reason))
         content: Dict[str, Any] = {}
+        content["kind"] = "ival"
         content["relation"] = "not-equals"
         content["var"] = jvar.content
-        content["initial-value"] = jval.content
+        content["initval"] = jval.content
         content["txtrep"] = self.__str__()
         return JSONResult("invariantfact", content, "ok")
 
@@ -356,6 +366,7 @@ class TestVarEqualityFact(InvariantFact):
                 {},
                 "fail",
                 "testvarequality:testval: " + str(jtestval.reason))
+        content["kind"] = "tst"
         content["testval"] = jtestval.content
         content["txtrep"] = str(self)
         return JSONResult("testvarequality", content, "ok")
@@ -396,6 +407,7 @@ class RelationalFact(InvariantFact):
                 "fail",
                 "linear equality: " + str(jlineq.reason))
         content: Dict[str, Any] = {}
+        content["kind"] = "lineq"
         content["lineq"] = jlineq.content
         content["txtrep"] = str(self)
         return JSONResult("linearequality", content, "ok")

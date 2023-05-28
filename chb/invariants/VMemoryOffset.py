@@ -49,7 +49,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.invariants.FnVarDictionary
+    from chb.invariants.FnVarDictionary import FnVarDictionary
     from chb.invariants.XVariable import XVariable
 
 
@@ -57,7 +57,7 @@ class VMemoryOffset(FnVarDictionaryRecord):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         FnVarDictionaryRecord.__init__(self, vd, ixval)
 
@@ -109,19 +109,19 @@ class VMemoryOffsetNoOffset(VMemoryOffset):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         VMemoryOffset.__init__(self, vd, ixval)
-
-    def offsetvalue(self) -> int:
-        return 0
 
     @property
     def is_no_offset(self) -> bool:
         return True
 
+    def offsetvalue(self) -> int:
+        return 0
+
     def to_json_result(self) -> JSONResult:
-        return JSONResult("memoryoffset", {"offsetvalue": 0}, "ok")
+        return JSONResult("memoryoffset", {"kind": "none"}, "ok")
 
     def __str__(self) -> str:
         return ""
@@ -137,15 +137,9 @@ class VMemoryOffsetConstantOffset(VMemoryOffset):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         VMemoryOffset.__init__(self, vd, ixval)
-
-    def offsetvalue(self) -> int:
-        if self.is_constant_value_offset:
-            return int(self.tags[1]) + self.offset.offsetvalue()
-        else:
-            raise UF.CHBError("Has additional offset: " + str(self.offset))
 
     @property
     def offset(self) -> VMemoryOffset:
@@ -159,12 +153,25 @@ class VMemoryOffsetConstantOffset(VMemoryOffset):
     def is_constant_value_offset(self) -> bool:
         return self.has_no_offset()
 
+    def offsetvalue(self) -> int:
+        if self.is_constant_value_offset:
+            return int(self.tags[1]) + self.offset.offsetvalue()
+        else:
+            raise UF.CHBError("Has additional offset: " + str(self.offset))
+
     def has_no_offset(self) -> bool:
         return self.offset.is_no_offset
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
-        content["offsetvalue"] = self.offsetvalue()
+        if self.is_constant_value_offset:
+            content["value"] = self.offsetvalue()
+            content["kind"] = "cv"
+        else:
+            content["value"] = self.offsetvalue()
+            content["kind"] = "cvo"
+            content["suboffset"] = self.offset.to_json_result()
+        content["txtrep"] = str(self)
         return JSONResult("memoryoffset", content, "ok")
 
     def __str__(self) -> str:
@@ -185,7 +192,7 @@ class VMemoryOffsetIndexOffset(VMemoryOffset):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         VMemoryOffset.__init__(self, vd, ixval)
 
@@ -205,6 +212,29 @@ class VMemoryOffsetIndexOffset(VMemoryOffset):
     def is_index_offset(self) -> bool:
         return True
 
+    def has_no_offset(self) -> bool:
+        return self.offset.is_no_offset
+
+    def to_json_result(self) -> JSONResult:
+        jvar = self.indexvariable.to_json_result()
+        if not jvar.is_ok:
+            return JSONResult("memoryoffset", {}, "fail", jvar.reason)
+        content: Dict[str, Any] = {}
+        if self.has_no_offset():
+            content["kind"] = "iv"
+            content["ixvar"] = jvar.content
+            content["elsize"] = self.elementsize
+        else:
+            jmem = self.offset.to_json_result()
+            if not jmem.is_ok:
+                return JSONResult("memoryoffset", {}, "fail", jmem.reason)
+            content["kind"] = "ivo"
+            content["ixvar"] = jvar.content
+            content["elsize"] = self.elementsize
+            content["suboffset"] = jmem.content
+        content["txtrep"] = str(self)
+        return JSONResult("memoryoffset", content, "ok")
+
     def __str__(self) -> str:
         return "[" + str(self.indexvariable) + "]" + str(self.offset)
 
@@ -214,7 +244,7 @@ class VMemoryOffsetUnknown(VMemoryOffset):
 
     def __init__(
             self,
-            vd: "chb.invariants.FnVarDictionary.FnVarDictionary",
+            vd: "FnVarDictionary",
             ixval: IndexedTableValue) -> None:
         VMemoryOffset.__init__(self, vd, ixval)
 

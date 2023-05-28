@@ -90,11 +90,6 @@ class XVariable(FnXprDictionaryRecord):
             and self.denotation.is_auxiliary_variable
             and self.denotation.auxvar.is_initial_register_value)
 
-    def initial_register_value_register(self) -> Register:
-        if self.is_initial_register_value:
-            return self.denotation.auxvar.register
-        raise UF.CHBError("Variable is not an initial register value")
-
     @property
     def is_memory_variable(self) -> bool:
         return self.has_denotation() and self.denotation.is_memory_variable
@@ -102,9 +97,6 @@ class XVariable(FnXprDictionaryRecord):
     @property
     def is_auxiliary_variable(self) -> bool:
         return self.has_denotation() and self.denotation.is_auxiliary_variable
-
-    def has_denotation(self) -> bool:
-        return self.seqnr > 0
 
     @property
     def denotation(self) -> VAssemblyVariable:
@@ -125,13 +117,6 @@ class XVariable(FnXprDictionaryRecord):
     def is_argument_deref_value(self) -> bool:
         return (self.has_denotation() and self.denotation.is_argument_deref_value)
 
-    def argument_deref_arg_offset(self, inbytes: bool = False) -> Tuple[int, int]:
-        if self.is_argument_deref_value:
-            return self.denotation.argument_deref_arg_offset(inbytes)
-        else:
-            raise UF.CHBError(
-                "Variable " + self.name + " is not an argument-deref-value")
-
     @property
     def is_global_value(self) -> bool:
         return (self.has_denotation() and self.denotation.is_global_value)
@@ -140,6 +125,25 @@ class XVariable(FnXprDictionaryRecord):
     def is_global_variable(self) -> bool:
         return (self.has_denotation()
                 and (self.denotation.is_global_variable or self.is_global_value))
+
+    @property
+    def is_structured_var(self) -> bool:
+        return (self.has_denotation() and self.denotation.is_structured_var)
+
+    def initial_register_value_register(self) -> Register:
+        if self.is_initial_register_value:
+            return self.denotation.auxvar.register
+        raise UF.CHBError("Variable is not an initial register value")
+
+    def has_denotation(self) -> bool:
+        return self.seqnr > 0
+
+    def argument_deref_arg_offset(self, inbytes: bool = False) -> Tuple[int, int]:
+        if self.is_argument_deref_value:
+            return self.denotation.argument_deref_arg_offset(inbytes)
+        else:
+            raise UF.CHBError(
+                "Variable " + self.name + " is not an argument-deref-value")
 
     def has_global_variable_base(self) -> bool:
         if self.is_global_variable:
@@ -171,10 +175,6 @@ class XVariable(FnXprDictionaryRecord):
             self.is_memory_variable
             and self.denotation.has_unknown_memory_base())
 
-    @property
-    def is_structured_var(self) -> bool:
-        return (self.has_denotation() and self.denotation.is_structured_var)
-
     def argument_index(self) -> int:
         if self.is_argument_value or self.is_stack_argument:
             return self.denotation.argument_index()
@@ -186,6 +186,7 @@ class XVariable(FnXprDictionaryRecord):
             return self.denotation.to_json_result()
         else:
             content: Dict[str, Any] = {}
+            content["kind"] = "temp"
             content["temp"] = self.name
             content["txtrep"] = self.name
             return JSONResult("variable", content, "ok")
