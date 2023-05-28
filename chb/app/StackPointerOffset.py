@@ -33,32 +33,33 @@ from chb.jsoninterface.JSONResult import JSONResult
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.app.FunctionDictionary
+    from chb.app.Function import Function
+    from chb.app.FunctionDictionary import FunctionDictionary
     import chb.app.Instruction
-    import chb.invariants.FnVarDictionary
-    import chb.invariants.FnXprDictionary
-    import chb.invariants.XInterval
+    from chb.invariants.FnVarDictionary import FnVarDictionary
+    from chb.invariants.FnXprDictionary import FnXprDictionary
+    from chb.invariants.XInterval import XInterval
 
 
 class StackPointerOffset(IndexedTableValue):
 
     def __init__(
             self,
-            d: "chb.app.FunctionDictionary.FunctionDictionary",
+            d: "FunctionDictionary",
             ixval: IndexedTableValue) -> None:
         IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
         self._d = d
 
     @property
-    def function(self) -> "chb.app.Function.Function":
+    def function(self) -> "Function":
         return self._d.function
 
     @property
-    def vd(self) -> "chb.invariants.FnVarDictionary.FnVarDictionary":
+    def vd(self) -> "FnVarDictionary":
         return self.function.vardictionary
 
     @property
-    def xd(self) -> "chb.invariants.FnXprDictionary.FnXprDictionary":
+    def xd(self) -> "FnXprDictionary":
         return self.function.xprdictionary
 
     @property
@@ -66,12 +67,49 @@ class StackPointerOffset(IndexedTableValue):
         return self.args[0]
 
     @property
-    def offset(self) -> "chb.invariants.XInterval.XInterval":
+    def offset(self) -> "XInterval":
         return self.xd.interval(self.args[1])
+
+    @property
+    def is_lower_bounded(self) -> bool:
+        return self.offset.is_lower_bounded
+
+    @property
+    def is_upper_bounded(self) -> bool:
+        return self.offset.is_upper_bounded
 
     @property
     def is_closed(self) -> bool:
         return self.offset.is_closed
+
+    def lowerbound(self) -> int:
+        return self.offset.lowerbound()
+
+    def upperbound(self) -> int:
+        return self.offset.upperbound()
+
+    def offsetvalue(self) -> int:
+        return self.offset.value()
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        if self.offset.is_singleton:
+            content["value"] = self.offsetvalue()
+            content["kind"] = "civ"
+        elif self.offset.is_closed:
+            content["lb"] = self.lowerbound()
+            content["ub"] = self.upperbound()
+            content["kind"] = "itv"
+        elif self.offset.is_lower_bounded:
+            content["lb"] = self.lowerbound()
+            content["kind"] = "lb-itv"
+        elif self.offset.is_upper_bounded:
+            content["ub"] = self.upperbound()
+            content["kind"] = "ub-itv"
+        else:
+            content["kind"] = "unb-itv"
+        content["txtrep"] = str(self)
+        return JSONResult("stackpointeroffset", content, "ok")
 
     def __str__(self) -> str:
         level = self.level + 1
@@ -80,18 +118,3 @@ class StackPointerOffset(IndexedTableValue):
                 + str(self.offset).rjust(4)
                 + " "
                 + ("]" * level))
-
-    def to_json_result(self) -> JSONResult:
-        content: Dict[str, Any] = {}
-        if self.offset.is_singleton:
-            content["value"] = self.offset.lower_bound.bound.value
-        elif self.offset.is_closed:
-            content["range"] = [
-                self.offset.lower_bound.bound.value, self.offset.upper_bound.bound.value]
-        elif self.offset.lower_bound.is_bounded:
-            content["lowerbound"] = self.offset.lower_bound.bound.value
-        elif self.offset.upper_bound.is_bounded:
-            content["upperbound"] = self.offset.upper_bound.bound.value
-        else:
-            content["novalue"] = "unbounded"
-        return JSONResult("stackpointeroffset", content, "ok")

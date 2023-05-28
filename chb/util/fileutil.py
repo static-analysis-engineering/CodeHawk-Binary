@@ -972,8 +972,7 @@ def unpack_tar_file(path: str, xfile: str) -> bool:
             + " ".join(cmd)
             + ". return code: "
             + str(result))
-    else:
-        print('Successfully extracted ' + targzfile)
+
     return os.path.isdir(xdir)
 
 
