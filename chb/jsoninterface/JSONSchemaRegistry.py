@@ -64,7 +64,7 @@ class JSONSchemaRegistry:
                 elif key == "$ref":
                     if d[key] == "#":
                         continue
-                    defname = d[key][8:]
+                    defname: str = d[key][8:]
                     if defname in defs:
                         continue
                     elif self.has_definition(defname):
