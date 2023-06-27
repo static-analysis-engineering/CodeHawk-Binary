@@ -134,11 +134,12 @@ class XComparison:
             elif optsh2 is None:
                 self.add_missing_section(name)
             else:
-                if self.is_thumb:
-                    if int(optsh2.size, 16) > int(optsh1.size, 16):
-                        newvaddr = hex(int(optsh1.vaddr, 16) + int(optsh1.size, 16))
-                        newvend = hex(int(optsh1.vaddr, 16) + int(optsh2.size, 16))
-                        self.add_newcode(newvaddr, newvend)
+                if int(optsh2.size, 16) > int(optsh1.size, 16):
+                    newvaddr = hex(int(optsh1.vaddr, 16) + int(optsh1.size, 16))
+                    newvend = hex(int(optsh1.vaddr, 16) + int(optsh2.size, 16))
+                    self.add_newcode(newvaddr, newvend)
+                    if self.is_thumb:
+                        self.add_switchpoint(newvaddr + ":T")
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
