@@ -212,6 +212,8 @@ class ARMFunction(Function):
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
+        if len(self.names) > 0:
+            content["name"] = self.names[0]
         content["faddr"] = self.faddr
         content["md5hash"] = self.md5
         content["basicblocks"] = blocks = []

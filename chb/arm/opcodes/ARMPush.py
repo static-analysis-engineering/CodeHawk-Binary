@@ -175,7 +175,8 @@ class ARMPush(ARMOpcode):
             addr = astree.mk_binary_op("minus", sprval, sp_offset_c)
             ll_lhs = astree.mk_memref_lval(addr)
             ll_rhs = astree.mk_register_variable_expr(r)
-            ll_assign = astree.mk_assign(ll_lhs, ll_rhs, iaddr=iaddr)
+            ll_assign = astree.mk_assign(
+                ll_lhs, ll_rhs, iaddr=iaddr, bytestring=bytestring)
             ll_instrs.append(ll_assign)
 
             lhs = memlhss[i]
@@ -191,6 +192,7 @@ class ARMPush(ARMOpcode):
                 hl_lhs,
                 hl_rhs,
                 iaddr=iaddr,
+                bytestring=bytestring,
                 annotations=annotations)
             hl_instrs.append(hl_assign)
 
@@ -208,7 +210,8 @@ class ARMPush(ARMOpcode):
         ll_sp_lhs = splval
         sp_decr_c = astree.mk_integer_constant(sp_decr)
         ll_sp_rhs = astree.mk_binary_op("minus", sprval, sp_decr_c)
-        ll_sp_assign = astree.mk_assign(ll_sp_lhs, ll_sp_rhs, iaddr=iaddr)
+        ll_sp_assign = astree.mk_assign(
+            ll_sp_lhs, ll_sp_rhs, iaddr=iaddr, bytestring=bytestring)
         ll_instrs.append(ll_sp_assign)
 
         hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, xdata, astree)
@@ -218,7 +221,8 @@ class ARMPush(ARMOpcode):
                 "ARMPush more than one lhs or rhs in SP assignment")
         hl_sp_lhs = hl_sp_lhss[0]
         hl_sp_rhs = hl_sp_rhss[0]
-        hl_sp_assign = astree.mk_assign(hl_sp_lhs, hl_sp_rhs, iaddr=iaddr)
+        hl_sp_assign = astree.mk_assign(
+            hl_sp_lhs, hl_sp_rhs, iaddr=iaddr, bytestring=bytestring)
         hl_instrs.append(hl_sp_assign)
 
         astree.add_instr_mapping(hl_sp_assign, ll_sp_assign)
