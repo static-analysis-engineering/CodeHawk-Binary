@@ -466,6 +466,7 @@ class ASTSerializer(ASTIndexer):
         args: List[int] = []
         node: Dict[str, Any] = {"tag": instr.tag}
         node["descr"] = instr.description
+        node["instrid"] = instr.instrid
         node["locationid"] = instr.locationid
         return self.add(tags, args, node)
 

@@ -28,15 +28,66 @@
 
 from typing import Any, cast, Dict, List, NewType, Optional, Tuple, Union
 
-from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree, nooffset, voidtype
+from chb.ast.AbstractSyntaxTree import (
+    AbstractSyntaxTree, nooffset, voidtype, ASTSpanRecord)
 import chb.ast.ASTNode as AST
 from chb.ast.ASTSymbolTable import ASTLocalSymbolTable, ASTGlobalSymbolTable
 from chb.ast.ASTReturnSequences import ASTReturnSequences
 from chb.ast.ASTCodeFragments import ASTCodeFragments
 
 
-ASTSpanRecord = NewType(
-    "ASTSpanRecord", Dict[str, Union[int, List[Dict[str, Union[str, int]]]]])
+class ASTFunctionDeserialization:
+
+    def __init__(
+            self,
+            astree: AbstractSyntaxTree,
+            nodes: Dict[int, AST.ASTNode],
+            asts: List[AST.ASTStmt]) -> None:
+        self._astree = astree
+        self._nodes = nodes
+        self._asts = asts
+
+    @property
+    def astree(self) -> AbstractSyntaxTree:
+        return self._astree
+
+    @property
+    def nodes(self) -> Dict[int, AST.ASTNode]:
+        return self._nodes
+
+    @property
+    def asts(self) -> List[AST.ASTStmt]:
+        return self._asts
+
+    @property
+    def high_level_ast(self) -> AST.ASTStmt:
+        return self.asts[0]
+
+    @property
+    def low_level_ast(self) -> AST.ASTStmt:
+        return self.asts[-1]
+
+    @property
+    def high_unreduced_ast(self) -> AST.ASTStmt:
+        return self.asts[1]
+
+    def get_instruction(self, instrid: int) -> AST.ASTInstruction:
+        for node in self.nodes.values():
+            if node.is_ast_instruction:
+                node = cast(AST.ASTInstruction, node)
+                if node.instrid == instrid:
+                    return node
+        else:
+            raise Exception("No instruction found with id: " + str(instrid))
+
+    def get_expression(self, exprid: int) -> AST.ASTExpr:
+        for node in self.nodes.values():
+            if node.is_ast_expr:
+                node = cast(AST.ASTExpr, node)
+                if node.exprid == exprid:
+                    return node
+        else:
+            raise Exception("No expression found with id: " + str(exprid))
 
 
 class ASTDeserializer:
@@ -80,6 +131,25 @@ class ASTDeserializer:
     @property
     def annotations(self) -> Dict[int, List[str]]:
         return self._annotations
+
+    def deserialize(self) -> Tuple[
+            ASTGlobalSymbolTable, List[ASTFunctionDeserialization]]:
+        trees: List[ASTFunctionDeserialization] = []
+        for fdata in self.serialization["functions"]:
+            fname = fdata["name"]
+            faddr = fdata["va"]
+            localsymboltable = ASTLocalSymbolTable(self.global_symboltable)
+            astree = AbstractSyntaxTree(faddr, fname, localsymboltable)
+            nodes = self.mk_ast_nodes(astree, fdata["ast"]["nodes"])
+            if "prototype" in fdata:
+                fprototypeix = fdata["prototype"]
+                self._initialize_function_prototype(fprototypeix, astree, nodes)
+            asts = [cast(AST.ASTStmt, nodes[i]) for i in fdata["ast"]["ast-startnodes"]]
+            astree.provenance.deserialize(fdata["provenance"])
+            for span in fdata["spans"]:
+                astree.add_span(cast(ASTSpanRecord, span))
+            trees.append(ASTFunctionDeserialization(astree, nodes, asts))
+        return (self.global_symboltable, trees)
 
     def print_node_descendants(self, id: int) -> None:
         nodes: Dict[int, Dict[str, Any]] = {}
@@ -297,10 +367,9 @@ class ASTDeserializer:
                 raise Exception(
                     "No span found for exprid: " + str(exprid))
 
-        print("\nReaching definitions")
         result: List[Tuple[str, List[str]]] = []
         for (exprid, instrids) in rds.items():
-            exprnode = find_expr_by_id(nodes, exprid)
+            exprnode = find_expr_by_id(nodes, int(exprid))
             p_instrs: List[str] = []
             for instrid in instrids:
                 instrnode = cast(AST.ASTInstruction, find_instr_by_id(nodes, instrid))
@@ -370,6 +439,9 @@ class ASTDeserializer:
                 name = r["name"]
                 typ = cast(AST.ASTTyp, mk_node(arg(0)))
                 nodes[id] = astree.mk_typedef(name, typ)
+
+            elif tag == "builtin-va-list":
+                nodes[id] = AST.ASTTypBuiltinVAList()
 
             elif tag == "funarg":
                 name = r["name"]
@@ -551,6 +623,13 @@ class ASTDeserializer:
                 exp3 = cast(AST.ASTExpr, mk_node(arg(2)))
                 nodes[id] = astree.mk_question_expression(
                     exp1, exp2, exp3, optexprid=exprid)
+
+            elif tag == "nop":
+                instrid = r["instrid"]
+                locationid = r["locationid"]
+                descr = r["descr"]
+                nodes[id] = astree.mk_nop_instruction(
+                    descr, optinstrid=instrid, optlocationid=locationid)
 
             elif tag == "assign":
                 instrid = r["instrid"]

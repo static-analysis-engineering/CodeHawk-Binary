@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Provenance data structure to provide ast meta data."""
 
-from typing import Dict, List, Mapping, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Mapping, TYPE_CHECKING, Union
 
 
 class ASTProvenance:
@@ -62,6 +62,18 @@ class ASTProvenance:
     @property
     def definitions_used(self) -> Mapping[int, List[int]]:
         return self._definitions_used
+
+    def has_expression_mapping(self, exprid: int) -> bool:
+        return exprid in self.expression_mapping
+
+    def has_reaching_definitions(self, exprid: int) -> bool:
+        return exprid in self.reaching_definitions
+
+    def has_lval_mapping(self, lvalid: int) -> bool:
+        return lvalid in self.lval_mapping
+
+    def has_definitions_used(self, lvalid: int) -> bool:
+        return lvalid in self.definitions_used
 
     def add_instruction_mapping(self, hl_instrid: int, ll_instrid: int) -> None:
         self._instruction_mapping.setdefault(hl_instrid, [])
@@ -102,3 +114,17 @@ class ASTProvenance:
         result["flag-reaching-definitions"] = self.flag_reaching_definitions
         result["definitions-used"] = self.definitions_used
         return result
+
+    def deserialize(self, d: Dict[str, Any]) -> None:
+        self._instruction_mapping = {
+            int(i): v for (i, v) in d["instruction-mapping"].items()}
+        self._expression_mapping = {
+            int(i): v for (i, v) in d["expression-mapping"].items()}
+        self._lval_mapping = {
+            int(i): v for (i, v) in d["lval-mapping"].items()}
+        self._reaching_definitions = {
+            int(i): v for (i, v) in d["reaching-definitions"].items()}
+        self._flag_reaching_definitions = {
+            int(i): v for (i, v) in d["flag-reaching-definitions"].items()}
+        self._definitions_used = {
+            int(i): v for (i, v) in d["definitions-used"].items()}
