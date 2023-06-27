@@ -60,6 +60,9 @@ class ASTNOPVisitor(ASTVisitor):
     def visit_goto_stmt(self, stmt: AST.ASTGoto) -> None:
         pass
 
+    def visit_computedgoto_stmt(self, stmt: AST.ASTComputedGoto) -> None:
+        pass
+
     def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
         pass
 
@@ -73,6 +76,9 @@ class ASTNOPVisitor(ASTVisitor):
         pass
 
     def visit_default_label(self, label: AST.ASTDefaultLabel) -> None:
+        pass
+
+    def visit_nop_instr(self, instr: AST.ASTNOPInstruction) -> None:
         pass
 
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
@@ -112,6 +118,10 @@ class ASTNOPVisitor(ASTVisitor):
 
     def visit_string_constant(
             self, stringconstant: AST.ASTStringConstant) -> None:
+        pass
+
+    def visit_floating_point_constant(
+            self, constant: AST.ASTFloatingPointConstant) -> None:
         pass
 
     def visit_lval_expression(self, expr: AST.ASTLvalExpr) -> None:
@@ -172,4 +182,13 @@ class ASTNOPVisitor(ASTVisitor):
         pass
 
     def visit_comp_typ(self, typ: AST.ASTTypComp) -> None:
+        pass
+
+    def visit_enum_typ(self, typ: AST.ASTTypEnum) -> None:
+        pass
+
+    def visit_enuminfo(self, einfo: AST.ASTEnumInfo) -> None:
+        pass
+
+    def visit_enumitem(self, eitem: AST.ASTEnumItem) -> None:
         pass

@@ -169,6 +169,10 @@ class ASTNode:
         return False
 
     @property
+    def is_stmt_label(self) -> bool:
+        return False
+
+    @property
     def is_ast_lval(self) -> bool:
         return False
 
@@ -733,6 +737,10 @@ class ASTStmtLabel(ASTNode, ABC):
     def __init__(self, locationid: int, tag: str) -> None:
         ASTNode.__init__(self, tag)
         self._locationid = locationid
+
+    @property
+    def is_stmt_label(self) -> bool:
+        return True
 
     @property
     def locationid(self) -> int:
