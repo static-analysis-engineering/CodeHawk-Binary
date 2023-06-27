@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+# ------------------------------------------------------------------------------
+# CodeHawk Binary Analyzer
+# Author: Henny Sipma
+# ------------------------------------------------------------------------------
+# The MIT License (MIT)
+#
+# Copyright (c) 2023  Aarno Labs, LLC
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ------------------------------------------------------------------------------
+"""Command-line tool to query/view a PIR file."""
+
+
+import argparse
+import json
+import sys
+
+from typing import NoReturn
+
+from chb.ast.ASTApplicationInterface import pirversion
+import chb.ast.astutil as AU
+
+
+def showversion(args: argparse.Namespace) -> NoReturn:
+    print("PIR: " + pirversion)
+    exit(0)
+
+
+def parse() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__,
+        epilog="See for more information ...")
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        exit(0)
+
+    subparsers = parser.add_subparsers(title="subcommands")
+    parser_version = subparsers.add_parser("version")
+    parser_version.set_defaults(func=showversion)
+
+    # ----------------------------------------------------------------- info ---
+    infocmd = subparsers.add_parser("info")
+    infocmd.add_argument("pirfile", help="name of json file with ast information")
+    infocmd.set_defaults(func=AU.infocmd)
+
+    # ----------------------------------------------------------------- view ---
+    viewcmd = subparsers.add_parser("view")
+    viewparsers = viewcmd.add_subparsers(title="show options")
+
+    # --- view ast
+    viewastcmd = viewparsers.add_parser("ast")
+    viewastcmd.add_argument("pirfile", help="name of json file with ast information")
+    viewastcmd.add_argument("--function", help="name or address of function to view")
+    viewastcmd.add_argument(
+        "--level",
+        help=(
+            "ast to view: high (C-level), "
+            + "low (assembly-level), "
+            + "or high_unreduced (C-level without dead code removed"),
+        choices=["high", "low", "high_unreduced"], default="high")
+    viewastcmd.add_argument(
+        "-o", "--outputfile", help="name of output graph file (without extension)")    
+    viewastcmd.set_defaults(func=AU.viewastcmd)
+
+    # --- view single instruction ast
+    viewinstrcmd = viewparsers.add_parser("instruction")
+    viewinstrcmd.add_argument(
+        "pirfile", help="name of json file with ast information")
+    viewinstrcmd.add_argument(
+        "--function", help="name or address of function to view")
+    viewinstrcmd.add_argument(
+        "--instrid", help="instruction id of instruction", type=int)
+    viewinstrcmd.add_argument(
+        "--provenance", help="show associated low-level instruction",
+        action="store_true")
+    viewinstrcmd.add_argument(
+        "-o", "--output", help="name of output graph file (without extension)")
+    viewinstrcmd.set_defaults(func=AU.viewinstrcmd)
+
+    # --- view single expression ast
+    viewexprcmd = viewparsers.add_parser("expr")
+    viewexprcmd.add_argument(
+        "pirfile", help="name of json file with ast information")
+    viewexprcmd.add_argument(
+        "--function", help="name or address of function to view")
+    viewexprcmd.add_argument(
+        "--exprid", help="expression id of expression", type=int)
+    viewexprcmd.add_argument(
+        "--provenance", help="show associated low-level expression",
+        action="store_true")
+    viewexprcmd.add_argument(
+        "--reachingdefs", help="show instructions that may have defined a value",
+        action="store_true")
+    viewexprcmd.add_argument(
+        "--output", "-o", help="name of output graph file (without extension)")
+    viewexprcmd.set_defaults(func=AU.viewexprcmd)
+
+    # -- parse
+    args = parser.parse_args()
+    return args
+
+if __name__ == "__main__":
+
+    args = parse()
+    args.func(args)
+
