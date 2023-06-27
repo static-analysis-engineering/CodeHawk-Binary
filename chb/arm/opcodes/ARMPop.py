@@ -164,7 +164,8 @@ class ARMPop(ARMOpcode):
             addr = astree.mk_binary_op("plus", sprval, sp_offset_c)
             ll_lhs = astree.mk_variable_lval(r)
             ll_rhs = astree.mk_memref_expr(addr)
-            ll_assign = astree.mk_assign(ll_lhs, ll_rhs, iaddr=iaddr)
+            ll_assign = astree.mk_assign(
+                ll_lhs, ll_rhs, iaddr=iaddr, bytestring=bytestring)
             ll_instrs.append(ll_assign)
 
             lhs = reglhss[i]
@@ -188,6 +189,7 @@ class ARMPop(ARMOpcode):
                 hl_lhs,
                 hl_rhs,
                 iaddr=iaddr,
+                bytestring=bytestring,
                 annotations=annotations)
             hl_instrs.append(hl_assign)
 
@@ -205,7 +207,8 @@ class ARMPop(ARMOpcode):
         ll_sp_lhs = splval
         sp_incr_c = astree.mk_integer_constant(sp_incr)
         ll_sp_rhs = astree.mk_binary_op("plus", sprval, sp_incr_c)
-        ll_sp_assign = astree.mk_assign(ll_sp_lhs, ll_sp_rhs, iaddr=iaddr)
+        ll_sp_assign = astree.mk_assign(
+            ll_sp_lhs, ll_sp_rhs, iaddr=iaddr, bytestring=bytestring)
         ll_instrs.append(ll_sp_assign)
 
         hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, xdata, astree)
@@ -215,7 +218,8 @@ class ARMPop(ARMOpcode):
                 "ARMPop more than one lhs or rhs in SP assignment")
         hl_sp_lhs = hl_sp_lhss[0]
         hl_sp_rhs = hl_sp_rhss[0]
-        hl_sp_assign = astree.mk_assign(hl_sp_lhs, hl_sp_rhs, iaddr=iaddr)
+        hl_sp_assign = astree.mk_assign(
+            hl_sp_lhs, hl_sp_rhs, iaddr=iaddr, bytestring=bytestring)
         hl_instrs.append(hl_sp_assign)
 
         astree.add_instr_mapping(hl_sp_assign, ll_sp_assign)
