@@ -345,6 +345,7 @@ class ASTSerializer(ASTIndexer):
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] = stmt.locationid
+        node["merge-addr"] = stmt.breakaddr
         return self.add(tags, args, node)
 
     def index_branch_stmt(self, stmt: AST.ASTBranch) -> int:
@@ -361,6 +362,7 @@ class ASTSerializer(ASTIndexer):
             stmt.ifstmt.index(self),
             stmt.elsestmt.index(self)])
         node["destination-addr"] = stmt.target_address
+        node["merge-addr"] = stmt.merge_address
         return self.add(tags, args, node)
 
     def index_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> int:
@@ -430,6 +432,7 @@ class ASTSerializer(ASTIndexer):
         node: Dict[str, Any] = {"tag": stmt.tag}
         node["stmtid"] = stmt.stmtid
         node["locationid"] = stmt.locationid
+        node["merge-addr"] = stmt.merge_address
         return self.add(tags, args, node)
 
     def index_label(self, label: AST.ASTLabel) -> int:

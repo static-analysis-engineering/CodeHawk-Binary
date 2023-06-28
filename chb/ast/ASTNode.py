@@ -407,9 +407,11 @@ class ASTLoop(ASTStmt):
             self,
             stmtid: int,
             locationid: int,
+            breakaddr: Optional[str],
             body: "ASTStmt") -> None:
         ASTStmt.__init__(self, stmtid, locationid, [], "loop")
         self._body = body
+        self._breakaddr = breakaddr
 
     @property
     def is_ast_loop(self) -> bool:
@@ -418,6 +420,10 @@ class ASTLoop(ASTStmt):
     @property
     def body(self) -> "ASTStmt":
         return self._body
+
+    @property
+    def breakaddr(self) -> Optional[str]:
+        return self._breakaddr
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_loop_stmt(self)
@@ -582,12 +588,14 @@ class ASTBranch(ASTStmt):
             ifstmt: "ASTStmt",
             elsestmt: "ASTStmt",
             tgtaddress: str,
+            mergeaddress: Optional[str],
             labels: List["ASTStmtLabel"] = []) -> None:
         ASTStmt.__init__(self, stmtid, locationid, labels, "if")
         self._cond = cond
         self._ifstmt = ifstmt
         self._elsestmt = elsestmt
         self._tgtaddress = tgtaddress
+        self._mergeaddress = mergeaddress
 
     @property
     def is_ast_branch(self) -> bool:
@@ -608,6 +616,10 @@ class ASTBranch(ASTStmt):
     @property
     def target_address(self) -> str:
         return self._tgtaddress
+
+    @property
+    def merge_address(self) -> Optional[str]:
+        return self._mergeaddress
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_branch_stmt(self)
@@ -706,10 +718,12 @@ class ASTSwitchStmt(ASTStmt):
             locationid: int,
             switchexpr: "ASTExpr",
             cases: "ASTStmt",
+            mergeaddr: Optional[str] = None,
             labels: List["ASTStmtLabel"] = []) -> None:
         ASTStmt.__init__(self, stmtid, locationid, labels, "switch")
         self._switchexpr = switchexpr
         self._cases = cases
+        self._mergeaddress = mergeaddr
 
     @property
     def switchexpr(self) -> "ASTExpr":
@@ -718,6 +732,10 @@ class ASTSwitchStmt(ASTStmt):
     @property
     def cases(self) -> "ASTStmt":
         return self._cases
+
+    @property
+    def merge_address(self) -> Optional[str]:
+        return self._mergeaddress
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_switch_stmt(self)
