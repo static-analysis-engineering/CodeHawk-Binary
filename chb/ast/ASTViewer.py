@@ -45,9 +45,13 @@ nodecolors = DU.nodecolors
             
 class ASTViewer(ASTNOPVisitor):
 
-    def __init__(self, name: str, astree: AbstractSyntaxTree) -> None:
+    def __init__(
+            self, name:
+            str, astree: AbstractSyntaxTree,
+            astcutoff: Optional[str] = None) -> None:
         self._astree = astree
         self._dotgraph = DU.ASTDotGraph(name)
+        self._astcutoff = astcutoff
 
     @property
     def astree(self) -> AbstractSyntaxTree:
@@ -56,6 +60,22 @@ class ASTViewer(ASTNOPVisitor):
     @property
     def dotgraph(self) -> DU.ASTDotGraph:
         return self._dotgraph
+
+    @property
+    def astcutoff(self) -> Optional[str]:
+        return self._astcutoff
+
+    def cutoff_at_stmt(self) -> bool:
+        if self.astcutoff is not None:
+            return self.astcutoff == "stmt"
+        else:
+            return False
+
+    def cutoff_at_instr(self) -> bool:
+        if self.astcutoff is not None:
+            return self.astcutoff == "instr"
+        else:
+            return False
 
     def add_node(
             self,
@@ -121,11 +141,19 @@ class ASTViewer(ASTNOPVisitor):
         name = self.stmt_name(stmt)
         self.add_node(
             name, labeltxt="block:" + str(stmt.stmtid), color=nodecolors["stmt"])
+        for label in stmt.labels:
+            self.add_edge(name, self.label_name(label))
+            label.accept(self)
         for s in stmt.stmts:
-            if s.is_stmt_label:
-                continue
             self.add_edge(name, self.stmt_name(s))
             s.accept(self)
+
+    def visit_loop_stmt(self, stmt: AST.ASTLoop) -> None:
+        name = self.stmt_name(stmt)
+        self.add_node(
+            name, labeltxt="loop:" + str(stmt.stmtid), color=nodecolors["stmt"])
+        self.add_edge(name, self.stmt_name(stmt.body), labeltxt="body")
+        stmt.body.accept(self)
 
     def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
         name = self.stmt_name(stmt)
@@ -138,18 +166,84 @@ class ASTViewer(ASTNOPVisitor):
         stmt.elsestmt.accept(self)
         stmt.condition.accept(self)
 
+    def visit_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> None:
+        name = self.stmt_name(stmt)
+        self.add_node(
+            name, labeltxt="switch:" + str(stmt.stmtid), color=nodecolors["stmt"])
+        self.add_edge(name, self.stmt_name(stmt.cases), labeltxt="cases")
+        stmt.cases.accept(self)
+        self.add_edge(
+            name, self.expr_name(stmt.switchexpr), labeltxt="switchexpr")
+        stmt.switchexpr.accept(self)
+
     def visit_goto_stmt(self, stmt: AST.ASTGoto) -> None:
         name = self.stmt_name(stmt)
         self.add_node(
             name, labeltxt="goto:" + stmt.destination, color=nodecolors["stmt"])
 
+    def visit_break_stmt(self, stmt: AST.ASTBreak) -> None:
+        name = self.stmt_name(stmt)
+        self.add_node(
+            name, labeltxt="break:" + str(stmt.stmtid), color=nodecolors["stmt"])
+
+    def visit_continue_stmt(self, stmt: AST.ASTContinue) -> None:
+        name = self.stmt_name(stmt)
+        self.add_node(
+            name, labeltxt="continue:" + str(stmt.stmtid), color=nodecolors["stmt"])
+
     def visit_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> None:
         name = self.stmt_name(stmt)
         self.add_node(
-            name, labeltxt="instrs:" + str(stmt.stmtid), color=nodecolors["stmt"])
-        for instr in stmt.instructions:
-            self.add_edge(name, self.instr_name(instr))
-            instr.accept(self)
+            name,
+            labeltxt="instrs:" + str(stmt.stmtid),
+            color=nodecolors["stmt"])
+        for label in stmt.labels:
+            self.add_edge(name, self.label_name(label))
+            label.accept(self)
+        if self.cutoff_at_stmt():
+            return
+        else:
+            for instr in stmt.instructions:
+                self.add_edge(name, self.instr_name(instr))
+                instr.accept(self)
+
+    def label_name(self, label: AST.ASTStmtLabel) -> str:
+        return "label:" + str(label.locationid)
+
+    def visit_label(self, label: AST.ASTLabel) -> None:
+        name = self.label_name(label)
+        self.add_node(
+            name, labeltxt="label:" + label.name, color=nodecolors["label"])
+
+    def visit_case_label(self, label: AST.ASTCaseLabel) -> None:
+        name = self.label_name(label)
+        if label.case_expr.is_integer_constant:
+            expr = cast(AST.ASTIntegerConstant, label.case_expr)
+            labeltxt = "case:" + str(expr.cvalue)
+        else:
+            labeltxt = "case:exprid:" + str(label.case_expr.exprid)
+            self.add_edge(name, self.expr_name(label.case_expr))
+            label.case_expr.accept(self)
+        self.add_node(name, labeltxt=labeltxt, color=nodecolors["label"])
+
+    def visit_case_range_label(self, label: AST.ASTCaseRangeLabel) -> None:
+        name = self.label_name(label)
+        if label.lowexpr.is_integer_constant and label.highexpr.is_integer_constant:
+            lowexpr = cast(AST.ASTIntegerConstant, label.lowexpr)
+            highexpr = cast(AST.ASTIntegerConstant, label.highexpr)
+            labeltxt = (
+                "case-range:" + str(lowexpr.cvalue) + "-" + str(highexpr.cvalue))
+        else:
+            labeltxt = "case-range"
+            self.add_edge(name, self.expr_name(label.lowexpr), labeltxt="low")
+            self.add_edge(name, self.expr_name(label.highexpr), labeltxt="high")
+            label.lowexpr.accept(self)
+            label.highexpr.accept(self)
+        self.add_node(name, labeltxt=labeltxt, color=nodecolors["label"])
+
+    def visit_default_label(self, label: AST.ASTDefaultLabel) -> None:
+        name = self.label_name(label)
+        self.add_node(name, labeltxt="default", color=nodecolors["label"])
 
     def instr_span(self, instr: AST.ASTInstruction) -> str:
         locationid = instr.locationid
@@ -166,10 +260,32 @@ class ASTViewer(ASTNOPVisitor):
             name,
             labeltxt="assign:" + str(instr.instrid) + span,
             color=nodecolors["instr"])
-        self.add_edge(name, self.lval_name(instr.lhs), labeltxt="lhs")
-        self.add_edge(name, self.expr_name(instr.rhs), labeltxt="rhs")
-        instr.lhs.accept(self)
-        instr.rhs.accept(self)
+        if self.cutoff_at_instr():
+            return
+        else:
+            self.add_edge(name, self.lval_name(instr.lhs), labeltxt="lhs")
+            self.add_edge(name, self.expr_name(instr.rhs), labeltxt="rhs")
+            instr.lhs.accept(self)
+            instr.rhs.accept(self)
+
+    def visit_call_instr(self, instr: AST.ASTCall) -> None:
+        name = self.instr_name(instr)
+        span = self.instr_span(instr)
+        self.add_node(
+            name,
+            labeltxt="call:" + str(instr.instrid) + span,
+            color=nodecolors["instr"])
+        if self.cutoff_at_instr():
+            return
+        else:
+            if instr.lhs is not None:
+                self.add_edge(name, self.lval_name(instr.lhs), labeltxt="lhs")
+                instr.lhs.accept(self)
+            self.add_edge(name, self.expr_name(instr.tgt), labeltxt="target")
+            instr.tgt.accept(self)
+            for (i, a) in enumerate(instr.arguments):
+                self.add_edge(name, self.expr_name(a), labeltxt="arg:" + str(i+1))
+                a.accept(self)
 
     def visit_nop_instr(self, instr: AST.ASTNOPInstruction) -> None:
         name = self.instr_name(instr)
@@ -194,8 +310,28 @@ class ASTViewer(ASTNOPVisitor):
         connections = self.get_expr_connections(addr)
         self.add_node(
             name,
-            labeltxt="gaddr:" + hex(addr.cvalue) + ":" + str(addr.exprid) + connections,
+            labeltxt=(
+                "gaddr:" + hex(addr.cvalue) + ":" + str(addr.exprid) + connections),
             color=nodecolors["cst"])
+
+    def visit_floating_point_constant(
+            self, cst: AST.ASTFloatingPointConstant) -> None:
+        name = self.expr_name(cst)
+        self.add_node(
+            name,
+            labeltxt="float:" + cst.fkind + ":" + str(cst.fvalue),
+            color=nodecolors["cst"])
+
+    def visit_string_constant(self, cst: AST.ASTStringConstant) -> None:
+        name = self.expr_name(cst)
+        saddr = "" if cst.string_address is None else cst.string_address + ":"
+        self.add_node(
+            name,
+            labeltxt="string:" + saddr + str(cst.exprid),
+            color=nodecolors["cst"])
+        if cst.address_expr is not None:
+            self.add_edge(name, self.expr_name(cst.address_expr), labeltxt="va")
+            cst.address_expr.accept(self)
 
     def visit_lval_expression(self, expr: AST.ASTLvalExpr) -> None:
         name = self.expr_name(expr)

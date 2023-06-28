@@ -149,13 +149,16 @@ def get_function_addr(pirjson: Dict[str, Any], function: Optional[str]) -> str:
     
 
 def view_ast_function(
-        faddr: str, level: str, pirjson: Dict[str, Any]) -> DU.ASTDotGraph:
+        faddr: str,
+        level: str,
+        pirjson: Dict[str, Any],
+        cutoff: Optional[str] = None) -> DU.ASTDotGraph:
 
     deserializer = ASTDeserializer(pirjson)
     (globaltable, dfns) = deserializer.deserialize()
     for dfn in dfns:
         if dfn.astree.faddr == faddr:
-            viewer = ASTViewer(faddr, dfn.astree)
+            viewer = ASTViewer(faddr, dfn.astree, astcutoff=cutoff)
             if level == "high":
                 g = viewer.to_graph(dfn.high_level_ast)
             elif level == "low":
@@ -172,12 +175,13 @@ def viewastcmd(args: argparse.Namespace) -> NoReturn:
     function: Optional[str] = args.function
     level: str = args.level
     outputfilename: str = args.outputfile
+    cutoff: Optional[str] = args.cutoff
 
     with open(pirfile, "r") as fp:
         pirjson = json.load(fp)    
 
     faddr = get_function_addr(pirjson, function)
-    g = view_ast_function(faddr, level, pirjson)
+    g = view_ast_function(faddr, level, pirjson, cutoff)
     DU.print_dot(outputfilename, g)
     exit(0)
 
@@ -208,6 +212,9 @@ def viewinstrcmd(args: argparse.Namespace) -> NoReturn:
                         dfn.astree.provenance.instruction_mapping[instrid])
                     provinstrs = [dfn.get_instruction(i) for i in provinstrids]
                 g = viewer.instr_to_graph(instr, provinstrs)
+            else:
+                g = viewer.instr_to_graph(instr)
+
             DU.print_dot(outputfilename, g)
 
     exit(0)

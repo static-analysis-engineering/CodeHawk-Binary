@@ -405,6 +405,8 @@ class ASTDeserializer:
                 return records[r["args"][ix]]
 
             tag = r["tag"]
+            argcount = len(r["args"])
+
             if tag == "void":
                 nodes[id] = voidtype
 
@@ -664,21 +666,40 @@ class ASTDeserializer:
             elif tag == "return":
                 stmtid = r["stmtid"]
                 locationid = r["locationid"]
+                labels: List[AST.ASTStmtLabel] = []
+                if argcount > 1:
+                    labels = [
+                        cast(AST.ASTStmtLabel, mk_node(records[i]))
+                        for i in r["args"][:-1]]
                 if r["args"][0] == -1:
                     returnexpr: Optional[AST.ASTExpr] = None
                 else:
                     returnexpr = cast(AST.ASTExpr, mk_node(arg(0)))
                 nodes[id] = astree.mk_return_stmt(
-                    returnexpr, optstmtid=stmtid, optlocationid=locationid)
+                    returnexpr,
+                    optstmtid=stmtid,
+                    optlocationid=locationid,
+                    labels=labels)
 
             elif tag == "instrs":
                 stmtid = r["stmtid"]
                 locationid = r["locationid"]
+                labels = []
+                if "labelcount" in r:
+                    labelcount = int(r["labelcount"])
+                    labels = [
+                        cast(AST.ASTStmtLabel, mk_node(records[i]))
+                        for i in r["args"][:labelcount]]
+                else:
+                    labelcount = 0
                 instrs = [
                     cast(AST.ASTInstruction, mk_node(records[i]))
-                    for i in r["args"]]
+                    for i in r["args"][labelcount:]]
                 nodes[id] = astree.mk_instr_sequence(
-                    instrs, optstmtid=stmtid, optlocationid=locationid)
+                    instrs,
+                    optstmtid=stmtid,
+                    optlocationid=locationid,
+                    labels=labels)
 
             elif tag == "if":
                 stmtid = r["stmtid"]
@@ -698,11 +719,22 @@ class ASTDeserializer:
             elif tag == "block":
                 stmtid = r["stmtid"]
                 locationid = r["locationid"]
+                labels = []
+                if "labelcount" in r:
+                    labelcount = int(r["labelcount"])
+                    labels = [
+                        cast(AST.ASTStmtLabel, mk_node(records[i]))
+                        for i in r["args"][:labelcount]]
+                else:
+                    labelcount = 0
                 stmts = [
                     cast(AST.ASTStmt, mk_node(records[i]))
-                    for i in r["args"]]
+                    for i in r["args"][labelcount:]]
                 nodes[id] = astree.mk_block(
-                    stmts, optstmtid=stmtid, optlocationid=locationid)
+                    stmts,
+                    optstmtid=stmtid,
+                    optlocationid=locationid,
+                    labels=labels)
 
             elif tag == "goto":
                 stmtid = r["stmtid"]
