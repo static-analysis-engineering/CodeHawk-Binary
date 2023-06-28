@@ -31,6 +31,7 @@ from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 nodecolors: Dict[str, str] = {
     "stmt": "aqua",
+    "label": "yellow",
     "instr": "cornflowerblue",
     "lval": "darkolivegreen1",
     "var": "aquamarine",

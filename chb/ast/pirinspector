@@ -77,6 +77,10 @@ def parse() -> argparse.Namespace:
             + "or high_unreduced (C-level without dead code removed"),
         choices=["high", "low", "high_unreduced"], default="high")
     viewastcmd.add_argument(
+        "--cutoff",
+        help="stop expansion at stmt or instruction level",
+        choices=["stmt", "instr"])
+    viewastcmd.add_argument(
         "-o", "--outputfile", help="name of output graph file (without extension)")    
     viewastcmd.set_defaults(func=AU.viewastcmd)
 
