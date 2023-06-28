@@ -73,6 +73,7 @@ not present a new value is generated automatically.
   def mk_loop(
     self,
     body: AST.ASTStmt,
+    mergeaddr: Optional[str] = None,
     stmtid: Optional[int] = None,
     locationid: Optional[int] = None) -> AST.ASTLoop
   ```
@@ -104,13 +105,15 @@ not present a new value is generated automatically.
 - **mk_branch**: creates a if-then-else statement with a condition
   expression and if and else branches as child statements. The target
   address is the address in hex of the target of the conditional
-  jump.
+  jump. The merge address is the basic block to which control flow
+  proceeds after the end of the if statement.
   ```
   def mk_branch(self,
     condition: ASTExpr,
     ifbranch: ASTStmt,
     elsebranch: ASTStmt,
     targetaddr: str,
+    mergeaddr: Optional[str],
     stmtid: Optional[int],
     locationid: Optional[int],
     labels: List[ASTLabel] = []) -> ASTBranch
@@ -156,6 +159,7 @@ not present a new value is generated automatically.
   def mk_switch_stmt(self,
     switchexpr: ASTExpr,
     cases: List[ASTStmt],
+    mergeaddr: Optional[str],
     stmtid: Optional[int],
     locationid: Optional[int],
     labels: List[ASTLabel] = []) -> ASTSwitch

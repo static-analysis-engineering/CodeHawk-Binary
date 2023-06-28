@@ -722,10 +722,11 @@ class ASTDeserializer:
             elif tag == "switch":
                 stmtid = r["stmtid"]
                 locationid = r["locationid"]
+                mergeaddr = r.get("merge-addr")
                 switchexpr = cast(AST.ASTExpr, mk_node(arg(0)))
                 cases = cast(AST.ASTStmt, mk_node(arg(1)))
                 nodes[id] = astree.mk_switch_stmt(
-                    switchexpr, cases, stmtid, locationid)
+                    switchexpr, cases, mergeaddr, stmtid, locationid)
 
             elif tag == "break":
                 stmtid = r["stmtid"]

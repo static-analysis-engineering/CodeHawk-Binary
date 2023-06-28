@@ -282,12 +282,16 @@ class FlowGraph:
             finger = self._idoms[finger]
         return False
 
+    def is_merge_node(self, x: str) -> bool:
+        return len(self.pre(x)) >= 2
+
 
 def normalized_branch(
         astree: ASTInterface,
         astfn: "ASTInterfaceFunction",
         n: str,
         tgtaddr: str,
+        mergeaddr: Optional[str],
         ifbranch: AST.ASTStmt,
         elsebranch: AST.ASTStmt) -> AST.ASTBranch:
 
@@ -308,8 +312,8 @@ def normalized_branch(
         return None
 
     def swapped(condition: Optional[AST.ASTExpr]) -> AST.ASTBranch:
-        return cast(
-            AST.ASTBranch, astree.mk_branch(condition, elsebranch, ifbranch, tgtaddr))
+        br = astree.mk_branch(condition, elsebranch, ifbranch, tgtaddr, mergeaddr=mergeaddr)
+        return cast(AST.ASTBranch, br)
 
     astblock = astfn.astblock(n)
     astlastinstr = astblock.last_instruction
@@ -334,7 +338,7 @@ def normalized_branch(
             astree.astree.add_expr_span(
                 condition.exprid, astlastinstr.iaddr, astlastinstr.bytestring)
         return cast(AST.ASTBranch, astree.mk_branch(
-            condition, ifbranch, elsebranch, tgtaddr))
+            condition, ifbranch, elsebranch, tgtaddr, mergeaddr=mergeaddr))
 
 
 # Hex addresses are not valid C labels...
@@ -446,6 +450,20 @@ class Cfg:
                                     self.derived_graph_sequence.graphs[-1].nodes[0])
         return self._flowgraph
 
+    def expand_domtree(self) -> Dict[str, List[str]]:
+        domtree_adj: Dict[str, List[str]] = dict()
+        for node, idom in self.flowgraph._idoms.items():
+            # nodes point to those they dominate
+            if not idom in domtree_adj:
+                domtree_adj[idom] = []
+            domtree_adj[idom].append(node)
+
+        for x in domtree_adj:
+            # highest rpo first, since nodeWithin places them in reverse order
+            domtree_adj[x].sort(key=lambda x: self.flowgraph.rpo[x], reverse=True)
+        return domtree_adj
+
+
     def stmt_ast(
             self,
             astfn: "ASTInterfaceFunction",
@@ -454,26 +472,13 @@ class Cfg:
 
         fn = astfn.function
 
-        def expand_domtree() -> Dict[str, List[str]]:
-            domtree_adj: Dict[str, List[str]] = dict()
-            for node, idom in self.flowgraph._idoms.items():
-                # nodes point to those they dominate
-                if not idom in domtree_adj:
-                    domtree_adj[idom] = []
-                domtree_adj[idom].append(node)
-
-            for x in domtree_adj:
-                # highest rpo first, since nodeWithin places them in reverse order
-                domtree_adj[x].sort(key=lambda x: self.flowgraph.rpo[x], reverse=True)
-            return domtree_adj
-
         def mk_block(stmts: List[AST.ASTStmt]) -> AST.ASTStmt:
             if len(stmts) == 1 and not stmts[0].is_ast_instruction_sequence:
                 return stmts[0]
             return astree.mk_block(stmts)
 
         gotolabels: Set[str] = set() # this is both used and mutated by run_with_gotolabels()
-        domtree_adj = expand_domtree()
+        domtree_adj = self.expand_domtree()
 
         def run_with_gotolabels(apply_labels: bool) -> AST.ASTStmt:
             # This beautifully compact algorithm is due to
@@ -494,11 +499,12 @@ class Cfg:
                 if is_loop_header(x):
                     if len(merges) == 1:
                         loopstmts = node_within(x, [], ctx.in_loop(x, break_to=merges[0]))
-                        loop = cast(AST.ASTStmt, astree.mk_loop(mk_block(loopstmts)))
+                        loop = cast(AST.ASTStmt, astree.mk_loop(mk_block(loopstmts),
+                                                                mergeaddr=merges[0]))
                         return [loop] + do_tree(merges[0], ctx)
                     else:
                         loopstmts = node_within(x, merges, ctx.in_loop(x, break_to=ctx.fallthrough))
-                        return [astree.mk_loop(mk_block(loopstmts))]
+                        return [astree.mk_loop(mk_block(loopstmts), mergeaddr=ctx.fallthrough)]
 
                 return node_within(x, merges, ctx)
 
@@ -522,7 +528,7 @@ class Cfg:
                 return any(is_backward(pred, x) for pred in self.flowgraph.pre(x))
 
             def is_merge_node(x: str) -> bool:
-                return len(self.flowgraph.pre(x)) >= 2
+                return self.flowgraph.is_merge_node(x)
 
             def is_backward(src: str, tgt: str) -> bool:
                 # Could compare rpo numbers instead but this seems clearer.
@@ -550,6 +556,8 @@ class Cfg:
                 if nsuccs == 1:
                     return xstmts + do_branch(x, succs[0], ctx)
 
+                mergeaddr = ctx.fallthrough
+
                 if nsuccs > 2:
                     astblock = astfn.astblock(x)
                     astlastinstr = astblock.last_instruction
@@ -573,7 +581,8 @@ class Cfg:
                         do_branch(x, succs[0], ctx),
                         labels=[astree.mk_default_label()])
                     cases = astree.mk_block([switch_case(succ) for succ in succs[1:]] + [defaultcase])
-                    switchstmt = cast(AST.ASTSwitchStmt, astree.mk_switch_stmt(switchcondition, cases))
+                    switchstmt = cast(AST.ASTSwitchStmt,
+                        astree.mk_switch_stmt(switchcondition, cases, mergeaddr))
                     return (xstmts + [switchstmt])
 
                 assert nsuccs == 2
@@ -589,7 +598,7 @@ class Cfg:
                 return (
                     xstmts
                     + [normalized_branch(
-                        astree, astfn, x, tgtaddr, ifbranch, elsebranch)])
+                        astree, astfn, x, tgtaddr, mergeaddr, ifbranch, elsebranch)])
 
             initial = ControlFlowContext(None, None, None)
             return mk_block(do_tree(self.flowgraph.start_node, initial))
@@ -638,6 +647,7 @@ class Cfg:
             astree: ASTInterface) -> AST.ASTStmt:
         """Returns an AST directly based on the CFG."""
 
+        domtree_adj = self.expand_domtree()
         blockstmts: List[AST.ASTStmt] = []
         for b in sorted(self.blocks):
             if b in self.edges:
@@ -660,8 +670,11 @@ class Cfg:
                 instr = blocknode.last_instruction
                 expr = instr.assembly_ast_condition(astree)
                 tgtaddr = successors[1]
+                children = domtree_adj.get(b, [])
+                merges = [c for c in children if self.flowgraph.is_merge_node(c)]
+                merged = merges[-1] if len(merges) > 0 else None
                 succblock = astree.mk_branch(
-                    expr, truebranch, falsebranch, tgtaddr)
+                    expr, truebranch, falsebranch, tgtaddr, mergeaddr=merged)
             else:
                 cases: List[AST.ASTStmt] = []
                 instr = blocknode.last_instruction
