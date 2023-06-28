@@ -592,8 +592,9 @@ class ASTInterface:
     def mk_loop(
             self,
             body: AST.ASTStmt,
+            mergeaddr: Optional[str] = None,
             optlocationid: Optional[int] = None) -> AST.ASTLoop:
-        return self.astree.mk_loop(body, optlocationid=optlocationid)
+        return self.astree.mk_loop(body, mergeaddr=mergeaddr, optlocationid=optlocationid)
 
     def mk_return_stmt(
             self,
@@ -617,12 +618,14 @@ class ASTInterface:
             ifbranch: AST.ASTStmt,
             elsebranch: AST.ASTStmt,
             targetaddr: str,
+            mergeaddr: Optional[str] = None,
             optlocationid: Optional[int] = None) -> AST.ASTStmt:
         return self.astree.mk_branch(
             condition,
             ifbranch,
             elsebranch,
             targetaddr,
+            mergeaddr=mergeaddr,
             optlocationid=optlocationid)
 
     def mk_instr_sequence(
@@ -649,10 +652,12 @@ class ASTInterface:
             self,
             switchexpr: Optional[AST.ASTExpr],
             cases: AST.ASTStmt,
+            mergeaddr: Optional[str],
             optlocationid: Optional[int] = None,
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTSwitchStmt:
         return self.astree.mk_switch_stmt(
-            switchexpr, cases, optlocationid=optlocationid, labels=labels)
+            switchexpr, cases, mergeaddr=mergeaddr,
+            optlocationid=optlocationid, labels=labels)
 
     # ---------------------------------------------------- make labels ---------
 

@@ -362,11 +362,12 @@ class AbstractSyntaxTree:
     def mk_loop(
             self,
             body: AST.ASTStmt,
+            mergeaddr: Optional[str] = None,
             optstmtid: Optional[int] = None,
             optlocationid: Optional[int] = None) -> AST.ASTLoop:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
-        return AST.ASTLoop(stmtid, locationid, body)
+        return AST.ASTLoop(stmtid, locationid, mergeaddr, body)
 
     def mk_break_stmt(
             self,
@@ -390,6 +391,7 @@ class AbstractSyntaxTree:
             ifbranch: AST.ASTStmt,
             elsebranch: AST.ASTStmt,
             targetaddr: str,
+            mergeaddr: Optional[str] = None,
             optstmtid: Optional[int] = None,
             optlocationid: Optional[int] = None,
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTBranch:
@@ -399,7 +401,8 @@ class AbstractSyntaxTree:
             # create a new unknown (uninitialized) variable
             condition = self.mk_tmp_lval_expression()
         return AST.ASTBranch(
-            stmtid, locationid, condition, ifbranch, elsebranch, targetaddr)
+            stmtid, locationid, condition, ifbranch, elsebranch,
+            targetaddr, mergeaddr)
 
     def mk_goto_stmt(
             self,
@@ -427,6 +430,7 @@ class AbstractSyntaxTree:
             self,
             switchexpr: Optional[AST.ASTExpr],
             cases: AST.ASTStmt,
+            mergeaddr: Optional[str] = None,
             optstmtid: Optional[int] = None,
             optlocationid: Optional[int] = None,
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTSwitchStmt:
@@ -436,7 +440,8 @@ class AbstractSyntaxTree:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
         return AST.ASTSwitchStmt(
-            stmtid, locationid, switchexpr, cases, labels=labels)
+            stmtid, locationid, switchexpr, cases,
+            mergeaddr=mergeaddr, labels=labels)
 
     def mk_instr_sequence(
             self,
