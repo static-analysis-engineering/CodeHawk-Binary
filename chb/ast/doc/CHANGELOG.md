@@ -10,6 +10,8 @@ The format is based on
 
 - Add more node types to ASTViewer
 - Fix labels in ASTDeserializer
+- Add available expressions option to pirinspector
+- Add merge address to branch, loop, and switch
 
 ---
 

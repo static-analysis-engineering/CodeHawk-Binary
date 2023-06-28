@@ -148,6 +148,7 @@ class ASTDeserializer:
             astree.provenance.deserialize(fdata["provenance"])
             for span in fdata["spans"]:
                 astree.add_span(cast(ASTSpanRecord, span))
+            astree.set_available_expressions(fdata["available-expressions"])
             trees.append(ASTFunctionDeserialization(astree, nodes, asts))
         return (self.global_symboltable, trees)
 
