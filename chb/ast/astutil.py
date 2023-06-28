@@ -254,7 +254,43 @@ def viewexprcmd(args: argparse.Namespace) -> NoReturn:
             DU.print_dot(outputfilename, g)
 
     exit(0)
-    
 
-    
-    
+
+def showaexprscmd(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    pirfile: str = args.pirfile
+    function: Optional[str] = args.function
+    variables: List[str] = args.variables
+    locations: List[str] = args.locations
+
+    with open(pirfile, "r") as fp:
+        pirjson = json.load(fp)
+
+    def include_var(var: str) -> bool:
+        return len(variables) == 0 or var in variables
+
+    def include_loc(loc: str) -> bool:
+        return len(locations) == 0 or loc in locations
+
+    faddr = get_function_addr(pirjson, function)
+    deserializer = ASTDeserializer(pirjson)
+    (globaltable, dfns) = deserializer.deserialize()
+    for dfn in dfns:
+        if dfn.astree.faddr == faddr:
+            for (addr, aexpr) in dfn.astree.available_expressions.items():
+                if include_loc(addr):
+                    print(addr)
+                    for (var, exprec) in aexpr.items():
+                        if include_var(var):
+                            print(
+                                "  "
+                                + var.ljust(14)
+                                + ": "
+                                + exprec[2]
+                                + " ("
+                                + str(exprec[0])
+                                + ", "
+                                + str(exprec[1])
+                                + ")")
+    exit(0)

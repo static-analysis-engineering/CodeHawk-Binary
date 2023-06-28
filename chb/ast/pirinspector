@@ -117,6 +117,26 @@ def parse() -> argparse.Namespace:
         "--output", "-o", help="name of output graph file (without extension)")
     viewexprcmd.set_defaults(func=AU.viewexprcmd)
 
+    # ---------------------------------------------------------------- show ---
+    showcmd = subparsers.add_parser("show")
+    showparsers = showcmd.add_subparsers(title="show options")
+
+    # --- show ast
+    showaexprs = showparsers.add_parser("aexprs")
+    showaexprs.add_argument("pirfile", help="name of json file with ast information")
+    showaexprs.add_argument("--function", help="name or address of function to view")
+    showaexprs.add_argument(
+        "--variables",
+        help="only show the contents of these variables",
+        nargs="*",
+        default=[])
+    showaexprs.add_argument(
+        "--locations",
+        help="only show the values for these instruction addresses",
+        nargs="*",
+        default=[])
+    showaexprs.set_defaults(func=AU.showaexprscmd)
+
     # -- parse
     args = parser.parse_args()
     return args
