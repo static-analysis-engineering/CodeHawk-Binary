@@ -103,6 +103,9 @@ chb_schemas: List[Dict[str, Any]] = [
     S.assemblyblock,
     S.assemblyfunction,
     S.assemblyinstruction,
+    S.cfgedge,
+    S.cfgnode,
+    S.controlflowgraph,
     S.functioninvariants,
     S.invariantfact,
     S.linearequality,
@@ -185,6 +188,9 @@ if __name__ == "__main__":
     save_schema(
         "assemblyfunction",
         "json result file for an assembly function")
+    save_schema(
+        "controlflowgraph",
+        "json result file for a control flow graph")
     save_schema(
         "functioninvariants",
         "json result file for the location invariants within a function")

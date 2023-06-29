@@ -36,6 +36,8 @@ from chb.jsoninterface.JSONResult import JSONResult
 from chb.jsoninterface.JSONSchema import JSONSchema
 
 if TYPE_CHECKING:
+    from chb.app.BasicBlock import BasicBlock
+    from chb.app.Function import Function
     from chb.invariants.InvariantFact import InvariantFact
 
 
@@ -102,3 +104,78 @@ def function_invariants_to_json_result(
     content: Dict[str, Any] = {}
     content["invariants"] = ilocs
     return JSONResult("functioninvariants", content, "ok")
+
+
+def cfg_edge_to_json_result(
+        f: "Function", src: str, tgt: str, kind: str) -> JSONResult:
+    content: Dict[str, Any] = {}
+    content["src"] = src
+    content["tgt"] = tgt
+    content["kind"] = kind
+    if kind in ["true", "false"]:
+        if src in f.branchconditions:
+            branchinstr = f.branchconditions[src]
+            ftconds = branchinstr.ft_conditions
+            if len(ftconds) == 2:
+                if kind == "true":
+                    pred = ftconds[1].to_json_result()
+                else:
+                    pred = ftconds[0].to_json_result()
+                if not pred.is_ok:
+                    return JSONResult("cfgedge", {}, "fail", pred.reason)
+                else:
+                    content["predicate"] = pred.content
+    return JSONResult("cfgedge", content, "ok")
+
+
+def cfg_node_to_json_result(f: "Function", b: "BasicBlock") -> JSONResult:
+    content: Dict[str, Any] = {}
+    content["baddr"] = b.baddr
+    bresult = b.to_json_result()
+    if not bresult.is_ok:
+        return JSONResult("cfgnode", {}, "fail", bresult.reason)
+    else:
+        content["code"] = bresult.content
+        looplevels = f.cfg.loop_levels(b.baddr)
+        if len(looplevels) > 0:
+            content["nesting-level"] = len(looplevels)
+    return JSONResult("cfgnode", content, "ok")
+
+
+def function_cfg_to_json_result(f: "Function") -> JSONResult:
+    content: Dict[str, Any] = {}
+    content["faddr"] = f.faddr
+    if len(f.names) > 0:
+        content["name"] = f.names[0]
+    content["md5hash"] = f.md5
+    content["nodes"] = nodes = []
+    content["edges"] = edges = []
+    for b in f.blocks.values():
+        bnode = cfg_node_to_json_result(f, b)
+        if not bnode.is_ok:
+            return JSONResult("controlflowgraph", {}, "fail", bnode.reason)
+        else:
+            nodes.append(bnode.content)
+    for (src, tgts) in f.cfg.edges.items():
+        if len(tgts) == 1:
+            edge = cfg_edge_to_json_result(f, src, tgts[0], "single")
+            if not edge.is_ok:
+                return JSONResult("controlflowgraph", {}, "fail", edge.reason)
+            else:
+                edges.append(edge.content)
+        elif len(tgts) == 2:
+            f_edge = cfg_edge_to_json_result(f, src, tgts[0], "false")
+            if not f_edge.is_ok:
+                return JSONResult("controlflowgraph", {}, "fail", f_edge.reason)
+            t_edge = cfg_edge_to_json_result(f, src, tgts[1], "true")
+            if not t_edge.is_ok:
+                return JSONResult("controlflowgraph", {}, "fail", t_edge.reason)
+            edges.extend([f_edge.content, t_edge.content])
+        else:
+            for tgt in tgts:
+                edge = cfg_edge_to_json_result(f, src, tgt, "table")
+                if not edge.is_ok:
+                    return JSONResult("controlflowgraph", {}, "fail", edge.reason)
+                edges.append(edge.content)
+
+    return JSONResult("controlflowgraph", content, "ok")

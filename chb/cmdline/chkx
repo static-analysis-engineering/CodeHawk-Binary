@@ -630,8 +630,17 @@ def parse() -> argparse.Namespace:
     showcfg.add_argument("xname", help="name of executable")
     showcfg.add_argument("faddr", help="address of function (in hex)")
     showcfg.add_argument(
-        "out",
+        "--output", "-o",
         help="basename of file to save output (without extension)")
+    showcfg.add_argument(
+        "--json",
+        action="store_true",
+        help="save control flow graph in json (no dot/pdf is produced)")
+    showcfg.add_argument(
+        "--format",
+        choices=["pdf", "png"],
+        default="pdf",
+        help="format for the graph file generated from dot")
     showcfg.add_argument(
         '--view',
         action="store_true",
