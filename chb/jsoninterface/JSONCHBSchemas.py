@@ -210,6 +210,74 @@ assemblyfunction = {
 }
 
 
+cfgnode = {
+    "name": "cfgnode",
+    "title": "node in a control flow graph identified by its hex starting address",
+    "description": "All information associated with a node in the cfg",
+    "type": "object",
+    "required": ["baddr", "code"],
+    "properties": {
+        "baddr": strtype(
+            desc=("hexaddress of the first instruction in the basic block")),
+        "code": refdef("assemblyblock"),
+        "nesting-level": intvalue(
+            desc="loop depth of the node in the control flow graph")
+    }
+}
+
+
+cfgedge = {
+    "name": "cfgedge",
+    "title": "control flow graph edge",
+    "description": "Directed edge between two control flow graph nodes",
+    "type": "object",
+    "required": ["src", "tgt", "kind"],
+    "properties": {
+        "src": strtype("block address of source node"),
+        "tgt": strtype("block address of target node"),
+        "kind": {
+            "type": "string",
+            "description": (
+                "true/false indicates conditional branch, table indicates jumptable, "
+                + "single indicates an edge always taken"),
+            "enum": ["true", "false", "table", "single"]
+        },
+        "predicate": refdef("xexpression")
+    }
+}
+
+
+controlflowgraph = {
+    "name": "controlflowgraph",
+    "title": "control flow graph",
+    "description": ("Graph representation of the control flow of a function"),
+    "type": "object",
+    "properties": {
+        "name": strtype(
+            desc=(
+                "(optional) name of the function from symbol information "
+                + " or user-provided")),
+        "faddr": strtype(
+            desc=(
+                "hexaddress of function entry point. Note that this address "
+                + " is not necessarily the lowest address of the function.")),
+        "md5hash": strtype(
+            desc=(
+                "md5 hash of the hex-encoded bytes of the function instructions")),
+        "nodes": {
+            "type": "array",
+            "description": ("list of basic block nodes constituting the function"),
+            "items": refdef("cfgnode")
+        },
+        "edges": {
+            "type": "array",
+            "description": ("list of edges between the nodes"),
+            "items": refdef("cfgedge")
+        }
+    }
+}
+
+
 memoryoffset = {
     "name": "memoryoffset",
     "title": "memory offset",

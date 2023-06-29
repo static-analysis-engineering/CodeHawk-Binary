@@ -1295,7 +1295,9 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
     # arguments
     xname: str = args.xname
     faddr: str = args.faddr
-    out: str = args.out
+    xoutput: str = args.output
+    xformat: str = args.format
+    xjson: bool = args.json
     xview: bool = args.view
     xpredicates: bool = args.predicates
     xcalls: bool = args.calls
@@ -1319,6 +1321,15 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
+    outputfilename: Optional[str] = None
+    if xjson:
+        if xoutput is not None:
+            outputfilename = xoutput + ".json"
+    else:
+        if xoutput is None:
+            print_error("Please specify an output filename with --output/-o")
+            exit(1)
+
     app = get_app(path, xfile, xinfo)
     if app.has_function(faddr):
         f = app.function(faddr)
@@ -1336,6 +1347,17 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
             if b in invariants:
                 if any(k.is_unreachable for k in invariants[b]):
                     nodecolors[b] = "grey"
+
+        if xjson:
+            fresult = JU.function_cfg_to_json_result(f)
+            if fresult.is_ok:
+                jsonokresult = JU.jsonok("controlflowgraph", fresult.content)
+                if outputfilename is not None:
+                    with open(outputfilename, "w") as fp:
+                        json.dump(jsonokresult, fp)
+                else:
+                    print(json.dumps(jsonokresult))
+            exit(0)
 
         graphname = "cfg_" + faddr
         if xsink is not None:
@@ -1360,7 +1382,7 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
         if app.has_function_name(faddr):
             fname = fname + " (" + app.function_name(faddr) + ")"
 
-        pdffilename = UD.print_dot(app.path, out, dotcfg.build())
+        pdffilename = UD.print_dot(app.path, xoutput, dotcfg.build(), fileformat=xformat)
 
         if xderivedgraph:
             graphseq = f.cfg.derived_graph_sequence
@@ -1368,7 +1390,7 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
 
         if xsave_edges:
             edges = f.cfg.edges
-            jsonfile = os.path.join(app.path, out) + ".json"
+            jsonfile = os.path.join(app.path, xoutput) + ".json"
             with open(jsonfile, "w") as fp:
                 json.dump(edges, fp, indent=2)
 

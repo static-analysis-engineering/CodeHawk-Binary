@@ -44,6 +44,7 @@ import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -145,6 +146,9 @@ class BasicBlock(ABC):
             opcodewidth: int = 25,
             sp: bool = True) -> str:
         ...
+
+    def to_json_result(self) -> JSONResult:
+        raise NotImplementedError("BasicBlock.to_json_result")
 
     def __str__(self) -> str:
         return self.to_string()

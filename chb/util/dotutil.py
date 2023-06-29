@@ -40,18 +40,21 @@ if TYPE_CHECKING:
 def print_dot(
         path: str,
         filename: str,
-        g: "DotGraph") -> str:
+        g: "DotGraph",
+        fileformat: str = "pdf") -> str:
     if not os.path.isabs(filename):
         filename = os.path.join(path, filename)
     dotfilename = filename + ".dot"
-    pdffilename = filename + ".pdf"
+    outputfilename = filename + "." + fileformat
 
     # write graph to dot format
     with open(dotfilename, "w") as fp:
         fp.write(str(g))
 
     # convert dot file to pdf
-    cmd = ["dot", "-Tpdf", "-o", pdffilename, dotfilename]
+    # cmd = ["dot", "-Tpdf", "-o", pdffilename, dotfilename]
+    # convert dot file to the desired format
+    cmd = ["dot", "-T%s" % fileformat, "-o", outputfilename, dotfilename]
     try:
         subprocess.call(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
@@ -59,7 +62,7 @@ def print_dot(
         print(e.output)
         print(e.args)
         exit(1)
-    return pdffilename
+    return outputfilename
 
 
 def print_dot_subgraphs(
