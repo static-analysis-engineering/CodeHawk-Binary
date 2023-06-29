@@ -561,10 +561,10 @@ class Cfg:
                 if nsuccs > 2:
                     astblock = astfn.astblock(x)
                     astlastinstr = astblock.last_instruction
+                    succlabels: Dict[str, List[AST.ASTStmtLabel]] = {}
 
                     if astfn.has_jumptable(astlastinstr.iaddr):
                         jumptable = astfn.get_jumptable(astlastinstr.iaddr)
-                        succlabels: Dict[str, List[AST.ASTStmtLabel]] = {}
                         for succ in succs:
                             if jumptable.has_target(succ) and succ not in succlabels:
                                 cvs = jumptable.get_target(succ)
@@ -575,7 +575,7 @@ class Cfg:
                     switchcondition = astlastinstr.ast_switch_condition(astree)
 
                     def switch_case(succ):
-                        return astree.mk_block(do_branch(x, succ, ctx), labels=succlabels[succ])
+                        return astree.mk_block(do_branch(x, succ, ctx), labels=succlabels.get(succ))
 
                     defaultcase = astree.mk_block(
                         do_branch(x, succs[0], ctx),
