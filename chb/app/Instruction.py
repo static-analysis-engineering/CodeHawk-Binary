@@ -50,6 +50,8 @@ from chb.invariants.InvariantFact import InvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
+from chb.jsoninterface.JSONResult import JSONResult
+
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
@@ -284,5 +286,9 @@ class Instruction(ABC):
             sp: bool = True) -> str:
         ...
 
+    def to_json_result(self) -> JSONResult:
+        raise NotImplementedError("Instruction.to_json_result")
+
     def __str__(self) -> str:
         return self.to_string()
+

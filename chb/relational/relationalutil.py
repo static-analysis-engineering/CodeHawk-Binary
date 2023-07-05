@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +31,8 @@ from typing import List, Optional, Tuple
 
 def levenshtein(
         s1: List[str],
-        s2: List[str]) -> List[Tuple[Optional[int], Optional[int]]]:
+        s2: List[str]) -> Tuple[
+            int, List[Tuple[Optional[int], Optional[int]]]]:
     """Return a mapping from s1 to s2 that requires minimum transformations.
 
     Algorithm by Levenshtein (1965).
@@ -98,4 +99,6 @@ def levenshtein(
 
         mval = m[x][y]
 
-    return mapping
+    # print("Edits: " + str(edits))
+
+    return (m[size_x-1][size_y-1], mapping)

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs, LLC
+# Copyright (c) 2021-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,8 +26,9 @@
 # ------------------------------------------------------------------------------
 """Compares two basic blocks in two related functions in different binaries."""
 
-from typing import Dict, List, Mapping, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Mapping, Optional, Tuple, TYPE_CHECKING
 
+from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.InstructionRelationalAnalysis import (
     InstructionRelationalAnalysis)
 
@@ -52,6 +53,7 @@ class BlockRelationalAnalysis:
         self._app2 = app2
         self._b1 = b1
         self._b2 = b2
+        self._distance: int = -1
         self._instrmapping: Dict[str, str] = {}
         self._revinstrmapping: Dict[str, str] = {}
         self._instranalyses: Dict[str, InstructionRelationalAnalysis] = {}
@@ -82,6 +84,12 @@ class BlockRelationalAnalysis:
         return len(self.b2.instructions)
 
     @property
+    def distance(self) -> int:
+        """Return the levenshtein distance between the instruction bytes."""
+
+        return self._distance
+
+    @property
     def offset(self) -> int:
         return int(self.b2.baddr, 16) - int(self.b1.baddr, 16)
 
@@ -99,7 +107,8 @@ class BlockRelationalAnalysis:
     @property
     def instr_mapping(self) -> Mapping[str, str]:
         if len(self._instrmapping) == 0:
-            mapping = self.levenshtein_distance()
+            (dist, mapping) = self.levenshtein_distance()
+            self._distance = dist
             self.match_instructions(mapping)
         return self._instrmapping
 
@@ -109,7 +118,8 @@ class BlockRelationalAnalysis:
             mapping = self.instr_mapping
         return self._revinstrmapping
 
-    def levenshtein_distance(self) -> List[Tuple[Optional[int], Optional[int]]]:
+    def levenshtein_distance(self) -> Tuple[
+            int, List[Tuple[Optional[int], Optional[int]]]]:
         s1 = [i.bytestring for (a, i) in sorted(self.b1.instructions.items())]
         s2 = [i.bytestring for (a, i) in sorted(self.b2.instructions.items())]
         return UR.levenshtein(s1, s2)
@@ -152,9 +162,108 @@ class BlockRelationalAnalysis:
             ira = self.instr_analyses[iaddr]
             if len(callees) > 0 and (not ira.calls_function(callees)):
                 continue
-            if (not ira.is_md5_equal) or (ira.has_different_annotation):
+            if ira.is_mapped and ira.is_changed:
                 result.append(iaddr)
         return result
+
+    def instrs_added(self) -> List[str]:
+        result: List[str] = []
+        for iaddr2 in self.b2.instructions:
+            if iaddr2 not in self.rev_instr_mapping:
+                result.append(iaddr2)
+        return result
+
+    def instrs_deleted(self) -> List[str]:
+        result: List[str] = []
+        for iaddr1 in self.b1.instructions:
+            if iaddr1 not in self.instr_mapping:
+                result.append(iaddr1)
+        return result
+
+    def to_json_result(self) -> JSONResult:
+        schema = "blockcomparison"
+        content: Dict[str, Any] = {}
+        content["baddr1"] = self.b1.baddr
+        content["baddr2"] = self.b2.baddr
+        content["lev-distance"] = self.distance
+        content["changes"] = []
+        content["matches"] = []
+        bsummary = self.block_comparison_summary_result()
+        if bsummary.is_ok:
+            content["block-comparison-summary"] = bsummary.content
+        else:
+            return JSONResult(schema, {}, "fail", bsummary.reason)
+        bdetails = self.block_comparison_details_result()
+        if bdetails.is_ok:
+            content["block-comparison-details"] = bdetails.content
+        else:
+            return JSONResult(schema, {}, "fail", bdetails.reason)
+
+        return JSONResult(schema, content, "ok")
+
+    def block_comparison_summary_result(self) -> JSONResult:
+        schema = "blockcomparisonsummary"
+        content: Dict[str, Any] = {}
+        binstrs = self.instructions_comparison_summary_result()
+        if binstrs.is_ok:
+            content["block-instructions-comparison-summary"] = binstrs.content
+        else:
+            return JSONResult(schema, {}, "fail", binstrs.reason)
+        bsem = self.semantics_comparison_summary_result()
+        if bsem.is_ok:
+            content["block-semantics-comparison-summary"] = bsem.content
+        else:
+            return JSONResult(schema, {}, "fail", bsem.reason)
+
+        return JSONResult(schema, content, "ok")
+
+    def instructions_comparison_summary_result(self) -> JSONResult:
+        schema = "blockinstructionscomparisonsummary"
+        content: Dict[str, Any] = {}
+        content["changes"] = []
+        imapped: List[Dict[str, Any]] = []
+        for iaddr in self.instr_analyses:
+            iresult = self.instruction_mapped_summary_result(iaddr)
+            if iresult.is_ok:
+                imapped.append(iresult.content)
+            else:
+                return JSONResult(schema, {}, "fail", iresult.reason)
+        content["block-instructions-mapped"] = imapped
+        content["block-insturctions-added"] = self.instrs_added()
+        content["block-instructions-removed"] = self.instrs_deleted()
+
+        return JSONResult(schema, content, "ok")
+
+    def instruction_mapped_summary_result(self, iaddr: str) -> JSONResult:
+        schema = "blockinstructionmappedsummary"
+        content: Dict[str, Any] = {}
+        content["iaddr"] = iaddr
+        content["changes"] = {}
+        content["matches"] = {}
+
+        return JSONResult(schema, content, "ok")
+
+    def semantics_comparison_summary_result(self) -> JSONResult:
+        schema = "blocksemanticscomparisonsummary"
+        content: Dict[str, Any] = {}
+        return JSONResult(schema, content, "ok")
+
+    def block_comparison_details_result(self) -> JSONResult:
+        schema = "blockcomparisondetails"
+        content: Dict[str, Any] = {}
+        imapped: List[Dict[str, Any]] = []
+        for (iaddr, ira) in self.instr_analyses.items():
+            if ira.is_changed and ira.is_mapped:
+                iresult = ira.to_json_result()
+                if iresult.is_ok:
+                    imapped.append(iresult.content)
+                else:
+                    return JSONResult(schema, {}, "fail", iresult.reason)
+        content["instruction-comparisons"] = imapped
+        content["instructions-added"] = []
+        content["instructions-removed"] = []
+
+        return JSONResult(schema, content, "ok")
 
     def report(self, callees: List[str] = []) -> str:
         lines: List[str] = []
@@ -216,8 +325,7 @@ class BlockRelationalAnalysis:
                 b2instr = self.b2.instructions[iaddr2]
                 if len(callees) > 0 and calls(callees, b2instr.annotation):
                     pass
-                else:
-                    continue
+
                 b2bytes = b2instr.bytestring
                 lines.append("  V: not mapped")
                 lines.append(

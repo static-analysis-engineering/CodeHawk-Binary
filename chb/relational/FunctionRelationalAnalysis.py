@@ -26,8 +26,9 @@
 # ------------------------------------------------------------------------------
 """Compares two related functions in two binaries."""
 
-from typing import Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING
 
+from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
 from chb.relational.CfgMatcher import CfgMatcher
 
@@ -63,6 +64,8 @@ class FunctionRelationalAnalysis:
         self._blockmapping: Dict[str, str] = {}
         self._blockanalyses: Dict[str, BlockRelationalAnalysis] = {}
         self._cfgmatcher: Optional[CfgMatcher] = None
+        self._changes: Optional[List[str]] = None
+        self._matches: Optional[List[str]] = None
 
     @property
     def app1(self) -> "AppAccess":
@@ -89,6 +92,38 @@ class FunctionRelationalAnalysis:
     @property
     def moved(self) -> bool:
         return self.faddr1 != self.faddr2
+
+    @property
+    def changes(self) -> List[str]:
+        if self._changes is None:
+            self._changes = []
+            self._matches = []
+            if self.faddr1 == self.faddr2:
+                self._matches.append("faddr")
+            else:
+                self._changes.append("faddr")
+            if self.is_md5_equal:
+                self._matches.append("md5")
+            else:
+                self._changes.append("md5")
+                if len(self.basic_blocks1) == len(self.basic_blocks2):
+                    self._matches.append("blockcount")
+                else:
+                    self._changes.append("blockcount")
+                if self.is_automorphic:
+                    self._matches.append("cfg-structure")
+                else:
+                    self._changes.append("cfg-structure")
+        return self._changes
+
+    @property
+    def matches(self) -> List[str]:
+        if self._matches is None:
+            changes = self.changes
+        if self._matches is None:
+            return []
+        else:
+            return self._matches
 
     @property
     def same_endianness(self) -> bool:
@@ -185,6 +220,23 @@ class FunctionRelationalAnalysis:
             return self.fn1.md5 == self.fn2.md5
         else:
             return self.fn1.md5 == self.fn2.rev_md5
+
+    @property
+    def is_automorphic(self) -> bool:
+        if self.offset != 0:
+            return False
+        if len(self.basic_blocks1) != len(self.basic_blocks2):
+            return False
+        if len(self.edges1) != len(self.edges2):
+            return False
+
+        for (b1, b2) in zip(sorted(self.basic_blocks1), sorted(self.basic_blocks2)):
+            if b1 != b2:
+                return False
+        for (e1, e2) in zip(sorted(self.edges1), sorted(self.edges2)):
+            if e1 != e2:
+                return False
+        return True
 
     @property
     def is_structurally_equivalent(self) -> bool:
@@ -298,6 +350,98 @@ class FunctionRelationalAnalysis:
                 if not blra.is_md5_equal:
                     total += len(blra.instrs_changed(callees))
         return total
+
+    def to_json_result(self) -> JSONResult:
+        schema = "functioncomparison"
+        content: Dict[str, Any] = {}
+        content["faddr1"] = self.faddr1
+        content["faddr2"] = self.faddr2
+
+        fsummary = self.function_comparison_summary_result()
+        if fsummary.is_ok:
+            content["function-comparison-summary"] = fsummary.content
+        else:
+            return JSONResult(schema, {}, "fail", fsummary.reason)
+        fdetails = self.function_comparison_details_result()
+        if fdetails.is_ok:
+            content["function-comparison-details"] = fdetails.content
+        else:
+            return JSONResult(schema, {}, "fail", fdetails.reason)
+
+        return JSONResult(schema, content, "ok")
+
+    def function_comparison_summary_result(self) -> JSONResult:
+        schema = "functioncomparisonsummary"
+        content: Dict[str, Any] = {}
+        cfgsummary = self.cfg_comparison_summary_result()
+        if cfgsummary.is_ok:
+            content["cfg-comparison-summary"] = cfgsummary.content
+        else:
+            return JSONResult(schema, {}, "fail", cfgsummary.reason)
+        fvars = self.variables_comparison_summary_result()
+        if fvars.is_ok:
+            content["function-variables-comparison-summary"] = fvars.content
+        else:
+            return JSONResult(schema, {}, "fail", fvars.reason)
+        fblocks = self.blocks_comparison_summary_result()
+        if fblocks.is_ok:
+            content["function-blocks-comparison-summary"] = fblocks.content
+        else:
+            return JSONResult(schema, {}, "fail", fblocks.reason)
+
+        return JSONResult(schema, content, "ok")
+
+    def cfg_comparison_summary_result(self) -> JSONResult:
+        schema = "cfgcomparisonsummary"
+        content: Dict[str, Any] = {}
+        return JSONResult(schema, content, "ok")
+
+    def variables_comparison_summary_result(self) -> JSONResult:
+        schema = "functionvariablescomparisonsummary"
+        content: Dict[str, Any] = {}
+        return JSONResult(schema, content, "ok")
+
+    def blocks_comparison_summary_result(self) -> JSONResult:
+        schema = "functionblockscomparisonsummary"
+        content: Dict[str, Any] = {}
+        content["changes"] = self.changes
+        content["matches"] = self.matches
+        bmapped: List[Dict[str, Any]] = []
+        for baddr in self.block_analyses:
+            bresult = self.block_mapped_summary_result(baddr)
+            if bresult.is_ok:
+                bmapped.append(bresult.content)
+            else:
+                return JSONResult(schema, {}, "fail", bresult.reason)
+        content["function-blocks-mapped"] = bmapped
+        content["function-blocks-added"] = []
+        content["function-blocks-removed"] = []
+        return JSONResult(schema, content, "ok")
+
+    def block_mapped_summary_result(self, baddr: str) -> JSONResult:
+        schema = "functionblockmappedsummary"
+        content: Dict[str, Any] = {}
+        blockra = self.block_analyses[baddr]
+        content["baddr"] = baddr
+        content["changes"] = []
+        content["matches"] = []
+
+        return JSONResult(schema, content, "ok")
+
+    def function_comparison_details_result(self) -> JSONResult:
+        schema = "functioncomparisondetails"
+        content: Dict[str, Any] = {}
+        blocks: List[Dict[str, Any]] = []
+        for (b, blockra) in self.block_analyses.items():
+            if blockra.is_md5_equal:
+                continue
+            bresult = blockra.to_json_result()
+            if bresult.is_ok:
+                blocks.append(bresult.content)
+            else:
+                return JSONResult(schema, {}, "fail", bresult.reason)
+        content["block-comparisons"] = blocks
+        return JSONResult(schema, content, "ok")
 
     def report(self, showinstructions: bool, callees: List[str] = []) -> str:
         lines: List[str] = []

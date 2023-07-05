@@ -1049,7 +1049,8 @@ def parse() -> argparse.Namespace:
     relationalprepare.add_argument(
         "xname1", help="name of first (original) executable (assumed analyzed)")
     relationalprepare.add_argument(
-        "xname2", help="name of second (patched) executable to be prepared for comparison")
+        "xname2",
+        help="name of second (patched) executable to be prepared for comparison")
     relationalprepare.add_argument(
         "--json",
         action="store_true",
@@ -1084,6 +1085,12 @@ def parse() -> argparse.Namespace:
         "xname2", help="name of second (patched) executable (assumed analyzed)")
     relationalcomparefns.add_argument(
         "--usermapping", help="name of json file with initial function mapping")
+    relationalcomparefns.add_argument(
+        "--json",
+        action="store_true",
+        help="produce output in json format")
+    relationalcomparefns.add_argument(
+        "--output", "-o", help="save output in file")
     relationalcomparefns.set_defaults(func=R.relational_compare_functions_cmd)
 
     # --- relational compare function --

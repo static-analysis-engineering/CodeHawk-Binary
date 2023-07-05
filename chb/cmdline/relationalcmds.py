@@ -48,6 +48,8 @@ from chb.graphics.DotCfg import DotCfg
 from chb.invariants.InvariantFact import NRVFact
 from chb.invariants.NonRelationalValue import NonRelationalValue
 
+from chb.jsoninterface.JSONAppComparison import JSONAppComparison
+from chb.jsoninterface.JSONRelationalReport import JSONRelationalReport
 from chb.relational.RelationalAnalysis import RelationalAnalysis
 
 import chb.util.dotutil as UD
@@ -184,7 +186,8 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         jresult = xcomparison.to_json_result()
         jsonokresult = JU.jsonok("xcomparison", jresult.content)
         if xoutput:
-            UC.print_status_update("Structural difference report saved in " + xoutput)
+            UC.print_status_update(
+                "Structural difference report saved in " + xoutput)
             with open(xoutput, "w") as fp:
                 json.dump(jsonokresult, fp)
         else:
@@ -288,6 +291,8 @@ def relational_compare_functions_cmd(args: argparse.Namespace) -> NoReturn:
     # arguments
     xname1: str = args.xname1
     xname2: str = args.xname2
+    xjson: bool = args.json
+    xoutput: str = args.output
     usermappingfile: Optional[str] = args.usermapping
 
     try:
@@ -319,11 +324,34 @@ def relational_compare_functions_cmd(args: argparse.Namespace) -> NoReturn:
 
     relanalysis = RelationalAnalysis(app1, app2, usermapping=usermapping)
 
-    print(relational_header(xname1, xname2, "functions comparison"))
-    print(relanalysis.report(False, False))
-    print("=" * 80)
-    print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
-    print("=" * 80)
+    if xjson:
+        jresult = relanalysis.to_json_result()
+        if not jresult.is_ok:
+            UC.print_error(
+                "Error in constructing json format: " + str(jresult.reason))
+            jsonresult = JU.jsonfail(jresult.reason)
+        else:
+            jsonresult = JU.jsonok("comparefunctions", jresult.content)
+        if xoutput:
+            UC.print_status_update(
+                "Relation analysis results saved in " + xoutput)
+            with open(xoutput, "w") as fp:
+                json.dump(jsonresult, fp)
+        else:
+            print(json.dumps(jsonresult))
+
+    else:
+        '''
+        print(relational_header(xname1, xname2, "functions comparison"))
+        print(relanalysis.report(False, False))
+        print("=" * 80)
+        print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
+        print("=" * 80)
+        '''
+        result = relanalysis.to_json_result()
+        if result.is_ok:
+            print(JSONRelationalReport().summary_report(
+                JSONAppComparison(result.content), details=True))
 
     exit(0)
 
@@ -365,7 +393,8 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
     app1 = UC.get_app(path1, xfile1, xinfo1)
     app2 = UC.get_app(path2, xfile2, xinfo2)
 
-    relanalysis = RelationalAnalysis(app1, app2, faddrs1=addresses, usermapping=usermapping)
+    relanalysis = RelationalAnalysis(
+        app1, app2, faddrs1=addresses, usermapping=usermapping)
 
     print(relational_header(
         xname1, xname2, "function comparison of " + ", ".join(addresses)))
@@ -445,7 +474,7 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
                 subgraph=True)
             dotgraphs.append(dotcfgremoved)
 
-    newfunctions = relanalysis.new_functions()
+    newfunctions = relanalysis.functions_added()
     for faddr in newfunctions:
         dotcfgnew = DotCfg(
             "new",
