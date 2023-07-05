@@ -26,13 +26,25 @@
 # ------------------------------------------------------------------------------
 """Common schemas used throughout the binary analyzer python api."""
 
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 
 
-def prop_kind(name: str) -> Dict[str, Any]:
-    kprop: Dict[str, Any] = {}
+def prop_kind(names: List[str]) -> Dict[str, Union[str, List[str]]]:
+    kprop: Dict[str, Union[str, List[str]]] = {}
     kprop["type"] = "string"
-    kprop["enum"] = [name]
+    kprop["enum"] = names
+    return kprop
+
+
+def prop_set(
+        names: List[str]) -> Dict[
+            str, Union[str, Dict[str, Union[str, List[str]]]]]:
+    kprop: Dict[str, Union[str, Dict[str, Union[str, List[str]]]]] = {}
+    kitems: Dict[str, Union[str, List[str]]] = {}
+    kprop["type"] = "array"
+    kprop["items"] = kitems = {}
+    kitems["type"] = "string"
+    kitems["enum"] = names
     return kprop
 
 
@@ -57,8 +69,8 @@ def strtype(desc: Optional[str] = None) -> Dict[str, str]:
     return s
 
 
-def intvalue(desc: Optional[str] = None) -> Dict[str, Any]:
-    v: Dict[str, str] = {}
+def intvalue(desc: Optional[str] = None) -> Dict[str, Optional[str]]:
+    v: Dict[str, Optional[str]] = {}
     v["type"] = "integer"
     if desc is not None:
         v["description"] = desc
@@ -79,7 +91,7 @@ stackpointeroffset = {
             "description": "typically used for unknown value",
             "required": ["kind", "txtrep"],
             "properties": {
-                "kind": prop_kind("unb-itv"),
+                "kind": prop_kind(["unb-itv"]),
                 "txtrep": txtrep()
             }
         },
@@ -88,7 +100,7 @@ stackpointeroffset = {
             "description": "single (usually negative) value",
             "required": ["kind", "value", "txtrep"],
             "properties": {
-                "kind": prop_kind("civ"),
+                "kind": prop_kind(["civ"]),
                 "value": intvalue(),
                 "txtrep": txtrep()
             }
@@ -99,7 +111,7 @@ stackpointeroffset = {
                 "closed interval specified by minimum and maximum value"),
             "required": ["kind", "lb", "ub", "txtrep"],
             "properties": {
-                "kind": prop_kind("itv"),
+                "kind": prop_kind(["itv"]),
                 "lb": intvalue(desc="lower-bound of offset value"),
                 "ub": intvalue(desc="upper-bound of offset value"),
                 "txtrep": txtrep()
@@ -110,7 +122,7 @@ stackpointeroffset = {
             "description": ("right open interval specified by lower bound"),
             "required": ["kind", "lb", "txtrep"],
             "properties": {
-                "kind": prop_kind("lb-itv"),
+                "kind": prop_kind(["lb-itv"]),
                 "lb": intvalue(desc="lower-bound on offset value"),
                 "txtrep": txtrep()
             }
@@ -120,7 +132,7 @@ stackpointeroffset = {
             "descripotion": ("left open interval specified by upper bound"),
             "required": ["kind", "ub", "txtrep"],
             "properties": {
-                "kind": prop_kind("ub-itv"),
+                "kind": prop_kind(["ub-itv"]),
                 "ub": intvalue(desc="upper-bound on offset value"),
                 "txtrep": txtrep()
             }
@@ -136,6 +148,7 @@ assemblyinstruction = {
         "Single assembly instruction at a given address within a function "
         + "annotated with analysis information"),
     "type": "object",
+    "required": ["addr", "bytes", "opcode", "annotation"],
     "properties": {
         "addr": {
             "type": "array",
@@ -289,7 +302,7 @@ memoryoffset = {
             "description": "no offset",
             "required": ["kind"],
             "properties": {
-                "kind": prop_kind("none")
+                "kind": prop_kind(["none"])
             }
         },
         {
@@ -297,7 +310,7 @@ memoryoffset = {
             "description": "constant numerical offset",
             "required": ["kind", "value", "txtrep"],
             "properties": {
-                "kind": prop_kind("cv"),
+                "kind": prop_kind(["cv"]),
                 "value": intvalue(desc="offset value in bytes"),
                 "txtrep": txtrep()
             }
@@ -307,7 +320,7 @@ memoryoffset = {
             "description": "constant numerical offset with suboffset",
             "required": ["kind", "value", "suboffset", "txtrep"],
             "properties": {
-                "kind": prop_kind("cvo"),
+                "kind": prop_kind(["cvo"]),
                 "value": intvalue(desc="offset value in bytes"),
                 "suboffset": {"$ref": "#"},
                 "txtrep": txtrep()
@@ -318,7 +331,7 @@ memoryoffset = {
             "description": "index offset with variable and element size",
             "required": ["kind", "ixvar", "elsize", "txtrep"],
             "properties": {
-                "kind": prop_kind("iv"),
+                "kind": prop_kind(["iv"]),
                 "ixvar": refdef("xvariable"),
                 "elsize": intvalue(desc="size of element indexed"),
                 "txtrep": txtrep()
@@ -329,7 +342,7 @@ memoryoffset = {
             "description": "index offset with suboffset",
             "required": ["kind", "ixvar", "elsize", "suboffset", "txtrep"],
             "properties": {
-                "kind": prop_kind("ivo"),
+                "kind": prop_kind(["ivo"]),
                 "ixvar": refdef("xvariable"),
                 "elsize": intvalue(desc="size of element indexed"),
                 "suboffset": {"$ref": "#"},
@@ -391,7 +404,7 @@ auxvariable = {
             "description": "value of the register upon function entry",
             "required": ["kind", "register", "txtrep"],
             "properties": {
-                "kind": prop_kind("irv"),
+                "kind": prop_kind(["irv"]),
                 "register": strtype(desc="name of register"),
                 "txtrep": txtrep()
             }
@@ -401,7 +414,7 @@ auxvariable = {
             "description": "value of memory location upon function entry",
             "required": ["kind", "memvar", "txtrep"],
             "properties": {
-                "kind": prop_kind("imv"),
+                "kind": prop_kind(["imv"]),
                 "memvar": refdef("xvariable"),
                 "txtrep": txtrep()
             }
@@ -411,7 +424,7 @@ auxvariable = {
             "description": "value of variable frozen at test location",
             "required": ["kind", "testaddr", "jumpaddr", "testvar", "txtrep"],
             "properties": {
-                "kind": prop_kind("ftv"),
+                "kind": prop_kind(["ftv"]),
                 "testaddr": strtype(desc="hex address of test location"),
                 "jumpaddr": strtype(desc="hex address of conditional branch"),
                 "testvar": refdef("xvariable"),
@@ -423,7 +436,7 @@ auxvariable = {
             "description": "value of return value from a function call",
             "required": ["kind", "callsite", "calltarget", "txtrep"],
             "properties": {
-                "kind": prop_kind("frv"),
+                "kind": prop_kind(["frv"]),
                 "callsite": strtype(desc="hexaddress of function call site"),
                 "calltarget": strtype(desc="name of function called"),
                 "txtrep": txtrep()
@@ -434,7 +447,7 @@ auxvariable = {
             "description": "memory address",
             "required": ["kind", "base", "offset", "txtrep"],
             "properties": {
-                "kind": prop_kind("ma"),
+                "kind": prop_kind(["ma"]),
                 "base": refdef("memorybase"),
                 "offset": refdef("memoryoffset"),
                 "txtrep": txtrep()
@@ -445,7 +458,7 @@ auxvariable = {
             "description": "symbolic representation of expression",
             "required": ["kind", "expr", "txtrep"],
             "properties": {
-                "kind": prop_kind("svx"),
+                "kind": prop_kind(["svx"]),
                 "expr": refdef("xexpression"),
                 "txtrep": txtrep()
             }
@@ -465,7 +478,7 @@ xconstant = {
             "description": "integer constant",
             "required": ["kind", "value"],
             "properties": {
-                "kind": prop_kind("icst"),
+                "kind": prop_kind(["icst"]),
                 "value": intvalue()
             }
         },
@@ -474,7 +487,7 @@ xconstant = {
             "description": "integer constant string address",
             "required": ["kind", "value", "stringref"],
             "properties": {
-                "kind": prop_kind("strcst"),
+                "kind": prop_kind(["strcst"]),
                 "value": intvalue(),
                 "stringref": strtype(desc="string at numerical address")
             }
@@ -494,7 +507,7 @@ xvariable = {
             "description": "temporary variable without denotation",
             "required": ["kind", "temp", "txtrep"],
             "properties": {
-                "kind": prop_kind("temp"),
+                "kind": prop_kind(["temp"]),
                 "temp": strtype(),
                 "txtrep": txtrep()
             }
@@ -504,7 +517,7 @@ xvariable = {
             "description": "memory variable",
             "required": ["kind", "base", "offset", "size", "txtrep"],
             "properties": {
-                "kind": prop_kind("memvar"),
+                "kind": prop_kind(["memvar"]),
                 "base": refdef("memorybase"),
                 "offset": refdef("memoryoffset"),
                 "size": intvalue(desc="size of variable in bytes"),
@@ -516,7 +529,7 @@ xvariable = {
             "description": "register variable",
             "required": ["kind", "register", "txtrep"],
             "properties": {
-                "kind": prop_kind("regvar"),
+                "kind": prop_kind(["regvar"]),
                 "register": strtype(desc="name of register"),
                 "txtrep": txtrep()
             }
@@ -526,7 +539,7 @@ xvariable = {
             "description": "variable with a fixed (possibly symbolic) value",
             "required": ["kind", "fxdval", "txtrep"],
             "properties": {
-                "kind": prop_kind("fxd"),
+                "kind": prop_kind(["fxd"]),
                 "fxdval": refdef("auxvariable"),
                 "txtrep": txtrep()
             }
@@ -546,7 +559,7 @@ xexpression = {
             "description": "constant expression",
             "required": ["kind", "cst", "txtrep"],
             "properties": {
-                "kind": prop_kind("xcst"),
+                "kind": prop_kind(["xcst"]),
                 "cst": refdef("xconstant"),
                 "txtrep": txtrep()
             }
@@ -556,7 +569,7 @@ xexpression = {
             "description": "variable",
             "required": ["var", "txtrep"],
             "properties": {
-                "kind": prop_kind("xvar"),
+                "kind": prop_kind(["xvar"]),
                 "var": refdef("xvariable"),
                 "txtrep": txtrep()
             }
@@ -566,7 +579,7 @@ xexpression = {
             "description": "compound expression",
             "required": ["kind", "operator", "operands", "txtrep"],
             "properties": {
-                "kind": prop_kind("xop"),
+                "kind": prop_kind(["xop"]),
                 "operator": strtype(desc="operation performed"),
                 "operands": {
                     "type": "array",
@@ -613,7 +626,7 @@ nonrelationalvalue = {
             "description": "numeric value",
             "required": ["kind", "value", "txtrep"],
             "properties": {
-                "kind": prop_kind("civ"),
+                "kind": prop_kind(["iv"]),
                 "value": intvalue(desc="constant singleton value"),
                 "txtrep": txtrep()
             }
@@ -623,7 +636,7 @@ nonrelationalvalue = {
             "description": "closed range of values",
             "required": ["kind", "lb", "ub", "txtrep"],
             "properties": {
-                "kind": prop_kind("itv"),
+                "kind": prop_kind(["itv"]),
                 "lb": intvalue(desc="lowerbound (inclusive) of range"),
                 "ub": intvalue(desc="upperbound (inclusive) of range"),
                 "txtrep": txtrep()
@@ -634,7 +647,7 @@ nonrelationalvalue = {
             "description": "lower-bounded, half-open range of values",
             "required": ["kind", "lb", "txtrep"],
             "properties": {
-                "kind": prop_kind("lb-itv"),
+                "kind": prop_kind(["lb-itv"]),
                 "lb": intvalue(desc="lowerbound of half-open range"),
                 "txtrep": txtrep()
             }
@@ -644,7 +657,7 @@ nonrelationalvalue = {
             "description": "upper-bounded, half-open range of values",
             "required": ["kind", "ub", "txtrep"],
             "properties": {
-                "kind": prop_kind("ub-itv"),
+                "kind": prop_kind(["ub-itv"]),
                 "ub": intvalue(desc="upperbound of half-open range"),
                 "txtrep": txtrep()
             }
@@ -654,7 +667,7 @@ nonrelationalvalue = {
             "description": "base with numeric constant offset",
             "required": ["kind", "base", "value", "txtrep"],
             "properties": {
-                "kind": prop_kind("b-civ"),
+                "kind": prop_kind(["b-civ"]),
                 "base": strtype(desc="symbolic base address"),
                 "value": intvalue(desc="offset (in bytes) from base address"),
                 "txtrep": txtrep()
@@ -665,7 +678,7 @@ nonrelationalvalue = {
             "description": "base with bounded range of numeric offsets",
             "required": ["kind", "base", "lb", "ub", "txtrep"],
             "properties": {
-                "kind": prop_kind("b-itv"),
+                "kind": prop_kind(["b-itv"]),
                 "base": strtype(desc="symbolic base address"),
                 "lb": intvalue(desc=(
                     "lowerbound (inclusive) of offset range (in bytes)")),
@@ -679,7 +692,7 @@ nonrelationalvalue = {
             "description": "half-open range of address values",
             "required": ["kind", "base", "lb", "txtrep"],
             "properties": {
-                "kind": prop_kind("b-lb-itv"),
+                "kind": prop_kind(["b-lb-itv"]),
                 "base": strtype(desc="name of a base variable"),
                 "lb": intvalue(desc="lower-bound of the range"),
                 "txtrep": txtrep()
@@ -690,7 +703,7 @@ nonrelationalvalue = {
             "description": "half-open range of values",
             "required": ["kind", "base", "ub", "txtrep"],
             "properties": {
-                "kind": prop_kind("b-ub-itv"),
+                "kind": prop_kind(["b-ub-itv"]),
                 "base": strtype(desc="name of a base variable"),
                 "ub": intvalue(desc="upper-bound of the range"),
                 "txtrep": txtrep()
@@ -701,7 +714,7 @@ nonrelationalvalue = {
             "description": "base only with unbounded interval",
             "required": ["kind", "txtrep"],
             "properties": {
-                "kind": prop_kind("b-unb"),
+                "kind": prop_kind(["b-unb"]),
                 "txtrep": txtrep()
             }
         },
@@ -710,7 +723,7 @@ nonrelationalvalue = {
             "description": "symbolic expression",
             "required": ["kind", "sym-expr", "txtrep"],
             "properties": {
-                "kind": prop_kind("sx"),
+                "kind": prop_kind(["sx"]),
                 "sym-expr": refdef("xexpression"),
                 "txtrep": txtrep()
             }
@@ -733,7 +746,7 @@ invariantfact = {
                 + "reached that conclusion"),
             "required": ["kind", "domain", "txtrep"],
             "properties": {
-                "kind": prop_kind("unr"),
+                "kind": prop_kind(["unr"]),
                 "domain": strtype(desc="domain with bottom result"),
                 "txtrep": txtrep()
             }
@@ -746,7 +759,7 @@ invariantfact = {
             "required": [
                 "kind", "relation", "var", "initval", "txtrep"],
             "properties": {
-                "kind": prop_kind("ival"),
+                "kind": prop_kind(["ival"]),
                 "relation": {
                     "type": "string",
                     "enum": ["equals", "not-equals"]
@@ -764,7 +777,7 @@ invariantfact = {
             "required": [
                 "kind", "testaddr", "jumpaddr", "testvar", "testval", "txtrep"],
             "properties": {
-                "kind": prop_kind("tst"),
+                "kind": prop_kind(["tst"]),
                 "testaddr": strtype(
                     desc="hex address of instruction setting the condition codes"),
                 "jumpaddr": strtype(
@@ -779,7 +792,7 @@ invariantfact = {
             "description": "variable equality with non-relational value",
             "required": ["kind", "nrv", "var", "nrv", "txtrep"],
             "properties": {
-                "kind": prop_kind("nrv"),
+                "kind": prop_kind(["nrv"]),
                 "var": refdef("xvariable"),
                 "nrv": refdef("nonrelationalvalue"),
                 "txtrep": txtrep()
@@ -792,7 +805,7 @@ invariantfact = {
                 + "domain that reaches this conclusion"),
             "required": ["kind", "domain", "txtrep"],
             "properties": {
-                "kind": prop_kind("unr"),
+                "kind": prop_kind(["unr"]),
                 "domain": strtype(desc="domain that signals unreachability"),
                 "txtrep": txtrep()
             }
@@ -802,7 +815,7 @@ invariantfact = {
             "description": ("linear equality over program variables"),
             "required": ["kind", "lineq", "txtrep"],
             "properties": {
-                "kind": prop_kind("lineq"),
+                "kind": prop_kind(["lineq"]),
                 "lineq": refdef("linearequality"),
                 "txtrep": txtrep()
             }
@@ -855,6 +868,18 @@ sectionheaderdata = {
 }
 
 
+xfilepath = {
+    "name": "xfilepath",
+    "title": "path and filename of a binary",
+    "description": "path and filename of a binary",
+    "required": ["path", "filename"],
+    "properties": {
+        "path": strtype(),
+        "filename": strtype()
+    }
+}
+
+
 xcomparison = {
     "name": "xcomparison",
     "title": "binary comparison",
@@ -862,24 +887,8 @@ xcomparison = {
     "type": "object",
     "required": ["file1", "file2"],
     "properties": {
-        "file1": {
-            "type": "object",
-            "description": "path and filename of first file",
-            "required": ["path", "filename"],
-            "properties": {
-                "path": strtype(),
-                "filename": strtype()
-            }
-        },
-        "file2": {
-            "type": "object",
-            "description": "path and filename of second file",
-            "required": ["path", "filename"],
-            "properties": {
-                "path": strtype(),
-                "filename": strtype()
-            }
-        },
+        "file1": refdef("xfilepath"),
+        "file2": refdef("xfilepath"),
         "newsections": {
             "type": "array",
             "description": (
@@ -933,5 +942,429 @@ xcomparison = {
                 }
             }
         }
+    }
+}
+
+
+instructioncomparison = {
+    "name": "instructioncomparison",
+    "title": "instruction-level comparison",
+    "description": (
+        "syntactic and semantic comparison of corresponding instructions "
+        + "corresponding functions in two binaries"),
+    "type": "object",
+    "required": ["iaddr1", "iaddr2"],
+    "properties": {
+        "iaddr1": strtype("hex address of instruction in block1"),
+        "iaddr2": strtype("hex address of instruction in block2"),
+        "instr1": refdef("assemblyinstruction"),
+        "instr2": refdef("assemblyinstruction")
+    }
+}
+
+
+instructionaddedinfo = {
+    "name": "instructionaddedinfo",
+    "title": "information about added instruction",
+    "description": (
+        "information about assembly instruction added to function2 not mapped "
+        + "to an instruction in function1"),
+    "type": "object",
+    "required": ["iaddr"],
+    "properties": {
+        "iaddr": strtype("hex address of instruction in function2"),
+        "instr": refdef("assemblyinstruction"),
+        "invariants": refdef("locationinvariant")
+    }
+}
+
+
+instructionremovedinfo = {
+    "name": "instructionremovedinfo",
+    "title": "information about an instruction that was removed",
+    "description": (
+        "information about an assembly instruction that is in function1, but "
+        + "is not mapped to any instruction in function2"),
+    "type": "object",
+    "required": ["iaddr"],
+    "properties": {
+        "iaddr": strtype("hex address of instruction in function1"),
+        "instr": refdef("assemblyinstruction"),
+        "invariants": refdef("locationinvariant")
+    }
+}
+
+
+blockcomparisondetails = {
+    "name": "blockcomparisondetails",
+    "title": "detailed comparison between two blocks",
+    "description": "detailed comparison between two blocks",
+    "type": "object",
+    "properties": {
+        "instruction-comparisons": {
+            "type": "array",
+            "description": "list of instruction comparisons",
+            "items": refdef("instructioncomparison")
+        },
+        "instructions-added": {
+            "type": "array",
+            "description": "list of instructions added to the block",
+            "items": refdef("instructionaddedinfo")
+        },
+        "instructions-removed": {
+            "type": "array",
+            "description": "list of instructions removed from the block",
+            "items": refdef("instructionremovedinfo")
+        }
+    }
+}
+
+
+blockinstructionmappedsummary = {
+    "name": "blockinstructionmappedsummary",
+    "title": "summary of changes between two mapped instructions in function1 and function2",
+    "description": (
+        "summary of changes between two mapped instructions in function1 and function2"),
+    "type": "object",
+    "properties": {
+        "iaddr": strtype("hex address of instruction in function1"),
+        "changes": prop_set([
+            "iaddr",
+            "bytes",
+            "invariants"]),
+        "matches": prop_set([
+            "iaddr",
+            "bytes",
+            "invariants"]),
+        "moved-to": strtype("(optional) address of instruction in function 2")
+    }
+}
+
+
+blockinstructionscomparisonsummary = {
+    "name": "blockinstructionscomparisonsummary",
+    "title": "summary of comparison between corresponding instructions",
+    "description": "summary of comparison between corresponding instructions",
+    "type": "object",
+    "properties": {
+        "changes": prop_set(["instructioncount", "predicate"]),
+        "block-instructions-mapped": {
+            "type": "array",
+            "description": "liost of instructions mapped one-to-one in block1 and block2",
+            "items": refdef("blockinstructionmappedsummary")
+        },
+        "block-instructions-added": {
+            "type": "array",
+            "description": "list of instructions in block2 but not in block1",
+            "items": strtype("hex address of instruction in block2")
+        },
+        "block-instructions-removed": {
+            "type": "array",
+            "description": "list of instructions in block1 but not in block2",
+            "items": strtype("hex address of instruction in block1")
+        }
+    }
+}
+
+
+blocksemanticscomparisonsummary = {
+    "name": "blocksemanticscomparisonsummary",
+    "title": "summary of semantic changes in two corresponding blocks",
+    "description": "summary of semantic changes in two corresponding blocks",
+    "type": "object",
+    "properties": {
+        "changes": prop_set(["I/O"])
+    }
+}
+
+
+blockcomparisonsummary = {
+    "name": "blockcomparisonsummary",
+    "title": "summary of changes in two corresponding blocks",
+    "description": "summary of changes in two corresponding blocks",
+    "type": "object",
+    "properties": {
+        "block-instructions-comparison-summary": (
+            refdef("blockinstructionscomparisonsummary")),
+        "block-semantics-comparison-summary": (
+            refdef("blocksemanticscomparisonsummary"))
+    }
+}
+
+
+blockcomparison = {
+    "name": "blockcomparison",
+    "title": "block-level comparison between two basic blocks",
+    "description": (
+        "block-level comparison between two corresponding blocks in two functions"),
+    "type": "object",
+    "required": ["baddr1", "baddr2"],
+    "properties": {
+        "baddr1": strtype("hex address of block in function1"),
+        "baddr2": strtype("hex address of block in function2"),
+        "lev-distance": intvalue(
+            "levenshtein distance between block1 and block2 instruction bytes"),
+        "changes": prop_set(["instructioncount", "bytecount"]),
+        "matches": prop_set(["instructioncount", "bytecount"]),
+        "block-comparison-summary": refdef("blockcomparisonsummary"),
+        "block-comparison-details": refdef("blockcomparisondetails")
+    }
+}
+
+
+cfgcomparisonsummary = {
+    "name": "cfgcomparisonsummary",
+    "title": "summary of changes to the cfg",
+    "description": "summary of changes to the cfg",
+    "type": "object",
+    "properties": {
+        "cfg-mapping": prop_kind(["automorphic"]),
+        "changes": prop_set(["trampoline"])
+    }
+}
+
+
+functionvariablescomparisonsummary = {
+    "name": "functionvariablescomparisonsummary",
+    "title": "summary of changes in the function's variables",
+    "description": "summary of changes in the function's variables",
+    "type": "object",
+    "properties": {
+        "changes": prop_set(["stacklayout"])
+    }
+}
+
+
+functionblockmappedsummary = {
+    "name": "functionblockmappedsummary",
+    "title": "summary of changes between two mapped blocks in function1 and function2",
+    "description": (
+        "summary of changes between two mapped blocks in function1 and function2"),
+    "type": "object",
+    "properties": {
+        "baddr": strtype("hex address of block in function1"),
+        "changes": prop_set([
+            "baddr",
+            "md5",
+            "instructioncount",
+            "bytecount"]),
+        "matches": prop_set([
+            "baddr",
+            "md5",
+            "instructioncount",
+            "bytecount"]),
+        "moved-to": strtype("(optional) address of block in function2")
+    }
+}
+
+
+functionblockscomparisonsummary = {
+    "name": "functionblockscomparisonsummary",
+    "title": "summary of changes in the function's basic blocks",
+    "description": "summary of changes in the funciton's basic blocks",
+    "$comment": "JSONFunctionSummary.JSONFunctionBlocksComparisonSummary",
+    "type": "object",
+    "properties": {
+        "changes": prop_set(["blockcount", "trampoline-inline"]),
+        "matches": prop_set(["blockcount", "md5"]),
+        "function-blocks-mapped": {
+            "type": "array",
+            "description": "list of blocks mapped one-to-one in function1 and function2",
+            "items": refdef("functionblockmappedsummary")
+        },
+        "function-blocks-added": {
+            "type": "array",
+            "description": "list of blocks in function2 but not in function1",
+            "items": strtype("hex address of basic block in function2")
+        },
+        "function-blocks-removed": {
+            "type": "array",
+            "description": "list of blocks in function1 but not in function2",
+            "items": strtype("hex address of basic block in function1")
+        }
+    }
+}
+
+
+functioncomparisonsummary = {
+    "name": "functioncomparisonsummary",
+    "title": "summary of function comparison",
+    "description": "summary of changes in corresponding functions in two binaries",
+    "$comment": "JSONFunctionComparison.JSONFunctionComparisonSummary",
+    "type": "object",
+    "properties": {
+        "cfg-comparison-summary": refdef("cfgcomparisonsummary"),
+        "function-variables-comparison-summary": refdef(
+            "functionvariablescomparisonsummary"),
+        "function-blocks-comparison-summary": refdef(
+            "functionblockscomparisonsummary")
+    }
+}
+
+
+functioncomparisondetails = {
+    "name": "functioncomparisondetails",
+    "title": "details of function comparison",
+    "description": "details of the comparison between two corresponding functions",
+    "type": "object",
+    "properties": {
+        "block-comparisons": {
+            "type": "array",
+            "description": "detailed comparison of all mapped blocks with changes",
+            "items": refdef("blockcomparison")
+        }
+    }
+}
+
+
+functioncomparison = {
+    "name": "functioncomparison",
+    "title": "function-level comparison",
+    "description": (
+        "syntactic and semantic comparsion of corresponding functions in two binaries"),
+    "$comment": "JSONFunctionComparison.JSONFunctionComparison",
+    "type": "object",
+    "required": ["faddr1", "faddr2"],
+    "properties": {
+        "faddr1": strtype("hex address of function1 in file1"),
+        "faddr2": strtype("hex address of function2 in file2"),
+        "name1": strtype("symbolic name of function1 in file1"),
+        "name2": strtype("symbolic name of function2 in file2"),
+        "changes": prop_set(["blockcount", "cfg-structure"]),
+        "matches": prop_set(["blockcount", "cfg-structure"]),
+        "function-comparison-summary": refdef("functioncomparisonsummary"),
+        "function-comparison-details": refdef("functioncomparisondetails")
+    }
+}
+
+
+callgraphcomparisonsummary = {
+    "name": "callgraphcomparisonsummary",
+    "title": "summary of changes in the callgraph",
+    "description": "summary of changes in the callgraph",
+    "$comment": "JSONAppComparison.JSONCallgraphComparisonSummary",
+    "properties": {
+        "changes": prop_set(["redirect"])
+    }
+}
+
+
+globalscomparisonsummary = {
+    "name": "globalscomparisonsummary",
+    "title": "summary of changes in global variables",
+    "description": "summary of changes in global variables",
+    "$comment": "JSONAppComparison.JSONGlobalsComparisonSummary",
+    "properties": {
+        "changes": prop_set(["address-change"])
+    }
+}
+
+
+appfunctionmappedsummary = {
+    "name": "appfunctionmappedsummary",
+    "title": "summary of changes in a mapped function from file1 to file2",
+    "description": "summary of changes in a mapped function from file1 to file2",
+    "$comment": "JSONAppComparison.JSONFunctionMappedSummary",
+    "type": "object",
+    "required": ["faddr"],
+    "properties": {
+        "faddr": strtype("hex address of function in file1"),
+        "name": strtype("name of function in file1"),
+        "changes": prop_set([
+            "faddr",
+            "md5",
+            "blockcount",
+            "instructioncount",
+            "bytecount",
+            "cfg:not-automorphic"]),
+        "matches": prop_set([
+            "faddr",
+            "md5",
+            "cfg-automorphic",
+            "blockcount",
+            "instructioncount",
+            "bytecount"]),
+        "moved-to": strtype("(optional) address in file2, if different"),
+    }
+}
+
+
+appfunctionscomparisonsummary = {
+    "name": "appfunctionscomparisonsummary",
+    "title": "summary of changes in individual functions",
+    "description": "summary of changes in individual functions",
+    "$comment": "JSONAppComparison.JSONAppFunctionsComparisonSummary",
+    "type": "object",
+    "properties": {
+        "changes": prop_set(["functioncount", "trampoline"]),
+        "app-functions-mapped": {
+            "type": "array",
+            "description": "list of functions mapped one-to-one in file1 and file2",
+            "items": refdef("appfunctionmappedsummary")
+        },
+        "app-functions-added": {
+            "type": "array",
+            "description": "list of addresses of functions in file2 not present in file1",
+            "items": strtype("hex function address in file2")
+        },
+        "app-functions-removed": {
+            "type": "array",
+            "description": "list of addresses of functions in file1 not present in file2",
+            "items": strtype("hex function address in file1")
+        }
+    }
+}
+
+
+appcomparisonsummary = {
+    "name": "appcomparisonsummary",
+    "title": "summary of application comparison",
+    "description": "summary of syntactic and semantic comparison of two binaries",
+    "$comment": "JSONAppComparison.JSONAppComparisonSummary",
+    "type": "object",
+    "required": ["functions-comparison-summary"],
+    "properties": {
+        "callgraph-comparison-summary": refdef("callgraphcomparisonsummary"),
+        "globals-comparison-summary": refdef("globalscomparisonsummary"),
+        "app-functions-comparison-summary": refdef("appfunctionscomparisonsummary")
+    }
+}
+
+
+appcomparisondetails = {
+    "name": "appcomparisondetails",
+    "title": "details of application comparison",
+    "description": "details of comparison between two binaries",
+    "type": "object",
+    "properties": {
+        "function-comparisons": {
+            "type": "array",
+            "description": "detailed comparison of all mapped functions with changes",
+            "items": refdef("functioncomparison")
+        },
+        "function-comparisons-omitted": {
+            "type": "array",
+            "description": (
+                "list of hex addresses of functions changed without details"),
+            "items": strtype("hex address of function in file1")
+        }
+    }
+}
+
+
+appcomparison = {
+    "name": "appcomparison",
+    "title": "application comparison",
+    "description": "syntactic and semantic comparison of two binaries",
+    "$comment": "JSONAppComparison.JSONAppComparison",
+    "type": "object",
+    "required": ["file1", "file2", "app-summary"],
+    "properties": {
+        "file1": refdef("xfilepath"),
+        "file2": refdef("xfilepath"),
+        "changes": prop_set(["functioncount"]),
+        "matches": prop_set(["functioncount"]),
+        "app-comparison-summary": refdef("appcomparisonsummary"),
+        "app-comparison-details": refdef("appcomparisondetails")
     }
 }
