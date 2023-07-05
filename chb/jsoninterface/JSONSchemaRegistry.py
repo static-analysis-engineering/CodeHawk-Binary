@@ -99,14 +99,37 @@ json_schema_registry: JSONSchemaRegistry = JSONSchemaRegistry()
 
 
 chb_schemas: List[Dict[str, Any]] = [
+    S.appcomparison,
+    S.appcomparisondetails,
+    S.appcomparisonsummary,
+    S.appfunctionmappedsummary,
+    S.appfunctionscomparisonsummary,
     S.auxvariable,
     S.assemblyblock,
     S.assemblyfunction,
     S.assemblyinstruction,
+    S.blockcomparison,
+    S.blockinstructionmappedsummary,
+    S.blockcomparisondetails,
+    S.blockcomparisonsummary,
+    S.blockinstructionscomparisonsummary,
+    S.blocksemanticscomparisonsummary,
+    S.callgraphcomparisonsummary,
+    S.cfgcomparisonsummary,
     S.cfgedge,
     S.cfgnode,
     S.controlflowgraph,
+    S.functionblockmappedsummary,
+    S.functionblockscomparisonsummary,
+    S.functioncomparison,
+    S.functioncomparisondetails,
+    S.functioncomparisonsummary,
     S.functioninvariants,
+    S.functionvariablescomparisonsummary,
+    S.globalscomparisonsummary,
+    S.instructioncomparison,
+    S.instructionaddedinfo,
+    S.instructionremovedinfo,
     S.invariantfact,
     S.linearequality,
     S.locationinvariant,
@@ -118,6 +141,7 @@ chb_schemas: List[Dict[str, Any]] = [
     S.xcomparison,
     S.xconstant,
     S.xexpression,
+    S.xfilepath,
     S.xvariable
 ]
 
@@ -185,6 +209,9 @@ def save_schema(name: str, title: str) -> None:
 
 if __name__ == "__main__":
 
+    save_schema(
+        "appcomparison",
+        "json result file for relational analysis")
     save_schema(
         "assemblyfunction",
         "json result file for an assembly function")
