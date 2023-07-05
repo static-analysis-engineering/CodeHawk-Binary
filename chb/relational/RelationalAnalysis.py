@@ -26,8 +26,9 @@
 # ------------------------------------------------------------------------------
 """Compares two binaries."""
 
-from typing import Dict, List, Mapping, Sequence, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Mapping, Sequence, Tuple, TYPE_CHECKING
 
+from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.CallgraphMatcher import CallgraphMatcher
 from chb.relational.FunctionRelationalAnalysis import FunctionRelationalAnalysis
 import chb.util.fileutil as UF
@@ -55,6 +56,13 @@ class RelationalAnalysis:
        For the remaining functions the callgraph is used to determine relationships
        between the functions in each binary, and a function mapping is obtained from
        matching the two call graphs.
+
+    A prior (partial) function mapping may be provided by the user, which will be
+    used as a starting point for completing the function mapping.
+
+    An optional list of callees may be provided to restrict the relational analysis
+    to only instructions that call that particular function (e.g., to identify
+    strcpy calls that were changed into strncpy or strlcpy calls).
     """
 
     def __init__(
@@ -79,6 +87,7 @@ class RelationalAnalysis:
         self._callees = callees
         self._functionmapping: Dict[str, str] = {}  # potentially partial map
         self._functionanalyses: Dict[str, FunctionRelationalAnalysis] = {}
+        self._functionnames: Dict[str, str] = {}
         self._fnmd5s: Dict[str, Tuple[List[str], List[str]]] = {}
 
     @property
@@ -108,6 +117,22 @@ class RelationalAnalysis:
     @property
     def usermapping(self) -> Dict[str, str]:
         return self._usermapping
+
+    @property
+    def callees(self) -> List[str]:
+        """Return list of function callees to restrict comparisons."""
+
+        return self._callees
+
+    @property
+    def function_names(self) -> Dict[str, str]:
+        if len(self._functionnames) == 0:
+            for faddr in self.faddrs1:
+                if self.app1.has_function_name(faddr):
+                    self._functionnames[faddr] = self.app1.function_name(faddr)
+                else:
+                    self._functionnames[faddr] = faddr
+        return self._functionnames
 
     @property
     def function_analyses(self) -> Mapping[str, FunctionRelationalAnalysis]:
@@ -155,6 +180,11 @@ class RelationalAnalysis:
 
         return self._functionmapping
 
+    def functions_mapped(self) -> List[str]:
+        """Return a list of functions in the original that are mapped in the patched."""
+
+        return sorted(list(self.function_mapping.keys()))
+
     def functions_changed(self) -> List[str]:
         """Return a list of functions that moved or are not md5-equivalent."""
 
@@ -162,20 +192,6 @@ class RelationalAnalysis:
         for (faddr, fra) in self.function_analyses.items():
             if fra.moved or not fra.is_md5_equal:
                 result.append(faddr)
-
-        for faddr in self.faddrs1:
-            if faddr not in self.function_mapping:
-                result.append(faddr)
-
-        return result
-
-    def new_functions(self) -> List[str]:
-        """Return a list of functions in the patched version not in the original"""
-
-        result: List[str] = []
-        for faddr2 in sorted(self.faddrs2):
-            if faddr2 not in self.function_mapping.values():
-                result.append(faddr2)
         return result
 
     def blocks_changed(self, faddr: str) -> List[str]:
@@ -185,13 +201,140 @@ class RelationalAnalysis:
                 return fra.blocks_changed()
         return []
 
+    def functions_added(self) -> List[str]:
+        """Return list of functions in patched, but not in the original."""
+
+        result: List[str] = []
+        for faddr2 in sorted(self.faddrs2):
+            if faddr2 not in self.function_mapping.values():
+                result.append(faddr2)
+        return result
+
+    def functions_removed(self) -> List[str]:
+        """Return list of functions in the original, but not in patched."""
+
+        result: List[str] = []
+        for faddr in sorted(self.functions_changed()):
+            if not faddr in self.function_mapping:
+                result.append(faddr)
+        return result
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["file1"] = {}
+        content["file2"] = {}
+        content["file1"]["path"] = self.app1.path
+        content["file1"]["filename"] = self.app1.filename
+        content["file2"]["path"] = self.app2.path
+        content["file2"]["filename"] = self.app2.filename
+
+        summary = self.comparison_summary_result()
+        if summary.is_ok:
+            content["app-comparison-summary"] = summary.content
+        else:
+            return JSONResult("appcomparison", {}, "fail", summary.reason)
+        details = self.comparison_details_result()
+        if details.is_ok:
+            content["app-comparison-details"] = details.content
+        else:
+            return JSONResult("appcomparison", {}, "fail", details.reason)
+
+        return JSONResult("appcomparison", content, "ok")
+
+    def comparison_summary_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        cgsummary = self.callgraph_summary_result()
+        if cgsummary.is_ok:
+            content["callgraph-comparison-summary"] = cgsummary.content
+        else:
+            return JSONResult("appcomparisonsummary", {}, "fail", cgsummary.reason)
+        gsummary = self.globals_summary_result()
+        if gsummary.is_ok:
+            content["globals-comparison-summary"] = gsummary.content
+        else:
+            return JSONResult("appcomparisonsummary", {}, "fail", gsummary.reason)
+        fsummary = self.functions_summary_result()
+        if fsummary.is_ok:
+            content["app-functions-comparison-summary"] = fsummary.content
+        else:
+            return JSONResult("appcomparisonsummary", {}, "fail", fsummary.reason)
+
+        return JSONResult("appcomparisonsummary",  content, "ok")
+
+    def callgraph_summary_result(self) -> JSONResult:
+        return JSONResult("callgraphcomparisonsummary", {}, "ok")
+
+    def globals_summary_result(self) -> JSONResult:
+        return JSONResult("globalscomparisonsummary", {}, "ok")
+
+    def functions_summary_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        fnsmapped: List[Dict[str, Any]] = []
+        for (faddr, fra) in self.function_analyses.items():
+            fmapped = self.function_mapped_summary_result(faddr)
+            if fmapped.is_ok:
+                fnsmapped.append(fmapped.content)
+            else:
+                return JSONResult(
+                    "appfunctionmappedsummary", {}, "fail", fmapped.reason)
+        content["app-functions-mapped"] = fnsmapped
+        content["app-functions-added"] = self.functions_added()
+        content["app-functions-removed"] = self.functions_removed()
+
+        return JSONResult("appfunctionscomparisonsummary", content, "ok")
+
+    def function_mapped_summary_result(self, faddr: str) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["faddr"] = faddr
+        if faddr in self.function_names:
+            content["name"] = self.function_names[faddr]
+        fra = self.function_analyses[faddr]
+        changes: List[str] = []
+        matches: List[str] = []
+        if fra.is_md5_equal:
+            matches.append("md5")
+        else:
+            changes.append("md5")
+            if not fra.is_automorphic:
+                changes.append("cfg:not-automorphic")
+            else:
+                content["blocks-changed"] = len(fra.blocks_changed())
+        if len(changes) > 0:
+            content["changes"] = changes
+        if len(matches) > 0:
+            content["matches"] = matches
+
+        return JSONResult("appfunctionmappedsummary", content, "ok")
+
+    def comparison_details_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        fcomparisons: List[Dict[str, Any]] = []
+        fomitted: List[str] = []
+        for (faddr, fra) in self.function_analyses.items():
+            if fra.is_md5_equal:
+                continue
+            if not fra.is_automorphic:
+                fomitted.append(faddr)
+                continue
+
+            fresult = fra.to_json_result()
+            if fresult.is_ok:
+                fcomparisons.append(fresult.content)
+            else: return JSONResult(
+                    "functioncomparison", {}, "fail", fresult.reason)
+        content["function-comparisons"] = fcomparisons
+        if len(fomitted) > 0:
+            content["function-comparisons-omitted"] = fomitted
+        return JSONResult("appcomparisondetails", content, "ok")
+
     def report(self, showfunctions: bool, showinstructions: bool) -> str:
         lines: List[str] = []
 
         fnames: Dict[str, str] = {}
         for faddr in self.functions_changed():
             if self.app1.has_function_name(faddr):
-                fnames[faddr] = self.app1.function_name(faddr) + " (" + faddr + ")"
+                fnames[faddr] = (
+                    self.app1.function_name(faddr) + " (" + faddr + ")")
             else:
                 fnames[faddr] = faddr
 
@@ -231,8 +374,11 @@ class RelationalAnalysis:
                     blchg = str(blockschanged) + "/" + str(allblocks)
                 else:
                     streq = "no"
-                    blchg = str(len(fra.cfg_blocks1)) + " -> " + str(len(fra.cfg_blocks2))
-                    totalblocks += abs(len(fra.cfg_blocks2) - len(fra.cfg_blocks1))
+                    blchg = (
+                        str(len(fra.cfg_blocks1))
+                        + " -> " + str(len(fra.cfg_blocks2)))
+                    totalblocks += (
+                        abs(len(fra.cfg_blocks2) - len(fra.cfg_blocks1)))
 
                 lines.append(
                     fnames[faddr].ljust(maxnamelen)

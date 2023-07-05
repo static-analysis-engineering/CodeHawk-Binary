@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,8 +26,9 @@
 # ------------------------------------------------------------------------------
 """Compares two instructions in two related functions in different binaries."""
 
-from typing import cast, List, Optional, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
 
+from chb.jsoninterface.JSONResult import JSONResult
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
@@ -91,6 +92,21 @@ class InstructionRelationalAnalysis:
             return False
 
     @property
+    def is_changed(self) -> bool:
+        return len(self.changes) > 0
+
+    @property
+    def changes(self) -> List[str]:
+        result: List[str] = []
+        if not self.same_address:
+            result.append("address")
+        if not self.is_md5_equal:
+            result.append("bytes")
+        if self.has_different_annotation:
+            result.append("semantics")
+        return result
+
+    @property
     def loads_same_string(self) -> bool:
         if self.is_mapped:
             s1 = self.instr1.string_pointer_loaded()
@@ -135,3 +151,22 @@ class InstructionRelationalAnalysis:
                 return True
         else:
             return False
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["iaddr1"] = self.instr1.iaddr
+        content["iaddr2"] = self.instr2.iaddr
+        content["changes"] = self.changes
+        if self.is_changed:
+            i1result = self.instr1.to_json_result()
+            if not i1result.is_ok:
+                return JSONResult(
+                    "instructioncomparison", {}, "fail", i1result.reason)
+            i2result = self.instr2.to_json_result()
+            if not i2result.is_ok:
+                return JSONResult(
+                    "instructioncomparison", {}, "fail", i2result.reason)
+            content["instr-1"] = i1result.content
+            content["instr-2"] = i2result.content
+
+        return JSONResult("instructioncomparison", content, "ok")
