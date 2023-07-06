@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING
 from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
 from chb.relational.CfgMatcher import CfgMatcher
+from chb.relational.TrampolineAnalysis import TrampolineAnalysis
 
 import chb.util.fileutil as UF
 
@@ -66,6 +67,7 @@ class FunctionRelationalAnalysis:
         self._cfgmatcher: Optional[CfgMatcher] = None
         self._changes: Optional[List[str]] = None
         self._matches: Optional[List[str]] = None
+        self._trampolineanalysis: Optional[TrampolineAnalysis] = None
 
     @property
     def app1(self) -> "AppAccess":
@@ -215,6 +217,16 @@ class FunctionRelationalAnalysis:
         return self._cfgmatcher
 
     @property
+    def trampoline_analysis(self) -> TrampolineAnalysis:
+        if self._trampolineanalysis is not None:
+            return self._trampolineanalysis
+        else:
+            raise UF.CHBError("No trampoline analysis found")
+
+    def has_trampoline_analysis(self) -> bool:
+        return self._trampolineanalysis is not None
+
+    @property
     def is_md5_equal(self) -> bool:
         if self.same_endianness:
             return self.fn1.md5 == self.fn2.md5
@@ -294,6 +306,12 @@ class FunctionRelationalAnalysis:
         return (
             self.is_structurally_equivalent
             or self.cfgmatcher.is_cfg_isomorphic)
+
+    @property
+    def is_trampoline_block_splice(self) -> bool:
+        """Return true if the cfg has been transformed by trampoline insertion."""
+
+        return self.cfgmatcher.is_trampoline_block_splice()
 
     @property
     def block_mapping(self) -> Mapping[str, str]:
@@ -494,6 +512,76 @@ class FunctionRelationalAnalysis:
                 self.cfg2,
                 {},
                 {})
+
+            if cfgmatcher.is_trampoline_block_splice():
+                for baddr1 in sorted(self.basic_blocks1):
+                    if baddr1 in cfgmatcher.blockmapping:
+                        baddr2 = cfgmatcher.blockmapping[baddr1]
+                        self._blockanalyses[baddr1] = BlockRelationalAnalysis(
+                            self.app1,
+                            self.basic_blocks1[baddr1],
+                            self.app2,
+                            self.basic_blocks2[baddr2])
+                        blra = self.block_analyses[baddr1]
+                        if baddr1 == baddr2:
+                            moved = "no"
+                        else:
+                            moved = baddr2
+                        md5eq = "yes" if blra.is_md5_equal else "no"
+                        if md5eq == "no":
+                            if blra.b1len != blra.b2len:
+                                instrs_changed = len(blra.instrs_changed(callees))
+                                insch = (
+                                    str(blra.b1len)
+                                    + " -> "
+                                    + str(blra.b2len)
+                                    + " ("
+                                    + str(instrs_changed)
+                                    + ")")
+                            else:
+                                instrs_changed = len(blra.instrs_changed(callees))
+                                instrcount = len(blra.b1.instructions)
+                                insch = str(instrs_changed) + "/" + str(instrcount)
+                        else:
+                            insch = "-"
+                        lines.append(
+                            baddr1.ljust(12)
+                            + moved.ljust(16)
+                            + md5eq.ljust(18)
+                            + insch.ljust(20))
+
+                    elif cfgmatcher.has_trampoline_match(baddr1):
+                        t = cfgmatcher.get_trampoline_match(baddr1)
+                        tra = TrampolineAnalysis(
+                            self.app1,
+                            self.basic_blocks1[baddr1],
+                            self.app2,
+                            [self.basic_blocks2[b] for b in t],
+                            cfgmatcher)
+                        self._trampolineanalysis = tra
+                        lines.append(
+                            baddr1.ljust(12)
+                            + "trampoline".ljust(16)
+                            + "no".ljust(18)
+                            + "---".ljust(20))
+
+                if showinstructions:
+                    for (baddr, blra) in self.block_analyses.items():
+                        if blra.is_md5_equal:
+                            continue
+
+                    if self.has_trampoline_analysis:
+                        tra = self.trampoline_analysis
+
+                        lines.append(
+                            "\nInstructions changed in spliced block " + tra.b1.baddr)
+                        lines.append(tra.report())
+                        lines.append("")
+
+            else:
+                lines.append("not yet supported")
+
+            '''
             for baddr1 in sorted(self.basic_blocks1):
                 if baddr1 in cfgmatcher.blockmapping:
                     baddr2 = cfgmatcher.blockmapping[baddr1]
@@ -572,5 +660,5 @@ class FunctionRelationalAnalysis:
                 lines.append("\n\nCfgs are not isomorphic; performing general cfg matching")
                 lines.append("-" * 80)
                 lines.append(str(cfgmatcher))
-
+            '''
         return "\n".join(lines)
