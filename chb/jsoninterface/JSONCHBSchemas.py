@@ -1368,3 +1368,117 @@ appcomparison = {
         "app-comparison-details": refdef("appcomparisondetails")
     }
 }
+
+"""
+remove:
+- appcomparisonsummary
+- callgraphcomparisonsummary
+- globalscomparisonsummary
+- appfunctionscomparisonsummary
+- appfunctionmappedsummary
+- functioncomparisonsummary
+- cfgcomparisonsummary
+- functionvariablescomparisonsummary
+- functionblockscomparisonsummary
+- functionblockmappedsummary
+- blockcomparisonsummary
+- blockinstructionscomparisonsummary
+- blocksemanticscomparisonsummary
+- blockinstructionmappedsummary
+
+keep/rename:
+- appcomparisondetails
+- functioncomparison
+- functioncomparisondetails
+- blockcomparison
+- blockcomparisondetails
+- instructioncomparison
+- instructionaddedinfo
+- instructionremovedinfo
+
+recreate:
+- in app context:
+  - callgraphcomparison
+  - globalscomparison
+
+- in function context:
+  - cfgcomparison
+  - variablescomparison
+  - semanticscomparison
+
+- in block context
+  - blocksemanticscomparison
+
+combine into:
+- appcomparison:
+    - functioncomparison[]
+    - functionadded[]
+    - functionremoved[]
+    - callgraphcomparison
+    - globalvarcomparison[]
+    - bincomparison
+
+- functioncomparison:
+    - blockcomparison[]
+    - cfgcomparison
+    - trampolineanalysis
+    - variablecomparison[]
+    - funsemanticscomparison
+
+- blockcomparison:
+    - instructioncomparison[]
+    - instructionadded[]
+    - instructionremoved[]
+    - vertexcomparison
+    - blocksemanticscomparison
+
+- instructioncomparison
+    - bytecomparison
+    - instrsemanticscomparison
+
+- functionadded:
+    - hex address
+    - assertion[]
+    - remark[]
+
+- functionremoved:
+    - hex address
+    - assertion[]
+    - remark[]
+
+callgraphcomparison:
+    - changes: {callredirect}
+
+globalvarcomparison:
+    - hex address
+    - type
+    - name
+    - changes: {moved}
+
+bincomparison
+    - changes: {elfheader, elfsection}
+
+cfgcomparison:
+    - changes: {trampoline-insert, blockcount, blockconnectivity}
+    - trampolinedata
+
+variablescomparison
+    - name
+    - location
+    - type
+
+funsemanticscomparison
+    - changes: {}
+
+vertextcomparison:
+    - incomingchanged
+    - outgoingchanged
+    - newimcoming
+    - newoutgoing
+
+blocksemanticscomparison
+    - changes: {precondition, postcondition, external}
+
+instrsemanticscomparison
+    - invariantschanged
+"""

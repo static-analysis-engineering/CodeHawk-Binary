@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Creates a mapping of basic blocks and edges between two executables."""
 
-from typing import Dict, List, Mapping, Set, Tuple, TYPE_CHECKING
+from typing import Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING
 
 from chb.graphics.DotCfg import DotCfg
 
@@ -70,6 +70,7 @@ class CfgMatcher:
         self._unmapped_blocks1: List[str] = []
         self._unmapped_blocks2: List[str] = []
         self._multiple_mapping: List[Tuple[List[str], List[str]]] = []
+        self._trampolinematch: Optional[Tuple[str, List[str]]] = None
         self.match()
 
     @property
@@ -129,6 +130,21 @@ class CfgMatcher:
         return self._unmapped_blocks2
 
     @property
+    def trampolinematch(self) -> Optional[Tuple[str, List[str]]]:
+        return self._trampolinematch
+
+    def has_trampoline_match(self, baddr: str) -> bool:
+        if self.trampolinematch is not None:
+            return self.trampolinematch[0] == baddr
+        return False
+
+    def get_trampoline_match(self, baddr: str) -> List[str]:
+        if self.trampolinematch is not None:
+            if self.trampolinematch[0] == baddr:
+                return self.trampolinematch[1]
+        raise UF.CHBError("No matching trampoline found")
+
+    @property
     def same_endianness(self) -> bool:
         return self.app1.header.is_big_endian == self.app2.header.is_big_endian
 
@@ -169,6 +185,12 @@ class CfgMatcher:
             self._tgt2map.setdefault(e2, [])
             self._tgt2map[e2].append(e1)
 
+    def is_trampoline_block_splice(self) -> bool:
+        for b in self.cfg2.blocks.values():
+            if b.is_in_trampoline:
+                return True
+        return False
+
     @property
     def is_cfg_isomorphic(self) -> bool:
         if (
@@ -187,6 +209,12 @@ class CfgMatcher:
     def match(self) -> None:
         if len(self._blockmapping) > 0:
             return
+        if self.is_trampoline_block_splice():
+            self.initialize()
+            self.collect_blockmd5s()
+            self.match_blockmd5s()
+            self._trampolinematch = (self.unmapped_blocks1[0], self.unmapped_blocks2)
+
         elif (
                 self.cfg1.is_reducible
                 and self.cfg2.is_reducible

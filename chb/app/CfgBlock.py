@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -76,3 +76,14 @@ class CfgBlock:
     @property
     def in_loop(self) -> bool:
         return len(self.looplevels) > 0
+
+    @property
+    def role(self) -> Optional[str]:
+        return self.xnode.get("role")
+
+    @property
+    def is_in_trampoline(self) -> bool:
+        if self.role is not None:
+            return self.role == "trampoline"
+        else:
+            return False
