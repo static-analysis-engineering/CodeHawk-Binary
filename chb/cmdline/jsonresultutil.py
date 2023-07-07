@@ -38,6 +38,8 @@ from chb.jsoninterface.JSONSchema import JSONSchema
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
 from chb.relational.TrampolineAnalysis import TrampolineAnalysis
 
+import chb.util.fileutil as UF
+
 if TYPE_CHECKING:
     from chb.app.BasicBlock import BasicBlock
     from chb.app.Function import Function
@@ -212,11 +214,18 @@ def cfg_trampoline_match_to_json_result(
     content["changes"] = ["trampoline-insertion"]
     content["cfg1-block-addr"] = tra.b1.real_baddr
     cfg2blocks: List[Dict[str, Any]] = []
-    for b in tra.trampoline:
-        b2content: Dict[str, Any] = {}
-        b2content["cfg2-block-addr"] = b.real_baddr
-        b2content["role"] = tra.roles[b.baddr]
-        cfg2blocks.append(b2content)
+    try:
+        for b in tra.trampoline:
+            b2content: Dict[str, Any] = {}
+            b2content["cfg2-block-addr"] = b.real_baddr
+            b2content["role"] = tra.roles[b.baddr]
+            cfg2blocks.append(b2content)
+    except UF.CHBError as e:
+        return JSONResult(
+            schema,
+            {},
+            "fail",
+            "nonstandard trampoline encountered: " + str(e))
     content["cfg2-blocks"] = cfg2blocks
     return JSONResult(schema, content, "ok")
 
