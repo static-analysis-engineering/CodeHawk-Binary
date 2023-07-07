@@ -206,7 +206,7 @@ def save_schema(name: str, title: str) -> None:
     if len(defs) > 0:
         result["$defs"] = defs
     with open(filename, "w") as fp:
-        json.dump(result, fp)
+        json.dump(result, fp, indent=2)
     print("Saved schema for " + name + " in file " + filename)
 
 
@@ -227,3 +227,6 @@ if __name__ == "__main__":
     save_schema(
         "xcomparison",
         "json result file for the structural differences between two binaries")
+    save_schema(
+        "cfgcomparisons",
+        "json result file for the relational compare cfgs command")
