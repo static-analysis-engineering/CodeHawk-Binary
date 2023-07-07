@@ -87,10 +87,10 @@ class ARMBlock(BasicBlock):
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
-        content["startaddr"] = self.baddr
-        content["endaddr"] = self.lastaddr
+        content["startaddr"] = self.real_baddr
+        content["endaddr"] = self.real_lastaddr
         content["instructions"] = instrs = []
-        for (iaddr, instr) in self.instructions.items():
+        for (iaddr, instr) in sorted(self.instructions.items()):
             iresult = instr.to_json_result()
             if not iresult.is_ok:
                 reason = (

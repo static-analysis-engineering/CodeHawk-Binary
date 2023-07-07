@@ -67,8 +67,24 @@ class BasicBlock(ABC):
         return _baddr
 
     @property
+    def real_baddr(self) -> str:
+        _baddr = self.baddr
+        if _baddr.startswith("F"):
+            return _baddr.split("_")[-1]
+        else:
+            return _baddr
+
+    @property
     def lastaddr(self) -> str:
         return sorted(self.instructions.keys())[-1]
+
+    @property
+    def real_lastaddr(self) -> str:
+        _addr = self.lastaddr
+        if _addr.startswith("F"):
+            return _addr.split("_")[-1]
+        else:
+            return _addr
 
     @property
     def last_instruction(self) -> Instruction:

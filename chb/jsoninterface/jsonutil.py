@@ -32,6 +32,7 @@ import os
 from typing import Any, Dict, List, NoReturn, Optional
 
 from chb.jsoninterface.JSONAppComparison import JSONAppComparison
+from chb.jsoninterface.JSONCfgComparison import JSONCfgComparisons
 from chb.jsoninterface.JSONChecker import JSONChecker
 
 
@@ -61,7 +62,7 @@ def infocmd(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
-def checkcmd(args: argparse.Namespace) -> NoReturn:
+def check_appc_cmd(args: argparse.Namespace) -> NoReturn:
 
     # arguments
     jsonfile: str = args.jsonfile
@@ -74,4 +75,16 @@ def checkcmd(args: argparse.Namespace) -> NoReturn:
 
     exit(0)
 
-          
+
+def check_cfgc_cmd(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    jsonfile: str = args.jsonfile
+
+    with open(jsonfile, "r") as fp:
+        jsondata = json.load(fp)
+
+
+    print(JSONChecker().check_object(JSONCfgComparisons(jsondata["content"])))
+
+    exit(0)

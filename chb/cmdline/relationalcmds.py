@@ -417,6 +417,7 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     showpredicates: bool = args.show_predicates
     outputfilename: str = args.outputfilename
     fileformat: str = args.format
+    xjson: bool = args.json
 
     print("Visual comparison of the cfgs for " + xname1 + " and " + xname2)
 
@@ -452,6 +453,31 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     functionschanged = relanalysis.functions_changed()
     if len(functionschanged) == 0:
         UC.print_error("No functions changed")
+        exit(0)
+
+    if xjson:
+        content: Dict[str, Any] = {}
+        fnchanged: List[Dict[str, Any]] = []
+        fail: Optional[str] = None
+        for faddr in functionschanged:
+            if faddr in relanalysis.function_mapping:
+                fra = relanalysis.function_analysis(faddr)
+                cfgcomparison = JU.function_cfg_comparison_to_json_result(fra)
+                if cfgcomparison.is_ok:
+                    fnchanged.append(cfgcomparison.content)
+                else:
+                    fail = "Failure in " + faddr + ": " + str(cfgcomparison.reason)
+                    break
+        if fail is not None:
+            jsondata = JU.jsonfail(fail)
+        else:
+            content["functions-changed"] = fnchanged
+            jsondata = JU.jsonok("cfgcomparisons", content)
+
+        outputfile = outputfilename + ".json"
+        with open(outputfile, "w") as fp:
+            json.dump(jsondata, fp)
+
         exit(0)
 
     dotgraphs: List[DotCfg] = []
