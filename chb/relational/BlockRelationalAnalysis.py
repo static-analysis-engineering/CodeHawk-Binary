@@ -118,6 +118,24 @@ class BlockRelationalAnalysis:
             mapping = self.instr_mapping
         return self._revinstrmapping
 
+    def changes(self) -> List[str]:
+        result: List[str] = []
+        if not self.is_md5_equal:
+            result.append("md5")
+        if self.b1len != self.b2len:
+            result.append("instructioncount")
+        if self.b1.baddr != self.b2.baddr:
+            result.append("moved")
+        return result
+
+    def matches(self) -> List[str]:
+        result: List[str] = []
+        if self.is_md5_equal:
+            return ["md5"]
+        if self.b1len == self.b2len:
+            result.append("instructioncount")
+        return result
+
     def levenshtein_distance(self) -> Tuple[
             int, List[Tuple[Optional[int], Optional[int]]]]:
         s1 = [i.bytestring for (a, i) in sorted(self.b1.instructions.items())]

@@ -24,9 +24,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
-"""Creates a mapping of basic blocks and edges between two executables."""
+"""Dissects a trampoline and checks the various components."""
 
-from typing import Any, Dict, List, Mapping, Optional, Tuple, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Mapping, Optional, Tuple, TYPE_CHECKING
 
 from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.InstructionRelationalAnalysis import (
@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from chb.app.BasicBlock import BasicBlock
     from chb.app.Cfg import Cfg
     from chb.app.Instruction import Instruction
+    from chb.arm.ARMInstruction import ARMInstruction
     from chb.relational.CfgMatcher import CfgMatcher
 
 
@@ -61,6 +62,7 @@ class TrampolineAnalysis:
         self._revinstrmapping: Dict[str, str] = {}
         self._instranalyses: Dict[str, InstructionRelationalAnalysis] = {}
         self._distance: int = -1
+        self._roles: Optional[Dict[str, str]] = None
 
     @property
     def app1(self) -> "AppAccess":
@@ -85,6 +87,20 @@ class TrampolineAnalysis:
     @property
     def trampoline(self) -> List["BasicBlock"]:
         return self._trampoline
+
+    @property
+    def roles(self) -> Dict[str, str]:
+        if self._roles is None:
+            self._roles = {}
+            (s1, s2) = self.spliced_blocks
+            self._roles[s1.baddr] = "split-block-pre"
+            self._roles[s2.baddr] = "split-block-post"
+            self._roles[self.trampoline_setup] = "trampoline-setup"
+            self._roles[self.trampoline_payload] = "trampoline-payload"
+            self._roles[self.trampoline_decision] = "trampoline-decision"
+            self._roles[self.trampoline_takedown] = "trampoline-takedown"
+            self._roles[self.trampoline_breakout] = "trampoline-breakout"
+        return self._roles
 
     @property
     def distance(self) -> int:
@@ -120,16 +136,24 @@ class TrampolineAnalysis:
         raise UF.CHBError("Trampoline setup block not found")
 
     @property
-    def trampoline_function(self) -> str:
+    def trampoline_payload(self) -> str:
         setup = self.trampoline_setup
         if setup in self.cfg2.edges:
             if len(self.cfg2.edges[setup]) == 1:
                 return self.cfg2.edges[setup][0]
-        raise UF.CHBError("No trampoline function found")
+        raise UF.CHBError("No trampoline payload found")
+
+    @property
+    def trampoline_payload_block(self) -> "BasicBlock":
+        addr = self.trampoline_payload
+        for b in self.trampoline:
+            if b.baddr == addr:
+                return b
+        raise UF.CHBError("Trampoline function block not found")
 
     @property
     def trampoline_decision(self) -> str:
-        tf = self.trampoline_function
+        tf = self.trampoline_payload
         if tf in self.cfg2.edges:
             if len(self.cfg2.edges[tf]) == 1:
                 return self.cfg2.edges[tf][0]
@@ -165,6 +189,14 @@ class TrampolineAnalysis:
                     continue
                 return succ
         raise UF.CHBError("No trampoline breakout block found")
+
+    @property
+    def trampoline_breakout_block(self) -> "BasicBlock":
+        addr = self.trampoline_breakout
+        for b in self.trampoline:
+            if b.baddr == addr:
+                return b
+        raise UF.CHBError("Trampoline breakout block not found")
 
     def levenshtein_distance(self) -> Tuple[
             int, List[Tuple[Optional[int], Optional[int]]]]:
@@ -227,6 +259,17 @@ class TrampolineAnalysis:
                         None)
         return self._instranalyses
 
+    @property
+    def instrs_replaced(self) -> List["Instruction"]:
+        result: List["Instruction"] = []
+        for (iaddr, ira) in sorted(self.instr_analyses.items()):
+            if (
+                    not ira.is_md5_equal
+                    or ira.has_different_annotation
+                    or (not ira.same_address)):
+                result.append(ira.instr1)
+        return result
+
     def report(self, callees: List[str] = []) -> str:
         lines: List[str] = []
         for iaddr in sorted(self.instr_analyses):
@@ -269,21 +312,47 @@ class TrampolineAnalysis:
                     lines.append("  P: not mapped")
                     lines.append("")
 
-        lines.append("\nTrampoline setup   : " + self.trampoline_setup)
-        lines.append("Trampoline function: " + self.trampoline_function)
-        lines.append("Trampoline decision: " + self.trampoline_decision)
-        lines.append("Trampoline takedown: " + self.trampoline_takedown)
-        lines.append("Trampoline breakout: " + self.trampoline_breakout)
+        lines.append("\nTrampoline components:")
+        lines.append("  setup   : " + self.trampoline_setup)
+        lines.append("  payload : " + self.trampoline_payload_block.real_baddr)
+        lines.append("  decision: " + self.trampoline_decision)
+        lines.append("  takedown: " + self.trampoline_takedown)
+        lines.append("  breakout: " + self.trampoline_breakout)
 
-        lines.append("\nTrampoline takedown:")
-        for instr in self.trampoline_takedown_block.instructions.values():
-            lines.append(instr.iaddr.ljust(10) + instr.bytestring.ljust(10) + str(instr))
+        trfun = self.trampoline_payload_block
+        (iaddr, chkinstr) = sorted(trfun.instructions.items())[-2]
+        chkinstr = cast("ARMInstruction", chkinstr)
+        condition: str = "?"
+        if chkinstr.mnemonic_stem == "MOV":
+            if chkinstr.has_instruction_condition():
+                condition = str(chkinstr.get_instruction_condition())
+        lines.append("\nTrampoline breakout check performed: " + str(condition))
 
-        
+        replaced = self.instrs_replaced
+        trinstrs = sorted(self.trampoline_takedown_block.instructions.items())
+        restoreinstrs = [i[1] for i in trinstrs[1:-1]]
+        if len(replaced) == len(restoreinstrs):
+            lines.append("\nComparison of instructions replaced and restored")
+            for (i1, i2) in zip(replaced, restoreinstrs):
+                lines.append("replaced:  " + i1.iaddr + "  " + str(i1))
+                lines.append("restored:  " + i2.iaddr + "  " + str(i2))
+                lines.append("")
+
+        setupinstrs = sorted(self.trampoline_setup_block.instructions.items())
+        i1 = setupinstrs[0][1]
+        takedowninstrs = sorted(self.trampoline_takedown_block.instructions.items())
+        i2 = takedowninstrs[0][1]
+        lines.append(
+            "Comparison of context stored (in setup) and context restored (in takedown):")
+        lines.append(
+            "store context  :  "
+            + i1.iaddr
+            + "  "
+            + i1.to_string(sp=True, opcodewidth=50))
+        lines.append(
+            "restore context:  "
+            + i2.iaddr
+            + "  "
+            + i2.to_string(sp=True, opcodewidth=50))
 
         return "\n".join(lines)
-            
-            
-        
-            
-        

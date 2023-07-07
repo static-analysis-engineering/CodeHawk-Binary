@@ -27,46 +27,37 @@
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 
+from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 from chb.jsoninterface.JSONObject import JSONObject
-from chb.jsoninterface.JSONStackpointerOffset import (
-    JSONStackpointerOffset, mk_stackpointer_offset)
 
 if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
     
 
-
-class JSONAssemblyInstruction(JSONObject):
+class JSONAssemblyBlock(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "assemblyinstruction")
+        JSONObject.__init__(self, d, "assemblyblock")
+        self._instrs: Optional[List[JSONAssemblyInstruction]] = None
 
     @property
-    def addr(self) -> str:
-        return self.d.get("addr", self.property_missing("addr"))
+    def startaddr(self) -> str:
+        return self.d.get("startaddr", self.property_missing("startaddr"))
 
     @property
-    def stackpointer(self) -> Optional[JSONStackpointerOffset]:
-        if "stackpointer" in self.d:
-            return JSONStackpointerOffset(self.d.get("stackpointer", {}))
-        else:
-            return None
+    def endaddr(self) -> str:
+        return self.d.get("endaddr", self.property_missing("endaddr"))
 
     @property
-    def bytes(self) -> str:
-        return self.d.get("bytes", self.property_missing("bytes"))
-
-    @property
-    def opcode(self) -> str:
-        return self.d.get("opcode", self.property_missing("opcode"))
-
-    @property
-    def annotation(self) -> str:
-        return self.d.get("annotation", self.property_missing("annotation"))
+    def instructions(self) -> List[JSONAssemblyInstruction]:
+        if self._instrs is None:
+            result: List[JSONAssemblyInstruction] = []
+            for i in self.d.get("instructions", []):
+                result.append(JSONAssemblyInstruction(i))
+            self._instrs = result
+        return self._instrs
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_assembly_instruction(self)
+        visitor.visit_assembly_block(self)
 
-                          
-
-                                      
+    

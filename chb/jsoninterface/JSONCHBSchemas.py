@@ -179,6 +179,7 @@ assemblyblock = {
     "description": (
         "Range of instructions within a function that form a basic block"),
     "type": "object",
+    "required": ["startaddr", "endaddr"],
     "properties": {
         "startaddr": strtype(
             desc="hexaddress of the first instruction of the block"),
@@ -1111,6 +1112,72 @@ blockcomparison = {
     }
 }
 
+
+cfgblockmappingitem = {
+    "name": "cfgblockmappingitem",
+    "title": "relationship between block in cfg1 and block(s) in cfg2",
+    "description": "relationship between block in cfg1 and block(s) in cfg2",
+    "type": "object",
+    "properties": {
+        "matches": prop_set(["md5", "instructioncount"]),
+        "changes": prop_set(["md5", "trampoline-insertion", "instructioncount"]),
+        "cfg1-block-addr": strtype("hex address of block in cfg1"),
+        "cfg2-blocks": {
+            "type": "array",
+            "description": "list of blocks address in cfg2 mapped to block in cfg1",
+            "items": {
+                "type": "object",
+                "description": "block address and role",
+                "properties": {
+                    "cfg2-block-addr": strtype("hex address of block in cfg2"),
+                    "role": prop_kind([
+                        "single-mapped",
+                        "split-block-pre",
+                        "split-block-post",
+                        "trampoline-setup",
+                        "trampoline-payload",
+                        "trampoline-decision",
+                        "trampoline-takedown",
+                        "trampoline-breakout"
+                    ])
+                }
+            }
+        }
+    }
+}
+
+
+cfgcomparison = {
+    "name": "cfgcomparison",
+    "title": "cfgs of original and patched function",
+    "description": "cfgs of original and patched function marked with changes",
+    "type": "object",
+    "properties": {
+        "changes": prop_set(["trampoline"]),
+        "cfg1": refdef("controlflowgraph"),
+        "cfg2": refdef("controlflowgraph"),
+        "cfg-block-mapping": {
+            "type": "array",
+            "description": "mapping of blocks in cfg1 and sets of blocks in cfg2",
+            "items": refdef("cfgblockmappingitem")
+        }
+    }
+}
+
+
+cfgcomparisons = {
+    "name": "cfgcomparisons",
+    "title": "list of cfg comparisons",
+    "description": "list of cfg comparisons",
+    "type": "object",
+    "properties": {
+        "functions-changed": {
+            "type": "array",
+            "description": "list of cfg comparisons for functions changed",
+            "items": refdef("cfgcomparison")
+        }
+    }
+}
 
 cfgcomparisonsummary = {
     "name": "cfgcomparisonsummary",

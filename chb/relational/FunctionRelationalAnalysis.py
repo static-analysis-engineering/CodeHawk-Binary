@@ -559,11 +559,12 @@ class FunctionRelationalAnalysis:
                             [self.basic_blocks2[b] for b in t],
                             cfgmatcher)
                         self._trampolineanalysis = tra
+                        (sstart, ssend) = tra.spliced_blocks
                         lines.append(
                             baddr1.ljust(12)
                             + "trampoline".ljust(16)
                             + "no".ljust(18)
-                            + "---".ljust(20))
+                            + "split into " + sstart.baddr + " and " + ssend.baddr)
 
                 if showinstructions:
                     for (baddr, blra) in self.block_analyses.items():
@@ -574,7 +575,7 @@ class FunctionRelationalAnalysis:
                         tra = self.trampoline_analysis
 
                         lines.append(
-                            "\nInstructions changed in spliced block " + tra.b1.baddr)
+                            "\nInstructions changed in split block " + tra.b1.baddr)
                         lines.append(tra.report())
                         lines.append("")
 

@@ -29,8 +29,11 @@
 from typing import Any, Dict, List, Optional, Union
 
 import chb.jsoninterface.JSONAppComparison as AppC
+from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 import chb.jsoninterface.JSONBlockComparison as BlockC
+import chb.jsoninterface.JSONControlFlowGraph as Cfg
+import chb.jsoninterface.JSONCfgComparison as CfgC
 import chb.jsoninterface.JSONFunctionComparison as FunC
 import chb.jsoninterface.JSONInstructionComparison as InstrC
 from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
@@ -58,6 +61,9 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
 
     def visit_app_functions_comparison_summary(
             self, obj: AppC.JSONAppFunctionsComparisonSummary) -> None:
+        pass
+
+    def visit_assembly_block(self, obj: JSONAssemblyBlock) -> None:
         pass
 
     def visit_assembly_instruction(self, obj: JSONAssemblyInstruction) -> None:
@@ -91,8 +97,27 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
             self, obj: BlockC.JSONBlockSemanticsComparisonSummary) -> None:
         pass
 
+    def visit_cfg_block_mapping_item(
+            self, obj: CfgC.JSONCfgBlockMappingItem) -> None:
+        pass
+
+    def visit_cfg_comparison(self, obj: CfgC.JSONCfgComparison) -> None:
+        pass
+
+    def visit_cfg_comparisons(self, obj: CfgC.JSONCfgComparisons) -> None:
+        pass
+
     def visit_cfg_comparison_summary(
             self, obj: FunC.JSONCfgComparisonSummary) -> None:
+        pass
+
+    def visit_cfg_edge(self, obj: Cfg.JSONCfgEdge) -> None:
+        pass
+
+    def visit_cfg_node(self, obj: Cfg.JSONCfgNode) -> None:
+        pass
+
+    def visit_control_flow_graph(self, obj: Cfg.JSONControlFlowGraph) -> None:
         pass
 
     def visit_function_block_mapped_summary(

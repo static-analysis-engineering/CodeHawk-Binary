@@ -78,6 +78,14 @@ class Instruction(ABC):
         return _iaddr
 
     @property
+    def real_iaddr(self) -> str:
+        _iaddr = self.iaddr
+        if _iaddr.startswith("F"):
+            return _iaddr.split("_")[-1]
+        else:
+            return _iaddr
+
+    @property
     @abstractmethod
     def mnemonic(self) -> str:
         ...

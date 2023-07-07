@@ -210,6 +210,16 @@ class ARMInstruction(Instruction):
     def annotation(self) -> str:
         return self.opcode.annotation(self.xdata)
 
+    def has_instruction_condition(self) -> bool:
+        return self.xdata.has_instruction_condition()
+
+    def get_instruction_condition(self) -> XXpr:
+        if self.has_instruction_condition():
+            return self.xdata.xprs[2]
+        else:
+            raise UF.CHBError(
+                "Instruction does not have an instruction condition")
+
     @property
     def memory_accesses(self) -> Sequence[MemoryAccess]:
         return self.opcode.memory_accesses(self.xdata)
@@ -326,7 +336,7 @@ class ARMInstruction(Instruction):
         content: Dict[str, Any] = {}
         status: Dict[str, str] = {"status": "Ok"}
         spresult = self.stackpointer_offset.to_json_result()
-        content["addr"] = [self.iaddr]
+        content["addr"] = [self.real_iaddr]
         if spresult.is_ok:
             content["stackpointer"] = spresult.content
         content["bytes"] = self.bytestring

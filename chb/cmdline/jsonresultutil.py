@@ -35,10 +35,14 @@ from chb.app.CHVersion import chbversion
 from chb.jsoninterface.JSONResult import JSONResult
 from chb.jsoninterface.JSONSchema import JSONSchema
 
+from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
+from chb.relational.TrampolineAnalysis import TrampolineAnalysis
+
 if TYPE_CHECKING:
     from chb.app.BasicBlock import BasicBlock
     from chb.app.Function import Function
     from chb.invariants.InvariantFact import InvariantFact
+    from chb.relational.FunctionRelationalAnalysis import FunctionRelationalAnalysis
 
 
 def jsondate() -> Tuple[str, str]:
@@ -108,9 +112,13 @@ def function_invariants_to_json_result(
 
 def cfg_edge_to_json_result(
         f: "Function", src: str, tgt: str, kind: str) -> JSONResult:
+    # remove context from addresses
+    real_src = src.split("_")[-1] if src.startswith("F") else src
+    real_tgt = tgt.split("_")[-1] if tgt.startswith("F") else tgt
+
     content: Dict[str, Any] = {}
-    content["src"] = src
-    content["tgt"] = tgt
+    content["src"] = real_src
+    content["tgt"] = real_tgt
     content["kind"] = kind
     if kind in ["true", "false"]:
         if src in f.branchconditions:
@@ -130,7 +138,7 @@ def cfg_edge_to_json_result(
 
 def cfg_node_to_json_result(f: "Function", b: "BasicBlock") -> JSONResult:
     content: Dict[str, Any] = {}
-    content["baddr"] = b.baddr
+    content["baddr"] = b.real_baddr
     bresult = b.to_json_result()
     if not bresult.is_ok:
         return JSONResult("cfgnode", {}, "fail", bresult.reason)
@@ -179,3 +187,85 @@ def function_cfg_to_json_result(f: "Function") -> JSONResult:
                 edges.append(edge.content)
 
     return JSONResult("controlflowgraph", content, "ok")
+
+
+def cfg_block_map_to_json_result(
+        blockra: "BlockRelationalAnalysis") -> JSONResult:
+    schema = "cfgblockmappingitem"
+    content: Dict[str, Any] = {}
+    content["changes"] = blockra.changes()
+    content["matches"] = blockra.matches()
+    content["cfg1-block-addr"] = blockra.b1.real_baddr
+    cfg2blocks: List[Dict[str, Any]] = []
+    b2content: Dict[str, Any] = {}
+    b2content["cfg2-block-addr"] = blockra.b2.real_baddr
+    b2content["role"] = "single-mapped"
+    cfg2blocks.append(b2content)
+    content["cfg2-blocks"] = cfg2blocks
+    return JSONResult(schema, content, "ok")
+
+
+def cfg_trampoline_match_to_json_result(
+        tra: "TrampolineAnalysis") -> JSONResult:
+    schema = "cfgblockmappingitem"
+    content: Dict[str, Any] = {}
+    content["changes"] = ["trampoline-insertion"]
+    content["cfg1-block-addr"] = tra.b1.real_baddr
+    cfg2blocks: List[Dict[str, Any]] = []
+    for b in tra.trampoline:
+        b2content: Dict[str, Any] = {}
+        b2content["cfg2-block-addr"] = b.real_baddr
+        b2content["role"] = tra.roles[b.baddr]
+        cfg2blocks.append(b2content)
+    content["cfg2-blocks"] = cfg2blocks
+    return JSONResult(schema, content, "ok")
+
+
+def function_cfg_comparison_to_json_result(
+        fra: "FunctionRelationalAnalysis") -> JSONResult:
+    schema = "cfgcomparison"
+    content: Dict[str, Any] = {}
+    cfg1 = function_cfg_to_json_result(fra.fn1)
+    if cfg1.is_ok:
+        content["cfg1"] = cfg1.content
+    else:
+        return JSONResult(schema, {}, "fail", cfg1.reason)
+    cfg2 = function_cfg_to_json_result(fra.fn2)
+    if cfg2.is_ok:
+        content["cfg2"] = cfg2.content
+    else:
+        return JSONResult(schema, {}, "fail", cfg2.reason)
+    changes: List[str] = []
+    if fra.is_trampoline_block_splice:
+        changes.append("trampoline")
+        cfgmatcher = fra.cfgmatcher
+        blockmapping: List[Dict[str, Any]] = []
+        for baddr1 in sorted(fra.basic_blocks1):
+            if baddr1 in cfgmatcher.blockmapping:
+                baddr2 = cfgmatcher.blockmapping[baddr1]
+                blockra = BlockRelationalAnalysis(
+                    fra.app1,
+                    fra.basic_blocks1[baddr1],
+                    fra.app2,
+                    fra.basic_blocks2[baddr2])
+                blockmap = cfg_block_map_to_json_result(blockra)
+                if blockmap.is_ok:
+                    blockmapping.append(blockmap.content)
+                else:
+                    return JSONResult(schema, {}, "fail", blockmap.reason)
+            elif cfgmatcher.has_trampoline_match(baddr1):
+                t = cfgmatcher.get_trampoline_match(baddr1)
+                tra = TrampolineAnalysis(
+                    fra.app1,
+                    fra.basic_blocks1[baddr1],
+                    fra.app2,
+                    [fra.basic_blocks2[b] for b in t],
+                    cfgmatcher)
+                blockmap = cfg_trampoline_match_to_json_result(tra)
+                if blockmap.is_ok:
+                    blockmapping.append(blockmap.content)
+                else:
+                    return JSONResult(schema, {}, "fail", blockmap.reason)
+        content["cfg-block-mapping"] = blockmapping
+    content["changes"] = changes
+    return JSONResult(schema, content, "ok")

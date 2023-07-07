@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+# ------------------------------------------------------------------------------
+# CodeHawk Binary Analyzer
+# Author: Henny Sipma
+# ------------------------------------------------------------------------------
+# The MIT License (MIT)
+#
+# Copyright (c) 2023  Aarno Labs, LLC
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ------------------------------------------------------------------------------
+"""Command-line tool to query/view a CodeHawk JSON file."""
+
+import argparse
+import json
+import sys
+
+from typing import NoReturn
+
+import chb.jsoninterface.jsonutil as JU
+
+
+jversion = "0.1.0-2023-07-01"
+
+
+def checkcommand(args: argparse.Namespace) -> NoReturn:
+    print("The check command can be followed by the following subcommands:")
+    print("")
+    print("  appc <jsonfile>   check appcomparison file")
+    print("  cfgc <jsonfile>   check cfgcomparisons file")
+    exit(0)
+
+
+def showversion(args: argparse.Namespace) -> NoReturn:
+    print("CHKX JSON " + jversion)
+    exit(0)
+
+
+def parse() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__,
+        epilog="See for more information ...")
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        exit(0)
+
+    subparsers = parser.add_subparsers(title="subcommands")
+    parser_version = subparsers.add_parser("version")
+    parser_version.set_defaults(func=showversion)
+
+    # ----------------------------------------------------------------- info ---
+
+    infocmd = subparsers.add_parser("info")
+    infocmd.add_argument("jsonfile", help="name of json file to inspect")
+    infocmd.set_defaults(func=JU.infocmd)
+
+    # ------------------------------------------------------------------ check --
+
+    checkcmd = subparsers.add_parser("check")
+    checkcmd.set_defaults(func=checkcommand)
+    checkparsers = checkcmd.add_subparsers(title="show options")
+
+    # --- check appcomparison
+    checkappc = checkparsers.add_parser("appc")
+    checkappc.add_argument("jsonfile", help="name of json file to inspect")
+    checkappc.add_argument(
+        "--level",
+        help="number of levels to descend",
+        type=int,
+        default=0)
+    checkappc.set_defaults(func=JU.check_appc_cmd)
+
+    # --- check cfgcomparison
+    checkcfgc = checkparsers.add_parser("cfgc")
+    checkcfgc.add_argument("jsonfile", help="name of json file to inspect")
+    checkcfgc.set_defaults(func=JU.check_cfgc_cmd)
+
+    # -- parse
+    args = parser.parse_args()
+    return args
+
+if __name__ == "__main__":
+
+    args = parse()
+    args.func(args)
+    

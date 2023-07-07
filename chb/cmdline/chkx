@@ -1141,6 +1141,10 @@ def parse() -> argparse.Namespace:
         choices=["pdf", "png"],
         default="pdf",
         help="format for the generated file")
+    relationalcomparecfgs.add_argument(
+        "--json",
+        action="store_true",
+        help="store results in json (all other optional arguments are ignored")
     relationalcomparecfgs.set_defaults(func=R.relational_compare_cfgs_cmd)
 
     # --- relational compare invariants --

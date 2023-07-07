@@ -29,8 +29,11 @@
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 import chb.jsoninterface.JSONAppComparison as AppC
+from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 import chb.jsoninterface.JSONBlockComparison as BlockC
+import chb.jsoninterface.JSONControlFlowGraph as Cfg
+import chb.jsoninterface.JSONCfgComparison as CfgC
 import chb.jsoninterface.JSONFunctionComparison as FunC
 import chb.jsoninterface.JSONInstructionComparison as InstrC
 from chb.jsoninterface.JSONObject import JSONObject
@@ -139,8 +142,15 @@ class JSONChecker(JSONObjectNOPVisitor):
             c.accept(self)
         self.dec_indent()
 
+    def visit_assembly_block(self, obj: JSONAssemblyBlock) -> None:
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt(obj.startaddr, tag="startaddr")
+        self.dec_indent()
+
     def visit_assembly_instruction(self, obj: JSONAssemblyInstruction) -> None:
-        ...
+        pass
 
     def visit_callgraph_comaprison_summary(
             self, obj: AppC.JSONCallgraphComparisonSummary) -> None:
@@ -207,10 +217,90 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_newline()
         self.add_txt(obj.objname + " (tbd)")
 
+    def visit_cfg_block_mapping_item(
+            self, obj: CfgC.JSONCfgBlockMappingItem) -> None:
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt_lst(obj.changes, tag="changes")
+        self.add_txt_lst(obj.matches, tag="matches")
+        self.add_txt(obj.cfg1_block_addr, tag="cfg1_block_addr")
+        self.add_txt("cfg2-blocks")
+        self.inc_indent()
+        for (b, role) in obj.cfg2_blocks:
+            self.add_txt(b + ", " + role)
+        self.dec_indent()
+        self.dec_indent()
+
+    def visit_cfg_comparison(self, obj: CfgC.JSONCfgComparison) -> None:
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt("cfg1")
+        self.inc_indent()
+        obj.cfg1.accept(self)
+        self.dec_indent()
+        self.add_txt("cfg2")
+        self.inc_indent()
+        obj.cfg2.accept(self)
+        self.dec_indent()
+        self.add_txt("cfg-block-mapping")
+        self.inc_indent()
+        for m in obj.cfg_block_mapping:
+            m.accept(self)
+        self.dec_indent()
+        self.dec_indent()
+
+    def visit_cfg_comparisons(self, obj: CfgC.JSONCfgComparisons) -> None:
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        for f in obj.functions_changed:
+            f.accept(self)
+        self.dec_indent()
+
     def visit_cfg_comparison_summary(
             self, obj: FunC.JSONCfgComparisonSummary) -> None:
         self.add_newline()
         self.add_txt(obj.objname + " (tbd)")
+
+    def visit_cfg_edge(self, obj: Cfg.JSONCfgEdge) -> None:
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt(obj.src, tag="src")
+        self.add_txt(obj.tgt, tag="tgt")
+        self.add_txt(obj.kind, tag="kind")
+        if obj.predicate is not None:
+            self.add_txt(obj.predicate, tag="predicate")
+        self.dec_indent()
+
+    def visit_cfg_node(self, obj: Cfg.JSONCfgNode) -> None:
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt(obj.baddr, tag="baddr")
+        obj.code.accept(self)
+        self.dec_indent()
+
+    def visit_control_flow_graph(self, obj: Cfg.JSONControlFlowGraph) -> None:
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        if obj.name is not None:
+            self.add_txt(obj.name, tag="name")
+        self.add_txt(obj.faddr, tag="faddr")
+        self.add_txt("nodes")
+        self.inc_indent()
+        for n in obj.nodes:
+            n.accept(self)
+        self.dec_indent()
+        self.add_txt("edges")
+        self.inc_indent()
+        for e in obj.edges:
+            e.accept(self)
+        self.dec_indent()
+        self.dec_indent()
 
     def visit_function_block_mapped_summary(
             self, obj: FunC.JSONFunctionBlockMappedSummary) -> None:
