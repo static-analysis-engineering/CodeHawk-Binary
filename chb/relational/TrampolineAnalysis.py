@@ -96,10 +96,25 @@ class TrampolineAnalysis:
             self._roles[s1.baddr] = "split-block-pre"
             self._roles[s2.baddr] = "split-block-post"
             self._roles[self.trampoline_setup] = "trampoline-setup"
-            self._roles[self.trampoline_payload] = "trampoline-payload"
-            self._roles[self.trampoline_decision] = "trampoline-decision"
             self._roles[self.trampoline_takedown] = "trampoline-takedown"
-            self._roles[self.trampoline_breakout] = "trampoline-breakout"
+
+            if self.trampoline_structure == "breakout":
+                self._roles[self.trampoline_payload] = "trampoline-payload"
+                self._roles[self.trampoline_decision] = "trampoline-decision"
+                self._roles[self.trampoline_breakout] = "trampoline-breakout"
+            elif self.trampoline_structure == "alternate-action":
+                self._roles[
+                    self.trampoline_payload_check] = "trampoline-payload:check"
+                self._roles[
+                    self.trampoline_payload_conditional_action] = (
+                        "trampoline-payload:conditional-action")
+                self._roles[
+                    self.trampoline_payload_skip_action] = (
+                        "trampoline-payload:skip-action")
+            else:
+                for b in self.trampoline:
+                    if b.baddr not in self._roles:
+                        self._roles[b.baddr] = "trampoline:unknown"
         return self._roles
 
     @property
@@ -118,6 +133,19 @@ class TrampolineAnalysis:
         if firstblock is None or lastblock is None:
             raise UF.CHBError("No spliced blocks found")
         return (firstblock, lastblock)
+
+    @property
+    def trampoline_structure(self) -> str:
+        payloadsize: int = 0
+        for b in self.trampoline:
+            if b.baddr.startswith("F"):
+                payloadsize += 1
+        if payloadsize == 1:
+            return "breakout"
+        elif payloadsize == 3:
+            return "alternate-action"
+        else:
+            return "unknown"
 
     @property
     def trampoline_setup(self) -> str:
@@ -149,7 +177,55 @@ class TrampolineAnalysis:
         for b in self.trampoline:
             if b.baddr == addr:
                 return b
-        raise UF.CHBError("Trampoline function block not found")
+        raise UF.CHBError("Trampoline payload block not found")
+
+    @property
+    def trampoline_payload_check(self) -> str:
+        setup = self.trampoline_setup
+        if setup in self.cfg2.edges:
+            if len(self.cfg2.edges[setup]) == 1:
+                return self.cfg2.edges[setup][0]
+        raise UF.CHBError("No trampoline payload:check found")
+
+    @property
+    def trampoline_payload_check_block(self) -> "BasicBlock":
+        addr = self.trampoline_payload_check
+        for b in self.trampoline:
+            if b.baddr == addr:
+                return b
+        raise UF.CHBError("Trampoline payload check block not found")
+
+    @property
+    def trampoline_payload_skip_action(self) -> str:
+        check = self.trampoline_payload_check
+        if check in self.cfg2.edges:
+            if len(self.cfg2.edges[check]) == 2:
+                return self.cfg2.edges[check][0]
+        raise UF.CHBError("No trampoline payload:skip-action found")
+
+    @property
+    def trampoline_payload_skip_action_block(self) -> "BasicBlock":
+        addr = self.trampoline_payload_skip_action
+        for b in self.trampoline:
+            if b.baddr == addr:
+                return b
+        raise UF.CHBError("Trampoline payload:skip-action block not found")
+
+    @property
+    def trampoline_payload_conditional_action(self) -> str:
+        check = self.trampoline_payload_check
+        if check in self.cfg2.edges:
+            if len(self.cfg2.edges[check]) == 2:
+                return self.cfg2.edges[check][1]
+        raise UF.CHBError("No trampoline payload:conditional_action found")
+
+    @property
+    def trampoline_payload_conditional_action_block(self) -> "BasicBlock":
+        addr = self.trampoline_payload_conditional_action
+        for b in self.trampoline:
+            if b.baddr == addr:
+                return b
+        raise UF.CHBError("Trampoline payload:conditional-action block not found")
 
     @property
     def trampoline_decision(self) -> str:
@@ -162,14 +238,27 @@ class TrampolineAnalysis:
     @property
     def trampoline_takedown(self) -> str:
         (s2start, s2end) = self.spliced_blocks
-        td = self.trampoline_decision
-        if td in self.cfg2.edges:
-            for succ in self.cfg2.edges[td]:
-                if succ in self.cfg2.edges:
-                    if len(self.cfg2.edges[succ]) == 1:
-                        if self.cfg2.edges[succ][0] == s2end.baddr:
-                            return succ
-        raise UF.CHBError("No trampoline takedown block found")
+        if self.trampoline_structure == "breakout":
+            td = self.trampoline_decision
+            if td in self.cfg2.edges:
+                for succ in self.cfg2.edges[td]:
+                    if succ in self.cfg2.edges:
+                        if len(self.cfg2.edges[succ]) == 1:
+                            if self.cfg2.edges[succ][0] == s2end.baddr:
+                                return succ
+            raise UF.CHBError(
+                "No trampoline takedown block found for breakout trampoline")
+        elif self.trampoline_structure == "alternate-action":
+            tda = self.trampoline_payload_skip_action
+            tdr = self.trampoline_payload_conditional_action
+            if tda in self.cfg2.edges and tdr in self.cfg2.edges:
+                if len(self.cfg2.edges[tda]) == 1 and len(self.cfg2.edges[tdr]) == 1:
+                    if self.cfg2.edges[tda][0] == self.cfg2.edges[tdr][0]:
+                        return self.cfg2.edges[tda][0]
+            raise UF.CHBError(
+                "No trampoline takedown block found for alternate-action trampoline")
+        else:
+            raise UF.CHBError("No trampoline takedown block found")
 
     @property
     def trampoline_takedown_block(self) -> "BasicBlock":
@@ -270,6 +359,49 @@ class TrampolineAnalysis:
                 result.append(ira.instr1)
         return result
 
+    def setup_restore_context_comparison(
+            self, setup: "Instruction", restore: "Instruction") -> str:
+
+        lines: List[str] = []
+        if setup.mnemonic.startswith("PUSH") and restore.mnemonic.startswith("POP"):
+            pushassigns = list(zip(setup.xdata.vars, setup.xdata.xprs[2:]))
+            popassigns = list(zip(restore.xdata.vars, restore.xdata.xprs[2:]))
+
+            lines.append(
+                (" " * 16)
+                + "Save context".ljust(32)
+                + "Restore context")
+            lines.append("-" * 80)
+            lines.append(
+                "iaddr".ljust(16)
+                + setup.real_iaddr.ljust(16)
+                + restore.real_iaddr.ljust(16))
+            lines.append(
+                "SP before".ljust(16)
+                + str(setup.stackpointer_offset.offsetvalue()).ljust(32)
+                + str(restore.stackpointer_offset.offsetvalue()).ljust(32))
+            lines.append(
+                "opcode".ljust(16)
+            + setup.mnemonic.ljust(32)
+                + restore.mnemonic)
+            spsetup = pushassigns[0][1]
+            sprestore = popassigns[0][1]
+            lines.append(
+                "SP after".ljust(16)
+                + str(spsetup.stack_address_offset()).ljust(32)
+                + str(sprestore.stack_address_offset()).ljust(32))
+            lines.append("\nregister saves and restores:")
+            pushassigns = list(zip(setup.xdata.vars, setup.xdata.xprs[2:]))
+            popassigns = list(zip(restore.xdata.vars, restore.xdata.xprs[2:]))
+            if len(pushassigns) == len(popassigns):
+                for ((v1, a1), (v2, a2)) in zip(pushassigns, popassigns):
+                    lines.append(
+                        ("  " + str(v2)).ljust(16)
+                        + (str(v1) + " = " + str(a1)).ljust(32)
+                        + (str(v2) + " = " + str(a2)).ljust(32))
+
+        return "\n".join(lines)
+
     def report(self, callees: List[str] = []) -> str:
         lines: List[str] = []
         for iaddr in sorted(self.instr_analyses):
@@ -312,21 +444,70 @@ class TrampolineAnalysis:
                     lines.append("  P: not mapped")
                     lines.append("")
 
-        lines.append("\nTrampoline components:")
-        lines.append("  setup   : " + self.trampoline_setup)
-        lines.append("  payload : " + self.trampoline_payload_block.real_baddr)
-        lines.append("  decision: " + self.trampoline_decision)
-        lines.append("  takedown: " + self.trampoline_takedown)
-        lines.append("  breakout: " + self.trampoline_breakout)
+        try:
+            lines.append("\nTrampoline components:")
+            lines.append("  setup   : " + self.trampoline_setup)
+            lines.append("  takedown: " + self.trampoline_takedown)
 
-        trfun = self.trampoline_payload_block
-        (iaddr, chkinstr) = sorted(trfun.instructions.items())[-2]
-        chkinstr = cast("ARMInstruction", chkinstr)
-        condition: str = "?"
-        if chkinstr.mnemonic_stem == "MOV":
-            if chkinstr.has_instruction_condition():
-                condition = str(chkinstr.get_instruction_condition())
-        lines.append("\nTrampoline breakout check performed: " + str(condition))
+            if self.trampoline_structure == "breakout":
+                lines.append("  payload : " + self.trampoline_payload_block.real_baddr)
+                lines.append("  decision: " + self.trampoline_decision)
+                lines.append("  breakout: " + self.trampoline_breakout)
+            elif self.trampoline_structure == "alternate-action":
+                lines.append(
+                    "  payload:check             : "
+                    + self.trampoline_payload_check_block.real_baddr)
+                lines.append(
+                    "  payload:conditional-action: "
+                    + self.trampoline_payload_conditional_action_block.real_baddr)
+                lines.append(
+                    "  payload:skip-action       : "
+                    + self.trampoline_payload_skip_action_block.real_baddr)
+        except UF.CHBError as e:
+            lines.append("")
+            lines.append("*" * 80)
+            lines.append("* Error encountered in dissecting trampoline:")
+            lines.append("*   " + str(e))
+            lines.append("*" * 80)
+            return "\n".join(lines)
+
+        if self.trampoline_structure == "breakout":
+            trfun = self.trampoline_payload_block
+            (iaddr, chkinstr) = sorted(trfun.instructions.items())[-2]
+            chkinstr = cast("ARMInstruction", chkinstr)
+            condition: str = "?"
+            if chkinstr.mnemonic_stem == "MOV":
+                if chkinstr.has_instruction_condition():
+                    condition = str(chkinstr.get_instruction_condition())
+            lines.append("\nTrampoline breakout check performed: " + str(condition))
+            lines.append("")
+
+        elif self.trampoline_structure == "alternate-action":
+            trfun = self.trampoline_payload_check_block
+            (iaddr, chkinstr) = sorted(trfun.instructions.items())[-1]
+            chkinstr = cast("ARMInstruction", chkinstr)
+
+            condition = "?"
+            if chkinstr.mnemonic_stem == "CBZ":
+                if chkinstr.xdata.has_branch_conditions():
+                    condition = str(chkinstr.xdata.get_branch_conditions()[3])
+            lines.append("\nTrampoline check inserted: " + str(condition))
+            lines.append("If check is true:")
+            cinstrs = self.trampoline_payload_conditional_action_block.instructions
+            for iaddr in sorted(cinstrs)[:-2]:
+                ci = cinstrs[iaddr]
+                lines.append("   " + ci.real_iaddr + "  " + str(ci))
+            skipinstrs = self.trampoline_payload_skip_action_block.instructions
+            if len(skipinstrs) <= 2:
+                lines.append("\nElse: skip")
+            else:
+                lines.append("\nElse:")
+                for iaddr in sorted(skipinstrs):
+                    ci = skipinstrs[iaddr]
+                    lines.append("  " + ci.real_iaddr + "  " + str(ci))
+
+        else:
+            lines.append("\nNo Trampoline check condition recognized")
 
         replaced = self.instrs_replaced
         trinstrs = sorted(self.trampoline_takedown_block.instructions.items())
@@ -338,21 +519,34 @@ class TrampolineAnalysis:
                 lines.append("restored:  " + i2.iaddr + "  " + str(i2))
                 lines.append("")
 
+        elif len(replaced) > len(restoreinstrs):
+            sreplaced = list(i.bytestring for i in sorted(replaced, key=lambda i:i.iaddr))
+            srestored = list(i.bytestring for i in restoreinstrs)
+            (d, splice) = UR.levenshtein(sreplaced, srestored)
+            lines.append("\nInstructions restored in takedown block:")
+            for (x, y) in splice:
+                if (x is not None) and (y is not None):
+                    xinstr = replaced[x]
+                    yinstr = restoreinstrs[y]
+                    lines.append("  " + xinstr.real_iaddr + "  " + str(xinstr))
+                    lines.append("  " + yinstr.real_iaddr + "  " + str(yinstr))
+                    lines.append("")
+
+            lines.append("Instructions not restored (captured by conditional):")
+            for (x, y) in sorted(splice):
+                if (x is not None) and (y is None):
+                    xinstr = replaced[x]
+                    lines.append("  " + xinstr.real_iaddr + "  " + str(xinstr))
+        else:
+            lines.append("\nNo comparison yet")
+
         setupinstrs = sorted(self.trampoline_setup_block.instructions.items())
         i1 = setupinstrs[0][1]
         takedowninstrs = sorted(self.trampoline_takedown_block.instructions.items())
         i2 = takedowninstrs[0][1]
+
         lines.append(
-            "Comparison of context stored (in setup) and context restored (in takedown):")
-        lines.append(
-            "store context  :  "
-            + i1.iaddr
-            + "  "
-            + i1.to_string(sp=True, opcodewidth=50))
-        lines.append(
-            "restore context:  "
-            + i2.iaddr
-            + "  "
-            + i2.to_string(sp=True, opcodewidth=50))
+            "\n\nComparison of context stored (in setup) and context restored (in takedown)")
+        lines.append(self.setup_restore_context_comparison(i1, i2))
 
         return "\n".join(lines)

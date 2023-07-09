@@ -57,7 +57,7 @@ import chb.util.fileutil as UF
 import chb.cmdline.commandutil as UC
 
 
-def relational_header(xname1: str, xname2: str, header: str) -> str:
+def relational_header(xname1: str, xname2: str, md5: str, header: str) -> str:
     lines: List[str] = []
     lines.append("=" * 80)
     lines.append(
@@ -66,6 +66,7 @@ def relational_header(xname1: str, xname2: str, header: str) -> str:
         + "||")
     lines.append("||" + "  - " + str(xname1).ljust(72) + "||")
     lines.append("||" + "  - " + str(xname2).ljust(72) + "||")
+    lines.append("||" + "    md5 (patched): " + md5.ljust(14) + "||")
     lines.append("=" * 80)
     return "\n".join(lines)
 
@@ -194,8 +195,24 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
             print(json.dumps(jsonokresult))
 
     else:
+        if xoutput:
+            UC.print_status_update("Structural difference report saved in " + xoutput)
+            with open(xoutput, "w") as fp:
+                fp.write("\n".join(lines))
+
+    userhints.add_hints(newuserdata)
+    userhints.save_userdata(path2, xfile2)
+
+    xinfo1 = XI.XInfo()
+    xinfo1.load(path1, xfile1)
+
+    xinfo2 = XI.XInfo()
+    xinfo2.load(path2, xfile2)
+
+    if not xjson:
         lines: List[str] = []
-        lines.append(relational_header(xname1, xname2, "executable sections"))
+        lines.append(relational_header(
+            xname1, xname2, xinfo2.md5, "executable sections"))
         lines.append(str(xcomparison))
 
         lines.append("\nAdditions to user data:")
@@ -212,22 +229,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         lines.append("=" * 80)
         lines.append("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
         lines.append("=" * 80)
-
-        if xoutput:
-            UC.print_status_update("Structural difference report saved in " + xoutput)
-            with open(xoutput, "w") as fp:
-                fp.write("\n".join(lines))
-        else:
-            print("\n".join(lines))
-
-    userhints.add_hints(newuserdata)
-    userhints.save_userdata(path2, xfile2)
-
-    xinfo1 = XI.XInfo()
-    xinfo1.load(path1, xfile1)
-
-    xinfo2 = XI.XInfo()
-    xinfo2.load(path2, xfile2)
+        print("\n".join(lines))
 
     # preprocess c files
     ifilenames: List[str] = []
@@ -274,7 +276,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         thumb=True)
 
     try:
-        am.analyze()
+        am.analyze(iterations=10)
     except subprocess.CalledProcessError as e:
         print(e.output)
         print(e.args)
@@ -397,7 +399,11 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
         app1, app2, faddrs1=addresses, usermapping=usermapping)
 
     print(relational_header(
-        xname1, xname2, "function comparison of " + ", ".join(addresses)))
+        xname1,
+        xname2,
+        xinfo2.md5,
+        "function comparison of "
+        + ", ".join(addresses)))
     print(relanalysis.report(True, args.details))
     print("=" * 80)
     print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
@@ -518,7 +524,8 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
         fileformat,
         [dotcfg.build() for dotcfg in dotgraphs])
 
-    print(relational_header(xname1, xname2, "control-flow-graph comparison"))
+    print(relational_header(
+        xname1, xname2, xinfo2.md5, "control-flow-graph comparison"))
     if os.path.isfile(pdffilename):
         UC.print_info(
             "Control flow graph comparison for "
@@ -631,7 +638,8 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
                 for v2 in f2values:
                     newblocks[loc][v2] = f2values[v2]
 
-        print(relational_header(xname1, xname2, "invariant comparison"))
+        print(relational_header(
+            xname1, xname2, xinfo2.md5, "invariant comparison"))
         counter: int = 0
         print("\nInvariants modified or missing:")
         print("~" * 80)

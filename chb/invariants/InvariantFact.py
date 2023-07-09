@@ -202,7 +202,7 @@ class NRVFact(InvariantFact):
         return JSONResult("invariantfact", content, "ok")
 
     def __str__(self) -> str:
-        return str(self.variable) + ' == ' + str(self.value)
+        return str(self.variable) + ' == ' + str(self.value) + " (nrv)"
 
 
 @invregistry.register_tag("ie", InvariantFact)
@@ -255,7 +255,7 @@ class InitialVarEqualityFact(InvariantFact):
         return JSONResult("invariantfact", content, "ok")
 
     def __str__(self) -> str:
-        return str(self.variable) + ' == ' + str(self.initial_value)
+        return str(self.variable) + ' == ' + str(self.initial_value) + " (iv)"
 
 
 @invregistry.register_tag("id", InvariantFact)
@@ -413,4 +413,4 @@ class RelationalFact(InvariantFact):
         return JSONResult("linearequality", content, "ok")
 
     def __str__(self) -> str:
-        return str(self.equality)
+        return str(self.equality) + " (relational)"
