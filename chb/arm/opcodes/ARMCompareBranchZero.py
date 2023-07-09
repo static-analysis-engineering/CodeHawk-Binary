@@ -89,7 +89,7 @@ class ARMCompareBranchZero(ARMOpcode):
     def annotation(self, xdata: InstrXData) -> str:
         xpr = str(xdata.xprs[3])
         tgt = str(xdata.xprs[5])
-        return "if " + xpr + " == 0 goto " + tgt
+        return "if " + xpr + " goto " + tgt
 
     def ast_condition_prov(
             self,
