@@ -66,7 +66,7 @@ def relational_header(xname1: str, xname2: str, md5: str, header: str) -> str:
         + "||")
     lines.append("||" + "  - " + str(xname1).ljust(72) + "||")
     lines.append("||" + "  - " + str(xname2).ljust(72) + "||")
-    lines.append("||" + "    md5 (patched): " + md5.ljust(14) + "||")
+    lines.append("||" + "    md5 (patched): " + md5.ljust(57) + "||")
     lines.append("=" * 80)
     return "\n".join(lines)
 
