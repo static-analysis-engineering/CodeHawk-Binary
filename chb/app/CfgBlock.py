@@ -87,3 +87,7 @@ class CfgBlock:
             return self.role == "trampoline"
         else:
             return False
+
+    @property
+    def is_trampoline(self) -> bool:
+        return False

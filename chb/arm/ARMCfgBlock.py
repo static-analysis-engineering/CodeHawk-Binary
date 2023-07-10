@@ -43,3 +43,13 @@ class ARMCfgBlock(CfgBlock):
     def __init__(self, cfg: "ARMCfg", xnode: ET.Element) -> None:
         CfgBlock.__init__(self, xnode)
         self._armcfg = cfg
+
+
+
+class ARMCfgTrampolineBlock(ARMCfgBlock):
+
+    def __init__(
+            self,
+            cfg: "ARMCfg",
+            xnode: ET.Element) -> None:
+        pass
