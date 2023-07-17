@@ -56,7 +56,7 @@ class DotCfg:
             showinstr_text: bool = False,  # show all instr annotations on nodes
             showstores: bool = False,  # show all STR and STRB and STRH instr annotations
             mips: bool = False,     # for mips subtract 4 from block end addr
-            sink: str = None,      # restrict paths to basic block destination
+            sink: Optional[str] = None,  # restrict paths to basic block destination
             segments: List[str] = [],  # restrict paths to include these basic blocks
             # replacement text for node and edge labels
             replacements: Dict[str, str] = {}) -> None:

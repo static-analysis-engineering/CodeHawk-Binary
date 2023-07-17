@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyrigth (c) 2021-2022      Aarno Labs LLC
+# Copyrigth (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -263,7 +263,7 @@ class SimSupport:
         return name in self.call_intercepts
 
     def call_intercept(self, name: str) -> SimCallIntercept:
-        if self.has_call_intercept:
+        if self.has_call_intercept(name):
             return self.call_intercepts[name]
         else:
             raise UF.CHBError("No call intercept found for " + name)

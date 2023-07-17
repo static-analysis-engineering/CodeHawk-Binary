@@ -320,7 +320,7 @@ class MIPSInstruction(Instruction):
             xdata = self.xdata
             if len(xdata.xprs) >= 3:
                 lhs = xdata.vars[0]
-                return (lhs.has_denotation
+                return (lhs.has_denotation()
                         and lhs.denotation.is_memory_variable)
         return False
 

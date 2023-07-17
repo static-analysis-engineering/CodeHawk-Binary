@@ -132,7 +132,7 @@ class MIPSJumpRegister(MIPSOpcode):
         return 'jmp* ' + tgtx + '  ' + jtgts + ' (' + str(self.src_operand) + ')'
 
     def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
-        if xdata.has_return_value:
+        if xdata.has_return_value():
             return xdata.xprs[0]
         else:
             return None
