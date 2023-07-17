@@ -26,27 +26,38 @@
 # ------------------------------------------------------------------------------
 """Basic block in an abstract syntax tree."""
 
-from typing import Dict, List, Optional, Set, TYPE_CHECKING
+from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
 
 from chb.astinterface.ASTInterfaceInstruction import ASTInterfaceInstruction
 
+import chb.invariants.XXprUtil as XU
 
 if TYPE_CHECKING:
+    from chb.arm.ARMCfgBlock import ARMCfgBlock
     from chb.app.BasicBlock import BasicBlock
+    from chb.arm.ARMInstruction import ARMInstruction
     from chb.astinterface.ASTInterface import ASTInterface
 
 
 class ASTInterfaceBasicBlock:
 
-    def __init__(self, b: "BasicBlock") -> None:
+    def __init__(
+            self,
+            b: "BasicBlock",
+            trampoline: Optional[Dict[str, "BasicBlock"]] = None) -> None:
         self._b = b
         self._instructions: Dict[str, ASTInterfaceInstruction] = {}
+        self._trampoline = trampoline
 
     @property
     def basicblock(self) -> "BasicBlock":
         return self._b
+
+    @property
+    def trampoline(self) -> Optional[Dict[str, "BasicBlock"]]:
+        return self._trampoline
 
     @property
     def instructions(self) -> Dict[str, ASTInterfaceInstruction]:
@@ -90,6 +101,21 @@ class ASTInterfaceBasicBlock:
         return astree.mk_instr_sequence(instrs)
 
     def ast(self, astree: "ASTInterface") -> AST.ASTStmt:
+        if self.trampoline:
+            payloadblock = self.trampoline["payload"]
+            (iaddr, chkinstr) = sorted(payloadblock.instructions.items())[-2]
+            chkinstr = cast("ARMInstruction", chkinstr)
+            if chkinstr.mnemonic_stem == "MOV":
+                if chkinstr.has_instruction_condition():
+                    condition = chkinstr.get_instruction_condition()
+                    rstmt = astree.mk_return_stmt(None)
+                    estmt = astree.mk_instr_sequence([])
+                    aexprs = XU.xxpr_to_ast_exprs(condition, chkinstr.xdata, astree)
+                    if len(aexprs) == 1:
+                        cc = aexprs[0]
+                        brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
+                        return brstmt
+
         instrs: List[AST.ASTInstruction] = []
         for (a, i) in sorted(self.instructions.items(), key=lambda p: p[0]):
             instrs.extend(i.ast(astree))

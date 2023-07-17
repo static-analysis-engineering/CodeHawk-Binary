@@ -54,6 +54,7 @@ if TYPE_CHECKING:
     from chb.app.BasicBlock import BasicBlock
     from chb.app.Function import Function
     from chb.app.JumpTables import JumpTable
+    from chb.arm.ARMCfgBlock import ARMCfgTrampolineBlock
     from chb.invariants.InvariantFact import NRVFact
 
 
@@ -75,8 +76,20 @@ class ASTInterfaceFunction(ASTFunction):
     def astblocks(self) -> Dict[str, ASTInterfaceBasicBlock]:
         if len(self._astblocks) == 0:
             for (addr, block) in self.function.blocks.items():
-                astblock = ASTInterfaceBasicBlock(block)
-                self._astblocks[addr] = astblock
+                if addr in self.function.cfg.blocks:
+                    cfgblock = self.function.cfg.blocks[addr]
+                    if cfgblock.is_trampoline:
+                        cfgblock = cast("ARMCfgTrampolineBlock", cfgblock)
+                        roles: Dict[str, "BasicBlock"] = {}
+                        for (name, baddr) in cfgblock.roles.items():
+                            roles[name] = self.function.blocks[baddr]
+                        astblock = ASTInterfaceBasicBlock(block, roles)
+                        self._astblocks[addr] = astblock
+                    else:
+                        astblock = ASTInterfaceBasicBlock(block)
+                        self._astblocks[addr] = astblock
+                else:
+                    continue
         return self._astblocks
 
     @property
@@ -99,7 +112,10 @@ class ASTInterfaceFunction(ASTFunction):
             return self.jumptables[tgt]
         else:
             raise UF.CHBError(
-                "Function " + self.name + " does not have a jumptable at address " + tgt)
+                "Function "
+                + self.name
+                + " does not have a jumptable at address "
+                + tgt)
 
     @property
     def astinterface(self) -> ASTInterface:

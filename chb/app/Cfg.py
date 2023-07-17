@@ -55,7 +55,6 @@ import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
 
-
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF

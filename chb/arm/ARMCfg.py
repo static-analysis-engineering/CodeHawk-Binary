@@ -31,11 +31,12 @@ import xml.etree.ElementTree as ET
 from typing import Any, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
 
 from chb.app.Cfg import Cfg
-from chb.arm.ARMCfgBlock import ARMCfgBlock
+from chb.arm.ARMCfgBlock import ARMCfgBlock, ARMCfgTrampolineBlock
 import chb.arm.ARMCfgPath as P
 
 import chb.util.fileutil as UF
 
+astmode: List[str] = []
 
 if TYPE_CHECKING:
     from chb.arm.ARMFunction import ARMFunction
@@ -78,11 +79,12 @@ class ARMCfg(Cfg):
                 baddr = b.get("ba")
                 if baddr is None:
                     raise UF.CHBError("Block address is missing from arm cfg")
-                blocks[baddr] = ARMCfgBlock(self, b)
-            #if any(b.is_in_trampoline for b in blocks.values()):
-            #    self.set_trampoline_blocks(blocks)
-            if False:
-                pass
+                blocks[baddr] = ARMCfgBlock(b)
+            if len(astmode) > 0:
+                if any(b.is_in_trampoline for b in blocks.values()):
+                    self.set_trampoline_blocks(blocks)
+                else:
+                    self._blocks = blocks
             else:
                 self._blocks = blocks
         return self._blocks
@@ -120,4 +122,114 @@ class ARMCfg(Cfg):
 
     def set_trampoline_blocks(
             self, blocks: Dict[str, ARMCfgBlock]) -> None:
-        pass
+
+        # create original edges locally
+        localedges: Dict[str, List[str]] = {}
+        revedges: Dict[str, List[str]] = {}
+        xedges = self.xnode.find("edges")
+        if xedges is None:
+            raise UF.CHBError("Edges are missing from cfg xml")
+        for e in xedges.findall("e"):
+            src = e.get("src")
+            if src is None:
+                raise UF.CHBError("Src address is missing from cfg")
+            tgt = e.get("tgt")
+            if tgt is None:
+                raise UF.CHBError("Tgt address is missing from cfg")
+            localedges.setdefault(src, [])
+            localedges[src].append(tgt)
+            revedges.setdefault(tgt, [])
+            revedges[tgt].append(src)
+
+        roles: Dict[str, str] = {}
+
+        setupblock: Optional[str] = None
+        takedownblock: Optional[str] = None
+        payloadblock: Optional[str] = None
+        decisionblock: Optional[str] = None
+        breakoutblock: Optional[str] = None
+
+        # determine type of trampoline
+
+        pcount: int = 0
+        for (baddr, b) in blocks.items():
+            if b.is_in_trampoline:
+                if baddr.startswith("F"): pcount += 1
+
+        if pcount == 1:
+            trampoline_type = "breakout"
+        elif pcount == 3:
+            trampoline_type = "conditional"
+        else:
+            print("Trampoline type not recognized")
+            return
+
+        # determine setup block
+        for (baddr, b) in blocks.items():
+            if b.is_in_trampoline:
+                if baddr in revedges:
+                    revb = revedges[baddr]
+                if all(not blocks[pb].is_in_trampoline for pb in revb):
+                    setupblock = baddr
+                    roles["setup"] = baddr
+
+        if not setupblock:
+            print("no setup block found")
+            return
+
+        # determine payload block
+        if setupblock in localedges:
+            if len(localedges[setupblock]) == 1:
+                payloadblock = localedges[setupblock][0]
+                roles["payload"] = payloadblock
+
+        # determine trampoline decision block
+        if payloadblock in localedges:
+            if len(localedges[payloadblock]) == 1:
+                decisionblock = localedges[payloadblock][0]
+                roles["decision"] = decisionblock
+
+        # determine takedown block
+        if decisionblock in localedges:
+            if len(localedges[decisionblock]) == 2:
+                for succ in localedges[decisionblock]:
+                    if succ in localedges:
+                        if len(localedges[succ]) == 1:
+                            if not blocks[(localedges[succ][0])].is_in_trampoline:
+                                takedownblock = succ
+                                roles["takedown"] = takedownblock
+
+        # determine breakout block
+        if decisionblock in localedges:
+            if len(localedges[decisionblock]) == 2:
+                for succ in localedges[decisionblock]:
+                    if succ != takedownblock:
+                        roles["breakout"] = succ
+                        breakoutblock = succ
+                    else:
+                        continue
+
+        cfgedges: Dict[str, List[str]] = {}
+
+        for src in localedges:
+            for tgt in localedges[src]:
+                if not blocks[src].is_in_trampoline and blocks[tgt].is_in_trampoline:
+                    trampolineaddr = tgt
+                    cfgedges.setdefault(src, [])
+                    cfgedges[src].append(tgt)
+                elif blocks[src].is_in_trampoline and not blocks[tgt].is_in_trampoline:
+                    cfgedges[setupblock] = [tgt]
+                elif blocks[src].is_in_trampoline and blocks[tgt].is_in_trampoline:
+                    continue
+                else:
+                    cfgedges.setdefault(src, [])
+                    cfgedges[src].append(tgt)
+
+        for (baddr, b) in blocks.items():
+            if not b.is_in_trampoline:
+                self._blocks[baddr] = b
+            elif baddr == setupblock:
+                self._blocks[baddr] = ARMCfgTrampolineBlock(
+                    self.xnode, roles)
+
+        self._edges = cfgedges

@@ -399,7 +399,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
 
             elif fieldtype.is_array:
                 arraytype = cast(AST.ASTTypArray, fieldtype)
-                if not arraytype.has_constant_size:
+                if not arraytype.has_constant_size():
                     astree.add_diagnostic(
                         "StoreMultipleDecrementBefore (STMDB): "
                         "array type does not have constant size")
