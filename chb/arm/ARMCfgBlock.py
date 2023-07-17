@@ -36,13 +36,13 @@ from typing import Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from chb.arm.ARMCfg import ARMCfg
+    from chb.invariants.XXpr import XXpr
 
 
 class ARMCfgBlock(CfgBlock):
 
-    def __init__(self, cfg: "ARMCfg", xnode: ET.Element) -> None:
+    def __init__(self, xnode: ET.Element) -> None:
         CfgBlock.__init__(self, xnode)
-        self._armcfg = cfg
 
 
 
@@ -50,6 +50,15 @@ class ARMCfgTrampolineBlock(ARMCfgBlock):
 
     def __init__(
             self,
-            cfg: "ARMCfg",
-            xnode: ET.Element) -> None:
-        pass
+            xnode: ET.Element,
+            roles: Dict[str, str]) -> None:
+        ARMCfgBlock.__init__(self, xnode)
+        self._roles = roles
+
+    @property
+    def is_trampoline(self) -> bool:
+        return True
+
+    @property
+    def roles(self) -> Dict[str, str]:
+        return self._roles

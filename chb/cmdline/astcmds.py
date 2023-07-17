@@ -51,6 +51,8 @@ from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
 from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 from chb.astinterface.CHBASTSupport import CHBASTSupport
 
+from chb.arm.ARMCfg import astmode
+
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
 
@@ -139,6 +141,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
     showdiagnostics: bool = args.showdiagnostics
+
+    astmode.append("ast")
 
     try:
         (path, xfile) = UC.get_path_filename(xname)

@@ -276,5 +276,12 @@ def function_cfg_comparison_to_json_result(
                 else:
                     return JSONResult(schema, {}, "fail", blockmap.reason)
         content["cfg-block-mapping"] = blockmapping
+    else:
+        fblockschanged = fra.blocks_changed()
+        if len(fblockschanged) > 0:
+            changes.append("blocks")
+            blockschanged: List[str] = []
+            blockschanged.extend(fblockschanged)
+        content["blocks-changed"] = blockschanged
     content["changes"] = changes
     return JSONResult(schema, content, "ok")

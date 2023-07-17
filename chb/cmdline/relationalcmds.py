@@ -197,8 +197,6 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     else:
         if xoutput:
             UC.print_status_update("Structural difference report saved in " + xoutput)
-            with open(xoutput, "w") as fp:
-                fp.write("\n".join(lines))
 
     userhints.add_hints(newuserdata)
     userhints.save_userdata(path2, xfile2)
@@ -589,6 +587,8 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
         UC.print_error("No functions changed")
         exit(0)
 
+    invlost: int  = 0
+
     if True:
         functionschanged = relanalysis.functions_changed()
         f1fn = app1.function(functionschanged[0])
@@ -624,6 +624,7 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
                         f2value = f2table[loc][v1]
                         comparison[loc][v1] = (f1value, f2value)
                     else:
+                        invlost += 1
                         f1value = f1table[loc][v1]
                         comparison[loc][v1] = (f1value, None)
             else:
@@ -641,6 +642,7 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
         print(relational_header(
             xname1, xname2, xinfo2.md5, "invariant comparison"))
         counter: int = 0
+        dcounter: int = 0
         print("\nInvariants modified or missing:")
         print("~" * 80)
         for loc in sorted(comparison):
@@ -649,14 +651,18 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
                 if str(values[0]) == str(values[1]):
                     counter += 1
                 else:
+                    dcounter += 1
                     print(
                         loc.ljust(12)
                         + v.ljust(32)
                         + str(values[0]).ljust(20)
+                        + "  "
                         + str(values[1]))
 
         print("\n\n")
         print("~" * 80)
+        print("Invariants lost: " + str(invlost))
+        print("Invariants lost/modified: " + str(dcounter))
         print(
             "Invariants not modified: "
             + str(counter)
@@ -665,13 +671,14 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
             + " locations)")
         print("~" * 80)
 
-        print("\nInvariants of newly added blocks:")
-        print("~" * 80)
-        for loc in sorted(newblocks):
-            print("\n" + loc)
-            for v in sorted(newblocks[loc]):
-                newvalue = newblocks[loc][v]
-                print("  " + v.ljust(32) + str(newvalue))
+        if len(newblocks) > 0:
+            print("\nInvariants of newly added blocks:")
+            print("~" * 80)
+            for loc in sorted(newblocks):
+                print("\n" + loc)
+                for v in sorted(newblocks[loc]):
+                    newvalue = newblocks[loc][v]
+                    print("  " + v.ljust(32) + str(newvalue))
 
     print("=" * 80)
     print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")

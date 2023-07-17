@@ -58,7 +58,7 @@ class ARMJumpTable(JumpTable):
 
     def __str__(self) -> str:
         lines: List[str] = []
-        for (va, indices) in self.indexed_targets:
+        for (va, indices) in self.indexed_targets.items():
             lines.append(va + "  " + ", ".join(str(i) for i in indices))
         return "\n".join(lines)
 

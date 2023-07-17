@@ -250,7 +250,7 @@ class Function(ABC):
 
     @property
     def name(self) -> str:
-        if self.has_name:
+        if self.has_name():
             return self.names[0]
         else:
             return self.faddr
