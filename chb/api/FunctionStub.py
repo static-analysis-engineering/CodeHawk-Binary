@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -62,7 +62,7 @@ if TYPE_CHECKING:
     import chb.api.InterfaceDictionary
 
 
-class FunctionStub(ABC, InterfaceDictionaryRecord):
+class FunctionStub(InterfaceDictionaryRecord):
 
     def __init__(
             self,
@@ -83,13 +83,13 @@ class FunctionStub(ABC, InterfaceDictionaryRecord):
         return False
 
     @property
-    @abstractmethod
     def name(self) -> str:
         """Return the print name of this stub."""
-        ...
+
+        return ("Name not defined for " + self.tags[0] + " FunctionStub")
 
     def __str__(self) -> str:
-        return 'function-stub:' + self.tags[0]
+        return "function-stub:" + self.tags[0]
 
 
 @apiregistry.register_tag("so", FunctionStub)

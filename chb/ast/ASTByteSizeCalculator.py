@@ -271,7 +271,7 @@ class ASTByteSizeCalculator(ASTIndexer):
         return self.address_size
 
     def index_array_typ(self, typ: AST.ASTTypArray) -> int:
-        if typ.has_constant_size:
+        if typ.has_constant_size():
             return typ.size_value() * typ.tgttyp.index(self)
         else:
             raise ASTByteSizeCalculationException("array", "not constant size")

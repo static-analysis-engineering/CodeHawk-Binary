@@ -96,7 +96,6 @@ class VAssemblyVariable(FnVarDictionaryRecord):
     def is_global_value(self) -> bool:
         return False
 
-    @property
     def has_global_base(self) -> bool:
         return False
 
@@ -260,7 +259,7 @@ class VMemoryVariable(VAssemblyVariable):
         if self.is_basevar_variable:
             cval = self.basevar.denotation.auxvar
             if cval.is_initial_memory_value:
-                return cval.variable.denotation.has_global_base
+                return cval.variable.denotation.has_global_base()
         return False
 
     def global_base(self) -> VAssemblyVariable:

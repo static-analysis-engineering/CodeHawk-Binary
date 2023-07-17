@@ -43,6 +43,7 @@ class MIPSimMemoryLocation(SimMemoryLocation):
     def __init__(self, simaddress: SimAddress) -> None:
         SimMemoryLocation.__init__(self, simaddress)
 
+    @property
     def is_base_location(self) -> bool:
         return self.simaddress.is_base_address
 

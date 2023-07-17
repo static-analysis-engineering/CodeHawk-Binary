@@ -3265,7 +3265,7 @@ class MIPStub_shmat(MIPSimStub):
             result = simstate.simsupport.sharedmem_shmat(
                 iaddr, simstate, a0.literal_value, addr, a2.literal_value)
         else:
-            result = SSV.mk_undefined_global_address(memname)
+            result = SSV.mk_undefined_global_address("shared:shmid")
 
         if result.is_defined and shmid in simstate.sharedmem:
             simstate.sharedmem[shmid].set_baseoffset(result.literal_value)

@@ -543,6 +543,7 @@ class XprConstant(XXpr):
     def is_random_constant(self) -> bool:
         return self.constant.is_random
 
+    @property
     def is_false(self) -> bool:
         if self.is_boolconst:
             c = cast(XBoolConst, self.constant)
@@ -550,6 +551,7 @@ class XprConstant(XXpr):
         else:
             raise UF.CHBError("Not a boolean constant: " + str(self))
 
+    @property
     def is_true(self) -> bool:
         if self.is_boolconst:
             c = cast(XBoolConst, self.constant)
@@ -937,6 +939,7 @@ class XprAttr(XXpr):
             ixval: IndexedTableValue) -> None:
         XXpr.__init__(self, xd, ixval)
 
+    @property
     def is_attr(self) -> bool:
         return True
 

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -85,7 +85,7 @@ class InterfaceDictionaryRegistry:
             self,
             id: "chb.api.InterfaceDictionary.InterfaceDictionary",
             ixval: IT.IndexedTableValue,
-            superclass: type) -> IdR:
+            superclass: Type[IdR]) -> IdR:
         tag = ixval.tags[0]
         if (superclass, tag) not in self.register:
             raise UF.CHBError("Unknown interface dictionary type: " + tag)

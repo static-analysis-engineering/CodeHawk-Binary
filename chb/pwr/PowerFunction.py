@@ -155,7 +155,7 @@ class PowerFunction(Function):
             self._cfg = PowerCfg(self, xcfg)
         return self._cfg
 
-    def byte_string(self, chunksize: int = None) -> str:
+    def byte_string(self, chunksize: Optional[int] = None) -> str:
         s: List[str] = []
 
         def f(ia: str, i: PowerInstruction) -> None:

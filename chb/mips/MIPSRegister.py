@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,18 +49,23 @@ class MIPSRegisterBase(Register):
             ixval: IndexedTableValue) -> None:
         Register.__init__(self, bd, ixval)
 
+    @property
     def is_mips_register(self) -> bool:
         return False
 
+    @property
     def is_mips_stack_pointer(self) -> bool:
         return False
 
+    @property
     def is_mips_argument_register(self) -> bool:
         return False
 
+    @property
     def is_mips_special_register(self) -> bool:
         return False
 
+    @property
     def is_mips_floating_point_register(self) -> bool:
         return False
 
@@ -124,6 +129,7 @@ class MIPSSpecialRegister(MIPSRegisterBase):
                  ixval: IndexedTableValue) -> None:
         MIPSRegisterBase.__init__(self, bd, ixval)
 
+    @property
     def is_mips_special_register(self) -> bool:
         return True
 
@@ -139,6 +145,7 @@ class MIPSFloatingPointRegister(MIPSRegisterBase):
                  ixval: IndexedTableValue) -> None:
         MIPSRegisterBase.__init__(self, bd, ixval)
 
+    @property
     def is_mips_floating_point_register(self) -> bool:
         return True
 

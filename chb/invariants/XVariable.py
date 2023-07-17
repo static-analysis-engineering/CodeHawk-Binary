@@ -149,7 +149,7 @@ class XVariable(FnXprDictionaryRecord):
         if self.is_global_variable:
             return True
         elif self.has_denotation():
-            return self.denotation.has_global_base
+            return self.denotation.has_global_base()
         else:
             return False
 

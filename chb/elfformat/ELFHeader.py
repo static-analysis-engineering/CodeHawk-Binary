@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 import xml.etree.ElementTree as ET
 
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, cast, Dict, List, Optional, Sequence, Tuple
 
 from chb.elfformat.ELFProgramHeader import ELFProgramHeader
 from chb.elfformat.ELFSectionHeader import ELFSectionHeader
@@ -411,16 +411,16 @@ class ELFHeader:
                 result.append((sh, self.sections[index]))
         return result
 
-    def get_dynamic_table(self) -> ELFSection:
+    def get_dynamic_table(self) -> ELFDynamicTable:
         index = self.get_dynamic_table_index()
         if index in self.sections:
-            return self.sections[index]
+            return cast(ELFDynamicTable, self.sections[index])
         else:
             xsection = UF.get_elf_section_xnode(
                 self.pathname, self.filename, str(index))
             self.sections[index] = ELFDynamicTable(
                 self, self.sectionheaders[index], xsection)
-            return self.sections[index]
+            return cast(ELFDynamicTable, self.sections[index])
 
     def as_dictionary(self) -> Dict[str, Any]:
         # note: update for multiple string tables
@@ -491,7 +491,7 @@ class ELFHeader:
                 + s.flags_string)
         return "\n".join(lines)
 
-    def fileheaderstr(self):
+    def fileheaderstr(self) -> str:
         d = self.as_dictionary()
         lines: List[str] = []
         for k in d["fileheader"]:

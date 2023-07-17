@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -199,7 +199,7 @@ class VarDictionaryRegistry:
             self,
             vd: "FnVarDictionary",
             ixval: IndexedTableValue,
-            superclass: type) -> VdR:
+            superclass: Type[VdR]) -> VdR:
         tag = ixval.tags[0]
         if (superclass, tag) not in self.register:
             raise UF.CHBError(
@@ -235,7 +235,7 @@ class XprDictionaryRegistry:
             self,
             xd: "chb.invariants.FnXprDictionary.FnXprDictionary",
             ixval: IndexedTableValue,
-            superclass: type) -> XdR:
+            superclass: Type[XdR]) -> XdR:
         tag = ixval.tags[0]
         if (superclass, tag) not in self.register:
             raise UF.CHBError("Unknown xprdictionary type: " + tag)
@@ -267,7 +267,7 @@ class InvDictionaryRegistry:
             self,
             invd: "chb.invariants.FnInvDictionary.FnInvDictionary",
             ixval: IndexedTableValue,
-            superclass: type) -> IdR:
+            superclass: Type[IdR]) -> IdR:
         tag = ixval.tags[0]
         if (superclass, tag) not in self.register:
             raise UF.CHBError("Unknown invdictionary type: " + tag)
@@ -299,7 +299,7 @@ class VarInvDictionaryRegistry:
             self,
             varinvd: "chb.invariants.FnVarInvDictionary.FnVarInvDictionary",
             ixval: IndexedTableValue,
-            superclass: type) -> VIdR:
+            superclass: Type[VIdR]) -> VIdR:
         tag = ixval.tags[0]
         if (superclass, tag) not in self.register:
             raise UF.CHBError("Unknown varinvdictionary type: " + tag)

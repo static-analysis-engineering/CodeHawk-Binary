@@ -383,5 +383,6 @@ class UnknownTarget(CallTarget):
             ixval: IndexedTableValue) -> None:
         CallTarget.__init__(self, d, ixval)
 
+    @property
     def is_unknown(self) -> bool:
         return True

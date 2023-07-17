@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -147,7 +147,7 @@ class SimModule:
             app: "AppAccess",
             base: str,
             max_addr: str,
-            loadaddr: str = None) -> None:
+            loadaddr: Optional[str] = None) -> None:
         self._name = name
         self._app = app
         self._base = base  # base address in hex
