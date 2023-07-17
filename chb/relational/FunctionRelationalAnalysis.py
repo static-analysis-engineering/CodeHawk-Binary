@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING
 
 from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
+from chb.relational.InstructionRelationalAnalysis import InstructionRelationalAnalysis
 from chb.relational.CfgMatcher import CfgMatcher
 from chb.relational.TrampolineAnalysis import TrampolineAnalysis
 
@@ -157,6 +158,14 @@ class FunctionRelationalAnalysis:
     @property
     def basic_blocks2(self) -> Mapping[str, "BasicBlock"]:
         return self.fn2.blocks
+
+    @property
+    def instructions1(self) -> Mapping[str, "Instruction"]:
+        return self.fn1.instructions
+
+    @property
+    def instructions2(self) -> Mapping[str, "Instruction"]:
+        return self.fn2.instructions
 
     @property
     def cfg1(self) -> "Cfg":
@@ -463,13 +472,15 @@ class FunctionRelationalAnalysis:
 
     def report(self, showinstructions: bool, callees: List[str] = []) -> str:
         lines: List[str] = []
-        lines.append(
+        blockheader: List[str] = []
+        blockheader.append(
             "block".ljust(12)
             + "moved".ljust(12)
             + "md5-equivalent".ljust(20)
             + "instrs-changed".ljust(20))
-        lines.append("-" * 80)
+        blockheader.append("-" * 80)
         if self.is_structurally_equivalent:
+            lines.extend(blockheader)
             for (baddr1, baddr2) in self.block_mapping.items():
                 blra = self.block_analyses[baddr1]
                 if baddr1 == baddr2:
@@ -514,6 +525,7 @@ class FunctionRelationalAnalysis:
                 {})
 
             if cfgmatcher.is_trampoline_block_splice():
+                lines.extend(blockheader)
                 for baddr1 in sorted(self.basic_blocks1):
                     if baddr1 in cfgmatcher.blockmapping:
                         baddr2 = cfgmatcher.blockmapping[baddr1]
@@ -571,12 +583,44 @@ class FunctionRelationalAnalysis:
                         if blra.is_md5_equal:
                             continue
 
-                    if self.has_trampoline_analysis:
+                    if self.has_trampoline_analysis():
                         tra = self.trampoline_analysis
 
                         lines.append(
                             "\nInstructions changed in split block " + tra.b1.baddr)
                         lines.append(tra.report())
+                        lines.append("")
+
+            elif len(self.instructions1) == len(self.instructions2):
+                lines.append("\nInstructions changed")
+                lines.append("-" * 80)
+                instranalyses: Dict[str, InstructionRelationalAnalysis] = {}
+                for ((iaddr1, instr1), (iaddr2, instr2)) in zip(
+                        self.instructions1.items(), self.instructions2.items()):
+                    if iaddr1 == iaddr2:
+                        instranalyses[iaddr1] = InstructionRelationalAnalysis(
+                            self.app1, instr1, self.app2, instr2)
+                    else:
+                        print("Functions don't line up at " + iaddr1 + ", " + iaddr2)
+                for (iaddr, ira) in instranalyses.items():
+                    if (
+                            not ira.is_md5_equal
+                            or ira.has_different_annotation
+                            or (not ira.same_address)):
+                        lines.append(
+                            " V:"
+                            + ira.instr1.iaddr
+                            + "  "
+                            + ira.instr1.bytestring.ljust(8)
+                            + "  "
+                            + str(ira.instr1))
+                        lines.append(
+                            " P:"
+                            + ira.instr2.iaddr
+                            + "  "
+                            + ira.instr2.bytestring.ljust(8)
+                            + "  "
+                            + str(ira.instr2))
                         lines.append("")
 
             else:
