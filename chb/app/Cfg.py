@@ -574,15 +574,23 @@ class Cfg:
 
                     switchcondition = astlastinstr.ast_switch_condition(astree)
 
-                    def switch_case(succ):
-                        return astree.mk_block(do_branch(x, succ, ctx), labels=succlabels.get(succ))
+                    def switch_case_stmts(succ):
+                        return succlabels.get(succ, []) + do_branch(x, succ, ctx)
 
-                    defaultcase = astree.mk_block(
-                        do_branch(x, succs[0], ctx),
-                        labels=[astree.mk_default_label()])
-                    cases = astree.mk_block([switch_case(succ) for succ in succs[1:]] + [defaultcase])
+                    bodystmts: List[AST.ASTStmt] = []
+                    for succ in succs[1:]:
+                      bodystmts.extend(switch_case_stmts(succ))
+
+                    # If the default case merely falls through, it can be omitted. 
+                    defaultstmts = do_branch(x, succs[0], ctx)
+                    if defaultstmts != []:
+                      defaultcase = astree.mk_block(defaultstmts,
+                          labels=[astree.mk_default_label()])
+                      bodystmts.append(defaultcase)
+
+                    switchbody = astree.mk_block(bodystmts)
                     switchstmt = cast(AST.ASTSwitchStmt,
-                        astree.mk_switch_stmt(switchcondition, cases, mergeaddr))
+                        astree.mk_switch_stmt(switchcondition, switchbody, mergeaddr))
                     return (xstmts + [switchstmt])
 
                 assert nsuccs == 2
