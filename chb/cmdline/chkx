@@ -1077,8 +1077,8 @@ def parse() -> argparse.Namespace:
     relationalcompare.set_defaults(func=relationalcomparecommand)
     relationalcompareparsers = relationalcompare.add_subparsers(title="show options")
 
-    # --- relational compare functions --
-    relationalcomparefns = relationalcompareparsers.add_parser("functions")
+    # --- relational compare app --
+    relationalcomparefns = relationalcompareparsers.add_parser("app")
     relationalcomparefns.add_argument(
         "xname1", help="name of first (original) executable (assumed analyzed)")
     relationalcomparefns.add_argument(
@@ -1091,7 +1091,7 @@ def parse() -> argparse.Namespace:
         help="produce output in json format")
     relationalcomparefns.add_argument(
         "--output", "-o", help="save output in file")
-    relationalcomparefns.set_defaults(func=R.relational_compare_functions_cmd)
+    relationalcomparefns.set_defaults(func=R.relational_compare_app_cmd)
 
     # --- relational compare function --
     relationalcomparefn = relationalcompareparsers.add_parser("function")

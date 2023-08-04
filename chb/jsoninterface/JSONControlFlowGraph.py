@@ -29,7 +29,6 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import chb.jsoninterface.AuxiliaryClasses as AX
 from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
-from chb.jsoninterface.JSONFunctionComparison import JSONFunctionComparison
 from chb.jsoninterface.JSONObject import JSONObject
 
 if TYPE_CHECKING:
@@ -86,7 +85,8 @@ class JSONCfgEdge(JSONObject):
         if "predicate" in self.d:
             return self.d.get(
                 "predicate",
-                {"txtrep": "?"}).get("txtrep", self.property_missing("predicate.txtrep"))
+                {"txtrep": "?"}).get("txtrep",
+                                     self.property_missing("predicate.txtrep"))
         return None
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:

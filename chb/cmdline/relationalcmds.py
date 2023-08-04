@@ -286,7 +286,8 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
-def relational_compare_functions_cmd(args: argparse.Namespace) -> NoReturn:
+def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
+    """Comparison of all functions that have analysis results."""
 
     # arguments
     xname1: str = args.xname1
@@ -341,13 +342,6 @@ def relational_compare_functions_cmd(args: argparse.Namespace) -> NoReturn:
             print(json.dumps(jsonresult))
 
     else:
-        '''
-        print(relational_header(xname1, xname2, "functions comparison"))
-        print(relanalysis.report(False, False))
-        print("=" * 80)
-        print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
-        print("=" * 80)
-        '''
         result = relanalysis.to_json_result()
         if result.is_ok:
             print(JSONRelationalReport().summary_report(

@@ -115,112 +115,18 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
 
     def visit_app_comparison(self, obj: AppC.JSONAppComparison) -> None:
         self.add_txt(summary_header())
-        obj.app_comparison_summary.accept(self)
-        if self.details:
-            obj.app_comparison_details.accept(self)
-
-    def visit_app_comparison_details(
-            self, obj: AppC.JSONAppComparisonDetails) -> None:
-        self.add_txt(details_header())
-        for f in obj.function_comparisons:
-            f.accept(self)
-
-    def visit_app_comparison_summary(
-            self, obj: AppC.JSONAppComparisonSummary) -> None:
-        obj.functions_summary.accept(self)
-
-    def visit_app_function_mapped_summary(
-            self, obj: AppC.JSONAppFunctionMappedSummary) -> None:
-        self.add_txt(
-            obj.faddr.ljust(20)
-            + (obj.moved_to if obj.moved_to is not None else "not moved").ljust(16)
-            + ("yes" if "md5" in obj.matches else "no").ljust(12)
-            + ("yes" if "md5" in obj.matches or "cfg" in obj.matches else "no").ljust(18)
-            + (str(obj.blocks_changed) if obj.blocks_changed is not None else "-"))
-
-    def visit_app_functions_comparison_summary(
-            self, obj: AppC.JSONAppFunctionsComparisonSummary) -> None:
-        for f in obj.app_functions_mapped:
-            f.accept(self)
 
     def visit_assembly_instruction(self, obj: JSONAssemblyInstruction) -> None:
-        pass
-
-    def visit_callgraph_comaprison_summary(
-            self, obj: AppC.JSONCallgraphComparisonSummary) -> None:
         pass
 
     def visit_block_comparison(
             self, obj: BlockC.JSONBlockComparison) -> None:
         pass
 
-    def visit_block_comparison_details(
-            self, obj: BlockC.JSONBlockComparisonDetails) -> None:
-        pass
-
-    def visit_block_comparison_summary(
-            self, obj: BlockC.JSONBlockComparisonSummary) -> None:
-        pass
-
-    def visit_block_instruction_mapped_summary(
-            self, obj: BlockC.JSONBlockInstructionMappedSummary) -> None:
-        pass
-
-    def visit_block_instructions_comparison_summary(
-            self, obj: BlockC.JSONBlockInstructionsComparisonSummary) -> None:
-        pass
-
-    def visit_block_semantics_comparison_summary(
-            self, obj: BlockC.JSONBlockSemanticsComparisonSummary) -> None:
-        pass
-
-    def visit_cfg_comparison_summary(
-            self, obj: FunC.JSONCfgComparisonSummary) -> None:
-        pass
-
-    def visit_function_block_mapped_summary(
-            self, obj: FunC.JSONFunctionBlockMappedSummary) -> None:
-        self.add_txt(
-            obj.baddr.ljust(12)
-            + (obj.moved_to if obj.moved_to is not None else "no").ljust(16)
-            + ("yes" if "md5" in obj.matches else "no").ljust(18)
-            + "?")
-
-    def visit_function_blocks_comparison_summary(
-            self, obj: FunC.JSONFunctionBlocksComparisonSummary) -> None:
-        for f in obj.function_blocks_mapped:
-            f.accept(self)
-
     def visit_function_comparison(
             self, obj: FunC.JSONFunctionComparison) -> None:
         self.add_txt(function_comparison_header())
-        obj.function_comparison_summary.accept(self)
-        obj.function_comparison_details.accept(self)
-
-    def visit_function_comparison_summary(
-            self, obj: FunC.JSONFunctionComparisonSummary) -> None:
-        obj.function_blocks_comparison_summary.accept(self)
-
-    def visit_function_comparison_details(
-            self, obj: FunC.JSONFunctionComparisonDetails) -> None:
-        pass
-
-    def visit_function_variables_comparison_summary(
-            self, obj: FunC.JSONFunctionVariablesComparisonSummary) -> None:
-        pass
-
-    def visit_globals_comparison_summary(
-            self, obj: AppC.JSONGlobalsComparisonSummary) -> None:
-        pass
-
-    def visit_instruction_added_info(
-            self, obj: InstrC.JSONInstructionAddedInfo) -> None:
-        pass
 
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
-        pass
-
-    def visit_instruction_removed_info(
-            self, obj: InstrC.JSONInstructionRemovedInfo) -> None:
         pass

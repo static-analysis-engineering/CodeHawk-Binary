@@ -32,7 +32,7 @@ import os
 from typing import Any, Dict, List, NoReturn, Optional
 
 from chb.jsoninterface.JSONAppComparison import JSONAppComparison
-from chb.jsoninterface.JSONCfgComparison import JSONCfgComparisons
+from chb.jsoninterface.JSONFunctionComparison import JSONCfgComparison
 from chb.jsoninterface.JSONChecker import JSONChecker
 
 
@@ -84,7 +84,6 @@ def check_cfgc_cmd(args: argparse.Namespace) -> NoReturn:
     with open(jsonfile, "r") as fp:
         jsondata = json.load(fp)
 
-
-    print(JSONChecker().check_object(JSONCfgComparisons(jsondata["content"])))
+    print(JSONChecker().check_object(JSONCfgComparison(jsondata["content"]["functions-changed"][0])))
 
     exit(0)
