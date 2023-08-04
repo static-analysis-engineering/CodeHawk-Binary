@@ -26,14 +26,13 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import chb.jsoninterface.JSONAppComparison as AppC
 from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 import chb.jsoninterface.JSONBlockComparison as BlockC
 import chb.jsoninterface.JSONControlFlowGraph as Cfg
-import chb.jsoninterface.JSONCfgComparison as CfgC
 import chb.jsoninterface.JSONFunctionComparison as FunC
 import chb.jsoninterface.JSONInstructionComparison as InstrC
 from chb.jsoninterface.JSONObject import JSONObject
@@ -67,6 +66,17 @@ class JSONChecker(JSONObjectNOPVisitor):
         else:
             self._txt.append(self.indentstr + tag + ": " + txtlst)
 
+    def add_txt_tuple_lst(
+            self, lst: List[Tuple[str, str]], tag: str = "") -> None:
+        txtlst = (
+            "["
+            + ", ".join("(" + s1 + "," + s2 + ")" for (s1, s2) in lst)
+            + "]")
+        if len(tag) == 0:
+            self._txt.append(self.indentstr + txtlst)
+        else:
+            self._txt.append(self.indentstr + tag + ": " + txtlst)
+
     def inc_indent(self, n: int = 2) -> None:
         self._indent += n
 
@@ -88,59 +98,31 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_txt("file2: " + obj.file2)
         self.add_txt_lst(obj.changes, tag="changes")
         self.add_txt_lst(obj.matches, tag="matches")
-        obj.app_comparison_summary.accept(self)
-        obj.app_comparison_details.accept(self)
-
-    def visit_app_comparison_details(
-            self, obj: AppC.JSONAppComparisonDetails) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
         self.add_txt_lst(
-            obj.function_comparisons_omitted, tag="function-comparisons-omitted")
-        self.add_txt("function-comparisons[" + str(len(obj.function_comparisons)) + "]")
+            obj.functions_compared, tag="functions-compared")
+        self.add_txt_lst(
+            obj.functions_removed, tag="functions-removed")
+        self.add_txt(
+            "functions-changed[" + str(len(obj.functions_changed)) + "]")
         self.inc_indent()
-        for c in obj.function_comparisons:
+        for c in obj.functions_changed:
             c.accept(self)
         self.dec_indent()
-        self.dec_indent()
-
-    def visit_app_comparison_summary(
-            self, obj: AppC.JSONAppComparisonSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
+        self.add_txt("functions-added[" + str(len(obj.functions_added)) + "]")
         self.inc_indent()
-        obj.functions_summary.accept(self)
-        obj.globals_summary.accept(self)
-        obj.callgraph_summary.accept(self)
+        for a in obj.functions_added:
+            a.accept(self)
         self.dec_indent()
-
-    def visit_app_function_mapped_summary(
-            self, obj: AppC.JSONAppFunctionMappedSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
+        obj.callgraph_comparison.accept(self)
+        self.add_txt_lst(
+            obj.globalvars_compared, tag="globalvars-compared")
+        self.add_txt(
+            "globalvars-changed[" + str(len(obj.globalvars_changed)) + "]")
         self.inc_indent()
-        self.add_txt(obj.faddr, tag="faddr")
-        if obj.name is not None:
-            self.add_txt(obj.name, tag="name")
-        self.add_txt_lst(obj.changes, tag="changes")
-        self.add_txt_lst(obj.matches, tag="matches")
-        if obj.moved_to is not None:
-            self.add_txt(obj.moved_to, tag="moved_to")
+        for g in obj.globalvars_changed:
+            g.accept(self)
         self.dec_indent()
-
-    def visit_app_functions_comparison_summary(
-            self, obj: AppC.JSONAppFunctionsComparisonSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        self.add_txt_lst(obj.app_functions_added, tag="app-functions-added")
-        self.add_txt_lst(obj.app_functions_removed, tag="app-functions-removed")
-        self.add_txt("app-functions-mapped[" + str(len(obj.app_functions_mapped)) + "]")
-        self.inc_indent()
-        for c in obj.app_functions_mapped:
-            c.accept(self)
-        self.dec_indent()
+        obj.binary_comparison.accept(self)
 
     def visit_assembly_block(self, obj: JSONAssemblyBlock) -> None:
         self.add_newline()
@@ -152,10 +134,8 @@ class JSONChecker(JSONObjectNOPVisitor):
     def visit_assembly_instruction(self, obj: JSONAssemblyInstruction) -> None:
         pass
 
-    def visit_callgraph_comaprison_summary(
-            self, obj: AppC.JSONCallgraphComparisonSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname + " (tbd)")
+    def visit_binary_comparsion(self, obj: AppC.JSONBinaryComparison) -> None:
+        pass
 
     def visit_block_comparison(
             self, obj: BlockC.JSONBlockComparison) -> None:
@@ -167,72 +147,39 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_txt(str(obj.lev_distance), tag="lev-distance")
         self.add_txt_lst(obj.changes, tag="changes")
         self.add_txt_lst(obj.changes, tag="matches")
-        obj.block_comparison_summary.accept(self)
-        obj.block_comparison_details.accept(self)
-        self.dec_indent()
-
-    def visit_block_comparison_details(
-            self, obj: BlockC.JSONBlockComparisonDetails) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname + " (tbd)")
-
-    def visit_block_comparison_summary(
-            self, obj: BlockC.JSONBlockComparisonSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        obj.block_instructions_comparison_summary.accept(self)
-        obj.block_semantics_comparison_summary.accept(self)
-        self.dec_indent()
-
-    def visit_block_instruction_mapped_summary(
-            self, obj: BlockC.JSONBlockInstructionMappedSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        self.add_txt(obj.iaddr, tag="iaddr")
-        self.add_txt_lst(obj.changes, tag="changes")
-        self.add_txt_lst(obj.matches, tag="matches")
-        if obj.moved_to is not None:
-            self.add_txt(obj.moved_to, tag="moved-to")
-        self.dec_indent()
-
-    def visit_block_instructions_comparison_summary(
-            self, obj: BlockC.JSONBlockInstructionsComparisonSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
         self.add_txt_lst(
-            obj.block_instructions_added, tag="block-instructions-added")
+            obj.instruction_insertions, tag="instruction-insertions")
         self.add_txt_lst(
-            obj.block_instructions_removed, tag="block-instructions-removed")
-        self.add_txt(
-            "block-instruction-mapped[" + str(len(obj.block_instructions_mapped)) + "]")
-        for i in obj.block_instructions_mapped:
-            i.accept(self)
+            obj.instruction_deletions, tag="instruction-deletions")
+        for s in obj.instruction_substitutions:
+            s.accept(self)
         self.dec_indent()
 
-    def visit_block_semantics_comparison_summary(
-            self, obj: BlockC.JSONBlockSemanticsComparisonSummary) -> None:
+    def visit_block_expansion(self, obj: BlockC.JSONBlockExpansion) -> None:
         self.add_newline()
-        self.add_txt(obj.objname + " (tbd)")
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt(obj.kind, tag="kind")
+        for b in obj.xblocks:
+            b.accept(self)
+        for e in obj.xedges:
+            e.accept(self)
+        self.dec_indent()
 
-    def visit_cfg_block_mapping_item(
-            self, obj: CfgC.JSONCfgBlockMappingItem) -> None:
+    def visit_block_semantic_comparison(
+            self, obj: BlockC.JSONBlockSemanticComparison) -> None:
         self.add_newline()
         self.add_txt(obj.objname)
         self.inc_indent()
         self.add_txt_lst(obj.changes, tag="changes")
-        self.add_txt_lst(obj.matches, tag="matches")
-        self.add_txt(obj.cfg1_block_addr, tag="cfg1_block_addr")
-        self.add_txt("cfg2-blocks")
-        self.inc_indent()
-        for (b, role) in obj.cfg2_blocks:
-            self.add_txt(b + ", " + role)
-        self.dec_indent()
         self.dec_indent()
 
-    def visit_cfg_comparison(self, obj: CfgC.JSONCfgComparison) -> None:
+    def visit_callgraph_comaprison(
+            self, obj: AppC.JSONCallgraphComparison) -> None:
+        self.add_newline()
+        self.add_txt_lst(obj.changes, tag="changes")
+
+    def visit_cfg_comparison(self, obj: FunC.JSONCfgComparison) -> None:
         self.add_newline()
         self.add_txt(obj.objname)
         self.inc_indent()
@@ -244,25 +191,17 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.inc_indent()
         obj.cfg2.accept(self)
         self.dec_indent()
-        self.add_txt("cfg-block-mapping")
-        self.inc_indent()
-        for m in obj.cfg_block_mapping:
-            m.accept(self)
+        self.add_txt_lst(obj.block_insertions, tag="block-insertions")
+        self.add_txt_lst(obj.block_deletions, tag="block-deletions")
+        for s in obj.block_substitutions:
+            s.accept(self)
+        for e in obj.block_expansions:
+            e.accept(self)
+        self.add_txt_tuple_lst(obj.edge_insertions, tag="edge-insertions")
+        self.add_txt_tuple_lst(obj.edge_deletions, tag="edge-deletation")
+        for x in obj.edge_substitutions:
+            x.accept(self)
         self.dec_indent()
-        self.dec_indent()
-
-    def visit_cfg_comparisons(self, obj: CfgC.JSONCfgComparisons) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        for f in obj.functions_changed:
-            f.accept(self)
-        self.dec_indent()
-
-    def visit_cfg_comparison_summary(
-            self, obj: FunC.JSONCfgComparisonSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname + " (tbd)")
 
     def visit_cfg_edge(self, obj: Cfg.JSONCfgEdge) -> None:
         self.add_newline()
@@ -273,6 +212,17 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_txt(obj.kind, tag="kind")
         if obj.predicate is not None:
             self.add_txt(obj.predicate, tag="predicate")
+        self.dec_indent()
+
+    def visit_cfg_edge_comparison(
+            self, obj: FunC.JSONCfgEdgeComparison) -> None:
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt(obj.src1, tag="src1")
+        self.add_txt(obj.src2, tag="src2")
+        self.add_txt(obj.tgt1, tag="tgt1")
+        self.add_txt(obj.tgt2, tag="tgt2")
         self.dec_indent()
 
     def visit_cfg_node(self, obj: Cfg.JSONCfgNode) -> None:
@@ -302,28 +252,13 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.dec_indent()
         self.dec_indent()
 
-    def visit_function_block_mapped_summary(
-            self, obj: FunC.JSONFunctionBlockMappedSummary) -> None:
+    def visit_function_added(
+            self, obj: AppC.JSONFunctionAdded) -> None:
         self.add_newline()
         self.add_txt(obj.objname)
         self.inc_indent()
-        self.add_txt(obj.baddr, tag="baddr")
-        self.add_txt_lst(obj.changes, tag="changes")
-        self.add_txt_lst(obj.matches, tag="matches")
-        if obj.moved_to is not None:
-            self.add_txt(obj.moved_to, tag="moved-to")
+        self.add_txt(obj.faddr, tag="faddr")
         self.dec_indent()
-
-    def visit_function_blocks_comparison_summary(
-            self, obj: FunC.JSONFunctionBlocksComparisonSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.add_txt_lst(obj.function_blocks_added, tag="function-blocks-added")
-        self.add_txt_lst(obj.function_blocks_removed, tag="function-blocks-removed")
-        self.add_txt(
-            "function-blocks-mapped[" + str(len(obj.function_blocks_mapped)) + "]")
-        for b in obj.function_blocks_mapped:
-            b.accept(self)
 
     def visit_function_comparison(
             self, obj: FunC.JSONFunctionComparison) -> None:
@@ -334,54 +269,50 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_txt(obj.faddr2, tag="faddr2")
         self.add_txt_lst(obj.changes, tag="changes")
         self.add_txt_lst(obj.matches, tag="matches")
-        obj.function_comparison_summary.accept(self)
-        obj.function_comparison_details.accept(self)
+        obj.cfg_comparison.accept(self)
+        obj.localvars_comparison.accept(self)
+        obj.semantic_comparison.accept(self)
         self.dec_indent()
 
-    def visit_function_comparison_summary(
-            self, obj: FunC.JSONFunctionComparisonSummary) -> None:
+    def visit_globalvar_comparison(
+            self, obj: AppC.JSONGlobalVarComparison) -> None:
         self.add_newline()
         self.add_txt(obj.objname)
         self.inc_indent()
-        obj.cfg_comparison_summary.accept(self)
-        obj.function_variables_comparison_summary.accept(self)
-        obj.function_blocks_comparison_summary.accept(self)
+        self.add_txt(obj.gaddr, tag="gaddr")
+        if obj.name is not None:
+            self.add_txt(obj.name, tag="name")
+        if obj.moved_to is not None:
+            self.add_txt(obj.moved_to, tag="moved-to")
         self.dec_indent()
-
-    def visit_function_comparison_details(
-            self, obj: FunC.JSONFunctionComparisonDetails) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        self.add_txt("block-comparisons[" + str(len(obj.block_comparisons)) + "]")
-        self.inc_indent()
-        for b in obj.block_comparisons:
-            b.accept(self)
-        self.dec_indent()
-
-    def visit_function_variables_comparison_summary(
-            self, obj: FunC.JSONFunctionVariablesComparisonSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname + " (tbd)")
-
-    def visit_globals_comparison_summary(
-            self, obj: AppC.JSONGlobalsComparisonSummary) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname + " (tbd)")
-
-    def visit_instruction_added_info(
-            self, obj: InstrC.JSONInstructionAddedInfo) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname + " (tbd)")
 
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
         self.add_newline()
         self.add_txt(obj.objname + " (tbd)")
 
-    def visit_instruction_removed_info(
-            self, obj: InstrC.JSONInstructionRemovedInfo) -> None:
+    def visit_localvars_comparison(
+            self, obj: FunC.JSONLocalVarsComparison) -> None:
         self.add_newline()
-        self.add_txt(obj.objname + " (tbd)")
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt_lst(obj.changes, tag="changes")
+        self.dec_indent()
 
+    def visit_xblock_detail(self, obj: BlockC.JSONXBlockDetail) -> None:
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt(obj.baddr, tag="baddr")
+        self.add_txt(obj.role, tag="role")
+        self.dec_indent()
+
+    def visit_xedge_detail(self, obj: BlockC.JSONXEdgeDetail) -> None:
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt(obj.src, tag="src")
+        self.add_txt(obj.tgt, tag="tgt")
+        self.add_txt(obj.role, tag="role")
+        self.dec_indent()
     

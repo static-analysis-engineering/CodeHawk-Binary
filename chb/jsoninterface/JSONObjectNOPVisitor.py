@@ -33,7 +33,6 @@ from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 import chb.jsoninterface.JSONBlockComparison as BlockC
 import chb.jsoninterface.JSONControlFlowGraph as Cfg
-import chb.jsoninterface.JSONCfgComparison as CfgC
 import chb.jsoninterface.JSONFunctionComparison as FunC
 import chb.jsoninterface.JSONInstructionComparison as InstrC
 from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
@@ -47,71 +46,37 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
     def visit_app_comparison(self, obj: AppC.JSONAppComparison) -> None:
         pass
 
-    def visit_app_comparison_details(
-            self, obj: AppC.JSONAppComparisonDetails) -> None:
-        pass
-
-    def visit_app_comparison_summary(
-            self, obj: AppC.JSONAppComparisonSummary) -> None:
-        pass
-
-    def visit_app_function_mapped_summary(
-            self, obj: AppC.JSONAppFunctionMappedSummary) -> None:
-        pass
-
-    def visit_app_functions_comparison_summary(
-            self, obj: AppC.JSONAppFunctionsComparisonSummary) -> None:
-        pass
-
     def visit_assembly_block(self, obj: JSONAssemblyBlock) -> None:
         pass
 
     def visit_assembly_instruction(self, obj: JSONAssemblyInstruction) -> None:
         pass
 
-    def visit_callgraph_comaprison_summary(
-            self, obj: AppC.JSONCallgraphComparisonSummary) -> None:
+    def visit_binary_comparison(self, obj: AppC.JSONBinaryComparison) -> None:
         pass
 
-    def visit_block_comparison(
-            self, obj: BlockC.JSONBlockComparison) -> None:
+    def visit_block_comparison(self, obj: BlockC.JSONBlockComparison) -> None:
         pass
 
-    def visit_block_comparison_details(
-            self, obj: BlockC.JSONBlockComparisonDetails) -> None:
+    def visit_block_expansion(self, obj: BlockC.JSONBlockExpansion) -> None:
         pass
 
-    def visit_block_comparison_summary(
-            self, obj: BlockC.JSONBlockComparisonSummary) -> None:
+    def visit_block_semantic_comparison(
+            self, obj: BlockC.JSONBlockSemanticComparison) -> None:
         pass
 
-    def visit_block_instruction_mapped_summary(
-            self, obj: BlockC.JSONBlockInstructionMappedSummary) -> None:
+    def visit_callgraph_comparison(
+            self, obj: AppC.JSONCallgraphComparison) -> None:
         pass
 
-    def visit_block_instructions_comparison_summary(
-            self, obj: BlockC.JSONBlockInstructionsComparisonSummary) -> None:
-        pass
-
-    def visit_block_semantics_comparison_summary(
-            self, obj: BlockC.JSONBlockSemanticsComparisonSummary) -> None:
-        pass
-
-    def visit_cfg_block_mapping_item(
-            self, obj: CfgC.JSONCfgBlockMappingItem) -> None:
-        pass
-
-    def visit_cfg_comparison(self, obj: CfgC.JSONCfgComparison) -> None:
-        pass
-
-    def visit_cfg_comparisons(self, obj: CfgC.JSONCfgComparisons) -> None:
-        pass
-
-    def visit_cfg_comparison_summary(
-            self, obj: FunC.JSONCfgComparisonSummary) -> None:
+    def visit_cfg_comparison(self, obj: FunC.JSONCfgComparison) -> None:
         pass
 
     def visit_cfg_edge(self, obj: Cfg.JSONCfgEdge) -> None:
+        pass
+
+    def visit_cfg_edge_comparison(
+            self, obj: FunC.JSONCfgEdgeComparison) -> None:
         pass
 
     def visit_cfg_node(self, obj: Cfg.JSONCfgNode) -> None:
@@ -120,42 +85,31 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
     def visit_control_flow_graph(self, obj: Cfg.JSONControlFlowGraph) -> None:
         pass
 
-    def visit_function_block_mapped_summary(
-            self, obj: FunC.JSONFunctionBlockMappedSummary) -> None:
-        pass
-
-    def visit_function_blocks_comparison_summary(
-            self, obj: FunC.JSONFunctionBlocksComparisonSummary) -> None:
+    def visit_function_added(self, obj: AppC.JSONFunctionAdded) -> None:
         pass
 
     def visit_function_comparison(
             self, obj: FunC.JSONFunctionComparison) -> None:
         pass
 
-    def visit_function_comparison_summary(
-            self, obj: FunC.JSONFunctionComparisonSummary) -> None:
+    def visit_function_semantic_comparison(
+            self, obj: FunC.JSONFunctionSemanticComparison) -> None:
         pass
 
-    def visit_function_comparison_details(
-            self, obj: FunC.JSONFunctionComparisonDetails) -> None:
-        pass
-
-    def visit_function_variables_comparison_summary(
-            self, obj: FunC.JSONFunctionVariablesComparisonSummary) -> None:
-        pass
-
-    def visit_globals_comparison_summary(
-            self, obj: AppC.JSONGlobalsComparisonSummary) -> None:
-        pass
-
-    def visit_instruction_added_info(
-            self, obj: InstrC.JSONInstructionAddedInfo) -> None:
+    def visit_globalvar_comparison(
+            self, obj: AppC.JSONGlobalVarComparison) -> None:
         pass
 
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
         pass
 
-    def visit_instruction_removed_info(
-            self, obj: InstrC.JSONInstructionRemovedInfo) -> None:
+    def visit_localvars_comparison(
+            self, obj: FunC.JSONLocalVarsComparison) -> None:
+        pass
+
+    def visit_xblock_detail(self, obj: BlockC.JSONXBlockDetail) -> None:
+        pass
+
+    def visit_xedge_detail(self, obj: BlockC.JSONXEdgeDetail) -> None:
         pass

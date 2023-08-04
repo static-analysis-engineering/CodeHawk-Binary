@@ -25,159 +25,197 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
-from chb.jsoninterface.JSONBlockComparison import JSONBlockComparison
+from chb.jsoninterface.JSONBlockComparison import (
+    JSONBlockComparison, JSONBlockExpansion)
+from chb.jsoninterface.JSONControlFlowGraph import JSONControlFlowGraph
 from chb.jsoninterface.JSONObject import JSONObject
 
 if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
 
 
-class JSONFunctionComparisonDetails(JSONObject):
+class JSONLocalVarsComparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "function-comparison-details")
-        self._block_comparisons: Optional[List[JSONBlockComparison]] = None
-
-    @property
-    def block_comparisons(self) -> List[JSONBlockComparison]:
-        if self._block_comparisons is None:
-            result: List[JSONBlockComparison] = []
-            for b in self.d.get("block-comparisons", []):
-                result.append(JSONBlockComparison(b))
-            self._block_comparisons = result
-        return self._block_comparisons
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_function_comparison_details(self)
-
-
-class JSONFunctionVariablesComparisonSummary(JSONObject):
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "variables-summary")
+        JSONObject.__init__(self, d, "localvarscomparison")
 
     @property
     def changes(self) -> List[str]:
         return self.d.get("changes", [])
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_function_variables_comparison_summary(self)
+        visitor.visit_localvars_comparison(self)
 
 
-class JSONCfgComparisonSummary(JSONObject):
+class JSONFunctionSemanticComparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "cfg-summary")
-
-    @property
-    def cfg_mapping(self) -> str:
-        return self.d.get("cfg-mapping", self.property_missing("cfg-mapping"))
+        JSONObject.__init__(self, d, "functionsemanticcomparison")
 
     @property
     def changes(self) -> List[str]:
         return self.d.get("changes", [])
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_cfg_comparison_summary(self)
+        visitor.visit_function_semantic_comparison(self)
 
 
-class JSONFunctionBlockMappedSummary(JSONObject):
+class JSONCfgEdgeComparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "function-block-mapped")
+        JSONObject.__init__(self, d, "cfgedgecomparison")
 
     @property
-    def baddr(self) -> str:
-        return self.d.get("baddr", self.property_missing("baddr"))
+    def src1(self) -> str:
+        return self.d.get("src1", self.property_missing("src1"))
+
+    @property
+    def src2(self) -> str:
+        return self.d.get("src2", self.property_missing("src2"))
+
+    @property
+    def tgt1(self) -> str:
+        return self.d.get("tgt1", self.property_missing("tgt1"))
+
+    @property
+    def tgt2(self) -> str:
+        return self.d.get("tgt2", self.property_missing("tgt2"))
+
+    def accept(self, visitor: "JSONObjectVisitor") -> None:
+        visitor.visit_cfg_edge_comparison(self)
+
+
+class JSONCfgComparison(JSONObject):
+    """Comparison between two cfg's in terms of graph edits.
+
+    A comparison consists of a number of graph edits that collectively
+    cover all nodes of cfg1 as domain and all nodes of cfg2 as range,
+    and similarly for the edges.
+
+    Block edits include:
+    - block substitutions: mapping a single node in cfg1 to a single
+      node in cfg2
+    - block insertions: a single node in cfg2
+    - block deletions: a single node in cf1
+    - block expansions: mapping a single node in cfg1 to multiple
+      related blocks in cfg2
+
+    Edge edits include:
+    - edge substitutions: mapping a single edge in cfg1 to a single
+      edge in cfg2
+    - edge insertions: a single edge in cfg2
+    - edge deletions: a single edge in cfg1
+    """
+
+    def __init__(self, d: Dict[str, Any]) -> None:
+        JSONObject.__init__(self, d, "cfgcomparison")
+        self._cfg1: Optional[JSONControlFlowGraph] = None
+        self._cfg2: Optional[JSONControlFlowGraph] = None
+
+        # block edits (transformations)
+        self._blockinsertions: Optional[List[str]] = None
+        self._blockdeletions: Optional[List[str]] = None
+        self._blocksubstitutions: Optional[List[JSONBlockComparison]] =  None
+        self._blockexpansions: Optional[List[JSONBlockExpansion]] = None
+
+        # edge edits (transformations)
+        self._edgeinsertions: Optional[List[Tuple[str, str]]] = None
+        self._edgedeletions: Optional[List[Tuple[str, str]]] = None
+        self._edgesubstitutions: Optional[List[JSONCfgEdgeComparison]] = None
+
+    @property
+    def similarity(self) -> str:
+        return self.d.get("similarity", self.property_missing("similarity"))
 
     @property
     def changes(self) -> List[str]:
         return self.d.get("changes", [])
 
     @property
-    def matches(self) -> List[str]:
-        return self.d.get("matches", [])
+    def cfg1(self) -> JSONControlFlowGraph:
+        if self._cfg1 is None:
+            self._cfg1 = JSONControlFlowGraph(self.d.get("cfg1", {}))
+        return self._cfg1
 
     @property
-    def moved_to(self) -> Optional[str]:
-        return self.d.get("moved-to")
+    def cfg2(self) -> JSONControlFlowGraph:
+        if self._cfg2 is None:
+            self._cfg2 = JSONControlFlowGraph(self.d.get("cfg2", {}))
+        return self._cfg2
+
+    @property
+    def block_insertions(self) -> List[str]:
+        if self._blockinsertions is None:
+            self._blockinsertions = []
+            for b in self.d.get("block-insertions", []):
+                self._blockinsertions.append(b)
+        return self._blockinsertions
+
+    @property
+    def block_deletions(self) -> List[str]:
+        if self._blockdeletions is None:
+            self._blockdeletions = []
+            for b in self.d.get("block-deletions", []):
+                self._blockdeletions.append(b)
+        return self._blockdeletions
+
+    @property
+    def block_substitutions(self) -> List[JSONBlockComparison]:
+        if self._blocksubstitutions is None:
+            self._blocksubstitutions = []
+            for b in self.d.get("block-substitutions", []):
+                self._blocksubstitutions.append(JSONBlockComparison(b))
+        return self._blocksubstitutions
+
+    @property
+    def block_expansions(self) -> List[JSONBlockExpansion]:
+        if self._blockexpansions is None:
+            self._blockexpansions = []
+            for b in self.d.get("block-expansions", []):
+                self._blockexpansions.append(JSONBlockExpansion(b))
+        return self._blockexpansions
+
+    @property
+    def edge_insertions(self) -> List[Tuple[str, str]]:
+        if self._edgeinsertions is None:
+            self._edgeinsertions = []
+            for e in self.d.get("edge-insertions", []):
+                src = e.get("src", self.property_missing("src"))
+                dst = e.get("dst", self.property_missing("dst"))
+                self._edgeinsertions.append((src, dst))
+        return self._edgeinsertions
+
+    @property
+    def edge_deletions(self) -> List[Tuple[str, str]]:
+        if self._edgedeletions is None:
+            self._edgedeletions = []
+            for e in self.d.get("edge-deletions", []):
+                src = e.get("src", self.property_missing("src"))
+                dst = e.get("dst", self.property_missing("dst"))
+                self._edgedeletions.append((src, dst))
+        return self._edgedeletions
+
+    @property
+    def edge_substitutions(self) -> List[JSONCfgEdgeComparison]:
+        if self._edgesubstitutions is None:
+            self._edgesubstitutions = []
+            for e in self.d.get("edge-substitutions", []):
+                self._edgesubstitutions.append(JSONCfgEdgeComparison(e))
+        return self._edgesubstitutions
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_function_block_mapped_summary(self)
-
-                          
-
-class JSONFunctionBlocksComparisonSummary(JSONObject):
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "function-blocks-comparison-summary")
-        self._blocks_mapped: Optional[List[JSONFunctionBlockMappedSummary]] = None
-
-    @property
-    def function_blocks_mapped(self) -> List[JSONFunctionBlockMappedSummary]:
-        if self._blocks_mapped is None:
-            result: List[JSONFunctionBlockMappedSummary] = []
-            for b in self.d.get("function-blocks-mapped", []):
-                result.append(JSONFunctionBlockMappedSummary(b))
-            self._blocks_mapped = result
-        return self._blocks_mapped
-
-    @property
-    def function_blocks_added(self) -> List[str]:
-        return self.d.get("function-blocks-added", [])
-
-    @property
-    def function_blocks_removed(self) -> List[str]:
-        return self.d.get("function-blocks-removed", [])
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_function_blocks_comparison_summary(self)
-                         
-
-
-class JSONFunctionComparisonSummary(JSONObject):
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "function-comparison-summary")
-        self._blocks_summary: Optional[JSONFunctionBlocksComparisonSummary] = None
-        self._variables_summary: Optional[JSONFunctionVariablesComparisonSummary] = None
-        self._cfg_summary: Optional[JSONCfgComparisonSummary] = None
-
-    @property
-    def function_blocks_comparison_summary(
-            self) -> JSONFunctionBlocksComparisonSummary:
-        if self._blocks_summary is None:
-            self._blocks_summary = JSONFunctionBlocksComparisonSummary(
-                self.d.get("function-blocks-comparison-summary", {}))
-        return self._blocks_summary
-
-    @property
-    def function_variables_comparison_summary(
-            self) -> JSONFunctionVariablesComparisonSummary:
-        if self._variables_summary is None:
-            self._variables_summary = JSONFunctionVariablesComparisonSummary(
-                self.d.get("function-variables-comparison-summary", {}))
-        return self._variables_summary
-
-    @property
-    def cfg_comparison_summary(self) -> JSONCfgComparisonSummary:
-        if self._cfg_summary is None:
-            self._cfg_summary = JSONCfgComparisonSummary(
-                self.d.get("cfg-comparison-summary", {}))
-        return self._cfg_summary
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_function_comparison_summary(self)
+        visitor.visit_cfg_comparison(self)
 
 
 class JSONFunctionComparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
         JSONObject.__init__(self, d, "functioncomparison")
-        self._summary: Optional[JSONFunctionComparisonSummary] = None
-        self._details: Optional[JSONFunctionComparisonDetails] = None
+        self._cfgcomparison: Optional[JSONCfgComparison] = None
+        self._localvarscomparison: Optional[JSONLocalVarsComparison] = None
+        self._semanticcomparison: Optional[JSONFunctionSemanticComparison] = None
 
     @property
     def faddr1(self) -> str:
@@ -204,19 +242,26 @@ class JSONFunctionComparison(JSONObject):
         return self.d.get("matches", [])
 
     @property
-    def function_comparison_summary(self) -> JSONFunctionComparisonSummary:
-        if self._summary is None:
-            self._summary = JSONFunctionComparisonSummary(
-                self.d.get("function-comparison-summary", {}))
-        return self._summary
+    def cfg_comparison(self) -> JSONCfgComparison:
+        if self._cfgcomparison is None:
+            self._cfgcomparison = JSONCfgComparison(
+                self.d.get("cfg-comparison", {}))
+        return self._cfgcomparison
 
     @property
-    def function_comparison_details(self) -> JSONFunctionComparisonDetails:
-        if self._details is None:
-            self._details = JSONFunctionComparisonDetails(
-                self.d.get("function-comparison-details", {}))
-        return self._details
+    def localvars_comparison(self) -> JSONLocalVarsComparison:
+        if self._localvarscomparison is None:
+            self._localvarscomparison = JSONLocalVarsComparison(
+                self.d.get("localvars-comparison", {}))
+        return self._localvarscomparison
+
+    @property
+    def semantic_comparison(self) -> JSONFunctionSemanticComparison:
+        if self._semanticcomparison is None:
+            self._semanticcomparison = (
+                JSONFunctionSemanticComparison(
+                    self.d.get("semantic-comparison", {})))
+        return self._semanticcomparison
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_function_comparison(self)
-                     

@@ -58,6 +58,7 @@ def txtrep() -> Dict[str, str]:
 def refdef(name: str) -> Dict[str, str]:
     r: Dict[str, str] = {}
     r["$ref"] = "#/$defs/" + name
+    # r["$ref"] = name + ".json"
     return r
 
 
@@ -66,6 +67,18 @@ def strtype(desc: Optional[str] = None) -> Dict[str, str]:
     s["type"] = "string"
     if desc is not None:
         s["description"] = desc
+    return s
+
+
+def strtupletype(
+        tag1: str, tag2: str, desc: Optional[str] = None) -> Dict[str, Any]:
+    s: Dict[str, Any] = {}
+    s["type"] = "object"
+    if desc is not None:
+        s["description"] = desc
+    s["properties"] = {}
+    s["properties"][tag1] = strtype()
+    s["properties"][tag2] = strtype()
     return s
 
 
@@ -946,6 +959,7 @@ xcomparison = {
     }
 }
 
+# ------------------------------------------- instruction comparison
 
 instructioncomparison = {
     "name": "instructioncomparison",
@@ -958,118 +972,14 @@ instructioncomparison = {
     "properties": {
         "iaddr1": strtype("hex address of instruction in block1"),
         "iaddr2": strtype("hex address of instruction in block2"),
-        "instr1": refdef("assemblyinstruction"),
-        "instr2": refdef("assemblyinstruction")
+        "changes": prop_set([])
     }
 }
 
+# ---------------------------------------------------- block comparison
 
-instructionaddedinfo = {
-    "name": "instructionaddedinfo",
-    "title": "information about added instruction",
-    "description": (
-        "information about assembly instruction added to function2 not mapped "
-        + "to an instruction in function1"),
-    "type": "object",
-    "required": ["iaddr"],
-    "properties": {
-        "iaddr": strtype("hex address of instruction in function2"),
-        "instr": refdef("assemblyinstruction"),
-        "invariants": refdef("locationinvariant")
-    }
-}
-
-
-instructionremovedinfo = {
-    "name": "instructionremovedinfo",
-    "title": "information about an instruction that was removed",
-    "description": (
-        "information about an assembly instruction that is in function1, but "
-        + "is not mapped to any instruction in function2"),
-    "type": "object",
-    "required": ["iaddr"],
-    "properties": {
-        "iaddr": strtype("hex address of instruction in function1"),
-        "instr": refdef("assemblyinstruction"),
-        "invariants": refdef("locationinvariant")
-    }
-}
-
-
-blockcomparisondetails = {
-    "name": "blockcomparisondetails",
-    "title": "detailed comparison between two blocks",
-    "description": "detailed comparison between two blocks",
-    "type": "object",
-    "properties": {
-        "instruction-comparisons": {
-            "type": "array",
-            "description": "list of instruction comparisons",
-            "items": refdef("instructioncomparison")
-        },
-        "instructions-added": {
-            "type": "array",
-            "description": "list of instructions added to the block",
-            "items": refdef("instructionaddedinfo")
-        },
-        "instructions-removed": {
-            "type": "array",
-            "description": "list of instructions removed from the block",
-            "items": refdef("instructionremovedinfo")
-        }
-    }
-}
-
-
-blockinstructionmappedsummary = {
-    "name": "blockinstructionmappedsummary",
-    "title": "summary of changes between two mapped instructions in function1 and function2",
-    "description": (
-        "summary of changes between two mapped instructions in function1 and function2"),
-    "type": "object",
-    "properties": {
-        "iaddr": strtype("hex address of instruction in function1"),
-        "changes": prop_set([
-            "iaddr",
-            "bytes",
-            "invariants"]),
-        "matches": prop_set([
-            "iaddr",
-            "bytes",
-            "invariants"]),
-        "moved-to": strtype("(optional) address of instruction in function 2")
-    }
-}
-
-
-blockinstructionscomparisonsummary = {
-    "name": "blockinstructionscomparisonsummary",
-    "title": "summary of comparison between corresponding instructions",
-    "description": "summary of comparison between corresponding instructions",
-    "type": "object",
-    "properties": {
-        "changes": prop_set(["instructioncount", "predicate"]),
-        "block-instructions-mapped": {
-            "type": "array",
-            "description": "liost of instructions mapped one-to-one in block1 and block2",
-            "items": refdef("blockinstructionmappedsummary")
-        },
-        "block-instructions-added": {
-            "type": "array",
-            "description": "list of instructions in block2 but not in block1",
-            "items": strtype("hex address of instruction in block2")
-        },
-        "block-instructions-removed": {
-            "type": "array",
-            "description": "list of instructions in block1 but not in block2",
-            "items": strtype("hex address of instruction in block1")
-        }
-    }
-}
-
-
-blocksemanticscomparisonsummary = {
-    "name": "blocksemanticscomparisonsummary",
+blocksemanticcomparison = {
+    "name": "blocksemanticcomparison",
     "title": "summary of semantic changes in two corresponding blocks",
     "description": "summary of semantic changes in two corresponding blocks",
     "type": "object",
@@ -1079,25 +989,12 @@ blocksemanticscomparisonsummary = {
 }
 
 
-blockcomparisonsummary = {
-    "name": "blockcomparisonsummary",
-    "title": "summary of changes in two corresponding blocks",
-    "description": "summary of changes in two corresponding blocks",
-    "type": "object",
-    "properties": {
-        "block-instructions-comparison-summary": (
-            refdef("blockinstructionscomparisonsummary")),
-        "block-semantics-comparison-summary": (
-            refdef("blocksemanticscomparisonsummary"))
-    }
-}
-
-
 blockcomparison = {
     "name": "blockcomparison",
     "title": "block-level comparison between two basic blocks",
     "description": (
-        "block-level comparison between two corresponding blocks in two functions"),
+        "syntactic and semantic comparison between two matching blocks "
+        + "in fn1 and fn2"),
     "type": "object",
     "required": ["baddr1", "baddr2"],
     "properties": {
@@ -1107,42 +1004,102 @@ blockcomparison = {
             "levenshtein distance between block1 and block2 instruction bytes"),
         "changes": prop_set(["instructioncount", "bytecount"]),
         "matches": prop_set(["instructioncount", "bytecount"]),
-        "block-comparison-summary": refdef("blockcomparisonsummary"),
-        "block-comparison-details": refdef("blockcomparisondetails")
+        "semantic-comparison": refdef("blocksemanticcomparison"),
+        "instruction-insertions": {
+            "type": "array",
+            "description": (
+                "list of addresses of instructions inserted in fn2"),
+            "items": strtype("hex address of instruction in fn2")
+        },
+        "instruction-deletions": {
+            "type": "array",
+            "description": (
+                "list of addresses of instructions deleted in fn2"),
+            "items": strtype("hex address instruction in fn1")
+        },
+        "instruction-substitutions": {
+            "type": "array",
+            "description": (
+                "list of instruction transformations from fn1 to fn2"),
+            "items": refdef("instructioncomparison")
+        }
     }
 }
 
 
-cfgblockmappingitem = {
-    "name": "cfgblockmappingitem",
-    "title": "relationship between block in cfg1 and block(s) in cfg2",
-    "description": "relationship between block in cfg1 and block(s) in cfg2",
+xedgedetail = {
+    "name": "xedgedetail",
+    "title": "Edge that is associated with a block expansion",
+    "description": "Edge that is associate with a block expansion",
+    "type": "object",
+    "required": ["src", "tgt"],
+    "properties": {
+        "src": strtype("hex address of source block"),
+        "tgt": strtype("hex address of target block"),
+        "role": prop_kind([
+            "exit-edge",
+            "return-edge"
+        ])
+    }
+}
+
+
+xblockdetail = {
+    "name": "xblockdetail",
+    "title": "Basic block that belongs to a block expansion",
+    "description": "Basic block that belongs to a block expansion",
+    "type": "object",
+    "required": ["baddr", "role"],
+    "properties": {
+        "baddr": strtype("hex address of basic block"),
+        "role": prop_kind([
+            "split-block-pre",
+            "split-block-post",
+            "trampoline-setup",
+            "trampoline-payload",
+            "trampoline-decision",
+            "trampoline-takedown",
+            "trampoline-breakout"
+        ])
+    }
+}
+
+
+blockexpansion = {
+    "name": "blockexpansion",
+    "title": "Expansion of single block into multiple block",
+    "description": (
+        "Expansion of single block in fn1 into multiple blocks in fn2"),
+    "type": "object",
+    "required": ["kind"],
+    "properties": {
+        "baddr1": strtype("hex address of block in fn1 expanded in fn2"),
+        "kind": prop_kind(["trampoline"]),
+        "xblocks": {
+            "type": "array",
+            "description": "list of blocks added and their role",
+            "items": refdef("xblockdetail")
+        },
+        "xedges": {
+            "type": "array",
+            "description": "list of edges added",
+            "items": refdef("xedgedetail")
+        }
+    }
+}
+
+# ---------------------------------------------------- function comparison
+
+cfgedgecomparison = {
+    "name": "cfgedgecomparison",
+    "title": "Substitution of a single edge in fn1 to a single edge in fn2",
+    "description": "Substitution of a single edge in fn1 to a single edge in fn2",
     "type": "object",
     "properties": {
-        "matches": prop_set(["md5", "instructioncount"]),
-        "changes": prop_set(["md5", "trampoline-insertion", "instructioncount"]),
-        "cfg1-block-addr": strtype("hex address of block in cfg1"),
-        "cfg2-blocks": {
-            "type": "array",
-            "description": "list of blocks address in cfg2 mapped to block in cfg1",
-            "items": {
-                "type": "object",
-                "description": "block address and role",
-                "properties": {
-                    "cfg2-block-addr": strtype("hex address of block in cfg2"),
-                    "role": prop_kind([
-                        "single-mapped",
-                        "split-block-pre",
-                        "split-block-post",
-                        "trampoline-setup",
-                        "trampoline-payload",
-                        "trampoline-decision",
-                        "trampoline-takedown",
-                        "trampoline-breakout"
-                    ])
-                }
-            }
-        }
+        "src1": strtype("hex source address in fn1"),
+        "src2": strtype("hex source address in fn2"),
+        "tgt1": strtype("hex target address in fn1"),
+        "tgt2": strtype("hex target address in fn2")
     }
 }
 
@@ -1153,133 +1110,69 @@ cfgcomparison = {
     "description": "cfgs of original and patched function marked with changes",
     "type": "object",
     "properties": {
-        "changes": prop_set(["trampoline"]),
+        "similarity": prop_kind(["automorphic", "isomorphic"]),
+        "changes": prop_set(["trampoline", "blockcount", "connectivity"]),
         "cfg1": refdef("controlflowgraph"),
         "cfg2": refdef("controlflowgraph"),
-        "cfg-block-mapping": {
+        "block-insertions": {
             "type": "array",
-            "description": "mapping of blocks in cfg1 and sets of blocks in cfg2",
-            "items": refdef("cfgblockmappingitem")
-        }
-    }
-}
-
-
-cfgcomparisons = {
-    "name": "cfgcomparisons",
-    "title": "list of cfg comparisons",
-    "description": "list of cfg comparisons",
-    "type": "object",
-    "properties": {
-        "functions-changed": {
-            "type": "array",
-            "description": "list of cfg comparisons for functions changed",
-            "items": refdef("cfgcomparison")
-        }
-    }
-}
-
-cfgcomparisonsummary = {
-    "name": "cfgcomparisonsummary",
-    "title": "summary of changes to the cfg",
-    "description": "summary of changes to the cfg",
-    "type": "object",
-    "properties": {
-        "cfg-mapping": prop_kind(["automorphic"]),
-        "changes": prop_set(["trampoline"])
-    }
-}
-
-
-functionvariablescomparisonsummary = {
-    "name": "functionvariablescomparisonsummary",
-    "title": "summary of changes in the function's variables",
-    "description": "summary of changes in the function's variables",
-    "type": "object",
-    "properties": {
-        "changes": prop_set(["stacklayout"])
-    }
-}
-
-
-functionblockmappedsummary = {
-    "name": "functionblockmappedsummary",
-    "title": "summary of changes between two mapped blocks in function1 and function2",
-    "description": (
-        "summary of changes between two mapped blocks in function1 and function2"),
-    "type": "object",
-    "properties": {
-        "baddr": strtype("hex address of block in function1"),
-        "changes": prop_set([
-            "baddr",
-            "md5",
-            "instructioncount",
-            "bytecount"]),
-        "matches": prop_set([
-            "baddr",
-            "md5",
-            "instructioncount",
-            "bytecount"]),
-        "moved-to": strtype("(optional) address of block in function2")
-    }
-}
-
-
-functionblockscomparisonsummary = {
-    "name": "functionblockscomparisonsummary",
-    "title": "summary of changes in the function's basic blocks",
-    "description": "summary of changes in the funciton's basic blocks",
-    "$comment": "JSONFunctionSummary.JSONFunctionBlocksComparisonSummary",
-    "type": "object",
-    "properties": {
-        "changes": prop_set(["blockcount", "trampoline-inline"]),
-        "matches": prop_set(["blockcount", "md5"]),
-        "function-blocks-mapped": {
-            "type": "array",
-            "description": "list of blocks mapped one-to-one in function1 and function2",
-            "items": refdef("functionblockmappedsummary")
+            "description": ("list of addresses of new blocks in fn2"),
+            "items": strtype("hex address of block in fn2")
         },
-        "function-blocks-added": {
+        "block-deletions": {
             "type": "array",
-            "description": "list of blocks in function2 but not in function1",
-            "items": strtype("hex address of basic block in function2")
+            "description": ("list of addresses of blocks removed from fn1"),
+            "items": strtype("hex address of block in fn1")
         },
-        "function-blocks-removed": {
+        "block-substitutions": {
             "type": "array",
-            "description": "list of blocks in function1 but not in function2",
-            "items": strtype("hex address of basic block in function1")
-        }
-    }
-}
-
-
-functioncomparisonsummary = {
-    "name": "functioncomparisonsummary",
-    "title": "summary of function comparison",
-    "description": "summary of changes in corresponding functions in two binaries",
-    "$comment": "JSONFunctionComparison.JSONFunctionComparisonSummary",
-    "type": "object",
-    "properties": {
-        "cfg-comparison-summary": refdef("cfgcomparisonsummary"),
-        "function-variables-comparison-summary": refdef(
-            "functionvariablescomparisonsummary"),
-        "function-blocks-comparison-summary": refdef(
-            "functionblockscomparisonsummary")
-    }
-}
-
-
-functioncomparisondetails = {
-    "name": "functioncomparisondetails",
-    "title": "details of function comparison",
-    "description": "details of the comparison between two corresponding functions",
-    "type": "object",
-    "properties": {
-        "block-comparisons": {
-            "type": "array",
-            "description": "detailed comparison of all mapped blocks with changes",
+            "description": ("list of block transformations from fn1 to fn2"),
             "items": refdef("blockcomparison")
+        },
+        "block-expansions": {
+            "type": "array",
+            "description": ("list of blocks transformed into multiple blocks"),
+            "items": refdef("blockexpansion")
+        },
+        "edge-insertions": {
+            "type": "array",
+            "description": ("list of edges inserted in cfg2"),
+            "items": strtupletype("src", "dst")
+        },
+        "edge-deletions": {
+            "type": "array",
+            "description": ("list of edges in cfg1 removed in cfg2"),
+            "items": strtupletype("src", "dst")
+        },
+        "edge-substitutions": {
+            "type": "array",
+            "description": ("list of edges transformations from cf1 to cfg2"),
+            "items": refdef("cfgedgecomparison")
         }
+    }
+}
+
+
+functionsemanticcomparison = {
+    "name": "functionsemanticcomparison",
+    "title": "Function semantic changes",
+    "description": "Representation of semantic changes between two versions",
+    "type": "object",
+    "properties": {
+        "changes": prop_set(["restrictions"])
+    }
+}
+
+
+localvarscomparison = {
+    "name": "localvarscomparison",
+    "title": "comparison of two corresponding variables in function 1 and 2",
+    "description": (
+        "comparison of local variables of fn1 and fn2"),
+    "type": "object",
+    "properties": {
+        "matches": prop_set([]),
+        "changes": prop_set([])
     }
 }
 
@@ -1288,7 +1181,7 @@ functioncomparison = {
     "name": "functioncomparison",
     "title": "function-level comparison",
     "description": (
-        "syntactic and semantic comparsion of corresponding functions in two binaries"),
+        "syntactic and semantic comparsion of matching functions in app1 and app2"),
     "$comment": "JSONFunctionComparison.JSONFunctionComparison",
     "type": "object",
     "required": ["faddr1", "faddr2"],
@@ -1299,122 +1192,56 @@ functioncomparison = {
         "name2": strtype("symbolic name of function2 in file2"),
         "changes": prop_set(["blockcount", "cfg-structure"]),
         "matches": prop_set(["blockcount", "cfg-structure"]),
-        "function-comparison-summary": refdef("functioncomparisonsummary"),
-        "function-comparison-details": refdef("functioncomparisondetails")
+        "cfg-comparison": refdef("cfgcomparison"),
+        "localvars-comparison": refdef("localvarscomparison"),
+        "semantic-comparison": refdef("functionsemanticcomparison")
     }
 }
 
+# ------------------------------------------------ application comparison
 
-callgraphcomparisonsummary = {
-    "name": "callgraphcomparisonsummary",
-    "title": "summary of changes in the callgraph",
-    "description": "summary of changes in the callgraph",
-    "$comment": "JSONAppComparison.JSONCallgraphComparisonSummary",
-    "properties": {
-        "changes": prop_set(["redirect"])
-    }
-}
-
-
-globalscomparisonsummary = {
-    "name": "globalscomparisonsummary",
-    "title": "summary of changes in global variables",
-    "description": "summary of changes in global variables",
-    "$comment": "JSONAppComparison.JSONGlobalsComparisonSummary",
-    "properties": {
-        "changes": prop_set(["address-change"])
-    }
-}
-
-
-appfunctionmappedsummary = {
-    "name": "appfunctionmappedsummary",
-    "title": "summary of changes in a mapped function from file1 to file2",
-    "description": "summary of changes in a mapped function from file1 to file2",
-    "$comment": "JSONAppComparison.JSONFunctionMappedSummary",
-    "type": "object",
-    "required": ["faddr"],
-    "properties": {
-        "faddr": strtype("hex address of function in file1"),
-        "name": strtype("name of function in file1"),
-        "changes": prop_set([
-            "faddr",
-            "md5",
-            "blockcount",
-            "instructioncount",
-            "bytecount",
-            "cfg:not-automorphic"]),
-        "matches": prop_set([
-            "faddr",
-            "md5",
-            "cfg-automorphic",
-            "blockcount",
-            "instructioncount",
-            "bytecount"]),
-        "moved-to": strtype("(optional) address in file2, if different"),
-    }
-}
-
-
-appfunctionscomparisonsummary = {
-    "name": "appfunctionscomparisonsummary",
-    "title": "summary of changes in individual functions",
-    "description": "summary of changes in individual functions",
-    "$comment": "JSONAppComparison.JSONAppFunctionsComparisonSummary",
+functionadded = {
+    "name": "functionadded",
+    "title": "New function added to app 2",
+    "description": "New function added to app 2",
     "type": "object",
     "properties": {
-        "changes": prop_set(["functioncount", "trampoline"]),
-        "app-functions-mapped": {
-            "type": "array",
-            "description": "list of functions mapped one-to-one in file1 and file2",
-            "items": refdef("appfunctionmappedsummary")
-        },
-        "app-functions-added": {
-            "type": "array",
-            "description": "list of addresses of functions in file2 not present in file1",
-            "items": strtype("hex function address in file2")
-        },
-        "app-functions-removed": {
-            "type": "array",
-            "description": "list of addresses of functions in file1 not present in file2",
-            "items": strtype("hex function address in file1")
-        }
+        "faddr": strtype("hex address of new function")
     }
 }
 
 
-appcomparisonsummary = {
-    "name": "appcomparisonsummary",
-    "title": "summary of application comparison",
-    "description": "summary of syntactic and semantic comparison of two binaries",
-    "$comment": "JSONAppComparison.JSONAppComparisonSummary",
+globalvarcomparison = {
+    "name": "globalvarcomparison",
+    "title": "comparison of global variable in app1 and app2",
+    "description": "comparison of global variable in app1 and app2",
     "type": "object",
-    "required": ["functions-comparison-summary"],
     "properties": {
-        "callgraph-comparison-summary": refdef("callgraphcomparisonsummary"),
-        "globals-comparison-summary": refdef("globalscomparisonsummary"),
-        "app-functions-comparison-summary": refdef("appfunctionscomparisonsummary")
+        "gaddr": strtype("hex address of global variable in app1"),
+        "name": strtype("name of global variable"),
+        "moved-to": strtype("address of global variable in app2")
     }
 }
 
 
-appcomparisondetails = {
-    "name": "appcomparisondetails",
-    "title": "details of application comparison",
-    "description": "details of comparison between two binaries",
+callgraphcomparison = {
+    "name": "callgraphcomparison",
+    "title": "comparison of callgraphs of app1 and app2",
+    "description": "comparison of callgraphs of app1 and app2",
     "type": "object",
     "properties": {
-        "function-comparisons": {
-            "type": "array",
-            "description": "detailed comparison of all mapped functions with changes",
-            "items": refdef("functioncomparison")
-        },
-        "function-comparisons-omitted": {
-            "type": "array",
-            "description": (
-                "list of hex addresses of functions changed without details"),
-            "items": strtype("hex address of function in file1")
-        }
+        "changes": prop_set(["new call"])
+    }
+}
+
+
+binarycomparison = {
+    "name": "binarycomparison",
+    "title": "comparison of app1 and app2 at the binary level",
+    "description": "comparison of app1 and app2 at the binary level",
+    "type": "object",
+    "properties": {
+        "changes": prop_set(["new section"])
     }
 }
 
@@ -1425,127 +1252,45 @@ appcomparison = {
     "description": "syntactic and semantic comparison of two binaries",
     "$comment": "JSONAppComparison.JSONAppComparison",
     "type": "object",
-    "required": ["file1", "file2", "app-summary"],
+    "required": ["file1", "file2", "functions-compared"],
     "properties": {
         "file1": refdef("xfilepath"),
         "file2": refdef("xfilepath"),
         "changes": prop_set(["functioncount"]),
         "matches": prop_set(["functioncount"]),
-        "app-comparison-summary": refdef("appcomparisonsummary"),
-        "app-comparison-details": refdef("appcomparisondetails")
+        "functions-compared": {
+            "type": "array",
+            "description": (
+                "list of hex addresses of functions that were compared"),
+            "items": strtype("hex address of function compared")
+        },
+        "functions-changed": {
+            "type": "array",
+            "description": (
+                "list of relational analyses at the function level"),
+            "items": refdef("functioncomparison")
+        },
+        "functions-added": {
+            "type": "array",
+            "description": ("list of functions added to file 2"),
+            "items": refdef("functionadded")
+        },
+        "functions-removed": {
+            "type": "array",
+            "description": ("list of functions removed from file 1"),
+            "items": strtype("hex address of function removed")
+        },
+        "callgraph-comparison": refdef("callgraphcomparison"),
+        "globalvars-compared": {
+            "type": "array",
+            "description": ("list of hex addresses of global variables analyzed"),
+            "items": strtype("hex address of global variable analyzed")
+        },
+        "globalvars-changed": {
+            "type": "array",
+            "description": ("list of changes in global variables"),
+            "items": refdef("globalvarcomparison")
+        },
+        "binary-comparison": refdef("binarycomparison")
     }
 }
-
-"""
-remove:
-- appcomparisonsummary
-- callgraphcomparisonsummary
-- globalscomparisonsummary
-- appfunctionscomparisonsummary
-- appfunctionmappedsummary
-- functioncomparisonsummary
-- cfgcomparisonsummary
-- functionvariablescomparisonsummary
-- functionblockscomparisonsummary
-- functionblockmappedsummary
-- blockcomparisonsummary
-- blockinstructionscomparisonsummary
-- blocksemanticscomparisonsummary
-- blockinstructionmappedsummary
-
-keep/rename:
-- appcomparisondetails
-- functioncomparison
-- functioncomparisondetails
-- blockcomparison
-- blockcomparisondetails
-- instructioncomparison
-- instructionaddedinfo
-- instructionremovedinfo
-
-recreate:
-- in app context:
-  - callgraphcomparison
-  - globalscomparison
-
-- in function context:
-  - cfgcomparison
-  - variablescomparison
-  - semanticscomparison
-
-- in block context
-  - blocksemanticscomparison
-
-combine into:
-- appcomparison:
-    - functioncomparison[]
-    - functionadded[]
-    - functionremoved[]
-    - callgraphcomparison
-    - globalvarcomparison[]
-    - bincomparison
-
-- functioncomparison:
-    - blockcomparison[]
-    - cfgcomparison
-    - trampolineanalysis
-    - variablecomparison[]
-    - funsemanticscomparison
-
-- blockcomparison:
-    - instructioncomparison[]
-    - instructionadded[]
-    - instructionremoved[]
-    - vertexcomparison
-    - blocksemanticscomparison
-
-- instructioncomparison
-    - bytecomparison
-    - instrsemanticscomparison
-
-- functionadded:
-    - hex address
-    - assertion[]
-    - remark[]
-
-- functionremoved:
-    - hex address
-    - assertion[]
-    - remark[]
-
-callgraphcomparison:
-    - changes: {callredirect}
-
-globalvarcomparison:
-    - hex address
-    - type
-    - name
-    - changes: {moved}
-
-bincomparison
-    - changes: {elfheader, elfsection}
-
-cfgcomparison:
-    - changes: {trampoline-insert, blockcount, blockconnectivity}
-    - trampolinedata
-
-variablescomparison
-    - name
-    - location
-    - type
-
-funsemanticscomparison
-    - changes: {}
-
-vertextcomparison:
-    - incomingchanged
-    - outgoingchanged
-    - newimcoming
-    - newoutgoing
-
-blocksemanticscomparison
-    - changes: {precondition, postcondition, external}
-
-instrsemanticscomparison
-    - invariantschanged
-"""
