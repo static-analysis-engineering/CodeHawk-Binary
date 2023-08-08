@@ -383,91 +383,9 @@ class FunctionRelationalAnalysis:
         content: Dict[str, Any] = {}
         content["faddr1"] = self.faddr1
         content["faddr2"] = self.faddr2
-
-        fsummary = self.function_comparison_summary_result()
-        if fsummary.is_ok:
-            content["function-comparison-summary"] = fsummary.content
-        else:
-            return JSONResult(schema, {}, "fail", fsummary.reason)
-        fdetails = self.function_comparison_details_result()
-        if fdetails.is_ok:
-            content["function-comparison-details"] = fdetails.content
-        else:
-            return JSONResult(schema, {}, "fail", fdetails.reason)
-
-        return JSONResult(schema, content, "ok")
-
-    def function_comparison_summary_result(self) -> JSONResult:
-        schema = "functioncomparisonsummary"
-        content: Dict[str, Any] = {}
-        cfgsummary = self.cfg_comparison_summary_result()
-        if cfgsummary.is_ok:
-            content["cfg-comparison-summary"] = cfgsummary.content
-        else:
-            return JSONResult(schema, {}, "fail", cfgsummary.reason)
-        fvars = self.variables_comparison_summary_result()
-        if fvars.is_ok:
-            content["function-variables-comparison-summary"] = fvars.content
-        else:
-            return JSONResult(schema, {}, "fail", fvars.reason)
-        fblocks = self.blocks_comparison_summary_result()
-        if fblocks.is_ok:
-            content["function-blocks-comparison-summary"] = fblocks.content
-        else:
-            return JSONResult(schema, {}, "fail", fblocks.reason)
-
-        return JSONResult(schema, content, "ok")
-
-    def cfg_comparison_summary_result(self) -> JSONResult:
-        schema = "cfgcomparisonsummary"
-        content: Dict[str, Any] = {}
-        return JSONResult(schema, content, "ok")
-
-    def variables_comparison_summary_result(self) -> JSONResult:
-        schema = "functionvariablescomparisonsummary"
-        content: Dict[str, Any] = {}
-        return JSONResult(schema, content, "ok")
-
-    def blocks_comparison_summary_result(self) -> JSONResult:
-        schema = "functionblockscomparisonsummary"
-        content: Dict[str, Any] = {}
         content["changes"] = self.changes
         content["matches"] = self.matches
-        bmapped: List[Dict[str, Any]] = []
-        for baddr in self.block_analyses:
-            bresult = self.block_mapped_summary_result(baddr)
-            if bresult.is_ok:
-                bmapped.append(bresult.content)
-            else:
-                return JSONResult(schema, {}, "fail", bresult.reason)
-        content["function-blocks-mapped"] = bmapped
-        content["function-blocks-added"] = []
-        content["function-blocks-removed"] = []
-        return JSONResult(schema, content, "ok")
 
-    def block_mapped_summary_result(self, baddr: str) -> JSONResult:
-        schema = "functionblockmappedsummary"
-        content: Dict[str, Any] = {}
-        blockra = self.block_analyses[baddr]
-        content["baddr"] = baddr
-        content["changes"] = []
-        content["matches"] = []
-
-        return JSONResult(schema, content, "ok")
-
-    def function_comparison_details_result(self) -> JSONResult:
-        schema = "functioncomparisondetails"
-        content: Dict[str, Any] = {}
-        blocks: List[Dict[str, Any]] = []
-        for (b, blockra) in self.block_analyses.items():
-            if blockra.is_md5_equal:
-                continue
-            bresult = blockra.to_json_result()
-            if bresult.is_ok:
-                blocks.append(bresult.content)
-            else:
-                return JSONResult(schema, {}, "fail", bresult.reason)
-        content["block-comparisons"] = blocks
         return JSONResult(schema, content, "ok")
 
     def report(self, showinstructions: bool, callees: List[str] = []) -> str:

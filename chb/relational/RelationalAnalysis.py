@@ -228,104 +228,21 @@ class RelationalAnalysis:
         content["file2"]["path"] = self.app2.path
         content["file2"]["filename"] = self.app2.filename
 
-        summary = self.comparison_summary_result()
-        if summary.is_ok:
-            content["app-comparison-summary"] = summary.content
-        else:
-            return JSONResult("appcomparison", {}, "fail", summary.reason)
-        details = self.comparison_details_result()
-        if details.is_ok:
-            content["app-comparison-details"] = details.content
-        else:
-            return JSONResult("appcomparison", {}, "fail", details.reason)
-
+        content["functions-compared"] = self.functions_mapped()
+        content["functions-changed"] = []
+        for f in self.functions_changed():
+            fra = self.function_analyses[f].to_json_result()
+            if fra.is_ok:
+                content["functions-changed"].append(fra.content)
+            else:
+                return JSONResult("appcomparison", {}, "fail", fra.reason)
         return JSONResult("appcomparison", content, "ok")
-
-    def comparison_summary_result(self) -> JSONResult:
-        content: Dict[str, Any] = {}
-        cgsummary = self.callgraph_summary_result()
-        if cgsummary.is_ok:
-            content["callgraph-comparison-summary"] = cgsummary.content
-        else:
-            return JSONResult("appcomparisonsummary", {}, "fail", cgsummary.reason)
-        gsummary = self.globals_summary_result()
-        if gsummary.is_ok:
-            content["globals-comparison-summary"] = gsummary.content
-        else:
-            return JSONResult("appcomparisonsummary", {}, "fail", gsummary.reason)
-        fsummary = self.functions_summary_result()
-        if fsummary.is_ok:
-            content["app-functions-comparison-summary"] = fsummary.content
-        else:
-            return JSONResult("appcomparisonsummary", {}, "fail", fsummary.reason)
-
-        return JSONResult("appcomparisonsummary",  content, "ok")
 
     def callgraph_summary_result(self) -> JSONResult:
         return JSONResult("callgraphcomparisonsummary", {}, "ok")
 
     def globals_summary_result(self) -> JSONResult:
         return JSONResult("globalscomparisonsummary", {}, "ok")
-
-    def functions_summary_result(self) -> JSONResult:
-        content: Dict[str, Any] = {}
-        fnsmapped: List[Dict[str, Any]] = []
-        for (faddr, fra) in self.function_analyses.items():
-            fmapped = self.function_mapped_summary_result(faddr)
-            if fmapped.is_ok:
-                fnsmapped.append(fmapped.content)
-            else:
-                return JSONResult(
-                    "appfunctionmappedsummary", {}, "fail", fmapped.reason)
-        content["app-functions-mapped"] = fnsmapped
-        content["app-functions-added"] = self.functions_added()
-        content["app-functions-removed"] = self.functions_removed()
-
-        return JSONResult("appfunctionscomparisonsummary", content, "ok")
-
-    def function_mapped_summary_result(self, faddr: str) -> JSONResult:
-        content: Dict[str, Any] = {}
-        content["faddr"] = faddr
-        if faddr in self.function_names:
-            content["name"] = self.function_names[faddr]
-        fra = self.function_analyses[faddr]
-        changes: List[str] = []
-        matches: List[str] = []
-        if fra.is_md5_equal:
-            matches.append("md5")
-        else:
-            changes.append("md5")
-            if not fra.is_automorphic:
-                changes.append("cfg:not-automorphic")
-            else:
-                content["blocks-changed"] = len(fra.blocks_changed())
-        if len(changes) > 0:
-            content["changes"] = changes
-        if len(matches) > 0:
-            content["matches"] = matches
-
-        return JSONResult("appfunctionmappedsummary", content, "ok")
-
-    def comparison_details_result(self) -> JSONResult:
-        content: Dict[str, Any] = {}
-        fcomparisons: List[Dict[str, Any]] = []
-        fomitted: List[str] = []
-        for (faddr, fra) in self.function_analyses.items():
-            if fra.is_md5_equal:
-                continue
-            if not fra.is_automorphic:
-                fomitted.append(faddr)
-                continue
-
-            fresult = fra.to_json_result()
-            if fresult.is_ok:
-                fcomparisons.append(fresult.content)
-            else: return JSONResult(
-                    "functioncomparison", {}, "fail", fresult.reason)
-        content["function-comparisons"] = fcomparisons
-        if len(fomitted) > 0:
-            content["function-comparisons-omitted"] = fomitted
-        return JSONResult("appcomparisondetails", content, "ok")
 
     def report(self, showfunctions: bool, showinstructions: bool) -> str:
         lines: List[str] = []

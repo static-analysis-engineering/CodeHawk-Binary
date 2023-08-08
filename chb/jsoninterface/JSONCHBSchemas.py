@@ -1283,7 +1283,8 @@ appcomparison = {
         "callgraph-comparison": refdef("callgraphcomparison"),
         "globalvars-compared": {
             "type": "array",
-            "description": ("list of hex addresses of global variables analyzed"),
+            "description": (
+                "list of hex addresses of global variables analyzed"),
             "items": strtype("hex address of global variable analyzed")
         },
         "globalvars-changed": {
