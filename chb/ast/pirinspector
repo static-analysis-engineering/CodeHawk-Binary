@@ -47,7 +47,8 @@ def parse() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=__doc__,
-        epilog="See for more information ...")
+        epilog="See for more information ...",
+    )
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         exit(0)
@@ -74,47 +75,63 @@ def parse() -> argparse.Namespace:
         help=(
             "ast to view: high (C-level), "
             + "low (assembly-level), "
-            + "or high_unreduced (C-level without dead code removed"),
-        choices=["high", "low", "high_unreduced"], default="high")
+            + "or high_unreduced (C-level without dead code removed"
+        ),
+        choices=["high", "low", "high_unreduced"],
+        default="high",
+    )
     viewastcmd.add_argument(
         "--cutoff",
         help="stop expansion at stmt or instruction level",
-        choices=["stmt", "instr"])
+        choices=["stmt", "instr"],
+    )
     viewastcmd.add_argument(
-        "-o", "--outputfile", help="name of output graph file (without extension)")    
+        "-o",
+        "--outputfile",
+        help="name of output graph file (without extension)",
+        required=True,
+    )
     viewastcmd.set_defaults(func=AU.viewastcmd)
 
     # --- view single instruction ast
     viewinstrcmd = viewparsers.add_parser("instruction")
+    viewinstrcmd.add_argument("pirfile", help="name of json file with ast information")
+    viewinstrcmd.add_argument("--function", help="name or address of function to view")
     viewinstrcmd.add_argument(
-        "pirfile", help="name of json file with ast information")
+        "--instrid", help="instruction id of instruction", type=int
+    )
     viewinstrcmd.add_argument(
-        "--function", help="name or address of function to view")
+        "--provenance",
+        help="show associated low-level instruction",
+        action="store_true",
+    )
     viewinstrcmd.add_argument(
-        "--instrid", help="instruction id of instruction", type=int)
-    viewinstrcmd.add_argument(
-        "--provenance", help="show associated low-level instruction",
-        action="store_true")
-    viewinstrcmd.add_argument(
-        "-o", "--output", help="name of output graph file (without extension)")
+        "-o",
+        "--output",
+        help="name of output graph file (without extension)",
+        required=True,
+    )
     viewinstrcmd.set_defaults(func=AU.viewinstrcmd)
 
     # --- view single expression ast
     viewexprcmd = viewparsers.add_parser("expr")
+    viewexprcmd.add_argument("pirfile", help="name of json file with ast information")
+    viewexprcmd.add_argument("--function", help="name or address of function to view")
+    viewexprcmd.add_argument("--exprid", help="expression id of expression", type=int)
     viewexprcmd.add_argument(
-        "pirfile", help="name of json file with ast information")
+        "--provenance", help="show associated low-level expression", action="store_true"
+    )
     viewexprcmd.add_argument(
-        "--function", help="name or address of function to view")
+        "--reachingdefs",
+        help="show instructions that may have defined a value",
+        action="store_true",
+    )
     viewexprcmd.add_argument(
-        "--exprid", help="expression id of expression", type=int)
-    viewexprcmd.add_argument(
-        "--provenance", help="show associated low-level expression",
-        action="store_true")
-    viewexprcmd.add_argument(
-        "--reachingdefs", help="show instructions that may have defined a value",
-        action="store_true")
-    viewexprcmd.add_argument(
-        "--output", "-o", help="name of output graph file (without extension)")
+        "--output",
+        "-o",
+        help="name of output graph file (without extension)",
+        required=True,
+    )
     viewexprcmd.set_defaults(func=AU.viewexprcmd)
 
     # ---------------------------------------------------------------- show ---
@@ -129,19 +146,21 @@ def parse() -> argparse.Namespace:
         "--variables",
         help="only show the contents of these variables",
         nargs="*",
-        default=[])
+        default=[],
+    )
     showaexprs.add_argument(
         "--locations",
         help="only show the values for these instruction addresses",
         nargs="*",
-        default=[])
+        default=[],
+    )
     showaexprs.set_defaults(func=AU.showaexprscmd)
 
     # -- parse
     args = parser.parse_args()
     return args
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     args = parse()
     args.func(args)
