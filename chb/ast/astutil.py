@@ -129,7 +129,7 @@ def get_function_addr(pirjson: Dict[str, Any], function: Optional[str]) -> str:
             + "\n"
                 + "\n".join(
                     ("    " + va.ljust(8) + name) for (va, name) in functions.items())
-            + "\nSpecify either name or address")
+            + "\nSpecify either name or address via --function")
         exit(1)
 
     if function in functions.keys():
