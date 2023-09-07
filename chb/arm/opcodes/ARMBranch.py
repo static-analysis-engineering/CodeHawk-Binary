@@ -243,7 +243,7 @@ class ARMBranch(ARMOpcode):
                     hl_lhs = astree.mk_lval(astreturnvar, nooffset)
 
         else:
-            if tgt_returntype.is_void or defuses[0] is None:
+            if tgt_returntype.is_void or not defuses or defuses[0] is None:
                 hl_lhs = None
             else:
                 if len(xdata.vars) > 0:
