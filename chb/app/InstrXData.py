@@ -106,6 +106,17 @@ class InstrXData(IndexedTableValue):
             self._expand()
         return self._vars
 
+    def get_var(self, index: int) -> XVariable:
+        if index < len(self.vars):
+            return self.vars[index]
+        else:
+            raise UF.CHBError(
+                "xdata: var-index out-of-bound: "
+                + str(index)
+                + " (length is "
+                + str(len(self.vars))
+                + ")")
+
     @property
     def xprs(self) -> List[XXpr]:
         if not self.expanded:

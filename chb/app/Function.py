@@ -175,12 +175,16 @@ class Function(ABC):
     @property
     def varinvdictionary(self) -> FnVarInvDictionary:
         if self._varinvd is None:
-            xvarinvnode = UF.get_function_varinvs_xnode(
-                self.path, self.filename, self.faddr)
-            xvarinvd = xvarinvnode.find("varinv-dictionary")
-            if xvarinvd is None:
-                raise UF.CHBError("VarInv-dictionary element not found")
-            self._varinvd = FnVarInvDictionary(self.vardictionary, xvarinvd)
+            if UF.has_function_varinvs_file(
+                    self.path, self.filename, self.faddr):
+                xvarinvnode = UF.get_function_varinvs_xnode(
+                    self.path, self.filename, self.faddr)
+                xvarinvd = xvarinvnode.find("varinv-dictionary")
+                if xvarinvd is None:
+                    raise UF.CHBError("VarInv-dictionary element not found")
+                self._varinvd = FnVarInvDictionary(self.vardictionary, xvarinvd)
+            else:
+                self._varinvd = FnVarInvDictionary(self.vardictionary, None)
         return self._varinvd
 
     @property
@@ -204,7 +208,8 @@ class Function(ABC):
 
     @property
     def var_invariants(self) -> Mapping[str, Sequence[VarInvariantFact]]:
-        if len(self._varinvariants) == 0:
+        if UF.has_function_varinvs_file(
+                self.path, self.filename, self.faddr) and len(self._varinvariants) == 0:
             xvarinvnode = UF.get_function_varinvs_xnode(
                 self.path, self.filename, self.faddr)
             xvarfacts = xvarinvnode.find("locations")
@@ -244,6 +249,37 @@ class Function(ABC):
             rhsresult.extend(rhs)
 
         return (lhsresult, rhsresult)
+
+    def lhs_variables(
+            self, filter: Callable[[XVariable], bool]) -> List[XVariable]:
+        result: List[XVariable] = []
+        for instr in self.instructions.values():
+            try:
+                result.extend(instr.lhs_variables(filter))
+            except Exception as e:
+                raise UF.CHBError(
+                    "Error in lhs variables in instruction "
+                    + instr.iaddr
+                    + " ("
+                    + instr.mnemonic
+                    + "): "
+                    + str(e))
+        return result
+
+    def rhs_expressions(self, filter: Callable[[XXpr], bool]) -> List[XXpr]:
+        result: List[XXpr] = []
+        for instr in self.instructions.values():
+            try:
+                result.extend(instr.rhs_expressions(filter))
+            except Exception as e:
+                raise UF.CHBError(
+                    "Error in rhs expressions in instruction "
+                    + instr.iaddr
+                    + " ("
+                    + instr.mnemonic
+                    + "): "
+                    + str(e))
+        return result
 
     def has_name(self) -> bool:
         return len(self.names) > 0

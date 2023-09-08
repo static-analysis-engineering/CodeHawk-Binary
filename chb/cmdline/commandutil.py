@@ -69,6 +69,7 @@ from chb.cmdline.AnalysisManager import AnalysisManager
 
 from chb.invariants.InputConstraint import InputConstraint
 from chb.invariants.XXpr import XXpr
+from chb.invariants.XVariable import XVariable
 
 from chb.jsoninterface.JSONSchemaRegistry import json_schema_registry
 
@@ -291,7 +292,7 @@ def prepare_executable(
 
     if os.path.isfile(xtargz):
         chdir = UF.get_ch_dir(path, xfile)
-        if os.path.isdir(chdir) and not doreset:
+        if os.path.isdir(chdir) and not (doreset or doresetx):
             # everything is in place
             return UserHints()     # TODO: to be changed
 
@@ -471,7 +472,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 save_asm=save_asm)
         except subprocess.CalledProcessError as e:
             print_error(str(e.output))
-            print_error(str(e.args))
+            print_error(str(e))
             exit(1)
         except UF.CHBError as e:
             print_error(str(e.wrap()))
@@ -502,8 +503,19 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 collectdiagnostics=collectdiagnostics,
                 preamble_cutoff=preamble_cutoff)
         except subprocess.CalledProcessError as e:
-            print_error(str(e.output))
-            print_error(str(e.args))
+            print_error(
+                "Analysis failed.\n  Return code: "
+                + str(e.returncode)
+                + "\n  Command: "
+                + str(e.cmd)
+                + "\n  Output: "
+                + str(e.output)
+                + "\n  Stderr: "
+                + str(e.stderr)
+                + "\n"
+                + ("-" * 80)
+                + "\n"
+                + str(e))
             exit(1)
         except UF.CHBError as e:
             print_error(str(e.wrap()))
@@ -533,6 +545,8 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
 
     app = get_app(path, xfile, xinfo)
 
+    largefunctions: List[str] = []
+
     stats = app.result_metrics
     print(stats.header_to_string())
     if sortby == "instrs":
@@ -547,6 +561,8 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
         sortkey = lambda f: f.faddr
     for f in sorted(stats.get_function_results(), key=sortkey):
         print(f.metrics_to_string(shownocallees=nocallees))
+        if f.block_count > 50 or f.instruction_count > 200:
+            largefunctions.append(f.faddr)
     print(stats.disassembly_to_string())
     print(stats.analysis_to_string())
     if timeshare > 0:
@@ -564,6 +580,9 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
         filename = opcodes + ".json"
         with open(filename, "w") as fp:
             json.dump(app.mnemonic_stats(), fp, sort_keys=True, indent=2)
+
+    with open("largefunctions.json", "w") as fp:
+        json.dump(largefunctions, fp, indent=2)
 
     exit(0)
 
@@ -1063,6 +1082,86 @@ def results_branchconditions(args: argparse.Namespace) -> NoReturn:
                 + bci.opcodetext.ljust(32)
                 + bci.annotation)
 
+    exit(0)
+
+
+def results_structs(args: argparse.Namespace) -> NoReturn:
+    """Return a json file with struct variables / expressions."""
+
+    # arguments
+    xname: str = str(args.xname)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print_error(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    lhsvars = app.get_lhs_variables(lambda v: v.is_structured_var)
+    rhsxprs = app.get_rhs_expressions(
+        lambda x: x.is_structured_expr and not x.is_compound)
+
+    results: Dict[str, Dict[str, Dict[str, int]]] = {}
+
+    # statistics
+    lhsfreq: Dict[str, int] = {}
+    rhsfreq: Dict[str, int] = {}
+
+    for (faddr, fvars) in lhsvars.items():
+        results.setdefault(faddr, {})
+        for v in fvars:
+            strv = str(v)
+            results[faddr].setdefault("vars", {})
+            results[faddr]["vars"].setdefault(strv, 0)
+            results[faddr]["vars"][strv] += 1
+            lhsfreq.setdefault(strv, 0)
+            lhsfreq[strv] += 1
+
+    for (faddr, xprs) in rhsxprs.items():
+        results.setdefault(faddr, {})
+        for x in xprs:
+            strx = str(x)
+            results[faddr].setdefault("xprs", {})
+            results[faddr]["xprs"].setdefault(strx, 0)
+            results[faddr]["xprs"][strx] += 1
+            if strx.endswith("_in"):
+                strx = strx[:-3]
+            rhsfreq.setdefault(strx, 0)
+            rhsfreq[strx] += 1
+
+    print("Structs")
+    for (faddr, d) in sorted(results.items()):
+        if app.has_function_name(faddr):
+            print(
+                "\n\nFunction "
+                + faddr
+                + " ("
+                + app.function_name(faddr)
+                + ")")
+        else:
+            print("\n\nFunction " + faddr)
+
+        if "vars" in d:
+            print("  Lhs variables")
+            for (vs, c) in sorted(d["vars"].items()):
+                print(str(c).rjust(8) + " " + str(vs))
+        if "xprs" in d:
+            print("  Rhs expressions")
+            for (xs, c) in sorted(d["xprs"].items()):
+                print(str(c).rjust(8) + " " + str(xs))
+
+    print("\n\nStatistics")
+    print("Functions with structs: " + str(len(results)))
+    print("Distinct lhs          : " + str(len(lhsfreq)))
+    print("Distinct rhs          : " + str(len(rhsfreq)))
+    print("Total number of lhs   : " + str(sum(lhsfreq[s] for s in lhsfreq)))
+    print("Total number of rhs   : " + str(sum(rhsfreq[s] for s in rhsfreq)))
     exit(0)
 
 
