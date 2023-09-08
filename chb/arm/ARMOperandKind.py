@@ -85,7 +85,7 @@ if TYPE_CHECKING:
         ARMExtensionRegister, ARMExtensionRegisterElement)
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMMemoryOffset import ARMMemoryOffset, ARMImmOffset
-    from chb.arm.ARMShiftRotate import ARMShiftRotate, ARMImmSRT
+    from chb.arm.ARMShiftRotate import ARMShiftRotate, ARMImmSRT, ARMRegSRT
     from chb.arm.ARMSIMD import ARMSIMDWriteback, ARMSIMDListElement
 
 
@@ -617,6 +617,23 @@ class ARMShiftedRegisterOp(ARMOperandKind):
                         "Shifted register operand "
                         + str(self)
                         + " not yet supported")
+        elif srt.is_reg_srt:
+            srt = cast ("ARMRegSRT", srt)
+            shiftregop = (
+                astree.mk_register_variable_expr(
+                    srt.register, vtype=astree.astree.int_type))
+            if srt.is_shift_left:
+                xpr = astree.mk_binary_op("lsl", rvar, shiftregop)
+            elif srt.is_logical_shift_right:
+                xpr = astree.mk_binary_op("lsr", rvar, shiftregop)
+            elif srt.is_arithmetic_shift_right:
+                xpr = astree.mk_binary_op("asr", rvar, shiftregop)
+            else:
+                raise UF.CHBError(
+                    "Shifted register operand "
+                    + str(self)
+                    + " not yet supported")
+
         else:
             raise UF.CHBError(
                 "Shifted register operand " + str(self) + " not yet supported")

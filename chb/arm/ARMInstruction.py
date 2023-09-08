@@ -309,6 +309,13 @@ class ARMInstruction(Instruction):
         else:
             return []
 
+    def lhs_variables(
+            self, filter: Callable[[XVariable], bool]) -> List[XVariable]:
+        return [v for v in self.opcode.lhs(self.xdata) if filter(v)]
+
+    def rhs_expressions(self, filter: Callable[[XXpr], bool]) -> List[XXpr]:
+        return [x for x in self.opcode.rhs(self.xdata) if filter(x)]
+
     def to_string(
             self,
             bytes: bool = False,
