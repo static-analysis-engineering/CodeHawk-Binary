@@ -111,7 +111,7 @@ class PWRBranchEqual(PowerOpcode):
         rdefs = xdata.reachingdefs
 
         def default(condition: XXpr) -> AST.ASTExpr:
-            astconds = XU.xxpr_to_ast_exprs(condition, xdata, astree)
+            astconds = XU.xxpr_to_ast_exprs(condition, xdata, iaddr, astree)
             if len(astconds) == 0:
                 raise UF.CHBError(
                     "CBranchEqual (ble): no ast value for condition at "

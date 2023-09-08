@@ -187,7 +187,8 @@ class PowerCallOpcode(PowerOpcode):
                         returnval, xdata, astree)[0]
                 else:
                     returnvarname = "rtn_" + iaddr
-                    astreturnvar = astree.mk_named_variable(returnvarname, vtype=tgt_returntype)
+                    astreturnvar = astree.mk_named_variable(
+                        returnvarname, vtype=tgt_returntype)
                     hl_lhs = astree.mk_lval(astreturnvar, nooffset)
 
         if not (self.is_call(xdata) and xdata.has_call_target()):
@@ -259,7 +260,7 @@ class PowerCallOpcode(PowerOpcode):
                         argexpr = astree.mk_address_of(arglval)
                         argxprs.append(argexpr)
                     else:
-                        astxprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
+                        astxprs = XU.xxpr_to_ast_exprs(arg, xdata, iaddr, astree)
                         if len(astxprs) == 0:
                             raise UF.CHBError(
                                 name
