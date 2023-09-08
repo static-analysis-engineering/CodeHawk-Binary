@@ -467,7 +467,7 @@ class Cfg:
             self,
             astfn: "ASTInterfaceFunction",
             astree: ASTInterface,
-            blockstmts: Dict[str, AST.ASTStmt]) -> AST.ASTStmt:
+            blockstmts: Dict[str, List[AST.ASTStmt]]) -> AST.ASTStmt:
 
         fn = astfn.function
 
@@ -533,12 +533,12 @@ class Cfg:
                 # Could compare rpo numbers instead but this seems clearer.
                 return self.flowgraph._edge_flavors[(src, tgt)] == "back"
 
-            def labeled_if_needed(x: str) -> AST.ASTStmt:
-                xstmt = blockstmts[x]
+            def labeled_if_needed(x: str) -> List[AST.ASTStmt]:
+                xstmts = blockstmts[x]
                 xlabel = labelize(x)
                 if xlabel in gotolabels and apply_labels:
-                    xstmt.add_label(xlabel)
-                return xstmt
+                    xstmts[0].add_label(xlabel)
+                return xstmts
 
             def node_within(x: str, merges: List[str], ctx: ControlFlowContext) -> List[AST.ASTStmt]:
                 if len(merges) >= 1:
@@ -548,7 +548,7 @@ class Cfg:
                 succs = self.successors(x)
 
                 nsuccs = len(succs)
-                xstmts: List[AST.ASTStmt] = [labeled_if_needed(x)]
+                xstmts: List[AST.ASTStmt] = labeled_if_needed(x)
                 if nsuccs == 0:
                     return xstmts # TODO(brk): and return statement?
 
@@ -618,18 +618,18 @@ class Cfg:
             self,
             astfn: "ASTInterfaceFunction",
             astree: ASTInterface) -> AST.ASTStmt:
-        blockstmts: Dict[str, AST.ASTStmt] = {}
+        blockstmts: Dict[str, List[AST.ASTStmt]] = {}
         for n in self.rpo_sorted_nodes:
             astblock = astfn.astblock(n)
             blocknode = astblock.assembly_ast(astree)
-            blockstmts[n] = blocknode
+            blockstmts[n] = [blocknode]
 
         return self.stmt_ast(astfn, astree, blockstmts)
 
     def ast(self,
             astfn: "ASTInterfaceFunction",
             astree: ASTInterface) -> AST.ASTStmt:
-        blockstmts: Dict[str, AST.ASTStmt] = {}
+        blockstmts: Dict[str, List[AST.ASTStmt]] = {}
         for n in self.rpo_sorted_nodes:
             astblock = astfn.astblock(n)
             blocknode = astblock.ast(astree)
@@ -643,8 +643,9 @@ class Cfg:
                     astexprs = []
                 astexpr = astexprs[0] if len(astexprs) == 1 else None
                 rtnstmt = astree.mk_return_stmt(astexpr, instr.iaddr, instr.bytestring)
-                blocknode = astree.mk_block([blocknode, rtnstmt])
-            blockstmts[n] = blocknode
+                blockstmts[n] = [blocknode, rtnstmt]
+            else:
+                blockstmts[n] = [blocknode]
 
         return self.stmt_ast(astfn, astree, blockstmts)
 
