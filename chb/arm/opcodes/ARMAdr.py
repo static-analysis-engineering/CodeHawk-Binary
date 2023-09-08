@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -128,7 +128,7 @@ class ARMAdr(ARMOpcode):
 
         hl_lhs = lhsasts[0]
 
-        rhsasts = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        rhsasts = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
         if len(rhsasts) == 0:
             raise UF.CHBError("Adr: no rhs value found")
 

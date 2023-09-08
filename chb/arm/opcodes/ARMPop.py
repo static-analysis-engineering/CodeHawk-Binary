@@ -171,7 +171,7 @@ class ARMPop(ARMOpcode):
             lhs = reglhss[i]
             rhs = memrhss[i]
             hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-            hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+            hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
             if len(hl_lhss) != 1 and len(hl_rhss) != 1:
                 raise UF.CHBError(
                     "ARMPop: more than one lhs or ths in assignments")
@@ -212,7 +212,7 @@ class ARMPop(ARMOpcode):
         ll_instrs.append(ll_sp_assign)
 
         hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, xdata, astree)
-        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, xdata, astree)
+        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, xdata, iaddr, astree)
         if len(hl_sp_lhss) != 1 or len(hl_sp_rhss) != 1:
             raise UF.CHBError(
                 "ARMPop more than one lhs or rhs in SP assignment")

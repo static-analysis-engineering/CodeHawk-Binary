@@ -162,7 +162,7 @@ class ARMSubtract(ARMOpcode):
                 rhsval = cast("XprConstant", rhs3).intvalue
                 rhsast = astree.mk_integer_constant(rhsval)
             else:
-                rhsasts = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
+                rhsasts = XU.xxpr_to_ast_exprs(rhs3, xdata, iaddr, astree)
                 if len(rhsasts) == 1:
                     rhsast = rhsasts[0]
                 else:

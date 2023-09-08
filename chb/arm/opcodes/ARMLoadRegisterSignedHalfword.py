@@ -163,7 +163,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
 
         hl_preinstrs: List[AST.ASTInstruction] = []
         hl_postinstrs: List[AST.ASTInstruction] = []
-        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
         if len(rhsexprs) == 1:
             hl_rhs = rhsexprs[0]
 

@@ -155,7 +155,7 @@ class ARMStoreRegisterHalfword(ARMOpcode):
         if rhs.is_register_variable:
             rhsexprs = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         else:
-            rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+            rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
 
         if len(rhsexprs) == 0:
             raise UF.CHBError("No rhs for StoreRegisterHalfword (STRH) at " + iaddr)

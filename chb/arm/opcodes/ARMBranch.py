@@ -341,7 +341,7 @@ class ARMBranch(ARMOpcode):
                         argexpr = astree.mk_address_of(arglval)
                         argxprs.append(argexpr)
                     else:
-                        astxprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
+                        astxprs = XU.xxpr_to_ast_exprs(arg, xdata, iaddr, astree)
                         if len(astxprs) == 0:
                             raise UF.CHBError(
                                 name
@@ -501,7 +501,7 @@ class ARMBranch(ARMOpcode):
         reachingdefs = xdata.reachingdefs
 
         def default(condition: XXpr) -> AST.ASTExpr:
-            astconds = XU.xxpr_to_ast_exprs(condition, xdata, astree)
+            astconds = XU.xxpr_to_ast_exprs(condition, xdata, iaddr, astree)
             if len(astconds) == 0:
                 raise UF.CHBError(
                     "Branch (B): no ast value for condition at "
@@ -550,7 +550,6 @@ class ARMBranch(ARMOpcode):
                 astconditions = XU.xxpr_to_ast_def_exprs(condition, xdata, csetter, astree)
                 if len(astconditions) == 1:
                     hl_astcond = astconditions[0]
-
                 else:
                     hl_astcond = default(condition)
             else:

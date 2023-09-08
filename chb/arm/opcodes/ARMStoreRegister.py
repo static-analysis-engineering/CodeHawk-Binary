@@ -182,7 +182,7 @@ class ARMStoreRegister(ARMOpcode):
         if rhs.is_register_variable:
             rhsexprs = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         else:
-            rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+            rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
 
         if len(rhsexprs) == 0:
             raise UF.CHBError("No rhs for StoreRegister (STR) at " + iaddr)
@@ -241,18 +241,22 @@ class ARMStoreRegister(ARMOpcode):
                 if astaddr.is_ast_addressof:
                     hl_lhs = cast(AST.ASTAddressOf, astaddr).lval
                 else:
-                    astaddrtype = astaddr.ctype(astree.ctyper)
-                    if astaddrtype is not None:
-                        if astaddrtype.is_pointer:
-                            astaddrtype = cast(AST.ASTTypPtr, astaddrtype)
-                            astaddrtgttype = astaddrtype.tgttyp
-                            if astree.type_size_in_bytes(astaddrtgttype) == 1:
-                                if astaddr.is_ast_binary_op:
-                                    (base, offsets) = astree.split_address_int_offset(astaddr)
-                                    if base.is_ast_lval_expr and hl_rhs.is_ast_lval_expr:
-                                        base = cast(AST.ASTLvalExpr, base)
-                                        hl_rhs = cast(AST.ASTLvalExpr, hl_rhs)
-                                        return split_assigns(base, offsets, hl_rhs)
+                    try:
+                        astaddrtype = astaddr.ctype(astree.ctyper)
+                        if astaddrtype is not None:
+                            if astaddrtype.is_pointer:
+                                astaddrtype = cast(AST.ASTTypPtr, astaddrtype)
+                                astaddrtgttype = astaddrtype.tgttyp
+                                if astree.type_size_in_bytes(astaddrtgttype) == 1:
+                                    if astaddr.is_ast_binary_op:
+                                        (base, offsets) = astree.split_address_int_offset(astaddr)
+                                        if base.is_ast_lval_expr and hl_rhs.is_ast_lval_expr:
+                                            base = cast(AST.ASTLvalExpr, base)
+                                            hl_rhs = cast(AST.ASTLvalExpr, hl_rhs)
+                                            return split_assigns(base, offsets, hl_rhs)
+                    except Exception as e:
+                        print("Error in instruction at " + iaddr)
+                        print("  with address " + str(astaddr))
 
             if hl_lhs is None:
                 hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
