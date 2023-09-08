@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyrigth (c) 2021      Aarno Labs, LLC
+# Copyrigth (c) 2021-2023 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -116,7 +116,8 @@ class X86Block(BasicBlock):
             opcodewidth: int = 25,
             sp: bool = True) -> str:
         lines: List[str] = []
-        for (ia, instr) in sorted(self.instructions.items()):
+        for (ia, instr) in sorted(
+                self.instructions.items(), key=lambda item:int(item[0], 16)):
             pinstr = instr.to_string(
                 bytes=bytes,
                 opcodewidth=opcodewidth,
