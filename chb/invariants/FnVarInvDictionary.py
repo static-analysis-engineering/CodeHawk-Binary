@@ -50,7 +50,7 @@ class FnVarInvDictionary:
     def __init__(
             self,
             vd: FnVarDictionary,
-            xnode: ET.Element) -> None:
+            xnode: Optional[ET.Element]) -> None:
 
         self._vd = vd
         self.xnode = xnode
@@ -96,17 +96,18 @@ class FnVarInvDictionary:
 
     # ----------------------------- Initialize dictionary from file ------------
 
-    def initialize(self, xnode: ET.Element) -> None:
-        for t in self.tables:
-            xtable = xnode.find(t.name)
-            if xtable is not None:
-                t.reset()
-                t.read_xml(xtable, "n")
-            else:
-                raise UF.CHBError(
-                    "Table "
-                    + t.name
-                    + " is missing from varinvariant dictionary")
+    def initialize(self, xnode: Optional[ET.Element]) -> None:
+        if xnode is not None:
+            for t in self.tables:
+                xtable = xnode.find(t.name)
+                if xtable is not None:
+                    t.reset()
+                    t.read_xml(xtable, "n")
+                else:
+                    raise UF.CHBError(
+                        "Table "
+                        + t.name
+                        + " is missing from varinvariant dictionary")
 
     # ------------------------------------------------------ Printing ----------
 

@@ -70,6 +70,7 @@ def xxpr_to_struct_field_address_expr(
 def xxpr_list_to_ast_exprs(
         xprs: List[X.XXpr],
         xdata: "InstrXData",
+        iaddr: str,
         astree: ASTInterface,
         anonymous: bool = False) -> List[AST.ASTExpr]:
 
@@ -80,12 +81,13 @@ def xxpr_list_to_ast_exprs(
             astree,
             anonymous=anonymous)
 
-    return sum((xxpr_to_ast_exprs(xpr, xdata, astree) for xpr in xprs), [])
+    return sum((xxpr_to_ast_exprs(xpr, xdata, iaddr, astree) for xpr in xprs), [])
 
 
 def xxpr_to_ast_exprs(
         xpr: X.XXpr,
         xdata: "InstrXData",
+        iaddr: str,
         astree: ASTInterface,
         size: int = 4,
         anonymous: bool = False) -> List[AST.ASTExpr]:
@@ -93,7 +95,7 @@ def xxpr_to_ast_exprs(
 
     if xpr.is_constant:
         return xconstant_to_ast_exprs(cast(
-            X.XprConstant, xpr), xdata, astree, anonymous=anonymous)
+            X.XprConstant, xpr), xdata, iaddr, astree, anonymous=anonymous)
 
     elif xpr.is_var:
         return xprvariable_to_ast_exprs(
@@ -105,7 +107,7 @@ def xxpr_to_ast_exprs(
 
     elif xpr.is_compound:
         return xcompound_to_ast_exprs(
-            cast(X.XprCompound, xpr), xdata, astree, anonymous=anonymous)
+            cast(X.XprCompound, xpr), xdata, iaddr, astree, anonymous=anonymous)
 
     else:
         raise UF.CHBError(
@@ -120,7 +122,7 @@ def xxpr_to_ast_def_exprs(
     """Convert an XXpr expression into an ASTExpr list using reachingdefs."""
 
     def default() -> List[AST.ASTExpr]:
-        return xxpr_to_ast_exprs(xpr, xdata, astree)
+        return xxpr_to_ast_exprs(xpr, xdata, iaddr, astree)
 
     if xpr.is_constant:
         return default()
@@ -150,7 +152,8 @@ def xxpr_to_ast_def_exprs(
                 vregdef0 = vregdefs[0][1]
                 if all(str(vr[1]) == str(vregdef0) for vr in vregdefs):
                     for vregdef in vregdefs:
-                        astree.astiprovenance.inactivate_lval_defuse_high(vregdef[0], iaddr)
+                        astree.astiprovenance.inactivate_lval_defuse_high(
+                            vregdef[0], iaddr)
                     return vregdef0
 
                 # temporary fix: assume that reaching definitions from allocations do
@@ -231,15 +234,29 @@ def xxpr_to_ast_def_exprs(
                         if xoperator == "lsb" and xvarlvalsize == 1:
                             return astree.mk_lval_expr(xvarlval)
                         else:
+                            astree.add_diagnostic(
+                                iaddr
+                                + ": unable to convert xvarlval: "
+                                + str(xvarlval))
                             return None
                     else:
+                        astree.add_diagnostic(
+                            iaddr
+                            + ": unable to convert xvarlval (no type): "
+                            + str(xvarlval))
                         return None
                 elif len(xvarlvals) == 4:
                     if xoperator == "lsb":
                         return astree.mk_lval_expr(xvarlvals[0])
                     else:
+                        astree.add_diagnostic(
+                            iaddr
+                            + ": unable to convert x1 (4 lvals): " + str(x1))
                         return None
                 else:
+                    astree.add_diagnostic(
+                        iaddr
+                        + ": unable to convert x1 (multiple lvals): " + str(x1))
                     return None
 
             elif x1.is_compound:
@@ -252,35 +269,29 @@ def xxpr_to_ast_def_exprs(
                     else:
                         return astree.mk_unary_op(xoperator, regdef)
                 else:
+                    astree.add_diagnostic(
+                        iaddr
+                        + ": unable to convert compound x1: "
+                        + str(x1))
                     return None
             else:
+                astree.add_diagnostic(
+                    iaddr
+                    + ": unable to convert; other compound expression: "
+                    + str(x1))
                 return None
 
         elif len(xoperands) == 2:
             x1 = xoperands[0]
             x2 = xoperands[1]
-            if x1.is_register_variable:
-                regdef1 = reg_to_ast_def_exprs(x1)
-            elif x1.is_compound:
-                regdef1 = compound_to_ast_def_exprs(x1)
-            elif x1.is_constant:
-                regdef1 = xxpr_to_ast_exprs(x1, xdata, astree)[0]
-            else:
-                regdef1 = None
-
-            if x2.is_register_variable:
-                regdef2 = reg_to_ast_def_exprs(x2)
-            elif x2.is_compound:
-                regdef2 = compound_to_ast_def_exprs(x2)
-            elif x2.is_constant:
-                regdef2 = xxpr_to_ast_exprs(x2, xdata, astree)[0]
-            else:
-                regdef2 = None
+            regdef1 = xxpr_to_ast_exprs(x1, xdata, iaddr, astree)[0]
+            regdef2 = xxpr_to_ast_exprs(x2, xdata, iaddr, astree)[0]
 
             if regdef1 is not None and regdef2 is not None:
                 regdef1type = regdef1.ctype(astree.ctyper)
                 if regdef1type is not None and regdef1type.is_pointer:
                     return xtyped_expr_to_ast_exprs(
+                        iaddr,
                         xoperator,
                         regdef1,
                         regdef2,
@@ -290,7 +301,14 @@ def xxpr_to_ast_def_exprs(
                     return astree.mk_binary_op(xoperator, regdef1, regdef2)
             else:
                 astree.add_diagnostic(
-                    iaddr + ": unable to convert compound expression " + str(xpr))
+                    iaddr
+                    + ": unable to convert compound expression "
+                    + str(xpr)
+                    + " (regdef1: "
+                    + str(regdef1)
+                    + ", regdef2: "
+                    + str(regdef2)
+                    + ")")
                 return None
 
         else:
@@ -330,12 +348,18 @@ def xxpr_to_ast_def_exprs(
 def xconstant_to_ast_exprs(
         xc: X.XprConstant,
         xdata: "InstrXData",
+        iaddr: str,
         astree: ASTInterface,
         anonymous: bool = False) -> List[AST.ASTExpr]:
     """Convert a constant value to an AST Expr node."""
 
     if xc.is_int_constant:
-        return [astree.mk_integer_constant(xc.intvalue)]
+        gvaddr = astree.globalsymboltable.global_variable_name(hex(xc.intvalue))
+        if gvaddr is not None:
+            lval = astree.mk_vinfo_lval(gvaddr, anonymous=anonymous)
+            return [astree.mk_address_of(lval)]
+        else:
+            return [astree.mk_integer_constant(xc.intvalue)]
 
     elif xc.is_bool_constant:
         xconst = cast(XBoolConst, xc.constant)
@@ -345,7 +369,7 @@ def xconstant_to_ast_exprs(
             return [astree.mk_integer_constant(1)]
 
     elif xc.is_random_constant:
-        astree.add_diagnostic("Unknown random constant")
+        astree.add_diagnostic(iaddr + ": unknown random constant")
         return [astree.mk_integer_constant(0)]
 
     else:
@@ -419,6 +443,7 @@ def xprvariable_to_ast_exprs(
 
 
 def xtyped_expr_to_ast_exprs(
+        iaddr: str,
         op: str,
         op1: AST.ASTExpr,
         op2: AST.ASTExpr,
@@ -432,7 +457,7 @@ def xtyped_expr_to_ast_exprs(
     if op1type is None:
         raise UF.CHBError("Expression is not typed: " + str(op1))
 
-    if op1type.is_pointer and op2.is_integer_constant:
+    if op1type.is_pointer and op2.is_integer_constant and op == "plus":
         op2 = cast(AST.ASTIntegerConstant, op2)
         tgttype = cast(AST.ASTTypPtr, op1type).tgttyp
         if tgttype.is_compound:
@@ -442,13 +467,42 @@ def xtyped_expr_to_ast_exprs(
                 compinfo, op2.cvalue, xdata, astree)
             lval = astree.mk_memref_lval(op1, fieldoffset, anonymous=anonymous)
             return [astree.mk_address_of(lval, anonymous=anonymous)]
+        else:
+            astree.add_diagnostic(
+                iaddr
+                + ": conversion to index expression not yet supported: "
+                + str(op1)
+                + " with type "
+                + str(op1type))
 
+    elif op1type.is_pointer:
+        tgttype = cast(AST.ASTTypPtr, op1type).tgttyp
+        if tgttype.is_array:
+            indexoffset = astree.mk_expr_index_offset(op2)
+            if op1.is_ast_addressof:
+                lval = cast(AST.ASTAddressOf, op1).lval
+                lhost = lval.lhost
+                loffset = lval.offset
+                if loffset.is_no_offset:
+                    newlval = astree.mk_lval(lhost, indexoffset)
+                    return [astree.mk_address_of(newlval)]
+
+            lval = astree.mk_memref_lval(op1, indexoffset)
+            return [astree.mk_address_of(lval, anonymous=anonymous)]
+
+    astree.add_diagnostic(
+        iaddr
+        + ": unable to convert typed expression: "
+        + str(op1)
+        + " with type "
+        + str(op1type))
     return [astree.mk_binary_expression(op, op1, op2, anonymous=anonymous)]
 
 
 def xcompound_to_ast_exprs(
         xc: X.XprCompound,
         xdata: "InstrXData",
+        iaddr: str,
         astree: ASTInterface,
         anonymous: bool = False) -> List[AST.ASTExpr]:
     """Convert a compound expression to an AST Expr node."""
@@ -457,7 +511,8 @@ def xcompound_to_ast_exprs(
     operands = xc.operands
 
     if len(operands) == 1:
-        op1s = xxpr_to_ast_exprs(operands[0], xdata, astree, anonymous=anonymous)
+        op1s = xxpr_to_ast_exprs(
+            operands[0], xdata, iaddr, astree, anonymous=anonymous)
 
         if len(op1s) == 1:
             op1 = op1s[0]
@@ -493,9 +548,9 @@ def xcompound_to_ast_exprs(
             return [astree.mk_address_of(rhslval, anonymous=anonymous)]
         else:
             op1s = xxpr_to_ast_exprs(
-                operands[0], xdata, astree, anonymous=anonymous)
+                operands[0], xdata, iaddr, astree, anonymous=anonymous)
             op2s = xxpr_to_ast_exprs(
-                operands[1], xdata, astree, anonymous=anonymous)
+                operands[1], xdata, iaddr, astree, anonymous=anonymous)
             if len(op1s) == 1 and len(op2s) == 1:
                 op1 = op1s[0]
                 op2 = op2s[0]
@@ -513,7 +568,7 @@ def xcompound_to_ast_exprs(
                     try:
                         op1type = op1.ctype(astree.ctyper)
                         return xtyped_expr_to_ast_exprs(
-                            op, op1, op2, xdata, astree, anonymous=anonymous)
+                            iaddr, op, op1, op2, xdata, astree, anonymous=anonymous)
                     except Exception:
                         return [astree.mk_binary_expression(
                             op, op1, op2, anonymous=anonymous)]
@@ -994,6 +1049,7 @@ def xvar_offset_dereference_lval(
         var: X.XprVariable,
         offset: Optional[X.XXpr],
         xdata: "InstrXData",
+        iaddr: str,
         astree: ASTInterface) -> AST.ASTLval:
     """Return an lval associated with a base variable + offset."""
 
@@ -1011,7 +1067,7 @@ def xvar_offset_dereference_lval(
 
         addrast = addrasts[0]
         if offset is not None:
-            offsetasts = xxpr_to_ast_exprs(offset, xdata, astree)
+            offsetasts = xxpr_to_ast_exprs(offset, xdata, iaddr, astree)
             if len(offsetasts) == 1:
                 addrast = astree.mk_binary_op("plus", addrast, offsetasts[0])
 
@@ -1079,6 +1135,9 @@ def xmemory_dereference_lval(
                 "Multiple expressions in convertine address expression: "
                 + ", ".join(str(x) for x in addrasts))
 
+        addrast = addrasts[0]
+        if addrast.is_ast_addressof:
+            return cast(AST.ASTAddressOf, addrast).lval
         return astree.mk_memref_lval(addrasts[0])
 
     if address.is_global_address:
@@ -1107,7 +1166,7 @@ def xmemory_dereference_lval(
 
     elif address.is_var:
         address = cast(X.XprVariable, address)
-        return xvar_offset_dereference_lval(address, None, xdata, astree)
+        return xvar_offset_dereference_lval(address, None, xdata, iaddr, astree)
 
     elif address.is_compound:
         address = cast(X.XprCompound, address)
@@ -1119,7 +1178,7 @@ def xmemory_dereference_lval(
 
         if op1.is_var:
             op1 = cast(X.XprVariable, op1)
-            return xvar_offset_dereference_lval(op1, op2, xdata, astree)
+            return xvar_offset_dereference_lval(op1, op2, xdata, iaddr, astree)
 
         if not op1.is_global_address:
             return default()
@@ -1149,7 +1208,7 @@ def xmemory_dereference_lval(
 
             if op2_1.is_int_const_value(eltypsize):
 
-                indexexprs = xxpr_to_ast_exprs(op2_2, xdata, astree)
+                indexexprs = xxpr_to_ast_exprs(op2_2, xdata, iaddr, astree)
                 if len(indexexprs) == 1:
                     offset = astree.mk_expr_index_offset(indexexprs[0])
                     lval = astree.mk_vinfo_lval(gvinfo, offset=offset)
