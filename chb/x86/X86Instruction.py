@@ -30,7 +30,7 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import cast, List, Optional, Sequence, Tuple, TYPE_CHECKING
+from typing import cast, Callable, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget, StubTarget
 from chb.api.FunctionStub import DllFunction
@@ -110,7 +110,11 @@ class X86Instruction(Instruction):
     @property
     def opcodetext(self) -> str:
         if self._opcodetext is None:
-            self._opcodetext = self.x86dictionary.read_xml_opcode_text(self.xnode)
+            try:
+                self._opcodetext = self.x86dictionary.read_xml_opcode_text(self.xnode)
+            except Exception as e:
+                self._opcodetext = "missed opcode"
+                print("Missed opcode at " + str(self.iaddr) + ": " + str(e))
         return self._opcodetext
 
     @property
@@ -297,6 +301,13 @@ class X86Instruction(Instruction):
                 and str(opc.app_target(self.xdata)) == tgtaddr)
         else:
             return False
+
+    def lhs_variables(
+            self, filter: Callable[[XVariable], bool]) -> List[XVariable]:
+        return [v for v in self.opcode.lhs(self.xdata) if filter(v)]
+
+    def rhs_expressions(self, filter: Callable[[XXpr], bool]) -> List[XXpr]:
+        return [x for x in self.opcode.rhs(self.xdata) if filter(x)]
 
     def is_dll_call(self) -> bool:
         return self.opcode.is_dll_call(self.xdata)

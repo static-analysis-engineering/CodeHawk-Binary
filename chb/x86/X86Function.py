@@ -282,10 +282,19 @@ class X86Function(Function):
     def structured_lhs_variables(self) -> List[XVariable]:
         result: List[XVariable] = []
 
-        def f(iaddr: str, instr: X86Instruction) -> None:
-            result.extend(instr.structured_lhs())
-
-        self.iter_instructions(f)
+        for (iaddr, instr) in sorted(self.instructions.items()):
+            try:
+                result.extend(instr.structured_lhs())
+            except Exception as e:
+                raise UF.CHBError(
+                    "Error in instruction lhs in "
+                    + self.faddr
+                    + ":"
+                    + iaddr
+                    + " ("
+                    + instr.mnemonic
+                    + "): "
+                    + str(e))
         return result
 
     def structured_lhs_instructions(self) -> List[X86Instruction]:
@@ -301,10 +310,19 @@ class X86Function(Function):
     def structured_rhs_expressions(self) -> List[XXpr]:
         result: List[XXpr] = []
 
-        def f(iaddr: str, instr: X86Instruction) -> None:
-            result.extend(instr.structured_rhs())
-
-        self.iter_instructions(f)
+        for (iaddr, instr) in sorted(self.instructions.items()):
+            try:
+                result.extend(instr.structured_rhs())
+            except Exception as e:
+                raise UF.CHBError(
+                    "Error in instruction rhs in "
+                    + self.faddr
+                    + ":"
+                    + iaddr
+                    + " ("
+                    + instr.mnemonic
+                    + "): "
+                    + str(e))
         return result
 
     def ioc_arguments(self) -> List[Tuple[str, str, str]]:
@@ -419,7 +437,7 @@ class X86Function(Function):
             sp: bool = True,
             stacklayout: bool = False) -> str:
         lines: List[str] = []
-        for b in sorted(self.blocks):
+        for b in sorted(self.blocks, key=lambda b:int(b, 16)):
             lines.append(
                 self.blocks[b].to_string(
                     bytes=bytes,
