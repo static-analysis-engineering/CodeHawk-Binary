@@ -156,7 +156,7 @@ class BCConverter(ABC):
         ...
 
     @abstractmethod
-    def convert_named_typ(self, t: "BCT.BCTypNamed") -> AST.ASTTypNamed:
+    def convert_named_typ(self, t: "BCT.BCTypNamed") -> AST.ASTTyp:
         ...
 
     @abstractmethod

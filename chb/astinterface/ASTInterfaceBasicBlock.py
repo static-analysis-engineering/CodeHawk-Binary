@@ -110,7 +110,8 @@ class ASTInterfaceBasicBlock:
                     condition = chkinstr.get_instruction_condition()
                     rstmt = astree.mk_return_stmt(None)
                     estmt = astree.mk_instr_sequence([])
-                    aexprs = XU.xxpr_to_ast_exprs(condition, chkinstr.xdata, astree)
+                    aexprs = XU.xxpr_to_ast_exprs(
+                        condition, chkinstr.xdata, chkinstr.iaddr, astree)
                     if len(aexprs) == 1:
                         cc = aexprs[0]
                         brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")

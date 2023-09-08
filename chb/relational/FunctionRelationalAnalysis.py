@@ -397,7 +397,8 @@ class FunctionRelationalAnalysis:
             + "md5-equivalent".ljust(20)
             + "instrs-changed".ljust(20))
         blockheader.append("-" * 80)
-        if self.is_structurally_equivalent:
+        # if self.is_structurally_equivalent:
+        if self.is_cfg_isomorphic:
             lines.extend(blockheader)
             for (baddr1, baddr2) in self.block_mapping.items():
                 blra = self.block_analyses[baddr1]

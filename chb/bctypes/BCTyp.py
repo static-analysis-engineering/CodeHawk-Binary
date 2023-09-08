@@ -582,7 +582,7 @@ class BCTypNamed(BCTyp):
     def alignment(self) -> int:
         return self.typedef.ttype.alignment()
 
-    def convert(self, converter: "BCConverter") -> AST.ASTTypNamed:
+    def convert(self, converter: "BCConverter") -> AST.ASTTyp:
         return converter.convert_named_typ(self)
 
     def __str__(self) -> str:

@@ -242,6 +242,7 @@ class ASTInterfaceFunction(ASTFunction):
                         aexpr = XU.xxpr_to_ast_exprs(
                             fact.value.expr,
                             instr.xdata,
+                            instr.iaddr,
                             self.astinterface,
                             anonymous=True)[0]
                         aexprindex = aexpr.index(self.astinterface.serializer)

@@ -421,9 +421,13 @@ class ASTIProvenance:
                 frd = cast("FlagReachingDefFact", frd)
                 addrs = [str(d) for d in frd.deflocations]
                 for addr in addrs:
-                    instrids = self.address_instructions[addr]
-                    for instrid in instrids:
-                        self.add_flag_reaching_definition(xid, instrid)
+                    if addr in self.address_instructions:
+                        instrids = self.address_instructions[addr]
+                        for instrid in instrids:
+                            self.add_flag_reaching_definition(xid, instrid)
+                    else:
+                        self._diagnostics.append(
+                            "FRD: instruction address missing: " + addr)
 
     def resolve_definitions_used(self) -> None:
         for (lvalid, defuse) in self.lval_defuses.items():

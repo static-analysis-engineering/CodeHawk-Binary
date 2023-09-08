@@ -1104,6 +1104,22 @@ class ASTInterface:
             exp2: AST.ASTExpr,
             anonymous: bool = False) -> AST.ASTExpr:
         optexprid = -1 if anonymous else None
+
+        # Note: in some cases pointers may be shifted right immediately
+        # followed by a shift left by the same amount for alignment
+        # purposes. Apply cast here to avoid assertion error in
+        # abstractsyntaxtree._cast_if_needed.
+        if op in ["lsr", "asr"]:
+            t1 = exp1.ctype(self.ctyper)
+            if t1 is not None and not t1.is_integer:
+                tgtt = self.astree.mk_integer_ikind_type("iuint")
+                self.add_diagnostic(
+                    "add iuint cast to "
+                    + str(exp1)
+                    + ":"
+                    + str(t1))
+                exp1 = self.astree.mk_cast_expression(tgtt, exp1)
+
         return self.astree.mk_binary_expression(
             op, exp1, exp2, optexprid=optexprid)
 
