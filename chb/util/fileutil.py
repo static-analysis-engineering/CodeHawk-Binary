@@ -630,6 +630,12 @@ def get_function_varinvs_filename(path: str, xfile: str, fname: str) -> str:
     return get_chb_function_filename(fdir, xfile, fname, "varinvs.xml")
 
 
+def has_function_varinvs_file(path: str, xfile: str, fname: str) -> bool:
+    fdir = get_analysis_dir(path, xfile)
+    filename = get_chb_function_filename(fdir, xfile, fname, "varinvs.xml")
+    return os.path.isfile(filename)
+
+
 def get_function_varinvs_xnode(path: str, xfile: str, fname: str) -> ET.Element:
     filename = get_function_varinvs_filename(path, xfile, fname)
     return get_chb_xnode(filename, "function")
