@@ -164,11 +164,17 @@ class ARMShiftedIndexOffset(ARMMemoryOffset):
 
     def ast_rvalue(self, astree: ASTInterface) -> AST.ASTExpr:
         srt = self.shift_rotate
-        if srt.is_imm_srt and srt.is_shift_left:
+        if srt.is_imm_srt:
             srt = cast("ARMImmSRT", srt)
             rxpr = astree.mk_register_variable_expr(self.register)
             scale = astree.mk_integer_constant(srt.shift_amount)
-            return astree.mk_binary_op("lsl", rxpr, scale)
+            if srt.is_shift_left:
+                return astree.mk_binary_op("lsl", rxpr, scale)
+            elif srt.is_arithmetic_shift_right or srt.is_logical_shift_right:
+                return astree.mk_binary_op("lsr", rxpr, scale)
+            else:
+                raise UF.CHBError(
+                    "shifted-index-offset not yet supported for " + str(self))
         else:
             raise UF.CHBError(
                 "shifted-index-offset not yet supported for " + str(self))

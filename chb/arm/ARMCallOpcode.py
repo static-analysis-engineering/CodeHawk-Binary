@@ -28,6 +28,7 @@
 from typing import (
     Any, cast, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING)
 
+from chb.api.CallTarget import AppTarget
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
@@ -156,6 +157,23 @@ class ARMCallOpcode(ARMOpcode):
                         fnsymbol, globaladdress=int(str(tgtaddr.address), 16))
             else:
                 (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
+        elif self.is_call_instruction(xdata):
+            ctgt = self.call_target(xdata)
+            if ctgt.is_app_target:
+                ctgt = cast(AppTarget, ctgt)
+                ctgtaddr = str(ctgt.address)
+                if ctgt.has_tgt_name():
+                    ctgtname = ctgt.tgt_name()
+                    if astree.globalsymboltable.has_symbol(ctgtname):
+                        tgtvinfo = astree.globalsymboltable.get_symbol(ctgtname)
+                        tgtxpr = astree.mk_vinfo_lval_expression(tgtvinfo)
+                    else:
+                        tgtxpr = astree.mk_global_variable_expr(
+                            ctgtname, globaladdress=int(ctgtaddr, 16))
+                else:
+                    tgtxpr = astree.mk_integer_constant(tgtaddr.address.get_int())
+            else:
+                (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
         else:
             (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
 
@@ -190,7 +208,8 @@ class ARMCallOpcode(ARMOpcode):
             else:
                 if len(xdata.vars) > 0:
                     returnvar = xdata.vars[0]
-                    returnval = cast("VFunctionReturnValue", returnvar.denotation.auxvar)
+                    returnval = cast(
+                        "VFunctionReturnValue", returnvar.denotation.auxvar)
                     hl_lhs = XU.vfunctionreturn_value_to_ast_lvals(
                         returnval, xdata, astree)[0]
                 else:
@@ -204,16 +223,19 @@ class ARMCallOpcode(ARMOpcode):
             else:
                 if len(xdata.vars) > 0:
                     returnvar = xdata.vars[0]
-                    returnval = cast("VFunctionReturnValue", returnvar.denotation.auxvar)
+                    returnval = cast(
+                        "VFunctionReturnValue", returnvar.denotation.auxvar)
                     hl_lhs = XU.vfunctionreturn_value_to_ast_lvals(
                         returnval, xdata, astree)[0]
                 else:
                     returnvarname = "rtn_" + iaddr
-                    astreturnvar = astree.mk_named_variable(returnvarname, vtype=tgt_returntype)
+                    astreturnvar = astree.mk_named_variable(
+                        returnvarname, vtype=tgt_returntype)
                     hl_lhs = astree.mk_lval(astreturnvar, nooffset)
 
         if not (self.is_call(xdata) and xdata.has_call_target()):
-            raise UF.CHBError(name + " at " + iaddr + ": Call without call target")
+            raise UF.CHBError(
+                name + " at " + iaddr + ": Call without call target")
 
         callargs = self.arguments(xdata)
         if tgt_argcount == -1:
@@ -227,7 +249,8 @@ class ARMCallOpcode(ARMOpcode):
 
         argregs = ["R0", "R1", "R2", "R3"][:argcount]
         argxprs: List[AST.ASTExpr] = []
-        for (i, (reg, arg, argtype)) in enumerate(zip(argregs, callargs, argtypes)):
+        for (i, (reg, arg, argtype)) in enumerate(
+                zip(argregs, callargs, argtypes)):
             if arg.is_string_reference:
                 regast = astree.mk_register_variable_expr(reg)
                 cstr = arg.constant.string_reference()
@@ -275,7 +298,8 @@ class ARMCallOpcode(ARMOpcode):
                     if len(astops) == 1:
                         argxprs.append(astops[0])
                     else:
-                        astxprs = XU.xxpr_to_ast_def_exprs(arg, xdata, iaddr, astree)
+                        astxprs = XU.xxpr_to_ast_def_exprs(
+                            arg, xdata, iaddr, astree)
                         if len(astxprs) == 0:
                             raise UF.CHBError(
                                 name +
@@ -297,7 +321,7 @@ class ARMCallOpcode(ARMOpcode):
                         argexpr = astree.mk_address_of(arglval)
                         argxprs.append(argexpr)
                     else:
-                        astxprs = XU.xxpr_to_ast_exprs(arg, xdata, astree)
+                        astxprs = XU.xxpr_to_ast_exprs(arg, xdata, iaddr, astree)
                         if len(astxprs) == 0:
                             raise UF.CHBError(
                                 name
