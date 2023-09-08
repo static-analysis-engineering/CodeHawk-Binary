@@ -170,7 +170,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         instrs: List[AST.ASTInstruction] = []
         annotations: List[str] = [iaddr, "STMDB"]
 
-        rhss = XU.xxpr_list_to_ast_exprs(xprs, xdata, astree)
+        rhss = XU.xxpr_list_to_ast_exprs(xprs, xdata, iaddr, astree)
 
         '''
         if len(rhss) == 1 and rhss[0].ctype and rhss[0].ctype.is_struct:
@@ -268,7 +268,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             ll_wbackinstrs.append(ll_base_assign)
 
             hl_base_lhss = XU.xvariable_to_ast_lvals(baselhs, xdata, astree)
-            hl_base_rhss = XU.xxpr_to_ast_exprs(baseresultr, xdata, astree)
+            hl_base_rhss = XU.xxpr_to_ast_exprs(baseresultr, xdata, iaddr, astree)
             if len(hl_base_lhss) != 1 or len(hl_base_rhss) != 1:
                 raise UF.CHBError(
                     "StoreMultipleDecrementBefore (STMDB): error in wback assign")
@@ -303,7 +303,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                 lhs = memlhss[i]
                 rhs = rregrhss[i]
                 hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-                hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+                hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
                 if len(hl_lhss) != 1 or len(hl_rhss) != 1:
                     raise UF.CHBError(
                         "StoreMultipleDecrementBefore (STMDB): error in assigns")
@@ -327,7 +327,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         ll_instrs: List[AST.ASTInstruction] = []
         hl_instrs: List[AST.ASTInstruction] = []
 
-        rhss = XU.xxpr_list_to_ast_exprs(rregrhss, xdata, astree)
+        rhss = XU.xxpr_list_to_ast_exprs(rregrhss, xdata, iaddr, astree)
 
         if len(rhss) != 1:
             astree.add_diagnostic(

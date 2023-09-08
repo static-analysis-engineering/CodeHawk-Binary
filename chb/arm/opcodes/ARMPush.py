@@ -215,7 +215,7 @@ class ARMPush(ARMOpcode):
         ll_instrs.append(ll_sp_assign)
 
         hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, xdata, astree)
-        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, xdata, astree)
+        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, xdata, iaddr, astree)
         if len(hl_sp_lhss) != 1 or len(hl_sp_rhss) != 1:
             raise UF.CHBError(
                 "ARMPush more than one lhs or rhs in SP assignment")

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -162,7 +162,7 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
             ll_wbackinstrs.append(ll_base_assign)
 
             hl_base_lhss = XU.xvariable_to_ast_lvals(baselhs, xdata, astree)
-            hl_base_rhss = XU.xxpr_to_ast_exprs(baseresultr, xdata, astree)
+            hl_base_rhss = XU.xxpr_to_ast_exprs(baseresultr, xdata, iaddr, astree)
             if len(hl_base_lhss) != 1 or len(hl_base_rhss) != 1:
                 raise UF.CHBError(
                     "LoadMultiple (LDM): error in wback assign")
@@ -189,7 +189,7 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
                 lhs = reglhss[i]
                 rhs = memrhss[i]
                 hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-                hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+                hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
                 if len(hl_lhss) != 1 or len(hl_rhss) != 1:
                     raise UF.CHBError(
                         "LoadMultiple (LDM): error in register-memory assigns")

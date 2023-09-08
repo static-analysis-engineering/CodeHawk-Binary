@@ -158,7 +158,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
             if lvalexpr.lval.lhost.is_memref:
                 memexp = cast(AST.ASTMemRef, lvalexpr.lval.lhost).memexp
 
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
         if len(hl_rhss) == 0:
             raise UF.CHBError("LDRH: No rhs value")
 

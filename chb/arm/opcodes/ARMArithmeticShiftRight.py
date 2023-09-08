@@ -144,7 +144,7 @@ class ARMArithmeticShiftRight(ARMOpcode):
             annotations=annotations)
 
         hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs3, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs3, xdata, iaddr, astree)
         if len(hl_lhss) == 1 and len(hl_rhss) == 1:
             hl_lhs = hl_lhss[0]
             hl_rhs = hl_rhss[0]

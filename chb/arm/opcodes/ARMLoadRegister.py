@@ -159,7 +159,7 @@ class ARMLoadRegister(ARMOpcode):
         (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
 
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
         if len(hl_rhss) == 0:
             astree.add_diagnostic("LDR (" + iaddr + "): no rhs value found")
 

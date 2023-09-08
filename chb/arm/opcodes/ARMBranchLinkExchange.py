@@ -78,5 +78,10 @@ class ARMBranchLinkExchange(ARMCallOpcode):
             bytestring: str,
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        return self.ast_call_prov(
-            astree, iaddr, bytestring, "BranchLinkExchange (BLX)", xdata)
+        try:
+            return self.ast_call_prov(
+                astree, iaddr, bytestring, "BranchLinkExchange (BLX)", xdata)
+        except UF.CHBError as e:
+            msg = iaddr + ": " + str(e)
+            astree.add_diagnostic(msg)
+            return ([], [])
