@@ -1453,7 +1453,8 @@
 	    "encodings": {
 		"all": [
 		    {
-			"T": "A1"
+			"T": "A1",
+			"E": "<c><
 		    },
 		    {
 			"T": "A2"
@@ -1493,6 +1494,41 @@
 		]
 	    },
 	    "TC": "DA"
+	},
+	"MRS": {
+	    "name": "MoveFromSpecialRegister",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 8>0<15><rd>< 0>0000< 0>",
+			"D": "Y"
+		    },
+		    {
+			"T": "T1",
+			"E": "< 30>0< 31>0<15>1<0><rd>< 0>< 0>"
+		    }
+		]
+	    }
+	},
+	"MSR": {
+	    "name": "MoveToSpecialRegister",
+	    "encodings": {
+		"immediate": [
+		    {
+			"T": "A1",
+			"E": "<cc><1>< 9>0mm00<15><--imm12--->",
+			"D": "Y"
+		    }
+		],
+		"register": [
+		    {
+			"T": "A1",
+			"E": "<cc><0>< 9>0mm00<15>< 0>< 0><rn>",
+			"D": "Y"
+		    }
+		]
+	    }
 	},
 	"MUL": {
 	    "name": "Multiply",
