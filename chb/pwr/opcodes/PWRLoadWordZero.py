@@ -118,7 +118,7 @@ class PWRLoadWordZero(PowerOpcode):
         uses = xdata.defuses
         useshigh = xdata.defuseshigh
 
-        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, astree)
+        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
         if len(rhsexprs) != 1:
             raise UF.CHBError(
                 "LoadWordZero: no or multiple rhs values at: " + iaddr)
