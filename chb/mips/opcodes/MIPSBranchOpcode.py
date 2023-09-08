@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -82,7 +82,7 @@ class MIPSBranchOpcode(MIPSOpcode):
         ftconds = self.ft_conditions(xdata)
         if len(ftconds) == 2:
             tcond = ftconds[1]
-            astconds = XU.xxpr_to_ast_exprs(tcond, xdata, astree)
+            astconds = XU.xxpr_to_ast_exprs(tcond, xdata, iaddr, astree)
             if len(astconds) > 1:
                 raise UF.CHBError(
                     "Multiple expressions for MIPS condition")
