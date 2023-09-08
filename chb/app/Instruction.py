@@ -250,6 +250,13 @@ class Instruction(ABC):
         """Return a pair of lhs, rhs global references."""
         ...
 
+    def lhs_variables(
+            self, filter: Callable[[XVariable], bool]) -> List[XVariable]:
+        return []
+
+    def rhs_expressions(self, filter: Callable[[XXpr], bool]) -> List[XXpr]:
+        return []
+
     def return_value(self) -> Optional[XXpr]:
         return None
 

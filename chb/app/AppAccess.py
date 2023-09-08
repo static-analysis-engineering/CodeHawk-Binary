@@ -409,6 +409,38 @@ class AppAccess(ABC, Generic[HeaderTy]):
 
     # Misc ---------------------------------------------------------------------
 
+    def get_lhs_variables(
+            self,
+            filter: Callable[
+                [XVariable], bool] = lambda x: True) -> Dict[str, List[XVariable]]:
+        result: Dict[str, List[XVariable]] = {}
+        for (faddr, fn) in self.functions.items():
+            try:
+                lhsvars = fn.lhs_variables(filter)
+                if len(lhsvars) > 0:
+                    result[faddr] = lhsvars
+            except UF.CHBError as e:
+                print("Skip function " + faddr + ": " + str(e))
+            except Exception as e:
+                print("Error in function " + faddr + ": " + str(e))
+        return result
+
+    def get_rhs_expressions(
+            self,
+            filter: Callable[
+                [XXpr], bool] = lambda x: True) -> Dict[str, List[XXpr]]:
+        result: Dict[str, List[XXpr]] = {}
+        for (faddr, fn) in self.functions.items():
+            try:
+                rhsxprs = fn.rhs_expressions(filter)
+                if len(rhsxprs) > 0:
+                    result[faddr] = rhsxprs
+            except UF.CHBError as e:
+                print("Skip function " + faddr + ": " + str(e))
+            except Exception as e:
+                print("Error in function " + faddr + ": " + str(e))
+        return result
+
     '''
     # returns a dictionary of faddr -> string list
     def get_strings(self):

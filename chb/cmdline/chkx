@@ -133,6 +133,7 @@ import chb.cmdline.AnalysisManager as AM
 import chb.cmdline.aprcmds as APR
 import chb.cmdline.astcmds as AST
 import chb.cmdline.commandutil as UCC
+import chb.cmdline.structcmds as USC
 import chb.cmdline.runcmds as UR
 import chb.cmdline.fileformatcmds as FF
 import chb.cmdline.relationalcmds as R
@@ -826,6 +827,15 @@ def parse() -> argparse.Namespace:
     resultsbranchconditions.add_argument(
         "function", help="hex address of function")
     resultsbranchconditions.set_defaults(func=UCC.results_branchconditions)
+
+    # --- results structures ---
+    resultsstructs = resultsparsers.add_parser("structs")
+    resultsstructs.add_argument("xname", help="name of executable")
+    resultsstructs.add_argument(
+        "--arguments",
+        action="store_true",
+        help="restrict struct values to arguments")
+    resultsstructs.set_defaults(func=USC.results_structs)
 
     # --- results extract ---
     resultsextract = resultsparsers.add_parser("extract")
