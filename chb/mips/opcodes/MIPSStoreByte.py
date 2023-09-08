@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -110,7 +110,7 @@ class MIPSStoreByte(MIPSOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], xdata, astree)
+        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], xdata, iaddr, astree)
         lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], xdata, astree)
         if len(rhss) == 1 and len(lhss) == 1:
             rhs = rhss[0]

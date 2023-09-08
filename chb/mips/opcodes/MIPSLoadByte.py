@@ -106,7 +106,7 @@ class MIPSLoadByte(MIPSOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData) -> List[AST.ASTInstruction]:
-        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], xdata, astree)
+        rhss = XU.xxpr_to_ast_exprs(xdata.xprs[1], xdata, iaddr, astree)
         lhss = XU.xvariable_to_ast_lvals(xdata.vars[0], xdata, astree)
         if len(lhss) == 1 and len(rhss) == 1:
             rhs = rhss[0]
