@@ -92,7 +92,7 @@ class X86ShiftRightDouble(X86Opcode):
         xprs[4]: shift
         """
 
-        lhs = str(xdata.vars[0])
+        lhs = str(xdata.get_var(0))
         dstrhs = str(xdata.xprs[0])
         rdstrhs = str(xdata.xprs[1])
         srcrhs = str(xdata.xprs[2])

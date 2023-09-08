@@ -4,9 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2023      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -37,8 +35,6 @@ from chb.invariants.XXpr import XXpr
 import chb.simulation.SimUtil as SU
 import chb.simulation.SimValue as SV
 
-from chb.x86.simulation.X86SimulationState import X86SimulationState
-
 from chb.util.IndexedTable import IndexedTableValue
 
 from chb.x86.X86DictionaryRecord import x86registry
@@ -50,11 +46,12 @@ if TYPE_CHECKING:
     from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
-@x86registry.register_tag("not", X86Opcode)
-class X86BNot(X86Opcode):
-    """one's complement negate, flip all bits
+@x86registry.register_tag("adc", X86Opcode)
+class X86AddCarry(X86Opcode):
+    """ADC dst, src
 
-    args[0]: index of operand in x86dictionary
+    args[0]: index of dst operand in x86dictionary
+    args[1]: index of src operand in x86dictionary
     """
 
     def __init__(
@@ -64,49 +61,48 @@ class X86BNot(X86Opcode):
         X86Opcode.__init__(self, x86d, ixval)
 
     @property
-    def operand(self) -> X86Operand:
+    def src_operand(self) -> X86Operand:
+        return self.x86d.operand(self.args[1])
+
+    @property
+    def dst_operand(self) -> X86Operand:
         return self.x86d.operand(self.args[0])
 
     @property
     def operands(self) -> Sequence[X86Operand]:
-        return [self.operand]
+        return [self.dst_operand, self.src_operand]
+
+    def opcode_operations(self) -> List[str]:
+        src = self.src_operand.to_operand_string()
+        dst = self.dst_operand.to_operand_string()
+        return [dst + ' = ' + dst + ' + ' + src]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """data format: a:vxxx .
+        """data format: a:vxxxx .
 
         vars[0]: dst-lhs
-        xprs[0]: dst-rhs
-        xprs[1]: not dst-rhs (syntactic)
-        xprs[2]: not dst-rhs (simplified)
+        xprs[0]: src
+        xprs[1]: dst-rhs
+        xprs[2]: src + dst (syntactic)
+        xprs[3]: src + dst (simplified)
         """
-
         lhs = str(xdata.vars[0])
-        rhsx = xdata.xprs[1]
-        rrhsx = xdata.xprs[2]
-        xrhs = simplify_result(xdata.args[2], xdata.args[3], rhsx, rrhsx)
-        return lhs + ' = ' + xrhs
+        result = xdata.xprs[2]
+        rresult = xdata.xprs[3]
+        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
+        return lhs + ' := ' + xresult
 
     def lhs(self, xdata: InstrXData) -> List[XVariable]:
-        return [xdata.vars[0]]
+        if len(xdata.xprs) > 2:
+            return [xdata.vars[0]]
+        else:
+            return []
 
     def rhs(self, xdata: InstrXData) -> List[XXpr]:
-        return [xdata.xprs[2]]
-
-    # --------------------------------------------------------------------------
-    # Performs a bitwise NOT operation (each 1 is set to 0, and each 0 is set
-    # to 1) on the destination operand and stores the result in the destination
-    # operand location.
-    #
-    # Flags affected: None
-    # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
-        op = self.operand
-        srcval = simstate.get_rhs(iaddr, op)
-        if srcval.is_doubleword and srcval.is_literal:
-            srcval = cast(SV.SimDoubleWordValue, srcval)
-            simstate.set(iaddr, op, srcval.bitwise_not())
+        if len(xdata.xprs) > 2:
+            return [xdata.xprs[3]]
         else:
-            raise SU.CHBSimError(
-                simstate,
-                iaddr,
-                "bitwise-not not yet supported for " + str(op) + ":" + str(srcval))
+            return []
+
+    def operand_values(self, xdata: InstrXData) -> Sequence[XXpr]:
+        return [xdata.xprs[0], xdata.xprs[1]]

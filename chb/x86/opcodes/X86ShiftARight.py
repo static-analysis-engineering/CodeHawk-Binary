@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -86,7 +86,7 @@ class X86ShiftARight(X86Opcode):
         xprs[3]: rhs-result (simplified)
         """
 
-        lhs = str(xdata.vars[0])
+        lhs = str(xdata.get_var(0))
         rhs = xdata.xprs[2]
         rrhs = xdata.xprs[3]
         xrhs = simplify_result(xdata.args[3], xdata.args[4], rhs, rrhs)
