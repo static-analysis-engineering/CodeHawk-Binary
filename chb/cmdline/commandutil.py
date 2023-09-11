@@ -465,6 +465,10 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         fns_no_lineq=fns_no_lineq,
         fns_exclude=fns_exclude,
         fns_include=fns_include,
+        gc_compact=gc_compact,
+        show_function_timing=show_function_timing,
+        lineq_instr_cutoff=lineq_instr_cutoff,
+        lineq_block_cutoff=lineq_block_cutoff,
         thumb=(len(thumb) > 0))
 
     if dodisassemble:
