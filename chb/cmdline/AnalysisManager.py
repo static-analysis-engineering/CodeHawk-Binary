@@ -74,6 +74,10 @@ class AnalysisManager(object):
             fns_no_lineq: List[str] = [],
             fns_exclude: List[str] = [],
             fns_include: List[str] = [],
+            show_function_timing: bool = False,
+            gc_compact: int = 0,
+            lineq_instr_cutoff = 0,
+            lineq_block_cutoff = 0,
             hints: Dict[str, Any] = {}) -> None:
         """Initializes the analyzer location and target file location
 
@@ -105,6 +109,10 @@ class AnalysisManager(object):
         self.fns_no_lineq = fns_no_lineq
         self.fns_exclude = fns_exclude
         self.fns_include = fns_include
+        self.show_function_timing = show_function_timing
+        self.gc_compact = gc_compact
+        self.lineq_instr_cutoff = lineq_instr_cutoff
+        self.lineq_block_cutoff = lineq_block_cutoff
         self.fnsanalyzed: List[str] = []
 
     # Extraction and directory preparation -------------------------------------
@@ -437,6 +445,15 @@ class AnalysisManager(object):
             cmd.append("-diagnostics")
         if asm:
             cmd.append("-save_asm")
+        if self.show_function_timing:
+            cmd.append("-show_function_timing")
+        if self.gc_compact > 0:
+            cmd.extend(["-gc_compact", str(self.gc_compact)])
+        if self.lineq_instr_cutoff > 0:
+            cmd.extend(["-lineq_instr_cutoff", str(self.lineq_instr_cutoff)])
+        if self.lineq_block_cutoff > 0:
+            cmd.extend(["-lineq_block_cutoff", str(self.lineq_block_cutoff)])
+
         cmd.extend(["-analyze", self.filename])
         jarcmd = ["jar", "cf",  functionsjarfile, "-C", analysisdir, "functions"]
         print_progress_update("Analyzing "
