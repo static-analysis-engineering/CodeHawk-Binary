@@ -388,6 +388,10 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     fns_no_lineq: List[str] = args.fns_no_lineq  # function hex addresses
     fns_exclude: List[str] = args.fns_exclude  # function hex addresses
     fns_include: List[str] = args.fns_include  # function hex addresses
+    gc_compact: int = args.gc_compact
+    show_function_timing: bool = args.show_function_timing
+    lineq_instr_cutoff: int = args.lineq_instr_cutoff
+    lineq_block_cutoff: int = args.lineq_block_cutoff
 
     try:
         (path, xfile) = get_path_filename(xname)
