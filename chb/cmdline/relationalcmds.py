@@ -248,18 +248,26 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
 
     # Determine functions analyzed in original binary
     fns_include: List[str] = []
+    fns_exclude: List[str] = []
     app1 = UC.get_app(path1, xfile1, xinfo1)
     stats1 = app1.result_metrics
     fncount1 = stats1.function_count
-    fnsanalyzed = app1.appfunction_addrs
-    if len(fnsanalyzed) < fncount1:
-        fns_include = list(fnsanalyzed)
+    if len(stats1.fns_included) > 0:
+        fns_include = stats1.fns_included
         UC.print_status_update(
             "Only analyzing "
-            + str(len(fnsanalyzed))
+            + str(len(fns_include))
             + " out of "
             + str(fncount1)
             + " functions")
+    elif len(stats1.fns_excluded) > 0:
+        fns_exclude = stats1.fns_excluded
+        UC.print_status_update(
+            "Excluding functions "
+            + ", ".join(fns_exclude)
+            + " from the analysis")
+    else:
+        UC.print_status_update("Analyzing all functions")
 
     UC.print_status_update(
         "Analyzing patched version with updated user data ...")
@@ -271,6 +279,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         elf=True,
         ifilenames=ifilenames,
         fns_include=fns_include,
+        fns_exclude=fns_exclude,
         thumb=True)
 
     try:
