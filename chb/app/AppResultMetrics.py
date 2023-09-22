@@ -81,6 +81,28 @@ class AppResultMetrics:
     def filename(self) -> str:
         return self._filename
 
+    @property
+    def fns_included(self) -> List[str]:
+        incnode = self.xnode.find("fns-included")
+        if incnode is None:
+            return []
+        addrs = incnode.get("addrs")
+        if addrs is None:
+            return []
+        else:
+            return addrs.split(",")
+
+    @property
+    def fns_excluded(self) -> List[str]:
+        excnode = self.xnode.find("fns-excluded")
+        if excnode is None:
+            return []
+        addrs = excnode.get("addrs")
+        if addrs is None:
+            return []
+        else:
+            return addrs.split(",")
+
     def functions(self) -> Dict[str, AppResultFunctionMetrics]:
         if len(self._functions) == 0:
             fxnode = self.xnode.find("functions")
