@@ -103,6 +103,12 @@ class ARMBranch(ARMOpcode):
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[0])]
 
+    def ft_conditions_basic(self, xdata: InstrXData) -> Sequence[XXpr]:
+        if xdata.has_branch_conditions():
+            return [xdata.xprs[1], xdata.xprs[0]]
+        else:
+            return []
+
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         if xdata.has_branch_conditions():
             return [xdata.xprs[3], xdata.xprs[2]]
@@ -520,12 +526,30 @@ class ARMBranch(ARMOpcode):
 
             return astconds[0]
 
+        # The basic conditions are the false/true conditions expressed in terms
+        # of the registers used in the setter instructions (e.g., CMP); the other
+        # conditions are those same conditions, but rewritten with the invariants
+        # active at the setter statement.
+        #
+        # Normally we would want to use the rewritten conditions, as they are
+        # generally more expressive, but in some cases we use the original, basic
+        # conditions, to take into account a variable introduced that may
+        # represent the more complex condition, or that may add an appropriate
+        # type.
+        #
+        # The current hypothesis is that even when using the basic conditions, the
+        # rewritten conditions will emerge through the reaching definitions, in
+        # case there are no rewritten variables, but this still has to be validated
+        # with more instances.
+
+        ftconds_basic = self.ft_conditions_basic(xdata)
         ftconds = self.ft_conditions(xdata)
-        if len(ftconds) == 2:
+
+        if len(ftconds_basic) == 2:
             if reverse:
-                condition = ftconds[0]
+                condition = ftconds_basic[0]
             else:
-                condition = ftconds[1]
+                condition = ftconds_basic[1]
 
             if condition.is_register_comparison:
                 condition = cast(XprCompound, condition)
@@ -552,6 +576,7 @@ class ARMBranch(ARMOpcode):
                     hl_astcond = astconditions[0]
                 else:
                     hl_astcond = default(condition)
+
             else:
                 hl_astcond = default(condition)
 
