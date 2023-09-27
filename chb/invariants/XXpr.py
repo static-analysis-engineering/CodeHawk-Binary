@@ -90,8 +90,8 @@ xpr_operator_strings = {
     "lsr": " >> ",
     "asr": " s>> ",
     "lsl": " << ",
-    "lsb": " lsb ",
-    "lsh": " lsh ",
+    "lsb": "lsb ",
+    "lsh": "lsh ",
     "xbyte": " xbyte "
 }
 

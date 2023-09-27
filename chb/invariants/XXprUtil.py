@@ -262,7 +262,7 @@ def xxpr_to_ast_def_exprs(
             elif x1.is_compound:
                 regdef = compound_to_ast_def_exprs(x1)
                 if regdef is not None:
-                    if xoperator == "lsb":
+                    if xoperator in ["lsb", "lsh"]:
                         astree.add_diagnostic(
                             iaddr + ": ast_def: " + str(xcomp))
                         return None
