@@ -171,19 +171,42 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
                 addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
                 hl_rhs = astree.mk_lval_expression(addrlval)
 
+            if astree.has_variable_intro(iaddr):
+                vname = astree.get_variable_intro(iaddr)
+                vdescr = "intro"
+            else:
+                vname = str(lhs) + "_" + iaddr[2:]
+                vdescr = "LDRSH"
+
+            vinfo = astree.mk_vinfo(
+                vname,
+                vtype=astree.astree.short_type,
+                vdescr=vdescr)
+            vinfolval = astree.mk_vinfo_lval(vinfo)
+            vinfolvalexpr = astree.mk_lval_expr(vinfolval)
+
             hl_lhs = astree.mk_register_variable_lval(str(lhs))
             if str(hl_rhs).startswith("temp"):
                 (hl_rhs,
                  hl_preinstrs,
                  hl_postinstrs) = self.opargs[1].ast_rvalue(astree)
 
-            hl_assign = astree.mk_assign(
-                hl_lhs,
+            hl_assign_name = astree.mk_assign(
+                vinfolval,
                 hl_rhs,
                 iaddr=iaddr,
                 bytestring=bytestring,
                 annotations=annotations)
 
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                vinfolvalexpr,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            astree.add_reg_definition(iaddr, hl_lhs, vinfolvalexpr)
+            astree.add_instr_mapping(hl_assign_name, ll_assign)
             astree.add_instr_mapping(hl_assign, ll_assign)
             astree.add_instr_address(hl_assign, [iaddr])
             astree.add_expr_mapping(hl_rhs, ll_rhs)
@@ -191,6 +214,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
             astree.add_expr_reachingdefs(hl_rhs, [rdefs[2]])
             astree.add_lval_defuses(hl_lhs, defuses[0])
             astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+            astree.add_lval_store(vinfolval)
 
             if ll_rhs.is_ast_lval_expr:
                 lvalexpr = cast(AST.ASTLvalExpr, ll_rhs)
@@ -198,7 +222,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
                     memexp = cast(AST.ASTMemRef, lvalexpr.lval.lhost).memexp
                     astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
 
-            return ([hl_assign], [ll_assign])
+            return ([hl_assign_name, hl_assign], [ll_assign])
 
         else:
             raise UF.CHBError(
