@@ -55,7 +55,7 @@ if TYPE_CHECKING:
     from chb.app.Function import Function
     from chb.app.JumpTables import JumpTable
     from chb.arm.ARMCfgBlock import ARMCfgTrampolineBlock
-    from chb.invariants.InvariantFact import NRVFact
+    from chb.invariants.InvariantFact import InitialVarEqualityFact, NRVFact
 
 
 class ASTInterfaceFunction(ASTFunction):
@@ -248,6 +248,22 @@ class ASTInterfaceFunction(ASTFunction):
                         aexprindex = aexpr.index(self.astinterface.serializer)
                     else:
                         continue
+                    aexprs.setdefault(loc, {})
+                    aexprs[loc][str(var)] = (varindex, aexprindex, str(aexpr))
+                if fact.is_initial_var_equality:
+                    fact = cast("InitialVarEqualityFact", fact)
+                    var = XU.xvariable_to_ast_lvals(
+                        fact.variable,
+                        instr.xdata,
+                        self.astinterface,
+                        anonymous=True)[0]
+                    varindex = var.index(self.astinterface.serializer)
+                    aelval = XU.xvariable_to_ast_lvals(
+                        fact.initial_value,
+                        instr.xdata,
+                        self.astinterface)[0]
+                    aexpr = self.astinterface.mk_lval_expr(aelval)
+                    aexprindex = aexpr.index(self.astinterface.serializer)
                     aexprs.setdefault(loc, {})
                     aexprs[loc][str(var)] = (varindex, aexprindex, str(aexpr))
         self.astinterface.set_available_expressions(aexprs)

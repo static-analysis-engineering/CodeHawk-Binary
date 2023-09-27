@@ -176,7 +176,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         exit(1)
 
     is_thumb: bool = check_hints_for_thumb(hints)
-    userhints = UC.prepare_executable(path2, xfile2, True, False, hints=hints)
+    userhints = UC.prepare_executable(path2, xfile2, True, True, hints=hints)
 
     xcomparison = compare_executable_content(
         path1, xfile1, path2, xfile2, is_thumb)
