@@ -87,6 +87,39 @@ class JSONCfgEdgeComparison(JSONObject):
         visitor.visit_cfg_edge_comparison(self)
 
 
+class JSONCfgBlockMappingItem(JSONObject):
+
+    def __init__(self, d: Dict[str, Any]) -> None:
+        JSONObject.__init__(self, d, "cfgblockmappingitem")
+        self._blocks2: Optional[List[Tuple[str, str]]] = None
+
+    @property
+    def changes(self) -> List[str]:
+        return self.d.get("changes", [])
+
+    @property
+    def matches(self) -> List[str]:
+        return self.d.get("matches", [])
+
+    @property
+    def cfg1_block_addr(self) -> str:
+        return self.d.get("cfg1-block-addr", self.property_missing("cfg1-block-addr"))
+
+    @property
+    def cfg2_blocks(self) -> List[Tuple[str, str]]:
+        if self._blocks2 is None:
+            result: List[Tuple[str, str]] = []
+            for b in self.d.get("cfg2-blocks", []):
+                result.append((
+                    b.get("cfg2-block-addr", self.property_missing("cfg2-block-addr")),
+                    b.get("role")))
+            self._blocks2 = result
+        return self._blocks2
+
+    def accept(self, visitor: "JSONObjectVisitor") -> None:
+        raise NotImplementedError("This is the previous JSON API and no longer supports visitors")
+
+
 class JSONCfgComparison(JSONObject):
     """Comparison between two cfg's in terms of graph edits.
 
@@ -114,6 +147,10 @@ class JSONCfgComparison(JSONObject):
         self._cfg1: Optional[JSONControlFlowGraph] = None
         self._cfg2: Optional[JSONControlFlowGraph] = None
 
+        # original API
+        self._mapping: Optional[List[JSONCfgBlockMappingItem]] = None
+
+        # new API
         # block edits (transformations)
         self._blockinsertions: Optional[List[str]] = None
         self._blockdeletions: Optional[List[str]] = None
@@ -144,6 +181,15 @@ class JSONCfgComparison(JSONObject):
         if self._cfg2 is None:
             self._cfg2 = JSONControlFlowGraph(self.d.get("cfg2", {}))
         return self._cfg2
+
+    @property
+    def cfg_block_mapping(self) -> List[JSONCfgBlockMappingItem]:
+        if self._mapping is None:
+            result: List[JSONCfgBlockMappingItem] = []
+            for m in self.d.get("cfg-block-mapping", []):
+                result.append(JSONCfgBlockMappingItem(m))
+            self._mapping = result
+        return self._mapping
 
     @property
     def block_insertions(self) -> List[str]:
