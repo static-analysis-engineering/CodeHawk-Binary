@@ -472,7 +472,7 @@ class ASTBlock(ASTStmt):
         return True
 
     @property
-    def stmts(self) -> Sequence["ASTStmt"]:
+    def stmts(self) -> List["ASTStmt"]:
         return self._stmts
 
     def accept(self, visitor: "ASTVisitor") -> None:
@@ -535,7 +535,7 @@ class ASTInstrSequence(ASTStmt):
         return True
 
     @property
-    def instructions(self) -> Sequence["ASTInstruction"]:
+    def instructions(self) -> List["ASTInstruction"]:
         return self._instrs
 
     def accept(self, visitor: "ASTVisitor") -> None:
