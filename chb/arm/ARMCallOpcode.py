@@ -355,7 +355,7 @@ class ARMCallOpcode(ARMOpcode):
             astree.add_lval_defuses(hl_lhs, defuses[0])
             astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
-        if str(ll_lhs) == "S0" and hl_lhs is not None:
+        if str(ll_lhs) in ["S0", "R0"] and hl_lhs is not None:
             hl_lhsx = astree.mk_lval_expr(hl_lhs)
             hl_var_assign = astree.mk_assign(
                 ll_lhs,
