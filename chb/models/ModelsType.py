@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,26 +29,32 @@
 
 import xml.etree.ElementTree as ET
 
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.models.FunctionSignature
+    from chb.models.FunctionSignature import FunctionSignature
 
 
-class ModelsType(ABC):
+class ModelsType:
 
-    def __init__(self,
-                 signature: "chb.models.FunctionSignature.FunctionSignature",
-                 xnode: ET.Element) -> None:
+    def __init__(
+            self,
+            signature: "FunctionSignature",
+            xnode: Optional[ET.Element] = None) -> None:
         self._signature = signature
-        self.xnode = xnode
+        self._xnode = xnode
 
     @property
-    def function_signature(self) -> "chb.models.FunctionSignature.FunctionSignature":
+    def function_signature(self) -> "FunctionSignature":
         return self._signature
+
+    @property
+    def xnode(self) -> ET.Element:
+        if self._xnode is not None:
+            return self._xnode
+        raise UF.CHBError("Modelstype does not have an xml node")
 
     @property
     def is_named_type(self) -> bool:
@@ -66,35 +72,44 @@ class ModelsType(ABC):
     def kind(self) -> str:
         return "abstract"
 
+    @property
     def is_string(self) -> bool:
         return False
 
     @property
     def name(self) -> str:
-        raise UF.CHBError("Method name only applicable to named type, not to "
-                          + self.kind)
+        raise UF.CHBError(
+            "Method name only applicable to named type, not to "
+            + self.kind)
 
 
-def mk_type(signature: "chb.models.FunctionSignature.FunctionSignature",
-            xnode: ET.Element) -> ModelsType:
+def mk_type(signature: "FunctionSignature", xnode: ET.Element) -> ModelsType:
     xptr = xnode.find("ptr")
     if xptr is not None:
         return MPointerType(signature, xptr)
     xtext = xnode.text
     if xtext is not None:
         return MNamedType(signature, xnode)
-    raise UF.CHBError("Type with tag "
-                      + xnode.tag
-                      + " not recognized in function summary for "
-                      + signature.name)
+    if xnode.tag == "btype":
+        tname = xnode.get("tname")
+        if tname is not None:
+            return MNamedType(signature, typename="int")
+    raise UF.CHBError(
+        "Type with tag "
+        + xnode.tag
+        + " not recognized in function summary for "
+        + signature.name)
 
 
 class MNamedType(ModelsType):
 
-    def __init__(self,
-                 signature: "chb.models.FunctionSignature.FunctionSignature",
-                 xnode: ET.Element) -> None:
+    def __init__(
+            self,
+            signature: "FunctionSignature",
+            xnode: Optional[ET.Element] = None,
+            typename: Optional[str] = None) -> None:
         ModelsType.__init__(self, signature, xnode)
+        self._typename = typename
 
     @property
     def is_named_type(self) -> bool:
@@ -106,14 +121,18 @@ class MNamedType(ModelsType):
 
     @property
     def typename(self) -> str:
-        xty = self.xnode.text
-        if xty:
-            return xty
-        else:
-            raise UF.CHBError("Named type in function signature for "
-                              + self.function_signature.name
-                              + " does not have a name")
+        if self._typename is None:
+            xty = self.xnode.text
+            if xty:
+                self._typename = xty
+            else:
+                raise UF.CHBError(
+                    "Named type in function signature for "
+                    + self.function_signature.name
+                    + " does not have a name")
+        return self._typename
 
+    @property
     def is_string(self) -> bool:
         return self.typename in [
             "LPCTSTR", "LPCSTR", "LPCWSTR"]
@@ -126,9 +145,11 @@ class MPointerType(ModelsType):
 
     def __init__(
             self,
-            signature: "chb.models.FunctionSignature.FunctionSignature",
-            xnode: ET.Element) -> None:
+            signature: "FunctionSignature",
+            xnode: Optional[ET.Element] = None,
+            pointsto: Optional[ModelsType] = None) -> None:
         ModelsType.__init__(self, signature, xnode)
+        self._pointsto = pointsto
 
     @property
     def is_pointer_type(self) -> bool:
@@ -136,7 +157,9 @@ class MPointerType(ModelsType):
 
     @property
     def pointsto(self) -> ModelsType:
-        return mk_type(self.function_signature, self.xnode)
+        if self._pointsto is None:
+            self._pointsto = mk_type(self.function_signature, self.xnode)
+        return self._pointsto
 
     @property
     def kind(self) -> str:
