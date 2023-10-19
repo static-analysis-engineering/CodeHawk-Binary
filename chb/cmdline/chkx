@@ -218,17 +218,6 @@ def relationalcomparecommand(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
-def reportcommand(args: argparse.Namespace) -> NoReturn:
-    print('The report command can be followed by the following subcommands:')
-    print('All commands take the name of the executable as first argument')
-    print('')
-    print('  appcalls <xname>             output application calls')
-    print('  dllcalls <xname>             output dll calls (PE32 only)')
-    print('  iocs <xname>                 output indicators of compromise (PE32 only)')
-    print('  unresolvedcalls <xname>      output unresolved calls (PE32 only)')
-    exit(0)
-
-
 def tablecommand(args: argparse.Namespace) -> NoReturn:
     print('The table command can be followed by the following subcommands:')
     print('  expr')
@@ -939,8 +928,8 @@ def parse() -> argparse.Namespace:
     resultsglobals.set_defaults(func=UCC.results_globalvars)
 
     # ------------------------------------------------------ report subcommand
-    parser_report = subparsers.add_parser('report')
-    parser_report.set_defaults(func=reportcommand)
+    parser_report = subparsers.add_parser("report")
+    parser_report.set_defaults(func=REP.reportcommand)
     reportparsers = parser_report.add_subparsers(title='show options')
 
     # -- report on memory operations --
@@ -952,18 +941,21 @@ def parse() -> argparse.Namespace:
     report_calls = reportparsers.add_parser("calls")
     report_calls.add_argument("xname", help="name of executable")
     report_calls.add_argument(
-        "outputfile",
-        help="name of json output file (without extension")
+        "--callee",
+        help="name or hex address of call target",
+        required=True)
     report_calls.add_argument(
-        "--callees",
-        nargs="*",
-        default=["all"],
-        help="target functions to be included (default: all)")
+        "--json",
+        help="output results in json format",
+        action="store_true")
     report_calls.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="print out a list of calls")
-    report_calls.set_defaults(func=REP.report_calls)
+        "--output", "-o", help="name of output file (without extension)")
+    report_calls.add_argument(
+        "--cgpathsrc",
+        help=(
+            "name or hex address of application function to be used as "
+            + " source for callgraph path"))
+    report_calls.set_defaults(func=REP.report_calls_cmd)
 
     # --- report unresolved
     report_unresolved = reportparsers.add_parser("unresolved")

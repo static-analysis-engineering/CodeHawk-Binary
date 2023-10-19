@@ -141,12 +141,29 @@ def summaries_so_functions_cmd(args: argparse.Namespace) -> NoReturn:
               + str(len(sofunctions[jar]))
               + ")")
         print("=" * 80)
+        pdrcounter = 0
+        pdwcounter = 0
         for f in sorted(sofunctions[jar], key=lambda f: f.name):
-            print("  " + f.name)
+            summary = models.so_function_summary(f.name)
+            prec = summary.semantics.preconditions
+            pdread = len([p for p in prec if p.is_deref_read])
+            pdwrite = len([p for p in prec if p.is_deref_write])
+            print("  " + str(pdread).rjust(6) + str(pdwrite).rjust(6) + "  " + f.name)
+            if pdread > 0:
+                pdrcounter += 1
+            if pdwrite > 0:
+                pdwcounter += 1
         print("=" * 80)
 
     total = sum(len(sofunctions[jar]) for jar in sofunctions)
-    print("\nTotal: " + str(total) + " summaries")
+    print(
+        "\nTotal: "
+        + str(total)
+        + " summaries (with deref-read: "
+        + str(pdrcounter)
+        + "; with deref-write: "
+        + str(pdwcounter)
+        + ")")
     exit(0)
 
 

@@ -43,6 +43,7 @@ import chb.util.fileutil as UF
 if TYPE_CHECKING:
     from chb.app.BasicBlock import BasicBlock
     from chb.app.Function import Function
+    from chb.cmdline.XInfo import XInfo
     from chb.invariants.InvariantFact import InvariantFact
     from chb.relational.FunctionRelationalAnalysis import FunctionRelationalAnalysis
 
@@ -73,6 +74,15 @@ def jsonok(schemaname: str, content: Dict[str, Any]) -> Dict[str, Any]:
     jmeta["version"] = chbversion
     jresult["content"] = content
     return jresult
+
+
+def jsonappdata(xinfo: "XInfo") -> Dict[str, str]:
+    result: Dict[str, str] = {}
+    result["path"] = xinfo.path
+    result["file"] = xinfo.file
+    result["md5"] = xinfo.md5
+    result["arch"] = xinfo.architecture
+    return result
 
 
 def location_invariant_to_json_result(
