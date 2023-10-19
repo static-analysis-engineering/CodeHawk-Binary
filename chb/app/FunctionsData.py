@@ -92,32 +92,37 @@ class FunctionData:
     def faddr(self) -> str:
         return str(hex(self.id))
 
+    @property
     def is_class_member(self) -> bool:
         return 'c' in self.tags
 
+    @property
     def is_by_preamble(self) -> bool:
         return 'pre' in self.tags
 
+    @property
     def is_library_stub(self) -> bool:
         return 'l' in self.tags
 
     def has_name(self) -> bool:
-        return len(self.names()) > 0
+        return len(self.names) > 0
 
+    @property
     def name(self) -> str:
-        if len(self.names()) > 0:
-            return self.names()[0]
+        if len(self.names) > 0:
+            return self.names[0]
         else:
             return self.faddr
 
+    @property
     def names(self) -> Sequence[str]:
-        if self.is_class_member():
+        if self.is_class_member:
             return [self.bd.string(i) for i in self.args[2:]]
         else:
             return [self.bd.string(i) for i in self.args]
 
     def __str__(self) -> str:
-        names = self.names()
+        names = self.names
         pnames = ""
         if len(names) > 0:
             pnames = ' (' + ','.join(names) + ')'
@@ -151,7 +156,7 @@ class FunctionsData:
     def functionnames(self) -> Mapping[str, Sequence[str]]:
         if len(self._functionnames) == 0:
             for (faddr, f) in self.functions.items():
-                for n in f.names():
+                for n in f.names:
                     self._functionnames.setdefault(n, [])
                     self._functionnames[n].append(faddr)
         return self._functionnames
@@ -167,13 +172,13 @@ class FunctionsData:
 
     def name(self, faddr: str) -> str:
         if self.has_name(faddr):
-            return self.functions[faddr].names()[0]
+            return self.functions[faddr].names[0]
         else:
             raise UF.CHBError("Function at " + faddr + " does not have a name")
 
     def names(self, faddr: str) -> Sequence[str]:
         if self.has_name(faddr):
-            return self.functions[faddr].names()
+            return self.functions[faddr].names
         else:
             return []
 
@@ -181,8 +186,15 @@ class FunctionsData:
         return name in self.functionnames
 
     def is_unique_app_function_name(self, name: str) -> bool:
-        return (name in self.functionnames
-                and len(self.functionnames[name]) == 1)
+        if (name in self.functionnames
+            and len(self.functionnames[name]) == 1):
+            faddr = self.functionnames[name][0]
+            if faddr in self.functions:
+                fd = self.functions[faddr]
+                return not fd.is_library_stub
+            else:
+                return False
+        return False
 
     def function_address_from_name(self, name: str) -> str:
         if self.is_unique_app_function_name(name):
@@ -193,8 +205,8 @@ class FunctionsData:
     def library_stubs(self) -> Dict[str, str]:
         result: Dict[str, str] = {}
         for f in self.functions.values():
-            if f.is_library_stub():
-                result[f.faddr] = f.name()
+            if f.is_library_stub:
+                result[f.faddr] = f.name
         return result
 
     def __str__(self) -> str:
