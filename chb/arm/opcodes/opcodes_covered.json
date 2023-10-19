@@ -477,6 +477,20 @@
 	    "A": "Y",
 	    "TC": "DA"
 	},
+	"BKPT": {
+	    "name": "Breakpoint",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1",
+			"E": "10111110<-imm8->"
+		    }
+		]
+	    }
+	},
 	"BL": {
 	    "name": "BranchLink",
 	    "encodings": {
@@ -697,12 +711,34 @@
 	    "TC": "Y",
 	    "A": "Y"
 	},
+	"CPS": {
+	    "name": "ChangeProcessorState",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "T1",
+			"E": "10110110011m0AIF",
+			"D": "Y",
+			"U": ["62b6", "72b6"]
+		    },
+		    {
+			"T": "T2"
+		    }
+		]
+	    }
+	},
 	"DMB": {
 	    "name": "DataMemoryBarrier",
 	    "encodings": {
 		"all": [
 		    {
-			"T": "A1"
+			"T": "A1",
+			"E": "<15>< 10>111<15><15>< 0>0101<op>",
+			"D": "Y",
+			"U": ["5bf07ff5"]
 		    },
 		    {
 			"T": "T1",
@@ -1453,8 +1489,7 @@
 	    "encodings": {
 		"all": [
 		    {
-			"T": "A1",
-			"E": "<c><
+			"T": "A1"
 		    },
 		    {
 			"T": "A2"
@@ -3354,7 +3389,10 @@
 			"D": "Y"
 		    },
 		    {
-			"T": "T1"
+			"T": "T1",
+			"E": "< 31>01<  1><rn><15><rd>10ro<rm>",
+			"D": "Y",
+			"U": ["12fa84f4"]
 		    }
 		]
 	    },
@@ -3848,6 +3886,30 @@
 			"T": "T1",
 			"E": "< 29><7>1D11<vn><vd><i4>NQM0<vm>",
 			"D": "Y"
+		    }
+		]
+	    }
+	},
+	"VFMA": {
+	    "name": "VectorFusedMultiplyAccumulate",
+	    "encodings": {
+		"all": [
+		    {
+			"T": "A1"
+		    },
+		    {
+			"T": "A2"
+		    },
+		    {
+			"T": "T1"
+		    },
+		    {
+			"T": "T2-single",
+			"E": "< 29><6>1D10<vn><vd><10>N0M0<vm>"
+		    },
+		    {
+			"T": "T2-double",
+			"E": "< 29><6>1D10<vn><vd><11>N0M0<vm>"
 		    }
 		]
 	    }
