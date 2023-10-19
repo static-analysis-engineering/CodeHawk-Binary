@@ -45,7 +45,8 @@ from typing import (
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree, ASTSpanRecord, nooffset
 from chb.ast.ASTBasicCTyper import ASTBasicCTyper
-from chb.ast.ASTByteSizeCalculator import ASTByteSizeCalculator
+from chb.ast.ASTByteSizeCalculator import (
+    ASTByteSizeCalculator, ASTByteSizeCalculationException)
 from chb.ast.ASTCTyper import ASTCTyper
 import chb.ast.ASTNode as AST
 from chb.ast.ASTProvenance import ASTProvenance
@@ -411,8 +412,12 @@ class ASTInterface:
     def compinfo(self, ckey: int) -> AST.ASTCompInfo:
         return self.globalsymboltable.compinfo(ckey)
 
-    def type_size_in_bytes(self, typ: AST.ASTTyp) -> int:
-        return typ.index(self.bytesize_calculator)
+    def type_size_in_bytes(self, typ: AST.ASTTyp) -> Optional[int]:
+        try:
+            return typ.index(self.bytesize_calculator)
+        except ASTByteSizeCalculationException as e:
+            self.add_diagnostic("type_size_in_bytes: " + str(e))
+            return None
 
     def resolve_type(self, t: AST.ASTTyp) -> AST.ASTTyp:
         if t.is_typedef:
