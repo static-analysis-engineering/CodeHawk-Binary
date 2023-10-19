@@ -378,6 +378,8 @@ class Cfg:
 
     @property
     def blocks(self) -> Mapping[str, CfgBlock]:
+        """To be overridden by subclasses (taking into account trampolines."""
+
         raise UF.CHBError("Property blocks not implemented for Cfg")
 
     @property
