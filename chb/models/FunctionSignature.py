@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,35 +29,38 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 import chb.models.FunctionParameter as P
 import chb.models.ModelsType as T
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.models.FunctionSummary
-    import chb.models.SummaryCollection
+    from chb.models.FunctionPrecondition import FunctionPrecondition
+    from chb.models.FunctionSummary import FunctionSummary
+    from chb.models.SummaryCollection import SummaryCollection
 
 
 class FunctionSignature:
     """Represents the signature of a function summary."""
 
-    def __init__(
-            self,
-            fsum: "chb.models.FunctionSummary.FunctionSummary",
-            xnode: ET.Element) -> None:
+    def __init__(self, fsum: "FunctionSummary", xnode: ET.Element) -> None:
         self._fsum = fsum
-        self.xnode = xnode
+        self._xnode = xnode
+        self._preconditions: Optional[List[FunctionPrecondition]] = None
         self.xcheck()
 
     @property
-    def summarycollection(self) -> "chb.models.SummaryCollection.SummaryCollection":
+    def summarycollection(self) -> "SummaryCollection":
         return self.functionsummary.summarycollection
 
     @property
-    def functionsummary(self) -> "chb.models.FunctionSummary.FunctionSummary":
+    def functionsummary(self) -> "FunctionSummary":
         return self._fsum
+
+    @property
+    def xnode(self) -> ET.Element:
+        return self._xnode
 
     @property
     def name(self) -> str:
@@ -65,8 +68,16 @@ class FunctionSignature:
         if xname:
             return xname
         else:
-            raise UF.CHBError("Name is missing in signature of function summary "
-                              + self.functionsummary.name)
+            raise UF.CHBError(
+                "Name is missing in signature of function summary "
+                + self.functionsummary.name)
+
+    @property
+    def is_varargs(self) -> bool:
+        xvarargs = self.xnode.get("varargs")
+        if xvarargs is not None:
+            return xvarargs == "yes"
+        return False
 
     @property
     def adjustment(self) -> int:
@@ -94,25 +105,35 @@ class FunctionSignature:
         if xty is not None:
             return T.mk_type(self, xty)
         else:
-            raise UF.CHBError("Function signature for "
-                              + self.name
-                              + " lacks a return type")
+            raise UF.CHBError(
+                "Function signature for "
+                + self.name
+                + " lacks a return type")
 
     @property
     def parameters(self) -> List[P.FunctionParameter]:
         xpars = self.xnode.findall("par")
         return [P.FunctionParameter(self, xpar) for xpar in xpars]
 
+    @property
+    def preconditions(self) -> List["FunctionPrecondition"]:
+        if self._preconditions is None:
+            self._preconditions = []
+            for p in self.parameters:
+                self._preconditions.extend(p.preconditions)
+        return self._preconditions
+
     def xcheck(self) -> None:
         if (
                 self.name != self.functionsummary.name
                 and (self.name + "A") != self.functionsummary.name
                 and (self.name + "W") != self.functionsummary.name):
-            raise UF.CHBError("Name discrepancy in function signature for "
-                              + self.functionsummary.name
-                              + " ("
-                              + self.name
-                              + ")")
+            raise UF.CHBError(
+                "Name discrepancy in function signature for "
+                + self.functionsummary.name
+                + " ("
+                + self.name
+                + ")")
 
     def __str__(self) -> str:
         lines: List[str] = []
