@@ -220,7 +220,12 @@ def xxpr_to_ast_def_exprs(
             x1 = xoperands[0]
             if x1.is_register_variable:
                 regdef = reg_to_ast_def_exprs(x1)
-                if regdef is not None:
+                if xoperator in ["lsb", "lsh"]:
+                    astree.add_diagnostic(
+                        iaddr + ": ast-def: " + str(xcomp))
+                    return None
+
+                elif regdef is not None:
                     return astree.mk_unary_op(xoperator, regdef)
                 else:
                     return None
@@ -298,6 +303,18 @@ def xxpr_to_ast_def_exprs(
                         xdata,
                         astree)[0]
                 else:
+
+                    # Extract a byte from a 32-bit value
+                    if xoperator == "xbyte":
+                        if str(regdef1) == "1":
+                            mask = astree.mk_integer_constant(0xff00)
+                            shift = astree.mk_integer_constant(8)
+                            astx1 = astree.mk_binary_op("band", regdef2, mask)
+                            astx2 = astree.mk_binary_op("lsr", astx1, shift)
+                            return astx2
+                        else:
+                            return None
+
                     return astree.mk_binary_op(xoperator, regdef1, regdef2)
             else:
                 astree.add_diagnostic(
@@ -430,7 +447,7 @@ def xprvariable_to_ast_exprs(
 
     if xv.variable.denotation.is_function_return_value:
         fr = cast("VFunctionReturnValue", xv.variable.denotation.auxvar)
-        if str(fr.call_target()) in ["calloc", "malloc", "realloc"]:
+        if fr.has_call_target() and str(fr.call_target()) in ["calloc", "malloc", "realloc"]:
             lvalexpr = astree.mk_named_lval_expression(
                 str(xv),
                 vtype=astree.astree.mk_pointer_type(AST.ASTTypVoid()),
@@ -669,6 +686,12 @@ def field_at_offset(
     elif ftype.is_array:
         ftype = cast(AST.ASTTypArray, ftype)
         elsize = astree.type_size_in_bytes(ftype.tgttyp)
+        if elsize is None:
+            raise UF.CHBError(
+                "Unable to determine array element size of fieldtype: "
+                + str(ftype)
+                + " in compinfo "
+                + str(compinfo))
         index = r // elsize
         ioffset = astree.mk_scalar_index_offset(index)
         return astree.mk_field_offset(
@@ -713,6 +736,10 @@ def basevar_variable_to_ast_lvals(
             if basetype.is_array:
                 elttype = cast(AST.ASTTypArray, basetype).tgttyp
                 eltsize = astree.type_size_in_bytes(elttype)
+                if eltsize is None:
+                    raise UF.CHBError(
+                        "Unable to determine array element size for "
+                        + str(basetype))
                 index = offsetvalue // eltsize
                 indexoffset = astree.mk_scalar_index_offset(index)
                 return [astree.mk_lval(baselval.lhost, indexoffset)]
@@ -728,6 +755,9 @@ def basevar_variable_to_ast_lvals(
                 basexpr = astree.mk_lval_expression(baselval)
                 if tgttype.is_scalar:
                     tgtsize = astree.type_size_in_bytes(tgttype)
+                    if tgtsize is None:
+                        raise UF.CHBError(
+                            "Unable to determine size of type " + str(tgttype))
                     index = offsetvalue // tgtsize
                     indexoffset = astree.mk_scalar_index_offset(index)
                     return [astree.mk_lval(
@@ -1195,6 +1225,10 @@ def xmemory_dereference_lval(
             gvtype = cast(AST.ASTTypArray, gvtype)
             eltype = gvtype.tgttyp
             eltypsize = astree.type_size_in_bytes(eltype)
+            if eltypsize is None:
+                raise UF.CHBError(
+                    "Unable to determine size of array element type "
+                    + str(eltype))
 
             if not op2.is_compound:
                 return default()
