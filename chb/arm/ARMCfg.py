@@ -122,6 +122,14 @@ class ARMCfg(Cfg):
 
     def set_trampoline_blocks(
             self, blocks: Dict[str, ARMCfgBlock]) -> None:
+        """Assign the roles of blocks that are part of a recognized trampoline.
+
+        Currently the following types of trampolines are recognized:
+        (1) breakout
+            (cfg) => (setup) => (payload) => (decision) => (takedown) => (cfg)
+                                                        => (breakout)
+        (2) conditional
+        """
 
         # create original edges locally
         localedges: Dict[str, List[str]] = {}
