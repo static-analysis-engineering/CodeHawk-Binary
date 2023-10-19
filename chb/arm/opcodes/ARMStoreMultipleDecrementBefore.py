@@ -355,6 +355,8 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                 + " use default")
             return default()
 
+        # Right-hand side is a struct
+
         rhstype = cast(AST.ASTTypComp, rhs.ctype(astree.ctyper))
         compinfo = astree.compinfo(rhstype.compkey)
 
@@ -368,7 +370,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         if not xvar.base.is_local_stack_frame:
             astree.add_diagnostic(
                 "StoreMultipleDecrementBefore (STMDB): "
-                "variable is not a stack variable: "
+                + "variable is not a stack variable: "
                 + str(xvar))
             return default()
 
@@ -395,20 +397,37 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                 rhs = astree.mk_lval_expr(rhslval)
                 fieldassign = astree.mk_assign(lhs, rhs, iaddr=iaddr)
                 localvarassigns[offset] = fieldassign
-                offset += astree.type_size_in_bytes(fieldtype)
+                fieldsize = astree.type_size_in_bytes(fieldtype)
+                if fieldsize is not None:
+                    offset += fieldsize
+                else:
+                    astree.add_diagnostic(
+                        "StoreMultipleDecrementBefore (STMDB): "
+                        + "size of field "
+                        + str(field)
+                        + " cannot be determined")
+                    return default()
 
             elif fieldtype.is_array:
                 arraytype = cast(AST.ASTTypArray, fieldtype)
                 if not arraytype.has_constant_size():
                     astree.add_diagnostic(
                         "StoreMultipleDecrementBefore (STMDB): "
-                        "array type does not have constant size")
+                        + "array type does not have constant size")
                     return default()
 
                 arraysize = arraytype.size_value()
 
                 elttype = astree.resolve_type(arraytype.tgttyp)
                 eltsize = astree.type_size_in_bytes(elttype)
+                if eltsize is None:
+                    astree.add_diagnostic(
+                        "StoreMultipleDecrementBefore (STMDB): "
+                        + "array element size of field "
+                        + str(field)
+                        + " not known")
+                    return default()
+
                 for index in range(0, arraysize):
                     lhs = astree.mk_stack_variable_lval(offset, vtype=elttype)
                     indexoffset = astree.mk_scalar_index_offset(index)
@@ -421,6 +440,13 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                     offset += eltsize
             else:
                 fieldsize = astree.type_size_in_bytes(fieldtype)
+                if fieldsize is None:
+                    astree.add_diagnostic(
+                        "StoreMultipleDecrementBefore (STMDB): "
+                        + "field size not known for field "
+                        + str(field))
+                    return default()
+
                 lhs = astree.mk_stack_variable_lval(offset, vtype=fieldtype)
                 fieldoffset = astree.mk_field_offset(
                     field.fieldname, compinfo.compkey)

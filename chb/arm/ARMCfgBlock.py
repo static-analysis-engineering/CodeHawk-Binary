@@ -62,3 +62,10 @@ class ARMCfgTrampolineBlock(ARMCfgBlock):
     @property
     def roles(self) -> Dict[str, str]:
         return self._roles
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Trampoline block")
+        for (b, role) in self.roles.items():
+            lines.append("  " + b + ": " + role)
+        return "\n".join(lines)
