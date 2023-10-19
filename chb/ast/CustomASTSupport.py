@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs, LLC
+# Copyright (c) 2022-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -37,14 +37,14 @@ arm32_register_sizes["LR"] = 32   # link register
 arm32_register_sizes["PC"] = 32   # program counter
 
 # ARM32 double registers
-arm32_register_sizes["R2_R3"] =  64
+arm32_register_sizes["R2_R3"] = 64
 
 # ARM32 floating point / adv simd registers
 arm_fp_sp_register_sizes: Dict[str, int] = {
-    "S" + str(i): 32 for i in range(0, 31)}
+    "S" + str(i): 32 for i in range(0, 32)}
 
 arm_fp_dp_register_sizes: Dict[str, int] = {
-    "D" + str(i): 64 for i in range(0, 31)}
+    "D" + str(i): 64 for i in range(0, 32)}
 
 arm32_register_sizes["FPSCR"] = 32  # floating point status control register
 
