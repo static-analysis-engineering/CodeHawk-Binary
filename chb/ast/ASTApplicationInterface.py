@@ -42,7 +42,7 @@ from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.CustomASTSupport import CustomASTSupport
 
 
-pirversion: str = "0.1.0-20230628"
+pirversion: str = "0.1.0-20231019"
 
 
 class ASTApplicationInterface:
