@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs, LLC
+# Copyright (c) 2021-2023  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,18 +31,47 @@ import argparse
 import json
 
 from typing import (
-    Any, Callable, cast, Dict, List, Mapping, NoReturn, Optional, Sequence, Tuple)
+    Any,
+    Callable,
+    cast,
+    Dict,
+    List,
+    Mapping,
+    NoReturn,
+    Optional,
+    Sequence,
+    Tuple,
+    TYPE_CHECKING)
 
+from chb.app.Callgraph import Callgraph
 from chb.app.Instruction import Instruction
 
 from chb.arm.ARMInstruction import ARMInstruction
 
 import chb.cmdline.commandutil as UC
+import chb.cmdline.jsonresultutil as JU
 import chb.cmdline.XInfo as XI
 
 from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
 
+from chb.jsoninterface.JSONResult import JSONResult
+
+from chb.models.ModelsAccess import ModelsAccess
+
 import chb.util.fileutil as UF
+
+if TYPE_CHECKING:
+    from chb.app.AppAccess import AppAccess
+
+
+
+def reportcommand(args: argparse.Namespace) -> NoReturn:
+    print("The report command can be followed by the following subcommands:")
+    print("  (all commands take the name of the executable as first argument)")
+    print("")
+    print("  calls <xname>      output all calls to a particular target function")
+    print("~" * 80)
+    exit(0)
 
 
 def dst_stack_arg_offset(instr: Instruction, dstargix: int) -> Optional[int]:
@@ -59,16 +88,149 @@ def dst_stack_arg_offset(instr: Instruction, dstargix: int) -> Optional[int]:
         return None
 
 
-destination_arguments: Dict[str, int] = {
-    "memcpy": 0,
-    "snprintf": 0,
-    "sprintf": 0,
-    "strlcpy": 0,
-    "strcat": 0,
-    "strcpy": 0,
-    "strlcpy": 0,
-    "strncpy": 0
-}
+def get_role_value(role: str, arg: XXpr) -> str:
+    s_arg = str(arg)
+    if role in ["reads-from"] and arg.is_string_reference:
+        return "constant-str"
+    elif role in ["writes-to", "reads-from"]:
+        if arg.is_stack_address:
+            return "stack"
+        elif arg.is_heap_address:
+            return "heap"
+        elif arg.is_global_address:
+            return "global"
+        elif arg.is_global_variable:
+            return "global-var"
+        elif arg.is_function_return_value:
+            return "fn retval"
+        elif arg.is_argument_value:
+            return "fn arg"
+        else:
+            return "unknown"
+    elif role in ["length"]:
+        if arg.is_constant:
+            return "constant"
+        elif arg.is_argument_value:
+            return "fn_arg"
+        elif arg.is_function_return_value:
+            return "fn retval"
+        else:
+            return "unknown"
+    else:
+        return "unknown"
+
+
+class TargetFunctionParameter:
+
+    def __init__(self, name: str, paramroles: List[str]) -> None:
+        self._name = name
+        self._paramroles = paramroles
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def parameter_roles(self) -> List[str]:
+        return self._paramroles
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        schema = "callsitetgtparameter"
+
+        content["name"] = self.name
+        content["parameter-roles"] = self.parameter_roles
+        return JSONResult(schema, content, "ok")
+
+
+class CallsiteTargetFunction:
+
+    def __init__(
+            self,
+            name: str,
+            isvarargs: bool,
+            parameters: List[TargetFunctionParameter]) -> None:
+        self._name = name
+        self._isvarargs = isvarargs
+        self._parameters = parameters
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def is_varargs(self) -> bool:
+        return self._isvarargs
+
+    @property
+    def parameters(self) -> List[TargetFunctionParameter]:
+        return self._parameters
+
+    @property
+    def parametercount(self) -> int:
+        return len(self.parameters)
+
+    def parameter(self, n: int) -> TargetFunctionParameter:
+        """Return n'th parameter (zero-based)."""
+
+        if n < len(self.parameters):
+            return self.parameters[n]
+
+        elif self.is_varargs:
+            argix = n - len(self.parameters)
+            return TargetFunctionParameter("vararg_" + str(argix), [])
+        else:
+            raise UF.CHBError(
+                "Index: "
+                + str(n)
+                + " exceeds number of parameters for "
+                + self.name
+                + " ("
+                + str(len(self.parameters))
+                + ")")
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        schema = "callsitetgtfunction"
+
+        content["name"] = self.name
+        content["parameters"] = [p.to_json_result().content for p in self.parameters]
+        content["varargs"] = self.is_varargs
+        return JSONResult(schema, content, "ok")
+
+
+class CallsiteArgument:
+
+    def __init__(
+            self,
+            name: str,
+            value: str,
+            rolevalues: List[Dict[str, str]] = []) -> None:
+        self._name = name
+        self._value = value
+        self._rolevalues = rolevalues
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def value(self) -> str:
+        return self._value
+
+    @property
+    def rolevalues(self) -> List[Dict[str, str]]:
+        return self._rolevalues
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        schema = "callsiteargument"
+
+        content["name"] = self.name
+        content["value"] = self.value
+        if len(self.rolevalues) > 0:
+            content["roles"] = self.rolevalues
+        return JSONResult(schema, content, "ok")
 
 
 class CallRecord:
@@ -77,10 +239,13 @@ class CallRecord:
             self,
             faddr: str,
             instr: Instruction,
-            fname: Optional[str] = None) -> None:
+            tgtfunction: CallsiteTargetFunction,
+            callgraph: Optional[Callgraph] = None) -> None:
         self._faddr = faddr
-        self._fname = fname
         self._instr = instr
+        self._cs_arguments: Optional[List[CallsiteArgument]] = None
+        self._tgtfunction = tgtfunction
+        self._callgraph = callgraph
 
     @property
     def instr(self) -> Instruction:
@@ -94,77 +259,277 @@ class CallRecord:
     def iaddr(self) -> str:
         return self.instr.iaddr
 
-    def has_fname(self) -> bool:
-        return self._fname is not None
-
     @property
-    def fname(self) -> str:
-        if self._fname is not None:
-            return self._fname
-        else:
-            raise UF.CHBError("Function does not have a name")
-
-    @property
-    def callee(self) -> str:
-        return str(self.instr.call_target)
+    def tgtfunction(self) -> CallsiteTargetFunction:
+        return self._tgtfunction
 
     @property
     def arguments(self) -> Sequence["XXpr"]:
         return self.instr.call_arguments
 
     @property
-    def write_destination(self) -> Optional[str]:
-        if self.callee in destination_arguments:
-            argix = destination_arguments[self.callee]
-            if len(self.arguments) > argix:
-                dstarg = self.arguments[destination_arguments[self.callee]]
+    def cs_arguments(self) -> List[CallsiteArgument]:
+        if self._cs_arguments is None:
+            self._cs_arguments = []
+            if (
+                    (len(self.arguments) <= self.tgtfunction.parametercount)
+                    or self.tgtfunction.is_varargs):
+                for (argix, arg) in enumerate(self.arguments):
+                    param = self.tgtfunction.parameter(argix)
+                    rolevalues: List[Dict[str, str]] = []
+                    for rn in param.parameter_roles:
+                        rv = get_role_value(rn, arg)
+                        rolevalues.append({"rn": rn, "rv": rv})
+                    csarg = CallsiteArgument(param.name, str(arg), rolevalues)
+                    self._cs_arguments.append(csarg)
             else:
-                print("Argument " + str(argix) + " not present for " + self.callee)
-                return None
-            if dstarg.is_stack_address:
-                return "stack"
-            elif dstarg.is_heap_address:
-                return "heap"
-            elif dstarg.is_global_address:
-                return "global"
+                for (argix, arg) in enumerate(self.arguments):
+                    name = "arg_" + str(argix)
+                    csarg = CallsiteArgument(name, str(arg))
+                    self._cs_arguments.append(csarg)
+        return self._cs_arguments
+
+    def has_callgraph(self) -> bool:
+        return self._callgraph is not None
+
+    @property
+    def callgraph(self) -> Callgraph:
+        if self._callgraph is not None:
+            return self._callgraph
+        else:
+            raise UF.CHBError("No callgraph available")
+
+    def has_nonempty_callgraph(self) -> bool:
+        if self.has_callgraph():
+            return len(self.callgraph.edges) > 0
+        else:
+            return False
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        schema = "callsiterecord"
+        content["faddr"] = self.faddr
+        content["iaddr"] = self.iaddr
+        content["arguments"] = [a.to_json_result().content for a in self.cs_arguments]
+        if self.has_callgraph():
+            jcg = self.callgraph.to_json_result()
+            if jcg.is_ok:
+                content["cgpath"] = jcg.content
             else:
-                return None
+                return JSONResult(schema, {}, "fail", jcg.reason)
+        return JSONResult(schema, content, "ok")
+
+
+# temporary stub!!
+def report_calls_json_to_string(result: Dict[str, Any]) -> str:
+    return str(result)
+
+
+def get_parameter_attributes_from_roles(paramroles: List[str]) -> List[str]:
+
+    if "deref-write:destination" in paramroles:
+        return ["writes-to"]
+
+    if "deref-write-null:destination" in paramroles:
+        return ["writes-to-if-nonnull"]
+
+    if "deref-read:source" in paramroles:
+        return ["reads-from"]
+
+    if "deref-read:length" in paramroles:
+        return ["length"]
+
+    if "deref-write:length" in paramroles:
+        return ["length"]
+
+    return paramroles
+
+
+def callsite_target_function(
+        xcallee: str,
+        function_names: Dict[str, str],
+        app: "AppAccess",
+        models: "ModelsAccess") -> CallsiteTargetFunction:
+
+    targetname: Optional[str] = None
+    if xcallee.startswith("0x"):
+        if app.has_function(xcallee):
+            if app.has_function_name(xcallee):
+                targetname = app.function_name(xcallee)
+                function_names[xcallee] = targetname
+            else:
+                targetname = "sub_" + xcallee[2:]
         else:
-            return None
+            raise UF.CHBError("No function found with address " + xcallee)
 
-    def dest_stack_frame_size(self) -> Optional[int]:
-        dest = self.write_destination
-        if dest and dest == "stack":
-            return dst_stack_arg_offset(
-                self.instr, destination_arguments[self.callee])
+    elif app.is_unique_app_function_name(xcallee):
+
+        callee_hex = app.function_address_from_name(xcallee)
+        if app.has_function(callee_hex):
+            targetname = xcallee
+            function_names[callee_hex] = xcallee
+
         else:
-            return None
+            raise UF.CHBError(
+                "No function found with name " + xcallee + " (" + callee_hex + ")")
 
-    def to_dict(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        writedst = self.write_destination
-        result["faddr"] = self.faddr
-        result["iaddr"] = self.iaddr
-        if self.has_fname():
-            result["fname"] = self.fname
-        result["callee"] = self.callee
-        result["arguments"] = [str(a) for a in self.arguments]
-        if writedst is not None:
-            result["writes-to"] = writedst
-            if writedst == "stack":
-                framesize = self.dest_stack_frame_size()
-                if framesize is not None:
-                    result["dst-framesize"] = framesize
-        return result
+    if targetname is not None:
+        return CallsiteTargetFunction(targetname, False, [])
+
+    else:
+        # dynamically linked library function (assume ELF here)
+        parameters: List[TargetFunctionParameter] = []
+        isvarargs: bool = False
+        if models.has_so_function_summary(xcallee):
+            fnsum = models.so_function_summary(xcallee)
+            fnparams = fnsum.signature.parameters
+            isvarargs = fnsum.signature.is_varargs
+            for fparam in fnparams:
+                paramroles = fnsum.semantics.parameter_roles(fparam.name)
+                paramattrs = get_parameter_attributes_from_roles(paramroles)
+                parameters.append(TargetFunctionParameter(fparam.name, paramattrs))
+
+        else:
+            UC.print_status_update("No model found for " + xcallee)
+
+        return CallsiteTargetFunction(xcallee, isvarargs, parameters)
 
 
-def report_calls(args: argparse.Namespace) -> NoReturn:
+def report_calls(
+        path: str,
+        xfile: str,
+        xcallee: str,
+        xcgpathsrc: Optional[str]) -> JSONResult:
+    """Collect and return all callsites where xcallee is called.
+
+    xcallee: the target function
+      this can be one of the following:
+      - hex address of application function
+      - symbolic name of application function
+      - symbolic name of dynamically linked library function
+
+    xcgpathsrc: optional function to use as source for callgraph path to callsite
+      this can be one of the following:
+      - hex address of application function
+      - symbolic name of application function
+      if None: no callgraph path is included in the callsite records.
+
+    The result has json schema callsiterecords.
+    """
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = UC.get_app(path, xfile, xinfo)
+    models = ModelsAccess()
+
+    content: Dict[str, Any] = {}
+    schema: str = "callsiterecords"
+
+    # keep track of application functions that have a symbolic name
+    function_names: Dict[str, str] = {}
+
+    # construct callsite target function record from xcallee
+    try:
+        tgtfunction = callsite_target_function(
+            xcallee, function_names, app, models)
+    except UF.CHBError as e:
+        UC.print_error("Failure: " + str(e))
+        return JSONResult(schema, {}, "fail", str(e))
+
+    content["tgt-function"] = tgtfunction.to_json_result().content
+
+    # determine source for callgraph paths to callsite
+    hexcgpathsrc: Optional[str] = None
+    callgraph: Optional[Callgraph] = None
+    if xcgpathsrc is not None:
+        if xcgpathsrc.startswith("0x"):
+            hexcgpathsrc = xcgpathsrc
+            if not app.has_function(xcgpathsrc):
+                UC.print_error(
+                    "No source function found with address " + xcgpathsrc)
+                return JSONResult(
+                    schema,
+                    {},
+                    "fail",
+                    "No source function found with address " + xcgpathsrc)
+
+        elif app.is_unique_app_function_name(xcgpathsrc):
+            hexcgpathsrc = app.function_address_from_name(xcgpathsrc)
+            function_names[hexcgpathsrc] = xcgpathsrc
+        else:
+            UC.print_error(
+                "Failure: No application function found with name " + xcgpathsrc)
+            return JSONResult(
+                schema,
+                {},
+                "fail",
+                "No application function found with name " + xcgpathsrc)
+        content["cgpath-src"] = hexcgpathsrc
+        callgraph = app.callgraph()
+        callgraph = callgraph.constrain_sources([hexcgpathsrc])
+
+    else:
+        # no callgraph paths
+        pass
+
+    # iterate through callsites
+    calls = app.call_instructions()
+    callcount = 0
+    content["callsites"] = callsites = []
+
+    for faddr in sorted(calls):
+        fname = (
+            app.function_name(faddr)
+            if app.has_function_name(faddr)
+            else None)
+        for baddr in calls[faddr]:
+            for instr in calls[faddr][baddr]:
+                callcount += 1
+                if instr.call_target.name == tgtfunction.name:
+                    tgtpath: Optional[Callgraph] = None
+                    if fname is not None:
+                        function_names[faddr] = fname
+                    if callgraph is not None:
+                        tgtpath = callgraph.constrain_sinks([faddr])
+                    callrec = CallRecord(
+                        faddr, instr, tgtfunction, callgraph=tgtpath).to_json_result()
+                    if callrec.is_ok:
+                        callsites.append(callrec.content)
+                    else:
+                        UC.print_error("Failure: " + str(callrec.reason))
+                        return JSONResult(schema, {}, "fail", str(callrec.reason))
+
+    UC.print_status_update(
+        "Found "
+        + str(len(callsites))
+        + " callsites for "
+        + tgtfunction.name
+        + " (out of "
+        + str(callcount)
+        + " calls)")
+    if callgraph is not None:
+        cgcount = len([cs for cs in callsites if len(cs["cgpath"]["edges"]) > 0])
+        UC.print_status_update(
+            "Nonempty callgraph path to: "
+            + str(xcgpathsrc)
+            + ": "
+            + str(cgcount)
+            + " out of "
+            + str(len(callsites))
+            + " callsites")
+
+    return JSONResult(schema, content, "ok")
+
+
+def report_calls_cmd(args: argparse.Namespace) -> NoReturn:
 
     # arguments
     xname: str = args.xname
-    outputfile: str = args.outputfile
-    verbose: bool = args.verbose
-    callees: List[str] = args.callees
+    xcallee: str = args.callee
+    xjson: bool = args.json
+    xoutput: Optional[str] = args.output
+    xcgpathsrc: Optional[str] = args.cgpathsrc
 
     try:
         (path, xfile) = UC.get_path_filename(xname)
@@ -173,63 +538,47 @@ def report_calls(args: argparse.Namespace) -> NoReturn:
         print(str(e.wrap()))
         exit(1)
 
-    xinfo = XI.XInfo()
-    xinfo.load(path, xfile)
+    result = report_calls(path, xfile, xcallee, xcgpathsrc)
+    schema = "callsiterecords"
 
-    app = UC.get_app(path, xfile, xinfo)
+    if result.is_ok:
+        jsonresult = JU.jsonok(schema, result.content)
+    else:
+        jsonresult = JU.jsonfail(
+            "Error in collecting calls for "
+            + xcallee
+            + ": "
+            + str(result.reason))
 
-    calls = app.call_instructions()
-    calllist: List[CallRecord] = []
+    if xoutput is not None:
+        if xjson:
+            outputfilename = xoutput + ".json"
+            with open(outputfilename, "w") as fp:
+                json.dump(jsonresult, fp)
+        else:
+            outputfilename = xoutput + ".txt"
+            with open(outputfilename, "w") as fp:
+                fp.write(report_calls_json_to_string(jsonresult))
 
-    for faddr in sorted(calls):
-        fname = (
-            app.function_name(faddr)
-            if app.has_function_name(faddr)
-            else None)
-        if verbose:
-            print("\nFunction " + faddr)
-        for baddr in calls[faddr]:
-            for instr in calls[faddr][baddr]:
-                calltgt = str(instr.call_target)
-                if "all" in callees or calltgt in callees:
-                    callrec = CallRecord(faddr, instr, fname=fname)
-                    calllist.append(callrec)
-                    if verbose:
-                        print("     " + str(instr))
-                else:
-                    if "all" in callees:
-                        callrec = CallRecord(faddr, instr, fname=fname)
-                        calllist.append(callrec)
+        if result.is_ok:
+            UC.print_status_update(
+                "Success. Results for report calls saved in " + outputfilename)
+            exit(0)
+        else:
+            UC.print_status_update(
+                "Failure. Reason reported in " + outputfilename)
+            exit(1)
 
-    results: Dict[str, Any] = {}
-    results["application"] = {}
-    results["application"]["name"] = xfile
-    results["application"]["md5"] = xinfo.md5
-    results["calls"] = [callrec.to_dict() for callrec in calllist]
+    else:
+        if xjson:
+            print(json.dumps(jsonresult))
+        else:
+            print(report_calls_json_to_string(jsonresult))
 
-    filename = outputfile + ".json"
-    with open(filename, "w") as fp:
-        json.dump(results, fp, indent=2)
-
-    stats: Dict[str, Dict[str, int]] = {}
-
-    for c in calllist:
-        callee = c.callee
-        stats.setdefault(callee, {})
-        dst = c.write_destination
-        if dst is None:
-            dst = "unknown"
-        stats[callee].setdefault(dst, 0)
-        stats[callee][dst] += 1
-
-    print("Statistics")
-    print("==========")
-    for (call, counts) in stats.items():
-        print(call + " (" + str(sum([counts[n] for n in counts])) + ")")
-        for (d, n) in counts.items():
-            print("  " + d.ljust(8) + str(n).rjust(5))
-
-    exit(0)
+    if result.is_ok:
+        exit(0)
+    else:
+        exit(1)
 
 
 def report_memops(args: argparse.Namespace) -> NoReturn:
@@ -484,6 +833,9 @@ def report_unresolved(args: argparse.Namespace) -> NoReturn:
         for faddr in d:
             for baddr in d[faddr]:
                 result += len(d[faddr][baddr])
+
+        if result == 0:
+            result = 1
         return result
 
     perccalls = float(numcalls) / float(count_instrs(calls))
