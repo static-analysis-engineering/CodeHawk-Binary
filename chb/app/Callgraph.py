@@ -27,10 +27,12 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, Dict, List, Mapping, Optional, Sequence, Set
+from typing import Any, cast, Dict, List, Mapping, Optional, Sequence, Set
 
 from chb.api.CallTarget import (
     CallTarget, StubTarget, AppTarget, CallbackTableTarget)
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 import chb.util.graphutil as UG
@@ -70,6 +72,11 @@ class CallgraphNode:
     @property
     def is_unknown_tgt(self) -> bool:
         return False
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["name"] = self.name
+        return JSONResult("cgnode", content, "ok")
 
     def __str__(self) -> str:
         return self.name
@@ -189,6 +196,12 @@ class CallgraphEdge:
     def dst(self) -> str:
         return self._dst
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["src"] = self.src
+        content["dst"] = self.dst
+        return JSONResult("cgedge", content, "ok")
+
 
 class Callgraph:
     """Application call graph.
@@ -223,6 +236,14 @@ class Callgraph:
     @property
     def edges(self) -> Mapping[str, Mapping[str, CallgraphEdge]]:
         return self._edges
+
+    @property
+    def nodecount(self) -> int:
+        return len(self.nodes)
+
+    @property
+    def edgecount(self) -> int:
+        return sum (len(self.edges[e]) for e in self.edges)
 
     @property
     def edgecount(self) -> int:
@@ -292,6 +313,31 @@ class Callgraph:
     def constrain_sinks(self, sinks: List[str]) -> "Callgraph":
         return self.clone(reverse=True).constrain_sources(sinks).clone(
             reverse=True)
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["nodes"] = jnodes = []
+        content["edges"] = jedges = []
+        for node in self.nodes.values():
+            jnode = node.to_json_result()
+            if jnode.is_ok:
+                jnodes.append(jnode.content)
+            else:
+                return JSONResult("callgraph", {}, "fail", jnode.reason)
+        for tgt in self.edges.values():
+            for edge in tgt.values():
+                jedge = edge.to_json_result()
+                if jedge.is_ok:
+                    jedges.append(jedge.content)
+                else:
+                    return JSONResult("callgraph", {}, "fail", jedge.reason)
+        return JSONResult("callgraph", content, "ok")
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Number of nodes: " + str(self.nodecount))
+        lines.append("Number of edges: " + str(self.edgecount))
+        return "\n".join(lines)
 
 
 # Convenience functions
