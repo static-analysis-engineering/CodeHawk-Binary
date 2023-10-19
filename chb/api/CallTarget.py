@@ -257,11 +257,7 @@ class AppTarget(CallTarget):
             return "sub_" + addr[2:]
 
     def __str__(self) -> str:
-        addr = str(self.address)
-        if self.app.has_function_name(addr):
-            return 'App:' + self.app.function_name(addr)
-        else:
-            return 'App:' + addr
+        return self.name
 
 
 @apiregistry.register_tag("inl", CallTarget)
