@@ -108,7 +108,15 @@ chb_schemas: List[Dict[str, Any]] = [
     S.blockcomparison,
     S.blockexpansion,
     S.blocksemanticcomparison,
+    S.callgraph,
+    S.callgraphedge,
+    S.callgraphnode,
     S.callgraphcomparison,
+    S.callsiteargument,
+    S.callsiterecord,
+    S.callsiterecords,
+    S.callsitetgtparameter,
+    S.callsitetgtfunction,
     S.cfgcomparison,
     S.cfgedge,
     S.cfgedgecomparison,
@@ -217,3 +225,6 @@ if __name__ == "__main__":
     save_schema(
         "xcomparison",
         "json result file for the structural differences between two binaries")
+    save_schema(
+        "callsiterecords",
+        "json result file for reporting callsites")
