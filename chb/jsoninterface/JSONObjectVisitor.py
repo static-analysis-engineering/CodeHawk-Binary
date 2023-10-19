@@ -32,6 +32,8 @@ import chb.jsoninterface.JSONAppComparison as AppC
 from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 import chb.jsoninterface.JSONBlockComparison as BlockC
+import chb.jsoninterface.JSONCallgraph as Cg
+import chb.jsoninterface.JSONCallsiteRecords as CR
 import chb.jsoninterface.JSONControlFlowGraph as Cfg
 import chb.jsoninterface.JSONFunctionComparison as FunC
 import chb.jsoninterface.JSONInstructionComparison as InstrC
@@ -64,8 +66,34 @@ class JSONObjectVisitor(ABC):
             self, obj: BlockC.JSONBlockSemanticComparison) -> None:
         ...
 
+    def visit_callgraph(self, obj: Cg.JSONCallgraph) -> None:
+        ...
+
     def visit_callgraph_comparison(
             self, obj: AppC.JSONCallgraphComparison) -> None:
+        ...
+
+    def visit_callgraph_edge(self, obj: Cg.JSONCallgraphEdge) -> None:
+        ...
+
+    def visit_callgraph_node(self, obj: Cg.JSONCallgraphNode) -> None:
+        ...
+
+    def visit_callsite_argument(self, obj: CR.JSONCallsiteArgument) -> None:
+        ...
+
+    def visit_callsite_record(self, obj: CR.JSONCallsiteRecord) -> None:
+        ...
+
+    def visit_callsite_records(self, obj: CR.JSONCallsiteRecords) -> None:
+        ...
+
+    def visit_callsite_tgt_function(
+            self, obj: CR.JSONCallsiteTgtFunction) -> None:
+        ...
+
+    def visit_callsite_tgt_parameter(
+            self, obj: CR.JSONCallsiteTgtParameter) -> None:
         ...
 
     def visit_cfg_comparison(self, obj: FunC.JSONCfgComparison) -> None:

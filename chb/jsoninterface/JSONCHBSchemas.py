@@ -1295,3 +1295,156 @@ appcomparison = {
         "binary-comparison": refdef("binarycomparison")
     }
 }
+
+
+callgraphnode = {
+    "name": "callgraphnode",
+    "title": "callgraph node",
+    "$comment": "JSONCallgraph.JSONCallgraphNode",
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+        "name": strtype("unique identification of node"),
+        "label": strtype("text to be shown on node representation"),
+        "type": strtype("optional type that characterizes the node")
+    }
+}
+
+
+callgraphedge = {
+    "name": "callgraphedge",
+    "title": "callgraph edge",
+    "$comment": "JSONCallgraph.JSONCallgraphEdge",
+    "type": "object",
+    "requires": ["src", "tgt"],
+    "properties": {
+        "src": strtype("source node name"),
+        "tgt": strtype("target node name"),
+        "type": strtype("optional type that characterizes the edge")
+    }
+}
+
+
+callgraph = {
+    "name": "callgraph",
+    "title": "callgraph",
+    "description": "(partial) callgraph",
+    "$comment": "JSONCallgraph.JSONCallgraph",
+    "type": "object",
+    "required": ["nodes", "edges"],
+    "properties": {
+        "nodes": {
+            "type": "array",
+            "items": refdef("callgraphnode")
+        },
+        "edges": {
+            "type": "array",
+            "items": refdef("callgraphedge")
+        }
+    }
+}
+
+
+callsitetgtparameter = {
+    "name": "callsitetgtparameter",
+    "title": "callsite target function parameter",
+    "description": "callsite target function parameter",
+    "$comment": "JSONCallsiteRecords.JSONCallsiteTgtParameter",
+    "type": "object",
+    "required": [],
+    "properties": {
+        "name": strtype("name of parameter"),
+        "roles": {
+            "type": "array",
+            "description": "roles that the parameter plays in execution",
+            "items": strtype("name of precondition and role therein")
+        }
+    }
+}
+
+
+callsitetgtfunction = {
+    "name": "callsitetgtfunction",
+    "title": "callsite target function",
+    "description": "specification of target function of callsites",
+    "$comment": "JSONCallsiteRecords.JSONCallsiteTgtFunction",
+    "type": "object",
+    "required": ["name", "parameters"],
+    "properties": {
+        "name": strtype("name or hex address of function called"),
+        "parameters": {
+            "type": "array",
+            "description": "parameters of the target function",
+            "items": refdef("callsitetgtparameter")
+        },
+        "varargs": "bool"
+    }
+}
+
+
+callsiteargument = {
+    "name": "callsiteargument",
+    "title": "callsite argument",
+    "description": "argument value of call to target function",
+    "$comment": "JSONCallsiteRecords.JSONCallsiteArgument",
+    "type": "object",
+    "required": ["name", "value"],
+    "properties": {
+        "name": strtype("name of parameter"),
+        "value": strtype("text representation of argument value"),
+        "roles": {
+            "type": "array",
+            "description":
+            ("role values in accordance with the the roles specified in the "
+             + "callsite target function"),
+            "items": strtupletype(
+                "rn", "rv", desc="role name and role value")
+        }
+    }
+}
+
+
+callsiterecord = {
+    "name": "callsiterecord",
+    "title": "callsite record",
+    "description": "callsite instance with location and arguments",
+    "$comment": "JSONCallsiteRecords.JSONCallsiteRecord",
+    "type": "object",
+    "required": ["faddr", "iaddr", "arguments"],
+    "properties": {
+        "faddr": strtype("hex address of calling function"),
+        "iaddr": strtype("hex address of callsite"),
+        "arguments": {
+            "type": "array",
+            "description": "list of arguments with which target function is called",
+            "items": refdef("callsiteargument")
+        },
+        "cgpath": refdef("callgraph")
+    }
+}
+
+
+callsiterecords = {
+    "name": "callsiterecords",
+    "title": "callsite records",
+    "description": "list of calls to a particular function",
+    "$comment": "JSONCallsiteRecords.JSONCallsiteRecords",
+    "type": "object",
+    "required": ["tgt-function", "callsites"],
+    "properties": {
+        "function-names": {
+            "type": "array",
+            "items": strtupletype(
+                "addr",
+                "name",
+                desc="list of hex address - name mappings for functions referenced")
+        },
+        "cgpath-src": strtype("hex address of source function for callgraph path"),
+        "tgt-function": refdef("callsitetgtfunction"),
+        "callsites": {
+            "type": "array",
+            "description": "list of sites at which function is called",
+            "items": refdef("callsiterecord")
+        }
+    }
+}
