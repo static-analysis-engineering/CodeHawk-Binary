@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -157,7 +157,7 @@ class X86Call(X86Opcode):
                 if len(params) == len(args):
                     result: List[Tuple[str, str]] = []
                     for (p, x) in zip(params, args):
-                        if p.type.is_string():
+                        if p.type.is_string:
                             if self.app.stringsxrefs.has_string(str(x)):
                                 pvalue = (
                                     '"' + self.app.stringsxrefs.string(str(x)) + '"')
