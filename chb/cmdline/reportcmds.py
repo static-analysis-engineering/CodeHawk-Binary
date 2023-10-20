@@ -399,7 +399,7 @@ def report_calls(
         path: str,
         xfile: str,
         xcallee: str,
-        xcgpathsrc: Optional[str]) -> JSONResult:
+        xcgpathsrc: Optional[str] = None) -> JSONResult:
     """Collect and return all callsites where xcallee is called.
 
     xcallee: the target function
@@ -499,6 +499,12 @@ def report_calls(
                     else:
                         UC.print_error("Failure: " + str(callrec.reason))
                         return JSONResult(schema, {}, "fail", str(callrec.reason))
+
+    if len(function_names) > 0:
+        dfnames: List[Dict[str, str]] = []
+        for (fnaddr, fnname) in sorted(function_names.items()):
+            dfnames.append({"addr": fnaddr, "name": fnname})
+        content["function-names"] = dfnames
 
     UC.print_status_update(
         "Found "
