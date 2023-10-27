@@ -52,6 +52,8 @@ from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.Instruction import Instruction
 from chb.app.StringXRefs import StringsXRefs
 
+from chb.bctypes.BCDictionary import BCDictionary
+
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnInvariants import FnInvariants
@@ -81,6 +83,7 @@ class X86Function(Function):
             self,
             path: str,
             filename: str,
+            bcd: BCDictionary,
             bd: BDictionary,
             ixd: InterfaceDictionary,
             finfo: FunctionInfo,
@@ -90,7 +93,7 @@ class X86Function(Function):
             models: "ModelsAccess",
             xnode: ET.Element) -> None:
         Function.__init__(
-            self, path, filename, bd, ixd, finfo, stringsxrefs, names, xnode)
+            self, path, filename, bcd, bd, ixd, finfo, stringsxrefs, names, xnode)
         self._x86d = x86d
         self._blocks: Dict[str, X86Block] = {}
         self._cfg: Optional[X86Cfg] = None

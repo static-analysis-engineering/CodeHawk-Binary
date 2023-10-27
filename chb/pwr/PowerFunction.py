@@ -39,6 +39,8 @@ from chb.app.FunctionInfo import FunctionInfo
 from chb.app.Cfg import Cfg
 from chb.app.StringXRefs import StringsXRefs
 
+from chb.bctypes.BCDictionary import BCDictionary
+
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnXprDictionary import FnXprDictionary
 
@@ -58,6 +60,7 @@ class PowerFunction(Function):
             self,
             path: str,
             filename: str,
+            bcd: BCDictionary,
             bd: BDictionary,
             ixd: InterfaceDictionary,
             finfo: FunctionInfo,
@@ -66,7 +69,7 @@ class PowerFunction(Function):
             names: Sequence[str],
             xnode: ET.Element) -> None:
         Function.__init__(
-            self, path, filename, bd, ixd, finfo, stringsxrefs, names, xnode)
+            self, path, filename, bcd, bd, ixd, finfo, stringsxrefs, names, xnode)
         self._pwrd = pwrd
         self._cfg: Optional[PowerCfg] = None
         self._blocks: Dict[str, PowerBlock] = {}

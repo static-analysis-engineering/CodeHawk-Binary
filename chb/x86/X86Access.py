@@ -72,6 +72,7 @@ class X86Access(AppAccess[HeaderTy]):
                 self._functions[faddr] = X86Function(
                     self.path,
                     self.filename,
+                    self.bcdictionary,
                     self.bdictionary,
                     self.interfacedictionary,
                     self.function_info(faddr),

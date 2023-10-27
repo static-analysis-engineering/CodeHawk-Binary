@@ -425,6 +425,17 @@ auxvariable = {
         },
         {
             "type": "object",
+            "description": "auxiliary variable for register single-assignment",
+            "required": ["kind", "register", "address", "txtrep"],
+            "properties": {
+                "kind": prop_kind(["ssa"]),
+                "register": strtype(desc="name of register"),
+                "address": strtype(desc="address of register assignment"),
+                "txtrep": txtrep()
+            }
+        },
+        {
+            "type": "object",
             "description": "value of memory location upon function entry",
             "required": ["kind", "memvar", "txtrep"],
             "properties": {

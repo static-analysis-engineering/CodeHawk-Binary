@@ -72,6 +72,7 @@ class PowerAccess(AppAccess[HeaderTy]):
                 self._functions[faddr] = PowerFunction(
                     self.path,
                     self.filename,
+                    self.bcdictionary,
                     self.bdictionary,
                     self.interfacedictionary,
                     self.function_info(faddr),

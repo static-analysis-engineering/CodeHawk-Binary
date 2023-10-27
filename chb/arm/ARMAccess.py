@@ -73,6 +73,7 @@ class ARMAccess(AppAccess[HeaderTy]):
                 self._functions[faddr] = ARMFunction(
                     self.path,
                     self.filename,
+                    self.bcdictionary,
                     self.bdictionary,
                     self.interfacedictionary,
                     self.function_info(faddr),
