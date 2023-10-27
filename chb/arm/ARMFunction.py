@@ -46,6 +46,8 @@ from chb.arm.ARMInstruction import ARMInstruction
 from chb.arm.ARMJumpTable import ARMJumpTable
 from chb.arm.ARMCfg import ARMCfg
 
+from chb.bctypes.BCDictionary import BCDictionary
+
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnXprDictionary import FnXprDictionary
 
@@ -60,6 +62,7 @@ class ARMFunction(Function):
             self,
             path: str,
             filename: str,
+            bcd: BCDictionary,
             bd: BDictionary,
             ixd: InterfaceDictionary,
             finfo: FunctionInfo,
@@ -68,7 +71,7 @@ class ARMFunction(Function):
             names: Sequence[str],
             xnode: ET.Element) -> None:
         Function.__init__(
-            self, path, filename, bd, ixd, finfo, stringsxrefs, names, xnode)
+            self, path, filename, bcd, bd, ixd, finfo, stringsxrefs, names, xnode)
         self._armd = armd
         self._cfg: Optional[ARMCfg] = None
         self._jumptables: Dict[str, JumpTable] = {}

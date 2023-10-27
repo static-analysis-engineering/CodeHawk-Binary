@@ -40,6 +40,7 @@ and constant_value_variable_t =
       * ctxt_iaddress_t
   | FunctionReturnValue  of ctxt_iaddress_t        "fr"       2      0
   | SyscallErrorReturnValue of ctxt_iaddress_t     "ev"       2      0
+  | SSARegisterVariable                            "ssa"      2      2
   | FunctionPointer of                             "fp"       2      2
       string
       * string
@@ -77,6 +78,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.app.Instruction import Instruction
+    from chb.bctypes.BCTyp import BCTyp
     from chb.invariants.FnVarDictionary import FnVarDictionary
     from chb.invariants.XXpr import XXpr
     from chb.invariants.XVariable import XVariable
@@ -547,6 +549,45 @@ class FunctionPointer(VConstantValueVariable):
 
     def __str__(self) -> str:
         return "fp:" + self.creator + ":" + self.name + "@" + self.creation_addr
+
+
+@varregistry.register_tag("ssa", VConstantValueVariable)
+class SSARegisterVariable(VConstantValueVariable):
+    """Single-assignment value of a register at a particular address.
+
+    tags[1]: address of assignment instruction
+    args[0]: index of register in bdictionary
+    args[1]: index of type in bcdictionary
+    """
+
+    def __init__(
+            self,
+            vd: "FnVarDictionary",
+            ixval: IndexedTableValue) -> None:
+        VConstantValueVariable.__init__(self, vd, ixval)
+
+    @property
+    def address(self) -> str:
+        return self.tags[1]
+
+    @property
+    def register(self) -> Register:
+        return self.bd.register(self.args[0])
+
+    @property
+    def btype(self) -> "BCTyp":
+        return self.bcd.typ(self.args[1])
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["kind"] = "ssa"
+        content["register"] = str(self.register)
+        content["address"] = self.address
+        content["txtrep"] = self.__str__()
+        return JSONResult("auxvariable", content, "ok")
+
+    def __str__(self) -> str:
+        return str(self.register) + "_" + self.address
 
 
 @varregistry.register_tag("ma", VConstantValueVariable)

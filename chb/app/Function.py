@@ -64,6 +64,8 @@ from chb.app.StringXRefs import StringsXRefs
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+from chb.bctypes.BCDictionary import BCDictionary
+
 from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnVarInvDictionary import FnVarInvDictionary
@@ -86,6 +88,7 @@ class Function(ABC):
             self,
             path: str,
             filename: str,
+            bcd: BCDictionary,
             bd: BDictionary,
             ixd: InterfaceDictionary,
             finfo: FunctionInfo,
@@ -95,6 +98,7 @@ class Function(ABC):
         self.xnode = xnode
         self._path = path
         self._filename = filename
+        self._bcd = bcd
         self._bd = bd
         self._ixd = ixd
         self._finfo = finfo
@@ -118,6 +122,10 @@ class Function(ABC):
     @property
     def bd(self) -> BDictionary:
         return self._bd
+
+    @property
+    def bcd(self) -> BCDictionary:
+        return self._bcd
 
     @property
     def ixd(self) -> InterfaceDictionary:

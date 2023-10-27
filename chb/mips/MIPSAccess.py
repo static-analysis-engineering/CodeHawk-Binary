@@ -79,6 +79,7 @@ class MIPSAccess(AppAccess[HeaderTy]):
                 self._functions[faddr] = MIPSFunction(
                     self.path,
                     self.filename,
+                    self.bcdictionary,
                     self.bdictionary,
                     self.interfacedictionary,
                     self.function_info(faddr),

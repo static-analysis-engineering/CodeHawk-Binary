@@ -42,6 +42,8 @@ from chb.app.FunctionInfo import FunctionInfo
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.StringXRefs import StringsXRefs
 
+from chb.bctypes.BCDictionary import BCDictionary
+
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnInvariants import FnInvariants
@@ -67,6 +69,7 @@ class MIPSFunction(Function):
     def __init__(self,
                  path: str,
                  filename: str,
+                 bcd: BCDictionary,
                  bd: BDictionary,
                  ixd: InterfaceDictionary,
                  finfo: FunctionInfo,
@@ -76,7 +79,7 @@ class MIPSFunction(Function):
                  models: ModelsAccess,
                  xnode: ET.Element) -> None:
         Function.__init__(
-            self, path, filename, bd, ixd, finfo, stringsxrefs, names, xnode)
+            self, path, filename, bcd, bd, ixd, finfo, stringsxrefs, names, xnode)
         self._mipsd = mipsd
         self._models = models
         self._blocks: Dict[str, MIPSBlock] = {}

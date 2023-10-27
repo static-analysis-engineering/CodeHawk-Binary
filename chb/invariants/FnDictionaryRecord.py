@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from chb.app.Function import Function
     from chb.app.FunctionInfo import FunctionInfo
     from chb.app.StringXRefs import StringsXRefs
+    from chb.bctypes.BCDictionary import BCDictionary
     from chb.invariants.FnInvDictionary import FnInvDictionary
     from chb.invariants.FnVarDictionary import FnVarDictionary
     from chb.invariants.FnVarInvDictionary import FnVarInvDictionary
@@ -106,6 +107,10 @@ class FnVarDictionaryRecord(IndexedTableValue):
     @property
     def bd(self) -> "BDictionary":
         return self.vd.bd
+
+    @property
+    def bcd(self) -> "BCDictionary":
+        return self.vd.bcd
 
     @property
     def ixd(self) -> "InterfaceDictionary":

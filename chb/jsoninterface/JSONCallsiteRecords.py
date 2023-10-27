@@ -45,7 +45,7 @@ class JSONCallsiteTgtParameter(JSONObject):
 
     @property
     def roles(self) -> List[str]:
-        return self.d.get("roles", [])
+        return self.d.get("parameter-roles", [])
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_callsite_tgt_parameter(self)

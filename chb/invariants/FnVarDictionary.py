@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from chb.app.Function import Function
     from chb.app.FunctionInfo import FunctionInfo
     from chb.app.StringXRefs import StringsXRefs
+    from chb.bctypes.BCDictionary import BCDictionary
 
 
 class FnVarDictionary:
@@ -88,6 +89,10 @@ class FnVarDictionary:
     @property
     def bd(self) -> "BDictionary":
         return self.function.bd
+
+    @property
+    def bcd(self) -> "BCDictionary":
+        return self.function.bcd
 
     @property
     def ixd(self) -> "InterfaceDictionary":
