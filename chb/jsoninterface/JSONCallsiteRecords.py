@@ -130,6 +130,12 @@ class JSONCallsiteRecord(JSONObject):
             self._arguments = result
         return self._arguments
 
+    def column_count(self) -> int:
+        result: int = 0
+        for arg in self.arguments:
+            result += (1 + len(arg.roles))
+        return result
+
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_callsite_record(self)
 
@@ -185,6 +191,19 @@ class JSONCallsiteRecords(JSONObject):
                 result.append(JSONCallsiteRecord(csrec))
             self._callsites = result
         return self._callsites
+
+    def max_column_count(self) -> int:
+        """Return the maximum number of columns needed for the arguments.
+
+        Note: this includes role values
+        """
+
+        maxcount: int = 0
+        for cs in self.callsites:
+            count = cs.column_count()
+            if count > maxcount:
+                maxcount = count
+        return maxcount
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_callsite_records(self)
