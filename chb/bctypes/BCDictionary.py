@@ -61,7 +61,7 @@ class BCDictionary:
     def __init__(
             self,
             app: "AppAccess",
-            xnode: ET.Element) -> None:
+            xnode: Optional[ET.Element]) -> None:
         self._app = app
         self.string_table = SI.StringIndexedTable("string-table")
         self.attrparam_table = IT.IndexedTable("attrparam-table")
@@ -235,22 +235,23 @@ class BCDictionary:
 
     # -------------------------- initialize dictionary from file ---------------
 
-    def initialize(self, xnode: ET.Element) -> None:
-        for t in self.tables:
-            xtable = xnode.find(t.name)
-            if xtable is not None:
-                t.reset()
-                t.read_xml(xtable, "n")
+    def initialize(self, xnode: Optional[ET.Element]) -> None:
+        if xnode is not None:
+            for t in self.tables:
+                xtable = xnode.find(t.name)
+                if xtable is not None:
+                    t.reset()
+                    t.read_xml(xtable, "n")
+                else:
+                    raise UF.CHBError(
+                        "Table " + t.name + " not found in bcdictionary")
+            self.string_table.reset()
+            xstable = xnode.find(self.string_table.name)
+            if xstable is not None:
+                self.string_table.read_xml(xstable)
             else:
                 raise UF.CHBError(
-                    "Table " + t.name + " not found in bcdictionary")
-        self.string_table.reset()
-        xstable = xnode.find(self.string_table.name)
-        if xstable is not None:
-            self.string_table.read_xml(xstable)
-        else:
-            raise UF.CHBError(
-                "Error reading stringtable " + self.string_table.name)
-        for ix in self.typeinfo_table.keys():
-            tinfo = self.typeinfo(ix)
-            self.typeinfo_names[tinfo.tname] = tinfo
+                    "Error reading stringtable " + self.string_table.name)
+            for ix in self.typeinfo_table.keys():
+                tinfo = self.typeinfo(ix)
+                self.typeinfo_names[tinfo.tname] = tinfo
