@@ -535,6 +535,9 @@ def get_bcdictionary_filename(path: str, xfile: str) -> str:
     fdir = get_analysis_dir(path, xfile)
     return get_chb_filename(fdir, xfile, "bcdict.xml")
 
+def has_bcdictionary_file(path: str, xfile: str) -> bool:
+    filename = get_bcdictionary_filename(path, xfile)
+    return os.path.isfile(filename)
 
 def get_bcdictionary_xnode(path: str, xfile: str) -> ET.Element:
     filename = get_bcdictionary_filename(path, xfile)

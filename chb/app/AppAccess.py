@@ -167,8 +167,11 @@ class AppAccess(ABC, Generic[HeaderTy]):
     @property
     def bcdictionary(self) -> BCDictionary:
         if self._bcdictionary is None:
-            x = UF.get_bcdictionary_xnode(self.path, self.filename)
-            self._bcdictionary = BCDictionary(self, x)
+            if UF.has_bcdictionary_file(self.path, self.filename):
+                x = UF.get_bcdictionary_xnode(self.path, self.filename)
+                self._bcdictionary = BCDictionary(self, x)
+            else:
+                self._bcdictionary = BCDictionary(self, None)
         return self._bcdictionary
 
     @property
