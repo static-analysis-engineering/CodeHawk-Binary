@@ -288,6 +288,9 @@ class BC2ASTConverter(BCConverter):
         astexpr = eitem.itemexpr.convert(self)
         return AST.ASTEnumItem(eitem.itemname, astexpr)
 
+    def convert_unknown(self, t: BCT.BCTypUnknown) -> AST.ASTTypInt:
+        return AST.ASTTypInt("iint")
+
     def convert_compinfo(self, cinfo: BCCompInfo) -> AST.ASTCompInfo:
         if self.symboltable.has_compinfo(cinfo.ckey):
             return self.symboltable.compinfo(cinfo.ckey)

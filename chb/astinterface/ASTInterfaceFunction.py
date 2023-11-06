@@ -201,6 +201,11 @@ class ASTInterfaceFunction(ASTFunction):
             print(prettyprinter.to_c(transformedcode))
             print("\n\nDiagnostics")
             print("\n".join(self.astinterface.diagnostics))
+            print("\n\nInfo log")
+            for (topic, entries) in sorted(self.astinterface.infolog.items()):
+                print(topic)
+                for line in entries:
+                    print("  " + line)
 
         elif self.showdiagnostics:
             print("\n\nDiagnostics")

@@ -173,6 +173,7 @@ class ASTInterface:
             astprototype: Optional[AST.ASTVarInfo] = None,
             varintros: Dict[str, str] = {},
             verbose: bool = False,
+            showinfolog: bool = False,
             showdiagnostics: bool = False) -> None:
         self._astree = astree
         self._srcprototype = srcprototype
@@ -180,6 +181,7 @@ class ASTInterface:
         self._varintros = varintros
         self._typconverter = typconverter
         self._verbose = verbose
+        self._showinfolog = showinfolog
         self._showdiagnostics = showdiagnostics
         self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
         self._bytesizecalculator = ASTByteSizeCalculator(
@@ -189,6 +191,7 @@ class ASTInterface:
         self._srcformals: List[ASTIFormalVarInfo] = []
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
+        self._infolog: Dict[str, List[str]] = {}
         self._diagnostics: List[str] = []
         self._astiprovenance = ASTIProvenance()
         self._ignoredlhs = self.mk_variable_lval("ignored")
@@ -230,6 +233,10 @@ class ASTInterface:
         return self._showdiagnostics
 
     @property
+    def showinfolog(self) -> bool:
+        return self._showinfolog
+
+    @property
     def ctyper(self) -> ASTCTyper:
         return self._ctyper
 
@@ -251,6 +258,20 @@ class ASTInterface:
     @property
     def annotations(self) -> Dict[int, List[str]]:
         return self._annotations
+
+    @property
+    def infolog(self) -> Dict[str, List[str]]:
+        return self._infolog
+
+    def infolog_topic(self, topic: str) -> List[str]:
+        if topic in self.infolog:
+            return self.infolog[topic]
+        else:
+            return []
+
+    def add_infologmsg(self, topic: str, msg: str) -> None:
+        self._infolog.setdefault(topic, [])
+        self._infolog[topic].append(msg)
 
     @property
     def diagnostics(self) -> List[str]:
@@ -609,6 +630,19 @@ class ASTInterface:
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTReturn:
         if expr is not None and iaddr is not None and bytestring is not None:
             self.astree.add_expr_span(expr.exprid, iaddr, bytestring)
+        if expr is not None and expr.is_integer_constant:
+            expr = cast(AST.ASTIntegerConstant, expr)
+            if expr.cvalue == 0:
+                fproto = self.symboltable.function_prototype
+                if fproto is not None:
+                    ftype = fproto.vtype
+                    if ftype is not None:
+                        if ftype.is_function:
+                            ftype = cast(AST.ASTTypFun, ftype)
+                            returntyp = ftype.returntyp
+                            if returntyp.is_pointer:
+                                cexpr = self.mk_cast_expr(returntyp, expr)
+                                return self.astree.mk_return_stmt(cexpr, labels=labels)
         return self.astree.mk_return_stmt(expr, labels=labels)
 
     def mk_break_stmt(self) -> AST.ASTBreak:
