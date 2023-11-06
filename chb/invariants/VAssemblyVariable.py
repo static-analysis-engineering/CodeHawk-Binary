@@ -297,8 +297,8 @@ class VMemoryVariable(VAssemblyVariable):
 
     def __str__(self) -> str:
         if self.is_global_variable:
-            addr = str(hex(self.offset.offsetvalue()))
-            return 'gv_' + str(hex(self.offset.offsetvalue()))
+            addr = str(hex(self.offset.offsetconstant))
+            return 'gv_' + addr + str(self.offset.offset)
         elif self.is_stack_argument:
             offset = self.offset.offsetvalue()
             return 'arg.' + '{0:04d}'.format(offset)

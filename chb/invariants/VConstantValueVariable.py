@@ -40,7 +40,7 @@ and constant_value_variable_t =
       * ctxt_iaddress_t
   | FunctionReturnValue  of ctxt_iaddress_t        "fr"       2      0
   | SyscallErrorReturnValue of ctxt_iaddress_t     "ev"       2      0
-  | SSARegisterVariable                            "ssa"      2      2
+  | SSARegisterValue                               "ssa"      2      2
   | FunctionPointer of                             "fp"       2      2
       string
       * string
@@ -98,6 +98,10 @@ class VConstantValueVariable(FnVarDictionaryRecord):
 
     @property
     def is_initial_memory_value(self) -> bool:
+        return False
+
+    @property
+    def is_ssa_register_value(self) -> bool:
         return False
 
     @property
@@ -552,7 +556,7 @@ class FunctionPointer(VConstantValueVariable):
 
 
 @varregistry.register_tag("ssa", VConstantValueVariable)
-class SSARegisterVariable(VConstantValueVariable):
+class SSARegisterValue(VConstantValueVariable):
     """Single-assignment value of a register at a particular address.
 
     tags[1]: address of assignment instruction
@@ -573,6 +577,10 @@ class SSARegisterVariable(VConstantValueVariable):
     @property
     def register(self) -> Register:
         return self.bd.register(self.args[0])
+
+    @property
+    def is_ssa_register_value(self) -> bool:
+        return True
 
     @property
     def btype(self) -> "BCTyp":

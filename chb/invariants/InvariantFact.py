@@ -42,6 +42,9 @@ type invariant_fact_t =
   | InitialVarEquality of                                 "ie"     1      2
       variable_t
       * variable_t (* variable, initial value *)
+  | SSAVarEquality of                                     "sse"    1      2
+      variable_t
+      * variable_t (* variable, ssa value *)
   | InitialVarDisEquality of                              "id"     1      2
       variable_t
       * variable_t (* variable, initial value *)
@@ -95,6 +98,10 @@ class InvariantFact(FnInvDictionaryRecord):
 
     @property
     def is_initial_var_equality(self) -> bool:
+        return False
+
+    @property
+    def is_ssa_var_equality(self) -> bool:
         return False
 
     @property
@@ -202,7 +209,7 @@ class NRVFact(InvariantFact):
         return JSONResult("invariantfact", content, "ok")
 
     def __str__(self) -> str:
-        return str(self.variable) + ' == ' + str(self.value)
+        return "NRV-fact: " + str(self.variable) + ' == ' + str(self.value)
 
 
 @invregistry.register_tag("ie", InvariantFact)
@@ -255,7 +262,60 @@ class InitialVarEqualityFact(InvariantFact):
         return JSONResult("invariantfact", content, "ok")
 
     def __str__(self) -> str:
-        return str(self.variable) + ' == ' + str(self.initial_value)
+        return "InitVarEq: " + str(self.variable) + ' == ' + str(self.initial_value)
+
+
+@invregistry.register_tag("sse", InvariantFact)
+class SSARegisterValueFact(InvariantFact):
+    """Assertion that a register has the value assigned at a given address.
+
+    args[0]: index of variable in xprdictionary
+    args[1]: index of ssa value in xprdictionary
+    """
+
+    def __init__(
+            self,
+            invd: "FnInvDictionary",
+            ixval: IndexedTableValue) -> None:
+        InvariantFact.__init__(self, invd, ixval)
+
+    @property
+    def is_ssa_var_equaltiy(self) -> bool:
+        return True
+
+    @property
+    def variable(self) -> XVariable:
+        return self.xd.variable(self.args[0])
+
+    @property
+    def ssa_value(self) -> XVariable:
+        return self.xd.variable(self.args[1])
+
+    def to_json_result(self) -> JSONResult:
+        jvar = self.variable.to_json_result()
+        if not jvar.is_ok:
+            return JSONResult(
+                "invariantfact",
+                {},
+                "fail",
+                "invariantfact: " + str(jvar.reason))
+        ssaval = self.ssa_value.to_json_result()
+        if not ssaval.is_ok:
+            return JSONResult(
+                "invariantfact",
+                {},
+                "fail",
+                "invariantfact: " + str(ssaval.reason))
+        content: Dict[str, Any] = {}
+        content["kind"] = "ssaval"
+        content["relation"] = "equals"
+        content["var"] = jvar.content
+        content["ssaval"] = ssaval.content
+        content["txtrep"] = self.__str__()
+        return JSONResult("invariantfact", content, "ok")
+
+    def __str__(self) -> str:
+        return "SSAVarEq: " + str(self.variable) + " == " + str(self.ssa_value)
 
 
 @invregistry.register_tag("id", InvariantFact)
@@ -413,4 +473,4 @@ class RelationalFact(InvariantFact):
         return JSONResult("linearequality", content, "ok")
 
     def __str__(self) -> str:
-        return str(self.equality)
+        return "R: " + str(self.equality)

@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 """Symbolic value, identified by name and sequence number"""
 
-from typing import Any, Dict, List, Tuple, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Tuple, TYPE_CHECKING
 
 from chb.app.Register import Register
 
@@ -44,6 +44,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.invariants.FnXprDictionary import FnXprDictionary
+    from chb.invariants.VConstantValueVariable import SSARegisterValue
 
 
 class XVariable(FnXprDictionaryRecord):
@@ -102,6 +103,13 @@ class XVariable(FnXprDictionaryRecord):
             and self.denotation.auxvar.is_initial_memory_value)
 
     @property
+    def is_ssa_register_value(self) -> bool:
+        return (
+            self.has_denotation()
+            and self.denotation.is_auxiliary_variable
+            and self.denotation.auxvar.is_ssa_register_value)
+
+    @property
     def is_auxiliary_variable(self) -> bool:
         return self.has_denotation() and self.denotation.is_auxiliary_variable
 
@@ -141,6 +149,11 @@ class XVariable(FnXprDictionaryRecord):
         if self.is_initial_register_value:
             return self.denotation.auxvar.register
         raise UF.CHBError("Variable is not an initial register value")
+
+    def ssa_register_value(self) -> "SSARegisterValue":
+        if self.is_ssa_register_value:
+            return cast ("SSARegisterValue", self.denotation.auxvar)
+        raise UF.CHBError("Variable is not an ssa register value")
 
     def has_denotation(self) -> bool:
         return self.seqnr > 0
