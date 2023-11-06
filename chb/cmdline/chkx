@@ -604,6 +604,10 @@ def parse() -> argparse.Namespace:
         "--showdiagnostics",
         help="print diagnostics to the console",
         action="store_true")
+    buildast.add_argument(
+        "--showinfolog",
+        help="print information log to the console",
+        action="store_true")
     buildast.set_defaults(func=AST.buildast)
 
     # -- results decompile (abstract syntax tree) --

@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from chb.invariants.FnVarDictionary import FnVarDictionary
     from chb.invariants.FnVarInvDictionary import FnVarInvDictionary
     from chb.invariants.FnXprDictionary import FnXprDictionary
+    from chb.invariants.VConstantValueVariable import SSARegisterValue
 
 
 class InstrXData(IndexedTableValue):
@@ -66,6 +67,7 @@ class InstrXData(IndexedTableValue):
         IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
         self._fnd = fnd
         self.expanded = False
+        self._ssavals: List[XVariable] = []
         self._vars: List[XVariable] = []
         self._xprs: List[XXpr] = []
         self._intervals: List[XInterval] = []
@@ -105,6 +107,26 @@ class InstrXData(IndexedTableValue):
         if not self.expanded:
             self._expand()
         return self._vars
+
+    @property
+    def ssavals(self) -> List[XVariable]:
+        if not self.expanded:
+            self._expand()
+        return self._ssavals
+
+    def has_ssaval(self, register: str) -> bool:
+        for v in self._ssavals:
+            if v.is_ssa_register_value:
+                ssaval = v.ssa_register_value()
+                return str(ssaval.register) == register
+        return False
+
+    def get_ssaval(self, register: str) -> "SSARegisterValue":
+        for v in self._ssavals:
+            if v.is_ssa_register_value:
+                return v.ssa_register_value()
+        raise UF.CHBError(
+            "No ssa value found for register " + register)
 
     def get_var(self, index: int) -> XVariable:
         if index < len(self.vars):
@@ -230,6 +252,8 @@ class InstrXData(IndexedTableValue):
                     flagrdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
                     flagrdef = cast(Optional[FlagReachingDefFact], flagrdef)
                     self._flagreachingdefs.append(flagrdef)
+                elif c == "c":
+                    self._ssavals.append(xd.variable(arg))
                 else:
                     raise UF.CHBError("Key letter not recognized: " + c)
 
