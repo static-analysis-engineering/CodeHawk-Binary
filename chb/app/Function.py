@@ -47,6 +47,7 @@ from typing import (
     NewType,
     Optional,
     Sequence,
+    TYPE_CHECKING,
     Tuple,
     Union)
 
@@ -80,6 +81,9 @@ from chb.jsoninterface.JSONResult import JSONResult
 from chb.userdata.UserHints import UserHints
 
 import chb.util.fileutil as UF
+
+if TYPE_CHECKING:
+    from chb.bctypes.BCTyp import BCTyp
 
 
 class Function(ABC):
@@ -321,6 +325,16 @@ class Function(ABC):
     @property
     def cfg(self) -> Cfg:
         raise UF.CHBError("Property cfg not implemented for Function")
+
+    @property
+    def btypes(self) -> Dict[str, "BCTyp"]:
+        raise UF.CHBError("Property btypes not implemented for Function")
+
+    def get_cvv_btype(self, cvv: str) -> "BCTyp":
+        raise UF.CHBError("Property get_cvv_btype not implemented for Function")
+
+    def has_cvv_btype(self, cvv: str) -> bool:
+        return False
 
     @abstractmethod
     def strings_referenced(self) -> List[str]:

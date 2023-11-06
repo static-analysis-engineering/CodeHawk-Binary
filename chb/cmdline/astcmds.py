@@ -141,6 +141,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
     showdiagnostics: bool = args.showdiagnostics
+    showinfolog: bool = args.showinfolog
 
     astmode.append("ast")
 
@@ -257,7 +258,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 astprototype=astprototype,
                 varintros=varintros,
                 verbose=verbose,
-                showdiagnostics=showdiagnostics)
+                showdiagnostics=showdiagnostics,
+                showinfolog=showinfolog)
 
             astfunction = ASTInterfaceFunction(faddr, fname, f, astinterface)
 
