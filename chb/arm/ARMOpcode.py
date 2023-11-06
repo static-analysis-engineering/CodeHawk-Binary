@@ -229,54 +229,32 @@ class ARMOpcode(ARMDictionaryRecord):
             bytestring=bytestring,
             annotations=annotations)
 
+        regdef_lhs = hl_lhs
+
         hl_assigns: List[AST.ASTInstruction] = []
         if astree.has_variable_intro(iaddr):
+            vdescr = "intro:" + iaddr
             vname = astree.get_variable_intro(iaddr)
-            vinfo = astree.mk_vinfo(vname, vtype=ctype, vdescr="intro")
-            vinfolval = astree.mk_vinfo_lval(vinfo)
-            vinfolvalexpr = astree.mk_lval_expr(vinfolval)
+            astree.add_infologmsg(
+                "variable intro",
+                iaddr + ": " + str(hl_lhs) + ": " + vname)
+            vinfo = astree.mk_vinfo(vname, vtype=ctype, vdescr=vdescr)
+            hl_lhs = astree.mk_vinfo_lval(vinfo)
 
-            annotations = annotations + ["lhs-intro"]
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
 
-            hl_intro_assign = astree.mk_assign(
-                vinfolval,
-                hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
+        if addregdef:
+            astree.add_infologmsg(
+                "regdef:" + str(ll_lhs),
+                iaddr + ": " + str(regdef_lhs) + " with " + str(hl_rhs))
+            astree.add_reg_definition(iaddr, regdef_lhs, hl_rhs)
 
-            hl_assign = astree.mk_assign(
-                hl_lhs,
-                vinfolvalexpr,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-
-            if addregdef:
-                astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-            else:
-                astree.add_reg_definition(iaddr, hl_lhs, vinfolvalexpr)
-            astree.add_instr_mapping(hl_intro_assign, ll_assign)
-            astree.add_instr_address(hl_intro_assign, [iaddr])
-            astree.add_expr_mapping(vinfolvalexpr, ll_rhs)
-            astree.add_lval_mapping(vinfolval, ll_lhs)
-            astree.add_lval_defuses(vinfolval, defuses)
-            astree.add_lval_defuses_high(vinfolval, defuseshigh)
-
-            hl_assigns = [hl_intro_assign, hl_assign]
-
-        else:
-            hl_assign = astree.mk_assign(
-                hl_lhs,
-                hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-
-            if addregdef:
-                astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-
-            hl_assigns = [hl_assign]
+        hl_assigns = [hl_assign]
 
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
@@ -404,6 +382,9 @@ class ARMOpcode(ARMDictionaryRecord):
 
     def is_return_instruction(self, xdata: InstrXData) -> bool:
         return False
+
+    def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
+        return None
 
     def is_call_instruction(self, xdata: InstrXData) -> bool:
         return self.mnemonic in call_opcodes or xdata.has_call_target()
