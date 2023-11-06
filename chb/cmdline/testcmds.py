@@ -101,7 +101,16 @@ def check_test_function(
                 return (-2)
             for inv in refinstr["invs"]:
                 if inv not in invariants[iaddr]:
-                    print("Invariant " + inv + " missing in function " + f.faddr)
+                    print(
+                        "Invariant "
+                        + inv
+                        + " missing in function "
+                        + f.faddr
+                        + " at instruction "
+                        + iaddr)
+                    print("Invariants found:")
+                    for i in invariants[iaddr]:
+                        print("  " + i)
                     return (-3)
     return 0
 
