@@ -44,7 +44,8 @@ if TYPE_CHECKING:
         VMemoryVariable, VAuxiliaryVariable, VRegisterVariable)
     from chb.invariants.VConstantValueVariable import (
         VInitialRegisterValue, VInitialMemoryValue, VFunctionReturnValue)
-    from chb.invariants.VMemoryOffset import VMemoryOffset
+    from chb.invariants.VMemoryOffset import (
+        VMemoryOffset, VMemoryOffsetFieldOffset, VMemoryOffsetIndexOffset)
     from chb.mips.MIPSRegister import MIPSRegister
 
 
@@ -175,6 +176,41 @@ def xxpr_to_ast_def_exprs(
                         + ", ".join("(" + str(v[0]) + "," + str(v[1]) + ")" for v in vregdefs))
                     return nonallocdefs[0][1]
 
+            equalizedvar: Optional[str] = None
+            for d in vdefs:
+                if astree.has_variable_intro(str(d)):
+                    ivar = astree.get_variable_intro(str(d))
+                    if equalizedvar is None:
+                        equalizedvar = str(ivar)
+                    elif not (equalizedvar == str(ivar)):
+                        astree.add_diagnostic(
+                            iaddr
+                            + ": multiple different introductions: "
+                            + str(equalizedvar)
+                            + ", "
+                            + str(ivar))
+                        return None
+                    else:
+                        pass
+                else:
+                    astree.add_diagnostic(
+                        iaddr
+                        + ": multiple definitions; not all of them with varintro: "
+                        + str(d))
+                    return None
+
+                astree.add_diagnostic(
+                    iaddr
+                    + ": convert multiple definitions for "
+                    + str(xreg)
+                    + ": "
+                    + ", ".join(str(d) for d in vdefs)
+                    + " into varintro "
+                    + str(equalizedvar))
+                xlval = astree.mk_named_lval_expression(str(equalizedvar))
+                return xlval
+
+
             astree.add_diagnostic(
                 iaddr
                 + ": multiple definitions for "
@@ -223,7 +259,7 @@ def xxpr_to_ast_def_exprs(
                 if xoperator in ["lsb", "lsh"]:
                     astree.add_diagnostic(
                         iaddr + ": ast-def: " + str(xcomp))
-                    return None
+                    return regdef
 
                 elif regdef is not None:
                     return astree.mk_unary_op(xoperator, regdef)
@@ -289,8 +325,8 @@ def xxpr_to_ast_def_exprs(
         elif len(xoperands) == 2:
             x1 = xoperands[0]
             x2 = xoperands[1]
-            regdef1 = xxpr_to_ast_exprs(x1, xdata, iaddr, astree)[0]
-            regdef2 = xxpr_to_ast_exprs(x2, xdata, iaddr, astree)[0]
+            regdef1 = xxpr_to_ast_def_exprs(x1, xdata, iaddr, astree)[0]
+            regdef2 = xxpr_to_ast_def_exprs(x2, xdata, iaddr, astree)[0]
 
             if regdef1 is not None and regdef2 is not None:
                 regdef1type = regdef1.ctype(astree.ctyper)
@@ -839,6 +875,33 @@ def global_variable_to_ast_lvals(
         return [astree.mk_named_lval(
             gvname, globaladdress=offset.offsetvalue(), anonymous=anonymous)]
 
+    elif offset.is_constant_offset:
+        gaddr = hex(offset.offsetconstant)
+        gvinfobase = astree.globalsymboltable.global_variable_name(gaddr)
+        if gvinfobase is not None:
+            if offset.offset.is_field_offset:
+                foffset = cast("VMemoryOffsetFieldOffset", offset.offset)
+                fieldoffset = astree.mk_field_offset(
+                    foffset.fieldname,
+                    foffset.ckey)
+                return [astree.mk_vinfo_lval(gvinfobase, fieldoffset)]
+
+            elif offset.offset.is_index_offset:
+                ioffset = cast ("VMemoryOffsetIndexOffset", offset.offset)
+                indexvar = ioffset.indexvariable
+                astindexvars = xvariable_to_ast_lvals(
+                    indexvar, xdata, astree)
+                if len(astindexvars) == 1:
+                    astindexvar = astindexvars[0]
+                    astindexexpr = astree.mk_lval_expr(astindexvar)
+                    indexoffset = astree.mk_expr_index_offset(astindexexpr)
+                    return [astree.mk_vinfo_lval(gvinfobase, indexoffset)]
+
+        gvname = "gv_" + gaddr + str(offset.offset)
+        return [astree.mk_named_lval(
+            gvname, globaladdress=offset.offsetconstant, anonymous=anonymous)]
+
+
     return [astree.mk_named_lval("gv_" + str(offset), anonymous=anonymous)]
 
 
@@ -1054,6 +1117,19 @@ def xvariable_to_ast_lvals(
             name = "mips_" + mipsreg.name
         else:
             name = str(xv)
+
+        if xdata.has_ssaval(name):
+            ssaval = xdata.get_ssaval(name)
+            ssatyp = ssaval.btype
+            asttyp = ssatyp.convert(astree.typconverter)
+            vdesc = "ssaval:" + name
+            vinfo = astree.mk_vinfo(str(ssaval), vtype=asttyp, vdescr=vdesc)
+            astlval = astree.mk_vinfo_lval(vinfo)
+            # astlval = astree.mk_named_lval(str(ssaval), vtype=asttyp)
+            return [astlval]
+        else:
+            astree.add_diagnostic("No ssa value found for " + name)
+
         if ispointer:
             vtype = astree.astree.mk_pointer_type(AST.ASTTypVoid())
             astlval = astree.mk_register_variable_lval(name, vtype=vtype, anonymous=anonymous)

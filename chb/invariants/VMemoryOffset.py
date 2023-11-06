@@ -33,6 +33,7 @@ Represents memory_offset_t in bchlib/bCHLibTypes:
 type memory_offset_t =
   | NoOffset                                             "n"      1      0
   | ConstantOffset of numerical_t * memory_offset_t      "c"      2      1
+  | FieldOffset of string * int * memory_offset_t        "f"      2      2
   | IndexOffset of variable_t * int * memory_offset_t    "i"      1      3
   | UnknownOffset                                        "u"      1      0
 
@@ -70,6 +71,10 @@ class VMemoryOffset(FnVarDictionaryRecord):
         return False
 
     @property
+    def is_field_offset(self) -> bool:
+        return False
+
+    @property
     def is_index_offset(self) -> bool:
         return False
 
@@ -80,6 +85,24 @@ class VMemoryOffset(FnVarDictionaryRecord):
     @property
     def is_unknown_offset(self) -> bool:
         return False
+
+    @property
+    def offset(self) -> "VMemoryOffset":
+        raise UF.CHBError(
+            "offset is not supported for "
+            + str(self)
+            + " ("
+            + self.tags[0]
+            + ")")
+
+    @property
+    def offsetconstant(self) -> int:
+        raise UF.CHBError(
+            "Offsetconstant is not supported for "
+            + str(self)
+            + " ("
+            + self.tags[0]
+            + ")")
 
     def has_no_offset(self) -> bool:
         return False
@@ -153,6 +176,10 @@ class VMemoryOffsetConstantOffset(VMemoryOffset):
     def is_constant_value_offset(self) -> bool:
         return self.has_no_offset()
 
+    @property
+    def offsetconstant(self) -> int:
+        return int(self.tags[1])
+
     def offsetvalue(self) -> int:
         if self.is_constant_value_offset:
             return int(self.tags[1]) + self.offset.offsetvalue()
@@ -178,7 +205,62 @@ class VMemoryOffsetConstantOffset(VMemoryOffset):
         if self.has_no_offset():
             return str(self.offsetvalue())
         else:
-            return str(self.offsetvalue()) + "." + str(self.offset)
+            return str(self.offsetconstant) + "." + str(self.offset)
+
+
+@varregistry.register_tag("f", VMemoryOffset)
+class VMemoryOffsetFieldOffset(VMemoryOffset):
+    """Field offset
+
+    tags[1]: fieldname
+    args[0]: compinfo key
+    args[1]: index of next-level offset in vardictionary
+    """
+
+    def __init__(
+            self,
+            vd: "FnVarDictionary",
+            ixval: IndexedTableValue) -> None:
+        VMemoryOffset.__init__(self, vd, ixval)
+
+    @property
+    def fieldname(self) -> str:
+        return self.tags[1]
+
+    @property
+    def ckey(self) -> int:
+        return self.args[0]
+
+    @property
+    def offset(self) -> VMemoryOffset:
+        return self.vd.memory_offset(self.args[1])
+
+    @property
+    def is_field_offset(self) -> bool:
+        return True
+
+    def has_no_offset(self) -> bool:
+        return self.offset.is_no_offset
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        if self.has_no_offset():
+            content["kind"] = "fv"
+            content["fieldname"] = self.fieldname
+            content["ckey"] = self.ckey
+        else:
+            fmem = self.offset.to_json_result()
+            if not fmem.is_ok:
+                return JSONResult("memoryoffset", {}, "fail", fmem.reason)
+            content["kind"] = "fvo"
+            content["fieldname"] = self.fieldname
+            content["ckey"] = self.ckey
+            content["suboffset"] = fmem.content
+        content["txtrep"] = str(self)
+        return JSONResult("memoryoffset", content, "ok")
+
+    def __str__(self) -> str:
+        return "." + self.fieldname + str(self.offset)
 
 
 @varregistry.register_tag("i", VMemoryOffset)
