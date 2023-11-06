@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, Sequence, Tuple, TYPE_CHECKING
+from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -70,6 +70,19 @@ class ARMBranchExchange(ARMOpcode):
             return [xdata.xprs[1], xdata.xprs[0]]
         else:
             return []
+
+    def is_return_instruction(self, xdata: InstrXData) -> bool:
+        tgtop = self.operands[0]
+        if tgtop.is_register:
+            return tgtop.register == "LR"
+        else:
+            return False
+
+    def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
+        if self.is_return_instruction(xdata):
+            return xdata.xprs[1]
+        else:
+            return None
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:x .

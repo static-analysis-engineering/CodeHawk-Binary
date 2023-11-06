@@ -27,7 +27,8 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Any, Callable, cast, Dict, List, Mapping, Optional, Sequence
+from typing import (
+    Any, Callable, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING)
 
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
@@ -47,6 +48,7 @@ from chb.arm.ARMJumpTable import ARMJumpTable
 from chb.arm.ARMCfg import ARMCfg
 
 from chb.bctypes.BCDictionary import BCDictionary
+from chb.bctypes.BCTyp import BCTyp
 
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnXprDictionary import FnXprDictionary
@@ -54,6 +56,7 @@ from chb.invariants.FnXprDictionary import FnXprDictionary
 from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
+
 
 
 class ARMFunction(Function):
@@ -78,6 +81,7 @@ class ARMFunction(Function):
         self._blocks: Dict[str, ARMBlock] = {}
         self._instructions: Dict[str, ARMInstruction] = {}
         self._armfnd: Optional[FunctionDictionary] = None
+        self._armfnbtypes: Optional[Dict[str, BCTyp]] = None
 
     @property
     def armdictionary(self) -> ARMDictionary:
@@ -91,6 +95,30 @@ class ARMFunction(Function):
                 raise UF.CHBError("Element instr-dictionary missing from xml")
             self._armfnd = FunctionDictionary(self, xfnd)
         return self._armfnd
+
+    @property
+    def btypes(self) -> Dict[str, BCTyp]:
+        if self._armfnbtypes is None:
+            self._armfnbtypes = {}
+            xbtypes = self.xnode.find("btypes")
+            if xbtypes is not None:
+                for xbt in xbtypes.findall("bt"):
+                    xvix = xbt.get("vix")
+                    xbix = xbt.get("bix")
+                    if xvix is not None and xbix is not None:
+                        v = self.xprdictionary.variable(int(xvix))
+                        bt = self.bcd.typ(int(xbix))
+                        self._armfnbtypes[str(v)] = bt
+        return self._armfnbtypes
+
+    def get_cvv_btype(self, cvv: str) -> BCTyp:
+        if cvv in self.btypes:
+            return self.btypes[cvv]
+        else:
+            raise UF.CHBError("No type found for " + cvv)
+
+    def has_cvv_btype(self, cvv: str) -> bool:
+        return cvv in self.btypes
 
     @property
     def jumptables(self) -> Dict[str, JumpTable]:

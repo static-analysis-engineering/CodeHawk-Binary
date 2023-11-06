@@ -165,6 +165,12 @@ class ARMInstruction(Instruction):
     def is_return_instruction(self) -> bool:
         return self.opcode.is_return_instruction(self.xdata)
 
+    def return_value(self) -> Optional[XXpr]:
+        if self.is_return_instruction:
+            return self.opcode.return_value(self.xdata)
+        else:
+            return None
+
     @property
     def is_branch_instruction(self) -> bool:
         return self.opcode.is_branch_instruction

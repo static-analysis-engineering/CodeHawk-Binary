@@ -58,7 +58,7 @@ class ARMChangeProcessorState(ARMOpcode):
 
     def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(1, 4, "ChangeProcessorState")
+        self.check_key(2, 4, "ChangeProcessorState")
 
     @property
     def operands(self) -> List[ARMOperand]:

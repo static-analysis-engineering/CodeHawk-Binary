@@ -143,7 +143,7 @@ class ARMUnsignedExtractBitField(ARMOpcode):
                 [rdefs[0]],
                 defuses[0],
                 defuseshigh[0],
-                False,
+                True,
                 iaddr,
                 annotations,
                 bytestring)

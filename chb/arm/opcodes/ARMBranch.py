@@ -542,7 +542,7 @@ class ARMBranch(ARMOpcode):
         # case there are no rewritten variables, but this still has to be validated
         # with more instances.
 
-        ftconds_basic = self.ft_conditions_basic(xdata)
+        ftconds_basic = self.ft_conditions(xdata)
         ftconds = self.ft_conditions(xdata)
 
         if len(ftconds_basic) == 2:
