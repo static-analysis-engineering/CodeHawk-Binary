@@ -179,6 +179,10 @@ class BCTyp(BCDictionaryRecord):
         return False
 
     @property
+    def is_unknown(self) -> bool:
+        return False
+
+    @property
     def attrs(self) -> List["BCAttribute"]:
         attrs = self.bcd.attributes(self.args[-1])
         if attrs is None:
@@ -684,3 +688,23 @@ class BCTypBuiltinVaList(BCTyp):
 
     def __str__(self) -> str:
         return "builtin-va-list"
+
+
+@bcregistry.register_tag("tunknown", BCTyp)
+class BCTypUnknown(BCTyp):
+
+    def __init__(
+            self,
+            cd: "BCDictionary",
+            ixval: IT.IndexedTableValue) -> None:
+        BCTyp.__init__(self, cd, ixval)
+
+    @property
+    def is_unknown(self) -> bool:
+        return True
+
+    def convert(self, converter: "BCConverter") -> AST.ASTTypInt:
+        return converter.convert_unknown(self)
+
+    def __str__(self) -> str:
+        return "unknown"

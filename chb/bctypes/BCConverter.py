@@ -187,3 +187,7 @@ class BCConverter(ABC):
     @abstractmethod
     def convert_enumitem(self, eitem: "BCEnumItem") -> AST.ASTEnumItem:
         ...
+
+    @abstractmethod
+    def convert_unknown(self, t: "BCT.BCTypUnknown") -> AST.ASTTypInt:
+        ...
