@@ -84,7 +84,10 @@ class PWRClearLeftWordImmediate(PowerOpcode):
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
         mb = str(xdata.xprs[2])
-        return lhs + " := clear-left-word-immediate(" + rhs + ", " + mb + ")"
+        if mb == "0x10":
+            return lhs + " := (" + rhs + " & 0xffff)"
+        else:
+            return lhs + " := clear-left-word-immediate(" + rhs + ", " + mb + ")"
 
     def ast_prov(
             self,

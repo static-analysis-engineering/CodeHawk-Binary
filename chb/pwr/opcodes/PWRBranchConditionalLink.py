@@ -40,15 +40,15 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.pwr.PowerDictionary import PowerDictionary
 
-@pwrregistry.register_tag("cmplw", PowerOpcode)
-@pwrregistry.register_tag("se_cmpl", PowerOpcode)
-class PWRCompareLogical(PowerOpcode):
-    """Compare two register values (unsigned).
+@pwrregistry.register_tag("bcl", PowerOpcode)
+class PWRBranchConditionalLink(PowerOpcode):
+    """Conditional branch with link register set.
 
     tags[1]: pit: instruction type
-    args[0]: cr: index of condition register field in pwrdictionary
-    args[1]: ra: index of register to be compared in pwrdictionary
-    args[2]: rb: index of second register in pwrdictionary
+    args[0]: aa: absolute address if 1
+    args[1]: bo: branch operations (5 bits)
+    args[2]: bi: bit in condition register (5 bits)
+    args[3]: tgt: index of target address in pwrdictionary
     """
 
     def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
@@ -56,23 +56,18 @@ class PWRCompareLogical(PowerOpcode):
 
     @property
     def operands(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args]
+        return [self.pwrd.pwr_operand(self.args[3])]
 
     @property
     def opargs(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args]
+        return [self.pwrd.pwr_operand(self.args[3])]
 
     @property
-    def cr(self) -> PowerOperand:
-        return self.operands[0]
-
-    @property
-    def ra(self) -> PowerOperand:
-        return self.operands[1]
-
-    @property
-    def rb(self) -> PowerOperand:
-        return self.operands[2]
+    def operandstring(self) -> str:
+        return str(self.args[1]) + "," + str(self.args[2]) + "," +str(self.operands[0])    
 
     def annotation(self, xdata: InstrXData) -> str:
-        return str(self.cr) + " := cmp(" + str(self.ra) + "," + str(self.rb) + ")"
+        if self.args[1] == 20:
+            return "goto " + str(self.operands[0]) + " (lr set)"
+        else:
+            return "if ? then goto " + str(self.operands[0]) + " (lr set)"
