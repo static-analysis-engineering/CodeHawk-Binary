@@ -43,7 +43,8 @@ if TYPE_CHECKING:
     from chb.invariants.VAssemblyVariable import (
         VMemoryVariable, VAuxiliaryVariable, VRegisterVariable)
     from chb.invariants.VConstantValueVariable import (
-        VInitialRegisterValue, VInitialMemoryValue, VFunctionReturnValue)
+        VInitialRegisterValue, VInitialMemoryValue, VFunctionReturnValue,
+        SymbolicValue)
     from chb.invariants.VMemoryOffset import (
         VMemoryOffset, VMemoryOffsetFieldOffset, VMemoryOffsetIndexOffset)
     from chb.mips.MIPSRegister import MIPSRegister
@@ -99,12 +100,17 @@ def xxpr_to_ast_exprs(
             X.XprConstant, xpr), xdata, iaddr, astree, anonymous=anonymous)
 
     elif xpr.is_var:
-        return xprvariable_to_ast_exprs(
-            cast(X.XprVariable, xpr),
-            xdata,
-            astree,
-            size=size,
-            anonymous=anonymous)
+        xpr = cast(X.XprVariable, xpr)
+        if xpr.variable.is_symbolic_value:
+            xvar = xpr.variable.get_symbolic_value_expr()
+            return xxpr_to_ast_exprs(xvar, xdata, iaddr, astree, size)
+        else:
+            return xprvariable_to_ast_exprs(
+                cast(X.XprVariable, xpr),
+                xdata,
+                astree,
+                size=size,
+                anonymous=anonymous)
 
     elif xpr.is_compound:
         return xcompound_to_ast_exprs(
@@ -266,6 +272,11 @@ def xxpr_to_ast_def_exprs(
                 else:
                     return None
             elif x1.is_var:
+                xpr = cast(X.XprVariable, x1)
+                if xpr.variable.is_symbolic_value:
+                    xvar = xpr.variable.get_symbolic_value_expr()
+                    return xxpr_to_ast_exprs(xvar, xdata, iaddr, astree)[0]
+
                 xvarlvals = xvariable_to_ast_lvals(x1.variable, xdata, astree)
                 if len(xvarlvals) == 1:
                     xvarlval = xvarlvals[0]
@@ -382,6 +393,11 @@ def xxpr_to_ast_def_exprs(
             return default()
 
     elif xpr.is_var:
+        xpr = cast(X.XprVariable, xpr)
+        if xpr.variable.is_symbolic_value:
+            xvar = xpr.variable.get_symbolic_value_expr()
+            return xxpr_to_ast_exprs(xvar, xdata, iaddr, astree)
+
         xvarlvals = xvariable_to_ast_lvals(xpr.variable, xdata, astree)
         if len(xvarlvals) == 1:
             return [astree.mk_lval_expr(xvarlvals[0])]
@@ -889,6 +905,12 @@ def global_variable_to_ast_lvals(
             elif offset.offset.is_index_offset:
                 ioffset = cast ("VMemoryOffsetIndexOffset", offset.offset)
                 indexvar = ioffset.indexvariable
+                if indexvar.is_symbolic_value:
+                    indexpr = indexvar.get_symbolic_value_expr()
+                    astexpr = xxpr_to_ast_exprs(indexpr, xdata, "0x0", astree)[0]
+                    indexoffset = astree.mk_expr_index_offset(astexpr)
+                    return [astree.mk_vinfo_lval(gvinfobase, indexoffset)]
+
                 astindexvars = xvariable_to_ast_lvals(
                     indexvar, xdata, astree)
                 if len(astindexvars) == 1:

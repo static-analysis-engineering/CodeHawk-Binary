@@ -44,7 +44,9 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.invariants.FnXprDictionary import FnXprDictionary
-    from chb.invariants.VConstantValueVariable import SSARegisterValue
+    from chb.invariants.VConstantValueVariable import (
+        SSARegisterValue, SymbolicValue)
+    from chb.invariants.XXpr import XXpr
 
 
 class XVariable(FnXprDictionaryRecord):
@@ -112,6 +114,20 @@ class XVariable(FnXprDictionaryRecord):
     @property
     def is_auxiliary_variable(self) -> bool:
         return self.has_denotation() and self.denotation.is_auxiliary_variable
+
+    @property
+    def is_symbolic_value(self) -> bool:
+        return (
+            self.has_denotation()
+            and self.denotation.is_auxiliary_variable
+            and self.denotation.auxvar.is_symbolic_value)
+
+    def get_symbolic_value_expr(self) -> "XXpr":
+        if self.is_symbolic_value:
+            auxvar = cast("SymbolicValue", self.denotation.auxvar)
+            return auxvar.expr
+        else:
+            raise UF.CHBError("Variable is not a symbolic value: " + str(self))
 
     @property
     def denotation(self) -> VAssemblyVariable:
