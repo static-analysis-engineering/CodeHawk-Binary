@@ -29,6 +29,11 @@ from typing import cast, List, Sequence, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
+
 from chb.pwr.PowerDictionaryRecord import pwrregistry
 from chb.pwr.PowerOpcode import PowerOpcode
 from chb.pwr.PowerOperand import PowerOperand
@@ -40,39 +45,13 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.pwr.PowerDictionary import PowerDictionary
 
-@pwrregistry.register_tag("cmplw", PowerOpcode)
-@pwrregistry.register_tag("se_cmpl", PowerOpcode)
-class PWRCompareLogical(PowerOpcode):
-    """Compare two register values (unsigned).
-
-    tags[1]: pit: instruction type
-    args[0]: cr: index of condition register field in pwrdictionary
-    args[1]: ra: index of register to be compared in pwrdictionary
-    args[2]: rb: index of second register in pwrdictionary
-    """
+@pwrregistry.register_tag("mullw", PowerOpcode)
+class PWRMultipleWord(PowerOpcode):
 
     def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
         PowerOpcode.__init__(self, pwrd, ixval)
 
     @property
     def operands(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args]
-
-    @property
-    def opargs(self) -> List[PowerOperand]:
-        return [self.pwrd.pwr_operand(i) for i in self.args]
-
-    @property
-    def cr(self) -> PowerOperand:
-        return self.operands[0]
-
-    @property
-    def ra(self) -> PowerOperand:
-        return self.operands[1]
-
-    @property
-    def rb(self) -> PowerOperand:
-        return self.operands[2]
-
-    def annotation(self, xdata: InstrXData) -> str:
-        return str(self.cr) + " := cmp(" + str(self.ra) + "," + str(self.rb) + ")"
+        return [self.pwrd.pwr_operand(i) for i in self.args[2:]]
+    

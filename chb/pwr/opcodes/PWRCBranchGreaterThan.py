@@ -47,6 +47,8 @@ if TYPE_CHECKING:
     from chb.pwr.PowerDictionary import PowerDictionary
 
 @pwrregistry.register_tag("bgt", PowerOpcode)
+@pwrregistry.register_tag("bgt+", PowerOpcode)
+@pwrregistry.register_tag("bgt-", PowerOpcode)
 @pwrregistry.register_tag("e_bgt", PowerOpcode)
 @pwrregistry.register_tag("se_bgt", PowerOpcode)
 class PWRBranchGreaterThan(PowerOpcode):
@@ -80,6 +82,14 @@ class PWRBranchGreaterThan(PowerOpcode):
     def opargs(self) -> List[PowerOperand]:
         return [self.pwrd.pwr_operand(i) for i in self.args[3:]]
 
+    @property
+    def opcr(self) -> PowerOperand:
+        return self.operands[0]
+
+    @property
+    def opbd(self) -> PowerOperand:
+        return self.operands[1]
+
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         if xdata.has_branch_conditions():
             return [xdata.xprs[3], xdata.xprs[2]]
@@ -96,7 +106,7 @@ class PWRBranchGreaterThan(PowerOpcode):
         if xdata.has_branch_conditions():
             return "if " + str(xdata.xprs[2]) + " then goto " + str(xdata.xprs[4])
         else:
-            return "?"
+            return "if " + str(self.opcr) + " == 2 then goto " + str(self.opbd)
 
     def ast_condition_prov(
             self,

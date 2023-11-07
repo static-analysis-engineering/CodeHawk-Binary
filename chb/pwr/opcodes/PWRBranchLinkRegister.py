@@ -27,6 +27,8 @@
 
 from typing import cast, List, Sequence, Optional, Tuple, TYPE_CHECKING
 
+from chb.app.InstrXData import InstrXData
+
 from chb.pwr.PowerDictionaryRecord import pwrregistry
 from chb.pwr.PowerOpcode import PowerOpcode
 from chb.pwr.PowerOperand import PowerOperand
@@ -57,3 +59,6 @@ class PWRBranchLinkRegister(PowerOpcode):
     @property
     def opargs(self) -> List[PowerOperand]:
         return [self.pwrd.pwr_operand(i) for i in self.args]
+
+    def annotation(self, xdata: InstrXData) -> str:
+        return "return"

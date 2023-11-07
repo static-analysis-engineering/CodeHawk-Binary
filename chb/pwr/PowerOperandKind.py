@@ -264,7 +264,7 @@ class PowerRegisterFieldOp(PowerOperandKind):
 
     def __str__(self) -> str:
         return self.register
-    
+
 
 @pwrregistry.register_tag("c", PowerOperandKind)
 class PowerConditionRegisterBitOp(PowerOperandKind):
@@ -398,3 +398,15 @@ class PowerIndRegOp(PowerOperandKind):
 
     def __str__(self) -> str:
         return hex(self.offset) + "(" + self.register + ")"
+
+
+@pwrregistry.register_tag("xr", PowerOperandKind)
+class PowerIndexedRegOp(PowerOperandKind):
+    """Indirect indexed register  *************************
+
+    tags[1]: offset (string representation)
+    args[0]: index of general-purpose register
+    """
+
+    def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
+        PowerOperandKind.__init__(self, pwrd, ixval)
