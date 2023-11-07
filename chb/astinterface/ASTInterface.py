@@ -636,6 +636,11 @@ class ASTInterface:
             iaddr: Optional[str] = None,
             bytestring: Optional[str] = None,
             labels: List[AST.ASTStmtLabel] = []) -> AST.ASTReturn:
+
+        def add_span(stmt: AST.ASTReturn) -> None:
+            if iaddr is not None and bytestring is not None:
+                self.astree.add_instruction_span(stmt.locationid, iaddr, bytestring)
+
         if expr is not None and iaddr is not None and bytestring is not None:
             self.astree.add_expr_span(expr.exprid, iaddr, bytestring)
         if expr is not None and expr.is_integer_constant:
@@ -650,8 +655,13 @@ class ASTInterface:
                             returntyp = ftype.returntyp
                             if returntyp.is_pointer:
                                 cexpr = self.mk_cast_expr(returntyp, expr)
-                                return self.astree.mk_return_stmt(cexpr, labels=labels)
-        return self.astree.mk_return_stmt(expr, labels=labels)
+                                rstmt = self.astree.mk_return_stmt(cexpr, labels=labels)
+                                add_span(rstmt)
+                                return rstmt
+
+        rstmt = self.astree.mk_return_stmt(expr, labels=labels)
+        add_span(rstmt)
+        return rstmt
 
     def mk_break_stmt(self) -> AST.ASTBreak:
         return self.astree.mk_break_stmt()
