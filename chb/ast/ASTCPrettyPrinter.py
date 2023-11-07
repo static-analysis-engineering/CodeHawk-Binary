@@ -387,7 +387,8 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write("default:")
 
     def visit_nop_instr(self, instr: AST.ASTNOPInstruction) -> None:
-        self.ccode.write("// " + instr.description)
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("// " + instr.description + ": " + self.annotation(instr.instrid))
 
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         self.ccode.newline(indent=self.indent)

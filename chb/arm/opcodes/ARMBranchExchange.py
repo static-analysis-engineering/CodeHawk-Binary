@@ -104,3 +104,19 @@ class ARMBranchExchange(ARMOpcode):
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         """Need check for branch on LR, which should emit a return statement."""
         return []
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "BX"]
+
+        nopinstr = astree.mk_nop_instruction(
+            "BX", iaddr=iaddr, bytestring=bytestring, annotations=annotations)
+        astree.add_instr_address(nopinstr, [iaddr])
+
+        return ([nopinstr], [nopinstr])
