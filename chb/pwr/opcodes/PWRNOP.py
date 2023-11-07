@@ -112,7 +112,6 @@ if TYPE_CHECKING:
 @pwrregistry.register_tag("stbx", PowerOpcode)
 @pwrregistry.register_tag("sthu", PowerOpcode)
 @pwrregistry.register_tag("stmw", PowerOpcode)
-@pwrregistry.register_tag("stw", PowerOpcode)
 @pwrregistry.register_tag("stwx", PowerOpcode)
 @pwrregistry.register_tag("subfc", PowerOpcode)
 @pwrregistry.register_tag("subfe", PowerOpcode)
