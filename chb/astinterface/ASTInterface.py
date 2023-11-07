@@ -451,6 +451,14 @@ class ASTInterface:
     def spans(self) -> List[ASTSpanRecord]:
         return self.astree.spans
 
+    def returns_void(self) -> bool:
+        p = self.srcprototype
+        if p is not None:
+            ftype = cast("BCTypFun", p.vtype)
+            return ftype.returntype.is_void
+        else:
+            return False
+
     def _initialize_formals(self) -> None:
         p = self.srcprototype
         if p is not None:
