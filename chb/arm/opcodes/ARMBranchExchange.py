@@ -119,4 +119,4 @@ class ARMBranchExchange(ARMOpcode):
             "BX", iaddr=iaddr, bytestring=bytestring, annotations=annotations)
         astree.add_instr_address(nopinstr, [iaddr])
 
-        return ([nopinstr], [nopinstr])
+        return ([], [nopinstr])
