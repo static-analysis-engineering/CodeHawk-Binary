@@ -82,7 +82,11 @@ if TYPE_CHECKING:
 @pwrregistry.register_tag("clrrwi", PowerOpcode)
 @pwrregistry.register_tag("clrrwi.", PowerOpcode)
 @pwrregistry.register_tag("cntlzw", PowerOpcode)
+@pwrregistry.register_tag("crclr", PowerOpcode)
 @pwrregistry.register_tag("divw", PowerOpcode)
+@pwrregistry.register_tag("evldd", PowerOpcode)
+@pwrregistry.register_tag("evstdd", PowerOpcode)
+@pwrregistry.register_tag("evxor", PowerOpcode)
 @pwrregistry.register_tag("extrwi.", PowerOpcode)
 @pwrregistry.register_tag("extsb", PowerOpcode)
 @pwrregistry.register_tag("insrwi", PowerOpcode)
@@ -90,18 +94,26 @@ if TYPE_CHECKING:
 @pwrregistry.register_tag("iseleq", PowerOpcode)
 @pwrregistry.register_tag("isellt", PowerOpcode)
 @pwrregistry.register_tag("lbzx", PowerOpcode)
+@pwrregistry.register_tag("lha", PowerOpcode)
+@pwrregistry.register_tag("lhau", PowerOpcode)
+@pwrregistry.register_tag("lhax", PowerOpcode)
 @pwrregistry.register_tag("lhzuu", PowerOpcode)
+@pwrregistry.register_tag("lhzx", PowerOpcode)
 @pwrregistry.register_tag("lmw", PowerOpcode)
+@pwrregistry.register_tag("lwzux", PowerOpcode)
 @pwrregistry.register_tag("lwzx", PowerOpcode)
+@pwrregistry.register_tag("mfctr", PowerOpcode)
 @pwrregistry.register_tag("mr", PowerOpcode)
 @pwrregistry.register_tag("mr.", PowerOpcode)
 @pwrregistry.register_tag("mfcr", PowerOpcode)
 @pwrregistry.register_tag("mtcrf", PowerOpcode)
-@pwrregistry.register_tag("mtctr", PowerOpcode)
+@pwrregistry.register_tag("mulhw", PowerOpcode)
 @pwrregistry.register_tag("mulhwu", PowerOpcode)
 @pwrregistry.register_tag("mulli", PowerOpcode)
 @pwrregistry.register_tag("neg", PowerOpcode)
 @pwrregistry.register_tag("not", PowerOpcode)
+@pwrregistry.register_tag("orc", PowerOpcode)
+@pwrregistry.register_tag("rlwimi", PowerOpcode)
 @pwrregistry.register_tag("rotlw", PowerOpcode)
 @pwrregistry.register_tag("slw", PowerOpcode)
 @pwrregistry.register_tag("xor", PowerOpcode)
@@ -111,14 +123,17 @@ if TYPE_CHECKING:
 @pwrregistry.register_tag("srw", PowerOpcode)
 @pwrregistry.register_tag("stbx", PowerOpcode)
 @pwrregistry.register_tag("sthu", PowerOpcode)
+@pwrregistry.register_tag("sthx", PowerOpcode)
 @pwrregistry.register_tag("stmw", PowerOpcode)
 @pwrregistry.register_tag("stwx", PowerOpcode)
 @pwrregistry.register_tag("subfc", PowerOpcode)
 @pwrregistry.register_tag("subfe", PowerOpcode)
 @pwrregistry.register_tag("subfic", PowerOpcode)
+@pwrregistry.register_tag("subfze", PowerOpcode)
 @pwrregistry.register_tag("xori", PowerOpcode)
 @pwrregistry.register_tag("xoris", PowerOpcode)
 @pwrregistry.register_tag("xr", PowerOpcode)
+
 class PWRNOP(PowerOpcode):
 
     def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
@@ -128,4 +143,7 @@ class PWRNOP(PowerOpcode):
     def operands(self) -> List[PowerOperand]:
         # return [self.pwrd.pwr_operand(i) for i in self.args[2:]]
         return []
+
+    def annotation(self, xdata: InstrXData) -> str:
+        return "not expanded yet"
     
