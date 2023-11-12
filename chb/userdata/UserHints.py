@@ -995,7 +995,13 @@ class VariableIntroductionsHints(HintsEntry):
             self._varintros[iaddr] = d[iaddr]
 
     def to_xml(self, node: ET.Element) -> None:
-        pass
+        xintros = ET.Element(self.name)
+        node.append(xintros)
+        for (iaddr, name) in self.varintros.items():
+            xintro = ET.Element("vintro")
+            xintros.append(xintro)
+            xintro.set("ia", iaddr)
+            xintro.set("name", name)
 
     def __str__(self) -> str:
         lines: List[str] = []
@@ -1255,7 +1261,10 @@ class UserHints:
             tag = "variable-introductions"
             varintros: Dict[str, str] = hints[tag]
             if self._toxml:
-                pass
+                if tag in self.userdata:
+                    self.userdata[tag].update(varintros)
+                else:
+                    self.userdata[tag] = VariableIntroductionsHints(varintros)
             else:
                 if tag in self.astdata:
                     self.astdata[tag].update(varintros)

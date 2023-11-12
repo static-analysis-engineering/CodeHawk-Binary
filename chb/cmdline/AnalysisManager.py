@@ -294,7 +294,8 @@ class AnalysisManager(object):
             "function-entry-points",
             "function-names",
             "non-returning-functions",
-            "esp-adjustments"]
+            "esp-adjustments",
+            "variable-introductions"]
         children = [ET.Element(t) for t in tags]
         snode.extend(children)
         snode.extend(UX.create_xml_userdata(self.hints))
