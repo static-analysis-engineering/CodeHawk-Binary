@@ -232,14 +232,6 @@ class ARMOpcode(ARMDictionaryRecord):
         regdef_lhs = hl_lhs
 
         hl_assigns: List[AST.ASTInstruction] = []
-        if astree.has_variable_intro(iaddr):
-            vdescr = "intro:" + iaddr
-            vname = astree.get_variable_intro(iaddr)
-            astree.add_infologmsg(
-                "variable intro",
-                iaddr + ": " + str(hl_lhs) + ": " + vname)
-            vinfo = astree.mk_vinfo(vname, vtype=ctype, vdescr=vdescr)
-            hl_lhs = astree.mk_vinfo_lval(vinfo)
 
         hl_assign = astree.mk_assign(
             hl_lhs,

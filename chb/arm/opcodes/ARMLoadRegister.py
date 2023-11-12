@@ -202,7 +202,7 @@ class ARMLoadRegister(ARMOpcode):
             ll_lhs,
             ll_rhs,
             rdefs[3:],
-            rdefs[:2],
+            rdefs[:3],
             defuses[0],
             defuseshigh[0],
             True,

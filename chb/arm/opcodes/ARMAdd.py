@@ -224,7 +224,6 @@ class ARMAdd(ARMOpcode):
 
         hl_rhs = rhsast
 
-        hl_rhs = rhsast
         return self.ast_variable_intro(
             astree,
             astree.astree.int_type,

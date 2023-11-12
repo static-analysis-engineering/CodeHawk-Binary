@@ -158,9 +158,11 @@ def xxpr_to_ast_def_exprs(
             if vdefined:
                 vregdef0 = vregdefs[0][1]
                 if all(str(vr[1]) == str(vregdef0) for vr in vregdefs):
+                    '''
                     for vregdef in vregdefs:
                         astree.astiprovenance.inactivate_lval_defuse_high(
                             vregdef[0], iaddr)
+                    '''
                     return vregdef0
 
                 # temporary fix: assume that reaching definitions from allocations do
@@ -250,7 +252,7 @@ def xxpr_to_ast_def_exprs(
                 return None
 
             else:
-                astree.astiprovenance.inactivate_lval_defuse_high(regdef[0], iaddr)
+                # astree.astiprovenance.inactivate_lval_defuse_high(regdef[0], iaddr)
                 return regdef[1]
 
     def compound_to_ast_def_exprs(xcomp: X.XXpr) -> Optional[AST.ASTExpr]:
