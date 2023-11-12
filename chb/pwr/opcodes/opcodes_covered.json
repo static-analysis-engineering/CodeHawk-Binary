@@ -219,6 +219,19 @@
 		}
 	    }
 	},
+	"bcl": {
+	    "name": "BranchConditionalLink",
+	    "refs": ["EREF:6-37"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"bcl": "<  16>< 20>< 31><-----bd---->01"
+		    },
+		    "D": "Y",
+		    "U": ["429f0005"]
+		}
+	    }
+	},
 	"bclri": {
 	    "name": "BitClearImmediate",
 	    "refs": ["VLEPEM:3-14"],
@@ -746,6 +759,19 @@
 		}
 	    }
 	},
+	"crclr": {
+	    "name": "ConditionRegisterClear",
+	    "refs": ["EREF:B-21"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"crclr": "<  19><crd><crd><crd><---193-->/"
+		    },
+		    "D": "Y",
+		    "U": ["4cc63182"]
+		}
+	    }
+	},
 	"crnot": {
 	    "name": "ConditionRegisterNot",
 	    "refs": ["EREF:6-55", "EREF:B-21 (simplified)"],
@@ -754,7 +780,8 @@
 		    "mnemonics": {
 			"crnot": "<  19><crd><cra><cra><----33-->/"
 		    },
-		    "D": "Y"
+		    "D": "Y",
+		    "U": ["4fdde842"]
 		},
 		"VLE32": {
 		    "mnemonics": {
@@ -768,6 +795,13 @@
 	    "name": "ConditionRegisterOr",
 	    "refs": ["VLEPEM:3-32"],
 	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"cror": "<  19><crd><cra><crb>0<--449-->/"
+		    },
+		    "D": "Y",
+		    "U": ["4fbdab82"]
+		},
 		"VLE32": {
 		    "mnemonics": {
 			"cror": "<  31><crd><cra><crb>0<--449-->/"
@@ -806,6 +840,71 @@
 		}
 	    }
 	},
+	"efdcfsf": {
+	    "name": "ConvertFloatingPointDPSignedFraction",
+	    "refs": ["SPEPEM:5-20"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"efdcfsf": "<   4>< rd><  0>< rb><---751--->"
+		    },
+		    "D": "Y",
+		    "U": ["11403aef"]
+		}
+	    }
+	},
+	"efdcmpeq": {
+	    "name": "FloatingPointDPCompareEqual",
+	    "refs": ["SPEPEM:5-26"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"efdcmpeq": "<   4>crd00< ra>< rb><---750--->"
+		    },
+		    "D": "Y",
+		    "U": ["128742ee"]
+		}
+	    }
+	},
+	"efdcmpgt": {
+	    "name": "FloatingPointDPCompareGreaterThan",
+	    "refs": ["SPEPEM:5-27"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"efdcmpgt": "<   4>crd00< ra>< rb><---748--->"
+		    },
+		    "D": "Y",
+		    "U": ["138952ec"]
+		}
+	    }
+	},
+	"efdcmplt": {
+	    "name": "FloatingPointDPCompareLessThan",
+	    "refs": ["SPEPEM:5-28"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"efdcmplt": "<   4>crd00< ra>< rb><---749--->"
+		    },
+		    "D": "Y",
+		    "U": ["138a3aed"]
+		}
+	    }
+	},
+	"efssub": {
+	    "name": "FloatingPointSubtract",
+	    "refs": ["SPEPEM"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"efssub": "<   4>< rd>< ra>< rb><---705--->"
+		    },
+		    "D": "Y",
+		    "U": ["10e742c1"]
+		}
+	    }
+	},
 	"eieio": {
 	    "name": "EnforceInOrderExecutionIO",
 	    "refs": ["EREF:6-197"],
@@ -815,6 +914,45 @@
 			"eieio": "<  31>< mo>//////////1<--342-->/"
 		    },
 		    "D": "Y"
+		}
+	    }
+	},
+	"evldd": {
+	    "name": "VectorLoadDoubleDouble",
+	    "refs": ["SPEPEM:5-112"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"evldd": "<   4>< rd>< ra><uim><---769--->"
+		    },
+		    "D": "Y",
+		    "U": ["13816B01"]
+		}
+	    }
+	},
+	"evstdd": {
+	    "name": "VectorStoreDoubleDouble",
+	    "refs": ["SPEPEM:5-228"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"evstdd": "<   4>< rs>< ra><uim><---801--->"
+		    },
+		    "D": "Y",
+		    "U": ["13c17b21"]
+		}
+	    }
+	},
+	"evxor": {
+	    "name": "VectorXor",
+	    "refs": ["SPEPEM:5-248"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"evxor": "<   4>< rd>< ra>< rb><---534--->"
+		    },
+		    "D": "Y",
+		    "U": ["11084216"]
 		}
 	    }
 	},
@@ -926,7 +1064,8 @@
 		    "mnemonics": {
 			"isel": "<  31>< rd>< ra>< rb>1<--463-->/"
 		    },
-		    "D": "Y"
+		    "D": "Y",
+		    "U": ["7c671f9e", "7ce63f1e", "7d4a3f5e"]
 		}
 	    }
 	},
@@ -1013,10 +1152,37 @@
 	    "refs": ["EREF:6-148,149", "VLEPEM:3-39"],
 	    "encodings": {
 		"PWR": {
-		    "mnemonic": {
+		    "mnemonics": {
 			"lbzx": "<  31>< rd>< ra>< rb>0<---87-->/"
 		    },
 		    "D": "Y"
+		}
+	    }
+	},
+	"lha": {
+	    "name": "LoadHalfwordAlgebraic",
+	    "refs": ["EREF:6-169,170"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"lha": "<  42>< rd>< ra><------D------->",
+			"lhau": "<  43>< rd>< ra><------D------->"
+		    },
+		    "D": "Y",
+		    "U": ["a8a50140", "ac9c0002"]
+		}
+	    }
+	},
+	"lhax": {
+	    "name": "LoadHalfwordAlgebraicIndexed",
+	    "refs": ["EREF:6-171,172"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"lhax": "<  31>< rd>< ra>< rb>0<--343-->/"
+		    },
+		    "D": "Y",
+		    "U": ["7d284aae"]
 		}
 	    }
 	},
@@ -1042,6 +1208,19 @@
 			"e_lhz": "< 5>10< rd>< ra><-------D------>"
 		    },
 		    "D": "Y"
+		}
+	    }
+	},
+	"lhzx": {
+	    "name": "LoadHalfwordZeroIndexed",
+	    "refs": ["EREF:6-181"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"lhzx": "<  31>< rd>< ra>< rb>0<--279-->/"
+		    },
+		    "D": "Y",
+		    "U": ["7d284a2e"]
 		}
 	    }
 	},
@@ -1152,9 +1331,11 @@
 	    "encodings": {
 		"PWR": {
 		    "mnemonics": {
-			"lwzx": "<  31>< rd>< ra>< rb>0<---23-->/"
+			"lwzx": "<  31>< rd>< ra>< rb>0<---23-->/",
+			"lwzux": "<  31>< rd>< ra>< rb>0<---55-->/"
 		    },
-		    "D": "Y"
+		    "D": "Y",
+		    "U": ["7c78e86e", "7cfd302e"]
 		}
 	    }
 	},
@@ -1527,6 +1708,20 @@
 		}
 	    }
 	},
+	"orc": {
+	    "name": "OrComplement",
+	    "refs": ["EREF:6-245"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"orc": "<  31>< rs>< ra>< rb>0<--412-->0",
+			"orc.": "<  31>< rs>< ra>< rb>0<--412-->1"
+		    },
+		    "D": "Y",
+		    "U": ["7e063338"]
+		}
+	    }
+	},
 	"ori": {
 	    "name": "OrImmediate",
 	    "refs": ["EREF:6-246", "VLEPEM:3-57"],
@@ -1618,6 +1813,20 @@
 			"e_rlw.": "<  31>< rs>< ra>< rb>0<--280-->1"
 		    },
 		    "D": "Y"
+		}
+	    }
+	},
+	"rlwimi": {
+	    "name": "RotateLeftWordImmediateMaskInsert",
+	    "refs": ["EREF:6-264"],
+	    "encodings": {
+		"PWR": {
+		    "mnemonics": {
+			"rlwimi": "<  20>< rs>< ra>< sh>< mb>< me>0",
+			"rlwimi.": "<  20>< rs>< ra>< sh>< mb>< me>1"
+		    },
+		    "D": "Y",
+		    "U": ["508ac77e"]
 		}
 	    }
 	},
@@ -1828,7 +2037,13 @@
 	    "name": "StoreHalfwordIndexed",
 	    "refs": ["EREF:6-317,318", "VLEPEM:3-68"],
 	    "encodings": {
-		"PWR": {}
+		"PWR": {
+		    "mnemonics": {
+			"sthx": "<  31>< rs>< ra>< rb>0<--407-->/"
+		    },
+		    "D": "Y",
+		    "U": ["7cff4b2e"]
+		}
 	    }
 	},
 	"stmvgprw": {
