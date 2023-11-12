@@ -46,7 +46,10 @@ if TYPE_CHECKING:
         VInitialRegisterValue, VInitialMemoryValue, VFunctionReturnValue,
         SymbolicValue)
     from chb.invariants.VMemoryOffset import (
-        VMemoryOffset, VMemoryOffsetFieldOffset, VMemoryOffsetIndexOffset)
+        VMemoryOffset,
+        VMemoryOffsetConstantOffset,
+        VMemoryOffsetFieldOffset,
+        VMemoryOffsetIndexOffset)
     from chb.mips.MIPSRegister import MIPSRegister
 
 
@@ -510,6 +513,13 @@ def xprvariable_to_ast_exprs(
         else:
             return default()
 
+    if xv.variable.is_initial_memory_value:
+        initmemvar = xv.variable.denotation.auxvar
+        memvar = initmemvar.variable.denotation
+        if memvar.base.is_global:
+            lvals = global_variable_to_ast_lvals(memvar.offset, xdata, astree)
+            return [astree.mk_lval_expression(lvals[0])]
+
     return default()
 
 
@@ -897,6 +907,12 @@ def global_variable_to_ast_lvals(
         gaddr = hex(offset.offsetconstant)
         gvinfobase = astree.globalsymboltable.global_variable_name(gaddr)
         if gvinfobase is not None:
+            if offset.offset.is_constant_offset:
+                coffset = cast("VMemoryOffsetConstantOffset", offset.offset)
+                coffsetvalue = coffset.offsetvalue()
+                indexoffset = astree.mk_scalar_index_offset(coffsetvalue)
+                return [astree.mk_vinfo_lval(gvinfobase, indexoffset)]
+
             if offset.offset.is_field_offset:
                 foffset = cast("VMemoryOffsetFieldOffset", offset.offset)
                 fieldoffset = astree.mk_field_offset(

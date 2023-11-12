@@ -149,7 +149,7 @@ class ARMLoadRegisterByte(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        annotations: List[str] = [iaddr, "LDRB", "addr:" + str(memaddr)]        
+        annotations: List[str] = [iaddr, "LDRB", "addr:" + str(memaddr)]
 
         (ll_rhs, _, _) = self.opargs[3].ast_rvalue(astree)
         (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
@@ -180,6 +180,7 @@ class ARMLoadRegisterByte(ARMOpcode):
                 + ", ".join(str(x) for x in hl_rhss))
 
         hl_rhs = hl_rhss[0]
+
         if rhs.is_tmp_variable or rhs.has_unknown_memory_base():
             addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
             hl_rhs = astree.mk_lval_expression(addrlval)
