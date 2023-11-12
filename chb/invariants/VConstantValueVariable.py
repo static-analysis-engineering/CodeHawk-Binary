@@ -40,7 +40,7 @@ and constant_value_variable_t =
       * ctxt_iaddress_t
   | FunctionReturnValue  of ctxt_iaddress_t        "fr"       2      0
   | SyscallErrorReturnValue of ctxt_iaddress_t     "ev"       2      0
-  | SSARegisterValue                               "ssa"      2      2
+  | SSARegisterValue                               "ssa"     2/3     2
   | FunctionPointer of                             "fp"       2      2
       string
       * string
@@ -560,6 +560,7 @@ class SSARegisterValue(VConstantValueVariable):
     """Single-assignment value of a register at a particular address.
 
     tags[1]: address of assignment instruction
+    tags[2]: optional preferred name
     args[0]: index of register in bdictionary
     args[1]: index of type in bcdictionary
     """
@@ -579,12 +580,22 @@ class SSARegisterValue(VConstantValueVariable):
         return self.bd.register(self.args[0])
 
     @property
+    def name(self) -> str:
+        if self.has_preferred_name():
+            return self.tags[2]
+        else:
+            return str(self.register) + "_" + self.address
+
+    @property
     def is_ssa_register_value(self) -> bool:
         return True
 
     @property
     def btype(self) -> "BCTyp":
         return self.bcd.typ(self.args[1])
+
+    def has_preferred_name(self) -> bool:
+        return len(self.tags) > 2
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
@@ -595,7 +606,7 @@ class SSARegisterValue(VConstantValueVariable):
         return JSONResult("auxvariable", content, "ok")
 
     def __str__(self) -> str:
-        return str(self.register) + "_" + self.address
+        return self.name
 
 
 @varregistry.register_tag("ma", VConstantValueVariable)
