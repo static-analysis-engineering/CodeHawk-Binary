@@ -204,6 +204,8 @@ class VMemoryOffsetConstantOffset(VMemoryOffset):
     def __str__(self) -> str:
         if self.has_no_offset():
             return str(self.offsetvalue())
+        elif self.offset.is_constant_offset:
+            return str(self.offsetconstant) + "[" + str(self.offset.offsetvalue()) + "]"
         else:
             return str(self.offsetconstant) + "." + str(self.offset)
 
