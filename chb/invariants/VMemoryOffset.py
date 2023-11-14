@@ -195,7 +195,7 @@ class VMemoryOffsetConstantOffset(VMemoryOffset):
             content["value"] = self.offsetvalue()
             content["kind"] = "cv"
         else:
-            content["value"] = self.offsetvalue()
+            content["value"] = self.offsetconstant
             content["kind"] = "cvo"
             content["suboffset"] = self.offset.to_json_result()
         content["txtrep"] = str(self)

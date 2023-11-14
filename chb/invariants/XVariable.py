@@ -233,6 +233,8 @@ class XVariable(FnXprDictionaryRecord):
                 return "?"
             elif self.denotation.is_function_return_value:
                 return str(self.denotation.auxvar)
+            elif self.denotation.is_symbolic_value:
+                return str(self.denotation.auxvar)
             else:
                 return self.name
         else:
