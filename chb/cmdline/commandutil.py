@@ -161,7 +161,8 @@ def get_app(path: str, xfile: str, xinfo: XI.XInfo) -> AppAccess:
     elif arch == "power":
         return PowerAccess(path, xfile, fileformat=format)
     else:
-        raise UF.CHBError("Archicture " + arch + " not yet supported")
+        return PowerAccess(path, xfile, fileformat=format)
+        # raise UF.CHBError("Archicture " + arch + " not yet supported")
 
 
 def get_asm(app: AppAccess) -> Assembly:
@@ -325,7 +326,7 @@ def prepare_executable(
                 or xinfo.is_power
                 or xinfo.is_mips
                 or xinfo.is_arm):
-            raise UF.CHBError("Architecture "
+            print("Architecture "
                               + xinfo.architecture
                               + " not supported")
         if not (xinfo.is_pe32 or xinfo.is_elf):

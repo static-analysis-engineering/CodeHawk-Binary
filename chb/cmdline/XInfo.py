@@ -59,7 +59,7 @@ def get_architecture(ftype: str) -> str:
         return "x64"
     if "PowerPC" in ftype:
         return "power"
-    return "?"
+    return "power"
 
 
 def get_file_format(ftype: str) -> str:
