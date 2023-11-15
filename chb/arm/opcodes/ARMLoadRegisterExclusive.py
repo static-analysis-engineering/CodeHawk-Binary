@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -33,7 +33,11 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
 from chb.invariants.XXpr import XXpr
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -84,3 +88,76 @@ class ARMLoadRegisterExclusive(ARMOpcode):
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
         return lhs + " := " + rhs
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[3]
+        memaddr = xdata.xprs[4]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        annotations: List[str] = [iaddr, "LDREX", "addr:" + str(memaddr)]
+
+        (ll_rhs, _, _) = self.opargs[3].ast_rvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
+        if len(hl_rhss) == 0:
+            astree.add_diagnostic("LDR (" + iaddr + "): no rhs value found")
+
+        if len(hl_rhss) > 1:
+            astree.add_diagnostic(
+                "LDR ("
+                + iaddr
+                + "): Multiple rhs values: "
+                + ", ".join(str(x) for x in hl_rhss))
+            hl_rhs = None
+
+        if len(hl_rhss) != 1 or rhs.is_tmp_variable or rhs.has_unknown_memory_base():
+            addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+            hl_rhs = astree.mk_lval_expression(addrlval)
+
+        else:
+            hl_rhs = hl_rhss[0]
+            if str(hl_rhs).startswith("localvar"):
+                deflocs = xdata.reachingdeflocs_for_s(str(rhs))
+                if len(deflocs) == 1:
+                    definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
+                    if definition is not None:
+                        hl_rhs = definition
+
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(hl_lhss) == 0:
+            raise UF.CHBError("LDR: no lval found")
+        if len(hl_lhss) > 1:
+            raise UF.CHBError(
+                "LDR: multiple lvals: "
+                + ", ".join(str(v) for v in hl_lhss))
+
+        hl_lhs = hl_lhss[0]
+
+        return self.ast_variable_intro(
+            astree,
+            hl_rhs.ctype(astree.ctyper),
+            hl_lhs,
+            hl_rhs,
+            ll_lhs,
+            ll_rhs,
+            rdefs[3:],
+            rdefs[:3],
+            defuses[0],
+            defuseshigh[0],
+            True,
+            iaddr,
+            annotations,
+            bytestring)
