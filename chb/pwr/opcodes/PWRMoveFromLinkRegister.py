@@ -115,20 +115,17 @@ class PWRMoveFromLinkRegister(PowerOpcode):
 
         hl_lhs = hl_lhss[0]
         hl_rhs = hl_rhss[0]
-        hl_assign = astree.mk_assign(
+
+        return self.ast_variable_intro(
+            astree,
+            iaddr,
+            annotations,
+            bytestring,
             hl_lhs,
             hl_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-
-        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-        astree.add_instr_mapping(hl_assign, ll_assign)
-        astree.add_instr_address(hl_assign, [iaddr])
-        astree.add_expr_mapping(hl_rhs, ll_rhs)
-        astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(ll_rhs, [rdefs])
-        astree.add_lval_defuses(hl_lhs, defuses)
-        astree.add_lval_defuses_high(hl_lhs, defuseshigh)
-
-        return ([hl_assign], [ll_assign])
+            ll_lhs,
+            ll_rhs,
+            hl_rdefs=[rdefs],
+            ll_rdefs=[rdefs],
+            defuses=defuses,
+            defuseshigh=defuseshigh)

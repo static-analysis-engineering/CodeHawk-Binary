@@ -36,6 +36,7 @@ from chb.app.MemoryAccess import MemoryAccess
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+from chb.invariants.VarInvariantFact import DefUse, DefUseHigh, ReachingDefFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
@@ -100,7 +101,7 @@ class PowerOpcode(PowerDictionaryRecord):
 
     def is_branch_instruction(self, xdata: InstrXData) -> bool:
         return self.tags[0] in branch_opcodes
-    
+
     def is_return_instruction(self, xdata: InstrXData) -> bool:
         return False
 
@@ -142,6 +143,63 @@ class PowerOpcode(PowerDictionaryRecord):
 
         expr = astree.mk_integer_constant(0)
         return (None, None)
+
+    def ast_variable_intro(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            annotations: List[str],
+            bytestring: str,
+            hl_lhs: AST.ASTLval,
+            hl_rhs: AST.ASTExpr,
+            ll_lhs: AST.ASTLval,
+            ll_rhs: AST.ASTExpr,
+            hl_rdefs: List[Optional[ReachingDefFact]] = [],
+            ll_rdefs: List[Optional[ReachingDefFact]] = [],
+            defuses: Optional[DefUse] = None,
+            defuseshigh: Optional[DefUseHigh] = None,
+            addregdef: bool = True) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        regdef_lhs = hl_lhs
+
+        hl_assigns: List[AST.ASTInstruction] = []
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        if addregdef:
+            astree.add_infologmsg(
+                "regdef:" + str(ll_lhs),
+                iaddr + ": " + str(regdef_lhs) + " with " + str(hl_rhs))
+            astree.add_reg_definition(iaddr, regdef_lhs, hl_rhs)
+
+        hl_assigns = [hl_assign]
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, hl_rdefs)
+        astree.add_expr_reachingdefs(ll_rhs, ll_rdefs)
+        astree.add_lval_defuses(hl_lhs, defuses)
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh)
+
+        return (hl_assigns, [ll_assign])
+
+
+
 
     def __str__(self) -> str:
         return self.tags[0] + ":pending"

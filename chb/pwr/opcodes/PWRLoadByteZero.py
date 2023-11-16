@@ -100,8 +100,51 @@ class PWRLoadByteZero(PowerOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "lbz"]
+        annotations: List[str] = [iaddr, self.tags[0]]
 
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs, ll_pre, ll_post) = self.opargs[2].ast_rvalue(astree)
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[2]
+        memaddr = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        uses = xdata.defuses
+        useshigh = xdata.defuseshigh
+
+        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
+
+        if len(hl_rhss) != 1 or rhs.is_tmp_variable or rhs.has_unknown_memory_base():
+            addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+            hl_rhs = astree.mk_lval_expression(addrlval)
+
+        else:
+            hl_rhs = hl_rhss[0]
+            if str(hl_rhs).startswith("localvar"):
+                deflocs = xdata.reachingdeflocs_for_s(str(rhs))
+                if len(deflocs) == 1:
+                    definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
+                    if definition is not None:
+                        hl_rhs = definition
+
+        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        hl_lhs = hl_lhss[0]
+
+        return self.ast_variable_intro(
+            astree,
+            iaddr,
+            annotations,
+            bytestring,
+            hl_lhs,
+            hl_rhs,
+            ll_lhs,
+            ll_rhs,
+            hl_rdefs=[rdefs[1]],
+            ll_rdefs=[rdefs[0]],
+            defuses=uses[0],
+            defuseshigh=useshigh[0])
+
+    '''
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_rhs, ll_pre, ll_post) = self.opargs[2].ast_rvalue(astree)
         ll_assign = astree.mk_assign(
@@ -148,3 +191,4 @@ class PWRLoadByteZero(PowerOpcode):
                 astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
 
         return ([hl_assign], [ll_assign])
+    '''

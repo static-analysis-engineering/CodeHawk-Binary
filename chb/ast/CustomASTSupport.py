@@ -46,7 +46,7 @@ arm_fp_sp_register_sizes: Dict[str, int] = {
 arm_fp_dp_register_sizes: Dict[str, int] = {
     "D" + str(i): 64 for i in range(0, 32)}
 
-arm32_register_sizes["FPSCR"] = 32  # floating point status control register
+arm32_register_sizes["FPCSR"] = 32  # floating point status control register
 
 # ARM32 flags
 arm32_flags: List[str] = ["C", "N", "V", "Z"]
@@ -55,13 +55,27 @@ arm32_flags: List[str] = ["C", "N", "V", "Z"]
 # Power32 registers
 pwr32_register_sizes: Dict[str, int] = {
     "r" + str(i): 32 for i in range(0, 32)}
-pwr32_register_sizes["lr"] = 32
-pwr32_register_sizes["ctr"] = 32
+
+
 pwr32_register_sizes["cr"] = 32
+pwr32_register_sizes["csrr0"] = 32
+pwr32_register_sizes["csrr1"] = 32
+pwr32_register_sizes["dsrr0"] = 32
+pwr32_register_sizes["dsrr1"] = 32
+pwr32_register_sizes["ctr"] = 32
+pwr32_register_sizes["lr"] = 32
+pwr32_register_sizes["msr"] = 32
+pwr32_register_sizes["mcsrr0"] = 32
+pwr32_register_sizes["mcsrr1"] = 32
+pwr32_register_sizes["srr0"] = 32
+pwr32_register_sizes["srr1"] = 32
+pwr32_register_sizes["xer"] = 32
 
 # Power32 condition register fields
 pwr32_crf_sizes: Dict[str, int] = {
     "cr" + str(i): 4 for i in range(0, 8)}
+
+
 
 
 all_register_sizes = {
