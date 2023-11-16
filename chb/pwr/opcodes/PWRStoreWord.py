@@ -77,7 +77,7 @@ class PWRStoreWord(PowerOpcode):
     uses[1]: use for ra (if update)
     useshigh[0]: use for vmem
     useshigh[1]: use for ra (if update)
-    
+
     """
 
     def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
@@ -90,6 +90,10 @@ class PWRStoreWord(PowerOpcode):
     @property
     def opargs(self) -> List[PowerOperand]:
         return [self.pwrd.pwr_operand(i) for i in self.args[1:]]
+
+    @property
+    def update(self) -> bool:
+        return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])
@@ -104,7 +108,8 @@ class PWRStoreWord(PowerOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "stb"]
+
+        annotations: List[str] = [iaddr, self.tags[0]]
 
         (ll_rhs, _, _) = self.opargs[0].ast_rvalue(astree)
         (ll_lhs, ll_preinstrs, ll_postinstrs) = self.opargs[2].ast_lvalue(astree)
