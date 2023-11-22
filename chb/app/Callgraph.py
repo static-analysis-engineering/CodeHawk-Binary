@@ -258,7 +258,7 @@ class Callgraph:
             pass
 
     def has_node(self, node: CallgraphNode) -> bool:
-        return node.name in self.nodes
+        return node.name in self.nodes or str(node) in self.nodes
 
     def add_edge(self, src: CallgraphNode, dst: CallgraphNode) -> None:
         self.add_node(src)
@@ -302,10 +302,10 @@ class Callgraph:
         while edgesadded:
             edgesadded = False
             for (src, dsts) in self.edges.items():
+                if not result.has_node(self.nodes[src]):
+                    continue
                 for dst in dsts:
-                    if (
-                            result.has_node(self.nodes[src])
-                            and not result.has_edge(src, dst)):
+                    if not result.has_edge(src, dst):
                         result.add_edge(self.nodes[src], self.nodes[dst])
                         edgesadded = True
         return result
