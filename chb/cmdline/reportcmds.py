@@ -491,7 +491,7 @@ def report_calls(
                     if fname is not None:
                         function_names[faddr] = fname
                     if callgraph is not None:
-                        tgtpath = callgraph.constrain_sinks([faddr])
+                        tgtpath = callgraph.constrain_sinks([tgtfunction.name])
                     callrec = CallRecord(
                         faddr, instr, tgtfunction, callgraph=tgtpath).to_json_result()
                     if callrec.is_ok:
@@ -517,7 +517,7 @@ def report_calls(
     if callgraph is not None:
         cgcount = len([cs for cs in callsites if len(cs["cgpath"]["edges"]) > 0])
         UC.print_status_update(
-            "Nonempty callgraph path to: "
+            "Nonempty callgraph path from: "
             + str(xcgpathsrc)
             + ": "
             + str(cgcount)
