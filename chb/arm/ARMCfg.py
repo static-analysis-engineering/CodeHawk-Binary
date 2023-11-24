@@ -28,7 +28,8 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Any, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
+from typing import (
+    Any, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING)
 
 from chb.app.Cfg import Cfg
 from chb.arm.ARMCfgBlock import ARMCfgBlock, ARMCfgTrampolineBlock
@@ -38,9 +39,14 @@ import chb.util.fileutil as UF
 
 astmode: List[str] = []
 
+
 if TYPE_CHECKING:
     from chb.arm.ARMFunction import ARMFunction
     from chb.arm.ARMInstruction import ARMInstruction
+    from chb.cmdline.PatchResults import PatchEvent
+
+
+patchevents: Dict[str, "PatchEvent"] = {}  # start of wrapper -> patch event
 
 
 class ARMCfg(Cfg):
@@ -56,7 +62,8 @@ class ARMCfg(Cfg):
 
     def branch_instruction(self, baddr: str) -> "ARMInstruction":
         block = self.blocks[baddr]
-        return cast("ARMInstruction", self.armfunction.instruction(block.lastaddr))
+        return cast(
+            "ARMInstruction", self.armfunction.instruction(block.lastaddr))
 
     def condition_to_annotated_value(
             self, src: str, b: "ARMInstruction") -> Dict[str, Any]:
@@ -122,14 +129,7 @@ class ARMCfg(Cfg):
 
     def set_trampoline_blocks(
             self, blocks: Dict[str, ARMCfgBlock]) -> None:
-        """Assign the roles of blocks that are part of a recognized trampoline.
-
-        Currently the following types of trampolines are recognized:
-        (1) breakout
-            (cfg) => (setup) => (payload) => (decision) => (takedown) => (cfg)
-                                                        => (breakout)
-        (2) conditional
-        """
+        """Assign trampoline blocks based on info in patchevents data."""
 
         # create original edges locally
         localedges: Dict[str, List[str]] = {}
@@ -149,94 +149,135 @@ class ARMCfg(Cfg):
             revedges.setdefault(tgt, [])
             revedges[tgt].append(src)
 
-        roles: Dict[str, str] = {}
+        trampolines: Dict[str, Dict[str , str]] = {} # setupblock addr -> roles
+        trampolineblocks: Dict[str, str] = {}  # block addr -> setupblock addr
 
-        setupblock: Optional[str] = None
-        takedownblock: Optional[str] = None
-        payloadblock: Optional[str] = None
-        decisionblock: Optional[str] = None
-        breakoutblock: Optional[str] = None
-
-        # determine type of trampoline
-
-        pcount: int = 0
         for (baddr, b) in blocks.items():
-            if b.is_in_trampoline:
-                if baddr.startswith("F"): pcount += 1
+            if baddr in patchevents:
+                patchevent = patchevents[baddr]
+                roles: Dict[str, str] = {}
 
-        if pcount == 1:
-            trampoline_type = "breakout"
-        elif pcount == 3:
-            trampoline_type = "conditional"
-        else:
-            print("Trampoline type not recognized")
-            return
+                cases = patchevent.cases
+                if len(cases) > 0:
+                    if len(cases) == 1 and cases[0] == "fallthrough":
+                        # no decision is made
 
-        # determine setup block
-        for (baddr, b) in blocks.items():
-            if b.is_in_trampoline:
-                if baddr in revedges:
-                    revb = revedges[baddr]
-                if all(not blocks[pb].is_in_trampoline for pb in revb):
-                    setupblock = baddr
-                    roles["setup"] = baddr
-
-        if not setupblock:
-            print("no setup block found")
-            return
-
-        # determine payload block
-        if setupblock in localedges:
-            if len(localedges[setupblock]) == 1:
-                payloadblock = localedges[setupblock][0]
-                roles["payload"] = payloadblock
-
-        # determine trampoline decision block
-        if payloadblock in localedges:
-            if len(localedges[payloadblock]) == 1:
-                decisionblock = localedges[payloadblock][0]
-                roles["decision"] = decisionblock
-
-        # determine takedown block
-        if decisionblock in localedges:
-            if len(localedges[decisionblock]) == 2:
-                for succ in localedges[decisionblock]:
-                    if succ in localedges:
-                        if len(localedges[succ]) == 1:
-                            if not blocks[(localedges[succ][0])].is_in_trampoline:
-                                takedownblock = succ
-                                roles["takedown"] = takedownblock
-
-        # determine breakout block
-        if decisionblock in localedges:
-            if len(localedges[decisionblock]) == 2:
-                for succ in localedges[decisionblock]:
-                    if succ != takedownblock:
-                        roles["breakout"] = succ
-                        breakoutblock = succ
+                        trampolines[baddr] = {}
+                        trampolines[baddr]["setupblock"] = baddr
+                        if patchevent.has_payload():
+                            payload = patchevent.payload.vahex
+                            trampolines[baddr]["payload"] = payload
+                            trampolineblocks[payload] = baddr
+                            if payload in localedges:
+                                if len(localedges[payload]) == 1:
+                                    takedown = localedges[payload][0]
+                                    trampolines[baddr]["takedown"] = takedown
+                                    trampolineblocks[takedown] = baddr
+                                else:
+                                    print(
+                                        "Error: multiple edges from fallthrough"
+                                        + " payload")
+                                    exit(1)
+                            else:
+                                print(
+                                    "Error: payload without successors in"
+                                    + " fallthrough path event")
+                                exit(1)
+                        else:
+                            print(
+                                "Error: fallthrough patchevent without payload")
+                            exit(1)
+                    elif (len(cases) == 2
+                              and "fallthrough" in cases
+                              and  "break" in cases):
+                         trampolines[baddr] = {}
+                         trampolines[baddr]["setupblock"] = baddr
+                         if patchevent.has_payload():
+                            payload = patchevent.payload.vahex
+                            trampolines[baddr]["payload"] = payload
+                            trampolineblocks[payload] = baddr
+                            if payload in localedges:
+                                if len(localedges[payload]) == 1:
+                                    decisionblock = localedges[payload][0]
+                                    trampolines[
+                                        baddr]["decisionblock"] = decisionblock
+                                    trampolineblocks[decisionblock] = baddr
+                                    if decisionblock in localedges:
+                                        decsuccs = localedges[decisionblock]
+                                        if len(decsuccs) == 2:
+                                            breakout = decsuccs[0]
+                                            takedown = decsuccs[1]
+                                            trampolines[baddr]["breakout"] = breakout
+                                            trampolines[baddr]["takedown"] = takedown
+                                            trampolineblocks[takedown] = baddr
+                                            trampolineblocks[breakout] = baddr
+                                        else:
+                                            print(
+                                                "Error in breakout/fallthrough"
+                                                + " block: number of decision"
+                                                + "edges: "
+                                                + str(len(decsuccs)))
+                                            exit(1)
+                                    else:
+                                        print(
+                                            "Error in breakout/fallthrough"
+                                            + " block: decisionblock not found"
+                                            + " in localedges")
+                                        exit(1)
+                                else:
+                                    print(
+                                        "Error in breakout/falthrough block:"
+                                        + "number of payload edges: "
+                                        + str(len(localedges[payload])))
+                                    exit(1)
+                            else:
+                                print(
+                                    "Error in breakout/fallthrough block:"
+                                    + " no outgoing edges found for payload"
+                                    + " block")
+                                exit(1)
+                         else:
+                            print(
+                                "Error in breakout/fallthrough block:"
+                                + " no payload found in patchevent")
+                            exit(1)
                     else:
-                        continue
+                        print(
+                            "Unexpected number of cases in trampoline: "
+                            + str(len(cases)))
+                        exit(1)
+                else:
+                    # not a trampoline
+                    pass
+            else:
+                # not a patch event
+                pass
 
         cfgedges: Dict[str, List[str]] = {}
 
         for src in localedges:
             for tgt in localedges[src]:
-                if not blocks[src].is_in_trampoline and blocks[tgt].is_in_trampoline:
-                    trampolineaddr = tgt
-                    cfgedges.setdefault(src, [])
-                    cfgedges[src].append(tgt)
-                elif blocks[src].is_in_trampoline and not blocks[tgt].is_in_trampoline:
-                    cfgedges[setupblock] = [tgt]
-                elif blocks[src].is_in_trampoline and blocks[tgt].is_in_trampoline:
+                if (src in trampolineblocks
+                        and tgt in trampolineblocks
+                        and trampolineblocks[src] == trampolineblocks[tgt]):
+                    # blocks are part of the same trampoline
                     continue
+                elif (src in trampolineblocks
+                          and tgt not in trampolineblocks):
+                    # trampoline exit
+                    trampolinesetup = trampolineblocks[tgt]
+                    cfgedges.setdefault(src, [])
+                    cfgedges[trampolinesetup].append(tgt)
                 else:
+                    # add regular edge
                     cfgedges.setdefault(src, [])
                     cfgedges[src].append(tgt)
 
         for (baddr, b) in blocks.items():
-            if not b.is_in_trampoline:
+            if baddr not in trampolineblocks:
                 self._blocks[baddr] = b
-            elif baddr == setupblock:
+            elif baddr in trampolines:
+                roles = trampolines[baddr]
                 self._blocks[baddr] = ARMCfgTrampolineBlock(
                     self.xnode, roles)
 

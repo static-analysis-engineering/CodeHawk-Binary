@@ -35,6 +35,8 @@ from typing import (
 
 from chb.app.AppAccess import AppAccess
 
+from chb.arm.ARMCfg import astmode, patchevents
+
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTApplicationInterface import ASTApplicationInterface
 from chb.ast.ASTBasicCTyper import ASTBasicCTyper
@@ -51,9 +53,8 @@ from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
 from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 from chb.astinterface.CHBASTSupport import CHBASTSupport
 
-from chb.arm.ARMCfg import astmode
-
 import chb.cmdline.commandutil as UC
+from chb.cmdline.PatchResults import PatchResults
 import chb.cmdline.XInfo as XI
 
 from chb.userdata.UserHints import UserHints
@@ -137,6 +138,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     outputfile: str = args.outputfile
     functions: List[str] = args.functions
     hints: List[str] = args.hints  # names of json files
+    xpatchresultsfile = args.patch_results_file
     remove_edges: List[str] = args.remove_edges
     add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
@@ -154,6 +156,19 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
+
+    patchresultsdata: Optional[Dict[str, Any]] = None
+    if xpatchresultsfile is not None:
+        with open(xpatchresultsfile, "r") as fp:
+            patchresultsdata = json.load(fp)
+
+    if patchresultsdata is not None:
+        patchresults = PatchResults(patchresultsdata)
+        for event in patchresults.events:
+            if event.is_trampoline:
+                if event.has_wrapper():
+                    startaddr = event.wrapper.vahex
+                    patchevents[startaddr] = event
 
     # read hints files
     userhints = UserHints(toxml=False)

@@ -91,7 +91,8 @@ def compare_executable_content(
         xfile1: str,
         path2: str,
         xfile2: str,
-        is_thumb: bool) -> XComparison:
+        is_thumb: bool,
+        pdfiledata: Optional[Dict[str, Any]]) -> XComparison:
     """Compares the section headers of the second app with those of the first app.
 
     If additional code is added to one of the sections, it is assumed to be a
@@ -116,40 +117,16 @@ def compare_executable_content(
     sectionheaders1 = app1.header.sectionheaders
     sectionheaders2 = app2.header.sectionheaders
 
-    xcomparison = XComparison(is_thumb, path1, xfile1, path2, xfile2)
+    xcomparison = XComparison(
+        is_thumb,
+        path1,
+        xfile1,
+        path2,
+        xfile2,
+        app1,
+        app2,
+        pdfiledata)
 
-    if len(sectionheaders1) > len(sectionheaders2):
-        for sh1 in sectionheaders1:
-            sh2 = app2.header.get_sectionheader_by_name(sh1.name)
-            if sh2 is None:
-                xcomparison.add_missing_section(sh1.name)
-        return xcomparison
-
-    elif len(sectionheaders1) < len(sectionheaders2):
-        for sh2 in sectionheaders2:
-            sh1 = app1.header.get_sectionheader_by_name(sh2.name)
-            if sh1 is None:
-                vaddr2 = sh2.vaddr
-                size2 = int(sh2.size, 16)
-                xcomparison.add_new_section(sh2)
-                if is_thumb:
-                    xcomparison.add_switchpoint(vaddr2 + ":T")
-        return xcomparison
-
-    comparison: Dict[
-        str, Tuple[Optional[ELFSectionHeader], Optional[ELFSectionHeader]]] = {}
-    for sh1 in sectionheaders1:
-        name = sh1.name
-        if not name in comparison:
-            sh2 = app2.header.get_sectionheader_by_name(name)
-            comparison[name] = (sh1, sh2)
-        else:
-            UC.print_status_update("Duplicate section name: " + name)
-    for sh2 in sectionheaders2:
-        if not sh2.name in comparison:
-            comparison[sh2.name] = (None, sh2)
-
-    xcomparison.set_sectionheader_pairs(comparison)
     xcomparison.compare_sections()
 
     return xcomparison
@@ -165,6 +142,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     xjson: bool = args.json
     xoutput: str = args.output
     save_aux_userdata: str = args.save_aux_userdata
+    xpatchresults: Optional[str] = args.patch_results_file
     xprint: bool = not args.json
 
     try:
@@ -178,8 +156,13 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     is_thumb: bool = check_hints_for_thumb(hints)
     userhints = UC.prepare_executable(path2, xfile2, True, True, hints=hints)
 
+    patchresultsdata: Optional[Dict[str, Any]] = None
+    if xpatchresults is not None:
+        with open(xpatchresults, "r") as fp:
+            patchresultsdata = json.load(fp)
+
     xcomparison = compare_executable_content(
-        path1, xfile1, path2, xfile2, is_thumb)
+        path1, xfile1, path2, xfile2, is_thumb, patchresultsdata)
 
     newuserdata = xcomparison.new_userdata()
 
@@ -196,8 +179,10 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
 
     else:
         if xoutput:
-            UC.print_status_update("Structural difference report saved in " + xoutput)
+            UC.print_status_update(
+                "Structural difference report saved in " + xoutput)
 
+    print("DEBUG: new userdata: " + str(newuserdata))
     userhints.add_hints(newuserdata)
     userhints.save_userdata(path2, xfile2)
 
@@ -225,7 +210,8 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
             for (x, y) in xcomparison.newcode:
                 lines.append("    * From " + x + " to " + y)
         lines.append("=" * 80)
-        lines.append("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
+        lines.append(
+            "||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
         lines.append("=" * 80)
         print("\n".join(lines))
 
@@ -413,12 +399,12 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
-
 def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
 
     # arguments
     xname1: str = args.xname1
     xname2: str = args.xname2
+    xpatchresults: Optional[str] = args.patch_results_file
     usermappingfile: Optional[str] = args.usermapping
     showcalls: bool = args.show_calls
     showpredicates: bool = args.show_predicates
@@ -436,6 +422,11 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    patchresultsdata: Optional[Dict[str, Any]] = None
+    if xpatchresults is not None:
+        with open(xpatchresults, "r") as fp:
+            patchresultsdata = json.load(fp)
 
     usermapping: Dict[str, str] = {}
     if usermappingfile is not None:
@@ -615,7 +606,9 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
                     f2table.setdefault(loc, {})
                     f2table[loc][str(fact.variable)] = fact.value
         comparison: Dict[str, Dict[
-            str, Tuple[Optional[NonRelationalValue], Optional[NonRelationalValue]]]] = {}
+            str,
+            Tuple[Optional[NonRelationalValue],
+                      Optional[NonRelationalValue]]]] = {}
         for loc in f1table:
             comparison.setdefault(loc, {})
             if loc in f2table:

@@ -245,10 +245,6 @@ class Callgraph:
     def edgecount(self) -> int:
         return sum (len(self.edges[e]) for e in self.edges)
 
-    @property
-    def edgecount(self) -> int:
-        return len(self.edges)
-
     def add_node(self, node: CallgraphNode) -> None:
         if node.name not in self._nodes:
             self._nodes[node.name] = node

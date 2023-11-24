@@ -144,6 +144,7 @@ class ARMCallOpcode(ARMOpcode):
         defuseshigh = xdata.defuseshigh
 
         tgt = self.operands[0]
+
         if tgt.is_absolute:
             tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
             faddr = tgtaddr.address.get_hex()
@@ -171,7 +172,7 @@ class ARMCallOpcode(ARMOpcode):
                         tgtxpr = astree.mk_global_variable_expr(
                             ctgtname, globaladdress=int(ctgtaddr, 16))
                 else:
-                    tgtxpr = astree.mk_integer_constant(tgtaddr.address.get_int())
+                    (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
             else:
                 (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
         else:
