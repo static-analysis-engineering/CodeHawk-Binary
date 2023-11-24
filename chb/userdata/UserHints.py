@@ -654,34 +654,30 @@ class InlinedFunctionsHints(HintsEntry):
 class TrampolinesHints(HintsEntry):
     """List of start, end addresses of a trampoline, in hex."""
 
-    def __init__(self, trampolines: List[Tuple[str, str]]) -> None:
-        HintsEntry.__init__(self, "trampolines")
-        self._trampolines = trampolines
+    def __init__(self, trampolinepayloads: List[str]) -> None:
+        HintsEntry.__init__(self, "trampoline-payloads")
+        self._trampolines = trampolinepayloads
 
     @property
-    def trampolines(self) -> List[Tuple[str, str]]:
+    def trampolines(self) -> List[str]:
         return self._trampolines
 
-    def update(self, d: List[Tuple[str, str]]) -> None:
-        for (s, e) in d:
-            if (s, e) not in self.trampolines:
-                self._trampolines.append((s, e))
+    def update(self, d: List[str]) -> None:
+        for s in d:
+            if s not in self.trampolines:
+                self._trampolines.append(s)
 
     def to_xml(self, node: ET.Element) -> None:
         xts = ET.Element(self.name)
         node.append(xts)
-        for (s, e) in self.trampolines:
+        for s in self.trampolines:
             xt = ET.Element("trampoline")
-            xt.set("start", s)
-            xt.set("end", e)
+            xt.set("a", s)
             xts.append(xt)
 
     def __str__(self) -> str:
         lines: List[str] = []
-        lines.append("Trampolines")
-        lines.append("-----------")
-        for (s, e) in self.trampolines:
-            lines.append("  (" + s + ", " + e + ")")
+        lines.append("Trampolines: " + ", ".join(str(t) for t in self.trampolines))
         return "\n".join(lines)
 
 
@@ -1189,7 +1185,7 @@ class UserHints:
 
         if "trampolines" in hints:
             tag = "trampolines"
-            entries: List[Tuple[str, str]] = hints[tag]
+            entries: List[str] = hints[tag]
             if tag in self.userdata:
                 self.userdata[tag].update(entries)
             else:

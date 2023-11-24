@@ -28,10 +28,13 @@
 
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
+from chb.cmdline.PatchResults import PatchResults
+import chb.cmdline.commandutil as UC
+
 from chb.jsoninterface.JSONResult import JSONResult
 
-
 if TYPE_CHECKING:
+    from chb.app.AppAccess import AppAccess
     from chb.elfformat.ELFSectionHeader import ELFSectionHeader
 
 
@@ -43,12 +46,17 @@ class XComparison:
             path1: str,
             xfile1: str,
             path2: str,
-            xfile2: str) -> None:
+            xfile2: str,
+            app1: "AppAccess",
+            app2: "AppAccess",
+            pdfiledata: Optional[Dict[str, Any]] = None) -> None:
         self._is_thumb = is_thumb
         self._path1 = path1
         self._path2 = path2
         self._xfile1 = xfile1
         self._xfile2 = xfile2
+        self._app1 = app1
+        self._app2 = app2
         self._newsections: List["ELFSectionHeader"] = []
         self._missingsections: List[str] = []
         self._sectionheaderpairs: Dict[
@@ -56,6 +64,8 @@ class XComparison:
             Tuple[Optional["ELFSectionHeader"], Optional["ELFSectionHeader"]]] = {}
         self._switchpoints: List[str] = []
         self._newcode: List[Tuple[str, str]] = []
+        self._pdfiledata = pdfiledata
+        self.compare_sections()
 
     @property
     def is_thumb(self) -> bool:
@@ -78,6 +88,22 @@ class XComparison:
         return self._xfile2
 
     @property
+    def app1(self) -> "AppAccess":
+        return self._app1
+
+    @property
+    def app2(self) -> "AppAccess":
+        return self._app2
+
+    @property
+    def sectionheaders1(self) -> List["ELFSectionHeader"]:
+        return self.app1.header.sectionheaders
+
+    @property
+    def sectionheaders2(self) -> List["ELFSectionHeader"]:
+        return self.app2.header.sectionheaders
+
+    @property
     def newsections(self) -> List["ELFSectionHeader"]:
         return self._newsections
 
@@ -93,6 +119,17 @@ class XComparison:
     @property
     def switchpoints(self) -> List[str]:
         return self._switchpoints
+
+    @property
+    def pdfiledata(self) -> Optional[Dict[str, Any]]:
+        return self._pdfiledata
+
+    @property
+    def trampoline_payload_addresses(self) -> List[str]:
+        if self.pdfiledata is None:
+            return []
+        else:
+            return PatchResults(self.pdfiledata).trampoline_payload_addresses
 
     @property
     def newcode(self) -> List[Tuple[str, str]]:
@@ -126,6 +163,33 @@ class XComparison:
                     newvaddr = hex(int(sh1.vaddr, 16) + int(sh1.size, 16))
                     newvend = hex(int(sh1.vaddr, 16) + int(sh2.size, 16))
                     self.add_newcode(newvaddr, newvend)
+
+        if len(self.sectionheaders1) > len(self.sectionheaders2):
+            for sh1 in self.sectionheaders1:
+                sh2 =self. app2.header.get_sectionheader_by_name(sh1.name)
+                if sh2 is None:
+                    self.add_missing_section(sh1.name)
+        elif len(self.sectionheaders1) < len(self.sectionheaders2):
+            for sh2 in self.sectionheaders2:
+                sh1 =self.app1.header.get_sectionheader_by_name(sh2.name)
+                if sh1 is None:
+                    vaddr2 = sh2.vaddr
+                    size2 = int(sh2.size, 16)
+                    self.add_new_section(sh2)
+                    if self.is_thumb:
+                        self.add_switchpoint(vaddr2 + ":T")
+
+        for sh1 in self.sectionheaders1:
+            name = sh1.name
+            if not name in self._sectionheaderpairs:
+                sh2 = self.app2.header.get_sectionheader_by_name(name)
+                self._sectionheaderpairs[name] = (sh1, sh2)
+            else:
+                UC.print_status_update("Duplicate section name: " + name)
+
+        for sh2 in self.sectionheaders2:
+            if not sh2.name in self._sectionheaderpairs:
+                self._sectionheaderpairs[sh2.name] = (None, sh2)
 
         for (name, (optsh1, optsh2)) in self.sectionheaderpairs.items():
             if optsh1 is None:
@@ -191,9 +255,10 @@ class XComparison:
         result: Dict[str, Any] = {}
         if len(self.switchpoints) > 0:
             result["arm-thumb"] = self.switchpoints[:]
-        if len(self.newcode) > 0:
-            result["trampolines"] = self.newcode
-        return result            
+        trampolines = self.trampoline_payload_addresses
+        if len(trampolines) > 0:
+            result["trampolines"] = trampolines
+        return result
 
     def prepare_report(self) -> str:
         lines: List[str] = []
