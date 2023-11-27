@@ -78,6 +78,7 @@ class AnalysisManager(object):
             gc_compact: int = 0,
             lineq_instr_cutoff = 0,
             lineq_block_cutoff = 0,
+            use_ssa: int = -1,
             hints: Dict[str, Any] = {}) -> None:
         """Initializes the analyzer location and target file location
 
@@ -114,6 +115,7 @@ class AnalysisManager(object):
         self.lineq_instr_cutoff = lineq_instr_cutoff
         self.lineq_block_cutoff = lineq_block_cutoff
         self.fnsanalyzed: List[str] = []
+        self.use_ssa = use_ssa
 
     # Extraction and directory preparation -------------------------------------
 
@@ -490,7 +492,11 @@ class AnalysisManager(object):
                 print("\n".join(lines))
                 return False
 
-            result = self._call_analysis(cmd, timeout=timeout)
+            if self.use_ssa >= 0 and count > self.use_ssa:
+                acmd = cmd + ["-ssa"]
+            else:
+                acmd = cmd
+            result = self._call_analysis(acmd, timeout=timeout)
             if result != 0:
                 os.chdir(cwd)    # return to original directory
                 print("\n".join(lines))

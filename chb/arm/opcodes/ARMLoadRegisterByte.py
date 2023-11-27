@@ -162,7 +162,7 @@ class ARMLoadRegisterByte(ARMOpcode):
                 memexp = cast(AST.ASTMemRef, lvalexpr.lval.lhost).memexp
                 astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
 
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
+        hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         byteselected = False
         if len(hl_rhss) == 0:
             raise UF.CHBError("LDRB: No rhs value")

@@ -393,6 +393,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     show_function_timing: bool = args.show_function_timing
     lineq_instr_cutoff: int = args.lineq_instr_cutoff
     lineq_block_cutoff: int = args.lineq_block_cutoff
+    xssa: int = args.ssa    # use ssa in analysis
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -470,6 +471,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         show_function_timing=show_function_timing,
         lineq_instr_cutoff=lineq_instr_cutoff,
         lineq_block_cutoff=lineq_block_cutoff,
+        use_ssa=xssa,
         thumb=(len(thumb) > 0))
 
     if dodisassemble:
