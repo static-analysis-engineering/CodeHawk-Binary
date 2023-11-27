@@ -386,10 +386,16 @@ def parse() -> argparse.Namespace:
         default=[],
         help="arm-thumb switch points (format <hex-addr>:T or <hex-addr>:A)")
     analyzecmd.add_argument(
-        '--iterations',
+        "--iterations",
         type=int,
         default=12,
-        help='maximum number of iterations')
+        help="maximum number of iterations")
+    analyzecmd.add_argument(
+        "--ssa",
+        type=int,
+        default=-1,
+        help=("use single static assignment after given number of rounds"
+              + " (e.g., --ssa 3 will start using ssa at round 4)"))
     analyzecmd.add_argument(
         "--analysisrepeats",
         type=int,

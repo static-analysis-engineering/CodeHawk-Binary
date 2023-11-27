@@ -182,7 +182,6 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
             UC.print_status_update(
                 "Structural difference report saved in " + xoutput)
 
-    print("DEBUG: new userdata: " + str(newuserdata))
     userhints.add_hints(newuserdata)
     userhints.save_userdata(path2, xfile2)
 
