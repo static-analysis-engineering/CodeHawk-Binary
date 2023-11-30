@@ -45,7 +45,7 @@ class JSONCallgraphEdge(JSONObject):
 
     @property
     def tgt(self) -> str:
-        return self.d.get("tgt", self.property_missing("tgt"))
+        return self.d.get("dst", self.property_missing("dst"))
 
     @property
     def type(self) -> Optional[str]:
@@ -80,21 +80,32 @@ class JSONCallgraph(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
         JSONObject.__init__(self, d, "callgraph")
+        self._nodes: Optional[List[JSONCallgraphNode]] = None
+        self._edges: Optional[List[JSONCallgraphEdge]] = None
 
     @property
     def nodes(self) -> List[JSONCallgraphNode]:
-        return self.d.get("nodes", [])
+        if self._nodes is None:
+            result: List[JSONCallgraphNode] = []
+            raw_nodes = self.d.get("nodes", [])
+            for raw_node in raw_nodes:
+                result.append(JSONCallgraphNode(raw_node))
+
+            self._nodes = result
+
+        return self._nodes
 
     @property
     def edges(self) -> List[JSONCallgraphEdge]:
-        return self.d.get("edges", [])
+        if self._edges is None:
+            result: List[JSONCallgraphEdge] = []
+            raw_edges = self.d.get("edges", [])
+            for raw_node in raw_edges:
+                result.append(JSONCallgraphEdge(raw_node))
+
+            self._edges = result
+
+        return self._edges
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_callgraph(self)
-
-
-                          
-
-    
-                        
-

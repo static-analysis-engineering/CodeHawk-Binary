@@ -27,8 +27,8 @@
 
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
-
 from chb.jsoninterface.JSONObject import JSONObject
+from chb.jsoninterface.JSONCallgraph import JSONCallgraph
 
 if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
@@ -112,6 +112,7 @@ class JSONCallsiteRecord(JSONObject):
     def __init__(self, d: Dict[str, Any]) -> None:
         JSONObject.__init__(self, d, "callsiterecord")
         self._arguments: Optional[List[JSONCallsiteArgument]] = None
+        self._cgpath: Optional[JSONCallgraph] = None
 
     @property
     def faddr(self) -> str:
@@ -129,6 +130,17 @@ class JSONCallsiteRecord(JSONObject):
                 result.append(JSONCallsiteArgument(arg))
             self._arguments = result
         return self._arguments
+
+    @property
+    def cgpath(self) -> Optional[JSONCallgraph]:
+        if self._cgpath is None:
+            cgpath = self.d.get("cgpath")
+            if cgpath is None:
+                return None
+
+            self._cgpath = JSONCallgraph(cgpath)
+
+        return self._cgpath
 
     def column_count(self) -> int:
         result: int = 0
@@ -170,7 +182,8 @@ class JSONCallsiteRecords(JSONObject):
                 else:
                     result[fnaddr] = fnname
             self._function_names = result
-        return result
+
+        return self._function_names
 
     @property
     def cgpath_src(self) -> Optional[str]:
@@ -207,6 +220,3 @@ class JSONCallsiteRecords(JSONObject):
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_callsite_records(self)
-    
-
-                              
