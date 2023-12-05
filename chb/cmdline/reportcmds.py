@@ -493,7 +493,8 @@ def report_calls(
                     if fname is not None:
                         function_names[faddr] = fname
                     if callgraph is not None:
-                        tgtpath = callgraph.constrain_sinks([tgtfunction.name])
+                        UC.print_status_update("Generating callgraph for callsite at " + str(instr))
+                        tgtpath = callgraph.constrain_sink_edge(src=faddr, dst=tgtfunction.name)
                     callrec = CallRecord(
                         faddr, instr, tgtfunction, callgraph=tgtpath).to_json_result()
                     if callrec.is_ok:
