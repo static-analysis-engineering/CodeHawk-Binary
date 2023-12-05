@@ -27,7 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, cast, Dict, List, Mapping, Optional, Sequence, Set
+from typing import Any, Iterable, cast, Dict, List, Mapping, Optional, Sequence, Set
 
 from chb.api.CallTarget import (
     CallTarget, StubTarget, AppTarget, CallbackTableTarget)
@@ -73,6 +73,13 @@ class CallgraphNode:
     def is_unknown_tgt(self) -> bool:
         return False
 
+    def ids(self) -> List[str]:
+        """Returns the different ways in which the node can be identified
+
+        Some node types can be identified by either function name or address
+        """
+        return [self.name]
+
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
         content["name"] = self.name
@@ -85,35 +92,27 @@ class CallgraphNode:
 class AppCallgraphNode(CallgraphNode):
 
     def __init__(self, address: str, fname: Optional[str]) -> None:
-        CallgraphNode.__init__(self, address)
-        self._fname = fname
+        if fname:
+            CallgraphNode.__init__(self, fname)
+        else:
+            CallgraphNode.__init__(self, address)
+        self._faddr = address
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, AppCallgraphNode):
             return self.name == other.name
         return False
 
-    def fname(self) -> str:
-        if self._fname:
-            return self._fname
-        else:
-            raise UF.CHBError(
-                "Callgraph node for "
-                + self.name
-                + " does not have a function name")
+    @property
+    def faddr(self) -> str:
+        return self._faddr
 
-    def has_fname(self) -> bool:
-        return self._fname is not None
+    def ids(self) -> List[str]:
+        return [self.name, self.faddr]
 
     @property
     def is_app_node(self) -> bool:
         return True
-
-    def __str__(self) -> str:
-        if self.has_fname():
-            return self.fname()
-        else:
-            return self.name
 
 
 class TaggedAppCallgraphNode(AppCallgraphNode):
@@ -246,21 +245,48 @@ class Callgraph:
         return sum (len(self.edges[e]) for e in self.edges)
 
     def add_node(self, node: CallgraphNode) -> None:
-        if node.name not in self._nodes:
+        if not self.has_node(node):
             self._nodes[node.name] = node
         elif node.is_call_back_table_node or node.is_tagged_app_node:
+            self._nodes[node.name] = node
+        # In some binaries, we may first see a stub for a user function
+        # (represented as a library node) and then see the user function itself.
+        elif node.is_app_node and self._nodes[node.name].is_lib_node:
             self._nodes[node.name] = node
         else:
             pass
 
+    def node_id_in(self, node: CallgraphNode, where: Iterable[str]) -> bool:
+        """Checks if the ids for the passed node are in the passed iterable"""
+        return any((node_id in where for node_id in node.ids()))
+
+    def node_in(self, node: CallgraphNode, where: Iterable[CallgraphNode]) -> bool:
+        """Checks if the passed node is in the passed iterable"""
+        for w_node in where:
+            if self.node_id_in(node, w_node.ids()):
+                return True
+        return False
+
     def has_node(self, node: CallgraphNode) -> bool:
-        return node.name in self.nodes or str(node) in self.nodes
+        return self.node_in(node, self.nodes.values())
+
+    def get_node(self, node_id: str) -> Optional[CallgraphNode]:
+        """Returns the node where one of its ids matches node_id"""
+        # Cheap check
+        if node_id in self._nodes.keys():
+            return self._nodes[node_id]
+
+        for node in self._nodes.values():
+            if node_id in node.ids():
+                return node
+
+        return None
 
     def add_edge(self, src: CallgraphNode, dst: CallgraphNode) -> None:
         self.add_node(src)
         self.add_node(dst)
         self._edges.setdefault(src.name, {})
-        if dst.name not in self._edges[src.name]:
+        if not self.node_id_in(dst, self._edges[src.name]):
             self._edges[src.name][dst.name] = CallgraphEdge(src.name, dst.name)
 
     def has_edge(self, src: str, dst: str) -> bool:
@@ -280,7 +306,7 @@ class Callgraph:
         result = Callgraph()
 
         def is_source(node: CallgraphNode) -> bool:
-            return node.name in sources or str(node) in sources
+            return self.node_id_in(node, sources)
 
         for n in self.nodes.values():
             if is_source(n):
@@ -309,6 +335,31 @@ class Callgraph:
     def constrain_sinks(self, sinks: List[str]) -> "Callgraph":
         return self.clone(reverse=True).constrain_sources(sinks).clone(
             reverse=True)
+
+    def constrain_sink_edge(self, src: str, dst: str) -> "Callgraph":
+        """Constrains the callgraph to those paths that end with the passed edge"""
+        # XXX: Add a check that we do have an edge between those two nodes, Otherwise
+        # raise an error
+
+        # If we don't have the nodes in the edge then just return an empty
+        # callgraph
+        src_node = self.get_node(src)
+        if not src_node:
+            # This can happen if we haven't fully resolved the callgraph
+            return Callgraph()
+        dst_node = self.get_node(dst)
+        if not dst_node:
+            # This can happen if we haven't fully resolved the callgraph
+            return Callgraph()
+
+        result = self.constrain_sinks([src])
+        result_src_node = result.get_node(src)
+        # Paranoia check, this shouldn't happen
+        if not result_src_node:
+            raise UF.CHBError("Constraining failed unexpectedly")
+
+        result.add_edge(src_node, dst_node)
+        return result
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
