@@ -1262,6 +1262,10 @@ class AbstractSyntaxTree:
             op: str,
             exp: AST.ASTExpr,
             optexprid: Optional[int] = None) -> AST.ASTExpr:
+        # CIL normalizes expression of the form (- c) into negated constants.
+        if exp.is_integer_constant and op == "neg":
+          exp = cast(AST.ASTIntegerConstant, exp)
+          return self.mk_integer_constant(0 - exp.cvalue)
         exprid = self.get_exprid(optexprid)
         return AST.ASTUnaryOp(exprid, op, exp)
 
