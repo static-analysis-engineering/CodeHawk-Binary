@@ -388,14 +388,13 @@ def parse() -> argparse.Namespace:
     analyzecmd.add_argument(
         "--iterations",
         type=int,
-        default=12,
+        default=11,
         help="maximum number of iterations")
     analyzecmd.add_argument(
         "--ssa",
-        type=int,
-        default=-1,
-        help=("use single static assignment after given number of rounds"
-              + " (e.g., --ssa 3 will start using ssa at round 4)"))
+        action="store_true",
+        help=("use single static assignment; this will be applied only in the "
+              + "final round"))
     analyzecmd.add_argument(
         "--analysisrepeats",
         type=int,
@@ -744,6 +743,10 @@ def parse() -> argparse.Namespace:
         "--stacklayout",
         action="store_true",
         help="include stacklayout at the top of the function")
+    resultsfunctions.add_argument(
+        "--proofobligations",
+        action="store_true",
+        help="include proofobligations at the top of the function")
     resultsfunctions.set_defaults(func=UCC.results_functions)
 
     # --- results function ---
@@ -775,6 +778,14 @@ def parse() -> argparse.Namespace:
         type=int,
         default=32,
         help="number of characters for opcode text")
+    resultsfunctions.add_argument(
+        "--stacklayout",
+        action="store_true",
+        help="include stacklayout at the top of the function")
+    resultsfunctions.add_argument(
+        "--proofobligations",
+        action="store_true",
+        help="include proofobligations at the top of the function")
     resultsfunction.set_defaults(func=UCC.results_function)
 
     # --- results apr ---
@@ -841,6 +852,15 @@ def parse() -> argparse.Namespace:
             "exclude invariants that contain this string (only applies "
             + " for text output)"))
     resultsinvariants.set_defaults(func=UCC.results_invariants)
+
+    # --- results functioninfo ---
+    resultsfinfo = resultsparsers.add_parser(
+        "functioninfo",
+        description=(
+            "Lists the function information collected during analysis"))
+    resultsfinfo.add_argument("xname", help="name of executable")
+    resultsfinfo.add_argument("faddr", help="hex address of function")
+    resultsfinfo.set_defaults(func=UCC.results_finfo)
 
     # --- results branchconditions ---
     resultsbranchconditions = resultsparsers.add_parser("branchconditions")
@@ -969,6 +989,21 @@ def parse() -> argparse.Namespace:
             "name or hex address of application function to be used as "
             + " source for callgraph path"))
     report_calls.set_defaults(func=REP.report_calls_cmd)
+
+    # -- report function api's
+    report_functionapis = reportparsers.add_parser("function_apis")
+    report_functionapis.add_argument("xname", help="name of executable")
+    report_functionapis.add_argument(
+        "--details",
+        action="store_true",
+        help="show functions without signature")
+    report_functionapis.set_defaults(func=REP.report_function_apis)
+
+    # -- report proof obligations
+    report_proofobligations = reportparsers.add_parser("proofobligations")
+    report_proofobligations.add_argument("xname", help="name of executable")
+    report_proofobligations.set_defaults(func=REP.report_proofobligations)
+
 
     # --- report unresolved
     report_unresolved = reportparsers.add_parser("unresolved")
@@ -1104,6 +1139,12 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help="names of c header files with summaries/data structures")
+    relationalprepare.add_argument(
+        "--ssa",
+        action="store_true",
+        help=(
+            "use single static assignment for the analysis of the patched binary; "
+            + " this will be applied only in the final round"))
     relationalprepare.add_argument(
         "--patch_results_file",
         help="name of patch results file (required if the patch includes trampolines)")

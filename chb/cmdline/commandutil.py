@@ -393,7 +393,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     show_function_timing: bool = args.show_function_timing
     lineq_instr_cutoff: int = args.lineq_instr_cutoff
     lineq_block_cutoff: int = args.lineq_block_cutoff
-    xssa: int = args.ssa    # use ssa in analysis
+    xssa: bool = args.ssa    # use ssa in analysis
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -752,6 +752,7 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
     bytes: bool = args.bytes
     opcodewidth: int = args.opcodewidth
     stacklayout: bool = args.stacklayout
+    proofobligations: bool = args.proofobligations
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -782,6 +783,8 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
                 else:
                     print("\nFunction " + faddr)
                 print("-" * 80)
+                print(str(f.finfo.appsummary))
+                print("-" * 80)
                 print(f.to_string(
                     bytestring=bytestring,
                     bytes=bytes,
@@ -789,9 +792,11 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
                     sp=True,
                     opcodetxt=True,
                     opcodewidth=opcodewidth,
+                    proofobligations=proofobligations,
                     stacklayout=stacklayout))
             except UF.CHBError as e:
                 print(str(e.wrap()))
+                # raise
             # except Exception as e:
             #    print(str(e))
         else:
@@ -813,6 +818,8 @@ def results_function(args: argparse.Namespace) -> NoReturn:
     bytes: bool = args.bytes
     opcodewidth: int = args.opcodewidth
     txtoutput: bool = not xjson
+    stacklayout: bool = args.stacklayout
+    proofobligations: bool = args.proofobligations
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -853,12 +860,16 @@ def results_function(args: argparse.Namespace) -> NoReturn:
             else:
                 lines.append("\nFunction " + xfaddr)
             lines.append("-" * 80)
+            lines.append(str(f.finfo.appsummary))
+            lines.append("-" * 80)
             lines.append(f.to_string(
                 bytestring=bytestring,
                 bytes=bytes,
                 hash=hash,
                 sp=True,
                 opcodetxt=True,
+                proofobligations=proofobligations,
+                stacklayout=stacklayout,
                 opcodewidth=opcodewidth))
         except UF.CHBError as e:
             print_error(str(e.wrap()))
@@ -939,6 +950,46 @@ def results_callbacktables(args: argparse.Namespace) -> NoReturn:
             cbdata["tables"][addr]["records"] = cbtable.serialize()
         with open(filename, "w") as fp:
             json.dump(cbdata, fp, indent=2)
+
+    exit(0)
+
+
+def results_finfo(args: argparse.Namespace) -> NoReturn:
+    """Prints out information collected about a function during analysis."""
+
+    # arguments
+    xname: str = str(args.xname)
+    xfaddr: str = args.faddr
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    if not app.has_function(xfaddr):
+        msg = "Function " + xfaddr + " not found"
+        print_error(msg)
+        exit(1)
+
+    f = app.function(xfaddr)
+
+    print("Summary:")
+    print(str(f.finfo.appsummary))
+
+    calltargetinfos = f.finfo.calltargetinfos
+    for instrs in f.call_instructions().values():
+        for instr in instrs:
+            print("\n")
+            ctinfo = calltargetinfos[instr.iaddr]
+            print(str(instr))
+            print(str(ctinfo))
 
     exit(0)
 
