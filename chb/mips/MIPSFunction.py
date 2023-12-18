@@ -37,6 +37,7 @@ from chb.api.InterfaceDictionary import InterfaceDictionary
 from chb.app.BasicBlock import BasicBlock
 from chb.app.BDictionary import BDictionary
 from chb.app.Cfg import Cfg
+from chb.app.FnStackFrame import FnStackFrame
 from chb.app.Function import Function
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.FunctionDictionary import FunctionDictionary
@@ -66,18 +67,19 @@ import chb.util.fileutil as UF
 
 class MIPSFunction(Function):
 
-    def __init__(self,
-                 path: str,
-                 filename: str,
-                 bcd: BCDictionary,
-                 bd: BDictionary,
-                 ixd: InterfaceDictionary,
-                 finfo: FunctionInfo,
-                 mipsd: MIPSDictionary,
-                 stringsxrefs: StringsXRefs,
-                 names: Sequence[str],
-                 models: ModelsAccess,
-                 xnode: ET.Element) -> None:
+    def __init__(
+            self,
+            path: str,
+            filename: str,
+            bcd: BCDictionary,
+            bd: BDictionary,
+            ixd: InterfaceDictionary,
+            finfo: FunctionInfo,
+            mipsd: MIPSDictionary,
+            stringsxrefs: StringsXRefs,
+            names: Sequence[str],
+            models: ModelsAccess,
+            xnode: ET.Element) -> None:
         Function.__init__(
             self, path, filename, bcd, bd, ixd, finfo, stringsxrefs, names, xnode)
         self._mipsd = mipsd
@@ -86,6 +88,7 @@ class MIPSFunction(Function):
         self._cfg: Optional[MIPSCfg] = None
         self._mipsfnd: Optional[FunctionDictionary] = None
         self._addressreference: Dict[str, str] = {}
+        self._stackframe: Optional[FnStackFrame] = None
 
     @property
     def models(self) -> ModelsAccess:
@@ -160,6 +163,17 @@ class MIPSFunction(Function):
                 raise UF.CHBError("Element cfg missing from function xml")
             self._cfg = MIPSCfg(self, xcfg)
         return self._cfg
+
+    @property
+    def stackframe(self) -> FnStackFrame:
+        if self._stackframe is None:
+            snode = self.xnode.find("stackframe")
+            if snode is not None:
+                self._stackframe = FnStackFrame(self, snode)
+            else:
+                raise UF.CHBError(
+                    "Element stackframe missing from function xml")
+        return self._stackframe
 
     @property
     def address_reference(self) -> Mapping[str, str]:
@@ -325,11 +339,16 @@ class MIPSFunction(Function):
             opcodetxt: bool = True,
             opcodewidth: int = 25,
             sp: bool = True,
+            proofobligations: bool = False,
             stacklayout: bool = False) -> str:
         lines: List[str] = []
         if stacklayout:
-            lines.append(str(self.stacklayout()))
-            lines.append(" ")
+            lines.append(".~" * 40)
+            lines.append(str(self.stackframe))
+            lines.append(".~" * 40)
+        if proofobligations:
+            lines.append(str(self.proofobligations))
+            lines.append(".~" * 40)
         for b in sorted(self.blocks):
             lines.append(
                 self.blocks[b].to_string(
