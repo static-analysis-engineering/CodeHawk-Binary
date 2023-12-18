@@ -9,6 +9,7 @@ chb/bin/binaries/*/chx86_analyze
 # Emacs
 *.py~
 *.json~
+*.c~
 *.md~
 *.exe~
 *.txt~

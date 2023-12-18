@@ -181,6 +181,7 @@ class PowerFunction(Function):
             opcodetxt: bool = True,
             opcodewidth: int = 40,
             sp: bool = True,
+            proofobligations: bool = False,
             stacklayout: bool = False) -> str:
         lines: List[str] = []
         if stacklayout:
