@@ -778,11 +778,11 @@ def parse() -> argparse.Namespace:
         type=int,
         default=32,
         help="number of characters for opcode text")
-    resultsfunctions.add_argument(
+    resultsfunction.add_argument(
         "--stacklayout",
         action="store_true",
         help="include stacklayout at the top of the function")
-    resultsfunctions.add_argument(
+    resultsfunction.add_argument(
         "--proofobligations",
         action="store_true",
         help="include proofobligations at the top of the function")
