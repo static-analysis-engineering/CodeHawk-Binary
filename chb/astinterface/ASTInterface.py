@@ -517,6 +517,12 @@ class ASTInterface:
         else:
             raise UF.CHBError("No formal found for argindex: " + str(argindex))
 
+    def has_formal_locindices(self, argindex: int) -> bool:
+        for formal in reversed(self.srcformals):
+            if argindex >= formal.argindex:
+                return ((argindex - formal.argindex) < formal.numargs)
+        return False
+
     def function_argument(self, index: int) -> List[AST.ASTLval]:
         """Return the argument(s) with the given index (zero-based).
 
@@ -524,13 +530,22 @@ class ASTInterface:
         """
 
         if len(self.srcformals) > 0:
-            (formal, locindices) = self.get_formal_locindices(index)
-            regvar = AST.ASTVariable(formal.lifted_vinfo)
-            lvals: List[AST.ASTLval] = []
-            for locindex in locindices:
-                (loc, offset, size) = formal.argloc(locindex)
-                lvals.append(self.mk_lval(regvar, offset))
-            return lvals
+            if self.has_formal_locindices(index):
+                (formal, locindices) = self.get_formal_locindices(index)
+                regvar = AST.ASTVariable(formal.lifted_vinfo)
+                lvals: List[AST.ASTLval] = []
+                for locindex in locindices:
+                    (loc, offset, size) = formal.argloc(locindex)
+                    lvals.append(self.mk_lval(regvar, offset))
+                return lvals
+            else:
+                self.add_diagnostic(
+                    "Function prototype does not match code: "
+                    + " argument index reference "
+                    + str(index)
+                    + " not accomodated by the formal arguments found: "
+                    + ". ".join(str(f) for f in self.srcformals))
+                return []
         else:
             return []
 
