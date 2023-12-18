@@ -78,7 +78,7 @@ class AnalysisManager(object):
             gc_compact: int = 0,
             lineq_instr_cutoff = 0,
             lineq_block_cutoff = 0,
-            use_ssa: int = -1,
+            use_ssa: bool = False,
             hints: Dict[str, Any] = {}) -> None:
         """Initializes the analyzer location and target file location
 
@@ -107,6 +107,7 @@ class AnalysisManager(object):
         self.config = Config()
         self.chx86_analyze = self.config.chx86_analyze
         self.chsummaries = self.config.summaries
+        self.chheader = self.config.stdchheader
         self.fns_no_lineq = fns_no_lineq
         self.fns_exclude = fns_exclude
         self.fns_include = fns_include
@@ -206,6 +207,7 @@ class AnalysisManager(object):
         cmd.extend(["-preamble_cutoff", str(preamble_cutoff)])
         for d in self.deps:
             cmd.extend(["-summaries", d])
+        cmd.extend(["-ifile", self.chheader])
         for s in self.specializations:
             cmd.extend(["-specialization", s])
         if save_asm == "yes":
@@ -416,6 +418,7 @@ class AnalysisManager(object):
         analysisdir = UF.get_analysis_dir(self.path, self.filename)
         cmd = [self.chx86_analyze, "-summaries", self.chsummaries]
         cmd.extend(["-preamble_cutoff", str(preamble_cutoff)])
+        cmd.extend(["-ifile", self.chheader])
         if self.elf:
             cmd.append("-elf")
         if self.mips:
@@ -481,22 +484,30 @@ class AnalysisManager(object):
 
         count = 2
         while True:
-            if isstable == "yes" and not ignore_stable and len(self.fns_include) == 0:
+
+            isfinished = (
+                (isstable == "yes"
+                 and not ignore_stable
+                 and len(self.fns_include) == 0)
+                or (count > iterations))
+
+            if isfinished:
+                subprocess.call(jarcmd, stderr=subprocess.STDOUT)
+                fincmd = cmd + ["-collectdata"]
+                if self.use_ssa:
+                    fincmd = fincmd + ["-ssa"]
+                result = self._call_analysis(fincmd, timeout=timeout)
+                subprocess.call(jarcmd, stderr=subprocess.STDOUT)
+                count += 1
+                (stable, results, r_update) = self._get_results()
+                print_progress_update(r_update + "  " + self.filename)
+                lines.append(results)
                 os.chdir(cwd)   # return to original directory
                 print("\n".join(lines))
-                return True
+                return isstable == "yes"
 
             subprocess.call(jarcmd, stderr=subprocess.STDOUT)
-            if count > iterations:
-                os.chdir(cwd)    # return to original directory
-                print("\n".join(lines))
-                return False
-
-            if self.use_ssa >= 0 and count > self.use_ssa:
-                acmd = cmd + ["-ssa"]
-            else:
-                acmd = cmd
-            result = self._call_analysis(acmd, timeout=timeout)
+            result = self._call_analysis(cmd, timeout=timeout)
             if result != 0:
                 os.chdir(cwd)    # return to original directory
                 print("\n".join(lines))
