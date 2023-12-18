@@ -222,11 +222,15 @@ class ARMFunction(Function):
             opcodetxt: bool = True,
             opcodewidth: int = 40,
             sp: bool = True,
+            proofobligations: bool = False,
             stacklayout: bool = False) -> str:
         lines: List[str] = []
         if stacklayout:
             lines.append(str(self.stacklayout()))
             lines.append(" ")
+        if proofobligations:
+            lines.append(str(self.proofobligations))
+            lines.append(".~" * 40)            
         for b in sorted(self.blocks):
             lines.append(
                 self.blocks[b].to_string(

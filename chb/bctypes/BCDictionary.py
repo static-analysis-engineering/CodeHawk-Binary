@@ -255,3 +255,6 @@ class BCDictionary:
             for ix in self.typeinfo_table.keys():
                 tinfo = self.typeinfo(ix)
                 self.typeinfo_names[tinfo.tname] = tinfo
+            for ix in self.compinfo_table.keys():
+                cinfo = self.compinfo(ix)
+                self.compinfo_keys[cinfo.ckey] = cinfo

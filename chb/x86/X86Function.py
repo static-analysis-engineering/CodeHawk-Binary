@@ -438,6 +438,7 @@ class X86Function(Function):
             opcodetxt: bool = True,
             opcodewidth: int = 25,
             sp: bool = True,
+            proofobligations: bool = False,
             stacklayout: bool = False) -> str:
         lines: List[str] = []
         for b in sorted(self.blocks, key=lambda b:int(b, 16)):
