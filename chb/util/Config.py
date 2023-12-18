@@ -59,6 +59,7 @@ class Config():
         self.binariesdir = os.path.join(self.bindir, "binaries")
         self.summariesdir = os.path.join(self.chbdir, "summaries")
         self.summaries = os.path.join(self.summariesdir, "bchsummaries.jar")
+        self.stdchheader = os.path.join(self.summariesdir, "bch_header.c")
 
         # analyzer location
         if self.platform == 'linux':
