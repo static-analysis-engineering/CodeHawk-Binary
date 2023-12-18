@@ -43,6 +43,8 @@ from typing import (
     Tuple,
     TYPE_CHECKING)
 
+from chb.api.AppFunctionSignature import AppFunctionSignature
+
 from chb.app.Callgraph import Callgraph
 from chb.app.Instruction import Instruction
 
@@ -585,6 +587,110 @@ def report_calls_cmd(args: argparse.Namespace) -> NoReturn:
         exit(0)
     else:
         exit(1)
+
+
+def report_function_apis(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    xdetails: bool = args.details
+
+    try:
+        (path, xfile) = UC.get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = UC.get_app(path, xfile, xinfo)
+
+    signatures: Dict[str, AppFunctionSignature] = {}
+
+    nosignatures: List[str] = []
+
+    preconditions: Dict[str, int] = {}   # tag -> count
+    sideeffects: Dict[str, int] = {}
+
+    for (faddr, fn) in app.functions.items():
+        appsum = fn.finfo.appsummary
+        if appsum is not None:
+            fintf = appsum.function_interface
+            fnsig = fintf.signature
+            if len(fnsig.parameter_list) > 0:
+                signatures[faddr] = fnsig
+            else:
+                nosignatures.append(faddr)
+            fsem = appsum.function_semantics
+            for pre in fsem.precondition_list:
+                preconditions.setdefault(pre.tags[0], 0)
+                preconditions[pre.tags[0]] += 1
+            for se in fsem.sideeffect_list:
+                sideeffects.setdefault(se.tags[0], 0)
+                sideeffects[se.tags[0]] += 1
+            
+
+    print("Functions with signatures: " + str(len(signatures)))
+    print("Functions without        : " + str(len(nosignatures)))
+    print("\nPreconditions: " + str(sum(preconditions.values())))
+    for (tag, count) in sorted(preconditions.items()):
+        print("  " + tag.ljust(7) + str(count).rjust(5))
+    print("\nSide effects: " + str(sum(sideeffects.values())))
+    for (tag, count) in sorted(sideeffects.items()):
+        print("  " + tag.ljust(7) + str(count).rjust(5))
+
+    if xdetails:
+        print("\nNo signatures (or empty parameter list):")
+        for faddr in sorted(nosignatures):
+            print("  " + faddr)
+
+    exit(0)
+
+
+def report_proofobligations(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+
+    try:
+        (path, xfile) = UC.get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = UC.get_app(path, xfile, xinfo)
+
+    proofobligations: Dict[str, Dict[str, int]] = {} #  type -> status -> count
+
+    for fn in app.functions.values():
+        polist = fn.proofobligations.proofobligations.values()
+        for pos in polist:
+            for po in pos:
+                proofobligations.setdefault(po.xpo.tags[0], {})
+                proofobligations[po.xpo.tags[0]].setdefault(po.status.tag, 0)
+                proofobligations[po.xpo.tags[0]][po.status.tag] += 1
+
+    print("Proof obligation counts")
+    print("type".ljust(8) + "discharged".rjust(10) + "delegated".rjust(10) +
+          "global".rjust(10) + "request".rjust(10) + "open".rjust(10))
+    print("-" * 58)
+    for (xpotag, xpodata) in sorted(proofobligations.items()):
+        line: List[str] = []
+        line.append(xpotag.ljust(8))
+        for x in ["dis", "del", "glob", "req", "o"]:
+            if x in xpodata:
+                line.append(str(xpodata[x]).rjust(10))
+            else:
+                line.append(" ".rjust(10))
+        print("".join(line))
+
+    exit(0)
 
 
 def report_memops(args: argparse.Namespace) -> NoReturn:
