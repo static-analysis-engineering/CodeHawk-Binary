@@ -276,6 +276,7 @@ class ARMStoreRegister(ARMOpcode):
                     + ", ".join(str(x) for x in lvals))
 
             hl_lhs = lvals[0]
+            astree.add_lval_store(hl_lhs)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
