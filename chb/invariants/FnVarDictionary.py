@@ -33,6 +33,7 @@ import xml.etree.ElementTree as ET
 from typing import Callable, List, Optional, Tuple, TYPE_CHECKING
 
 from chb.invariants.FnDictionaryRecord import varregistry
+from chb.invariants.FnStackAccess import FnStackAccess
 from chb.invariants.FnXprDictionary import FnXprDictionary
 from chb.invariants.VAssemblyVariable import VAssemblyVariable
 from chb.invariants.VConstantValueVariable import VConstantValueVariable
@@ -63,14 +64,16 @@ class FnVarDictionary:
         self.memory_base_table = IT.IndexedTable('memory-base-table')
         self.memory_offset_table = IT.IndexedTable('memory-offset-table')
         self.assembly_variable_denotation_table = IT.IndexedTable(
-            'assembly-variable-denotation-table')
+            "assembly-variable-denotation-table")
         self.constant_value_variable_table = IT.IndexedTable(
-            'constant-value-variable-table')
+            "constant-value-variable-table")
+        self.stack_access_table = IT.IndexedTable("stack-access-table")
         self.tables: List[IT.IndexedTable] = [
             self.memory_base_table,
             self.memory_offset_table,
             self.assembly_variable_denotation_table,
-            self.constant_value_variable_table
+            self.constant_value_variable_table,
+            self.stack_access_table
         ]
         self.initialize(xnode)
 
@@ -143,8 +146,8 @@ class FnVarDictionary:
                 self.assembly_variable_denotation_table.retrieve(ix),
                 VAssemblyVariable)
         else:
-            raise UF.CHBError("Illegal assembly variable index value: "
-                              + str(ix))
+            raise UF.CHBError(
+                "Illegal assembly variable index value: " + str(ix))
 
     def constant_value_variable(self, ix: int) -> VConstantValueVariable:
         if ix > 0:
@@ -153,8 +156,27 @@ class FnVarDictionary:
                 self.constant_value_variable_table.retrieve(ix),
                 VConstantValueVariable)
         else:
-            raise UF.CHBError("Illegal constant-value variable index value: "
-                              + str(ix))
+            raise UF.CHBError(
+                "Illegal constant-value variable index value: " + str(ix))
+
+    def stack_access(self, ix: int) -> FnStackAccess:
+        if ix > 0:
+            return varregistry.mk_instance(
+                self,
+                self.stack_access_table.retrieve(ix),
+                FnStackAccess)
+        else:
+            raise UF.CHBError(
+                "Illegal stack-access value index value: " + str(ix))
+
+    # ---------------------- xml accessors -------------------------------------
+
+    def read_xml_stack_access(self, n: ET.Element) -> FnStackAccess:
+        index = n.get("isa")
+        if index:
+            return self.stack_access(int(index))
+        raise UF.CHBError(
+            "Error in reading from stack access table: tag missing")
 
     # -------------------------------------- Initialize dictionary from file ---
 
