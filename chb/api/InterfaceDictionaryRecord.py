@@ -32,9 +32,10 @@ import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
 
 if TYPE_CHECKING:
-    import chb.api.InterfaceDictionary
-    import chb.app.AppAccess
-    import chb.app.BDictionary
+    from chb.api.InterfaceDictionary import InterfaceDictionary
+    from chb.app.AppAccess import AppAccess
+    from chb.app.BDictionary import BDictionary
+    from chb.bctypes.BCDictionary import BCDictionary
     import chb.models.ModelsAccess
 
 
@@ -42,21 +43,25 @@ class InterfaceDictionaryRecord(IT.IndexedTableValue):
 
     def __init__(
             self,
-            id: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            id: "InterfaceDictionary",
             ixval: IT.IndexedTableValue) -> None:
         IT.IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
         self._id = id
 
     @property
-    def id(self) -> "chb.api.InterfaceDictionary.InterfaceDictionary":
+    def id(self) -> "InterfaceDictionary":
         return self._id
 
     @property
-    def bd(self) -> "chb.app.BDictionary.BDictionary":
+    def bd(self) -> "BDictionary":
         return self.id.bdictionary
 
     @property
-    def app(self) -> "chb.app.AppAccess.AppAccess":
+    def bcd(self) -> "BCDictionary":
+        return self.id.bcdictionary
+
+    @property
+    def app(self) -> "AppAccess":
         return self.id.app
 
     @property
@@ -83,12 +88,16 @@ class InterfaceDictionaryRegistry:
 
     def mk_instance(
             self,
-            id: "chb.api.InterfaceDictionary.InterfaceDictionary",
+            id: "InterfaceDictionary",
             ixval: IT.IndexedTableValue,
             superclass: Type[IdR]) -> IdR:
         tag = ixval.tags[0]
         if (superclass, tag) not in self.register:
-            raise UF.CHBError("Unknown interface dictionary type: " + tag)
+            raise UF.CHBError(
+                "Unknown interface dictionary type: "
+                + tag
+                + " for class type: "
+                + str(superclass))
         instance = self.register[(superclass, tag)](id, ixval)
         return cast(IdR, instance)
 
