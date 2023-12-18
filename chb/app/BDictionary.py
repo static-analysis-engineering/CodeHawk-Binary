@@ -132,6 +132,12 @@ class BDictionary:
             return self.string(int(index))
         raise UF.CHBError("Error in reading from string table: tag missing")
 
+    def read_xml_register(self, n: ET.Element) -> Register:
+        index = n.get("ireg")
+        if index:
+            return self.register(int(index))
+        raise UF.CHBError("Error in reading from register table: tag missing")
+
     # ---------------- Initialize dictionary from file -------------------------
 
     def initialize(self, xnode: ET.Element) -> None:

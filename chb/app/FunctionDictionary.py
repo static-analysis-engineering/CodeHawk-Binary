@@ -37,16 +37,13 @@ import chb.util.IndexedTable as IT
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
-    import chb.app.Function
-    import chb.app.Instruction
+    from chb.app.Function import Function
+    from chb.app.Instruction import Instruction
 
 
 class FunctionDictionary:
 
-    def __init__(
-            self,
-            fn: "chb.app.Function.Function",
-            xnode: ET.Element) -> None:
+    def __init__(self, fn: "Function", xnode: ET.Element) -> None:
         self._fn = fn
         self.xnode = xnode
         self.sp_offset_table: IT.IndexedTable = IT.IndexedTable("sp-offset-table")
@@ -57,7 +54,7 @@ class FunctionDictionary:
         self.initialize(xnode)
 
     @property
-    def function(self) -> "chb.app.Function.Function":
+    def function(self) -> "Function":
         return self._fn
 
     # ------------------  retrieve items from dictionary tables ----------------

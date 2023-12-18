@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2023 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,9 +30,11 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, Mapping, TYPE_CHECKING
+from typing import Dict, Mapping, Optional, TYPE_CHECKING
 
+from chb.api.AppSummary import AppSummary
 from chb.api.CallTarget import CallTarget
+from chb.api.CallTargetInfo import CallTargetInfo
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
@@ -51,6 +53,7 @@ class FunctionInfo:
         self.xnode = xnode
         self._calltargets: Dict[str, CallTarget] = {}
         self._variablenames: Dict[int, str] = {}
+        self._calltargetinfos: Dict[str, CallTargetInfo] = {}
 
     @property
     def faddr(self) -> str:
@@ -59,6 +62,18 @@ class FunctionInfo:
     @property
     def ixd(self) -> "InterfaceDictionary":
         return self._ixd
+
+    @property
+    def appsummary(self) -> Optional[AppSummary]:
+        xsummary = self.xnode.find("summary")
+        if xsummary is not None:
+            xfintf = xsummary.get("fintf")
+            xfsem = xsummary.get("fsem")
+            if xfintf is not None and xfsem is not None:
+                appfinterface = self.ixd.function_interface(int(xfintf))
+                appfsemantics = self.ixd.function_semantics(int(xfsem))
+                return AppSummary(appfinterface, appfsemantics)
+        return None
 
     @property
     def calltargets(self) -> Mapping[str, CallTarget]:
@@ -82,6 +97,20 @@ class FunctionInfo:
                     else:
                         raise UF.CHBError("Index or name missing from variablename")
         return self._calltargets
+
+    @property
+    def calltargetinfos(self) -> Mapping[str, CallTargetInfo]:
+        if len(self._calltargetinfos) == 0:
+            ctnode = self.xnode.find("call-targets")
+            if ctnode is not None:
+                for ctinfo in ctnode.findall("ctinfo"):
+                    xaddr = ctinfo.get("a")
+                    if xaddr is not None:
+                        ctgt = self.ixd.read_xml_call_target(ctinfo)
+                        fintf = self.ixd.read_xml_function_interface(ctinfo)
+                        fsem = self.ixd.read_xml_function_semantics(ctinfo)
+                        self._calltargetinfos[xaddr] = CallTargetInfo(ctgt, fintf, fsem)
+        return self._calltargetinfos
 
     @property
     def variablenames(self) -> Mapping[int, str]:
