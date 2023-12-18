@@ -222,6 +222,7 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
         astree.add_reg_definition(iaddr, hl_lhslo, hl_rhslo)
         astree.add_reg_definition(iaddr, ll_lhshi, hl_rhshi)
         astree.add_instr_mapping(hl_assign_lo, ll_assign_lo)
+        astree.add_instr_mapping(hl_assign_hi, ll_assign_hi)
         astree.add_instr_address(hl_assign_lo, [iaddr])
         astree.add_expr_mapping(hl_rhslo, ll_lo_result)
         astree.add_lval_mapping(hl_lhslo, ll_lhslo)
