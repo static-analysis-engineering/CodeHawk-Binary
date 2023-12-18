@@ -144,6 +144,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     save_aux_userdata: str = args.save_aux_userdata
     xpatchresults: Optional[str] = args.patch_results_file
     xprint: bool = not args.json
+    xssa: bool = args.ssa
 
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -265,6 +266,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         ifilenames=ifilenames,
         fns_include=fns_include,
         fns_exclude=fns_exclude,
+        use_ssa=xssa,
         thumb=True)
 
     try:
