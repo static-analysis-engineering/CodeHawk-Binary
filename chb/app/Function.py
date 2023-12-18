@@ -56,6 +56,8 @@ from chb.api.InterfaceDictionary import InterfaceDictionary
 from chb.app.BasicBlock import BasicBlock
 from chb.app.BDictionary import BDictionary
 from chb.app.Cfg import Cfg
+from chb.app.FnProofObligations import FnProofObligations
+from chb.app.FnXPODictionary import FnXPODictionary
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.Instruction import Instruction
 from chb.app.JumpTables import JumpTable
@@ -83,6 +85,7 @@ from chb.userdata.UserHints import UserHints
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
+    from chb.app.FnStackFrame import FnStackFrame
     from chb.bctypes.BCTyp import BCTyp
 
 
@@ -110,10 +113,12 @@ class Function(ABC):
         self._names = names
         self._vd: Optional[FnVarDictionary] = None
         self._id: Optional[FnInvDictionary] = None
+        self._xpod: Optional[FnXPODictionary] = None
         self._varinvd: Optional[FnVarInvDictionary] = None
         self._invariants: Dict[str, List[InvariantFact]] = {}
         self._varinvariants: Dict[str, List[VarInvariantFact]] = {}
         self._stacklayout: Optional[StackLayout] = None
+        self._proofobligations: Optional[FnProofObligations] = None
 
     @property
     def path(self) -> str:
@@ -172,6 +177,24 @@ class Function(ABC):
     @property
     def xprdictionary(self) -> FnXprDictionary:
         return self.vardictionary.xd
+
+    @property
+    def xpodictionary(self) -> FnXPODictionary:
+        if self._xpod is None:
+            xxpod = self.xnode.find("xpodictionary")
+            if xxpod is None:
+                raise UF.CHBError("XPO dictionary element not found")
+            self._xpod = FnXPODictionary(self, xxpod)
+        return self._xpod
+
+    @property
+    def proofobligations(self) -> FnProofObligations:
+        if self._proofobligations is None:
+            xprf = self.xnode.find("proofobligations")
+            if xprf is None:
+                raise UF.CHBError("Proof obligations element not found")
+            self._proofobligations = FnProofObligations(self, xprf)
+        return self._proofobligations
 
     @property
     def invdictionary(self) -> FnInvDictionary:
@@ -327,6 +350,10 @@ class Function(ABC):
         raise UF.CHBError("Property cfg not implemented for Function")
 
     @property
+    def stackframe(self) -> "FnStackFrame":
+        raise UF.CHBError("Property stackframe not implemented for Function")
+
+    @property
     def btypes(self) -> Dict[str, "BCTyp"]:
         raise UF.CHBError("Property btypes not implemented for Function")
 
@@ -448,6 +475,7 @@ class Function(ABC):
             opcodetxt: bool = True,       # instruction opcode text
             opcodewidth: int = 25,        # alignment width for opcode text
             sp: bool = True,
+            proofobligations: bool = False,
             stacklayout: bool = False) -> str:
         ...
 
