@@ -78,6 +78,7 @@ class FunctionRelationalAnalysis:
         self._cfgmatcher: Optional[CfgMatcher] = None
         self._changes: Optional[List[str]] = None
         self._matches: Optional[List[str]] = None
+        self._blockinfo: Optional[Dict[str, int]] = None
 
     @property
     def app1(self) -> "AppAccess":
@@ -131,6 +132,16 @@ class FunctionRelationalAnalysis:
                 else:
                     self._changes.append("cfg-structure")
         return self._changes
+
+    @property
+    def block_info(self) -> Dict[str, int]:
+        if self._blockinfo is None:
+            self._blockinfo = {}
+            self._blockinfo["basic_blocks1"] = len(self.basic_blocks1)
+            self._blockinfo["basic_blocks2"] = len(self.basic_blocks2)
+            self._blockinfo["blocks-changed"] = len(self.blocks_changed())
+
+        return self._blockinfo
 
     @property
     def matches(self) -> List[str]:
@@ -496,6 +507,8 @@ class FunctionRelationalAnalysis:
         content["faddr2"] = self.faddr2
         content["changes"] = self.changes
         content["matches"] = self.matches
+        # XXX: Add to schema (see JSONCHBSchemas.py)
+        content["block-info"] = self.block_info
 
         return JSONResult(schema, content, "ok")
 

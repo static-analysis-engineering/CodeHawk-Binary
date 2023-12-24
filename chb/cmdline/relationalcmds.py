@@ -358,21 +358,21 @@ def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
             print(json.dumps(jsonresult))
 
     else:
-        print(relational_header(
-            xname1,
-            xname2,
-            xinfo2.md5,
-            "functions comparison"))
-        print(relanalysis.report(False, False))
-        print("=" * 80)
-        print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
-        print("=" * 80)
-
-        ## Not implemented yet:
-        ## result = relanalysis.to_json_result()
-        ## if result.is_ok:
-        ##    print(JSONRelationalReport().summary_report(
-        ##        JSONAppComparison(result.content), details=True))
+        if False:
+            print(relational_header(
+                xname1,
+                xname2,
+                xinfo2.md5,
+                "functions comparison"))
+            print(relanalysis.report(False, False))
+            print("=" * 80)
+            print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
+            print("=" * 80)
+        else:
+            result = relanalysis.to_json_result()
+            if result.is_ok:
+                print(JSONRelationalReport().summary_report(
+                    JSONAppComparison(result.content), details=False))
 
     exit(0)
 
