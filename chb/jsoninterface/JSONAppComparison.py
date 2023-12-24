@@ -140,6 +140,7 @@ class JSONAppComparison(JSONObject):
         JSONObject.__init__(self, d, "appcomparison")
         self._xfile1: Optional[AX.XFilePath] = None
         self._xfile2: Optional[AX.XFilePath] = None
+        self._functionnames: Optional[Dict[str, str]] = None
         self._functionscompared: Optional[List[str]] = None
         self._functionschanged: Optional[List[JSONFunctionComparison]] = None
         self._functionsadded: Optional[List[JSONFunctionAdded]] = None
@@ -169,6 +170,16 @@ class JSONAppComparison(JSONObject):
     @property
     def matches(self) -> List[str]:
         return self.d.get("matches", [])
+
+    @property
+    def function_names(self) -> Dict[str, str]:
+        if self._functionnames is None:
+            self._functionnames = {}
+            fnames = self.d.get("function-names", {})
+            for faddr, fname in fnames.items():
+                self._functionnames[faddr] = fname
+
+        return self._functionnames
 
     @property
     def functions_compared(self) -> List[str]:

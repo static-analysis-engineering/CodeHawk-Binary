@@ -288,6 +288,10 @@ class JSONFunctionComparison(JSONObject):
         return self.d.get("matches", [])
 
     @property
+    def block_info(self) -> Dict[str, int]:
+        return self.d.get("block-info", {})
+
+    @property
     def cfg_comparison(self) -> JSONCfgComparison:
         if self._cfgcomparison is None:
             self._cfgcomparison = JSONCfgComparison(

@@ -255,6 +255,16 @@ class RelationalAnalysis:
         content["file2"]["path"] = self.app2.path
         content["file2"]["filename"] = self.app2.filename
 
+        fnames: Dict[str, str] = {}
+        for faddr in self.functions_changed():
+            if self.app1.has_function_name(faddr):
+                fnames[faddr] = (
+                    self.app1.function_name(faddr) + " (" + faddr + ")")
+            else:
+                fnames[faddr] = faddr
+
+        # XXX: Add to schema (see JSONCHBSchemas.py)
+        content["function-names"] = fnames
         content["functions-compared"] = self.functions_mapped()
         content["functions-changed"] = []
         for f in self.functions_changed():

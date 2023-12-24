@@ -1201,8 +1201,8 @@ functioncomparison = {
         "faddr2": strtype("hex address of function2 in file2"),
         "name1": strtype("symbolic name of function1 in file1"),
         "name2": strtype("symbolic name of function2 in file2"),
-        "changes": prop_set(["blockcount", "cfg-structure"]),
-        "matches": prop_set(["blockcount", "cfg-structure"]),
+        "changes": prop_set(["blockcount", "cfg-structure", "md5"]),
+        "matches": prop_set(["blockcount", "cfg-structure", "md5"]),
         "cfg-comparison": refdef("cfgcomparison"),
         "localvars-comparison": refdef("localvarscomparison"),
         "semantic-comparison": refdef("functionsemanticcomparison")

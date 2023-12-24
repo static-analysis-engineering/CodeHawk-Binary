@@ -111,10 +111,63 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
             obj.file1, obj.file2, "functions comparison"))
         obj.accept(self)
         self.add_txt(relational_footer())
-        return "\n".join(self._report)               
+        return "\n".join(self._report)
 
     def visit_app_comparison(self, obj: AppC.JSONAppComparison) -> None:
+        if not obj.functions_changed:
+            return
+
         self.add_txt(summary_header())
+
+        maxnamelen = max(len(n) for n in obj.function_names.values()) + 3
+
+        totalblocks = 0
+
+        # XXX: Should this loop over obj.functions_compared instead so we can
+        # report on functions not found? see line 292 in relational/RelationalAnalysis.py
+        for fn_changed in obj.functions_changed:
+            faddr = fn_changed.faddr1
+            fn_name = obj.function_names[faddr]
+
+            if fn_changed.faddr1 != fn_changed.faddr2:
+                moved = "moved"
+            else:
+                moved = "not moved"
+
+            if "md5" in fn_changed.changes:
+                md5eq = "no"
+            else:
+                md5eq = "yes"
+
+            if "cfg-structure" in fn_changed.changes:
+                streq = "no"
+                blocks1 = fn_changed.block_info["basic_blocks1"]
+                blocks2 = fn_changed.block_info["basic_blocks2"]
+                blchg = f"{blocks1} -> {blocks2}"
+
+                totalblocks += abs(blocks1 - blocks2)
+            else:
+                streq = "yes"
+                blockschanged = fn_changed.block_info["blocks-changed"]
+                allblocks = fn_changed.block_info["basic_blocks1"]
+                blchg = str(blockschanged) + "/" + str(allblocks)
+
+                totalblocks += blockschanged
+
+            self.add_txt(
+                fn_name.ljust(maxnamelen)
+                + moved.ljust(16)
+                + md5eq.ljust(12)
+                + streq.ljust(18)
+                + blchg.ljust(12))
+
+        self.add_txt("\n\nSummary")
+        self.add_txt("-" * 80)
+        self.add_txt("  Total number of blocks changed: " + str(totalblocks))
+
+        if self.details:
+            for fn_changed in obj.functions_changed:
+                fn_changed.accept(self)
 
     def visit_assembly_instruction(self, obj: JSONAssemblyInstruction) -> None:
         pass
