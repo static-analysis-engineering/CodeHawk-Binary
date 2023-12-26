@@ -101,6 +101,18 @@ class FunctionRelationalAnalysis:
         return self._patchevents
 
     @property
+    def name1(self) -> Optional[str]:
+        if self.app1.has_function_name(self.faddr1):
+            return self.app1.function_name(self.faddr1) + " (" + self.faddr1 + ")"
+        return None
+
+    @property
+    def name2(self) -> Optional[str]:
+        if self.app2.has_function_name(self.faddr1):
+            return self.app2.function_name(self.faddr2) + " (" + self.faddr2 + ")"
+        return None
+
+    @property
     def offset(self) -> int:
         """Return the difference between the two function addresses."""
 
@@ -505,6 +517,10 @@ class FunctionRelationalAnalysis:
         content: Dict[str, Any] = {}
         content["faddr1"] = self.faddr1
         content["faddr2"] = self.faddr2
+        if self.name1:
+            content["name1"] = self.name1
+        if self.name2:
+            content["name2"] = self.name2
         content["changes"] = self.changes
         content["matches"] = self.matches
         # XXX: Add to schema (see JSONCHBSchemas.py)
