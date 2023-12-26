@@ -119,15 +119,14 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
 
         self.add_txt(summary_header())
 
-        maxnamelen = max(len(n) for n in obj.function_names.values()) + 3
+        maxnamelen = max(len(n.display_name) for n in obj.functions_changed) + 3
 
         totalblocks = 0
 
         # XXX: Should this loop over obj.functions_compared instead so we can
         # report on functions not found? see line 292 in relational/RelationalAnalysis.py
         for fn_changed in obj.functions_changed:
-            faddr = fn_changed.faddr1
-            fn_name = obj.function_names[faddr]
+            fn_name = fn_changed.display_name
 
             if fn_changed.faddr1 != fn_changed.faddr2:
                 moved = "moved"

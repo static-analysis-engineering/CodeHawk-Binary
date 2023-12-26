@@ -280,6 +280,13 @@ class JSONFunctionComparison(JSONObject):
         return self.d.get("name2")
 
     @property
+    def display_name(self) -> str:
+        if self.name1:
+            return self.name1
+        else:
+            return self.faddr1
+
+    @property
     def changes(self) -> List[str]:
         return self.d.get("changes", [])
 
