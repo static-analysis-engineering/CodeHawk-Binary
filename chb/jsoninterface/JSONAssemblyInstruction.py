@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Tuple, Optional, TYPE_CHECKING
 
 from chb.jsoninterface.JSONObject import JSONObject
 from chb.jsoninterface.JSONStackpointerOffset import (
@@ -33,7 +33,7 @@ from chb.jsoninterface.JSONStackpointerOffset import (
 
 if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
-    
+
 
 
 class JSONAssemblyInstruction(JSONObject):
@@ -42,7 +42,7 @@ class JSONAssemblyInstruction(JSONObject):
         JSONObject.__init__(self, d, "assemblyinstruction")
 
     @property
-    def addr(self) -> str:
+    def addr(self) -> List[str]:
         return self.d.get("addr", self.property_missing("addr"))
 
     @property
@@ -57,7 +57,7 @@ class JSONAssemblyInstruction(JSONObject):
         return self.d.get("bytes", self.property_missing("bytes"))
 
     @property
-    def opcode(self) -> str:
+    def opcode(self) -> Tuple[str, str]:
         return self.d.get("opcode", self.property_missing("opcode"))
 
     @property
@@ -66,7 +66,3 @@ class JSONAssemblyInstruction(JSONObject):
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_assembly_instruction(self)
-
-                          
-
-                                      
