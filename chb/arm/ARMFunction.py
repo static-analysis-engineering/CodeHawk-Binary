@@ -258,17 +258,78 @@ class ARMFunction(Function):
             lines.append(self.byte_string(chunksize=80))
         return "\n".join(lines)
 
+    def block_to_json_result(self, block: ARMBlock) -> JSONResult:
+        bresult = block.to_json_result()
+        if not bresult.is_ok:
+            return JSONResult("assemblyfunction", {}, "fail", bresult.reason)
+
+        content: Dict[str, Any] = {}
+        content["baddr"] = block.real_baddr
+        content["code"] = bresult.content
+        looplevels = self.cfg.loop_levels(block.baddr)
+        if len(looplevels) > 0:
+            content["nesting-level"] = len(looplevels)
+
+        return JSONResult("cfgnode", content, "ok")
+
+    def cfg_edge_to_json_result(self, src: str, tgt: str, kind: str) -> JSONResult:
+        # remove context from addresses
+        real_src = src.split("_")[-1] if src.startswith("F") else src
+        real_tgt = tgt.split("_")[-1] if tgt.startswith("F") else tgt
+
+        content: Dict[str, Any] = {}
+        content["src"] = real_src
+        content["tgt"] = real_tgt
+        content["kind"] = kind
+        if kind in ["true", "false"]:
+            if src in self.branchconditions:
+                branchinstr = self.branchconditions[src]
+                ftconds = branchinstr.ft_conditions
+                if len(ftconds) == 2:
+                    if kind == "true":
+                        pred = ftconds[1].to_json_result()
+                    else:
+                        pred = ftconds[0].to_json_result()
+                    if not pred.is_ok:
+                        return JSONResult("cfgedge", {}, "fail", pred.reason)
+                    else:
+                        content["predicate"] = pred.content
+        return JSONResult("cfgedge", content, "ok")
+
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
         if len(self.names) > 0:
             content["name"] = self.names[0]
         content["faddr"] = self.faddr
         content["md5hash"] = self.md5
-        content["basicblocks"] = blocks = []
-        for b in self.blocks.values():
-            bresult = b.to_json_result()
+        content["nodes"] = nodes = []
+        for block in self.blocks.values():
+            bresult = self.block_to_json_result(block)
             if not bresult.is_ok:
-                return JSONResult("assemblyfunction", {}, "fail", bresult.reason)
+                return JSONResult("controlflowgraph", {}, "fail", bresult.reason)
+            nodes.append(bresult.content)
+
+        content["edges"] = edges = []
+        for (src, tgts) in self.cfg.edges.items():
+            if len(tgts) == 1:
+                edge = self.cfg_edge_to_json_result(src, tgts[0], "single")
+                if not edge.is_ok:
+                    return JSONResult("controlflowgraph", {}, "fail", edge.reason)
+                else:
+                    edges.append(edge.content)
+            elif len(tgts) == 2:
+                f_edge = self.cfg_edge_to_json_result(src, tgts[0], "false")
+                if not f_edge.is_ok:
+                    return JSONResult("controlflowgraph", {}, "fail", f_edge.reason)
+                t_edge = self.cfg_edge_to_json_result(src, tgts[1], "true")
+                if not t_edge.is_ok:
+                    return JSONResult("controlflowgraph", {}, "fail", t_edge.reason)
+                edges.extend([f_edge.content, t_edge.content])
             else:
-                blocks.append(bresult.content)
+                for tgt in tgts:
+                    edge = self.cfg_edge_to_json_result(src, tgt, "table")
+                    if not edge.is_ok:
+                        return JSONResult("controlflowgraph", {}, "fail", edge.reason)
+                    edges.append(edge.content)
+
         return JSONResult("assemblyfunction", content, "ok")

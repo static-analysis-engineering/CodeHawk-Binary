@@ -1347,9 +1347,13 @@ def parse() -> argparse.Namespace:
         choices=["a", "w"],
         default="a",
         help="file mode for log file: append (a, default), or write (w)")
-
+    relationalcomparefn.add_argument(
+        "--json",
+        action="store_true",
+        help="produce output in json format")
+    relationalcomparefn.add_argument(
+        "--output", "-o", help="save output in file")
     relationalcomparefn.set_defaults(func=R.relational_compare_function_cmd)
-
 
     # --- relational compare cfgs --
     relationalcomparecfgs = relationalcompareparsers.add_parser("cfgs")

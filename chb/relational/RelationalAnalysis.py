@@ -257,8 +257,9 @@ class RelationalAnalysis:
 
         content["functions-compared"] = self.functions_mapped()
         content["functions-changed"] = []
-        for f in self.functions_changed():
-            fra = self.function_analyses[f].to_json_result()
+        for faddr in self.functions_changed():
+            assert faddr in self.functions_mapped()
+            fra = self.function_analyses[faddr].to_json_result(self.callees)
             if fra.is_ok:
                 content["functions-changed"].append(fra.content)
             else:

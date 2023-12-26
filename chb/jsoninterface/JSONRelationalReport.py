@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 import datetime
 
-from typing import Any, Dict, List, Optional, Union
+from typing import List
 
 import chb.jsoninterface.JSONAppComparison as AppC
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
@@ -57,10 +57,10 @@ def relational_footer() -> str:
     return "\n".join(lines)
 
 
-def summary_header() -> str:
+def summary_header(maxnamelen: int) -> str:
     lines: List[str] = []
     lines.append(
-        "function".ljust(20)
+        "function".ljust(maxnamelen)
         + "moved to".ljust(12)
         + "md5-equal".ljust(12)
         + "cfg-isomorphic".ljust(18)
@@ -82,9 +82,11 @@ def function_comparison_header() -> str:
     lines: List[str] = []
     lines.append(
         "block".ljust(12)
-        + "moved".ljust(12)
-        + "md5-equivalent".ljust(20)
-        + "instrs-changed".ljust(20))
+        + "moved".ljust(15)
+        + "md5-equivalent".ljust(15)
+        + "instrs-changed".ljust(15)
+        + "instrs-added".ljust(14)
+        + "instrs-removed".ljust(14))
     lines.append("-" * 80)
     return "\n".join(lines)
 
@@ -93,11 +95,16 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
 
     def __init__(self) -> None:
         self._report: List[str] = []
-        self._details: bool = False
+        self._show_block_changes: bool = False
+        self._show_instr_changes: bool = False
 
     @property
-    def details(self) -> bool:
-        return self._details
+    def show_block_changes(self) -> bool:
+        return self._show_block_changes
+
+    @property
+    def show_instr_changes(self) -> bool:
+        return self._show_instr_changes
 
     def add_txt(self, s: str) -> None:
         self._report.append(s)
@@ -105,8 +112,16 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
     def summary_report(
             self,
             obj: AppC.JSONAppComparison,
-            details: bool = False) -> str:
-        self._details = details
+            block_changes: bool = False,
+            instr_changes: bool = False) -> str:
+        # Showing instruction changes requires showing basic block level changes
+        if instr_changes:
+            self._show_block_changes = True
+            self._show_instr_changes = True
+        else:
+            self._show_block_changes = block_changes
+            self._show_instr_changes = False
+
         self.add_txt(relational_header(
             obj.file1, obj.file2, "functions comparison"))
         obj.accept(self)
@@ -117,9 +132,8 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
         if not obj.functions_changed:
             return
 
-        self.add_txt(summary_header())
-
         maxnamelen = max(len(n.display_name) for n in obj.functions_changed) + 3
+        self.add_txt(summary_header(maxnamelen))
 
         totalblocks = 0
 
@@ -133,25 +147,25 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
             else:
                 moved = "not moved"
 
+            # XXX: We don't currently keep track of this, but it seems like if the
+            # function didn't move but we're reporting it changed, then the md5
+            # must have changed?
             if "md5" in fn_changed.changes:
-                md5eq = "no"
+                md5eq = "N/A"
             else:
-                md5eq = "yes"
+                md5eq = "N/A"
 
-            if "cfg-structure" in fn_changed.changes:
-                streq = "no"
-                blocks1 = fn_changed.block_info["basic_blocks1"]
-                blocks2 = fn_changed.block_info["basic_blocks2"]
-                blchg = f"{blocks1} -> {blocks2}"
-
-                totalblocks += abs(blocks1 - blocks2)
-            else:
+            if fn_changed.changes == ["blocks"]:
                 streq = "yes"
-                blockschanged = fn_changed.block_info["blocks-changed"]
-                allblocks = fn_changed.block_info["basic_blocks1"]
-                blchg = str(blockschanged) + "/" + str(allblocks)
+            else:
+                # XXX: In theory this is trampoline or split-block.
+                streq = "no"
 
-                totalblocks += blockschanged
+            blockschanged = fn_changed.num_blocks_changed
+            allblocks = fn_changed.num_blocks1
+            blchg = str(blockschanged) + "/" + str(allblocks)
+
+            totalblocks += blockschanged
 
             self.add_txt(
                 fn_name.ljust(maxnamelen)
@@ -164,21 +178,141 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
         self.add_txt("-" * 80)
         self.add_txt("  Total number of blocks changed: " + str(totalblocks))
 
-        if self.details:
+        if self.show_block_changes:
+            self.add_txt(details_header())
             for fn_changed in obj.functions_changed:
                 fn_changed.accept(self)
 
-    def visit_assembly_instruction(self, obj: JSONAssemblyInstruction) -> None:
-        pass
-
-    def visit_block_comparison(
-            self, obj: BlockC.JSONBlockComparison) -> None:
-        pass
-
     def visit_function_comparison(
             self, obj: FunC.JSONFunctionComparison) -> None:
+        if obj.name1:
+            name = obj.name1
+        else:
+            name = obj.faddr1
+
+        self.add_txt("\nFunction " + name)
         self.add_txt(function_comparison_header())
+
+        # Because of the visitor pattern, we are doing a depth first search walk of
+        # the changes, but we want to print them as breath-first-search. So we
+        # collect the text to report at the deepest level (instruction changes) here
+        # and then print it once we're done with the shallow level (block changes).
+        self.instr_changes_txt: List[str] = []
+
+        for block_mapping in obj.cfg_block_mapping:
+            block_mapping.accept(self)
+
+        self._report.extend(self.instr_changes_txt)
+
+    def visit_cfg_block_mapping_item(self,
+                                     obj: FunC.JSONCfgBlockMappingItem,
+                                    ) -> None:
+        def add_txt(obj: FunC.JSONCfgBlockMappingItem,
+                    moved: str, md5eq: str,
+                    instrs_changed: str = "-", instrs_added: str = "-", instrs_removed: str = "-") -> None:
+            self.add_txt(obj.cfg1_block_addr.ljust(12) + moved.ljust(15) + md5eq.ljust(15) +
+                         instrs_changed.ljust(15) + instrs_added.ljust(14) + instrs_removed.ljust(14))
+
+        # easy case
+        if not obj.changes:
+            add_txt(obj, "no", "yes")
+            return
+
+        def is_single_mapped(obj: FunC.JSONCfgBlockMappingItem) -> bool:
+            if len(obj.cfg2_blocks) > 1:
+                return False
+
+            cfg2_block = obj.cfg2_blocks[0]
+            if cfg2_block[1] != "single-mapped":
+                return False
+
+            return True
+
+        if is_single_mapped(obj):
+            cfg2_block = obj.cfg2_blocks[0]
+            if cfg2_block[0] == obj.cfg1_block_addr:
+                moved = "no"
+            else:
+                moved = "yes"
+            md5eq = "yes" if "md5" in obj.matches else "no"
+            if md5eq == "no":
+                block_comparison = obj.block_comparison
+                assert block_comparison
+
+                instrs_changed = len(block_comparison.summary_instructions_changed)
+                instr_count = obj.instr_count1
+                instrs_changed = f"{instrs_changed} / {instr_count}"
+                instrs_added = str(len(block_comparison.summary_instructions_added))
+                instrs_removed = str(len(block_comparison.summary_instructions_removed))
+                add_txt(obj, moved, md5eq, instrs_changed, instrs_added, instrs_removed)
+            else:
+                add_txt(obj, moved, md5eq)
+        else:
+            if obj.changes[0] == "block-split":
+                first_col = "split-block"
+                cfg2_blocks = obj.cfg2_blocks
+                assert len(cfg2_blocks) == 2
+                second_col = "split into %s and %s" % (cfg2_blocks[0][0], cfg2_blocks[1][0])
+                add_txt(obj, first_col, second_col, "", "", "")
+            else:
+                self.add_txt(obj.cfg1_block_addr.ljust(12) + "unsupported changes %s" % obj.changes)
+
+        if self.show_instr_changes:
+            if obj.block_comparison:
+                self.instr_changes_txt.append("\nInstruction-level changes in block %s:" %
+                                              obj.cfg1_block_addr)
+                obj.block_comparison.accept(self)
+
+    def visit_block_comparison(self, obj: BlockC.JSONBlockComparison) -> None:
+        if obj.instructions_changed:
+            self.instr_changes_txt.append("\n- Instructions changed:")
+            for instr_comp in obj.instructions_changed:
+                self.instr_changes_txt.append("")
+                instr_comp.accept(self)
+
+        if obj.instructions_removed:
+            # XXX: Untested
+            self.instr_changes_txt.append("\n- Instructions removed:")
+            for instr_comp in obj.instructions_removed:
+                self.instr_changes_txt.append("")
+                instr_comp.accept(self)
+
+        if obj.instructions_added:
+            self.instr_changes_txt.append("\n- Instructions added:")
+            for instr_comp in obj.instructions_added:
+                self.instr_changes_txt.append("")
+                instr_comp.accept(self)
 
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
-        pass
+        instr2  = obj.instr2
+        if instr2 is not None:
+            if obj.iaddr1 == obj.iaddr2:
+                moved = ""
+            else:
+                moved = " (moved)"
+            self.instr_prefix = "V"
+            self.instr_suffix = ""
+            obj.instr1.accept(self)
+            self.instr_prefix = "P"
+            self.instr_suffix = moved
+            instr2.accept(self)
+        else:
+            self.instr_prefix = "V"
+            self.instr_suffix = ""
+            obj.instr1.accept(self)
+            self.instr_changes_txt.append("  P: not mapped")
+
+    def visit_assembly_instruction(self, obj: JSONAssemblyInstruction) -> None:
+        self.instr_changes_txt.append(
+            "  " + self.instr_prefix + ": "
+            + obj.addr[0].ljust(8)
+            + "  "
+            + obj.bytes.ljust(8)
+            + "  "
+            + obj.opcode[0].ljust(8)
+            + "  "
+            + obj.opcode[1].ljust(16)
+            + " "
+            + obj.annotation
+            + self.instr_suffix)
