@@ -102,6 +102,9 @@ class JSONObjectVisitor(ABC):
     def visit_cfg_comparison(self, obj: FunC.JSONCfgComparison) -> None:
         ...
 
+    def visit_cfg_block_mapping_item(self, obj: FunC.JSONCfgBlockMappingItem) -> None:
+        ...
+
     def visit_cfg_edge(self, obj: Cfg.JSONCfgEdge) -> None:
         ...
 

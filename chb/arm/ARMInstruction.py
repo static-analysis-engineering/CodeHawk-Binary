@@ -351,9 +351,8 @@ class ARMInstruction(Instruction):
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
-        status: Dict[str, str] = {"status": "Ok"}
-        spresult = self.stackpointer_offset.to_json_result()
         content["addr"] = [self.real_iaddr]
+        spresult = self.stackpointer_offset.to_json_result()
         if spresult.is_ok:
             content["stackpointer"] = spresult.content
         content["bytes"] = self.bytestring

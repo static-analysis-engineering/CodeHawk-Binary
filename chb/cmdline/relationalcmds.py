@@ -372,7 +372,7 @@ def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
             result = relanalysis.to_json_result()
             if result.is_ok:
                 print(JSONRelationalReport().summary_report(
-                    JSONAppComparison(result.content), details=False))
+                    JSONAppComparison(result.content)))
 
     exit(0)
 
@@ -382,6 +382,8 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
     # arguments
     xname1: str = args.xname1
     xname2: str = args.xname2
+    xjson: bool = args.json
+    xoutput: str = args.output
     blocks: bool = args.blocks
     xpatchresults: Optional[str] = args.patch_results_file
     details: bool = args.details
@@ -447,16 +449,44 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
         usermapping=usermapping,
         patchevents=patchevents)
 
-    print(relational_header(
-        xname1,
-        xname2,
-        xinfo2.md5,
-        "function comparison of "
-        + ", ".join(addresses)))
-    print(relanalysis.report(True, args.details))
-    print("=" * 80)
-    print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
-    print("=" * 80)
+    if xjson:
+        jresult = relanalysis.to_json_result()
+        if not jresult.is_ok:
+            UC.print_error(
+                "Error in constructing json format: " + str(jresult.reason))
+            jsonresult = JU.jsonfail(jresult.reason)
+        else:
+            # XXX: Is this the right schema name?
+            jsonresult = JU.jsonok("comparefunctions", jresult.content)
+        if xoutput:
+            UC.print_status_update(
+                "Relation analysis results saved in " + xoutput)
+            with open(xoutput, "w") as fp:
+                json.dump(jsonresult, fp)
+        else:
+            print(json.dumps(jsonresult))
+    else:
+        result = relanalysis.to_json_result()
+        if result.is_ok:
+            print(
+                JSONRelationalReport().summary_report(
+                    JSONAppComparison(result.content),
+                    block_changes=blocks,
+                    instr_changes=details)
+            )
+
+        # XXX
+        if False:
+            print(relational_header(
+                xname1,
+                xname2,
+                xinfo2.md5,
+                "function comparison of "
+                + ", ".join(addresses)))
+            print(relanalysis.report(True, args.details))
+            print("=" * 80)
+            print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
+            print("=" * 80)
 
     chklogger.logger.info("relational compare function completed")
 

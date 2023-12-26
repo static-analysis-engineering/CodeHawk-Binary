@@ -123,18 +123,21 @@ class BlockRelationalAnalysis:
             else:
                 return self.b1.md5() == self.b2.rev_md5()
 
+    def _compute_instr_mappings(self) -> None:
+        (dist, mapping) = self.levenshtein_distance()
+        self._distance = dist
+        self.match_instructions(mapping)
+
     @property
     def instr_mapping(self) -> Mapping[str, str]:
         if len(self._instrmapping) == 0:
-            (dist, mapping) = self.levenshtein_distance()
-            self._distance = dist
-            self.match_instructions(mapping)
+            self._compute_instr_mappings()
         return self._instrmapping
 
     @property
     def rev_instr_mapping(self) -> Mapping[str, str]:
         if len(self._revinstrmapping) == 0:
-            mapping = self.instr_mapping
+            self._compute_instr_mappings()
         return self._revinstrmapping
 
     def changes(self) -> List[str]:
@@ -152,7 +155,7 @@ class BlockRelationalAnalysis:
     def matches(self) -> List[str]:
         result: List[str] = []
         if self.is_md5_equal:
-            return ["md5"]
+            result.append("md5")
         if self.b1len == self.b2len:
             result.append("instructioncount")
         return result
@@ -219,88 +222,139 @@ class BlockRelationalAnalysis:
                 result.append(iaddr1)
         return result
 
-    def to_json_result(self) -> JSONResult:
-        schema = "blockcomparison"
+    def to_json_result(self, callees: List[str]) -> JSONResult:
+        schema = "cfgblockmappingitem"
+
         content: Dict[str, Any] = {}
         content["baddr1"] = self.b1.baddr
-        content["baddr2"] = self.b2.baddr
-        content["lev-distance"] = self.distance
-        content["changes"] = []
-        content["matches"] = []
-        bsummary = self.block_comparison_summary_result()
-        if bsummary.is_ok:
-            content["block-comparison-summary"] = bsummary.content
-        else:
-            return JSONResult(schema, {}, "fail", bsummary.reason)
+        content["instr-count1"] = len(self.b1.instructions)
+        content["instr-count2"] = len(self.b2.instructions)
+        content["changes"] = self.changes()
+        content["matches"] = self.matches()
+        content["cfg1-block-addr"] = self.b1.real_baddr
+
+        content["cfg2-blocks"] = [{
+            "cfg2-block-addr": self.b2.real_baddr,
+            "role": "single-mapped",
+        }]
+
+        block_comparison: Dict[str, Any] = {}
+        bsummary = self.block_comparison_summary_result(callees)
+        if bsummary:
+            if not bsummary.is_ok:
+                return JSONResult(schema, {}, "fail", bsummary.reason)
+            block_comparison["block-comparison-summary"] = bsummary.content
+
         bdetails = self.block_comparison_details_result()
-        if bdetails.is_ok:
-            content["block-comparison-details"] = bdetails.content
-        else:
-            return JSONResult(schema, {}, "fail", bdetails.reason)
+        if bdetails:
+            if not bdetails.is_ok:
+                return JSONResult(schema, {}, "fail", bdetails.reason)
+
+            block_comparison["block-comparison-details"] = bdetails.content
+
+        if block_comparison:
+            # Can be read back using JSONBlockComparison
+            content['blockcomparison'] = block_comparison
 
         return JSONResult(schema, content, "ok")
 
-    def block_comparison_summary_result(self) -> JSONResult:
+    def block_comparison_summary_result(self, callees: List[str]) -> Optional[JSONResult]:
         schema = "blockcomparisonsummary"
         content: Dict[str, Any] = {}
-        binstrs = self.instructions_comparison_summary_result()
-        if binstrs.is_ok:
+        binstrs = self.instructions_comparison_summary_result(callees)
+        if binstrs:
+            if not binstrs.is_ok:
+                return JSONResult(schema, {}, "fail", binstrs.reason)
+
             content["block-instructions-comparison-summary"] = binstrs.content
-        else:
-            return JSONResult(schema, {}, "fail", binstrs.reason)
+
         bsem = self.semantics_comparison_summary_result()
-        if bsem.is_ok:
+        if bsem:
+            if not bsem.is_ok:
+                return JSONResult(schema, {}, "fail", bsem.reason)
             content["block-semantics-comparison-summary"] = bsem.content
-        else:
-            return JSONResult(schema, {}, "fail", bsem.reason)
+
+        if not content:
+            return None
 
         return JSONResult(schema, content, "ok")
 
-    def instructions_comparison_summary_result(self) -> JSONResult:
+    def instructions_comparison_summary_result(self, callees: List[str]) -> Optional[JSONResult]:
         schema = "blockinstructionscomparisonsummary"
         content: Dict[str, Any] = {}
-        content["changes"] = []
-        imapped: List[Dict[str, Any]] = []
-        for iaddr in self.instr_analyses:
-            iresult = self.instruction_mapped_summary_result(iaddr)
-            if iresult.is_ok:
-                imapped.append(iresult.content)
-            else:
-                return JSONResult(schema, {}, "fail", iresult.reason)
-        content["block-instructions-mapped"] = imapped
-        content["block-insturctions-added"] = self.instrs_added()
-        content["block-instructions-removed"] = self.instrs_deleted()
 
+        changes = []
+        instrs_changed = self.instrs_changed(callees)
+        if instrs_changed:
+            content["block-instructions-changed"] = instrs_changed
+            changes.append("changed")
+
+        instrs_added = self.instrs_added()
+        if instrs_added:
+            content["block-instructions-added"] = instrs_added
+            changes.append("added")
+
+        instrs_deleted = self.instrs_deleted()
+        if instrs_deleted:
+            content["block-instructions-removed"] = instrs_deleted
+            changes.append("removed")
+
+        if not changes:
+            return None
+
+        content["changes"] = changes
         return JSONResult(schema, content, "ok")
 
-    def instruction_mapped_summary_result(self, iaddr: str) -> JSONResult:
-        schema = "blockinstructionmappedsummary"
-        content: Dict[str, Any] = {}
-        content["iaddr"] = iaddr
-        content["changes"] = {}
-        content["matches"] = {}
-
-        return JSONResult(schema, content, "ok")
-
-    def semantics_comparison_summary_result(self) -> JSONResult:
+    def semantics_comparison_summary_result(self) -> Optional[JSONResult]:
         schema = "blocksemanticscomparisonsummary"
         content: Dict[str, Any] = {}
+        if not content:
+            return None
+
         return JSONResult(schema, content, "ok")
 
-    def block_comparison_details_result(self) -> JSONResult:
+    def block_comparison_details_result(self) -> Optional[JSONResult]:
         schema = "blockcomparisondetails"
         content: Dict[str, Any] = {}
+
         imapped: List[Dict[str, Any]] = []
         for (iaddr, ira) in self.instr_analyses.items():
             if ira.is_changed and ira.is_mapped:
                 iresult = ira.to_json_result()
-                if iresult.is_ok:
-                    imapped.append(iresult.content)
-                else:
+                if not iresult.is_ok:
                     return JSONResult(schema, {}, "fail", iresult.reason)
-        content["instruction-comparisons"] = imapped
-        content["instructions-added"] = []
-        content["instructions-removed"] = []
+
+                imapped.append(iresult.content)
+
+        if imapped:
+            content["instructions-changed"] = imapped
+
+        iadded = []
+        for iaddr in self.instrs_added():
+            ira = self.instr_analyses[iaddr]
+            iresult = ira.to_json_result()
+            if not iresult.is_ok:
+                return JSONResult(schema, {}, "fail", iresult.reason)
+
+            iadded.append(iresult.content)
+
+        if iadded:
+            content["instructions-added"] = iadded
+
+        iremoved = []
+        for iaddr in self.instrs_deleted():
+            ira = self.instr_analyses[iaddr]
+            iresult = ira.to_json_result()
+            if not iresult.is_ok:
+                return JSONResult(schema, {}, "fail", iresult.reason)
+
+            iremoved.append(iresult.content)
+
+        if iremoved:
+            content["instructions-removed"] = iremoved
+
+        if not content:
+            return None
 
         return JSONResult(schema, content, "ok")
 

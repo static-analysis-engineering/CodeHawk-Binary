@@ -26,6 +26,7 @@
 # ------------------------------------------------------------------------------
 
 from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 
 from chb.jsoninterface.JSONInstructionComparison import (
     JSONInstructionComparison)
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
 
 
+# XXX: Unused
 class JSONBlockSemanticComparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
@@ -54,15 +56,17 @@ class JSONBlockComparison(JSONObject):
     def __init__(self, d: Dict[str, Any]) -> None:
         JSONObject.__init__(self, d, "blockcomparison")
 
-        # instruction edits (string-like transformations)
-        self._instructioninsertions: Optional[List[str]] = None
-        self._instructiondeletions: Optional[List[str]] = None
-        self._instructionsubstitutions: (
+        self._instructionsadded: (
+            Optional[List[JSONAssemblyInstruction]]) = None
+        self._instructionsremoved: (
+            Optional[List[JSONInstructionComparison]]) = None
+        self._instructionschanged: (
             Optional[List[JSONInstructionComparison]]) = None
 
         # whole-block semantic comparison
         self._semanticcomparison: Optional[JSONBlockSemanticComparison] = None
 
+    # XXX: Unused
     @property
     def baddr1(self) -> str:
         return self.d.get("baddr1", self.property_missing("baddr1"))
@@ -76,12 +80,21 @@ class JSONBlockComparison(JSONObject):
         return self.d.get("lev-distance", -1)
 
     @property
+    def instr_count1(self) -> int:
+        return self.d.get("instr-count1", self.property_missing("instr-count1"))
+
+    @property
+    def instr_count2(self) -> int:
+        return self.d.get("instr-count2", self.property_missing("instr-count2"))
+
+    @property
     def changes(self) -> List[str]:
         return self.d.get("changes", [])
 
     @property
     def matches(self) -> List[str]:
         return self.d.get("matches", [])
+    # XXX: Unused
 
     @property
     def semantic_comparison(self) -> JSONBlockSemanticComparison:
@@ -90,30 +103,64 @@ class JSONBlockComparison(JSONObject):
                 self.d.get("semantic-comparison", {}))
         return self._semanticcomparison
 
-    @property
-    def instruction_insertions(self) -> List[str]:
-        if self._instructioninsertions is None:
-            self._instructioninsertions = []
-            for i in self.d.get("instruction-insertions", []):
-                self._instructioninsertions.append(i)
-        return self._instructioninsertions
+    def _get_instr_comparison_summary(self) -> Dict[str, Any]:
+        block_summary: Dict[str, Any] = \
+            self.d.get("block-comparison-summary",
+                       self.property_missing("block-comparison-summary"))
+        instr_summary: Dict[str, Any] = \
+            block_summary.get("block-instructions-comparison-summary",
+                              self.property_missing("block-instructions-comparison-summary"))
+        return instr_summary
 
     @property
-    def instruction_deletions(self) -> List[str]:
-        if self._instructiondeletions is None:
-            self._instructiondeletions = []
-            for i in self.d.get("instruction-deletions", []):
-                self._instructiondeletions.append(i)
-        return self._instructiondeletions
+    def summary_instructions_added(self) -> List[str]:
+        instr_summary = self._get_instr_comparison_summary()
+        return instr_summary.get("block-instructions-added", [])
 
     @property
-    def instruction_substitutions(self) -> List[JSONInstructionComparison]:
-        if self._instructionsubstitutions is None:
-            self._instructionsubstitutions = []
-            for i in self.d.get("instruction-substitutions", []):
-                self._instructionsubstitutions.append(
+    def summary_instructions_removed(self) -> List[str]:
+        instr_summary = self._get_instr_comparison_summary()
+        return instr_summary.get("block-instructions-removed", [])
+
+    @property
+    def summary_instructions_changed(self) -> List[str]:
+        instr_summary = self._get_instr_comparison_summary()
+        return instr_summary.get("block-instructions-changed", [])
+
+    @property
+    def instructions_changed(self) -> List[JSONInstructionComparison]:
+        if self._instructionschanged is None:
+            block_details: Dict[str, Any] = \
+                self.d.get("block-comparison-details",
+                           self.property_missing("block-comparison-details"))
+            self._instructionschanged = []
+            for i in block_details.get("instructions-changed", []):
+                self._instructionschanged.append(
                     JSONInstructionComparison(i))
-        return self._instructionsubstitutions
+        return self._instructionschanged
+
+    @property
+    def instructions_added(self) -> List[JSONAssemblyInstruction]:
+        if self._instructionsadded is None:
+            block_details: Dict[str, Any] = \
+                self.d.get("block-comparison-details",
+                           self.property_missing("block-comparison-details"))
+            self._instructionsadded = []
+            for i in block_details.get("instructions-added", []):
+                self._instructionsadded.append(JSONAssemblyInstruction(i))
+        return self._instructionsadded
+
+    @property
+    def instructions_removed(self) -> List[JSONInstructionComparison]:
+        if self._instructionsremoved is None:
+            block_details: Dict[str, Any] = \
+                self.d.get("block-comparison-details",
+                           self.property_missing("block-comparison-details"))
+            self._instructionsremoved = []
+            for i in block_details.get("instructions-removed", []):
+                self._instructionsremoved.append(
+                    JSONInstructionComparison(i))
+        return self._instructionsremoved
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_block_comparison(self)

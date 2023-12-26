@@ -146,16 +146,6 @@ class FunctionRelationalAnalysis:
         return self._changes
 
     @property
-    def block_info(self) -> Dict[str, int]:
-        if self._blockinfo is None:
-            self._blockinfo = {}
-            self._blockinfo["basic_blocks1"] = len(self.basic_blocks1)
-            self._blockinfo["basic_blocks2"] = len(self.basic_blocks2)
-            self._blockinfo["blocks-changed"] = len(self.blocks_changed())
-
-        return self._blockinfo
-
-    @property
     def matches(self) -> List[str]:
         if self._matches is None:
             changes = self.changes
@@ -512,7 +502,7 @@ class FunctionRelationalAnalysis:
 
         return "\n".join(lines)
 
-    def to_json_result(self) -> JSONResult:
+    def to_json_result(self, callees: List[str]) -> JSONResult:
         schema = "functioncomparison"
         content: Dict[str, Any] = {}
         content["faddr1"] = self.faddr1
@@ -521,11 +511,109 @@ class FunctionRelationalAnalysis:
             content["name1"] = self.name1
         if self.name2:
             content["name2"] = self.name2
-        content["changes"] = self.changes
-        content["matches"] = self.matches
-        # XXX: Add to schema (see JSONCHBSchemas.py)
-        content["block-info"] = self.block_info
 
+        cfg1 = self.fn1.to_json_result()
+        if not cfg1.is_ok:
+            return JSONResult(schema, {}, "fail", cfg1.reason)
+
+        content["cfg1"] = cfg1.content
+
+        cfg2 = self.fn2.to_json_result()
+        if not cfg2.is_ok:
+            return JSONResult(schema, {}, "fail", cfg2.reason)
+
+        content["cfg2"] = cfg1.content
+
+        changes: List[str] = []
+        blocks_changed= 0
+        if self.is_trampoline_block_splice:
+            changes.append("trampoline")
+            blockmapping: List[Dict[str, Any]] = []
+            for baddr1 in sorted(self.basic_blocks1):
+                if baddr1 in self.cfgmatcher.blockmapping:
+                    baddr2 = self.cfgmatcher.blockmapping[baddr1]
+                    blockra = BlockRelationalAnalysis(
+                        self.app1,
+                        self.basic_blocks1[baddr1],
+                        self.app2,
+                        self.basic_blocks2[baddr2])
+                    blockmap = blockra.to_json_result(callees)
+                    if not blockmap.is_ok:
+                        return JSONResult(schema, {}, "fail", blockmap.reason)
+
+                    blockmapping.append(blockmap.content)
+                    if blockra.changes():
+                        blocks_changed += 1
+                elif self.cfgmatcher.has_trampoline_match(baddr1):
+                    t = self.cfgmatcher.get_trampoline_match(baddr1)
+                    tra = TrampolineAnalysis(
+                        self.app1,
+                        self.basic_blocks1[baddr1],
+                        self.app2,
+                        [self.basic_blocks2[b] for b in t],
+                        self.cfgmatcher)
+                    blockmap = tra.to_json_result()
+                    if not blockmap.is_ok:
+                        return JSONResult(schema, {}, "fail", blockmap.reason)
+
+                    blockmapping.append(blockmap.content)
+                    blocks_changed += 1
+            content["cfg-block-mapping"] = blockmapping
+        elif self.is_block_split:
+            changes.append("block-split")
+            blockmapping = []
+            for baddr1 in sorted(self.basic_blocks1):
+                if baddr1 in self.cfgmatcher.blockmapping:
+                    baddr2 = self.cfgmatcher.blockmapping[baddr1]
+                    blockra = BlockRelationalAnalysis(
+                        self.app1,
+                        self.basic_blocks1[baddr1],
+                        self.app2,
+                        self.basic_blocks2[baddr2])
+                    blockmap = blockra.to_json_result(callees)
+                    if not blockmap.is_ok:
+                        return JSONResult(schema, {}, "fail", blockmap.reason)
+
+                    blockmapping.append(blockmap.content)
+                    if blockra.changes():
+                        blocks_changed += 1
+                elif self.cfgmatcher.has_block_split(baddr1):
+                    split = self.cfgmatcher.get_block_split(baddr1)
+                    spla = SplitBlockAnalysis(
+                        self.app1,
+                        self.basic_blocks1[baddr1],
+                        self.app2,
+                        split,
+                        self.cfgmatcher)
+                    blockmap = spla.to_json_result()
+                    if not blockmap.is_ok:
+                        return JSONResult(schema, {}, "fail", blockmap.reason)
+
+                    blockmapping.append(blockmap.content)
+                    blocks_changed += 1
+            content["cfg-block-mapping"] = blockmapping
+        else:
+            changes.append("blocks")
+            blockmapping = []
+            for baddr1 in self.blocks_changed():
+                assert baddr1 in self.cfgmatcher.blockmapping
+                baddr2 = self.cfgmatcher.blockmapping[baddr1]
+                blockra = BlockRelationalAnalysis(
+                    self.app1,
+                    self.basic_blocks1[baddr1],
+                    self.app2,
+                    self.basic_blocks2[baddr2])
+                blockmap = blockra.to_json_result(callees)
+                if not blockmap.is_ok:
+                    return JSONResult(schema, {}, "fail", blockmap.reason)
+
+                blockmapping.append(blockmap.content)
+                if blockra.changes():
+                    blocks_changed += 1
+            content["cfg-block-mapping"] = blockmapping
+
+        content["num-blocks-changed"] = blocks_changed
+        content["changes"] = changes
         return JSONResult(schema, content, "ok")
 
     def report(self, showinstructions: bool, callees: List[str] = []) -> str:

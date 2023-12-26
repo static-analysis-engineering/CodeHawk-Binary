@@ -28,7 +28,8 @@
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 from chb.jsoninterface.JSONBlockComparison import (
-    JSONBlockComparison, JSONBlockExpansion)
+    JSONBlockComparison, JSONBlockExpansion,
+)
 from chb.jsoninterface.JSONControlFlowGraph import JSONControlFlowGraph
 from chb.jsoninterface.JSONObject import JSONObject
 
@@ -92,6 +93,7 @@ class JSONCfgBlockMappingItem(JSONObject):
     def __init__(self, d: Dict[str, Any]) -> None:
         JSONObject.__init__(self, d, "cfgblockmappingitem")
         self._blocks2: Optional[List[Tuple[str, str]]] = None
+        self._blockcomparison: Optional[JSONBlockComparison] = None
 
     @property
     def changes(self) -> List[str]:
@@ -106,6 +108,14 @@ class JSONCfgBlockMappingItem(JSONObject):
         return self.d.get("cfg1-block-addr", self.property_missing("cfg1-block-addr"))
 
     @property
+    def instr_count1(self) -> int:
+        return self.d.get("instr-count1", self.property_missing("instr-count1"))
+
+    @property
+    def instr_count2(self) -> int:
+        return self.d.get("instr-count2", self.property_missing("instr-count2"))
+
+    @property
     def cfg2_blocks(self) -> List[Tuple[str, str]]:
         if self._blocks2 is None:
             result: List[Tuple[str, str]] = []
@@ -116,8 +126,19 @@ class JSONCfgBlockMappingItem(JSONObject):
             self._blocks2 = result
         return self._blocks2
 
+    @property
+    def block_comparison(self) -> Optional[JSONBlockComparison]:
+        # If nothing changed in this block, then this will not be part of the json
+        if 'blockcomparison' not in self.d:
+            return None
+
+        if self._blockcomparison is None:
+            self._block_comparison = JSONBlockComparison(
+                self.d.get('blockcomparison', self.property_missing('blockcomparison')))
+        return self._block_comparison
+
     def accept(self, visitor: "JSONObjectVisitor") -> None:
-        raise NotImplementedError("This is the previous JSON API and no longer supports visitors")
+        visitor.visit_cfg_block_mapping_item(self)
 
 
 class JSONCfgComparison(JSONObject):
@@ -165,6 +186,10 @@ class JSONCfgComparison(JSONObject):
     @property
     def similarity(self) -> str:
         return self.d.get("similarity", self.property_missing("similarity"))
+
+    @property
+    def num_blocks_changed(self) -> int:
+        return self.d.get("num-blocks-changed", self.property_missing("block-mapping"))
 
     @property
     def changes(self) -> List[str]:
@@ -259,9 +284,15 @@ class JSONFunctionComparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
         JSONObject.__init__(self, d, "functioncomparison")
+        self._cfg1: Optional[JSONControlFlowGraph] = None
+        self._cfg2: Optional[JSONControlFlowGraph] = None
+        self._mapping: Optional[List[JSONCfgBlockMappingItem]] = None
+
+        # XXX: Possibly unused stuff
         self._cfgcomparison: Optional[JSONCfgComparison] = None
         self._localvarscomparison: Optional[JSONLocalVarsComparison] = None
         self._semanticcomparison: Optional[JSONFunctionSemanticComparison] = None
+        self._blockanalyses: Optional[Dict[str, JSONBlockComparison]] = None
 
     @property
     def faddr1(self) -> str:
@@ -287,16 +318,48 @@ class JSONFunctionComparison(JSONObject):
             return self.faddr1
 
     @property
-    def changes(self) -> List[str]:
-        return self.d.get("changes", [])
+    def cfg1(self) -> JSONControlFlowGraph:
+        if self._cfg1 is None:
+            self._cfg1 = JSONControlFlowGraph(
+                self.d.get("cfg1", self.property_missing("cfg1")))
+        return self._cfg1
 
+    @property
+    def cfg2(self) -> JSONControlFlowGraph:
+        if self._cfg2 is None:
+            self._cfg2 = JSONControlFlowGraph(
+                self.d.get("cfg2", self.property_missing("cfg2")))
+        return self._cfg2
+
+    @property
+    def num_blocks1(self) -> int:
+        return len(self.cfg1.nodes)
+
+    @property
+    def num_blocks2(self) -> int:
+        return len(self.cfg2.nodes)
+
+    @property
+    def num_blocks_changed(self) -> int:
+        return self.d.get("num-blocks-changed", self.property_missing("block-mapping"))
+
+    @property
+    def changes(self) -> List[str]:
+        return self.d.get("changes", self.property_missing("changes"))
+
+    @property
+    def cfg_block_mapping(self) -> List[JSONCfgBlockMappingItem]:
+        if self._mapping is None:
+            result: List[JSONCfgBlockMappingItem] = []
+            for m in self.d.get("cfg-block-mapping", []):
+                result.append(JSONCfgBlockMappingItem(m))
+            self._mapping = result
+        return self._mapping
+
+    ##### XXX Possibly unused stuff
     @property
     def matches(self) -> List[str]:
         return self.d.get("matches", [])
-
-    @property
-    def block_info(self) -> Dict[str, int]:
-        return self.d.get("block-info", {})
 
     @property
     def cfg_comparison(self) -> JSONCfgComparison:
@@ -319,6 +382,24 @@ class JSONFunctionComparison(JSONObject):
                 JSONFunctionSemanticComparison(
                     self.d.get("semantic-comparison", {})))
         return self._semanticcomparison
+
+    @property
+    def is_cfg_isomorphic(self) -> bool:
+        return "cfg-structure" in self.matches
+
+    @property
+    def block_mapping(self) -> Dict[str, str]:
+        return self.d.get("block-mapping", self.property_missing("block-mapping"))
+
+    @property
+    def block_analyses(self) -> Dict[str, JSONBlockComparison]:
+        if self._blockanalyses is None:
+            self._blockanalyses = {}
+            for baddr, blra_json in self.d.get("block-analyses", {}).items():
+                self._blockanalyses[baddr] = JSONBlockComparison(blra_json)
+
+        return self._blockanalyses
+    ##### XXX Possibly unused stuff
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_function_comparison(self)
