@@ -28,12 +28,12 @@
 from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 
 from chb.jsoninterface.JSONObject import JSONObject
+from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 
 if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
 
 
-                          
 class JSONInstructionComparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
@@ -44,12 +44,24 @@ class JSONInstructionComparison(JSONObject):
         return self.d.get("iaddr1", self.property_missing("iaddr1"))
 
     @property
-    def iaddr2(self) -> str:
-        return self.d.get("iaddr2", self.property_missing("iaddr2"))
+    def iaddr2(self) -> Optional[str]:
+        return self.d.get("iaddr2")
 
     @property
     def changes(self) -> List[str]:
         return self.d.get("changes", [])
+
+    @property
+    def instr1(self) -> JSONAssemblyInstruction:
+        instr: Dict[str, Any] = self.d.get("instr-1", self.property_missing("instr-1"))
+        return JSONAssemblyInstruction(instr)
+
+    @property
+    def instr2(self) -> Optional[JSONAssemblyInstruction]:
+        instr = self.d.get("instr-2")
+        if instr is None:
+            return None
+        return JSONAssemblyInstruction(instr)
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_instruction_comparison(self)

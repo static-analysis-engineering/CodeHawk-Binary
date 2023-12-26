@@ -136,8 +136,6 @@ class InstructionRelationalAnalysis:
     @property
     def has_different_annotation(self) -> bool:
         if self.is_mapped:
-            a1 = self.instr1.annotation
-            a2 = self.instr2.annotation
             return self.instr1.annotation != self.instr2.annotation
         else:
             return True
@@ -155,18 +153,20 @@ class InstructionRelationalAnalysis:
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
         content["iaddr1"] = self.instr1.iaddr
-        content["iaddr2"] = self.instr2.iaddr
+        if self.is_mapped:
+            content["iaddr2"] = self.instr2.iaddr
         content["changes"] = self.changes
         if self.is_changed:
             i1result = self.instr1.to_json_result()
             if not i1result.is_ok:
                 return JSONResult(
                     "instructioncomparison", {}, "fail", i1result.reason)
-            i2result = self.instr2.to_json_result()
-            if not i2result.is_ok:
-                return JSONResult(
-                    "instructioncomparison", {}, "fail", i2result.reason)
             content["instr-1"] = i1result.content
-            content["instr-2"] = i2result.content
+            if self.is_mapped:
+                i2result = self.instr2.to_json_result()
+                if not i2result.is_ok:
+                    return JSONResult(
+                        "instructioncomparison", {}, "fail", i2result.reason)
+                content["instr-2"] = i2result.content
 
         return JSONResult("instructioncomparison", content, "ok")
