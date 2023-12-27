@@ -92,6 +92,9 @@ class ASTIdentityTransformer(ASTTransformer):
     def transform_call_instr(self, instr: AST.ASTCall) -> AST.ASTInstruction:
         return instr
 
+    def transform_asm_instr(self, instr: AST.ASTAsm) -> AST.ASTInstruction:
+        return instr
+
     def transform_lval(self, lval: AST.ASTLval) -> AST.ASTLval:
         return lval
 

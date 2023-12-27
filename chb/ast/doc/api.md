@@ -265,6 +265,19 @@ directly with the method <code>addto_instruction_mapping</code>.
     low_level_instruids: List[int] = []) -> ASTCall
   ```
 
+- **mk_asm**: creates an asm statement from an optional volatile qualifier, a list of
+  GCC-style template strings, and a list of clobbered registers.
+  TODO: add support for GCC-style input/output lists.
+  ```
+  def mk_asm(self,
+    vola: bool, 
+    templates: List[str],
+    clobbers: List[str],
+    instrid: Optional[int] = None,
+    locationid: Optional[int] = None,
+    low_level_instrids: List[int] = []) -> ASTAsm
+  ```
+
 - **mk_var_assign**: creates an assignment from a variable name and rhs
   (expression); an lval with the given name is created (as described
   below under Variables)

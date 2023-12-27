@@ -603,6 +603,20 @@ class AbstractSyntaxTree:
             self.provenance.add_instruction_mapping(instrid, ll_instrid)
         return AST.ASTCall(instrid, locationid, lval, tgt, args)
 
+    def mk_asm(
+            self,
+            vola: bool,
+            templates: List[str],
+            clobbers: List[str],
+            optinstrid: Optional[int] = None,
+            optlocationid: Optional[int] = None,
+            low_level_instrids: List[int] = []) -> AST.ASTAsm:
+        instrid = self.get_instrid(optinstrid)
+        locationid = self.get_locationid(optlocationid)
+        for ll_instrid in low_level_instrids:
+            self.provenance.add_instruction_mapping(instrid, ll_instrid)
+        return AST.ASTAsm(instrid, locationid, vola, templates, clobbers)
+
     def mk_var_call(
             self,
             vname: str,

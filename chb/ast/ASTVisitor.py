@@ -107,6 +107,10 @@ class ASTVisitor(ABC):
         ...
 
     @abstractmethod
+    def visit_asm_instr(self, instr: AST.ASTAsm) -> None:
+        ...
+
+    @abstractmethod
     def visit_lval(self, lval: AST.ASTLval) -> None:
         ...
 

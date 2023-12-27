@@ -79,6 +79,13 @@ Instructions
     0: id of left-hand-side (lval)
     1: id of right-hand-side (expr)
 
+- asm-instr
+  tag: "asm"
+  assembly-xref: cross-reference to assembly instruction
+  volatile: "true" or "false"
+  template:  GCC-style template string
+  clobbers:  register clobbers string
+
 
 Lval-related nodes
 ------------------
@@ -491,6 +498,17 @@ class ASTSerializer(ASTIndexer):
         args.append(lvalindex)
         args.append(instr.tgt.index(self))
         args.extend([arg.index(self) for arg in instr.arguments])
+        return self.add(tags, args, node)
+
+    def index_asm_instr(self, instr: AST.ASTAsm) -> int:
+        tags: List[str] = [instr.tag, str(instr.instrid), str(instr.locationid)]
+        args: List[int] = []
+        node: Dict[str, Any] = {"tag": instr.tag}
+        node["instrid"] = instr.instrid
+        node["locationid"] = instr.locationid
+        node["volatile"] = "true" if instr.volatile else "false"
+        node["template"] = instr.template 
+        node["clobbers"] = instr.clobbers 
         return self.add(tags, args, node)
 
     def index_lval(self, lval: AST.ASTLval) -> int:

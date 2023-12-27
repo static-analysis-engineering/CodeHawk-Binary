@@ -175,6 +175,9 @@ class ASTByteSizeCalculator(ASTIndexer):
     def index_call_instr(self, instr: AST.ASTCall) -> int:
         return 0
 
+    def index_asm_instr(self, instr: AST.ASTAsm) -> int:
+        return 0
+
     def index_lval(self, lval: AST.ASTLval) -> int:
         ctype = lval.ctype(self.ctyper)
         if ctype is not None:

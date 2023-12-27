@@ -93,6 +93,9 @@ class ASTCTyper(ABC):
     def ctype_call_instr(self, instr: AST.ASTCall) -> Optional[AST.ASTTyp]:
         return None
 
+    def ctype_asm_instr(self, instr: AST.ASTAsm) -> Optional[AST.ASTTyp]:
+        return None
+
     @abstractmethod
     def ctype_lval(self, lval: AST.ASTLval) -> Optional[AST.ASTTyp]:
         ...

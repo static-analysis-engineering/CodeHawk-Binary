@@ -771,6 +771,20 @@ class ASTInterface:
         self._annotations[call.instrid] = annotations
         return call
 
+    def mk_asm(
+            self,
+            vola: bool, 
+            templates: List[str], 
+            clobbers: List[str],
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
+            annotations: List[str] = []) -> AST.ASTAsm:
+        call = self.astree.mk_asm(vola, templates, clobbers)
+        if iaddr is not None and bytestring is not None:
+            self.add_instruction_span(call.locationid, iaddr, bytestring)
+        self._annotations[call.instrid] = annotations
+        return call
+
     def mk_nop_instruction(
             self,
             descr: str,

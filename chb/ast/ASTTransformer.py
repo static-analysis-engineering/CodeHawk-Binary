@@ -105,6 +105,10 @@ class ASTTransformer(ABC):
         ...
 
     @abstractmethod
+    def transform_asm_instr(self, instr: AST.ASTAsm) -> AST.ASTInstruction:
+        ...
+
+    @abstractmethod
     def transform_nop_instr(
             self, instr: AST.ASTNOPInstruction) -> AST.ASTInstruction:
         ...
