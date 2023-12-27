@@ -415,6 +415,18 @@ class ASTCPrettyPrinter(ASTVisitor):
         if len(self.annotation(instr.instrid)) > 0:
             self.ccode.write(" // " + self.annotation(instr.instrid))
 
+    def visit_asm_instr(self, instr: AST.ASTAsm) -> None:
+        self.ccode.newline(indent=self.indent)
+        if instr.volatile:
+            self.ccode.write(" volatile")
+        self.ccode.write("(")
+        self.ccode.write(instr.template)
+        self.ccode.write(", ")
+        self.ccode.write(instr.clobbers)
+        self.ccode.write(");")
+        if len(self.annotation(instr.instrid)) > 0:
+            self.ccode.write(" // " + self.annotation(instr.instrid))
+
     def visit_lval(self, lval: AST.ASTLval) -> None:
         if lval.lhost.is_memref:
             memexp = cast(AST.ASTMemRef, lval.lhost).memexp

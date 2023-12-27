@@ -148,6 +148,9 @@ class ASTStorageChecker(ASTVisitor):
         for a in instr.arguments:
             a.accept(self)
 
+    def visit_asm_instr(self, instr: AST.ASTAsm) -> None:
+        pass
+
     def visit_lval(self, lval: AST.ASTLval) -> None:
         lval.lhost.accept(self)
         lval.offset.accept(self)

@@ -87,6 +87,9 @@ class ASTNOPVisitor(ASTVisitor):
     def visit_call_instr(self, instr: AST.ASTCall) -> None:
         pass
 
+    def visit_asm_instr(self, instr: AST.ASTAsm) -> None:
+        pass
+
     def visit_lval(self, lval: AST.ASTLval) -> None:
         pass
 

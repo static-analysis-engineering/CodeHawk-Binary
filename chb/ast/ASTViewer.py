@@ -287,6 +287,14 @@ class ASTViewer(ASTNOPVisitor):
                 self.add_edge(name, self.expr_name(a), labeltxt="arg:" + str(i+1))
                 a.accept(self)
 
+    def visit_asm_instr(self, instr: AST.ASTAsm) -> None:
+        name = self.instr_name(instr)
+        span = self.instr_span(instr)
+        self.add_node(
+            name,
+            labeltxt="call:" + str(instr.instrid) + span,
+            color=nodecolors["instr"])
+
     def visit_nop_instr(self, instr: AST.ASTNOPInstruction) -> None:
         name = self.instr_name(instr)
         span = self.instr_span(instr)

@@ -1062,6 +1062,53 @@ class ASTCall(ASTInstruction):
         return result
 
 
+class ASTAsm(ASTInstruction):
+
+    def __init__(
+            self,
+            instrid: int,
+            locationid: int,
+            vola: bool,
+            templates: List[str],
+            clobbers: List[str]) -> None:
+        ASTInstruction.__init__(self, instrid, locationid, "asm")
+        self._volatile = vola
+        self._templates = templates
+        self._clobbers = clobbers
+
+    @property
+    def is_ast_asm(self) -> bool:
+        return True
+
+    @property
+    def volatile(self) -> bool:
+        return self._volatile
+
+    @property
+    def template(self) -> str:
+        return " ".join(self._templates)
+
+    @property
+    def clobbers(self) -> str:
+        return " ".join(self._clobbers)
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_asm_instr(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTInstruction":
+        return transformer.transform_asm_instr(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_asm_instr(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_asm_instr(self)
+
+    def __str__(self) -> str:
+        vol = " volatile" if self.volatile else ""
+        return "asm{}({}, {})".format(vol, self.template, self.clobbers) 
+
+
 class ASTLval(ASTNode):
 
     def __init__(

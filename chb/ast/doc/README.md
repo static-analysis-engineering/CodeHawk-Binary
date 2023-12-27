@@ -50,6 +50,7 @@ syntax tree. They are organized in a hierarchy as follows:
 - **ASTInstruction**: abstract instruction (sequential control flow)
   - *ASTAssign*: assignment instruction, left-hand-side := right-hand-side
   - *ASTCall*: call instruction, (left-hand-side :=) call(..arguments..)
+  - *ASTAsm*: asm instruction, asm volatile? (templates, clobbers) 
 - **ASTLval**: left-hand-side location consisting of a base location and offset
 - **ASTLHost**: abstract left-hand-side base location
   - *ASTVariable*: location denoted by a variable

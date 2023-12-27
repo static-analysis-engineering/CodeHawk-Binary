@@ -16,6 +16,10 @@ chb/bin/binaries/*/chx86_analyze
 *.yaml~
 chkx~
 
+# Vim
+*.swp
+*.swo
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

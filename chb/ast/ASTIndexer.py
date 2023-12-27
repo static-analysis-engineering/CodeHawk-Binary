@@ -105,6 +105,10 @@ class ASTIndexer(ABC):
         ...
 
     @abstractmethod
+    def index_asm_instr(self, instr: AST.ASTAsm) -> int:
+        ...
+
+    @abstractmethod
     def index_lval(self, lval: AST.ASTLval) -> int:
         ...
 
