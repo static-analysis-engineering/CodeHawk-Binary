@@ -146,7 +146,8 @@ class ARMVLoadRegister(ARMOpcode):
             addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
             hl_rhs = astree.mk_lval_expression(addrlval)
 
-        hl_lhs = astree.mk_register_variable_lval(str(lhs))
+        # hl_lhs = astree.mk_register_variable_lval(str(lhs))
+        hl_lhs = XU.xvariable_to_ast_lvals(lhs, xdata, astree)[0]
         hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,

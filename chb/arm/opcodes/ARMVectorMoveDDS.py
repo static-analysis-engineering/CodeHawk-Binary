@@ -122,7 +122,7 @@ class ARMVectorMoveDDS(ARMOpcode):
         lhs1 = xdata.vars[0]
         lhs2 = xdata.vars[1]
         lhsc = xdata.vars[2]
-        rhs = xdata.xprs[0]
+        rhs = xdata.xprs[1]
         rdefs = xdata.reachingdefs[0]
         defuses1 = xdata.defuses[0]
         defuses2 = xdata.defuses[1]

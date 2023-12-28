@@ -25,13 +25,18 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -86,9 +91,67 @@ class ARMVectorSubtract(ARMOpcode):
     def vfp_datatype(self) -> "ARMVfpDatatype":
         return self.armd.arm_vfp_datatype(self.args[0])
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
+
     def annotation(self, xdata: InstrXData) -> str:
         lhs = str(xdata.vars[0])
         rhs1 = str(xdata.xprs[3])
         rhs2 = str(xdata.xprs[4])
         rhsd = str(xdata.xprs[5])
         return lhs + " := " + rhs1 + " - " + rhs2
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "VSUB"]
+
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[3]
+        rhs2 = xdata.xprs[4]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_rhs = astree.mk_binary_op("minus", ll_rhs1, ll_rhs2)
+
+        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        if len(lhsasts) != 1:
+            raise UF.CHBError("ARMSubtract: no or multiple lvals in ast")
+
+        hl_lhs = lhsasts[0]
+
+        rhs1asts = XU.xxpr_to_ast_def_exprs(rhs1, xdata, iaddr, astree)
+        rhs2asts = XU.xxpr_to_ast_def_exprs(rhs2, xdata, iaddr, astree)
+        if len(rhs1asts) == 1 and len(rhs2asts) == 1:
+            rhsast1 = rhs1asts[0]
+            rhsast2 = rhs2asts[0]
+        else:
+            raise UF.CHBError(
+                "ARMVectorSubtract: multiple expressions in ast rhs")
+
+        hl_rhs = astree.mk_binary_op("minus", rhsast1, rhsast2)
+        return self.ast_variable_intro(
+            astree,
+            astree.astree.int_type,
+            hl_lhs,
+            hl_rhs,
+            ll_lhs,
+            ll_rhs,
+            rdefs[2:],
+            rdefs[:2],
+            defuses[0],
+            defuseshigh[0],
+            True,
+            iaddr,
+            annotations,
+            bytestring)

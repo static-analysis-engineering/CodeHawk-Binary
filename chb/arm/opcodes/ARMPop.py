@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Tuple, TYPE_CHECKING
+from typing import cast, List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -99,15 +99,23 @@ class ARMPop(ARMOpcode):
         return str(self.operands[1])
 
     def is_return_instruction(self, xdata: InstrXData) -> bool:
-        vars = xdata.vars
-        xprs = xdata.xprs
+        vars = xdata.vars[1:]
+        xprs = xdata.xprs[3:]
         xctr = len(vars)
-        pairs = zip(vars, xprs[:xctr])
+        pairs = list(zip(vars, xprs[:xctr]))
         for (v, x) in pairs:
             if str(v) == "PC" and str(x) == "LR_in":
                 return True
         else:
             return False
+
+    def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
+        nvars = len(xdata.vars[1:])
+        # this condition is fragile, should be made more robust
+        if len(xdata.xprs) == (2 * nvars) + 4:
+            return xdata.xprs[-1]
+        else:
+            return None
 
     def annotation(self, xdata: InstrXData) -> str:
         vars = xdata.vars
