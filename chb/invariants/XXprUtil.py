@@ -1028,16 +1028,18 @@ def vinitregister_value_to_ast_lvals(
             if len(arglvals) > 0:
                 return arglvals
 
-        register = str(vconstvar.register)
+        registername = str(vconstvar.register)
         return [astree.mk_register_variable_lval(
-            register + "_in", registername=register, anonymous=anonymous)]
+            registername + "_in", registername=registername,
+            anonymous=anonymous)]
 
     elif vconstvar.register.is_stack_pointer:
         return [astree.mk_register_variable_lval("base_sp", anonymous=anonymous)]
     else:
-        register = str(vconstvar.register)
+        registername = str(vconstvar.register)
         return [astree.mk_register_variable_lval(
-            register + "_in", registername=register, anonymous=anonymous)]
+            registername + "_in", registername=registername,
+            anonymous=anonymous)]
 
 
 def vinitmemory_value_to_ast_lvals(
