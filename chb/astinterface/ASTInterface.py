@@ -64,6 +64,7 @@ import chb.util.fileutil as UF
 
 
 if TYPE_CHECKING:
+    from chb.api.AppFunctionSignature import AppFunctionSignature
     from chb.astinterface.BC2ASTConverter import BC2ASTConverter
     from chb.bctypes.BCConverter import BCConverter
     from chb.bctypes.BCFieldInfo import BCFieldInfo
@@ -171,6 +172,7 @@ class ASTInterface:
             parameter_abi: str,
             srcprototype: Optional["BCVarInfo"] = None,
             astprototype: Optional[AST.ASTVarInfo] = None,
+            appsignature: Optional["AppFunctionSignature"] = None,
             varintros: Dict[str, str] = {},
             verbose: bool = False,
             showinfolog: bool = False,
@@ -178,6 +180,7 @@ class ASTInterface:
         self._astree = astree
         self._srcprototype = srcprototype
         self._astprototype = astprototype
+        self._appsignature = appsignature
         self._varintros = varintros
         self._typconverter = typconverter
         self._verbose = verbose
@@ -211,6 +214,10 @@ class ASTInterface:
     @property
     def srcprototype(self) -> Optional["BCVarInfo"]:
         return self._srcprototype
+
+    @property
+    def appsignature(self) -> Optional["AppFunctionSignature"]:
+        return self._appsignature
 
     @property
     def varintros(self) -> Dict[str, str]:
