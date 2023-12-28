@@ -396,6 +396,12 @@ def parse() -> argparse.Namespace:
         help=("use single static assignment; this will be applied only in the "
               + "final round"))
     analyzecmd.add_argument(
+        "--arm_extension_registers",
+        action="store_true",
+        help=(
+            "include arm-extension-registers (floating-point registers) in the "
+            + "analysis"))
+    analyzecmd.add_argument(
         "--analysisrepeats",
         type=int,
         default=1,

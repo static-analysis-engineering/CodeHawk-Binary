@@ -62,6 +62,7 @@ from chb.userdata.UserHints import UserHints
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
+    from chb.api.AppFunctionSignature import AppFunctionSignature
     from chb.bctypes.BCCompInfo import BCCompInfo
     from chb.bctypes.BCTyp import BCTypComp
     from chb.bctypes.BCVarInfo import BCVarInfo
@@ -239,6 +240,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     for faddr in functions:
         if app.has_function(faddr):
             f = app.function(faddr)
+            fsummary = f.finfo.appsummary
             if f is None:
                 UC.print_error("Unable to find function " + faddr)
                 continue
@@ -260,8 +262,11 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
             srcprototype: Optional["BCVarInfo"] = None
             astprototype: Optional[ASTVarInfo] = None
+            appsignature: Optional["AppFunctionSignature"] = None
             if app.bcfiles.has_vardecl(fname):
                 srcprototype = app.bcfiles.vardecl(fname)
+                if fsummary is not None:
+                    appsignature = fsummary.function_signature
             elif fname == "main":
                 astprototype = astree.mk_vinfo_main_function(faddr)
 
@@ -271,6 +276,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 xinfo.architecture,
                 srcprototype=srcprototype,
                 astprototype=astprototype,
+                appsignature=appsignature,
                 varintros=varintros,
                 verbose=verbose,
                 showdiagnostics=showdiagnostics,

@@ -79,6 +79,7 @@ class AnalysisManager(object):
             lineq_instr_cutoff = 0,
             lineq_block_cutoff = 0,
             use_ssa: bool = False,
+            include_arm_extension_registers: bool = False,
             hints: Dict[str, Any] = {}) -> None:
         """Initializes the analyzer location and target file location
 
@@ -117,6 +118,7 @@ class AnalysisManager(object):
         self.lineq_block_cutoff = lineq_block_cutoff
         self.fnsanalyzed: List[str] = []
         self.use_ssa = use_ssa
+        self.include_arm_extension_registers = include_arm_extension_registers
 
     # Extraction and directory preparation -------------------------------------
 
@@ -459,6 +461,8 @@ class AnalysisManager(object):
             cmd.extend(["-lineq_instr_cutoff", str(self.lineq_instr_cutoff)])
         if self.lineq_block_cutoff > 0:
             cmd.extend(["-lineq_block_cutoff", str(self.lineq_block_cutoff)])
+        if self.include_arm_extension_registers:
+            cmd.append("-arm_extension_registers")
 
         cmd.extend(["-analyze", self.filename])
         jarcmd = ["jar", "cf",  functionsjarfile, "-C", analysisdir, "functions"]
