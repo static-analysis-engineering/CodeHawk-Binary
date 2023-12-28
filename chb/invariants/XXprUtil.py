@@ -1012,6 +1012,15 @@ def vinitregister_value_to_ast_lvals(
         size: int = 4,
         anonymous: bool = False) -> List[AST.ASTLval]:
 
+    fsig = astree.appsignature
+    if fsig is not None:
+        register = vconstvar.register
+        optindex = fsig.index_of_register_parameter_location(register)
+        if optindex is not None:
+            arglvals = astree.function_argument(optindex - 1)
+            if len(arglvals) > 0:
+                return arglvals
+
     if vconstvar.is_argument_value:
         argindex = vconstvar.argument_index()
         if argindex < astree.get_formal_binary_argcount():
