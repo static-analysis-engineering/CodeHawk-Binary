@@ -138,13 +138,14 @@ class ARMVStoreRegister(ARMOpcode):
                 + ", ".join(str(x) for x in rhsexprs))
 
         hl_rhs = rhsexprs[0]
+        hl_rhs_type = hl_rhs.ctype(astree.ctyper)
 
         if lhs.is_tmp or lhs.has_unknown_memory_base():
             hl_lhs = XU.xmemory_dereference_lval(xaddr, xdata, iaddr, astree)
             astree.add_lval_store(hl_lhs)
 
         else:
-            lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+            lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree, ctype=hl_rhs_type)
             if len(lvals) == 0:
                 raise UF.CHBError(
                     "VStoreRegister (VSTR): no lhs found")
@@ -155,6 +156,7 @@ class ARMVStoreRegister(ARMOpcode):
                     + ", ".join(str(v) for v in lvals))
 
             hl_lhs = lvals[0]
+            astree.add_lval_store(hl_lhs)
 
         hl_assign = astree.mk_assign(
             hl_lhs,

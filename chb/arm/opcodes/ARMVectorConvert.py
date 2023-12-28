@@ -138,7 +138,7 @@ class ARMVectorConvert(ARMOpcode):
         annotations: List[str] = [iaddr, "VCVT"]
 
         lhs = xdata.vars[0]
-        rhs = xdata.xprs[0]
+        rhs = xdata.xprs[1]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
