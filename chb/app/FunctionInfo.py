@@ -69,10 +69,12 @@ class FunctionInfo:
         if xsummary is not None:
             xfintf = xsummary.get("fintf")
             xfsem = xsummary.get("fsem")
-            if xfintf is not None and xfsem is not None:
+            xfsig = xsummary.get("fsig")
+            if xfintf is not None and xfsem is not None and xfsig is not None:
+                appsignature = self.ixd.function_signature(int(xfsig))
                 appfinterface = self.ixd.function_interface(int(xfintf))
                 appfsemantics = self.ixd.function_semantics(int(xfsem))
-                return AppSummary(appfinterface, appfsemantics)
+                return AppSummary(appsignature, appfinterface, appfsemantics)
         return None
 
     @property
