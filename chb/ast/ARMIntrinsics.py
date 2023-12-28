@@ -45,13 +45,26 @@ class ARMIntrinsics:
         self._intrinsics: Dict[str, AST.ASTVarInfo] = {}
         self._uint32_t = self.mk_integer_ikind_type("iuint")
         self._unsigned_int = self.mk_integer_ikind_type("iuint")
+        self._float = self.mk_float_fkind_type("float")
+        self._double = self.mk_float_fkind_type("fdouble")
 
     def mk_integer_ikind_type(self, ikind: str) -> AST.ASTTypInt:
         return AST.ASTTypInt(ikind)
 
+    def mk_float_fkind_type(self, fkind: str) -> AST.ASTTypFloat:
+        return AST.ASTTypFloat(fkind)
+
     @property
     def uint32_t(self) -> AST.ASTTyp:
         return self._uint32_t
+
+    @property
+    def float_t(self) -> AST.ASTTyp:
+        return self._float
+
+    @property
+    def double_t(self) -> AST.ASTTyp:
+        return self._double
 
     @property
     def unsigned_int(self) -> AST.ASTTyp:
@@ -132,3 +145,21 @@ class ARMIntrinsics:
         fsig = AST.ASTTypFun(self.uint32_t, funargs)
         return AST.ASTVarInfo(
             "__ror", vtype=fsig, globaladdress=0, vdescr="arm intrinsic")
+
+    @property
+    def fabsf(self) -> AST.ASTVarInfo:
+        """float fabsf(float x); """
+
+        funargs = AST.ASTFunArgs([AST.ASTFunArg("x", self.float_t)])
+        fsig = AST.ASTTypFun(self.float_t, funargs)
+        return AST.ASTVarInfo(
+            "fabsf", vtype=fsig, globaladdress=0, vdescr="arm instruction")
+
+    @property
+    def fabs(self) -> AST.ASTVarInfo:
+        """double fabs(double x); """
+
+        funargs = AST.ASTFunArgs([AST.ASTFunArg("x", self.double_t)])
+        fsig = AST.ASTTypFun(self.double_t, funargs)
+        return AST.ASTVarInfo(
+            "fabs", vtype=fsig, globaladdress=0, vdescr="arm instruction")
