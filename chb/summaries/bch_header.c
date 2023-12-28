@@ -38,3 +38,6 @@ typedef struct _sockaddr sockaddr;
 
 struct stat;
 typedef struct stat _stat;
+
+
+int main(int argc, char **argv);

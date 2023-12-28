@@ -538,6 +538,10 @@ class ARMExtensionRegListOp(ARMOperandKind):
     def is_extension_register_list(self) -> bool:
         return True
 
+    @property
+    def count(self) -> int:
+        return len(self.extension_registers)
+
     def __str__(self) -> str:
         return "{" + ",".join(str(r) for r in self.extension_registers) + "}"
 
