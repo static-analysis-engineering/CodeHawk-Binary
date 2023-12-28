@@ -35,6 +35,7 @@ import chb.util.fileutil as UF
 if TYPE_CHECKING:
     from chb.api.AppFunctionInterface import AppFunctionInterface
     from chb.api.AppFunctionSemantics import AppFunctionSemantics
+    from chb.api.AppFunctionSignature import AppFunctionSignature
     from chb.api.FtsParameter import FtsParameter
     from chb.api.InterfaceDictionary import InterfaceDictionary
     from chb.bctypes.BCTyp import BCTyp
@@ -45,10 +46,16 @@ class AppSummary:
 
     def __init__(
             self,
+            fsignature: "AppFunctionSignature",
             finterface: "AppFunctionInterface",
             fsemantics: "AppFunctionSemantics") -> None:
+        self._fsig = fsignature
         self._fintf = finterface
         self._fsem = fsemantics
+
+    @property
+    def function_signature(self) -> "AppFunctionSignature":
+        return self._fsig
 
     @property
     def function_interface(self) -> "AppFunctionInterface":
@@ -59,4 +66,4 @@ class AppSummary:
         return self._fsem
 
     def __str__(self) -> str:
-        return  str(self.function_interface) + "\n" + str(self.function_semantics)
+        return  str(self.function_signature) + "\n" + str(self.function_semantics)

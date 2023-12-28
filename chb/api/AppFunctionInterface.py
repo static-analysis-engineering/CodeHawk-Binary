@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from chb.api.InterfaceDictionaryRecord import InterfaceDictionaryRecord
 
@@ -36,7 +36,9 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.api.AppFunctionSignature import AppFunctionSignature
+    from chb.api.FtsParameterLocation import FtsParameterLocation
     from chb.api.InterfaceDictionary import InterfaceDictionary
+    from chb.bctypes.BCTyp import BCTyp
 
 
 class AppFunctionInterface(InterfaceDictionaryRecord):
@@ -46,6 +48,9 @@ class AppFunctionInterface(InterfaceDictionaryRecord):
     args[1]: jni index or -1
     args[2]: syscall index of -1
     args[3]: index of function signature in interfacedictionary
+    args[4]: index of parameter locations list in interfacedictionary
+    args[5]: index of inferred return type or -1 if not inferred
+    args[6]: index of externally provided type or -1 if not available
     """
 
     def __init__(
@@ -60,6 +65,22 @@ class AppFunctionInterface(InterfaceDictionaryRecord):
     def signature(self) -> "AppFunctionSignature":
         return self.id.function_signature(self.args[3])
 
+    @property
+    def parameter_locations(self) -> List["FtsParameterLocation"]:
+        return self.id.parameter_location_list(self.args[4])
+
+    @property
+    def bctype(self) -> Optional["BCTyp"]:
+        if self.args[6] > 0:
+            return self.bcd.typ(self.args[6])
+        else:
+            return None
+
     def __str__(self) -> str:
-        return self.name + " " + str(self.signature)
+        return (
+            self.name + " "
+            + str(self.signature)
+            + "\nparameters: ("
+            + ", ".join(str(loc) for loc in self.parameter_locations)
+            + ")")
         

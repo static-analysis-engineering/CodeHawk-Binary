@@ -63,6 +63,8 @@ class InterfaceDictionary:
         self.function_stub_table = IT.IndexedTable("function-stub-table")
         self.call_target_table = IT.IndexedTable("call-target-table")
         self.parameter_location_table = IT.IndexedTable("parameter-location-table")
+        self.parameter_location_list_table = (
+            IT.IndexedTable("parameter-location-list-table"))
         self.fts_parameter_list_table = IT.IndexedTable("fts-parameter-list-table")
         self.fts_parameter_table = IT.IndexedTable("fts-parameter-table")
         self.function_interface_table = IT.IndexedTable("function-interface-table")
@@ -73,6 +75,7 @@ class InterfaceDictionary:
         self.bterm_table = IT.IndexedTable("bterm-table")
         self.tables: List[IT.IndexedTable] = [
             self.parameter_location_table,
+            self.parameter_location_list_table,
             self.function_stub_table,
             self.call_target_table,
             self.function_interface_table,
@@ -103,6 +106,10 @@ class InterfaceDictionary:
     def parameter_location(self, ix: int) -> FtsParameterLocation:
         return apiregistry.mk_instance(
             self, self.parameter_location_table.retrieve(ix), FtsParameterLocation)
+
+    def parameter_location_list(self, ix: int) -> List[FtsParameterLocation]:
+        locs = self.parameter_location_list_table.retrieve(ix).args
+        return [self.parameter_location(ix) for ix in locs]
 
     def function_stub(self, ix: int) -> FunctionStub:
         return apiregistry.mk_instance(

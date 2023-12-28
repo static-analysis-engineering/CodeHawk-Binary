@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from chb.api.InterfaceDictionaryRecord import InterfaceDictionaryRecord
 
@@ -37,6 +37,7 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.api.FtsParameter import FtsParameter
     from chb.api.InterfaceDictionary import InterfaceDictionary
+    from chb.app.Register import Register
     from chb.bctypes.BCTyp import BCTyp
 
 
@@ -68,11 +69,16 @@ class AppFunctionSignature(InterfaceDictionaryRecord):
     def returntype(self) -> "BCTyp":
         return self.bcd.typ(self.args[3])
 
+    def index_of_register_parameter_location(self, r: "Register") -> Optional[int]:
+        for p in self.parameter_list:
+            if p.is_register_parameter_location(r):
+                return p.argindex
+        return None
+
     def __str__(self) -> str:
-        pars = sorted(self.parameter_list, key=lambda p:p.parameter_location)
         return (
             str(self.returntype)
             + " ("
-            + ", ".join(str(p) for p in pars)
+            + ", ".join(str(p) for p in self.parameter_list)
             + ")")
         
