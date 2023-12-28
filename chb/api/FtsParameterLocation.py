@@ -78,6 +78,9 @@ class FtsParameterLocation(InterfaceDictionaryRecord):
     def is_unknown_location(self) -> bool:
         return False
 
+    def is_register_parameter_location_of(self, r: "Register") -> bool:
+        return False
+
 
 @apiregistry.register_tag("s", FtsParameterLocation)
 class FtsStackParameter(FtsParameterLocation):
@@ -120,6 +123,9 @@ class FtsRegisterParameter(FtsParameterLocation):
     @property
     def register(self) -> "Register":
         return self.bd.register(self.args[0])
+
+    def is_register_parameter_location_of(self, r: "Register") -> bool:
+        return str(self.register) == str(r)
 
     def __str__(self) -> str:
         return "register-parameter " + str(self.register)

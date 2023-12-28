@@ -35,7 +35,9 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    from chb.api.FtsParameterLocation import FtsParameterLocation
     from chb.api.InterfaceDictionary import InterfaceDictionary
+    from chb.app.Register import Register
     from chb.bctypes.BCTyp import BCTyp
 
 
@@ -44,12 +46,13 @@ class FtsParameter(InterfaceDictionaryRecord):
 
     tags[0]: arg_io_mfts
     tags[1]: formatstring type
-    args[0]: index of parameter name in bdictionary
-    args[1]: index of parameter type in bcdictionary
-    args[2]: index of description of bdictionary
-    args[3]: index of parameter roles in interfacedictionary
-    args[4]: size in bytes
-    args[5]: index of parameter location in interfacedictionary
+    args[0]: parameter index
+    args[1]: index of parameter name in bdictionary
+    args[2]: index of parameter type in bcdictionary
+    args[3]: index of description of bdictionary
+    args[4]: index of parameter roles in interfacedictionary
+    args[5]: size in bytes
+    args[6]: index of parameter location list in interfacedictionary
     """
 
     def __init__(
@@ -58,15 +61,24 @@ class FtsParameter(InterfaceDictionaryRecord):
 
     @property
     def name(self) -> str:
-        return self.bd.string(self.args[0])
+        return self.bd.string(self.args[1])
+
+    @property
+    def argindex(self) -> int:
+        return self.args[0]
 
     @property
     def typ(self) -> "BCTyp":
-        return self.bcd.typ(self.args[1])
+        return self.bcd.typ(self.args[2])
 
     @property
-    def parameter_location(self) -> int:
-        return self.args[5]
+    def parameter_location_list(self) -> List["FtsParameterLocation"]:
+        return self.id.parameter_location_list(self.args[6])
+
+    def is_register_parameter_location(self, r: "Register") -> bool:
+        if len(self.parameter_location_list) == 1:
+            return self.parameter_location_list[0].is_register_parameter_location_of(r)
+        return False
 
     def __str__(self) -> str:
         return str(self.typ) + " " + str(self.name)
