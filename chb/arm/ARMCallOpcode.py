@@ -317,8 +317,18 @@ class ARMCallOpcode(ARMOpcode):
                     if arg.is_stack_address and argtype is not None:
                         arg = cast(XprCompound, arg)
                         stackoffset = arg.stack_address_offset()
+                        if argtype.is_pointer:
+                            argtype = cast(AST.ASTTypPtr, argtype)
+                            vtype: Optional[AST.ASTTyp] = argtype.tgttyp
+                        else:
+                            astree.add_diagnostic(
+                                iaddr
+                                + ": stack-address call argument "
+                                + "with unexpected type: "
+                                + str(argtype))
+                            vtype = None
                         arglval = astree.mk_stack_variable_lval(
-                            stackoffset, vtype=argtype)
+                            stackoffset, vtype=vtype)
                         argexpr = astree.mk_address_of(arglval)
                         argxprs.append(argexpr)
                     else:
