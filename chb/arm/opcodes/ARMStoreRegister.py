@@ -257,6 +257,7 @@ class ARMStoreRegister(ARMOpcode):
                     except Exception as e:
                         print("Error in instruction at " + iaddr)
                         print("  with address " + str(astaddr))
+                        print(": " + str(e))
 
             if hl_lhs is None:
                 hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)

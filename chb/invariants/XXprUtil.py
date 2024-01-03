@@ -24,6 +24,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+from codecs import decode
+import struct
 
 from typing import cast, List, Optional, Sequence, Set, Tuple, TYPE_CHECKING
 
@@ -341,6 +343,8 @@ def xxpr_to_ast_def_exprs(
         elif len(xoperands) == 2:
             x1 = xoperands[0]
             x2 = xoperands[1]
+
+
             regdef1 = xxpr_to_ast_def_exprs(x1, xdata, iaddr, astree)[0]
             regdef2 = xxpr_to_ast_def_exprs(x2, xdata, iaddr, astree)[0]
 
@@ -354,6 +358,14 @@ def xxpr_to_ast_def_exprs(
                         regdef2,
                         xdata,
                         astree)[0]
+
+                elif regdef1type is not None and regdef1type.is_float:
+                    if x2.is_int_constant:
+                        fci = cast (X.XprConstant, x2).intvalue
+                        f = struct.unpack('f', struct.pack('I', fci))[0]
+                        fcst = astree.mk_float_constant(f)
+                        return astree.mk_binary_op(xoperator, regdef1, fcst)
+
                 else:
 
                     # Extract a byte from a 32-bit value
@@ -367,7 +379,7 @@ def xxpr_to_ast_def_exprs(
                         else:
                             return None
 
-                    return astree.mk_binary_op(xoperator, regdef1, regdef2)
+                return astree.mk_binary_op(xoperator, regdef1, regdef2)
             else:
                 astree.add_diagnostic(
                     iaddr
