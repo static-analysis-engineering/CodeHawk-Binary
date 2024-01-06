@@ -173,16 +173,25 @@ class ARMAdd(ARMOpcode):
         astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
         astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(hl_lhss) == 0:
-            raise UF.CHBError("ADD: no lval found")
+        if rhs3.is_string_reference:
+            ctype = astree.astree.mk_pointer_type(astree.astree.char_type)
+            hl_lhs = XU.xvariable_to_ast_lvals(
+                lhs,
+                xdata,
+                astree,
+                ispointer=True,
+                ctype=ctype)[0]
+        else:
+            hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+            if len(hl_lhss) == 0:
+                raise UF.CHBError("ADD: no lval found")
 
-        if len(hl_lhss) > 1:
-            raise UF.CHBError(
-                "ADD: multiple lvals in ast: "
-                + ", ".join(str(v) for v in hl_lhss))
+            if len(hl_lhss) > 1:
+                raise UF.CHBError(
+                    "ADD: multiple lvals in ast: "
+                    + ", ".join(str(v) for v in hl_lhss))
 
-        hl_lhs = hl_lhss[0]
+            hl_lhs = hl_lhss[0]
 
         if str(lhs) == "PC":
             astree.add_diagnostic(iaddr + ": ADD instruction sets PC")
@@ -202,7 +211,11 @@ class ARMAdd(ARMOpcode):
                 rhsexprs = XU.xxpr_to_ast_exprs(rhs3, xdata, iaddr, astree)
                 if len(rhsexprs) == 1:
                     rhsval = cast("XprConstant", rhs3).intvalue
-                    rhsast = astree.mk_global_address_constant(rhsval, rhsexprs[0])
+                    if rhs3.is_string_reference:
+                        saddr = hex(rhsval)
+                        rhsast = astree.mk_string_constant(rhsexprs[0], str(rhs3), saddr)
+                    else:
+                        rhsast = astree.mk_global_address_constant(rhsval, rhsexprs[0])
                 else:
                     raise UF.CHBError(
                         "ADD: multiple expressions in pc-relative expression")
@@ -224,7 +237,7 @@ class ARMAdd(ARMOpcode):
 
         hl_rhs = rhsast
 
-        return self.ast_variable_intro(
+        assigns = self.ast_variable_intro(
             astree,
             astree.astree.int_type,
             hl_lhs,
@@ -239,3 +252,10 @@ class ARMAdd(ARMOpcode):
             iaddr,
             annotations,
             bytestring)
+
+        if rhs3.is_string_reference:
+            if len(assigns[0]) == 1:
+                instrid = assigns[0][0].instrid
+                astree.add_expose_instruction(assigns[0][0].instrid)
+
+        return assigns

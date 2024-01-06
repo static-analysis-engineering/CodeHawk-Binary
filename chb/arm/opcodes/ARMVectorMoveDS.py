@@ -201,6 +201,10 @@ class ARMVectorMoveDS(ARMOpcode):
                 bytestring=bytestring,
                 annotations=annotations)
 
+            astree.add_infologmsg(
+                "regdef:" + str(ll_lhs),
+                iaddr + ": " + str(hl_lhs) + " with " + str(hl_rhs))
+
             astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
             astree.add_instr_mapping(hl_assign, ll_assign)
             astree.add_instr_address(hl_assign, [iaddr])
