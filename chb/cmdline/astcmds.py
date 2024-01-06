@@ -202,6 +202,10 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
     revfunctionnames = userhints.rev_function_names()
     varintros = userhints.variable_introductions()
+
+    if len(varintros) == 0:
+        varintros = app.systeminfo.varintros
+
     library_targets = library_call_targets(app, functions)
 
     globalsymboltable = astapi.globalsymboltable
@@ -404,14 +408,14 @@ def showast(args: argparse.Namespace) -> NoReturn:
     revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
     revfunctionnames = userhints.rev_function_names()
 
-    globalsymboltable = ASTGlobalSymbolTable()    
+    globalsymboltable = ASTGlobalSymbolTable()
     typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
 
     fnames: Dict[str, str] = {}
     for faddr in functions:
         if app.has_function_name(faddr):
             fname = app.function_name(faddr)
-            fnames[fname] = faddr    
+            fnames[fname] = faddr
 
     for vinfo in app.bcfiles.globalvars:
         vname = vinfo.vname
@@ -420,7 +424,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
         elif vname in revfunctionnames:
             gaddr = int(revfunctionnames[vname], 16)
         elif vname in fnames:
-            gaddr = int(fnames[vname], 16)            
+            gaddr = int(fnames[vname], 16)
         else:
             gaddr = 0
         if gaddr > 0:
@@ -509,7 +513,7 @@ def showast(args: argparse.Namespace) -> NoReturn:
                 astree.set_fprototype(vardecl)
                 fproto = vardecl.convert(typconverter)
                 localsymboltable.set_function_prototype(fproto)
-            
+
             try:
                 ast = f.ast(astree)
             except UF.CHBError as e:

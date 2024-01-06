@@ -1183,8 +1183,11 @@ def xvariable_to_ast_lvals(
 
         if xdata.has_ssaval(name):
             ssaval = xdata.get_ssaval(name)
-            ssatyp = ssaval.btype
-            asttyp = ssatyp.convert(astree.typconverter)
+            if ctype is not None:
+                asttyp = ctype
+            else:
+                ssatyp = ssaval.btype
+                asttyp = ssatyp.convert(astree.typconverter)
             vdesc = "ssaval:" + name
             vinfo = astree.mk_vinfo(str(ssaval), vtype=asttyp, vdescr=vdesc)
             astlval = astree.mk_vinfo_lval(vinfo)
