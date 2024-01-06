@@ -425,6 +425,9 @@ class ASTInterface:
     def add_lval_store(self, lval: AST.ASTLval) -> None:
         self.astiprovenance.add_lval_store(lval)
 
+    def add_expose_instruction(self, instrid: int) -> None:
+        self.astiprovenance.add_expose_instruction(instrid)
+
     @property
     def fname(self) -> str:
         return self.astree.fname
@@ -987,11 +990,11 @@ class ASTInterface:
             parameter: Optional[int] = None) -> AST.ASTVariable:
         if name is None:
             if offset < 0:
-                name = "localvar_" + str(-offset)
+                name = "stackvar_" + str(-offset)
             elif offset == 0:
-                name = "localvar_0"
+                name = "stackvar_0"
             else:
-                name = "argvar_" + str(offset)
+                name = "stackargvar_" + str(offset)
         return self.mk_named_variable(name, vtype=vtype, parameter=parameter)
 
     def mk_stack_variable_lval(
@@ -1004,9 +1007,9 @@ class ASTInterface:
             anonymous: bool = False) -> AST.ASTLval:
         if optname is None:
             if offset < 0:
-                name = "localvar_" + str(-offset)
+                name = "stackvar_" + str(-offset)
             else:
-                name = "argvar_" + str(offset)
+                name = "stackargvar_" + str(offset)
         else:
             name = optname
         optlvalid = -1 if anonymous else None
