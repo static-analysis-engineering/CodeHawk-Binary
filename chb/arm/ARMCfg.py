@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from chb.cmdline.PatchResults import PatchEvent
 
 
+# initialized in chb.cmdline.astcmds
 patchevents: Dict[str, "PatchEvent"] = {}  # start of wrapper -> patch event
 
 
@@ -75,6 +76,12 @@ class ARMCfg(Cfg):
             result["tb"] = self.edges[src][1]
         return result
 
+    def get_sanitized_address(self, a: str) -> str:
+        if "_" in a:
+            return a.split("_")[-1]
+        else:
+            return a
+
     @property
     def blocks(self) -> Dict[str, ARMCfgBlock]:
         if len(self._blocks) == 0:
@@ -83,7 +90,7 @@ class ARMCfg(Cfg):
                 raise UF.CHBError("Blocks are missing from arm cfg xml")
             blocks: Dict[str, ARMCfgBlock] = {}
             for b in cfgblocks.findall("bl"):
-                baddr = b.get("ba")
+                baddr = self.get_sanitized_address(b.get("ba"))
                 if baddr is None:
                     raise UF.CHBError("Block address is missing from arm cfg")
                 blocks[baddr] = ARMCfgBlock(b)
@@ -108,10 +115,10 @@ class ARMCfg(Cfg):
             if xedges is None:
                 raise UF.CHBError("Edges are missing from cfg xml")
             for e in xedges.findall("e"):
-                src = e.get("src")
+                src = self.get_sanitized_address(e.get("src"))
                 if src is None:
                     raise UF.CHBError("Src address is missing from cfg")
-                tgt = e.get("tgt")
+                tgt = self.get_sanitized_address(e.get("tgt"))
                 if tgt is None:
                     raise UF.CHBError("Tgt address is missing from cfg")
                 self._edges.setdefault(src, [])
@@ -138,10 +145,10 @@ class ARMCfg(Cfg):
         if xedges is None:
             raise UF.CHBError("Edges are missing from cfg xml")
         for e in xedges.findall("e"):
-            src = e.get("src")
+            src = self.get_sanitized_address(e.get("src"))
             if src is None:
                 raise UF.CHBError("Src address is missing from cfg")
-            tgt = e.get("tgt")
+            tgt = self.get_sanitized_address(e.get("tgt"))
             if tgt is None:
                 raise UF.CHBError("Tgt address is missing from cfg")
             localedges.setdefault(src, [])
@@ -183,6 +190,7 @@ class ARMCfg(Cfg):
                                     "Error: payload without successors in"
                                     + " fallthrough path event")
                                 exit(1)
+
                         else:
                             print(
                                 "Error: fallthrough patchevent without payload")
@@ -265,7 +273,7 @@ class ARMCfg(Cfg):
                 elif (src in trampolineblocks
                           and tgt not in trampolineblocks):
                     # trampoline exit
-                    trampolinesetup = trampolineblocks[tgt]
+                    trampolinesetup = trampolineblocks[src]
                     cfgedges.setdefault(src, [])
                     cfgedges[trampolinesetup].append(tgt)
                 else:
@@ -280,5 +288,6 @@ class ARMCfg(Cfg):
                 roles = trampolines[baddr]
                 self._blocks[baddr] = ARMCfgTrampolineBlock(
                     self.xnode, roles)
+                print("DEBUG: trampoline: " + str(self._blocks[baddr]))
 
         self._edges = cfgedges

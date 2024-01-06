@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs, LLC
+# Copyright (c) 2023-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -56,6 +56,16 @@ class PatchPayload:
     def vahex(self) -> str:
         return self._d.get("vahex", "0x0")
 
+    def __str__(self) -> str:
+        return (
+            "Payload("
+            + self.vahex
+            + ", removed:"
+            + str(self.removed)
+            + ", inserted:"
+            + str(self.inserted)
+            + ")")
+
 
 class PatchWrapper:
 
@@ -81,6 +91,17 @@ class PatchWrapper:
     @property
     def vahex(self) -> str:
         return self._d.get("vahex", "0x0")
+
+    def __str__(self) -> str:
+        return (
+            "Wrapper("
+            + self.vahex
+            + ", removed:"
+            + str(self.removed)
+            + ", inserted:"
+            + str(self.inserted)
+            +" )")
+
 
 
 class PatchEvent:
@@ -156,11 +177,20 @@ class PatchEvent:
     def cases(self) -> List[str]:
         details = self._d.get("details")
         if details is not None:
-            return self._d.get("cases", [])
+            return details.get("cases", [])
         else:
             return []
 
-        
+    def __str__(self) -> str:
+        lines: List[str] = []
+        if self.has_wrapper():
+            lines.append(str(self.wrapper))
+        if self.has_payload():
+            lines.append(str(self.payload))
+        lines.append("Cases: " + ", ".join(self.cases))
+        return "\n".join(lines)
+
+
 class PatchResults:
 
     def __init__(self, d: Dict[str, Any]) -> None:
