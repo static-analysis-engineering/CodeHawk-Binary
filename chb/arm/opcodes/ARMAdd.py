@@ -213,7 +213,8 @@ class ARMAdd(ARMOpcode):
                     rhsval = cast("XprConstant", rhs3).intvalue
                     if rhs3.is_string_reference:
                         saddr = hex(rhsval)
-                        rhsast = astree.mk_string_constant(rhsexprs[0], str(rhs3), saddr)
+                        cstr = rhs3.constant.string_reference()
+                        rhsast = astree.mk_string_constant(rhsexprs[0], cstr, saddr)
                     else:
                         rhsast = astree.mk_global_address_constant(rhsval, rhsexprs[0])
                 else:
