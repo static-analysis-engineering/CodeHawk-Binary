@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,13 +31,15 @@ Corresponds to arm_operand_kind_t in bchlibarm32/BCHARMTypes
                                                     tags[0]   tags         args
 type arm_operand_kind_t =
   | ARMDMBOption of dmb_option_t                      "d"       2            0
+  | ARMCPSEffect of cps_effect_t                     "ce"       2            0
+  | ARMInterruptFlags of interrupt_flags_t           "if"       2            0
   | ARMReg of arm_reg_t                               "r"       2            0
   | ARMDoubleReg of arm_reg_t * arm_reg_t             "dr"      3            0
   | ARMWritebackReg of bool * arm_reg_t * int option "wr"       2            2
   | ARMSpecialReg of arm_special_reg_t               "sr"       2            0
   | ARMExtensionReg of arm_extension_register_t      "xr"       1            1
   | ARMDoubleExtensionReg of                         "dxr"      1            2
-       arm_extension_register_t 
+       arm_extension_register_t
        * arm_extension_register_t
   | ARMExtensionRegElement of
        arm_extension_register_element_t              "xre"      1            1
@@ -1034,3 +1036,37 @@ class ARMSIMDAddress(ARMOperandKind):
             return "[" + pbase + palign + "]!"
         else:
             return "[" + pbase + palign + "], " + str(wb)
+
+
+@armregistry.register_tag("ce", ARMOperandKind)
+class ARMCPSEffect(ARMOperandKind):
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def effect(self) -> str:
+        return self.tags[1]
+
+    def __str__(self) -> str:
+        return self.effect
+
+
+@armregistry.register_tag("if", ARMOperandKind)
+class ARMInterruptFlags(ARMOperandKind):
+
+    def __init__(
+            self,
+            d: "ARMDictionary",
+            ixval: IndexedTableValue) -> None:
+        ARMOperandKind.__init__(self, d, ixval)
+
+    @property
+    def interruptflags(self) -> str:
+        return self.tags[1]
+
+    def __str__(self) -> str:
+        return self.interruptflags
