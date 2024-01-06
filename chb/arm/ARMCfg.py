@@ -76,11 +76,14 @@ class ARMCfg(Cfg):
             result["tb"] = self.edges[src][1]
         return result
 
-    def get_sanitized_address(self, a: str) -> str:
-        if "_" in a:
-            return a.split("_")[-1]
+    def get_sanitized_address(self, msg: str, a: Optional[str]) -> str:
+        if a is None:
+            raise UF.CHBError(msg)
         else:
-            return a
+            if "_" in a:
+                return a.split("_")[-1]
+            else:
+                return a
 
     @property
     def blocks(self) -> Dict[str, ARMCfgBlock]:
@@ -90,9 +93,9 @@ class ARMCfg(Cfg):
                 raise UF.CHBError("Blocks are missing from arm cfg xml")
             blocks: Dict[str, ARMCfgBlock] = {}
             for b in cfgblocks.findall("bl"):
-                baddr = self.get_sanitized_address(b.get("ba"))
-                if baddr is None:
-                    raise UF.CHBError("Block address is missing from arm cfg")
+                baddr = self.get_sanitized_address(
+                    "Block address is missing from arm cfg",
+                    b.get("ba"))
                 blocks[baddr] = ARMCfgBlock(b)
             if len(astmode) > 0:
                 if any(b.is_in_trampoline for b in blocks.values()):
@@ -115,12 +118,10 @@ class ARMCfg(Cfg):
             if xedges is None:
                 raise UF.CHBError("Edges are missing from cfg xml")
             for e in xedges.findall("e"):
-                src = self.get_sanitized_address(e.get("src"))
-                if src is None:
-                    raise UF.CHBError("Src address is missing from cfg")
-                tgt = self.get_sanitized_address(e.get("tgt"))
-                if tgt is None:
-                    raise UF.CHBError("Tgt address is missing from cfg")
+                src = self.get_sanitized_address(
+                    "Src address is missing from arm cfg", e.get("src"))
+                tgt = self.get_sanitized_address(
+                    "Tgt address is missing from arm cfg", e.get("tgt"))
                 self._edges.setdefault(src, [])
                 self._edges[src].append(tgt)
         return self._edges
@@ -145,12 +146,10 @@ class ARMCfg(Cfg):
         if xedges is None:
             raise UF.CHBError("Edges are missing from cfg xml")
         for e in xedges.findall("e"):
-            src = self.get_sanitized_address(e.get("src"))
-            if src is None:
-                raise UF.CHBError("Src address is missing from cfg")
-            tgt = self.get_sanitized_address(e.get("tgt"))
-            if tgt is None:
-                raise UF.CHBError("Tgt address is missing from cfg")
+            src = self.get_sanitized_address(
+                "Src address is missing from arm cfg", e.get("src"))
+            tgt = self.get_sanitized_address(
+                "Tgt address is missing from arm cfg", e.get("tgt"))
             localedges.setdefault(src, [])
             localedges[src].append(tgt)
             revedges.setdefault(tgt, [])
