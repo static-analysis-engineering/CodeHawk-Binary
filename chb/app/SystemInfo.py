@@ -27,7 +27,7 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 from chb.app.BDictionary import BDictionary
 from chb.app.CallbackTables import CallbackTables
@@ -54,6 +54,7 @@ class SystemInfo:
         self._callbacktables: Optional[CallbackTables] = None
         self._structtables: Optional[StructTables] = None
         self._datablocks: Optional[DataBlocks] = None
+        self._varintros: Dict[str, str] = {}
 
     @property
     def bd(self) -> BDictionary:
@@ -139,3 +140,14 @@ class SystemInfo:
             else:
                 raise UF.CHBError("Data blocks not found in system info")
         return self._datablocks
+
+    @property
+    def varintros(self) -> Dict[str, str]:
+        if len(self._varintros) == 0:
+            xvarintros = self.xnode.find("variable-introductions")
+            if xvarintros is not None:
+                for xvi in xvarintros.findall("vintro"):
+                    name = xvi.get("name", "no-name")
+                    iaddr = xvi.get("ia", "0x0")
+                    self._varintros[iaddr] = name
+        return self._varintros

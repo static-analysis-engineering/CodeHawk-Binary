@@ -560,7 +560,8 @@ class SSARegisterValue(VConstantValueVariable):
     """Single-assignment value of a register at a particular address.
 
     tags[1]: address of assignment instruction
-    tags[2]: optional preferred name
+    tags[2]: regular name of ssa_register_value
+    tags[3]: optional preferred name
     args[0]: index of register in bdictionary
     args[1]: index of type in bcdictionary
     """
@@ -582,9 +583,10 @@ class SSARegisterValue(VConstantValueVariable):
     @property
     def name(self) -> str:
         if self.has_preferred_name():
-            return self.tags[2]
+            return self.tags[3]
         else:
-            return str(self.register) + "_" + self.address
+            return self.tags[2]
+            # return str(self.register) + "_" + self.address
 
     @property
     def is_ssa_register_value(self) -> bool:
@@ -595,7 +597,7 @@ class SSARegisterValue(VConstantValueVariable):
         return self.bcd.typ(self.args[1])
 
     def has_preferred_name(self) -> bool:
-        return len(self.tags) > 2
+        return len(self.tags) > 3
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}

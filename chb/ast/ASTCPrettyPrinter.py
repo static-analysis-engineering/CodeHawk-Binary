@@ -486,7 +486,11 @@ class ASTCPrettyPrinter(ASTVisitor):
         g.address_expr.accept(self)
 
     def visit_string_constant(self, s: AST.ASTStringConstant) -> None:
-        self.ccode.write('"' + sanitize(s.cstr) + '"')
+        svalue = sanitize(s.cstr)
+        if svalue.startswith('"'):
+            self.ccode.write(svalue)
+        else:
+            self.ccode.write('"' + sanitize(s.cstr) + '"')
 
     def visit_lval_expression(self, lvalexpr: AST.ASTLvalExpr) -> None:
         lvalexpr.lval.accept(self)
