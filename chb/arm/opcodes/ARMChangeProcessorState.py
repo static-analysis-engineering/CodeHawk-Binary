@@ -81,8 +81,16 @@ class ARMChangeProcessorState(ARMOpcode):
 
         annotations: List[str] = [iaddr, "CPS"]
 
+        cpsinstr = astree.mk_asm(
+            False,
+            ["CPS " + self.operandstring],
+            [],
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
         nopinstr = astree.mk_nop_instruction(
             "CPS", iaddr=iaddr, bytestring=bytestring, annotations=annotations)
-        astree.add_instr_address(nopinstr, [iaddr])
+        astree.add_instr_address(cpsinstr, [iaddr])
 
-        return ([], [nopinstr])
+        return ([cpsinstr], [cpsinstr])

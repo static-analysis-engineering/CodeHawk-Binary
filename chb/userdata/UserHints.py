@@ -652,17 +652,24 @@ class InlinedFunctionsHints(HintsEntry):
 
 
 class TrampolinesHints(HintsEntry):
-    """List of start, end addresses of a trampoline, in hex."""
+    """List of directories with
+           <name-of-component>: <hex-address-of-component>
 
-    def __init__(self, trampolinepayloads: List[str]) -> None:
+       for example:
+           { "payload": "0x7200",
+             "wrapper": "0x7218"
+           }
+    """
+
+    def __init__(self, trampolineaddrs: List[Dict[str, str]]) -> None:
         HintsEntry.__init__(self, "trampoline-payloads")
-        self._trampolines = trampolinepayloads
+        self._trampolines = trampolineaddrs
 
     @property
-    def trampolines(self) -> List[str]:
+    def trampolines(self) -> List[Dict[str, str]]:
         return self._trampolines
 
-    def update(self, d: List[str]) -> None:
+    def update(self, d: List[Dict[str, str]]) -> None:
         for s in d:
             if s not in self.trampolines:
                 self._trampolines.append(s)
@@ -672,12 +679,17 @@ class TrampolinesHints(HintsEntry):
         node.append(xts)
         for s in self.trampolines:
             xt = ET.Element("trampoline")
-            xt.set("a", s)
+            for (comp, addr) in s.items():
+                xt.set(comp, addr)
             xts.append(xt)
 
     def __str__(self) -> str:
         lines: List[str] = []
-        lines.append("Trampolines: " + ", ".join(str(t) for t in self.trampolines))
+        lines.append("Trampolines: ")
+        for t in self.trampolines:
+            lines.append("===")
+            for (comp, addr) in t.items():
+                lines.append(comp + ": " + addr)
         return "\n".join(lines)
 
 
@@ -1185,7 +1197,7 @@ class UserHints:
 
         if "trampolines" in hints:
             tag = "trampolines"
-            entries: List[str] = hints[tag]
+            entries: List[Dict[str, str]] = hints[tag]
             if tag in self.userdata:
                 self.userdata[tag].update(entries)
             else:

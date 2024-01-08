@@ -132,6 +132,13 @@ class XComparison:
             return PatchResults(self.pdfiledata).trampoline_payload_addresses
 
     @property
+    def trampoline_addresses(self) -> List[Dict[str, str]]:
+        if self.pdfiledata is None:
+            return []
+        else:
+            return PatchResults(self.pdfiledata).trampoline_addresses
+
+    @property
     def newcode(self) -> List[Tuple[str, str]]:
         return self._newcode
 
@@ -157,7 +164,8 @@ class XComparison:
 
     def compare_sections(self) -> None:
 
-        def compare_section(sh1: "ELFSectionHeader", sh2: "ELFSectionHeader") -> None:
+        def compare_section(
+                sh1: "ELFSectionHeader", sh2: "ELFSectionHeader") -> None:
             if self.is_thumb:
                 if int(sh2.size, 16) > int(sh1.size, 16):
                     newvaddr = hex(int(sh1.vaddr, 16) + int(sh1.size, 16))
@@ -255,7 +263,7 @@ class XComparison:
         result: Dict[str, Any] = {}
         if len(self.switchpoints) > 0:
             result["arm-thumb"] = self.switchpoints[:]
-        trampolines = self.trampoline_payload_addresses
+        trampolines = self.trampoline_addresses
         if len(trampolines) > 0:
             result["trampolines"] = trampolines
         return result
