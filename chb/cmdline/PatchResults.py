@@ -118,6 +118,10 @@ class PatchEvent:
         return self._d["patchkind"]
 
     @property
+    def logicalva(self) -> str:
+        return self._d["logicalva"]
+
+    @property
     def is_trampoline(self) -> bool:
         return self.patchkind == "Trampoline"
 
@@ -212,6 +216,21 @@ class PatchResults:
             if e.is_trampoline and e.has_payload():
                 result.append(e.payload.vahex)
         return result
+
+    @property
+    def trampoline_addresses(self) -> List[Dict[str, str]]:
+        result: List[Dict[str, str]] = []
+        for e in self.events:
+            if e.is_trampoline:
+                r = {}
+                r["logicalva"] = e.logicalva
+                if e.has_payload():
+                    r["payload"] = e.payload.vahex
+                if e.has_wrapper():
+                    r["wrapper"] = e.wrapper.vahex
+                result.append(r)
+        return result
+
 
 if __name__ == "__main__":
 

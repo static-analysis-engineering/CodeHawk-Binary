@@ -103,4 +103,7 @@ class ASTICodeTransformer(ASTIdentityTransformer):
     def transform_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> AST.ASTStmt:
         newcases = stmt.cases.transform(self)
         return self.astinterface.mk_switch_stmt(
-            stmt.switchexpr, newcases, stmt.merge_address, optlocationid=stmt.locationid)
+            stmt.switchexpr,
+            newcases,
+            stmt.merge_address,
+            optlocationid=stmt.locationid)

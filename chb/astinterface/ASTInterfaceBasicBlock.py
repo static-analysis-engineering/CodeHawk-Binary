@@ -34,6 +34,8 @@ from chb.astinterface.ASTInterfaceInstruction import ASTInterfaceInstruction
 
 import chb.invariants.XXprUtil as XU
 
+import chb.util.fileutil as UF
+
 if TYPE_CHECKING:
     from chb.arm.ARMCfgBlock import ARMCfgBlock
     from chb.app.BasicBlock import BasicBlock
@@ -100,22 +102,63 @@ class ASTInterfaceBasicBlock:
             instrs.extend(i.assembly_ast(astree))
         return astree.mk_instr_sequence(instrs)
 
+    def trampoline_setup_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
+        if not self.trampoline:
+            raise UF.CHBError("Internal error")
+        setupblock = self.trampoline["setupblock"]
+        instrs: List[AST.ASTInstruction] = []
+        for (a, i) in sorted(setupblock.instructions.items(), key=lambda p: p[0]):
+            self._instructions[a] = ASTInterfaceInstruction(i)
+            instrs.extend(self.instructions[a].ast(astree))
+        return astree.mk_instr_sequence(instrs)
+
+    def trampoline_payload_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
+        if not self.trampoline:
+            raise UF.CHBError("Internal error")
+        payloadblock = self.trampoline["payload"]
+        (iaddr, chkinstr) = sorted(payloadblock.instructions.items())[-2]
+        chkinstr = cast("ARMInstruction", chkinstr)
+        if chkinstr.mnemonic_stem == "MOV":
+            if chkinstr.has_instruction_condition():
+                condition = chkinstr.get_instruction_condition()
+                rstmt = astree.mk_return_stmt(None)
+                estmt = astree.mk_instr_sequence([])
+                aexprs = XU.xxpr_to_ast_exprs(
+                    condition, chkinstr.xdata, chkinstr.iaddr, astree)
+                if len(aexprs) == 1:
+                    cc = aexprs[0]
+                    brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
+                    return brstmt
+        (iaddr, pinstr) = sorted(payloadblock.instructions.items())[0]
+        self._instructions[iaddr] = ASTInterfaceInstruction(pinstr)
+        astinstr = self.instructions[iaddr].ast(astree)
+        return astree.mk_instr_sequence(astinstr)
+
+    def trampoline_takedown_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
+        if not self.trampoline:
+            raise UF.CHBError("Internal error")
+        takedownblock = self.trampoline["takedown"]
+        instrs: List[AST.ASTInstruction] = []
+        for (a, i) in sorted(takedownblock.instructions.items(), key=lambda p: p[0]):
+            self._instructions[a] = ASTInterfaceInstruction(i)
+            instrs.extend(self.instructions[a].ast(astree))
+        return astree.mk_instr_sequence(instrs)
+
+    def trampoline_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
+        stmts: List[AST.ASTStmt] = []
+        if not self.trampoline:
+            raise UF.CHBError("Internal error")
+        if "setupblock" in self.trampoline:
+            stmts.append(self.trampoline_setup_ast(astree))
+        if "payload" in self.trampoline:
+            stmts.append(self.trampoline_payload_ast(astree))
+        if "takedown" in self.trampoline:
+            stmts.append(self.trampoline_takedown_ast(astree))
+        return astree.mk_block(stmts)
+
     def ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         if self.trampoline:
-            payloadblock = self.trampoline["payload"]
-            (iaddr, chkinstr) = sorted(payloadblock.instructions.items())[-2]
-            chkinstr = cast("ARMInstruction", chkinstr)
-            if chkinstr.mnemonic_stem == "MOV":
-                if chkinstr.has_instruction_condition():
-                    condition = chkinstr.get_instruction_condition()
-                    rstmt = astree.mk_return_stmt(None)
-                    estmt = astree.mk_instr_sequence([])
-                    aexprs = XU.xxpr_to_ast_exprs(
-                        condition, chkinstr.xdata, chkinstr.iaddr, astree)
-                    if len(aexprs) == 1:
-                        cc = aexprs[0]
-                        brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
-                        return brstmt
+            return self.trampoline_ast(astree)
 
         instrs: List[AST.ASTInstruction] = []
         for (a, i) in sorted(self.instructions.items(), key=lambda p: p[0]):

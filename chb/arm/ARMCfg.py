@@ -80,10 +80,7 @@ class ARMCfg(Cfg):
         if a is None:
             raise UF.CHBError(msg)
         else:
-            if "_" in a:
-                return a.split("_")[-1]
-            else:
-                return a
+            return a
 
     @property
     def blocks(self) -> Dict[str, ARMCfgBlock]:
@@ -142,6 +139,7 @@ class ARMCfg(Cfg):
         # create original edges locally
         localedges: Dict[str, List[str]] = {}
         revedges: Dict[str, List[str]] = {}
+        inlinemap: Dict[str, str] = {}
         xedges = self.xnode.find("edges")
         if xedges is None:
             raise UF.CHBError("Edges are missing from cfg xml")
@@ -154,6 +152,10 @@ class ARMCfg(Cfg):
             localedges[src].append(tgt)
             revedges.setdefault(tgt, [])
             revedges[tgt].append(src)
+            if src.startswith("F"):
+                inlinemap[src.split("_")[-1]] = src
+            if tgt.startswith("F"):
+                inlinemap[tgt.split("_")[-1]] = tgt
 
         trampolines: Dict[str, Dict[str , str]] = {} # setupblock addr -> roles
         trampolineblocks: Dict[str, str] = {}  # block addr -> setupblock addr
@@ -172,6 +174,8 @@ class ARMCfg(Cfg):
                         trampolines[baddr]["setupblock"] = baddr
                         if patchevent.has_payload():
                             payload = patchevent.payload.vahex
+                            if payload in inlinemap:
+                                payload = inlinemap[payload]
                             trampolines[baddr]["payload"] = payload
                             trampolineblocks[payload] = baddr
                             if payload in localedges:
@@ -187,13 +191,14 @@ class ARMCfg(Cfg):
                             else:
                                 print(
                                     "Error: payload without successors in"
-                                    + " fallthrough path event")
+                                    + " fallthrough patch event: " + str(payload))
                                 exit(1)
 
                         else:
                             print(
                                 "Error: fallthrough patchevent without payload")
                             exit(1)
+
                     elif (len(cases) == 2
                               and "fallthrough" in cases
                               and  "break" in cases):
@@ -275,18 +280,22 @@ class ARMCfg(Cfg):
                     trampolinesetup = trampolineblocks[src]
                     cfgedges.setdefault(src, [])
                     cfgedges[trampolinesetup].append(tgt)
+                elif (src in trampolines
+                      and tgt in trampolineblocks
+                      and trampolineblocks[tgt] == src):
+                    # trampoline setup block to next block
+                    cfgedges.setdefault(src, [])
                 else:
                     # add regular edge
                     cfgedges.setdefault(src, [])
                     cfgedges[src].append(tgt)
 
         for (baddr, b) in blocks.items():
-            if baddr not in trampolineblocks:
+            if baddr not in trampolineblocks and baddr not in trampolines:
                 self._blocks[baddr] = b
-            elif baddr in trampolines:
-                roles = trampolines[baddr]
-                self._blocks[baddr] = ARMCfgTrampolineBlock(
+            for taddr in trampolines:
+                roles = trampolines[taddr]
+                self._blocks[taddr] = ARMCfgTrampolineBlock(
                     self.xnode, roles)
-                print("DEBUG: trampoline: " + str(self._blocks[baddr]))
 
         self._edges = cfgedges

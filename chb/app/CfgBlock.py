@@ -84,7 +84,7 @@ class CfgBlock:
     @property
     def is_in_trampoline(self) -> bool:
         if self.role is not None:
-            return self.role == "trampoline"
+            return self.role.startswith("trampoline")
         else:
             return False
 
