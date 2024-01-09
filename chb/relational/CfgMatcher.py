@@ -71,6 +71,7 @@ class CfgMatcher:
         self._unmapped_blocks2: List[str] = []
         self._multiple_mapping: List[Tuple[List[str], List[str]]] = []
         self._trampolinematch: Optional[Tuple[str, List[str]]] = None
+        self._blocksplits: Dict[str, List["BasicBlock"]] = {}
         self.match()
 
     @property
@@ -145,6 +146,19 @@ class CfgMatcher:
         raise UF.CHBError("No matching trampoline found")
 
     @property
+    def blocksplits(self) -> Dict[str, List["BasicBlock"]]:
+        return self._blocksplits
+
+    def has_block_split(self, baddr: str) -> bool:
+        return baddr in self.blocksplits
+
+    def get_block_split(self, baddr: str) -> List["BasicBlock"]:
+        if baddr in self.blocksplits:
+            return self.blocksplits[baddr]
+        else:
+            raise UF.CHBError("No block split found at " + baddr)
+
+    @property
     def same_endianness(self) -> bool:
         return self.app1.header.is_big_endian == self.app2.header.is_big_endian
 
@@ -191,6 +205,16 @@ class CfgMatcher:
                 return True
         return False
 
+    def is_block_split(self) -> bool:
+        blocks1 = self.cfg1.blocks
+        blocks2 = self.cfg2.blocks
+        if len(blocks2) == len(blocks1) + 1:
+            return True
+        elif len(blocks2) == len(blocks1) + 2:
+            return True
+        else:
+            return False
+
     @property
     def is_cfg_isomorphic(self) -> bool:
         if (
@@ -224,6 +248,34 @@ class CfgMatcher:
             for (n, m) in zip(rpo1, rpo2):
                 self._blockmapping[n] = m
             self.match_edges()
+        elif self.is_block_split():
+            blocks1 = self.cfg1.blocks
+            blocks2 = self.cfg2.blocks
+            if len(blocks2) == len(blocks1) + 1:
+                split: Dict[str, List["BasicBlock"]] = {}
+                for (b1, block1) in blocks1.items():
+                    if b1 in blocks2:
+                        block2 = blocks2[b1]
+                        if block1.firstaddr == block2.firstaddr:
+                            if block1.lastaddr == block2.lastaddr:
+                                self._blockmapping[b1] = b1
+                            elif int(block1.lastaddr, 16) > int(block2.lastaddr, 16):
+                                split.setdefault(b1, [])
+                                split[b1].append(self.basic_blocks2[b1])
+                            else:
+                                print("CfgMatcher: unexpected block split")
+                        else:
+                            print("CfgMatcher: unexpected block split")
+                for (b2, block2) in blocks2.items():
+                    if b2 not in blocks1:
+                        b2endaddr = block2.lastaddr
+                        for b1 in blocks1:
+                            if blocks1[b1].lastaddr == b2endaddr:
+                                split.setdefault(b1, [])
+                                split[b1].append(self.basic_blocks2[b2])
+                for b in split:
+                    self._blocksplits[b] = split[b]
+
         else:
             self.initialize()
             self.collect_blockmd5s()
@@ -318,7 +370,7 @@ class CfgMatcher:
                 if b1 not in self.blockmapping:
                     self._blockmapping[b1] = b2
                 elif self.blockmapping[b1] != b2:
-                    print("Conflicting mapping: " + b1 + ", " + b2)
+                    print("Conflicting mapping (strings): " + b1 + ", " + b2)
 
     def match_blockcalls(self) -> None:
         for (s, (b1s, b2s)) in self._blockcalls.items():
@@ -328,7 +380,7 @@ class CfgMatcher:
                 if b1 not in self.blockmapping:
                     self._blockmapping[b1] = b2
                 elif self.blockmapping[b1] != b2:
-                    print("Conflicting mapping: " + b1 + ", " + b2)
+                    print("Conflicting mapping (calls): " + b1 + ", " + b2)
 
     def match_branch_conditions(self) -> None:
         for (s, (b1s, b2s)) in self._blockbranches.items():
@@ -338,7 +390,7 @@ class CfgMatcher:
                 if b1 not in self.blockmapping:
                     self._blockmapping[b1] = b2
                 elif self.blockmapping[b1] != b2:
-                    print("Conflicting mapping: " + b1 + ", " + b2)
+                    print("Conflicting mapping (branches): " + b1 + ", " + b2)
 
     def match_edges(self) -> None:
 
