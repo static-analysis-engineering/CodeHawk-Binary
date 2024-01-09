@@ -36,6 +36,7 @@ from chb.jsoninterface.JSONResult import JSONResult
 from chb.jsoninterface.JSONSchema import JSONSchema
 
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
+from chb.relational.SplitBlockAnalysis import SplitBlockAnalysis
 from chb.relational.TrampolineAnalysis import TrampolineAnalysis
 
 import chb.util.fileutil as UF
@@ -240,6 +241,29 @@ def cfg_trampoline_match_to_json_result(
     return JSONResult(schema, content, "ok")
 
 
+def cfg_block_split_to_json_result(
+        spla: "SplitBlockAnalysis") -> JSONResult:
+    schema = "cfgblockmappingitem"
+    content: Dict[str, Any] = {}
+    content["changes"] = ["block-split"]
+    content["cfg1-block-addr"] = spla.block1.baddr
+    cfg2blocks: List[Dict[str, Any]] = []
+    try:
+        for b in spla.blocks2:
+            b2content: Dict[str, Any] = {}
+            b2content["cfg2-block-addr"] = b.baddr
+            b2content["role"] = spla.roles[b.baddr]
+            cfg2blocks.append(b2content)
+    except UF.CHBError as e:
+        return JSONResult(
+            schema,
+            {},
+            "fail",
+            "nonstandard blocksplit encountered: " + str(e))
+    content["cfg2-blocks"] = cfg2blocks
+    return JSONResult(schema, content, "ok")
+
+
 def function_cfg_comparison_to_json_result(
         fra: "FunctionRelationalAnalysis") -> JSONResult:
     schema = "cfgcomparison"
@@ -281,6 +305,37 @@ def function_cfg_comparison_to_json_result(
                     [fra.basic_blocks2[b] for b in t],
                     cfgmatcher)
                 blockmap = cfg_trampoline_match_to_json_result(tra)
+                if blockmap.is_ok:
+                    blockmapping.append(blockmap.content)
+                else:
+                    return JSONResult(schema, {}, "fail", blockmap.reason)
+        content["cfg-block-mapping"] = blockmapping
+    elif fra.is_block_split:
+        changes.append("block-split")
+        cfgmatcher = fra.cfgmatcher
+        blockmapping = []
+        for baddr1 in sorted(fra.basic_blocks1):
+            if baddr1 in cfgmatcher.blockmapping:
+                baddr2 = cfgmatcher.blockmapping[baddr1]
+                blockra = BlockRelationalAnalysis(
+                    fra.app1,
+                    fra.basic_blocks1[baddr1],
+                    fra.app2,
+                    fra.basic_blocks2[baddr2])
+                blockmap = cfg_block_map_to_json_result(blockra)
+                if blockmap.is_ok:
+                    blockmapping.append(blockmap.content)
+                else:
+                    return JSONResult(schema, {}, "fail", blockmap.reason)
+            elif cfgmatcher.has_block_split(baddr1):
+                split = cfgmatcher.get_block_split(baddr1)
+                spla = SplitBlockAnalysis(
+                    fra.app1,
+                    fra.basic_blocks1[baddr1],
+                    fra.app2,
+                    split,
+                    cfgmatcher)
+                blockmap = cfg_block_split_to_json_result(spla)
                 if blockmap.is_ok:
                     blockmapping.append(blockmap.content)
                 else:

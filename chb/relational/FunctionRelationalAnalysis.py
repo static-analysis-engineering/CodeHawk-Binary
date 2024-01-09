@@ -32,6 +32,7 @@ from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
 from chb.relational.InstructionRelationalAnalysis import InstructionRelationalAnalysis
 from chb.relational.CfgMatcher import CfgMatcher
+from chb.relational.SplitBlockAnalysis import SplitBlockAnalysis
 from chb.relational.TrampolineAnalysis import TrampolineAnalysis
 
 import chb.util.fileutil as UF
@@ -323,6 +324,12 @@ class FunctionRelationalAnalysis:
         return self.cfgmatcher.is_trampoline_block_splice()
 
     @property
+    def is_block_split(self) -> bool:
+        """Return true if the cfg has been transformed by a block-split."""
+
+        return self.cfgmatcher.is_block_split()
+
+    @property
     def block_mapping(self) -> Mapping[str, str]:
         if len(self._blockmapping) == 0:
             if self.is_structurally_equivalent:
@@ -509,6 +516,54 @@ class FunctionRelationalAnalysis:
                             "\nInstructions changed in split block " + tra.b1.baddr)
                         lines.append(tra.report())
                         lines.append("")
+
+            elif cfgmatcher.is_block_split():
+                lines.extend(blockheader)
+                for baddr1 in sorted(self.basic_blocks1):
+                    if baddr1 in cfgmatcher.blockmapping:
+                        baddr2 = cfgmatcher.blockmapping[baddr1]
+                        self._blockanalyses[baddr1] = BlockRelationalAnalysis(
+                            self.app1,
+                            self.basic_blocks1[baddr1],
+                            self.app2,
+                            self.basic_blocks2[baddr2])
+                        blra = self.block_analyses[baddr1]
+                        if baddr1 == baddr2:
+                            moved = "no"
+                        else:
+                            moved = baddr2
+                        md5eq = "yes" if blra.is_md5_equal else "no"
+                        if md5eq == "no":
+                            if blra.b1len != blra.b2len:
+                                instrs_changed = len(blra.instrs_changed(callees))
+                                insch = (
+                                    str(blra.b1len)
+                                    + " -> "
+                                    + str(blra.b2len)
+                                    + " ("
+                                    + str(instrs_changed)
+                                    + ")")
+                            else:
+                                instrs_changed = len(blra.instrs_changed(callees))
+                                instrcount = len(blra.b1.instructions)
+                                insch = str(instrs_changed) + "/" + str(instrcount)
+                        else:
+                            insch = "-"
+                        lines.append(
+                            baddr1.ljust(12)
+                            + moved.ljust(16)
+                            + md5eq.ljust(18)
+                            + insch.ljust(20))
+
+                    elif cfgmatcher.has_block_split(baddr1):
+                        split = cfgmatcher.get_block_split(baddr1)
+                        spla = SplitBlockAnalysis(
+                            self.app1,
+                            self.basic_blocks1[baddr1],
+                            self.app2,
+                            split,
+                            cfgmatcher)
+                        lines.append(str(spla))
 
             elif len(self.instructions1) == len(self.instructions2):
                 lines.append("\nInstructions changed")
