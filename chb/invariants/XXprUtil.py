@@ -344,7 +344,6 @@ def xxpr_to_ast_def_exprs(
             x1 = xoperands[0]
             x2 = xoperands[1]
 
-
             regdef1 = xxpr_to_ast_def_exprs(x1, xdata, iaddr, astree)[0]
             regdef2 = xxpr_to_ast_def_exprs(x2, xdata, iaddr, astree)[0]
 
