@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -645,6 +645,19 @@ class ASTDeserializer:
                     "instrid:" + str(instrid),
                     "lhs:" + str(lhs.lvalid),
                     "rhs:" + str(rhs.exprid)]
+
+            elif tag == "asm":
+                instrid = r["instrid"]
+                locationid = r["locationid"]
+                volatile = r["volatile"] == "true"
+                templates = r["template"].split(" ")
+                clobbers = r["clobbers"]
+                nodes[id] = astree.mk_asm(
+                    volatile,
+                    templates,
+                    clobbers,
+                    optinstrid=instrid,
+                    optlocationid=locationid)
 
             elif tag == "call":
                 instrid = r["instrid"]
