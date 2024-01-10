@@ -263,16 +263,55 @@ class CfgMatcher:
                                 split.setdefault(b1, [])
                                 split[b1].append(self.basic_blocks2[b1])
                             else:
-                                print("CfgMatcher: unexpected block split")
+                                print("CfgMatcher: unexpected 2-block split")
                         else:
-                            print("CfgMatcher: unexpected block split")
+                            print("CfgMatcher: unexpected 2-block split")
                 for (b2, block2) in blocks2.items():
                     if b2 not in blocks1:
                         b2endaddr = block2.lastaddr
+                        found: bool = False
                         for b1 in blocks1:
                             if blocks1[b1].lastaddr == b2endaddr:
                                 split.setdefault(b1, [])
                                 split[b1].append(self.basic_blocks2[b2])
+                                found = True
+                        if not found:
+                            print("CfgMatcher: unexpected 2-block split")
+                for b in split:
+                    self._blocksplits[b] = split[b]
+            elif len(blocks2) == len(blocks1) + 2:
+                split = {}
+                for (b1, block1) in blocks1.items():
+                    if b1 in blocks2:
+                        block2 = blocks2[b1]
+                        if block1.firstaddr == block2.firstaddr:
+                            if block1.lastaddr == block2.lastaddr:
+                                # exact match
+                                self._blockmapping[b1] = b1
+                            elif int(block1.lastaddr, 16) > int(block2.lastaddr, 16):
+                                # prefix block
+                                split.setdefault(b1, [])
+                                split[b1].append(self.basic_blocks2[b1])
+                            else:
+                                print("CfgMatcher: unexpected 3-block split")
+                        else:
+                            print("CfgMatcher: unexpected 3-block split")
+                for (b2, block2) in blocks2.items():
+                    if b2 not in blocks1:
+                        b2endaddr = block2.lastaddr
+                        found = False
+                        for b1 in blocks1:
+                            if blocks1[b1].lastaddr == b2endaddr:
+                                # postfix block
+                                split.setdefault(b1, [])
+                                split[b1].append(self.basic_blocks2[b2])
+                                found = True
+                        if not found:
+                            if not self.fn1.within_function_extent(b2endaddr):
+                                # inserted block (to be generalized)
+                                for bb in split:
+                                    split[bb].append(self.basic_blocks2[b2])
+
                 for b in split:
                     self._blocksplits[b] = split[b]
 

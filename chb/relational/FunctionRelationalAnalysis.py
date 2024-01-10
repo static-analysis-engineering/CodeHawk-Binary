@@ -70,6 +70,7 @@ class FunctionRelationalAnalysis:
         self._changes: Optional[List[str]] = None
         self._matches: Optional[List[str]] = None
         self._trampolineanalysis: Optional[TrampolineAnalysis] = None
+        self._splitblockanalysis: Optional[SplitBlockAnalysis] = None
 
     @property
     def app1(self) -> "AppAccess":
@@ -225,6 +226,16 @@ class FunctionRelationalAnalysis:
                 {},
                 {})
         return self._cfgmatcher
+
+    @property
+    def split_block_analysis(self) -> SplitBlockAnalysis:
+        if self._splitblockanalysis is not None:
+            return self._splitblockanalysis
+        else:
+            raise UF.CHBError("No split block analysis found")
+
+    def has_split_block_analysis(self) -> bool:
+        return self._splitblockanalysis is not None
 
     @property
     def trampoline_analysis(self) -> TrampolineAnalysis:
@@ -563,7 +574,25 @@ class FunctionRelationalAnalysis:
                             self.app2,
                             split,
                             cfgmatcher)
-                        lines.append(str(spla))
+                        self._splitblockanalysis = spla
+                        (sstart, ssend) = spla.split_blocks
+                        lines.append(
+                            baddr1.ljust(12)
+                            + "split-block".ljust(16)
+                            + "no".ljust(18)
+                            + "split into " + sstart.baddr + " and " + ssend.baddr)
+                if showinstructions:
+                    for (baddr, b1ra) in self.block_analyses.items():
+                        if blra.is_md5_equal:
+                            continue
+                    if self.has_split_block_analysis():
+                        spla = self.split_block_analysis
+
+                        lines.append(
+                            "\nInstructions changed in split block "
+                            + spla.block1.baddr)
+                        lines.append(spla.report())
+                        lines.append("")
 
             elif len(self.instructions1) == len(self.instructions2):
                 lines.append("\nInstructions changed")

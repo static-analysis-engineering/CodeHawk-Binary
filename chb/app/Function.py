@@ -346,6 +346,23 @@ class Function(ABC):
         return len(self.instructions)
 
     @property
+    def function_extent(self) -> Tuple[str, str]:
+        fmin: int = 100000000
+        fmax: int = 0
+        for b in self.blocks.values():
+            if int(b.baddr, 16) < fmin:
+                fmin = int(b.baddr, 16)
+            if int(b.lastaddr, 16) > fmax:
+                fmax = int(b.lastaddr, 16)
+        return (hex(fmin), hex(fmax))
+
+    def within_function_extent(self, addr: str) -> bool:
+        (fmin, fmax) = self.function_extent
+        return (
+            (int(fmin, 16) <= int(addr, 16))
+            and (int(addr, 16) <= int(fmax, 16)))
+
+    @property
     def cfg(self) -> Cfg:
         raise UF.CHBError("Property cfg not implemented for Function")
 
