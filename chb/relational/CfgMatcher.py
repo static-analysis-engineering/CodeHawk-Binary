@@ -510,8 +510,13 @@ class CfgMatcher:
         for n in unmapped2:
             colors2[n] = "#FFA500"
         for n in blockschanged:
-            print("  " + n)
+            colors1[n] = "#FFA500"
             colors2[n] = "#FFA500"
+        for b in self.fn1.blocks:
+            if b in self.blocksplits:
+                colors1[b] = "#FFA500"
+                for b2 in self.blocksplits[b]:
+                    colors2[b2.baddr] = "#FFA500"
         fn1invs = self.fn1.invariants
         fn2invs = self.fn2.invariants
         for b in self.fn1.blocks:
