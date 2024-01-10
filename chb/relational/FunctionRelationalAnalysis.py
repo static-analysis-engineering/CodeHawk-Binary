@@ -380,6 +380,7 @@ class FunctionRelationalAnalysis:
         """Return a list of block addresses that are not md5-equal."""
 
         result: List[str] = []
+        r = self.report(False)
         for baddr in self.block_analyses:
             if not self.block_analyses[baddr].is_md5_equal:
                 result.append(baddr)
