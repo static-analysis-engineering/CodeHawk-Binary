@@ -343,7 +343,6 @@ def function_cfg_comparison_to_json_result(
         content["cfg-block-mapping"] = blockmapping
     else:
         fblockschanged = fra.blocks_changed()
-        blockschanged: List[str] = []
         if len(fblockschanged) > 0:
             changes.append("blocks")
             blockschanged.extend(fblockschanged)
