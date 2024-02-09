@@ -344,7 +344,6 @@ def function_cfg_comparison_to_json_result(
     else:
         blockschanged: List[str] = []
         fblockschanged = fra.blocks_changed()
-        blockschanged: List[str] = []
         if len(fblockschanged) > 0:
             changes.append("blocks")
             blockschanged.extend(fblockschanged)
