@@ -49,6 +49,7 @@ class ARMSwap(ARMOpcode):
     args[0]: index of Rd in armdictionary
     args[1]: index of Rn in armdictionary
     args[2]: index of Rm in armdictionary
+    args[3]: index of memory operand
     """
 
     def __init__(
@@ -56,7 +57,7 @@ class ARMSwap(ARMOpcode):
             d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
-        self.check_key(2, 3, "Swap")
+        self.check_key(2, 4, "Swap")
 
     @property
     def operands(self) -> List[ARMOperand]:
