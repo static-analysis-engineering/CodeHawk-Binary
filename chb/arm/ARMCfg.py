@@ -204,7 +204,6 @@ class ARMCfg(Cfg):
 
             if "break" in canonical_cases:
                 caseaddr = label_addr("case_break")
-                print("break block addr is", caseaddr)
                 trampolines[baddr]["breakout"] = caseaddr
                 trampolineblocks[caseaddr] = baddr
 
