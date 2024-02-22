@@ -170,6 +170,12 @@ class ARMCfg(Cfg):
                 # Not a trampoline
                 continue
 
+            def labeloffset(x: str) -> int:
+                return patchevent._d["extras"]["labeloffsets"][x]
+
+            def label_addr(x: str) -> str:
+                return hex(int(baddr, 16) + labeloffset(x))
+
             trampolines[baddr] = {}
             trampolines[baddr]["setupblock"] = baddr
 
@@ -179,76 +185,38 @@ class ARMCfg(Cfg):
                     + baddr)
                 exit(1)
 
+            for x in patchevent._d["extras"]["labeloffsets"]:
+                if x.startswith("dispatch_"):
+                    partaddr = label_addr(x)
+                    trampolines[baddr][x] = partaddr
+                    trampolineblocks[partaddr] = baddr
+
             payload = patchevent.payload.vahex
             if payload in inlinemap:
                 payload = inlinemap[payload]
             trampolines[baddr]["payload"] = payload
             trampolineblocks[payload] = baddr
 
-            if canonical_cases == ["fallthrough"]:
-                # no decision is made
-                if not (payload in localedges):
-                    print(
-                        "Error: payload without successors in"
-                        + " fallthrough patch event: " + str(payload))
-                    exit(1)
+            if "fallthrough" in canonical_cases:
+                caseaddr = label_addr("case_fallthrough")
+                trampolines[baddr]["takedown"] = caseaddr
+                trampolineblocks[caseaddr] = baddr
 
-                if len(localedges[payload]) != 1:
-                    print(
-                        "Error: multiple edges from fallthrough"
-                        + " payload")
-                    exit(1)
-                takedown = localedges[payload][0]
-                trampolines[baddr]["takedown"] = takedown
-                trampolineblocks[takedown] = baddr
+            if "break" in canonical_cases:
+                caseaddr = label_addr("case_break")
+                print("break block addr is", caseaddr)
+                trampolines[baddr]["breakout"] = caseaddr
+                trampolineblocks[caseaddr] = baddr
 
-            elif canonical_cases == ["break", "fallthrough"]:
-                if not (payload in localedges):
-                    print(
-                        "Error in breakout/fallthrough block:"
-                        + " no outgoing edges found for payload"
-                        + " block")
-                    exit(1)
+            if "continue" in canonical_cases:
+                caseaddr = label_addr("case_continue")
+                trampolines[baddr]["continuepath"] = caseaddr
+                trampolineblocks[caseaddr] = baddr
 
-                if len(localedges[payload]) != 1:
-                    print(
-                        "Error in breakout/falthrough block:"
-                        + "number of payload edges: "
-                        + str(len(localedges[payload])))
-                    exit(1)
-
-                decisionblock = localedges[payload][0]
-                trampolines[
-                    baddr]["decisionblock"] = decisionblock
-                trampolineblocks[decisionblock] = baddr
-                if not (decisionblock in localedges):
-                    print(
-                        "Error in breakout/fallthrough"
-                        + " block: decisionblock not found"
-                        + " in localedges")
-                    exit(1)
-
-                decsuccs = localedges[decisionblock]
-                if len(decsuccs) != 2:
-                    print(
-                        "Error in breakout/fallthrough"
-                        + " block: number of decision"
-                        + "edges: "
-                        + str(len(decsuccs)))
-                    exit(1)
-
-                breakout = decsuccs[0]
-                takedown = decsuccs[1]
-                trampolines[baddr]["breakout"] = breakout
-                trampolines[baddr]["takedown"] = takedown
-                trampolineblocks[takedown] = baddr
-                trampolineblocks[breakout] = baddr
-
-            else:
-                print(
-                    "Unexpected cases in trampoline @ " + baddr + ": "
-                    + str(canonical_cases))
-                exit(1)
+            if "return" in canonical_cases:
+                caseaddr = label_addr("case_return")
+                trampolines[baddr]["returnpath"] = caseaddr
+                trampolineblocks[caseaddr] = baddr
 
         cfgedges: Dict[str, List[str]] = {}
 
