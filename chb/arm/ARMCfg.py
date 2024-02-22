@@ -161,106 +161,102 @@ class ARMCfg(Cfg):
         trampolineblocks: Dict[str, str] = {}  # block addr -> setupblock addr
 
         for (baddr, b) in blocks.items():
-            if baddr in patchevents:
-                patchevent = patchevents[baddr]
-                roles: Dict[str, str] = {}
+            if not (baddr in patchevents):
+                continue
 
-                cases = patchevent.cases
-                if len(cases) > 0:
-                    canonical_cases = list(sorted(cases))
-                    if canonical_cases == ["fallthrough"]:
-                        # no decision is made
+            patchevent = patchevents[baddr]
+            canonical_cases = list(sorted(patchevent.cases))
+            if canonical_cases == []:
+                # Not a trampoline
+                continue
 
-                        trampolines[baddr] = {}
-                        trampolines[baddr]["setupblock"] = baddr
-                        if not patchevent.has_payload():
-                            print(
-                                "Error: fallthrough patchevent without payload")
-                            exit(1)
-                        payload = patchevent.payload.vahex
-                        if payload in inlinemap:
-                            payload = inlinemap[payload]
-                        trampolines[baddr]["payload"] = payload
-                        trampolineblocks[payload] = baddr
-                        if not (payload in localedges):
-                            print(
-                                "Error: payload without successors in"
-                                + " fallthrough patch event: " + str(payload))
-                            exit(1)
+            if canonical_cases == ["fallthrough"]:
+                # no decision is made
 
-                        if len(localedges[payload]) != 1:
-                            print(
-                                "Error: multiple edges from fallthrough"
-                                + " payload")
-                            exit(1)
-                        takedown = localedges[payload][0]
-                        trampolines[baddr]["takedown"] = takedown
-                        trampolineblocks[takedown] = baddr
+                trampolines[baddr] = {}
+                trampolines[baddr]["setupblock"] = baddr
+                if not patchevent.has_payload():
+                    print(
+                        "Error: fallthrough patchevent without payload")
+                    exit(1)
+                payload = patchevent.payload.vahex
+                if payload in inlinemap:
+                    payload = inlinemap[payload]
+                trampolines[baddr]["payload"] = payload
+                trampolineblocks[payload] = baddr
+                if not (payload in localedges):
+                    print(
+                        "Error: payload without successors in"
+                        + " fallthrough patch event: " + str(payload))
+                    exit(1)
 
-                    elif canonical_cases == ["break", "fallthrough"]:
-                        trampolines[baddr] = {}
-                        trampolines[baddr]["setupblock"] = baddr
-                        if not patchevent.has_payload():
-                            print(
-                                "Error in breakout/fallthrough block:"
-                                + " no payload found in patchevent")
-                            exit(1)
+                if len(localedges[payload]) != 1:
+                    print(
+                        "Error: multiple edges from fallthrough"
+                        + " payload")
+                    exit(1)
+                takedown = localedges[payload][0]
+                trampolines[baddr]["takedown"] = takedown
+                trampolineblocks[takedown] = baddr
 
-                        payload = patchevent.payload.vahex
-                        trampolines[baddr]["payload"] = payload
-                        trampolineblocks[payload] = baddr
-                        if not (payload in localedges):
-                            print(
-                                "Error in breakout/fallthrough block:"
-                                + " no outgoing edges found for payload"
-                                + " block")
-                            exit(1)
+            elif canonical_cases == ["break", "fallthrough"]:
+                trampolines[baddr] = {}
+                trampolines[baddr]["setupblock"] = baddr
+                if not patchevent.has_payload():
+                    print(
+                        "Error in breakout/fallthrough block:"
+                        + " no payload found in patchevent")
+                    exit(1)
 
-                        if len(localedges[payload]) != 1:
-                            print(
-                                "Error in breakout/falthrough block:"
-                                + "number of payload edges: "
-                                + str(len(localedges[payload])))
-                            exit(1)
+                payload = patchevent.payload.vahex
+                trampolines[baddr]["payload"] = payload
+                trampolineblocks[payload] = baddr
+                if not (payload in localedges):
+                    print(
+                        "Error in breakout/fallthrough block:"
+                        + " no outgoing edges found for payload"
+                        + " block")
+                    exit(1)
 
-                        decisionblock = localedges[payload][0]
-                        trampolines[
-                            baddr]["decisionblock"] = decisionblock
-                        trampolineblocks[decisionblock] = baddr
-                        if not (decisionblock in localedges):
-                            print(
-                                "Error in breakout/fallthrough"
-                                + " block: decisionblock not found"
-                                + " in localedges")
-                            exit(1)
+                if len(localedges[payload]) != 1:
+                    print(
+                        "Error in breakout/falthrough block:"
+                        + "number of payload edges: "
+                        + str(len(localedges[payload])))
+                    exit(1)
 
-                        decsuccs = localedges[decisionblock]
-                        if len(decsuccs) != 2:
-                            print(
-                                "Error in breakout/fallthrough"
-                                + " block: number of decision"
-                                + "edges: "
-                                + str(len(decsuccs)))
-                            exit(1)
+                decisionblock = localedges[payload][0]
+                trampolines[
+                    baddr]["decisionblock"] = decisionblock
+                trampolineblocks[decisionblock] = baddr
+                if not (decisionblock in localedges):
+                    print(
+                        "Error in breakout/fallthrough"
+                        + " block: decisionblock not found"
+                        + " in localedges")
+                    exit(1)
 
-                        breakout = decsuccs[0]
-                        takedown = decsuccs[1]
-                        trampolines[baddr]["breakout"] = breakout
-                        trampolines[baddr]["takedown"] = takedown
-                        trampolineblocks[takedown] = baddr
-                        trampolineblocks[breakout] = baddr
+                decsuccs = localedges[decisionblock]
+                if len(decsuccs) != 2:
+                    print(
+                        "Error in breakout/fallthrough"
+                        + " block: number of decision"
+                        + "edges: "
+                        + str(len(decsuccs)))
+                    exit(1)
 
-                    else:
-                        print(
-                            "Unexpected number of cases in trampoline: "
-                            + str(len(cases)))
-                        exit(1)
-                else:
-                    # not a trampoline
-                    pass
+                breakout = decsuccs[0]
+                takedown = decsuccs[1]
+                trampolines[baddr]["breakout"] = breakout
+                trampolines[baddr]["takedown"] = takedown
+                trampolineblocks[takedown] = baddr
+                trampolineblocks[breakout] = baddr
+
             else:
-                # not a patch event
-                pass
+                print(
+                    "Unexpected number of cases in trampoline: "
+                    + str(len(canonical_cases)))
+                exit(1)
 
         cfgedges: Dict[str, List[str]] = {}
 
