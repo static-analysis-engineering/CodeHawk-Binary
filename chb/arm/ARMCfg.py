@@ -170,20 +170,23 @@ class ARMCfg(Cfg):
                 # Not a trampoline
                 continue
 
+            trampolines[baddr] = {}
+            trampolines[baddr]["setupblock"] = baddr
+
+            if not patchevent.has_payload():
+                print(
+                    "Error: no payload found in patchevent for trampoline @ "
+                    + baddr)
+                exit(1)
+
+            payload = patchevent.payload.vahex
+            if payload in inlinemap:
+                payload = inlinemap[payload]
+            trampolines[baddr]["payload"] = payload
+            trampolineblocks[payload] = baddr
+
             if canonical_cases == ["fallthrough"]:
                 # no decision is made
-
-                trampolines[baddr] = {}
-                trampolines[baddr]["setupblock"] = baddr
-                if not patchevent.has_payload():
-                    print(
-                        "Error: fallthrough patchevent without payload")
-                    exit(1)
-                payload = patchevent.payload.vahex
-                if payload in inlinemap:
-                    payload = inlinemap[payload]
-                trampolines[baddr]["payload"] = payload
-                trampolineblocks[payload] = baddr
                 if not (payload in localedges):
                     print(
                         "Error: payload without successors in"
@@ -200,17 +203,6 @@ class ARMCfg(Cfg):
                 trampolineblocks[takedown] = baddr
 
             elif canonical_cases == ["break", "fallthrough"]:
-                trampolines[baddr] = {}
-                trampolines[baddr]["setupblock"] = baddr
-                if not patchevent.has_payload():
-                    print(
-                        "Error in breakout/fallthrough block:"
-                        + " no payload found in patchevent")
-                    exit(1)
-
-                payload = patchevent.payload.vahex
-                trampolines[baddr]["payload"] = payload
-                trampolineblocks[payload] = baddr
                 if not (payload in localedges):
                     print(
                         "Error in breakout/fallthrough block:"
@@ -254,8 +246,8 @@ class ARMCfg(Cfg):
 
             else:
                 print(
-                    "Unexpected number of cases in trampoline: "
-                    + str(len(canonical_cases)))
+                    "Unexpected cases in trampoline @ " + baddr + ": "
+                    + str(canonical_cases))
                 exit(1)
 
         cfgedges: Dict[str, List[str]] = {}
