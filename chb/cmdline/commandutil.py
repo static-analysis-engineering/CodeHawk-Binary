@@ -390,6 +390,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     fns_exclude: List[str] = args.fns_exclude  # function hex addresses
     fns_include: List[str] = args.fns_include  # function hex addresses
     gc_compact: int = args.gc_compact
+    construct_all_functions: bool = args.construct_all_functions
     show_function_timing: bool = args.show_function_timing
     lineq_instr_cutoff: int = args.lineq_instr_cutoff
     lineq_block_cutoff: int = args.lineq_block_cutoff
@@ -513,6 +514,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 analysisrepeats=analysisrepeats,
                 iterations=iterations,
                 verbose=verbose,
+                construct_all_functions=construct_all_functions,
                 collectdiagnostics=collectdiagnostics,
                 preamble_cutoff=preamble_cutoff)
         except subprocess.CalledProcessError as e:

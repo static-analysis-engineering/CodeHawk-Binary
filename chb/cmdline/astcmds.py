@@ -121,6 +121,7 @@ def library_call_targets(app: AppAccess, faddrs: List[str]) -> List[str]:
 
     result: Set[str] = set([])
     for faddr in faddrs:
+        print("DEBUG:faddr: " + faddr)
         if app.has_function(faddr):
             f = app.function(faddr)
             fcallees = f.call_instructions()

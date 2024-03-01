@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -95,6 +95,45 @@ class JSONFunctionAdded(JSONObject):
         visitor.visit_function_added(self)
 
 
+class JSONFunctionMD5(JSONObject):
+    """Function address with md5 of syntactic assembly representation string."""
+
+    def __init__(self, d: Dict[str, str]) -> None:
+        JSONObject.__init__(self, d, "functionmd5")
+
+    @property
+    def faddr(self) -> str:
+        return self.d.get("faddr", self.property_missing("faddr"))
+
+    @property
+    def md5(self) -> str:
+        return self.d.get("md5", self.property_missing("md5"))
+
+    def accept(self, visitor: "JSONObjectVisitor") -> None:
+        visitor.visit_function_md5(self)
+
+
+class JSONAppMD5Comparison(JSONObject):
+    """Raw listing of the functions constructed in the two binaries.
+
+    This object presents two lists of function, md5 pairs that lets a client tool
+    confirm which functions have syntactically changed in the binary."""
+
+    def __init__(self, d: Dict[str, Any]) -> None:
+        JSONObject.__init__(self, d, "functions-constructed")
+
+    @property
+    def file1(self) -> List[JSONFunctionMD5]:
+        return self.d.get("file1", self.property_missing("file1"))
+
+    @property
+    def file2(self) -> List[JSONFunctionMD5]:
+        return self.d.get("file2", self.property_missing("file2"))
+
+    def accept(self, visitor: "JSONObjectVisitor") -> None:
+        visitor.visit_app_md5_comparison(self)
+
+
 class JSONAppComparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
@@ -109,6 +148,7 @@ class JSONAppComparison(JSONObject):
         self._globalvarscompared: Optional[List[str]] = None
         self._globalvarschanged: Optional[List[JSONGlobalVarComparison]] = None
         self._binarycomparison: Optional[JSONBinaryComparison] = None
+        self._appmd5comparison: Optional[JSONAppMD5Comparison] = None
 
     @property
     def file1(self) -> str:
