@@ -115,7 +115,7 @@ class ARMLoadRegister(ARMOpcode):
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[3])
 
-        xctr = 4
+        xctr = 5
         if xdata.has_instruction_condition():
             pcond = "if " + str(xdata.xprs[xctr]) + " then "
             xctr += 1

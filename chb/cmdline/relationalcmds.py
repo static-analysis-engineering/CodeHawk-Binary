@@ -142,6 +142,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     xjson: bool = args.json
     xoutput: str = args.output
     save_aux_userdata: str = args.save_aux_userdata
+    xsave_asm: bool = args.save_asm
     xpatchresults: Optional[str] = args.patch_results_file
     xprint: bool = not args.json
     xssa: bool = args.ssa
@@ -270,7 +271,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         thumb=True)
 
     try:
-        am.analyze(iterations=10)
+        am.analyze(iterations=10, save_asm=xsave_asm)
     except subprocess.CalledProcessError as e:
         print(e.output)
         print(e.args)

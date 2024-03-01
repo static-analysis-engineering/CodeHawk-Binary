@@ -1932,3 +1932,32 @@ def show_vars_table(args: argparse.Namespace) -> NoReturn:
         print("*" * 80)
 
     exit(0)
+
+
+def show_type_constraint_table(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    tcdictionary = app.tcdictionary
+
+    for tc in tcdictionary.type_constraints():
+        print(str(tc))
+
+    print("\n\n")
+
+    print(str(app.type_constraints))
+
+    exit(0)

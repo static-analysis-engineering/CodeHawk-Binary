@@ -531,6 +531,21 @@ def get_systeminfo_xnode(path: str, xfile: str) -> ET.Element:
     return get_chb_xnode(filename, "system-info")
 
 
+def get_tcdictionary_filename(path: str, xfile: str) -> str:
+    fdir = get_analysis_dir(path, xfile)
+    return get_chb_filename(fdir, xfile, "tcdict.xml")
+
+
+def has_tcdictionary_file(path: str, xfile: str) -> bool:
+    filename = get_tcdictionary_filename(path, xfile)
+    return os.path.isfile(filename)
+
+
+def get_tcdictionary_xnode(path: str, xfile: str) -> ET.Element:
+    filename = get_tcdictionary_filename(path, xfile)
+    return get_chb_xnode(filename, "type-constraint-dictionary")
+
+
 def get_bcdictionary_filename(path: str, xfile: str) -> str:
     fdir = get_analysis_dir(path, xfile)
     return get_chb_filename(fdir, xfile, "bcdict.xml")

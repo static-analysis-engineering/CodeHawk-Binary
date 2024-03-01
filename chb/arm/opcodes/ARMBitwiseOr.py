@@ -108,7 +108,7 @@ class ARMBitwiseOr(ARMOpcode):
         if xdata.has_unknown_instruction_condition():
             return "if ? then " + assignment
         elif xdata.has_instruction_condition():
-            c = str(xdata.xprs[1])
+            c = str(xdata.xprs[4])
             return "if " + c + " then " + assignment
         else:
             return assignment

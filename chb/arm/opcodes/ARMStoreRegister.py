@@ -140,7 +140,7 @@ class ARMStoreRegister(ARMOpcode):
             rhsp = str(rhs)
         assign = str(lhs) + " := " + rhsp
 
-        xctr = 4
+        xctr = 5
         if xdata.has_instruction_condition():
             pcond = "if " + str(xdata.xprs[xctr]) + " then "
             xctr += 1
