@@ -69,6 +69,8 @@ from chb.app.StructTables import StructTables
 
 from chb.bctypes.BCDictionary import BCDictionary
 from chb.bctypes.BCFiles import BCFiles
+from chb.bctypes.TypeConstraintDictionary import TypeConstraintDictionary
+from chb.bctypes.TypeConstraintStore import TypeConstraintStore
 
 from chb.elfformat.ELFHeader import ELFHeader
 
@@ -118,10 +120,12 @@ class AppAccess(ABC, Generic[HeaderTy]):
 
         # application-wide dictionaries
         self._bcdictionary: Optional[BCDictionary] = None
+        self._tcdictionary: Optional[TypeConstraintDictionary] = None
         self._bdictionary: Optional[BDictionary] = None
         self._interfacedictionary: Optional[InterfaceDictionary] = None
         self._bcfiles: Optional[BCFiles] = None
 
+        self._typeconstraints = TypeConstraintStore(self)
         self._systeminfo: Optional[SystemInfo] = None
 
     @property
@@ -175,6 +179,16 @@ class AppAccess(ABC, Generic[HeaderTy]):
         return self._bcdictionary
 
     @property
+    def tcdictionary(self) -> TypeConstraintDictionary:
+        if self._tcdictionary is None:
+            if UF.has_tcdictionary_file(self.path, self.filename):
+                x = UF.get_tcdictionary_xnode(self.path, self.filename)
+                self._tcdictionary = TypeConstraintDictionary(self, x)
+            else:
+                self._tcdictionary = TypeConstraintDictionary(self, None)
+        return self._tcdictionary
+
+    @property
     def bdictionary(self) -> BDictionary:
         if self._bdictionary is None:
             x = UF.get_bdictionary_xnode(self.path, self.filename)
@@ -212,6 +226,10 @@ class AppAccess(ABC, Generic[HeaderTy]):
             xinfo = UF.get_systeminfo_xnode(self.path, self.filename)
             self._systeminfo = SystemInfo(self.bdictionary, xinfo)
         return self._systeminfo
+
+    @property
+    def type_constraints(self) -> TypeConstraintStore:
+        return self._typeconstraints
 
     @property
     def stringsxrefs(self) -> StringsXRefs:

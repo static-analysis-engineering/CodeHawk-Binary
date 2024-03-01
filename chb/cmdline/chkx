@@ -141,6 +141,7 @@ import chb.cmdline.simulatecmds as S
 import chb.cmdline.reportcmds as REP
 import chb.cmdline.summariescmds as SC
 import chb.cmdline.testcmds as TC
+import chb.cmdline.typeconstraintcmds as TYC
 import chb.util.dotutil as UD
 import chb.util.fileutil as UF
 from chb.util.Config import Config
@@ -966,6 +967,17 @@ def parse() -> argparse.Namespace:
     resultsglobals.add_argument("xname", help="name of executable")
     resultsglobals.set_defaults(func=UCC.results_globalvars)
 
+    # ----------------------------------------------------- type constraints ---
+    parser_typeconstraints = subparsers.add_parser("typeconstraints")
+    parser_typeconstraints.set_defaults(func=TYC.typeconstraintcommand)
+    typeconstraintparsers = parser_typeconstraints.add_subparsers(
+        title="show options")
+
+    # --- typeconstraints signatures -----------------------------------------
+    tc_signatures = typeconstraintparsers.add_parser("signatures")
+    tc_signatures.add_argument("xname", help="name of executable")
+    tc_signatures.set_defaults(func=TYC.tc_signatures_cmd)
+
     # ------------------------------------------------------ report subcommand
     parser_report = subparsers.add_parser("report")
     parser_report.set_defaults(func=REP.reportcommand)
@@ -1136,6 +1148,10 @@ def parse() -> argparse.Namespace:
         "--save_aux_userdata",
         help="name of json file (without extension) to save auxiliary userdata")
     relationalprepare.add_argument(
+        "--save_asm",
+        action="store_true",
+        help="save the assembly file")
+    relationalprepare.add_argument(
         "--hints",
         nargs="*",
         default=[],
@@ -1292,6 +1308,10 @@ def parse() -> argparse.Namespace:
     parser_table = subparsers.add_parser('table')
     parser_table.set_defaults(func=tablecommand)
     tableparsers = parser_table.add_subparsers(title='show options')
+
+    table_tc = tableparsers.add_parser("type_constraints")
+    table_tc.add_argument("xname", help="name of executable")
+    table_tc.set_defaults(func=UCC.show_type_constraint_table)
 
     # --- expr ---
     table_expr = tableparsers.add_parser('expr')
