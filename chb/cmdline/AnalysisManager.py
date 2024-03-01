@@ -266,6 +266,7 @@ class AnalysisManager(object):
             collectdiagnostics: bool = False,
             ignore_stable: bool = False,
             save_asm: bool = False,
+            construct_all_functions: bool = False,
             mem: bool = False,
             timeout: Optional[int] = None,
             preamble_cutoff: int = 12) -> int:
@@ -279,6 +280,7 @@ class AnalysisManager(object):
             mem=mem,
             timeout=timeout,
             verbose=verbose,
+            construct_all_functions=construct_all_functions,
             collectdiagnostics=collectdiagnostics,
             preamble_cutoff=preamble_cutoff)
         return result
@@ -412,6 +414,7 @@ class AnalysisManager(object):
             mem: bool = False,
             timeout: Optional[int] = None,
             verbose: bool = False,
+            construct_all_functions: bool = False,
             collectdiagnostics: bool = False,
             preamble_cutoff: int = 12) -> int:
         cwd = os.getcwd()
@@ -453,6 +456,8 @@ class AnalysisManager(object):
             cmd.append("-diagnostics")
         if asm:
             cmd.append("-save_asm")
+        if construct_all_functions:
+            cmd.append("-construct_all_functions")
         if self.show_function_timing:
             cmd.append("-show_function_timing")
         if self.gc_compact > 0:

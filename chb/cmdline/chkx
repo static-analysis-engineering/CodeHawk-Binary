@@ -378,6 +378,10 @@ def parse() -> argparse.Namespace:
         choices=["yes", "no"],
         help='save asm listing in analysis directory')
     analyzecmd.add_argument(
+        "--construct_all_functions",
+        action="store_true",
+        help="construct all functions even if not all functions are analyzed")
+    analyzecmd.add_argument(
         "--collect_diagnostics",
         action="store_true",
         help="save diagnostics in a separate diagnostics log file")
@@ -1161,6 +1165,10 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help="names of c header files with summaries/data structures")
+    relationalprepare.add_argument(
+        "--construct_all_functions",
+        action="store_true",
+        help=("construct all functions, even if not all functions are analyzed"))
     relationalprepare.add_argument(
         "--ssa",
         action="store_true",

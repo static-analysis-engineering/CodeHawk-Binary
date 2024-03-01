@@ -261,6 +261,13 @@ class AppAccess(ABC, Generic[HeaderTy]):
         """Return a list of all application function addresses."""
         return self.appresultdata.function_addresses()
 
+    @property
+    def function_md5s(self) -> Dict[str, str]:
+        """Return a mapping from function address to md5 for all functions.
+
+        Note: not all of these functions may have been analyzed."""
+        return self.appresultdata.function_md5s
+
     def has_function(self, faddr: str) -> bool:
         return faddr in self.appfunction_addrs
 

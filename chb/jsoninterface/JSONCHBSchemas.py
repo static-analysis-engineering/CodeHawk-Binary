@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -1257,6 +1257,30 @@ binarycomparison = {
 }
 
 
+appmd5comparison = {
+    "name": "appmd5comparison",
+    "title": "syntactic check of functions changed",
+    "description": (
+        "raw listing of function address/md5 pairs to enable syntactic "
+        + "comparison"),
+    "type": "object",
+    "properties": {
+        "file1": {
+            "type": "array",
+            "description": "function address / md5 pairs for file1",
+            "items": strtupletype(
+                "faddr", "md5", "md5 of syntactic assembly function string")
+            },
+        "file2": {
+            "type": "array",
+            "description": "function address / md5 pairs for file2",
+            "items": strtupletype(
+                "faddr", "md5", "md5 of syntactic assembly function string")
+            }
+        }
+    }
+
+
 appcomparison = {
     "name": "appcomparison",
     "title": "application comparison",
@@ -1303,7 +1327,8 @@ appcomparison = {
             "description": ("list of changes in global variables"),
             "items": refdef("globalvarcomparison")
         },
-        "binary-comparison": refdef("binarycomparison")
+        "binary-comparison": refdef("binarycomparison"),
+        "app-md5-comparison": refdef("appmd5comparison")
     }
 }
 

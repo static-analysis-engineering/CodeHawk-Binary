@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs, LLC
+# Copyright (c) 2021-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -146,6 +146,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     xpatchresults: Optional[str] = args.patch_results_file
     xprint: bool = not args.json
     xssa: bool = args.ssa
+    xconstruct_all_functions: bool = args.construct_all_functions
 
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -271,7 +272,10 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         thumb=True)
 
     try:
-        am.analyze(iterations=10, save_asm=xsave_asm)
+        am.analyze(
+            iterations=10,
+            save_asm=xsave_asm,
+            construct_all_functions=xconstruct_all_functions)
     except subprocess.CalledProcessError as e:
         print(e.output)
         print(e.args)

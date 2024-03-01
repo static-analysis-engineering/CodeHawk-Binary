@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023 Aarno Labs, LLC
+# Copyright (c) 2021-2024 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -105,6 +105,14 @@ class RelationalAnalysis:
     @property
     def faddrs2(self) -> Sequence[str]:
         return self._faddrs2
+
+    @property
+    def md5s1(self) -> Dict[str, str]:
+        return self.app1.function_md5s
+
+    @property
+    def md5s2(self) -> Dict[str, str]:
+        return self.app2.function_md5s
 
     @property
     def fncount1(self) -> int:
@@ -219,6 +227,18 @@ class RelationalAnalysis:
                 result.append(faddr)
         return result
 
+    def md5_comparison_to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["file1"] = []
+        content["file2"] = []
+        for (faddr, md5) in self.md5s1.items():
+            md5r1: Dict[str, str] = {"faddr": faddr, "md5": md5}
+            content["file1"].append(md5r1)
+        for (faddr, md5) in self.md5s2.items():
+            md5r2: Dict[str, str] = {"faddr": faddr, "md5": md5}
+            content["file2"].append(md5r2)
+        return JSONResult("appmd5comparison", content, "ok")
+
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
         content["file1"] = {}
@@ -236,6 +256,7 @@ class RelationalAnalysis:
                 content["functions-changed"].append(fra.content)
             else:
                 return JSONResult("appcomparison", {}, "fail", fra.reason)
+        content["app-md5-comparison"] = self.md5_comparison_to_json_result().content
         return JSONResult("appcomparison", content, "ok")
 
     def callgraph_summary_result(self) -> JSONResult:

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -44,6 +44,9 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
         pass
 
     def visit_app_comparison(self, obj: AppC.JSONAppComparison) -> None:
+        pass
+
+    def visit_app_md5_comparison(self, obj: AppC.JSONAppMD5Comparison) -> None:
         pass
 
     def visit_assembly_block(self, obj: JSONAssemblyBlock) -> None:
@@ -90,6 +93,10 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
 
     def visit_function_comparison(
             self, obj: FunC.JSONFunctionComparison) -> None:
+        pass
+
+    def visit_function_md5(
+            self, obj: AppC.JSONFunctionMD5) -> None:
         pass
 
     def visit_function_semantic_comparison(
