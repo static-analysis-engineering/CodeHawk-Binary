@@ -65,10 +65,17 @@ class AppResultData:
                 xfa = f.get("fa")
                 xmd5 = f.get("md5")
                 xrf = f.get("rf")
-                if xfa is not None and xmd5 is not None and xrf is not None:
-                    if xrf == "Y":
+                if xfa is not None and xmd5 is not None:
+                    if xrf is None:
+                        # temporary fix until all architectures have the
+                        # xrf attributes
                         self._functions_analyzed.append(xfa)
-                    self._function_md5s[xfa] = xmd5
+                        self._function_md5s[xfa] = xmd5
+                    else:
+                        if xrf == "Y":
+                            self._functions_analyzed.append(xfa)
+                        self._function_md5s[xfa] = xmd5
+
 
     def function_addresses(self) -> List[str]:
         return self.functions_analyzed
