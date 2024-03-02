@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -133,6 +133,10 @@ class VAssemblyVariable(FnVarDictionaryRecord):
 
     @property
     def is_bridge_variable(self) -> bool:
+        return False
+
+    @property
+    def is_frozen_test_value(self) -> bool:
         return False
 
     @property
@@ -430,6 +434,10 @@ class VAuxiliaryVariable(VAssemblyVariable):
     @property
     def is_bridge_variable(self) -> bool:
         return self.auxvar.is_bridge_variable
+
+    @property
+    def is_frozen_test_value(self) -> bool:
+        return self.auxvar.is_frozen_test_value
 
     @property
     def is_structured_value(self) -> bool:

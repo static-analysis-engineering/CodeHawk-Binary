@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs, LLC
+# Copyright (c) 2022-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -228,10 +228,19 @@ class ASTInterfaceFunction(ASTFunction):
         invariants = self.function.invariants
         aexprs: Dict[str, Dict[str, Tuple[int, int, str]]] = {}
         for loc in sorted(invariants):
+            if loc.startswith("F:"):
+                # skip invariants on addresses inlined by the analysis
+                continue
             for fact in invariants[loc]:
                 instr = self.function.instruction(loc)
                 if fact.is_nonrelational:
                     fact = cast("NRVFact", fact)
+                    if (
+                            fact.variable.is_frozen_test_value
+                            or fact.variable.is_bridge_variable):
+                        # Exclude auxiliary analysis variables
+                        continue
+
                     var = XU.xvariable_to_ast_lvals(
                         fact.variable,
                         instr.xdata,
@@ -303,6 +312,10 @@ class ASTInterfaceFunction(ASTFunction):
             (popinstr, popassembly) = codegenerator.pop_registers_t1(reglist, setpc)
 
             for (addr, instr) in self.function.instructions.items():
+                if addr.startswith("F:"):
+                    # do not include return sequences for addresses of functions
+                    # inlined by the analysis
+                    continue
                 ioffset = instr.stackpointer_offset.offset
                 if ioffset.is_singleton:
                     offsetval = ioffset.lower_bound.bound.value

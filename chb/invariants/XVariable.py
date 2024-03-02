@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -85,6 +85,14 @@ class XVariable(FnXprDictionaryRecord):
     @property
     def is_register_variable(self) -> bool:
         return self.has_denotation() and self.denotation.is_register_variable
+
+    @property
+    def is_bridge_variable(self) -> bool:
+        return self.has_denotation() and self.denotation.is_bridge_variable
+
+    @property
+    def is_frozen_test_value(self) -> bool:
+        return self.has_denotation() and self.denotation.is_frozen_test_value
 
     @property
     def is_initial_register_value(self) -> bool:
