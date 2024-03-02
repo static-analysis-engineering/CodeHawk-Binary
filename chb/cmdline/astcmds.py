@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs, LLC
+# Copyright (c) 2022-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -121,7 +121,6 @@ def library_call_targets(app: AppAccess, faddrs: List[str]) -> List[str]:
 
     result: Set[str] = set([])
     for faddr in faddrs:
-        print("DEBUG:faddr: " + faddr)
         if app.has_function(faddr):
             f = app.function(faddr)
             fcallees = f.call_instructions()
