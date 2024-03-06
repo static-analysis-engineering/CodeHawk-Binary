@@ -139,7 +139,7 @@ class ARMCfg(Cfg):
         # create original edges locally
         localedges: Dict[str, List[str]] = {}
         revedges: Dict[str, List[str]] = {}
-        inlinemap: Dict[str, str] = {}
+        inlinemap: Dict[str, List[str]] = {}
         xedges = self.xnode.find("edges")
         if xedges is None:
             raise UF.CHBError("Edges are missing from cfg xml")
@@ -153,10 +153,18 @@ class ARMCfg(Cfg):
             revedges.setdefault(tgt, [])
             revedges[tgt].append(src)
             if src.startswith("F"):
-                inlinemap[src.split("_")[-1]] = src
-            if tgt.startswith("F"):
-                inlinemap[tgt.split("_")[-1]] = tgt
+                basename = src.split("_")[-1]
+                inlinemap.setdefault(basename, [])
+                if src not in inlinemap[basename]:
+                    inlinemap[basename].append(src)
+                # inlinemap[src.split("_")[-1]] = src
 
+            if tgt.startswith("F"):
+                basename = tgt.split("_")[-1]
+                inlinemap.setdefault(basename, [])
+                if tgt not in inlinemap[basename]:
+                    inlinemap[basename].append(tgt)
+                # inlinemap[tgt.split("_")[-1]] = tgt
 
         trampolines: Dict[str, Dict[str , str]] = {} # setupblock addr -> roles
         trampolineblocks: Dict[str, str] = {}  # block addr -> setupblock addr
@@ -194,17 +202,30 @@ class ARMCfg(Cfg):
 
             payload = patchevent.payload.vahex
             if payload in inlinemap:
-                payload = inlinemap[payload]
+                payload = inlinemap[payload][0]
             trampolines[baddr]["payload"] = payload
             trampolineblocks[payload] = baddr
 
             if len(inlinemap) == 3:
-                payloadaddrs = sorted(inlinemap.values())
-                trampolines[baddr]["payload"] = payloadaddrs[0]
-                trampolines[baddr]["payload-c"] = payloadaddrs[1]
-                trampolines[baddr]["payload-x"] = payloadaddrs[2]
-                for addr in payloadaddrs:
-                    trampolineblocks[addr] = baddr
+                pkeys = sorted(inlinemap.keys())
+                trampolines[baddr]["payload"] = inlinemap[pkeys[0]][0]
+                trampolines[baddr]["payload-c"] = inlinemap[pkeys[1]][0]
+                trampolines[baddr]["payload-x"] = inlinemap[pkeys[2]][0]
+                for addrs in inlinemap.values():
+                    for addr in addrs:
+                        trampolineblocks[addr] = baddr
+
+            if len(inlinemap) == 5:
+                pkeys = sorted(inlinemap.keys())
+                trampolines[baddr]["payload"] = inlinemap[pkeys[0]][0]
+                trampolines[baddr]["payload-e1"] = inlinemap[pkeys[1]][0]
+                trampolines[baddr]["payload-e2"] = inlinemap[pkeys[1]][1]
+                trampolines[baddr]["payload-c"] = inlinemap[pkeys[2]][0]
+                trampolines[baddr]["payload-l"] = inlinemap[pkeys[3]][0]
+                trampolines[baddr]["payload-x"] = inlinemap[pkeys[4]][0]
+                for addrs in inlinemap.values():
+                    for addr in addrs:
+                        trampolineblocks[addr] = baddr
 
             if "fallthrough" in canonical_cases:
                 caseaddr = label_addr("case_fallthrough")

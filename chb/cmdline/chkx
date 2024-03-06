@@ -1268,6 +1268,14 @@ def parse() -> argparse.Namespace:
         "--usermapping", help="name of json file with initial function mapping")
     relationalcompareinvs.set_defaults(func=R.relational_compare_invs_cmd)
 
+    # --- relational_compare md5s
+    relationalcomparemd5s = relationalcompareparsers.add_parser("md5s")
+    relationalcomparemd5s.add_argument(
+        "xname1", help="name of first (original) executable (assumed analyzed)")
+    relationalcomparemd5s.add_argument(
+        "xname2", help="name of second (patched) executable (assumed analyzed)")
+    relationalcomparemd5s.set_defaults(func=R.relational_compare_md5s_cmd)
+
     # ------------------------------------------------------ simulate subcommand
     parser_simulate = subparsers.add_parser("simulate")
     parser_simulate.add_argument("xname", help="name of executable")
