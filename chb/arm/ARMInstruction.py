@@ -46,6 +46,7 @@ from chb.arm.ARMDictionary import ARMDictionary
 from chb.arm.ARMOpcode import ARMOpcode
 from chb.arm.ARMOperand import ARMOperand
 from chb.arm.opcodes.ARMBranch import ARMBranch
+from chb.arm.opcodes.ARMIfThen import ARMIfThen
 
 from chb.invariants.InvariantFact import InvariantFact
 from chb.invariants.XVariable import XVariable
@@ -207,8 +208,12 @@ class ARMInstruction(Instruction):
     @property
     def ft_conditions(self) -> Sequence[XXpr]:
         if self.is_branch_instruction:
-            opc = cast(ARMBranch, self.opcode)
-            return opc.ft_conditions(self.xdata)
+            if self.opcode.tags[0].startswith("IT"):
+                opc_it = cast(ARMIfThen, self.opcode)
+                return opc_it.ft_conditions(self.xdata)
+            else:
+                opc = cast(ARMBranch, self.opcode)
+                return opc.ft_conditions(self.xdata)
         else:
             return []
 
@@ -218,6 +223,9 @@ class ARMInstruction(Instruction):
 
     def has_instruction_condition(self) -> bool:
         return self.xdata.has_instruction_condition()
+
+    def has_condition_block_condition(self) -> bool:
+        return self.xdata.has_condition_block_condition()
 
     def get_instruction_condition(self) -> XXpr:
         if self.has_instruction_condition():

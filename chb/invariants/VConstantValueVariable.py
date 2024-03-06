@@ -40,6 +40,12 @@ and constant_value_variable_t =
       * ctxt_iaddress_t
   | FunctionReturnValue  of ctxt_iaddress_t        "fr"       2      0
   | SyscallErrorReturnValue of ctxt_iaddress_t     "ev"       2      0
+  | AugmentedValue of                              "av"       4      2
+     variable_t
+     * ctxt_iaddress_t
+     * string
+     * string
+     * btype_t
   | SSARegisterValue                               "ssa"     2/3     2
   | FunctionPointer of                             "fp"       2      2
       string
@@ -515,7 +521,7 @@ class VFunctionReturnValue(VConstantValueVariable):
                 else:
                     return "rtn_" + self.callsite + "_" + str(tgtval)
             else:
-                return "rtn_" + tgtval.name + "_" + self.callsite
+                return "rtn_" + tgtval.name
         else:
             return "rtn_" + self.callsite
 
@@ -553,6 +559,51 @@ class FunctionPointer(VConstantValueVariable):
 
     def __str__(self) -> str:
         return "fp:" + self.creator + ":" + self.name + "@" + self.creation_addr
+
+
+@varregistry.register_tag("av", VConstantValueVariable)
+class AugmentationValue(VConstantValueVariable):
+    """Frozen value of a variable at a particular address.
+
+    tags[1]: address of freezing
+    tags[2]: description
+    tags[3]: suffix
+    args[0]: index of variable that was frozen in vdictionary
+    args[1]: index of type in bcdictionary
+    """
+
+    def __init__(
+            self,
+            vd: "FnVarDictionary",
+            ixval: IndexedTableValue) -> None:
+        VConstantValueVariable.__init__(self, vd, ixval)
+
+    @property
+    def address(self) -> str:
+        return self.tags[1]
+
+    @property
+    def description(self) -> str:
+        return self.tags[2]
+
+    @property
+    def suffix(self) -> str:
+        return self.tags[3]
+
+    @property
+    def variable(self) -> "XVariable":
+        return self.xd.variable(self.args[0])
+
+    @property
+    def btype(self) -> "BCTyp":
+        return self.bcd.typ(self.args[1])
+
+    @property
+    def name(self) -> str:
+        return self.variable.name + "_" + self.suffix
+
+    def __str__(self) -> str:
+        return self.name
 
 
 @varregistry.register_tag("ssa", VConstantValueVariable)

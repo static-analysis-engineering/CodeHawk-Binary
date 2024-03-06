@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -1221,7 +1221,8 @@ def xvar_offset_dereference_lval(
         offset: Optional[X.XXpr],
         xdata: "InstrXData",
         iaddr: str,
-        astree: ASTInterface) -> AST.ASTLval:
+        astree: ASTInterface,
+        operator: str = "plus") -> AST.ASTLval:
     """Return an lval associated with a base variable + offset."""
 
     def default() -> AST.ASTLval:
@@ -1240,7 +1241,7 @@ def xvar_offset_dereference_lval(
         if offset is not None:
             offsetasts = xxpr_to_ast_exprs(offset, xdata, iaddr, astree)
             if len(offsetasts) == 1:
-                addrast = astree.mk_binary_op("plus", addrast, offsetasts[0])
+                addrast = astree.mk_binary_op(operator, addrast, offsetasts[0])
 
         return astree.mk_memref_lval(addrast)
 
@@ -1349,7 +1350,8 @@ def xmemory_dereference_lval(
 
         if op1.is_var:
             op1 = cast(X.XprVariable, op1)
-            return xvar_offset_dereference_lval(op1, op2, xdata, iaddr, astree)
+            return xvar_offset_dereference_lval(
+                op1, op2, xdata, iaddr, astree, operator=address.operator)
 
         if not op1.is_global_address:
             return default()

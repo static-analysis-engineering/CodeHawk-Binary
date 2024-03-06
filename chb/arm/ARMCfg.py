@@ -157,6 +157,7 @@ class ARMCfg(Cfg):
             if tgt.startswith("F"):
                 inlinemap[tgt.split("_")[-1]] = tgt
 
+
         trampolines: Dict[str, Dict[str , str]] = {} # setupblock addr -> roles
         trampolineblocks: Dict[str, str] = {}  # block addr -> setupblock addr
 
@@ -196,6 +197,14 @@ class ARMCfg(Cfg):
                 payload = inlinemap[payload]
             trampolines[baddr]["payload"] = payload
             trampolineblocks[payload] = baddr
+
+            if len(inlinemap) == 3:
+                payloadaddrs = sorted(inlinemap.values())
+                trampolines[baddr]["payload"] = payloadaddrs[0]
+                trampolines[baddr]["payload-c"] = payloadaddrs[1]
+                trampolines[baddr]["payload-x"] = payloadaddrs[2]
+                for addr in payloadaddrs:
+                    trampolineblocks[addr] = baddr
 
             if "fallthrough" in canonical_cases:
                 caseaddr = label_addr("case_fallthrough")
