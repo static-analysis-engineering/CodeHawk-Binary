@@ -35,9 +35,12 @@ import subprocess
 
 from typing import Any, cast, Dict, List, NoReturn, Optional, Tuple
 
+from chb.arm.ARMCfg import astmode, patchevents
+
 from chb.cmdline.AnalysisManager import AnalysisManager
 import chb.cmdline.commandutil as UC
 import chb.cmdline.jsonresultutil as JU
+from chb.cmdline.PatchResults import PatchResults
 from chb.cmdline.XComparison import XComparison
 import chb.cmdline.XInfo as XI
 
@@ -445,6 +448,15 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
         with open(xpatchresults, "r") as fp:
             patchresultsdata = json.load(fp)
 
+    if patchresultsdata is not None:
+        astmode.append("ast")
+        patchresults = PatchResults(patchresultsdata)
+        for event in patchresults.events:
+            if event.is_trampoline:
+                if event.has_wrapper():
+                    startaddr = event.wrapper.vahex
+                    patchevents[startaddr] = event
+
     usermapping: Dict[str, str] = {}
     if usermappingfile is not None:
         if os.path.isfile(usermappingfile):
@@ -551,6 +563,81 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     print("=" * 80)
     print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
     print("=" * 80)
+
+    exit(0)
+
+
+def relational_compare_md5s_cmd(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname1: str = args.xname1
+    xname2: str = args.xname2
+
+    print("Comparison of the function md5s of " + xname1 + " and " + xname2)
+
+    try:
+        (path1, xfile1) = UC.get_path_filename(xname1)
+        UF.check_analysis_results(path1, xfile1)
+        (path2, xfile2) = UC.get_path_filename(xname2)
+        UF.check_analysis_results(path2, xfile2)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo1 = XI.XInfo()
+    xinfo2 = XI.XInfo()
+    xinfo1.load(path1, xfile1)
+    xinfo2.load(path2, xfile2)
+    app1 = UC.get_app(path1, xfile1, xinfo1)
+    app2 = UC.get_app(path2, xfile2, xinfo2)
+
+    md5s1 = app1.function_md5s
+    md5s2 = app2.function_md5s
+
+    comparison: Dict[str, Optional[str]] = {}
+
+    for (f1, md51) in md5s1.items():
+        if f1 in md5s2:
+            md52 = md5s2[f1]
+            if md52 == md51:
+                comparison[f1] = "equal"
+            else:
+                comparison[f1] = "different"
+        else:
+            comparison[f1] = "missing"
+
+    for (f2, md52) in md5s2.items():
+        if f2 in comparison:
+            continue
+        else:
+            comparison[f2] = "new"
+
+    eqcount: int = 0
+
+    neq: List[str] = []
+    missing: List[str] = []
+    newfns: List[str] = []
+
+    for (f, md5) in comparison.items():
+        if comparison[f] == "equal":
+            eqcount += 1
+        elif comparison[f] == "different":
+            neq.append(f)
+        elif comparison[f] == "missing":
+            missing.append(f)
+        elif comparison[f] == "new":
+            newfns.append(f)
+
+    print("Md5 comparison")
+    print("=" * 80)
+    print("Equal: " + str(eqcount))
+    print("")
+    print("Different: " + ", ".join(neq))
+    print("")
+    print("Missing: " + ", ".join(missing))
+    print("")
+    print("New functions: " + ", ".join(newfns))
+    print("")
 
     exit(0)
 

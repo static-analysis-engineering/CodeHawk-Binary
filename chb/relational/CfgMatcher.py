@@ -208,12 +208,16 @@ class CfgMatcher:
     def is_block_split(self) -> bool:
         blocks1 = self.cfg1.blocks
         blocks2 = self.cfg2.blocks
+
+        '''
         if len(blocks2) == len(blocks1) + 1:
             return True
         elif len(blocks2) == len(blocks1) + 2:
             return True
         else:
             return False
+        '''
+        return False
 
     @property
     def is_cfg_isomorphic(self) -> bool:
@@ -297,7 +301,7 @@ class CfgMatcher:
                         else:
                             print("CfgMatcher: unexpected 3-block split")
                 for (b2, block2) in blocks2.items():
-                    if b2 not in blocks1:
+                    if b2 not in blocks1 and not block2.is_trampoline:
                         b2endaddr = block2.lastaddr
                         found = False
                         for b1 in blocks1:
@@ -324,7 +328,7 @@ class CfgMatcher:
             self.collect_blockcalls()
             self.match_blockcalls()
             self.collect_branch_conditions()
-            self.match_branch_conditions()
+            # self.match_branch_conditions()
             self.match_edges()
             self.propagate_post()
             self.propagate_pre()

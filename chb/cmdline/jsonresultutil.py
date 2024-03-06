@@ -157,9 +157,10 @@ def cfg_node_to_json_result(f: "Function", b: "BasicBlock") -> JSONResult:
         return JSONResult("cfgnode", {}, "fail", bresult.reason)
     else:
         content["code"] = bresult.content
-        looplevels = f.cfg.loop_levels(b.baddr)
-        if len(looplevels) > 0:
-            content["nesting-level"] = len(looplevels)
+        if b.baddr in f.cfg.blocks:
+            looplevels = f.cfg.loop_levels(b.baddr)
+            if len(looplevels) > 0:
+                content["nesting-level"] = len(looplevels)
     return JSONResult("cfgnode", content, "ok")
 
 
@@ -280,6 +281,7 @@ def function_cfg_comparison_to_json_result(
         return JSONResult(schema, {}, "fail", cfg2.reason)
     changes: List[str] = []
     if fra.is_trampoline_block_splice:
+        print("DEBUG: json: block splice")
         changes.append("trampoline")
         cfgmatcher = fra.cfgmatcher
         blockmapping: List[Dict[str, Any]] = []
@@ -295,6 +297,7 @@ def function_cfg_comparison_to_json_result(
                 if blockmap.is_ok:
                     blockmapping.append(blockmap.content)
                 else:
+                    print("DEBUG: fail1 for : " + baddr1)
                     return JSONResult(schema, {}, "fail", blockmap.reason)
             elif cfgmatcher.has_trampoline_match(baddr1):
                 t = cfgmatcher.get_trampoline_match(baddr1)
@@ -308,9 +311,11 @@ def function_cfg_comparison_to_json_result(
                 if blockmap.is_ok:
                     blockmapping.append(blockmap.content)
                 else:
+                    print("DEBUG: fail2 for : " + baddr1)
                     return JSONResult(schema, {}, "fail", blockmap.reason)
         content["cfg-block-mapping"] = blockmapping
     elif fra.is_block_split:
+        print("DEBUG: json: block split")
         changes.append("block-split")
         cfgmatcher = fra.cfgmatcher
         blockmapping = []
