@@ -144,6 +144,8 @@ class DotCfg:
             if self.mips:
                 iaddr_i -= 4  # delay slot
             instraddr = 'F:' + ctxtaddr[0] + '_' + hex(iaddr_i)
+        elif instraddr.startswith("P"):
+            pass
         else:
             instraddr_i = int(instraddr, 16)
             if self.mips:
@@ -262,6 +264,8 @@ class DotCfg:
                         for i, tgt in enumerate(self.fn.cfg.edges[e]):
                             if tgt in self.pathnodes:
                                 labeltxt = str(ftconditions[i])
+                                if "@" in labeltxt:
+                                    labeltxt = ""
                                 labeltxt = self.replace_text(labeltxt)
                                 ename = self.nodeprefix + str(e)
                                 tgtname = self.nodeprefix + str(tgt)

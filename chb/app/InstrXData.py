@@ -333,6 +333,9 @@ class InstrXData(IndexedTableValue):
     def has_instruction_condition(self) -> bool:
         return "ic" in self.tags
 
+    def has_condition_block_condition(self) -> bool:
+        return "TF" in self.tags
+
     def has_unknown_instruction_condition(self) -> bool:
         return "uc" in self.tags
 

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -129,6 +129,26 @@ class ASTInterfaceBasicBlock:
                     cc = aexprs[0]
                     brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
                     return brstmt
+
+        if "payload-c" in self.trampoline and "payload-x" in self.trampoline:
+            payloadc = self.trampoline["payload-c"]
+            (ciaddr, cinstr) = sorted(payloadblock.instructions.items())[-1]
+            cinstr = cast("ARMInstruction", cinstr)
+            if cinstr.has_condition_block_condition():
+                (tcond, fcond) = cinstr.ft_conditions
+                instrs: List[AST.ASTInstruction] = []
+                for (a, i) in sorted(payloadc.instructions.items())[:-1]:
+                    self._instructions[a] = ASTInterfaceInstruction(i)
+                    instrs.extend(self.instructions[a].ast(astree))
+                sideeffect = astree.mk_instr_sequence(instrs)
+                rstmt = astree.mk_return_stmt(None)
+                estmt = astree.mk_instr_sequence([])
+                aexprs = XU.xxpr_to_ast_exprs(
+                    fcond, cinstr.xdata, cinstr.iaddr, astree)
+                cc = aexprs[0]
+                rsstmt = astree.mk_block([sideeffect, rstmt])
+                brstmt = astree.mk_branch(cc, rsstmt, estmt, "0x0")
+                return brstmt
         (iaddr, pinstr) = sorted(payloadblock.instructions.items())[0]
         self._instructions[iaddr] = ASTInterfaceInstruction(pinstr)
         astinstr = self.instructions[iaddr].ast(astree)

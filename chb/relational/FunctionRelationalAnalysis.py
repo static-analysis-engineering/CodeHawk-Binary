@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs, LLC
+# Copyright (c) 2021-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -137,7 +137,7 @@ class FunctionRelationalAnalysis:
     def address2_align(self, addr2: str) -> str:
         """Return the corresponding address in fn2 by adding the offset."""
 
-        if addr2.startswith("F") or addr2.startswith("T"):
+        if addr2.startswith("F") or addr2.startswith("T") or addr2.startswith("P"):
             return "?"
         else:
             return hex(int(addr2, 16) - self.offset)
