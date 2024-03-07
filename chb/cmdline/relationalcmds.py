@@ -371,6 +371,7 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
     xname1: str = args.xname1
     xname2: str = args.xname2
     blocks: bool = args.blocks
+    xpatchresults: Optional[str] = args.patch_results_file
     details: bool = args.details
     addresses: List[str] = args.addresses
     usermappingfile: Optional[str] = args.usermapping
@@ -394,6 +395,20 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
             UC.print_error(
                 "Usermapping file " + usermappingfile + " not found")
             exit(1)
+
+    patchresultsdata: Optional[Dict[str, Any]] = None
+    if xpatchresults is not None:
+        with open(xpatchresults, "r") as fp:
+            patchresultsdata = json.load(fp)
+
+    if patchresultsdata is not None:
+        astmode.append("ast")
+        patchresults = PatchResults(patchresultsdata)
+        for event in patchresults.events:
+            if event.is_trampoline:
+                if event.has_wrapper():
+                    startaddr = event.wrapper.vahex
+                    patchevents[startaddr] = event
 
     xinfo1 = XI.XInfo()
     xinfo2 = XI.XInfo()
@@ -699,13 +714,13 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
         f2table: Dict[str, Dict[str, NonRelationalValue]] = {}
         for loc in f1invariants:
             for fact in f1invariants[loc]:
-                if fact.is_nonrelational:
+                if fact.is_nonrelational and not "@" in str(fact.variable):
                     fact = cast(NRVFact, fact)
                     f1table.setdefault(loc, {})
                     f1table[loc][str(fact.variable)] = fact.value
         for loc in f2invariants:
             for fact in f2invariants[loc]:
-                if fact.is_nonrelational:
+                if fact.is_nonrelational and not "@" in str(fact.variable):
                     fact = cast(NRVFact, fact)
                     f2table.setdefault(loc, {})
                     f2table[loc][str(fact.variable)] = fact.value

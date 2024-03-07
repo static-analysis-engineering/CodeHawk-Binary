@@ -91,3 +91,7 @@ class CfgBlock:
     @property
     def is_trampoline(self) -> bool:
         return False
+
+    @property
+    def roles(self) -> Dict[str, str]:
+        return {}

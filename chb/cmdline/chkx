@@ -1213,6 +1213,9 @@ def parse() -> argparse.Namespace:
         nargs="*",
         help="list of hex addresses of (original) functions to be included")
     relationalcomparefn.add_argument(
+        "--patch_results_file",
+        help="name of patch results file (required if there are trampolines)")
+    relationalcomparefn.add_argument(
         "--blocks",
         action="store_true",
         help="give details on all functions that were modified at the block level")

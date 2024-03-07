@@ -131,6 +131,12 @@ class PatchEvent:
     def get_details(self) -> Optional[Dict[str, Any]]:
         return self._d.get("details")
 
+    def has_extras(self) -> bool:
+        return "extras" in self._d
+
+    def get_extras(self) -> Optional[Dict[str, Any]]:
+        return self._d.get("extras")
+
     def has_wrapper(self) -> bool:
         details = self._d.get("details")
         if details is not None:
@@ -185,6 +191,16 @@ class PatchEvent:
         else:
             return []
 
+    def get_fallthrough_destination(self) -> Optional[str]:
+        if self.has_extras():
+            extras = self.get_extras()
+            if extras is not None:
+                if "destinations" in extras:
+                    destinations = extras["destinations"]
+                    if "fallthrough" in destinations:
+                        return hex(destinations["fallthrough"])
+        return None
+
     def __str__(self) -> str:
         lines: List[str] = []
         if self.has_wrapper():
@@ -228,9 +244,19 @@ class PatchResults:
                     r["payload"] = e.payload.vahex
                 if e.has_wrapper():
                     r["wrapper"] = e.wrapper.vahex
+                if e.has_extras():
+                    fallthrough = self.fallthrough_destination
+                    if fallthrough is not None:
+                        r["fallthrough"] = fallthrough
                 result.append(r)
         return result
 
+    @property
+    def fallthrough_destination(self) -> Optional[str]:
+        for e in self.events:
+            if e.is_trampoline:
+                return e.get_fallthrough_destination()
+        return None
 
 if __name__ == "__main__":
 
