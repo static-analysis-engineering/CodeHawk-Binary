@@ -52,14 +52,32 @@ class ASTInterfaceBasicBlock:
         self._b = b
         self._instructions: Dict[str, ASTInterfaceInstruction] = {}
         self._trampoline = trampoline
+        self._trampoline_instructions: Dict[
+            str, Dict[str, ASTInterfaceInstruction]] = {}
 
     @property
     def basicblock(self) -> "BasicBlock":
         return self._b
 
+    def has_trampoline_role(self, role: str) -> bool:
+        return role in self.trampoline
+
+    def trampoline_basicblock(self, role: str) -> "BasicBlock":
+        if role in self.trampoline:
+            return self.trampoline[role]
+        else:
+            raise UF.CHBError("Trampoline role not found: " + role)
+
     @property
-    def trampoline(self) -> Optional[Dict[str, "BasicBlock"]]:
-        return self._trampoline
+    def is_trampoline(self) -> bool:
+        return self._trampoline is not None
+
+    @property
+    def trampoline(self) -> Dict[str, "BasicBlock"]:
+        if self._trampoline is not None:
+            return self._trampoline
+        else:
+            raise UF.CHBError("ASTIBlock is not a trampoline")
 
     @property
     def instructions(self) -> Dict[str, ASTInterfaceInstruction]:
@@ -67,6 +85,24 @@ class ASTInterfaceBasicBlock:
             for (iaddr, instr) in self.basicblock.instructions.items():
                 self._instructions[iaddr] = ASTInterfaceInstruction(instr)
         return self._instructions
+
+    @property
+    def trampoline_instructions(
+            self) -> Dict[str, Dict[str, ASTInterfaceInstruction]]:
+        return self._trampoline_instructions
+
+    def trampoline_block_instructions(
+            self, role: str) -> Dict[str, ASTInterfaceInstruction]:
+        if self.is_trampoline and self.has_trampoline_role(role):
+            if not role in self._trampoline_instructions:
+                self._trampoline_instructions[role] = {}
+                tb = self.trampoline_basicblock(role)
+                for (iaddr, instr) in tb.instructions.items():
+                    self._trampoline_instructions[role][iaddr] = (
+                        ASTInterfaceInstruction(instr))
+            return self._trampoline_instructions[role]
+        else:
+            raise UF.CHBError("ASTIBlock does not have role: " + role)
 
     @property
     def has_return(self) -> bool:
@@ -78,17 +114,32 @@ class ASTInterfaceBasicBlock:
         iaddr = bb_lastinstr.iaddr
         return self.instructions[iaddr]
 
+    def trampoline_block_last_instruction(
+            self, role: str) -> ASTInterfaceInstruction:
+        t_bb = self.trampoline_basicblock(role)
+        iaddr = t_bb.last_instruction.iaddr
+        return self.trampoline_block_instructions(role)[iaddr]
+
     def assembly_ast_condition(
             self,
             astree: "ASTInterface",
             reverse: bool = False) -> Optional[AST.ASTExpr]:
-        return self.last_instruction.assembly_ast_condition(astree, reverse=reverse)
+        return self.last_instruction.assembly_ast_condition(
+            astree, reverse=reverse)
 
     def ast_condition(
             self,
             astree: "ASTInterface",
             reverse: bool = False) -> Optional[AST.ASTExpr]:
         return self.last_instruction.ast_condition(astree, reverse=reverse)
+
+    def trampoline_ast_condition(
+            self,
+            role: str,
+            astree: "ASTInterface",
+            reverse: bool = False) -> Optional[AST.ASTExpr]:
+        return self.trampoline_block_last_instruction(role).ast_condition(
+            astree, reverse = reverse)
 
     '''
     def ast_switch_condition(
@@ -102,15 +153,38 @@ class ASTInterfaceBasicBlock:
             instrs.extend(i.assembly_ast(astree))
         return astree.mk_instr_sequence(instrs)
 
-    def trampoline_setup_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
-        if not self.trampoline:
-            raise UF.CHBError("Internal error")
-        setupblock = self.trampoline["setupblock"]
+    def ast(self, astree: "ASTInterface") -> AST.ASTStmt:
+        if self.is_trampoline:
+            return self.trampoline_ast(astree)
+
         instrs: List[AST.ASTInstruction] = []
-        for (a, i) in sorted(setupblock.instructions.items(), key=lambda p: p[0]):
-            self._instructions[a] = ASTInterfaceInstruction(i)
-            instrs.extend(self.instructions[a].ast(astree))
+        for (a, i) in sorted(self.instructions.items(), key=lambda p: p[0]):
+            instrs.extend(i.ast(astree))
         return astree.mk_instr_sequence(instrs)
+
+    def trampoline_block_ast(
+            self,
+            role: str,
+            astree: "ASTInterface",
+            trim: int = 0) -> AST.ASTStmt:
+        instrs: List[AST.ASTInstruction] = []
+        if trim > 0:
+            # remove last (condition setting) instruction
+            for (a, i) in sorted(
+                    self.trampoline_block_instructions(role).items(),
+                    key=lambda p: p[0])[:-1]:
+                instrs.extend(i.ast(astree))
+        else:
+            for (a, i) in sorted(
+                    self.trampoline_block_instructions(role).items(),
+                    key=lambda p: p[0]):
+                instrs.extend(i.ast(astree))
+        return astree.mk_instr_sequence(instrs)
+
+    def trampoline_setup_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
+        if not self.is_trampoline:
+            raise UF.CHBError("Internal error")
+        return self.trampoline_block_ast("setupblock", astree)
 
     def trampoline_payload_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         if not self.trampoline:
@@ -129,84 +203,67 @@ class ASTInterfaceBasicBlock:
                     cc = aexprs[0]
                     brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
                     return brstmt
+        return self.trampoline_block_ast("payload", astree)
 
-        '''
-        if "payload-l" in self.trampoline and "payload-x" in self.trampoline:
-            payloadc = self.trampoline["payload-c"]
-            (ciaddr, cinstr) = sorted(payloadblock.instructions.items())[-1]
-            cinstr = cast("ARMInstruction", cinstr)
-            if cinstr.has_condition_block_condition():
-                (tcond, fcond) = cinstr.ft_conditions
-                instrs: List[AST.ASTInstruction] = []
-                for (a, i) in sorted(payloadc.instructions.items())[:-1]:
-                    self._instructions[a] = ASTInterfaceInstruction(i)
-                    instrs.extend(self.instructions[a].ast(astree))
-                initse = astree.mk_instr_sequence(instrs)
-                rstmt = astree.mk_return_stmt(None)
-                estmt = astree.mk_instr_sequence([])
-                aexprs = XU.xxpr_to_ast_exprs(
-                    fcond, cinstr.xdata, cinstr.iaddr, astree)
-                cc = aexprs[0]
-                rsstmt = astree.mk_block([sideeffect, rstmt])
-                brstmt = astree.mk_branch(cc, rsstmt, estmt, "0x0")
-                return brstmt
-        (iaddr, pinstr) = sorted(payloadblock.instructions.items())[0]
-        self._instructions[iaddr] = ASTInterfaceInstruction(pinstr)
-        astinstr = self.instructions[iaddr].ast(astree)
-        return astree.mk_instr_sequence(astinstr)
+    def trampoline_payload_sideeffect_ast(
+            self, astree: "ASTInterface") -> AST.ASTStmt:
+        cond = self.trampoline_ast_condition("payload", astree)
+        # need to exclude last instruction of payload-c
+        sideeffect = self.trampoline_block_ast("payload-c", astree, trim=1)
+        rstmt = astree.mk_return_stmt(None)
+        estmt = astree.mk_instr_sequence([])
+        tr_stmt = astree.mk_block([sideeffect, rstmt])
+        if cond is not None:
+            return astree.mk_branch(cond, tr_stmt, estmt, "0x0")
+        return tr_stmt
 
-        '''
-        if "payload-c" in self.trampoline and "payload-x" in self.trampoline:
-            payloadc = self.trampoline["payload-c"]
-            (ciaddr, cinstr) = sorted(payloadblock.instructions.items())[-1]
-            cinstr = cast("ARMInstruction", cinstr)
-            if cinstr.has_condition_block_condition():
-                (tcond, fcond) = cinstr.ft_conditions
-                instrs: List[AST.ASTInstruction] = []
-                for (a, i) in sorted(payloadc.instructions.items())[:-1]:
-                    self._instructions[a] = ASTInterfaceInstruction(i)
-                    instrs.extend(self.instructions[a].ast(astree))
-                sideeffect = astree.mk_instr_sequence(instrs)
-                rstmt = astree.mk_return_stmt(None)
-                estmt = astree.mk_instr_sequence([])
-                aexprs = XU.xxpr_to_ast_exprs(
-                    fcond, cinstr.xdata, cinstr.iaddr, astree)
-                cc = aexprs[0]
-                rsstmt = astree.mk_block([sideeffect, rstmt])
-                brstmt = astree.mk_branch(cc, rsstmt, estmt, "0x0")
-                return brstmt
-        (iaddr, pinstr) = sorted(payloadblock.instructions.items())[0]
-        self._instructions[iaddr] = ASTInterfaceInstruction(pinstr)
-        astinstr = self.instructions[iaddr].ast(astree)
-        return astree.mk_instr_sequence(astinstr)
+    def trampoline_payload_loop_ast(
+            self, astree: "ASTInterface") -> AST.ASTStmt:
+        """Assumes a return via conditional POP."""
+
+        cond = self.trampoline_ast_condition("payload", astree, reverse=True)
+        initcond = self.trampoline_ast_condition(
+            "payload-c", astree, reverse=True)
+        loopcond = self.trampoline_ast_condition(
+            "payload-l", astree, reverse=True)
+
+        initstmt = self.trampoline_block_ast("payload-c", astree)
+        loopbody = self.trampoline_block_ast("payload-l", astree)
+        rstmt = astree.mk_return_stmt(None)
+        breakstmt = astree.mk_break_stmt()
+        estmt = astree.mk_instr_sequence([])
+
+        if cond is not None and initcond is not None and loopcond is not None:
+            breakout = astree.mk_branch(loopcond, breakstmt, estmt, "0x0")
+            loopbody = astree.mk_block([loopbody, breakout])
+            loopstmt = astree.mk_loop(loopbody)
+            c_loopstmt = astree.mk_branch(initcond, loopstmt, estmt, "0x0")
+
+            sideeffect = astree.mk_block([initstmt, c_loopstmt, rstmt])
+            return astree.mk_branch(cond, sideeffect, estmt, "0x0")
+
+        else:
+            raise UF.CHBError(
+                "trampoline-payload-loop: one of the conditions not known")
 
     def trampoline_takedown_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
-        if not self.trampoline:
+        if not self.is_trampoline:
             raise UF.CHBError("Internal error")
-        takedownblock = self.trampoline["takedown"]
-        instrs: List[AST.ASTInstruction] = []
-        for (a, i) in sorted(takedownblock.instructions.items(), key=lambda p: p[0]):
-            self._instructions[a] = ASTInterfaceInstruction(i)
-            instrs.extend(self.instructions[a].ast(astree))
-        return astree.mk_instr_sequence(instrs)
+        return self.trampoline_block_ast("takedown", astree)
 
     def trampoline_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         stmts: List[AST.ASTStmt] = []
-        if not self.trampoline:
+        if not self.is_trampoline:
             raise UF.CHBError("Internal error")
         if "setupblock" in self.trampoline:
             stmts.append(self.trampoline_setup_ast(astree))
         if "payload" in self.trampoline:
-            stmts.append(self.trampoline_payload_ast(astree))
+            if self.has_trampoline_role("payload-l"):
+                stmts.append(self.trampoline_payload_loop_ast(astree))
+            elif self.has_trampoline_role("payload-c"):
+                stmts.append(self.trampoline_payload_sideeffect_ast(astree))
+            else:
+                stmts.append(self.trampoline_payload_ast(astree))
         if "takedown" in self.trampoline:
             stmts.append(self.trampoline_takedown_ast(astree))
         return astree.mk_block(stmts)
-
-    def ast(self, astree: "ASTInterface") -> AST.ASTStmt:
-        if self.trampoline:
-            return self.trampoline_ast(astree)
-
-        instrs: List[AST.ASTInstruction] = []
-        for (a, i) in sorted(self.instructions.items(), key=lambda p: p[0]):
-            instrs.extend(i.ast(astree))
-        return astree.mk_instr_sequence(instrs)
