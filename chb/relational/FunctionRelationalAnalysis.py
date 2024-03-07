@@ -376,6 +376,12 @@ class FunctionRelationalAnalysis:
                     self.basic_blocks2[b2])
         return self._blockanalyses
 
+    def has_trampoline(self) -> Optional[str]:
+        for (b, cfgb) in self.cfg_blocks2.items():
+            if cfgb.is_trampoline:
+                return b
+        return None
+
     def blocks_changed(self) -> List[str]:
         """Return a list of block addresses that are not md5-equal."""
 
@@ -397,6 +403,49 @@ class FunctionRelationalAnalysis:
                     total += len(blra.instrs_changed(callees))
         return total
 
+    def setup_restore_context_comparison(
+            self, setup: "Instruction", restore: "Instruction") -> str:
+
+        lines: List[str] = []
+        if setup.mnemonic.startswith("PUSH") and restore.mnemonic.startswith("POP"):
+            pushassigns = list(zip(setup.xdata.vars, setup.xdata.xprs[2:]))
+            popassigns = list(zip(restore.xdata.vars, restore.xdata.xprs[2:]))
+
+            lines.append(
+                (" " * 16)
+                + "Save context".ljust(32)
+                + "Restore context")
+            lines.append("-" * 80)
+            lines.append(
+                "iaddr".ljust(16)
+                + setup.real_iaddr.ljust(32)
+                + restore.real_iaddr.ljust(16))
+            lines.append(
+                "SP before".ljust(16)
+                + str(setup.stackpointer_offset.offsetvalue()).ljust(32)
+                + str(restore.stackpointer_offset.offsetvalue()).ljust(32))
+            lines.append(
+                "opcode".ljust(16)
+            + setup.mnemonic.ljust(32)
+                + restore.mnemonic)
+            spsetup = pushassigns[0][1]
+            sprestore = popassigns[0][1]
+            lines.append(
+                "SP after".ljust(16)
+                + str(spsetup.stack_address_offset()).ljust(32)
+                + str(sprestore.stack_address_offset()).ljust(32))
+            lines.append("\nregister saves and restores:")
+            pushassigns = list(zip(setup.xdata.vars, setup.xdata.xprs[2:]))
+            popassigns = list(zip(restore.xdata.vars, restore.xdata.xprs[2:]))
+            if len(pushassigns) == len(popassigns):
+                for ((v1, a1), (v2, a2)) in zip(pushassigns, popassigns):
+                    lines.append(
+                        ("  " + str(v2)).ljust(16)
+                        + (str(v1) + " = " + str(a1)).ljust(32)
+                        + (str(v2) + " = " + str(a2)).ljust(32))
+
+        return "\n".join(lines)
+
     def to_json_result(self) -> JSONResult:
         schema = "functioncomparison"
         content: Dict[str, Any] = {}
@@ -416,6 +465,8 @@ class FunctionRelationalAnalysis:
             + "md5-equivalent".ljust(20)
             + "instrs-changed".ljust(20))
         blockheader.append("-" * 80)
+
+        trampolineblock = self.has_trampoline()
         # if self.is_structurally_equivalent:
         if self.is_cfg_isomorphic:
             lines.extend(blockheader)
@@ -451,6 +502,20 @@ class FunctionRelationalAnalysis:
                                 + "):")
                             lines.append(blra.report(callees))
                             lines.append("")
+
+        elif trampolineblock is not None:
+            lines.append("\nTrampoline inserted at " + trampolineblock)
+            trblock = self.cfg_blocks2[trampolineblock]
+            lines.append("\nTrampoline components: ")
+            for (c, ca) in trblock.roles.items():
+                lines.append("  " + c.ljust(30) + ": " + ca)
+
+            setupinstr = self.fn2.instruction(trblock.roles["setupblock"])
+            takedowninstr = self.fn2.instruction(trblock.roles["takedown"])
+
+            lines.append(self.setup_restore_context_comparison(setupinstr, takedowninstr))
+
+
         else:
             cfgmatcher = CfgMatcher(
                 self.app1,
