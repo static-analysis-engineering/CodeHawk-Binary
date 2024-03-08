@@ -103,6 +103,137 @@ class PatchWrapper:
             +" )")
 
 
+class PatchDetails:
+
+    def __init__(self, d: Dict[str, Any]) -> None:
+        self._d = d
+
+    def has_wrapper(self) -> bool:
+        return "wrapper" in self._d
+
+    @property
+    def wrapper(self) -> PatchWrapper:
+        return PatchWrapper(self._d.get("wrapper", {}))
+
+    def has_payload(self) -> bool:
+        return "payload" in self._d
+
+    @property
+    def payload(self) -> PatchPayload:
+        return PatchPayload(self._d.get("payload", {}))
+
+    @property
+    def cases(self) -> List[str]:
+        return self._d.get("cases", [])
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append(str(self.wrapper))
+        if self.payload is not None:
+            lines.append("\nPayload:")
+            lines.append(str(self.payload))
+        lines.append("cases: [" + ", ".join(self.cases) + "]")
+        return "\n".join(lines)
+
+
+class PatchLabelOffsets:
+
+    def __init__(self, d: Dict[str, Any]) -> None:
+        self._d = d
+
+    def label_offset(self, label: str) -> int:
+        return self._d.get(label, 0)
+
+    def label_address(self, base: str, label: str) -> str:
+        return hex(int(base, 16) + self.label_offset(label))
+
+    @property
+    def dispatch_offsets(self) -> Dict[str, int]:
+        result: Dict[str, int] = {}
+        for name in self._d:
+            if name.startswith("dispatch_"):
+                result[name] = self._d[name]
+        return result
+
+    def dispatch_addresses(self, base: str) -> Dict[str, str]:
+        result: Dict[str, str] = {}
+        for label in self._d:
+            if label.startswith("dispatch_"):
+                result[label] = self.label_address(base, label)
+        return result
+
+
+class PatchDestinations:
+
+    def __init__(self, d: Dict[str, Any]) -> None:
+        self._d = d
+
+    @property
+    def payload(self) -> str:
+        return hex(self._d.get("payload", 0))
+
+    @property
+    def fallthrough(self) -> str:
+        return hex(self._d.get("fallthrough", 0))
+
+    def has_fallthrough(self) -> bool:
+        return "fallthrough" in self._d
+
+    @property
+    def break_dst(self) -> str:
+        return hex(self._d.get("break", 0))
+
+    @property
+    def continue_dst(self) -> str:
+        return hex(self._d.get("continue", 0))
+
+    @property
+    def return_dst(self) -> str:
+        return hex(self._d.get("return", 0))
+
+    def __str__(self) -> str:
+        lines: List = []
+        lines.append("payload     : " + self.payload)
+        lines.append("fallthrough : " + self.fallthrough)
+        lines.append("break       : " + self.break_dst)
+        lines.append("continue    : " + self.continue_dst)
+        lines.append("return      : " + self.return_dst)
+        return "\n".join(lines)
+
+
+class PatchExtras:
+
+    def __init__(self, d: Dict[str, Any]) -> None:
+        self._d = d
+
+    def has_labeloffsets(self) -> bool:
+        return "labeloffsets" in self._d
+
+    @property
+    def labeloffsets(self) -> PatchLabelOffsets:
+        return PatchLabelOffsets(self._d.get("labeloffsets", {}))
+
+    def has_destinations(self) -> bool:
+        return "destinations" in self._d
+
+    @property
+    def destinations(self) -> PatchDestinations:
+        return PatchDestinations(self._d.get("destinations", {}))
+
+    def has_fallthrough_destination(self) -> bool:
+        return self.destinations.has_fallthrough()
+
+    def dispatch_addresses(self, base: str) -> Dict[str, str]:
+        return self.labeloffsets.dispatch_addresses(base)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("\nLabel offsets")
+        lines.append(str(self.labeloffsets))
+        lines.append("\nDestinations")
+        lines.append(str(self.destinations))
+        return "\n".join(lines)
+
 
 class PatchEvent:
 
@@ -128,78 +259,47 @@ class PatchEvent:
     def has_details(self) -> bool:
         return "details" in self._d
 
-    def get_details(self) -> Optional[Dict[str, Any]]:
-        return self._d.get("details")
+    @property
+    def details(self) -> PatchDetails:
+        return PatchDetails(self._d.get("details", {}))
 
     def has_extras(self) -> bool:
         return "extras" in self._d
 
-    def get_extras(self) -> Optional[Dict[str, Any]]:
-        return self._d.get("extras")
+    @property
+    def extras(self) -> PatchExtras:
+        return PatchExtras(self._d.get("extras", {}))
+
+    def label_address(self, base: str, label: str) -> str:
+        return self.extras.labeloffsets.label_address(base, label)
+
+    def dispatch_addresses(self, base: str) -> Dict[str, str]:
+        return self.extras.dispatch_addresses(base)
 
     def has_wrapper(self) -> bool:
-        details = self._d.get("details")
-        if details is not None:
-            if "wrapper" in details:
-                wrapper = details.get("wrapper")
-                return wrapper is not None
-            else:
-                return False
-        else:
-            return False
+        return self.details.has_wrapper()
 
     @property
     def wrapper(self) -> PatchWrapper:
-        details = self._d.get("details")
-        if details is not None:
-            wrapper = details.get("wrapper")
-            if wrapper is not None:
-                return PatchWrapper(wrapper)
-            else:
-                raise UF.CHBError("Patch event does not have a wrapper")
-        else:
-            raise UF.CHBError("Patch event does not have a wrapper")
+        return self.details.wrapper
 
     def has_payload(self) -> bool:
-        details = self._d.get("details")
-        if details is not None:
-            if "payload" in details:
-                payload = details.get("payload")
-                return payload is not None
-            else:
-                return False
-        else:
-            return False
+        return self.details.has_payload()
 
     @property
     def payload(self) -> PatchPayload:
-        details = self._d.get("details")
-        if details is not None:
-            payload = details.get("payload")
-            if payload is not None:
-                return PatchPayload(payload)
-            else:
-                raise UF.CHBError("Patch event does not have a payload")
-        else:
-            raise UF.CHBError("Patch event does not have a payload")
+        return self.details.payload
 
     @property
     def cases(self) -> List[str]:
-        details = self._d.get("details")
-        if details is not None:
-            return details.get("cases", [])
-        else:
-            return []
+        return self.details.cases
 
-    def get_fallthrough_destination(self) -> Optional[str]:
-        if self.has_extras():
-            extras = self.get_extras()
-            if extras is not None:
-                if "destinations" in extras:
-                    destinations = extras["destinations"]
-                    if "fallthrough" in destinations:
-                        return hex(destinations["fallthrough"])
-        return None
+    def has_fallthrough_destination(self) -> bool:
+        return self.extras.has_fallthrough_destination()
+
+    @property
+    def fallthrough_destination(self) -> Optional[str]:
+        return self.extras.destinations.fallthrough
 
     def __str__(self) -> str:
         lines: List[str] = []
@@ -227,36 +327,24 @@ class PatchResults:
 
     @property
     def trampoline_payload_addresses(self) -> List[str]:
-        result: List[str] = []
-        for e in self.events:
-            if e.is_trampoline and e.has_payload():
-                result.append(e.payload.vahex)
-        return result
+        return [str(e.payload.vahex) for e in self.events if e.has_payload()]
 
     @property
     def trampoline_addresses(self) -> List[Dict[str, str]]:
         result: List[Dict[str, str]] = []
         for e in self.events:
             if e.is_trampoline:
-                r = {}
+                r: Dict[str, str] = {}
                 r["logicalva"] = e.logicalva
                 if e.has_payload():
                     r["payload"] = e.payload.vahex
                 if e.has_wrapper():
                     r["wrapper"] = e.wrapper.vahex
-                if e.has_extras():
-                    fallthrough = self.fallthrough_destination
-                    if fallthrough is not None:
-                        r["fallthrough"] = fallthrough
+                if e.has_fallthrough_destination() and e.fallthrough_destination:
+                    r["fallthrough"] = e.fallthrough_destination
                 result.append(r)
         return result
 
-    @property
-    def fallthrough_destination(self) -> Optional[str]:
-        for e in self.events:
-            if e.is_trampoline:
-                return e.get_fallthrough_destination()
-        return None
 
 if __name__ == "__main__":
 

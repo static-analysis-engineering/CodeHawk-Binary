@@ -49,8 +49,8 @@ class CfgMatcher:
             app2: "AppAccess",
             fn2: "Function",
             cfg2: "Cfg",
-            blockmapping: Dict[str, str],
-            edgemapping: Dict[Tuple[str, str], Tuple[str, str]]) -> None:
+            blockmapping: Dict[str, str] = {},
+            edgemapping: Dict[Tuple[str, str], Tuple[str, str]] = {}) -> None:
         self._app1 = app1
         self._app2 = app2
         self._fn1 = fn1
@@ -70,8 +70,6 @@ class CfgMatcher:
         self._unmapped_blocks1: List[str] = []
         self._unmapped_blocks2: List[str] = []
         self._multiple_mapping: List[Tuple[List[str], List[str]]] = []
-        self._trampolinematch: Optional[Tuple[str, List[str]]] = None
-        self._blocksplits: Dict[str, List["BasicBlock"]] = {}
         self.match()
 
     @property
@@ -131,34 +129,6 @@ class CfgMatcher:
         return self._unmapped_blocks2
 
     @property
-    def trampolinematch(self) -> Optional[Tuple[str, List[str]]]:
-        return self._trampolinematch
-
-    def has_trampoline_match(self, baddr: str) -> bool:
-        if self.trampolinematch is not None:
-            return self.trampolinematch[0] == baddr
-        return False
-
-    def get_trampoline_match(self, baddr: str) -> List[str]:
-        if self.trampolinematch is not None:
-            if self.trampolinematch[0] == baddr:
-                return self.trampolinematch[1]
-        raise UF.CHBError("No matching trampoline found")
-
-    @property
-    def blocksplits(self) -> Dict[str, List["BasicBlock"]]:
-        return self._blocksplits
-
-    def has_block_split(self, baddr: str) -> bool:
-        return baddr in self.blocksplits
-
-    def get_block_split(self, baddr: str) -> List["BasicBlock"]:
-        if baddr in self.blocksplits:
-            return self.blocksplits[baddr]
-        else:
-            raise UF.CHBError("No block split found at " + baddr)
-
-    @property
     def same_endianness(self) -> bool:
         return self.app1.header.is_big_endian == self.app2.header.is_big_endian
 
@@ -199,26 +169,6 @@ class CfgMatcher:
             self._tgt2map.setdefault(e2, [])
             self._tgt2map[e2].append(e1)
 
-    def is_trampoline_block_splice(self) -> bool:
-        for b in self.cfg2.blocks.values():
-            if b.is_in_trampoline:
-                return True
-        return False
-
-    def is_block_split(self) -> bool:
-        blocks1 = self.cfg1.blocks
-        blocks2 = self.cfg2.blocks
-
-        '''
-        if len(blocks2) == len(blocks1) + 1:
-            return True
-        elif len(blocks2) == len(blocks1) + 2:
-            return True
-        else:
-            return False
-        '''
-        return False
-
     @property
     def is_cfg_isomorphic(self) -> bool:
         if (
@@ -237,13 +187,7 @@ class CfgMatcher:
     def match(self) -> None:
         if len(self._blockmapping) > 0:
             return
-        if self.is_trampoline_block_splice():
-            self.initialize()
-            self.collect_blockmd5s()
-            self.match_blockmd5s()
-            self._trampolinematch = (self.unmapped_blocks1[0], self.unmapped_blocks2)
-
-        elif (
+        if (
                 self.cfg1.is_reducible
                 and self.cfg2.is_reducible
                 and len(self.basic_blocks1) == len(self.basic_blocks2)):
@@ -252,73 +196,6 @@ class CfgMatcher:
             for (n, m) in zip(rpo1, rpo2):
                 self._blockmapping[n] = m
             self.match_edges()
-        elif self.is_block_split():
-            blocks1 = self.cfg1.blocks
-            blocks2 = self.cfg2.blocks
-            if len(blocks2) == len(blocks1) + 1:
-                split: Dict[str, List["BasicBlock"]] = {}
-                for (b1, block1) in blocks1.items():
-                    if b1 in blocks2:
-                        block2 = blocks2[b1]
-                        if block1.firstaddr == block2.firstaddr:
-                            if block1.lastaddr == block2.lastaddr:
-                                self._blockmapping[b1] = b1
-                            elif int(block1.lastaddr, 16) > int(block2.lastaddr, 16):
-                                split.setdefault(b1, [])
-                                split[b1].append(self.basic_blocks2[b1])
-                            else:
-                                print("CfgMatcher: unexpected 2-block split")
-                        else:
-                            print("CfgMatcher: unexpected 2-block split")
-                for (b2, block2) in blocks2.items():
-                    if b2 not in blocks1:
-                        b2endaddr = block2.lastaddr
-                        found: bool = False
-                        for b1 in blocks1:
-                            if blocks1[b1].lastaddr == b2endaddr:
-                                split.setdefault(b1, [])
-                                split[b1].append(self.basic_blocks2[b2])
-                                found = True
-                        if not found:
-                            print("CfgMatcher: unexpected 2-block split")
-                for b in split:
-                    self._blocksplits[b] = split[b]
-            elif len(blocks2) == len(blocks1) + 2:
-                split = {}
-                for (b1, block1) in blocks1.items():
-                    if b1 in blocks2:
-                        block2 = blocks2[b1]
-                        if block1.firstaddr == block2.firstaddr:
-                            if block1.lastaddr == block2.lastaddr:
-                                # exact match
-                                self._blockmapping[b1] = b1
-                            elif int(block1.lastaddr, 16) > int(block2.lastaddr, 16):
-                                # prefix block
-                                split.setdefault(b1, [])
-                                split[b1].append(self.basic_blocks2[b1])
-                            else:
-                                print("CfgMatcher: unexpected 3-block split")
-                        else:
-                            print("CfgMatcher: unexpected 3-block split")
-                for (b2, block2) in blocks2.items():
-                    if b2 not in blocks1 and not block2.is_trampoline:
-                        b2endaddr = block2.lastaddr
-                        found = False
-                        for b1 in blocks1:
-                            if blocks1[b1].lastaddr == b2endaddr:
-                                # postfix block
-                                split.setdefault(b1, [])
-                                split[b1].append(self.basic_blocks2[b2])
-                                found = True
-                        if not found:
-                            if not self.fn1.within_function_extent(b2endaddr):
-                                # inserted block (to be generalized)
-                                for bb in split:
-                                    split[bb].append(self.basic_blocks2[b2])
-
-                for b in split:
-                    self._blocksplits[b] = split[b]
-
         else:
             self.initialize()
             self.collect_blockmd5s()
@@ -513,14 +390,10 @@ class CfgMatcher:
         print("\nUnmapped 2:")
         for n in unmapped2:
             colors2[n] = "#FFA500"
+            print("  " + n)
         for n in blockschanged:
             colors1[n] = "#FFA500"
             colors2[n] = "#FFA500"
-        for b in self.fn1.blocks:
-            if b in self.blocksplits:
-                colors1[b] = "#FFA500"
-                for b2 in self.blocksplits[b]:
-                    colors2[b2.baddr] = "#FFA500"
         fn1invs = self.fn1.invariants
         fn2invs = self.fn2.invariants
         for b in self.fn1.blocks:

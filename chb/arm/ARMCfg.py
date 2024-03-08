@@ -32,6 +32,7 @@ from typing import (
     Any, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING)
 
 from chb.app.Cfg import Cfg
+from chb.app.TrampolineInfo import TrampolineInfo
 from chb.arm.ARMCfgBlock import ARMCfgBlock, ARMCfgTrampolineBlock
 import chb.arm.ARMCfgPath as P
 
@@ -46,7 +47,7 @@ if TYPE_CHECKING:
     from chb.cmdline.PatchResults import PatchEvent
 
 
-# initialized in chb.cmdline.astcmds
+# initialized in chb.cmdline.astcmds ore chb.cmdline.relationalcmds
 patchevents: Dict[str, "PatchEvent"] = {}  # start of wrapper -> patch event
 
 
@@ -94,6 +95,9 @@ class ARMCfg(Cfg):
                     "Block address is missing from arm cfg",
                     b.get("ba"))
                 blocks[baddr] = ARMCfgBlock(b)
+
+            # check if astmode has been activated
+            # currently set from either astcmds.py and relationalcmds.py
             if len(astmode) > 0:
                 if any(b.is_in_trampoline for b in blocks.values()):
                     self.set_trampoline_blocks(blocks)
@@ -152,22 +156,36 @@ class ARMCfg(Cfg):
             localedges[src].append(tgt)
             revedges.setdefault(tgt, [])
             revedges[tgt].append(src)
+
+            # address names of inlined instructions (in payload)
+            # multiple distinct full addresses may have the same base address,
+            #  in particular, the @F and @T case for predicated instructions.
             if src.startswith("F"):
-                basename = src.split("_")[-1]
-                inlinemap.setdefault(basename, [])
-                if src not in inlinemap[basename]:
-                    inlinemap[basename].append(src)
-                # inlinemap[src.split("_")[-1]] = src
+                baseaddr = src.split("_")[-1]
+                inlinemap.setdefault(baseaddr, [])
+                if src not in inlinemap[baseaddr]:
+                    inlinemap[baseaddr].append(src)
 
             if tgt.startswith("F"):
-                basename = tgt.split("_")[-1]
-                inlinemap.setdefault(basename, [])
-                if tgt not in inlinemap[basename]:
-                    inlinemap[basename].append(tgt)
-                # inlinemap[tgt.split("_")[-1]] = tgt
+                baseaddr = tgt.split("_")[-1]
+                inlinemap.setdefault(baseaddr, [])
+                if tgt not in inlinemap[baseaddr]:
+                    inlinemap[baseaddr].append(tgt)
 
-        trampolines: Dict[str, Dict[str , str]] = {} # setupblock addr -> roles
-        trampolineblocks: Dict[str, str] = {}  # block addr -> setupblock addr
+        def get_inlinemap_addrs(start: str, size: int) -> List[str]:
+            s = int(start, 16)
+            result: List[str] = []
+            for a in inlinemap:
+                ai = int(a, 16)
+                if ai >= s and ai < s + size:
+                    result.append(a)
+            return result
+
+        trampolines: Dict[str, TrampolineInfo] = {}
+
+        # mapping from block address to the address of the trampoline it
+        # belongs to
+        trampolineblocks: Dict[str, str] = {}
 
         for (baddr, b) in blocks.items():
             if not (baddr in patchevents):
@@ -179,14 +197,9 @@ class ARMCfg(Cfg):
                 # Not a trampoline
                 continue
 
-            def labeloffset(x: str) -> int:
-                return patchevent._d["extras"]["labeloffsets"][x]
+            trampolines[baddr] = trinfo = TrampolineInfo(patchevent)
 
-            def label_addr(x: str) -> str:
-                return hex(int(baddr, 16) + labeloffset(x))
-
-            trampolines[baddr] = {}
-            trampolines[baddr]["setupblock"] = baddr
+            trinfo.add_role("setupblock", baddr)
 
             if not patchevent.has_payload():
                 print(
@@ -194,57 +207,54 @@ class ARMCfg(Cfg):
                     + baddr)
                 exit(1)
 
-            for x in patchevent._d["extras"]["labeloffsets"]:
-                if x.startswith("dispatch_"):
-                    partaddr = label_addr(x)
-                    trampolines[baddr][x] = partaddr
-                    trampolineblocks[partaddr] = baddr
+            for (label, addr) in patchevent.dispatch_addresses(baddr).items():
+                trinfo.add_role(label, addr)
+                trampolineblocks[addr] = baddr
 
-            payload = patchevent.payload.vahex
-            if payload in inlinemap:
-                payload = inlinemap[payload][0]
-            trampolines[baddr]["payload"] = payload
-            trampolineblocks[payload] = baddr
+            # Assumes that the payload is in a function called, which is inlined
+            # Retrieves the basic blocks of the payload from the inline map, based
+            # on the size of the payload
 
-            if len(inlinemap) == 3:
-                pkeys = sorted(inlinemap.keys())
-                trampolines[baddr]["payload"] = inlinemap[pkeys[0]][0]
-                trampolines[baddr]["payload-c"] = inlinemap[pkeys[1]][0]
-                trampolines[baddr]["payload-x"] = inlinemap[pkeys[2]][0]
-                for addrs in inlinemap.values():
-                    for addr in addrs:
-                        trampolineblocks[addr] = baddr
+            payloadstart = patchevent.payload.vahex
+            payloadsize = patchevent.payload.inserted
+            payload_baseaddrs = get_inlinemap_addrs(payloadstart, payloadsize)
 
-            if len(inlinemap) == 5:
-                pkeys = sorted(inlinemap.keys())
-                trampolines[baddr]["payload"] = inlinemap[pkeys[0]][0]
-                trampolines[baddr]["payload-e1"] = inlinemap[pkeys[1]][0]
-                trampolines[baddr]["payload-e2"] = inlinemap[pkeys[1]][1]
-                trampolines[baddr]["payload-c"] = inlinemap[pkeys[2]][0]
-                trampolines[baddr]["payload-l"] = inlinemap[pkeys[3]][0]
-                trampolines[baddr]["payload-x"] = inlinemap[pkeys[4]][0]
-                for addrs in inlinemap.values():
-                    for addr in addrs:
-                        trampolineblocks[addr] = baddr
+            if (
+                    len(payload_baseaddrs) == 1
+                    and len(inlinemap[payload_baseaddrs[0]]) == 1):
+                addr = inlinemap[payload_baseaddrs[0]][0]
+                trinfo.add_role("payload", addr)
+                trampolineblocks[addr] = baddr
+
+            for (i, pba) in enumerate(
+                    sorted(payload_baseaddrs, key= lambda p: int(p, 16))):
+                if len(inlinemap[pba]) == 1:
+                    addr = inlinemap[pba][0]
+                    trinfo.add_role("payload-" + str(i), addr)
+                    trampolineblocks[addr] = baddr
+                else:
+                    for (j, fa) in enumerate(inlinemap[pba]):
+                        trinfo.add_role("payload-" + str(i) + "-" + str(j), fa)
+                        trampolineblocks[fa] = baddr
 
             if "fallthrough" in canonical_cases:
-                caseaddr = label_addr("case_fallthrough")
-                trampolines[baddr]["takedown"] = caseaddr
+                caseaddr = patchevent.label_address(baddr, "case_fallthrough")
+                trinfo.add_role("fallthrough", caseaddr)
                 trampolineblocks[caseaddr] = baddr
 
             if "break" in canonical_cases:
-                caseaddr = label_addr("case_break")
-                trampolines[baddr]["breakout"] = caseaddr
+                caseaddr = patchevent.label_address(baddr, "case_break")
+                trinfo.add_role("breakout", caseaddr)
                 trampolineblocks[caseaddr] = baddr
 
             if "continue" in canonical_cases:
-                caseaddr = label_addr("case_continue")
-                trampolines[baddr]["continuepath"] = caseaddr
+                caseaddr = patchevent.label_address(baddr, "case_continue")
+                trinfo.add_role("continuepath", caseaddr)
                 trampolineblocks[caseaddr] = baddr
 
             if "return" in canonical_cases:
-                caseaddr = label_addr("case_return")
-                trampolines[baddr]["returnpath"] = caseaddr
+                caseaddr = patchevent.label_address(baddr, "case_return")
+                trinfo.add_role("returnpath", caseaddr)
                 trampolineblocks[caseaddr] = baddr
 
         cfgedges: Dict[str, List[str]] = {}
@@ -255,18 +265,22 @@ class ARMCfg(Cfg):
                         and tgt in trampolineblocks
                         and trampolineblocks[src] == trampolineblocks[tgt]):
                     # blocks are part of the same trampoline
-                    continue
+                    taddr = trampolineblocks[src]
+                    trampolines[taddr].add_edge(src, tgt)
+
                 elif (src in trampolineblocks
                           and tgt not in trampolineblocks):
                     # trampoline exit
                     trampolinesetup = trampolineblocks[src]
                     cfgedges.setdefault(src, [])
                     cfgedges[trampolinesetup].append(tgt)
+
                 elif (src in trampolines
                       and tgt in trampolineblocks
                       and trampolineblocks[tgt] == src):
                     # trampoline setup block to next block
                     cfgedges.setdefault(src, [])
+
                 else:
                     # add regular edge
                     cfgedges.setdefault(src, [])
@@ -275,9 +289,14 @@ class ARMCfg(Cfg):
         for (baddr, b) in blocks.items():
             if baddr not in trampolineblocks and baddr not in trampolines:
                 self._blocks[baddr] = b
-            for taddr in trampolines:
-                roles = trampolines[taddr]
-                self._blocks[taddr] = ARMCfgTrampolineBlock(
-                    self.xnode, roles)
+        for taddr in trampolines:
+            trinfo = trampolines[taddr]
+            for src in cfgedges:
+                for tgt in cfgedges[src]:
+                    if tgt == taddr:
+                        trinfo.add_prenode(src)
+                    elif src == taddr:
+                        trinfo.add_postnode(tgt)
+            self._blocks[taddr] = ARMCfgTrampolineBlock(self.xnode, trinfo)
 
         self._edges = cfgedges

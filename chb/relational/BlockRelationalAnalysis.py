@@ -48,11 +48,11 @@ class BlockRelationalAnalysis:
             app1: "AppAccess",
             b1: "BasicBlock",
             app2: "AppAccess",
-            b2: "BasicBlock") -> None:
+            b2map: Dict[str, "BasicBlock"]) -> None:
         self._app1 = app1
         self._app2 = app2
         self._b1 = b1
-        self._b2 = b2
+        self._b2map = b2map
         self._distance: int = -1
         self._instrmapping: Dict[str, str] = {}
         self._revinstrmapping: Dict[str, str] = {}
@@ -72,8 +72,12 @@ class BlockRelationalAnalysis:
         return self._b1
 
     @property
+    def b2map(self) -> Dict[str, "BasicBlock"]:
+        return self._b2map
+
+    @property
     def b2(self) -> "BasicBlock":
-        return self._b2
+        return self.b2map["entry"]
 
     @property
     def b1len(self) -> int:
@@ -81,7 +85,7 @@ class BlockRelationalAnalysis:
 
     @property
     def b2len(self) -> int:
-        return len(self.b2.instructions)
+        return sum(len(b.instructions) for b in self.b2map.values())
 
     @property
     def distance(self) -> int:
@@ -99,10 +103,13 @@ class BlockRelationalAnalysis:
 
     @property
     def is_md5_equal(self) -> bool:
-        if self.same_endianness:
-            return self.b1.md5() == self.b2.md5()
+        if len(self.b2map) > 1:
+            return False
         else:
-            return self.b1.md5() == self.b2.rev_md5()
+            if self.same_endianness:
+                return self.b1.md5() == self.b2.md5()
+            else:
+                return self.b1.md5() == self.b2.rev_md5()
 
     @property
     def instr_mapping(self) -> Mapping[str, str]:
@@ -126,6 +133,8 @@ class BlockRelationalAnalysis:
             result.append("instructioncount")
         if self.b1.baddr != self.b2.baddr:
             result.append("moved")
+        if len(self.b2map) > 1:
+            result.append("blockcount")
         return result
 
     def matches(self) -> List[str]:
