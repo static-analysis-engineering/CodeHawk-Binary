@@ -26,14 +26,14 @@
 # ------------------------------------------------------------------------------
 """Compares two related functions in two binaries."""
 
-from typing import Any, Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING
+from typing import (
+    Any, cast, Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING)
 
 from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
-from chb.relational.InstructionRelationalAnalysis import InstructionRelationalAnalysis
+from chb.relational.InstructionRelationalAnalysis import (
+    InstructionRelationalAnalysis)
 from chb.relational.CfgMatcher import CfgMatcher
-from chb.relational.SplitBlockAnalysis import SplitBlockAnalysis
-from chb.relational.TrampolineAnalysis import TrampolineAnalysis
 
 import chb.util.fileutil as UF
 
@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from chb.app.CfgBlock import CfgBlock
     from chb.app.Function import Function
     from chb.app.Instruction import Instruction
+    from chb.arm.ARMCfgBlock import ARMCfgTrampolineBlock
 
 
 class FunctionRelationalAnalysis:
@@ -69,8 +70,6 @@ class FunctionRelationalAnalysis:
         self._cfgmatcher: Optional[CfgMatcher] = None
         self._changes: Optional[List[str]] = None
         self._matches: Optional[List[str]] = None
-        self._trampolineanalysis: Optional[TrampolineAnalysis] = None
-        self._splitblockanalysis: Optional[SplitBlockAnalysis] = None
 
     @property
     def app1(self) -> "AppAccess":
@@ -228,26 +227,6 @@ class FunctionRelationalAnalysis:
         return self._cfgmatcher
 
     @property
-    def split_block_analysis(self) -> SplitBlockAnalysis:
-        if self._splitblockanalysis is not None:
-            return self._splitblockanalysis
-        else:
-            raise UF.CHBError("No split block analysis found")
-
-    def has_split_block_analysis(self) -> bool:
-        return self._splitblockanalysis is not None
-
-    @property
-    def trampoline_analysis(self) -> TrampolineAnalysis:
-        if self._trampolineanalysis is not None:
-            return self._trampolineanalysis
-        else:
-            raise UF.CHBError("No trampoline analysis found")
-
-    def has_trampoline_analysis(self) -> bool:
-        return self._trampolineanalysis is not None
-
-    @property
     def is_md5_equal(self) -> bool:
         if self.same_endianness:
             return self.fn1.md5 == self.fn2.md5
@@ -329,24 +308,12 @@ class FunctionRelationalAnalysis:
             or self.cfgmatcher.is_cfg_isomorphic)
 
     @property
-    def is_trampoline_block_splice(self) -> bool:
-        """Return true if the cfg has been transformed by trampoline insertion."""
-
-        return self.cfgmatcher.is_trampoline_block_splice()
-
-    @property
-    def is_block_split(self) -> bool:
-        """Return true if the cfg has been transformed by a block-split."""
-
-        return self.cfgmatcher.is_block_split()
-
-    @property
     def block_mapping(self) -> Mapping[str, str]:
         if len(self._blockmapping) == 0:
             if self.is_structurally_equivalent:
                 for b1 in self.basic_blocks1:
                     self._blockmapping[b1] = hex(int(b1, 16) + self.offset)
-            elif self.is_cfg_isomorphic:
+            else:
                 try:
                     mapping = self.cfgmatcher.blockmapping
                     for b1 in self.basic_blocks1:
@@ -363,6 +330,7 @@ class FunctionRelationalAnalysis:
                         + str(len(self.basic_blocks2))
                         + "): "
                         + str(e))
+
         return self._blockmapping
 
     @property
@@ -373,8 +341,37 @@ class FunctionRelationalAnalysis:
                     self.app1,
                     self.basic_blocks1[b1],
                     self.app2,
-                    self.basic_blocks2[b2])
+                    {"entry": self.basic_blocks2[b2]}
+                )
+            trampoline = self.has_trampoline()
+            if trampoline is not None:
+                self.setup_trampoline_analysis(trampoline)
+
         return self._blockanalyses
+
+    def setup_trampoline_analysis(self, b: str) -> None:
+        cfg1unmapped = self.cfgmatcher.unmapped_blocks1
+        cfg2unmapped = [
+            b for b in self.cfgmatcher.unmapped_blocks2 if b in self.cfg_blocks2]
+        if (b in cfg2unmapped):
+            trampoline = cast("ARMCfgTrampolineBlock", self.cfg_blocks2[b])
+            tpre = trampoline.prenodes
+            tpost = trampoline.postnodes
+            if len(tpre) == 1 and len(tpre) == 1:
+                if (
+                        tpre[0] in cfg2unmapped
+                        and tpost[0] in cfg2unmapped
+                        and tpre[0] in cfg1unmapped):
+                    roles: Dict[str, "BasicBlock"] = {}
+                    roles["entry"] = self.basic_blocks2[tpre[0]]
+                    roles["exit"] = self.basic_blocks2[tpost[0]]
+                    for (role, addr) in trampoline.roles.items():
+                        roles[role] = self.basic_blocks2[addr]
+                    self._blockanalyses[tpre[0]] = BlockRelationalAnalysis(
+                        self.app1,
+                        self.basic_blocks1[tpre[0]],
+                        self.app2,
+                        roles)
 
     def has_trampoline(self) -> Optional[str]:
         for (b, cfgb) in self.cfg_blocks2.items():
@@ -510,10 +507,30 @@ class FunctionRelationalAnalysis:
             for (c, ca) in trblock.roles.items():
                 lines.append("  " + c.ljust(30) + ": " + ca)
 
-            setupinstr = self.fn2.instruction(trblock.roles["setupblock"])
-            takedowninstr = self.fn2.instruction(trblock.roles["takedown"])
 
-            lines.append(self.setup_restore_context_comparison(setupinstr, takedowninstr))
+
+            setupinstr = self.fn2.instruction(trblock.roles["setupblock"])
+            takedowninstr = self.fn2.instruction(trblock.roles["fallthrough"])
+
+            lines.append(
+                self.setup_restore_context_comparison(setupinstr, takedowninstr))
+
+            if showinstructions:
+                for baddr in self.blocks_changed():
+                    blra = self.block_analyses[baddr]
+                    if not blra.is_md5_equal:
+                        if len(blra.instrs_changed(callees)) > 0:
+                            lines.append(
+                                "\nInstructions changed in block "
+                                + baddr
+                                + " ("
+                                + str(len(blra.instrs_changed(callees)))
+                                + "):")
+                            lines.append(blra.report(callees))
+                            lines.append("")
+
+                lines.append("\n\nCfg Matcher")
+                lines.append(str(self.cfgmatcher))
 
 
         else:
@@ -526,141 +543,7 @@ class FunctionRelationalAnalysis:
                 self.cfg2,
                 {},
                 {})
-
-            if cfgmatcher.is_trampoline_block_splice():
-                lines.extend(blockheader)
-                for baddr1 in sorted(self.basic_blocks1):
-                    if baddr1 in cfgmatcher.blockmapping:
-                        baddr2 = cfgmatcher.blockmapping[baddr1]
-                        self._blockanalyses[baddr1] = BlockRelationalAnalysis(
-                            self.app1,
-                            self.basic_blocks1[baddr1],
-                            self.app2,
-                            self.basic_blocks2[baddr2])
-                        blra = self.block_analyses[baddr1]
-                        if baddr1 == baddr2:
-                            moved = "no"
-                        else:
-                            moved = baddr2
-                        md5eq = "yes" if blra.is_md5_equal else "no"
-                        if md5eq == "no":
-                            if blra.b1len != blra.b2len:
-                                instrs_changed = len(blra.instrs_changed(callees))
-                                insch = (
-                                    str(blra.b1len)
-                                    + " -> "
-                                    + str(blra.b2len)
-                                    + " ("
-                                    + str(instrs_changed)
-                                    + ")")
-                            else:
-                                instrs_changed = len(blra.instrs_changed(callees))
-                                instrcount = len(blra.b1.instructions)
-                                insch = str(instrs_changed) + "/" + str(instrcount)
-                        else:
-                            insch = "-"
-                        lines.append(
-                            baddr1.ljust(12)
-                            + moved.ljust(16)
-                            + md5eq.ljust(18)
-                            + insch.ljust(20))
-
-                    elif cfgmatcher.has_trampoline_match(baddr1):
-                        t = cfgmatcher.get_trampoline_match(baddr1)
-                        tra = TrampolineAnalysis(
-                            self.app1,
-                            self.basic_blocks1[baddr1],
-                            self.app2,
-                            [self.basic_blocks2[b] for b in t],
-                            cfgmatcher)
-                        self._trampolineanalysis = tra
-                        (sstart, ssend) = tra.spliced_blocks
-                        lines.append(
-                            baddr1.ljust(12)
-                            + "trampoline".ljust(16)
-                            + "no".ljust(18)
-                            + "split into " + sstart.baddr + " and " + ssend.baddr)
-
-                if showinstructions:
-                    for (baddr, blra) in self.block_analyses.items():
-                        if blra.is_md5_equal:
-                            continue
-
-                    if self.has_trampoline_analysis():
-                        tra = self.trampoline_analysis
-
-                        lines.append(
-                            "\nInstructions changed in split block " + tra.b1.baddr)
-                        lines.append(tra.report())
-                        lines.append("")
-
-            elif cfgmatcher.is_block_split():
-                lines.extend(blockheader)
-                for baddr1 in sorted(self.basic_blocks1):
-                    if baddr1 in cfgmatcher.blockmapping:
-                        baddr2 = cfgmatcher.blockmapping[baddr1]
-                        self._blockanalyses[baddr1] = BlockRelationalAnalysis(
-                            self.app1,
-                            self.basic_blocks1[baddr1],
-                            self.app2,
-                            self.basic_blocks2[baddr2])
-                        blra = self.block_analyses[baddr1]
-                        if baddr1 == baddr2:
-                            moved = "no"
-                        else:
-                            moved = baddr2
-                        md5eq = "yes" if blra.is_md5_equal else "no"
-                        if md5eq == "no":
-                            if blra.b1len != blra.b2len:
-                                instrs_changed = len(blra.instrs_changed(callees))
-                                insch = (
-                                    str(blra.b1len)
-                                    + " -> "
-                                    + str(blra.b2len)
-                                    + " ("
-                                    + str(instrs_changed)
-                                    + ")")
-                            else:
-                                instrs_changed = len(blra.instrs_changed(callees))
-                                instrcount = len(blra.b1.instructions)
-                                insch = str(instrs_changed) + "/" + str(instrcount)
-                        else:
-                            insch = "-"
-                        lines.append(
-                            baddr1.ljust(12)
-                            + moved.ljust(16)
-                            + md5eq.ljust(18)
-                            + insch.ljust(20))
-
-                    elif cfgmatcher.has_block_split(baddr1):
-                        split = cfgmatcher.get_block_split(baddr1)
-                        spla = SplitBlockAnalysis(
-                            self.app1,
-                            self.basic_blocks1[baddr1],
-                            self.app2,
-                            split,
-                            cfgmatcher)
-                        self._splitblockanalysis = spla
-                        (sstart, ssend) = spla.split_blocks
-                        lines.append(
-                            baddr1.ljust(12)
-                            + "split-block".ljust(16)
-                            + "no".ljust(18)
-                            + "split into " + sstart.baddr + " and " + ssend.baddr)
-                if showinstructions:
-                    for (baddr, b1ra) in self.block_analyses.items():
-                        if blra.is_md5_equal:
-                            continue
-                    if self.has_split_block_analysis():
-                        spla = self.split_block_analysis
-
-                        lines.append(
-                            "\nInstructions changed in split block "
-                            + spla.block1.baddr)
-                        lines.append(spla.report())
-                        lines.append("")
-
-            elif len(self.instructions1) == len(self.instructions2):
+            if len(self.instructions1) == len(self.instructions2):
                 lines.append("\nInstructions changed")
                 lines.append("-" * 80)
                 instranalyses: Dict[str, InstructionRelationalAnalysis] = {}
@@ -695,7 +578,6 @@ class FunctionRelationalAnalysis:
             else:
                 lines.append("not yet supported")
 
-            '''
             for baddr1 in sorted(self.basic_blocks1):
                 if baddr1 in cfgmatcher.blockmapping:
                     baddr2 = cfgmatcher.blockmapping[baddr1]
@@ -703,7 +585,7 @@ class FunctionRelationalAnalysis:
                         self.app1,
                         self.basic_blocks1[baddr1],
                         self.app2,
-                        self.basic_blocks2[baddr2])
+                        {"entry": self.basic_blocks2[baddr2]})
                     blra = self.block_analyses[baddr1]
                     if baddr1 == baddr2:
                         moved = "no"
@@ -774,5 +656,5 @@ class FunctionRelationalAnalysis:
                 lines.append("\n\nCfgs are not isomorphic; performing general cfg matching")
                 lines.append("-" * 80)
                 lines.append(str(cfgmatcher))
-            '''
+
         return "\n".join(lines)

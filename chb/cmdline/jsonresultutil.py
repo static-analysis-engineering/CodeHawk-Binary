@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +36,6 @@ from chb.jsoninterface.JSONResult import JSONResult
 from chb.jsoninterface.JSONSchema import JSONSchema
 
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
-from chb.relational.SplitBlockAnalysis import SplitBlockAnalysis
-from chb.relational.TrampolineAnalysis import TrampolineAnalysis
 
 import chb.util.fileutil as UF
 
@@ -211,56 +209,13 @@ def cfg_block_map_to_json_result(
     content["matches"] = blockra.matches()
     content["cfg1-block-addr"] = blockra.b1.real_baddr
     cfg2blocks: List[Dict[str, Any]] = []
-    b2content: Dict[str, Any] = {}
-    b2content["cfg2-block-addr"] = blockra.b2.real_baddr
-    b2content["role"] = "single-mapped"
-    cfg2blocks.append(b2content)
-    content["cfg2-blocks"] = cfg2blocks
-    return JSONResult(schema, content, "ok")
-
-
-def cfg_trampoline_match_to_json_result(
-        tra: "TrampolineAnalysis") -> JSONResult:
-    schema = "cfgblockmappingitem"
-    content: Dict[str, Any] = {}
-    content["changes"] = ["trampoline-insertion"]
-    content["cfg1-block-addr"] = tra.b1.real_baddr
-    cfg2blocks: List[Dict[str, Any]] = []
-    try:
-        for b in tra.trampoline:
-            b2content: Dict[str, Any] = {}
-            b2content["cfg2-block-addr"] = b.real_baddr
-            b2content["role"] = tra.roles[b.baddr]
-            cfg2blocks.append(b2content)
-    except UF.CHBError as e:
-        return JSONResult(
-            schema,
-            {},
-            "fail",
-            "nonstandard trampoline encountered: " + str(e))
-    content["cfg2-blocks"] = cfg2blocks
-    return JSONResult(schema, content, "ok")
-
-
-def cfg_block_split_to_json_result(
-        spla: "SplitBlockAnalysis") -> JSONResult:
-    schema = "cfgblockmappingitem"
-    content: Dict[str, Any] = {}
-    content["changes"] = ["block-split"]
-    content["cfg1-block-addr"] = spla.block1.baddr
-    cfg2blocks: List[Dict[str, Any]] = []
-    try:
-        for b in spla.blocks2:
-            b2content: Dict[str, Any] = {}
-            b2content["cfg2-block-addr"] = b.baddr
-            b2content["role"] = spla.roles[b.baddr]
-            cfg2blocks.append(b2content)
-    except UF.CHBError as e:
-        return JSONResult(
-            schema,
-            {},
-            "fail",
-            "nonstandard blocksplit encountered: " + str(e))
+    for (role, block2) in blockra.b2map.items():
+        if len(blockra.b2map) == 1:
+            role = "single-mapped"
+        b2content: Dict[str, Any] = {}
+        b2content["cfg2-block-addr"] = block2.real_baddr
+        b2content["role"] = role
+        cfg2blocks.append(b2content)
     content["cfg2-blocks"] = cfg2blocks
     return JSONResult(schema, content, "ok")
 
@@ -280,74 +235,22 @@ def function_cfg_comparison_to_json_result(
     else:
         return JSONResult(schema, {}, "fail", cfg2.reason)
     changes: List[str] = []
-    if fra.is_trampoline_block_splice:
-        changes.append("trampoline")
-        cfgmatcher = fra.cfgmatcher
-        blockmapping: List[Dict[str, Any]] = []
-        for baddr1 in sorted(fra.basic_blocks1):
-            if baddr1 in cfgmatcher.blockmapping:
-                baddr2 = cfgmatcher.blockmapping[baddr1]
-                blockra = BlockRelationalAnalysis(
-                    fra.app1,
-                    fra.basic_blocks1[baddr1],
-                    fra.app2,
-                    fra.basic_blocks2[baddr2])
-                blockmap = cfg_block_map_to_json_result(blockra)
-                if blockmap.is_ok:
-                    blockmapping.append(blockmap.content)
-                else:
-                    return JSONResult(schema, {}, "fail", blockmap.reason)
-            elif cfgmatcher.has_trampoline_match(baddr1):
-                t = cfgmatcher.get_trampoline_match(baddr1)
-                tra = TrampolineAnalysis(
-                    fra.app1,
-                    fra.basic_blocks1[baddr1],
-                    fra.app2,
-                    [fra.basic_blocks2[b] for b in t],
-                    cfgmatcher)
-                blockmap = cfg_trampoline_match_to_json_result(tra)
-                if blockmap.is_ok:
-                    blockmapping.append(blockmap.content)
-                else:
-                    return JSONResult(schema, {}, "fail", blockmap.reason)
-        content["cfg-block-mapping"] = blockmapping
-    elif fra.is_block_split:
-        changes.append("block-split")
-        cfgmatcher = fra.cfgmatcher
-        blockmapping = []
-        for baddr1 in sorted(fra.basic_blocks1):
-            if baddr1 in cfgmatcher.blockmapping:
-                baddr2 = cfgmatcher.blockmapping[baddr1]
-                blockra = BlockRelationalAnalysis(
-                    fra.app1,
-                    fra.basic_blocks1[baddr1],
-                    fra.app2,
-                    fra.basic_blocks2[baddr2])
-                blockmap = cfg_block_map_to_json_result(blockra)
-                if blockmap.is_ok:
-                    blockmapping.append(blockmap.content)
-                else:
-                    return JSONResult(schema, {}, "fail", blockmap.reason)
-            elif cfgmatcher.has_block_split(baddr1):
-                split = cfgmatcher.get_block_split(baddr1)
-                spla = SplitBlockAnalysis(
-                    fra.app1,
-                    fra.basic_blocks1[baddr1],
-                    fra.app2,
-                    split,
-                    cfgmatcher)
-                blockmap = cfg_block_split_to_json_result(spla)
-                if blockmap.is_ok:
-                    blockmapping.append(blockmap.content)
-                else:
-                    return JSONResult(schema, {}, "fail", blockmap.reason)
-        content["cfg-block-mapping"] = blockmapping
-    else:
-        blockschanged: List[str] = []
-        fblockschanged = fra.blocks_changed()
-        if len(fblockschanged) > 0:
-            changes.append("blocks")
-            blockschanged.extend(fblockschanged)
+    blockmapping: List[Dict[str, Any]] = []
+
+    for (baddr1, blockra) in fra.block_analyses.items():
+        blockmap = cfg_block_map_to_json_result(blockra)
+        if blockmap.is_ok:
+            blockmapping.append(blockmap.content)
+        else:
+            return JSONResult(schema, {}, "fail", blockmap.reason)
+
+    content["cfg-block-mapping"] = blockmapping
+
+    blockschanged: List[str] = []
+    fblockschanged = fra.blocks_changed()
+    if len(fblockschanged) > 0:
+        changes.append("blocks")
+        blockschanged.extend(fblockschanged)
         content["blocks-changed"] = blockschanged
-    content["changes"] = changes
+    content["changes"] = fra.changes
     return JSONResult(schema, content, "ok")

@@ -80,6 +80,13 @@ class ASTInterfaceBasicBlock:
             raise UF.CHBError("ASTIBlock is not a trampoline")
 
     @property
+    def trampoline_payload_roles(self) -> List[str]:
+        if self._trampoline is not None:
+            return [k for k in self._trampoline if k.startswith("payload")]
+        else:
+            return []
+
+    @property
     def instructions(self) -> Dict[str, ASTInterfaceInstruction]:
         if len(self._instructions) == 0:
             for (iaddr, instr) in self.basicblock.instructions.items():
@@ -207,9 +214,9 @@ class ASTInterfaceBasicBlock:
 
     def trampoline_payload_sideeffect_ast(
             self, astree: "ASTInterface") -> AST.ASTStmt:
-        cond = self.trampoline_ast_condition("payload", astree)
-        # need to exclude last instruction of payload-c
-        sideeffect = self.trampoline_block_ast("payload-c", astree, trim=1)
+        cond = self.trampoline_ast_condition("payload-0", astree)
+        # need to exclude last instruction of payload-1
+        sideeffect = self.trampoline_block_ast("payload-1", astree, trim=1)
         rstmt = astree.mk_return_stmt(None)
         estmt = astree.mk_instr_sequence([])
         tr_stmt = astree.mk_block([sideeffect, rstmt])
@@ -221,14 +228,14 @@ class ASTInterfaceBasicBlock:
             self, astree: "ASTInterface") -> AST.ASTStmt:
         """Assumes a return via conditional POP."""
 
-        cond = self.trampoline_ast_condition("payload", astree, reverse=True)
+        cond = self.trampoline_ast_condition("payload-0", astree, reverse=True)
         initcond = self.trampoline_ast_condition(
-            "payload-c", astree, reverse=True)
+            "payload-2", astree, reverse=True)
         loopcond = self.trampoline_ast_condition(
-            "payload-l", astree, reverse=True)
+            "payload-3", astree, reverse=True)
 
-        initstmt = self.trampoline_block_ast("payload-c", astree)
-        loopbody = self.trampoline_block_ast("payload-l", astree)
+        initstmt = self.trampoline_block_ast("payload-2", astree)
+        loopbody = self.trampoline_block_ast("payload-3", astree)
         rstmt = astree.mk_return_stmt(None)
         breakstmt = astree.mk_break_stmt()
         estmt = astree.mk_instr_sequence([])
@@ -253,14 +260,15 @@ class ASTInterfaceBasicBlock:
 
     def trampoline_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         stmts: List[AST.ASTStmt] = []
+
         if not self.is_trampoline:
             raise UF.CHBError("Internal error")
         if "setupblock" in self.trampoline:
             stmts.append(self.trampoline_setup_ast(astree))
-        if "payload" in self.trampoline:
-            if self.has_trampoline_role("payload-l"):
+        if "payload-0" in self.trampoline or "payload" in self.trampoline:
+            if len(self.trampoline_payload_roles) == 6:
                 stmts.append(self.trampoline_payload_loop_ast(astree))
-            elif self.has_trampoline_role("payload-c"):
+            elif len(self.trampoline_payload_roles) == 3:
                 stmts.append(self.trampoline_payload_sideeffect_ast(astree))
             else:
                 stmts.append(self.trampoline_payload_ast(astree))
