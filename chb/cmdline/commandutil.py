@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs, LLC
+# Copyright (c) 2021-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,8 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 """Support functions for the command-line interpreter."""
+
+import logging
 
 import argparse
 from chb.elfformat.ELFHeader import ELFHeader
@@ -95,6 +97,7 @@ from chb.util.Config import Config
 import chb.util.DotGraph as DG
 import chb.util.dotutil as UD
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger, LogLevel
 import chb.util.xmlutil as UX
 
 from chb.app.Instruction import Instruction
@@ -132,6 +135,21 @@ def get_path_filename(xname: str) -> Tuple[str, str]:
     path = os.path.dirname(name)
     filename = os.path.basename(name)
     return (path, filename)
+
+
+def set_logging(
+        level: str,
+        path: str,
+        logfilename: Optional[str],
+        msg: str = "",
+        mode: str = "a") -> None:
+
+    if level in LogLevel.all() or logfilename is not None:
+        if logfilename is not None:
+            logfilename = os.path.join(path, logfilename)
+
+        chklogger.set_chkx_logger(
+            msg, level=level, logfilename=logfilename, mode=mode)
 
 
 def create_xinfo(path: str, xfile: str) -> XI.XInfo:
@@ -547,6 +565,9 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     sortby: str = args.sortby
     timeshare: int = args.timeshare
     opcodes: str = args.opcodes
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -555,12 +576,17 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
         print_error(str(e.wrap()))
         exit(1)
 
+    set_logging(
+        loglevel,
+        path,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="results stats invoked")
+
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
     app = get_app(path, xfile, xinfo)
-
-    largefunctions: List[str] = []
 
     stats = app.result_metrics
     print(stats.header_to_string())
@@ -576,8 +602,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
         sortkey = lambda f: f.faddr
     for f in sorted(stats.get_function_results(), key=sortkey):
         print(f.metrics_to_string(shownocallees=nocallees))
-        if f.block_count > 50 or f.instruction_count > 200:
-            largefunctions.append(f.faddr)
+
     print(stats.disassembly_to_string())
     print(stats.analysis_to_string())
     if timeshare > 0:
@@ -595,9 +620,9 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
         filename = opcodes + ".json"
         with open(filename, "w") as fp:
             json.dump(app.mnemonic_stats(), fp, sort_keys=True, indent=2)
+        chklogger.logger.info("opcodes saved to " + filename)
 
-    with open("largefunctions.json", "w") as fp:
-        json.dump(largefunctions, fp, indent=2)
+    chklogger.logger.info("results stats completed")
 
     exit(0)
 
@@ -607,13 +632,16 @@ def results_callgraph(args: argparse.Namespace) -> NoReturn:
 
     # arguments
     xname: str = args.xname
-    out: str = args.out
+    output: str = args.output
     hidelibs: bool = args.hide_lib_functions
     hideunknowns: bool = args.hide_unknown_targets
     reverse: bool = args.reverse
     align: str = args.align
     sources: List[str] = args.sources
     sinks: List[str] = args.sinks
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -621,6 +649,13 @@ def results_callgraph(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    set_logging(
+        loglevel,
+        path,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="results callgraph invoked")
 
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
@@ -672,10 +707,11 @@ def results_callgraph(args: argparse.Namespace) -> NoReturn:
         getcolor=getcolor,
         nodefilter=nodefilter,
         samerank=samerank).to_dotgraph()
-    pdffilename = UD.print_dot(app.path, out, dotgraph)
+    pdffilename = UD.print_dot(app.path, output, dotgraph)
 
     if os.path.isfile(pdffilename):
-        print_info("Call graph for " + xname + " has been saved in " + pdffilename)
+        print_info(
+            "Call graph for " + xname + " has been saved in " + pdffilename)
 
     else:
         print_error(
@@ -683,6 +719,8 @@ def results_callgraph(args: argparse.Namespace) -> NoReturn:
             + pdffilename
             + " not found")
         exit(1)
+
+    chklogger.logger.info("results callgraph completed")
 
     exit(0)
 
@@ -757,6 +795,9 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
     opcodewidth: int = args.opcodewidth
     stacklayout: bool = args.stacklayout
     proofobligations: bool = args.proofobligations
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -764,6 +805,13 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    set_logging(
+        loglevel,
+        path,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="results functions invoked")
 
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
@@ -800,12 +848,13 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
                     stacklayout=stacklayout))
             except UF.CHBError as e:
                 print(str(e.wrap()))
-                # raise
-            # except Exception as e:
-            #    print(str(e))
+
         else:
             print_error("Function " + faddr + " not found")
             continue
+
+    chklogger.logger.info("results functions completed")
+
     exit(0)
 
 
@@ -824,6 +873,9 @@ def results_function(args: argparse.Namespace) -> NoReturn:
     txtoutput: bool = not xjson
     stacklayout: bool = args.stacklayout
     proofobligations: bool = args.proofobligations
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     try:
         (path, xfile) = get_path_filename(xname)
@@ -832,6 +884,13 @@ def results_function(args: argparse.Namespace) -> NoReturn:
         print_error(str(e.wrap()))
         exit(1)
 
+    set_logging(
+        loglevel,
+        path,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="results function invoked")
+
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
@@ -839,11 +898,14 @@ def results_function(args: argparse.Namespace) -> NoReturn:
 
     if not app.has_function(xfaddr):
         msg = "Function " + xfaddr + " not found"
+        chklogger.logger.error(msg)
         if xjson:
             jsonfresult = JU.jsonfail(msg)
             if xoutput is not None:
                 with open(xoutput, "w") as fp:
                     json.dump(jsonfresult, fp)
+                chklogger.logger.error(
+                    "json file saved in " + xoutput + " (failure)")
             else:
                 print(json.dumps(jsonfresult))
 
@@ -882,6 +944,7 @@ def results_function(args: argparse.Namespace) -> NoReturn:
         if xoutput:
             with open(xoutput, "w") as fp:
                 fp.write("\n".join(lines))
+                chklogger.logger.info("Text output written to " + xoutput)
         else:
             print("\n".join(lines))
         exit(0)
@@ -893,6 +956,7 @@ def results_function(args: argparse.Namespace) -> NoReturn:
             if xoutput:
                 with open(xoutput, "w") as fp:
                     json.dump(jsonokresult, fp)
+                chklogger.logger.info("JSON output written to " + xoutput)
             else:
                 print(json.dumps(jsonokresult))
             exit(0)
@@ -902,6 +966,8 @@ def results_function(args: argparse.Namespace) -> NoReturn:
             if xoutput:
                 with open(xoutput, "w") as fp:
                     json.dump(jsonfresult, fp)
+                chklogger.logger.error(
+                    "JSON (failure) output written to " + xoutput)
             else:
                 print(json.dumps(jsonfresult))
             exit(1)
