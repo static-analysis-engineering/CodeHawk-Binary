@@ -227,17 +227,17 @@ class ARMCfg(Cfg):
                 addr = inlinemap[payload_baseaddrs[0]][0]
                 trinfo.add_role("payload", addr)
                 trampolineblocks[addr] = baddr
-
-            for (i, pba) in enumerate(
-                    sorted(payload_baseaddrs, key= lambda p: int(p, 16))):
-                if len(inlinemap[pba]) == 1:
-                    addr = inlinemap[pba][0]
-                    trinfo.add_role("payload-" + str(i), addr)
-                    trampolineblocks[addr] = baddr
-                else:
-                    for (j, fa) in enumerate(inlinemap[pba]):
-                        trinfo.add_role("payload-" + str(i) + "-" + str(j), fa)
-                        trampolineblocks[fa] = baddr
+            else:
+                for (i, pba) in enumerate(
+                        sorted(payload_baseaddrs, key= lambda p: int(p, 16))):
+                    if len(inlinemap[pba]) == 1:
+                        addr = inlinemap[pba][0]
+                        trinfo.add_role("payload-" + str(i), addr)
+                        trampolineblocks[addr] = baddr
+                    else:
+                        for (j, fa) in enumerate(inlinemap[pba]):
+                            trinfo.add_role("payload-" + str(i) + "-" + str(j), fa)
+                            trampolineblocks[fa] = baddr
 
             if "fallthrough" in canonical_cases:
                 caseaddr = patchevent.label_address(baddr, "case_fallthrough")
