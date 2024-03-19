@@ -308,6 +308,7 @@ def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
     # arguments
     xname1: str = args.xname1
     xname2: str = args.xname2
+    xpatchresults: Optional[str] = args.patch_results_file
     xjson: bool = args.json
     xoutput: str = args.output
     usermappingfile: Optional[str] = args.usermapping
@@ -332,6 +333,20 @@ def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
                 "Usermapping file " + usermappingfile + " not found")
             exit(1)
 
+    patchresultsdata: Optional[Dict[str, Any]] = None
+    if xpatchresults is not None:
+        with open(xpatchresults, "r") as fp:
+            patchresultsdata = json.load(fp)
+
+    if patchresultsdata is not None:
+        astmode.append("ast")
+        patchresults = PatchResults(patchresultsdata)
+        for event in patchresults.events:
+            if event.is_trampoline:
+                if event.has_wrapper():
+                    startaddr = event.wrapper.vahex
+                    patchevents[startaddr] = event
+
     xinfo1 = XI.XInfo()
     xinfo2 = XI.XInfo()
     xinfo1.load(path1, xfile1)
@@ -341,14 +356,17 @@ def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
 
     relanalysis = RelationalAnalysis(app1, app2, usermapping=usermapping)
 
+    result = relanalysis.to_json_result()
     if xjson:
-        jresult = relanalysis.to_json_result()
-        if not jresult.is_ok:
-            UC.print_error(
-                "Error in constructing json format: " + str(jresult.reason))
-            jsonresult = JU.jsonfail(jresult.reason)
+        if result.is_ok:
+            jsonresult = JU.jsonok("comparefunctions", result.content)
+            exitval = 0
         else:
-            jsonresult = JU.jsonok("comparefunctions", jresult.content)
+            UC.print_error(
+                "Error in constructing json format: " + str(result.reason))
+            jsonresult = JU.jsonfail(result.reason)
+            exitval = 1
+
         if xoutput:
             UC.print_status_update(
                 "Relation analysis results saved in " + xoutput)
@@ -356,25 +374,20 @@ def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
                 json.dump(jsonresult, fp)
         else:
             print(json.dumps(jsonresult))
-
     else:
-        if False:
-            print(relational_header(
-                xname1,
-                xname2,
-                xinfo2.md5,
-                "functions comparison"))
-            print(relanalysis.report(False, False))
-            print("=" * 80)
-            print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
-            print("=" * 80)
+        if result.is_ok:
+            exitval = 0
+            output = JSONRelationalReport().summary_report(JSONAppComparison(result.content))
+            if xoutput:
+                with open(xoutput, "w") as fp:
+                    fp.write(output)
+            else:
+                print(output)
         else:
-            result = relanalysis.to_json_result()
-            if result.is_ok:
-                print(JSONRelationalReport().summary_report(
-                    JSONAppComparison(result.content)))
+            print("ERROR: Couldn't generate app comparison results")
+            exitval = 1
 
-    exit(0)
+    exit(exitval)
 
 
 def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
@@ -449,15 +462,17 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
         usermapping=usermapping,
         patchevents=patchevents)
 
+    result = relanalysis.to_json_result()
     if xjson:
-        jresult = relanalysis.to_json_result()
-        if not jresult.is_ok:
-            UC.print_error(
-                "Error in constructing json format: " + str(jresult.reason))
-            jsonresult = JU.jsonfail(jresult.reason)
+        if result.is_ok:
+            jsonresult = JU.jsonok("comparefunctions", result.content)
+            exitval = 0
         else:
-            # XXX: Is this the right schema name?
-            jsonresult = JU.jsonok("comparefunctions", jresult.content)
+            UC.print_error(
+                "Error in constructing json format: " + str(result.reason))
+            jsonresult = JU.jsonfail(result.reason)
+            exitval = 1
+
         if xoutput:
             UC.print_status_update(
                 "Relation analysis results saved in " + xoutput)
@@ -466,31 +481,23 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
         else:
             print(json.dumps(jsonresult))
     else:
-        result = relanalysis.to_json_result()
         if result.is_ok:
-            print(
-                JSONRelationalReport().summary_report(
-                    JSONAppComparison(result.content),
-                    block_changes=blocks,
-                    instr_changes=details)
-            )
+            exitval = 0
+            output = JSONRelationalReport().summary_report(
+                JSONAppComparison(result.content),
+                block_changes=blocks,
+                instr_changes=details)
+            if xoutput:
+                with open(xoutput, "w") as fp:
+                    fp.write(output)
+            else:
+                print(output)
+            chklogger.logger.info("relational compare function completed")
+        else:
+            print("ERROR: Couldn't generate app comparison results")
+            exitval = 1
 
-        # XXX
-        if False:
-            print(relational_header(
-                xname1,
-                xname2,
-                xinfo2.md5,
-                "function comparison of "
-                + ", ".join(addresses)))
-            print(relanalysis.report(True, args.details))
-            print("=" * 80)
-            print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
-            print("=" * 80)
-
-    chklogger.logger.info("relational compare function completed")
-
-    exit(0)
+    exit(exitval)
 
 
 def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
