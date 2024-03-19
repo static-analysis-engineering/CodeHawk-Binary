@@ -287,6 +287,7 @@ class JSONFunctionComparison(JSONObject):
         self._cfg1: Optional[JSONControlFlowGraph] = None
         self._cfg2: Optional[JSONControlFlowGraph] = None
         self._mapping: Optional[List[JSONCfgBlockMappingItem]] = None
+        self._blocks_changed: Optional[List[str]] = None
 
         # XXX: Possibly unused stuff
         self._cfgcomparison: Optional[JSONCfgComparison] = None
@@ -340,8 +341,15 @@ class JSONFunctionComparison(JSONObject):
         return len(self.cfg2.nodes)
 
     @property
+    def blocks_changed(self) -> List[str]:
+        if self._blocks_changed is None:
+            self._blocks_changed = self.d["blocks-changed"]
+
+        return self._blocks_changed
+
+    @property
     def num_blocks_changed(self) -> int:
-        return self.d.get("num-blocks-changed", self.property_missing("block-mapping"))
+        return len(self.blocks_changed)
 
     @property
     def changes(self) -> List[str]:
