@@ -1303,6 +1303,9 @@ def parse() -> argparse.Namespace:
     relationalcomparefns.add_argument(
         "--usermapping", help="name of json file with initial function mapping")
     relationalcomparefns.add_argument(
+        "--patch_results_file",
+        help="name of patch results file (required if there are trampolines)")
+    relationalcomparefns.add_argument(
         "--json",
         action="store_true",
         help="produce output in json format")
