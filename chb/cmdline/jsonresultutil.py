@@ -255,4 +255,5 @@ def function_cfg_comparison_to_json_result(
         blockschanged.extend(fblockschanged)
         content["blocks-changed"] = blockschanged
     content["changes"] = fra.changes
+    content["matches"] = fra.matches
     return JSONResult(schema, content, "ok")
