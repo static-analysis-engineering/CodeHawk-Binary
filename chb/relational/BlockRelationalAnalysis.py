@@ -233,10 +233,16 @@ class BlockRelationalAnalysis:
         content["matches"] = self.matches()
         content["cfg1-block-addr"] = self.b1.real_baddr
 
-        content["cfg2-blocks"] = [{
-            "cfg2-block-addr": self.b2.real_baddr,
-            "role": "single-mapped",
-        }]
+        cfg2blocks: List[Dict[str, Any]] = []
+        for (role, block2) in self.b2map.items():
+            # XXX: This is weird. What would be the role otherwise?
+            if len(self.b2map) == 1:
+                role = "single-mapped"
+            b2content: Dict[str, Any] = {}
+            b2content["cfg2-block-addr"] = block2.real_baddr
+            b2content["role"] = role
+            cfg2blocks.append(b2content)
+        content["cfg2-blocks"] = cfg2blocks
 
         block_comparison: Dict[str, Any] = {}
         bsummary = self.block_comparison_summary_result(callees)
