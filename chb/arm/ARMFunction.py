@@ -264,6 +264,7 @@ class ARMFunction(Function):
             return JSONResult("assemblyfunction", {}, "fail", bresult.reason)
 
         content: Dict[str, Any] = {}
+        content["id"] = block.baddr
         content["baddr"] = block.real_baddr
         content["code"] = bresult.content
         # XXX: This broke during the latest refactoring for trampoline analysis
@@ -275,13 +276,9 @@ class ARMFunction(Function):
         return JSONResult("cfgnode", content, "ok")
 
     def cfg_edge_to_json_result(self, src: str, tgt: str, kind: str) -> JSONResult:
-        # remove context from addresses
-        real_src = src.split("_")[-1] if src.startswith("F") else src
-        real_tgt = tgt.split("_")[-1] if tgt.startswith("F") else tgt
-
         content: Dict[str, Any] = {}
-        content["src"] = real_src
-        content["tgt"] = real_tgt
+        content["src"] = src
+        content["tgt"] = tgt
         content["kind"] = kind
         if kind in ["true", "false"]:
             if src in self.branchconditions:

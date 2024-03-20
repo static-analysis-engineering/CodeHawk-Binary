@@ -569,35 +569,28 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
 
     relanalysis = RelationalAnalysis(
         app1, app2, usermapping=usermapping, patchevents=patchevents)
-
-    functionschanged = relanalysis.functions_changed()
-    if len(functionschanged) == 0:
-        UC.print_error("No functions changed")
-        exit(0)
-
     if xjson:
-        content: Dict[str, Any] = {}
-        fnchanged: List[Dict[str, Any]] = []
-        fail: Optional[str] = None
-        for faddr in functionschanged:
-            if faddr in relanalysis.function_mapping:
-                fra = relanalysis.function_analysis(faddr)
-                cfgcomparison = JU.function_cfg_comparison_to_json_result(fra)
-                if cfgcomparison.is_ok:
-                    fnchanged.append(cfgcomparison.content)
-                else:
-                    fail = "Failure in " + faddr + ": " + str(cfgcomparison.reason)
-                    break
-        if fail is not None:
-            jsondata = JU.jsonfail(fail)
+        result = relanalysis.to_json_result()
+        if result.is_ok:
+            jsondata = JU.jsonok("cfgcomparisons", result.content)
+            exitval = 0
         else:
-            content["functions-changed"] = fnchanged
-            jsondata = JU.jsonok("cfgcomparisons", content)
+            UC.print_error(
+                "Error in constructing json format: " + str(result.reason))
+            jsondata = JU.jsonfail(result.reason)
+            exitval = 1
 
         outputfile = outputfilename + ".json"
         with open(outputfile, "w") as fp:
             json.dump(jsondata, fp)
 
+        exit(exitval)
+
+    # TODO: We will probably need a custom visitor to generate the dot output
+    # using the json file?
+    functionschanged = relanalysis.functions_changed()
+    if len(functionschanged) == 0:
+        UC.print_error("No functions changed")
         exit(0)
 
     dotgraphs: List[DotCfg] = []
