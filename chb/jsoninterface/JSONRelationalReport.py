@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 import datetime
 
-from typing import List
+from typing import List, Optional
 
 import chb.jsoninterface.JSONAppComparison as AppC
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
@@ -97,6 +97,7 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
         self._report: List[str] = []
         self._show_block_changes: bool = False
         self._show_instr_changes: bool = False
+        self._trampoline_blocks: List[FunC.JSONCfgBlockMappingItem] = []
 
     @property
     def show_block_changes(self) -> bool:
@@ -147,19 +148,15 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
             else:
                 moved = "not moved"
 
-            # XXX: We don't currently keep track of this, but it seems like if the
-            # function didn't move but we're reporting it changed, then the md5
-            # must have changed?
             if "md5" in fn_changed.changes:
-                md5eq = "N/A"
+                md5eq = "no"
             else:
-                md5eq = "N/A"
+                md5eq = "yes"
 
-            if fn_changed.changes == ["blocks"]:
-                streq = "yes"
-            else:
-                # XXX: In theory this is trampoline or split-block.
+            if "cfg-structure" in fn_changed.changes:
                 streq = "no"
+            else:
+                streq = "yes"
 
             blockschanged = fn_changed.num_blocks_changed
             allblocks = fn_changed.num_blocks1
@@ -193,48 +190,72 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
         self.add_txt("\nFunction " + name)
         self.add_txt(function_comparison_header())
 
-        # Because of the visitor pattern, we are doing a depth first search walk of
-        # the changes, but we want to print them as breath-first-search. So we
-        # collect the text to report at the deepest level (instruction changes) here
-        # and then print it once we're done with the shallow level (block changes).
+        # Because of the visitor pattern, we are doing a depth first walk of
+        # the changes, but we want to print them as breath-first. So we
+        # collect the text to report at the deepest level (instruction changes) in
+        # this list and then print it once we're done with the shallow level
+        # (block changes).
         self.instr_changes_txt: List[str] = []
 
         for block_mapping in obj.cfg_block_mapping:
             block_mapping.accept(self)
 
+        for block_mapping in self._trampoline_blocks:
+            self._print_trampoline_info(block_mapping)
+
         self._report.extend(self.instr_changes_txt)
+
+    def _print_trampoline_info(self, block: FunC.JSONCfgBlockMappingItem) -> None:
+        # TODO: In FunctionRelationalAnalysis:report we print save and restore context
+        # and register saves and restores (see setup_restore_context_comparison)
+        setupblock = block.trampoline_address()
+        if setupblock is None:
+            raise Exception("Couldn't find trampoline address. Blocks and roles are %s" %
+                            block.cfg2_blocks)
+
+        self.add_txt("\nTrampoline for block %s inserted at %s with the "
+                     "following components:" % (block.cfg1_block_addr, setupblock))
+        for (addr, role) in block.cfg2_blocks:
+            if role in ("entry", "exit"):
+                continue
+            self.add_txt("  " + role.ljust(30) + ": " + addr)
+
 
     def visit_cfg_block_mapping_item(self,
                                      obj: FunC.JSONCfgBlockMappingItem,
                                     ) -> None:
         def add_txt(obj: FunC.JSONCfgBlockMappingItem,
                     moved: str, md5eq: str,
-                    instrs_changed: str = "-", instrs_added: str = "-", instrs_removed: str = "-") -> None:
-            self.add_txt(obj.cfg1_block_addr.ljust(12) + moved.ljust(15) + md5eq.ljust(15) +
-                         instrs_changed.ljust(15) + instrs_added.ljust(14) + instrs_removed.ljust(14))
+                    instrs_changed: str = "-",
+                    instrs_added: str = "-",
+                    instrs_removed: str = "-",
+                   ) -> None:
+            self.add_txt(obj.cfg1_block_addr.ljust(12) + moved.ljust(15) +
+                         md5eq.ljust(15) + instrs_changed.ljust(15) +
+                         instrs_added.ljust(14) + instrs_removed.ljust(14))
 
         # easy case
         if not obj.changes:
             add_txt(obj, "no", "yes")
             return
 
-        def is_single_mapped(obj: FunC.JSONCfgBlockMappingItem) -> bool:
-            if len(obj.cfg2_blocks) > 1:
-                return False
+        if obj.has_trampoline():
+            self._trampoline_blocks.append(obj)
+            first_col = "split into trampoline"
+            add_txt(obj, first_col, "", "", "", "")
+        else:
+            # paranoia
+            if len(obj.cfg2_blocks) != 1:
+                raise RuntimeError("Unexpectedly got more than one patched block when "
+                                   "expecting a single-mapped mapping: %s" % obj)
 
-            cfg2_block = obj.cfg2_blocks[0]
-            if cfg2_block[1] != "single-mapped":
-                return False
-
-            return True
-
-        if is_single_mapped(obj):
             cfg2_block = obj.cfg2_blocks[0]
             if cfg2_block[0] == obj.cfg1_block_addr:
                 moved = "no"
             else:
                 moved = "yes"
             md5eq = "yes" if "md5" in obj.matches else "no"
+
             if md5eq == "no":
                 block_comparison = obj.block_comparison
                 assert block_comparison
@@ -247,15 +268,6 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
                 add_txt(obj, moved, md5eq, instrs_changed, instrs_added, instrs_removed)
             else:
                 add_txt(obj, moved, md5eq)
-        else:
-            if obj.changes[0] == "block-split":
-                first_col = "split-block"
-                cfg2_blocks = obj.cfg2_blocks
-                assert len(cfg2_blocks) == 2
-                second_col = "split into %s and %s" % (cfg2_blocks[0][0], cfg2_blocks[1][0])
-                add_txt(obj, first_col, second_col, "", "", "")
-            else:
-                self.add_txt(obj.cfg1_block_addr.ljust(12) + "unsupported changes %s" % obj.changes)
 
         if self.show_instr_changes:
             if obj.block_comparison:
