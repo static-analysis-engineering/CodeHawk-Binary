@@ -266,9 +266,11 @@ class ARMFunction(Function):
         content: Dict[str, Any] = {}
         content["baddr"] = block.real_baddr
         content["code"] = bresult.content
-        looplevels = self.cfg.loop_levels(block.baddr)
-        if len(looplevels) > 0:
-            content["nesting-level"] = len(looplevels)
+        # XXX: This broke during the latest refactoring for trampoline analysis
+        # I don't think we use it so commenting for now
+        #looplevels = self.cfg.loop_levels(block.baddr)
+        #if len(looplevels) > 0:
+        #    content["nesting-level"] = len(looplevels)
 
         return JSONResult("cfgnode", content, "ok")
 
