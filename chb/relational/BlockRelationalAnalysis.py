@@ -231,7 +231,7 @@ class BlockRelationalAnalysis:
         content["instr-count2"] = len(self.b2.instructions)
         content["changes"] = self.changes()
         content["matches"] = self.matches()
-        content["cfg1-block-addr"] = self.b1.real_baddr
+        content["cfg1-block-addr"] = self.b1.baddr
 
         cfg2blocks: List[Dict[str, Any]] = []
         for (role, block2) in self.b2map.items():
@@ -239,7 +239,7 @@ class BlockRelationalAnalysis:
             if len(self.b2map) == 1:
                 role = "single-mapped"
             b2content: Dict[str, Any] = {}
-            b2content["cfg2-block-addr"] = block2.real_baddr
+            b2content["cfg2-block-addr"] = block2.baddr
             b2content["role"] = role
             cfg2blocks.append(b2content)
         content["cfg2-blocks"] = cfg2blocks
