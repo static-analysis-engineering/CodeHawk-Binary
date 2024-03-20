@@ -137,6 +137,19 @@ class JSONCfgBlockMappingItem(JSONObject):
                 self.d.get('blockcomparison', self.property_missing('blockcomparison')))
         return self._block_comparison
 
+    def has_trampoline(self) -> bool:
+        return 'blockcount' in self.changes
+
+    def trampoline_address(self) -> Optional[str]:
+        if not self.has_trampoline():
+            return None
+
+        for (b_addr, role) in self.cfg2_blocks:
+            if role == "setupblock":
+                return b_addr
+
+        return None
+
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_cfg_block_mapping_item(self)
 
