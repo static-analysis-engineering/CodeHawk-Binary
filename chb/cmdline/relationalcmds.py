@@ -53,6 +53,7 @@ from chb.invariants.NonRelationalValue import NonRelationalValue
 
 from chb.jsoninterface.JSONAppComparison import JSONAppComparison
 from chb.jsoninterface.JSONRelationalReport import JSONRelationalReport
+from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.RelationalAnalysis import RelationalAnalysis
 
 import chb.util.dotutil as UD
@@ -302,17 +303,12 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
-def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
-    """Comparison of all functions that have analysis results."""
-
-    # arguments
-    xname1: str = args.xname1
-    xname2: str = args.xname2
-    xpatchresults: Optional[str] = args.patch_results_file
-    xjson: bool = args.json
-    xoutput: str = args.output
-    usermappingfile: Optional[str] = args.usermapping
-
+def _relational_compare_generate_json(xname1: str,
+                                      xname2: str,
+                                      xpatchresults: Optional[str],
+                                      usermappingfile: Optional[str],
+                                      addresses: List[str],
+                                     ) -> JSONResult:
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
         UF.check_analysis_results(path1, xfile1)
@@ -321,106 +317,6 @@ def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
-
-    usermapping: Dict[str, str] = {}
-    if usermappingfile is not None:
-        if os.path.isfile(usermappingfile):
-            with open(usermappingfile, "r") as fp:
-                userdata = json.load(fp)
-                usermapping = userdata["function-mapping"]
-        else:
-            UC.print_error(
-                "Usermapping file " + usermappingfile + " not found")
-            exit(1)
-
-    patchresultsdata: Optional[Dict[str, Any]] = None
-    if xpatchresults is not None:
-        with open(xpatchresults, "r") as fp:
-            patchresultsdata = json.load(fp)
-
-    if patchresultsdata is not None:
-        astmode.append("ast")
-        patchresults = PatchResults(patchresultsdata)
-        for event in patchresults.events:
-            if event.is_trampoline:
-                if event.has_wrapper():
-                    startaddr = event.wrapper.vahex
-                    patchevents[startaddr] = event
-
-    xinfo1 = XI.XInfo()
-    xinfo2 = XI.XInfo()
-    xinfo1.load(path1, xfile1)
-    xinfo2.load(path2, xfile2)
-    app1 = UC.get_app(path1, xfile1, xinfo1)
-    app2 = UC.get_app(path2, xfile2, xinfo2)
-
-    relanalysis = RelationalAnalysis(app1, app2, usermapping=usermapping)
-
-    result = relanalysis.to_json_result()
-    if xjson:
-        if result.is_ok:
-            jsonresult = JU.jsonok("comparefunctions", result.content)
-            exitval = 0
-        else:
-            UC.print_error(
-                "Error in constructing json format: " + str(result.reason))
-            jsonresult = JU.jsonfail(result.reason)
-            exitval = 1
-
-        if xoutput:
-            UC.print_status_update(
-                "Relation analysis results saved in " + xoutput)
-            with open(xoutput, "w") as fp:
-                json.dump(jsonresult, fp)
-        else:
-            print(json.dumps(jsonresult))
-    else:
-        if result.is_ok:
-            exitval = 0
-            output = JSONRelationalReport().summary_report(JSONAppComparison(result.content))
-            if xoutput:
-                with open(xoutput, "w") as fp:
-                    fp.write(output)
-            else:
-                print(output)
-        else:
-            print("ERROR: Couldn't generate app comparison results")
-            exitval = 1
-
-    exit(exitval)
-
-
-def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
-
-    # arguments
-    xname1: str = args.xname1
-    xname2: str = args.xname2
-    xjson: bool = args.json
-    xoutput: str = args.output
-    blocks: bool = args.blocks
-    xpatchresults: Optional[str] = args.patch_results_file
-    details: bool = args.details
-    addresses: List[str] = args.addresses
-    usermappingfile: Optional[str] = args.usermapping
-    loglevel: str = args.loglevel
-    logfilename: Optional[str] = args.logfilename
-    logfilemode: str = args.logfilemode
-
-    try:
-        (path1, xfile1) = UC.get_path_filename(xname1)
-        UF.check_analysis_results(path1, xfile1)
-        (path2, xfile2) = UC.get_path_filename(xname2)
-        UF.check_analysis_results(path2, xfile2)
-    except UF.CHBError as e:
-        print(str(e.wrap()))
-        exit(1)
-
-    UC.set_logging(
-        loglevel,
-        path1,
-        logfilename=logfilename,
-        mode=logfilemode,
-        msg="relational compare function invoked")
 
     usermapping: Dict[str, str] = {}
     if usermappingfile is not None:
@@ -461,43 +357,109 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
         faddrs1=addresses,
         usermapping=usermapping,
         patchevents=patchevents)
+    return relanalysis.to_json_result()
 
-    result = relanalysis.to_json_result()
-    if xjson:
-        if result.is_ok:
-            jsonresult = JU.jsonok("comparefunctions", result.content)
-            exitval = 0
-        else:
-            UC.print_error(
-                "Error in constructing json format: " + str(result.reason))
-            jsonresult = JU.jsonfail(result.reason)
-            exitval = 1
 
-        if xoutput:
-            UC.print_status_update(
-                "Relation analysis results saved in " + xoutput)
-            with open(xoutput, "w") as fp:
-                json.dump(jsonresult, fp)
-        else:
-            print(json.dumps(jsonresult))
+def relational_compare_all_cmd(args: argparse.Namespace) -> NoReturn:
+    """Compares everything in the binary and puts the results in a json file"""
+
+    # arguments
+    xname1: str = args.xname1
+    xname2: str = args.xname2
+    xpatchresults: Optional[str] = args.patch_results_file
+    xoutput: str = args.output
+    usermappingfile: Optional[str] = args.usermapping
+
+    result = _relational_compare_generate_json(xname1, xname2, xpatchresults, usermappingfile, [])
+    if result.is_ok:
+        jsonresult = JU.jsonok("compareall", result.content)
+        exitval = 0
     else:
-        if result.is_ok:
-            exitval = 0
-            output = JSONRelationalReport().summary_report(
-                JSONAppComparison(result.content),
-                block_changes=blocks,
-                instr_changes=details)
-            if xoutput:
-                with open(xoutput, "w") as fp:
-                    fp.write(output)
-            else:
-                print(output)
-            chklogger.logger.info("relational compare function completed")
-        else:
-            print("ERROR: Couldn't generate app comparison results")
-            exitval = 1
+        UC.print_error(
+            "Error in constructing json format: " + str(result.reason))
+        jsonresult = JU.jsonfail(result.reason)
+        exitval = 1
+
+    if xoutput:
+        UC.print_status_update(
+            "Relational analysis results saved in " + xoutput)
+        with open(xoutput, "w") as fp:
+            json.dump(jsonresult, fp)
+    else:
+        print(json.dumps(jsonresult))
 
     exit(exitval)
+
+
+def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
+    """Comparison of all functions that have analysis results."""
+
+    # arguments
+    xname1: str = args.xname1
+    xname2: str = args.xname2
+    xpatchresults: Optional[str] = args.patch_results_file
+    xoutput: str = args.output
+    usermappingfile: Optional[str] = args.usermapping
+
+    result = _relational_compare_generate_json(xname1, xname2, xpatchresults, usermappingfile, [])
+    if not result.is_ok:
+        print("ERROR: Couldn't generate app comparison results")
+        exit(1)
+
+    output = JSONRelationalReport().summary_report(JSONAppComparison(result.content))
+    if xoutput:
+        with open(xoutput, "w") as fp:
+            fp.write(output)
+    else:
+        print(output)
+
+    exit(0)
+
+
+def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname1: str = args.xname1
+    xname2: str = args.xname2
+    xoutput: str = args.output
+    blocks: bool = args.blocks
+    xpatchresults: Optional[str] = args.patch_results_file
+    details: bool = args.details
+    addresses: List[str] = args.addresses
+    usermappingfile: Optional[str] = args.usermapping
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
+
+    UC.set_logging(
+        loglevel,
+        # This feels a bit gnarly
+        UC.get_path_filename(xname1)[0],
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="relational compare function invoked")
+
+    result = _relational_compare_generate_json(xname1, xname2, xpatchresults, usermappingfile, addresses)
+    if not result.is_ok:
+        print("ERROR: Couldn't generate app comparison results")
+        exit(1)
+
+    if not result.is_ok:
+        print("ERROR: Couldn't generate app comparison results")
+        exit(1)
+
+    output = JSONRelationalReport().summary_report(
+        JSONAppComparison(result.content),
+        block_changes=blocks,
+        instr_changes=details)
+    if xoutput:
+        with open(xoutput, "w") as fp:
+            fp.write(output)
+    else:
+        print(output)
+
+    chklogger.logger.info("relational compare app completed")
+    exit(0)
 
 
 def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
@@ -511,11 +473,12 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     showpredicates: bool = args.show_predicates
     outputfilename: str = args.outputfilename
     fileformat: str = args.format
-    xjson: bool = args.json
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
     logfilemode: str = args.logfilemode
 
+    # TODO: Convert this to use the unified json file. We will probably need a
+    # custom visitor for that?
     print("Visual comparison of the cfgs for " + xname1 + " and " + xname2)
 
     try:
@@ -567,27 +530,8 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     app1 = UC.get_app(path1, xfile1, xinfo1)
     app2 = UC.get_app(path2, xfile2, xinfo2)
 
-    relanalysis = RelationalAnalysis(
-        app1, app2, usermapping=usermapping, patchevents=patchevents)
-    if xjson:
-        result = relanalysis.to_json_result()
-        if result.is_ok:
-            jsondata = JU.jsonok("cfgcomparisons", result.content)
-            exitval = 0
-        else:
-            UC.print_error(
-                "Error in constructing json format: " + str(result.reason))
-            jsondata = JU.jsonfail(result.reason)
-            exitval = 1
+    relanalysis = RelationalAnalysis(app1, app2, usermapping=usermapping, patchevents=patchevents)
 
-        outputfile = outputfilename + ".json"
-        with open(outputfile, "w") as fp:
-            json.dump(jsondata, fp)
-
-        exit(exitval)
-
-    # TODO: We will probably need a custom visitor to generate the dot output
-    # using the json file?
     functionschanged = relanalysis.functions_changed()
     if len(functionschanged) == 0:
         UC.print_error("No functions changed")

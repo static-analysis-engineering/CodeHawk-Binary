@@ -1294,6 +1294,21 @@ def parse() -> argparse.Namespace:
     relationalcompare.set_defaults(func=relationalcomparecommand)
     relationalcompareparsers = relationalcompare.add_subparsers(title="show options")
 
+    # --- relational compare all --
+    relationalcompareall = relationalcompareparsers.add_parser("all")
+    relationalcompareall.add_argument(
+        "xname1", help="name of first (original) executable (assumed analyzed)")
+    relationalcompareall.add_argument(
+        "xname2", help="name of second (patched) executable (assumed analyzed)")
+    relationalcompareall.add_argument(
+        "--usermapping", help="name of json file with initial function mapping")
+    relationalcompareall.add_argument(
+        "--patch_results_file",
+        help="name of patch results file (required if there are trampolines)")
+    relationalcompareall.add_argument(
+        "--output", "-o", help="save json output in file")
+    relationalcompareall.set_defaults(func=R.relational_compare_all_cmd)
+
     # --- relational compare app --
     relationalcomparefns = relationalcompareparsers.add_parser("app")
     relationalcomparefns.add_argument(
@@ -1305,10 +1320,6 @@ def parse() -> argparse.Namespace:
     relationalcomparefns.add_argument(
         "--patch_results_file",
         help="name of patch results file (required if there are trampolines)")
-    relationalcomparefns.add_argument(
-        "--json",
-        action="store_true",
-        help="produce output in json format")
     relationalcomparefns.add_argument(
         "--output", "-o", help="save output in file")
     relationalcomparefns.set_defaults(func=R.relational_compare_app_cmd)
@@ -1351,10 +1362,6 @@ def parse() -> argparse.Namespace:
         default="a",
         help="file mode for log file: append (a, default), or write (w)")
     relationalcomparefn.add_argument(
-        "--json",
-        action="store_true",
-        help="produce output in json format")
-    relationalcomparefn.add_argument(
         "--output", "-o", help="save output in file")
     relationalcomparefn.set_defaults(func=R.relational_compare_function_cmd)
 
@@ -1386,10 +1393,6 @@ def parse() -> argparse.Namespace:
         default="pdf",
         help="format for the generated file")
     relationalcomparecfgs.add_argument(
-        "--json",
-        action="store_true",
-        help="store results in json (all other optional arguments are ignored")
-    relationalcomparecfgs.add_argument(
         "--loglevel", "-log",
         choices=UL.LogLevel.options(),
         default="NONE",
@@ -1402,7 +1405,6 @@ def parse() -> argparse.Namespace:
         choices=["a", "w"],
         default="a",
         help="file mode for log file: append (a, default), or write (w)")
-
     relationalcomparecfgs.set_defaults(func=R.relational_compare_cfgs_cmd)
 
     # --- relational compare invariants --
