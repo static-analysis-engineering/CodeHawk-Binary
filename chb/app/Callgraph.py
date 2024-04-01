@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,10 +27,11 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Iterable, cast, Dict, List, Mapping, Optional, Sequence, Set
+from typing import (
+    Any, Iterable, cast, Dict, List, Mapping, Optional, Sequence, Set)
 
 from chb.api.CallTarget import (
-    CallTarget, StubTarget, AppTarget, CallbackTableTarget)
+    CallTarget, StubTarget, AppTarget, InlinedAppTarget, CallbackTableTarget)
 
 from chb.jsoninterface.JSONResult import JSONResult
 
@@ -123,6 +124,29 @@ class TaggedAppCallgraphNode(AppCallgraphNode):
 
     @property
     def is_tagged_app_node(self) -> bool:
+        return True
+
+
+class InlinedAppCallgraphNode(CallgraphNode):
+
+    def __init__(self, address: str, fname: Optional[str]) -> None:
+        if fname:
+            CallgraphNode.__init__(self, fname)
+        else:
+            CallgraphNode.__init__(self, address)
+        self._faddr = address
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, InlinedAppCallgraphNode):
+            return self.name == other.name
+        return False
+
+    @property
+    def faddr(self) -> str:
+        return self._faddr
+
+    @property
+    def is_inlined_app_node(self) -> bool:
         return True
 
 
@@ -402,9 +426,13 @@ def mk_tgt_callgraph_node(iaddr: str, tgt: CallTarget) -> CallgraphNode:
     elif tgt.is_unknown:
         Callgraph.unknowntgtcounter += 1
         return UnknownCallgraphNode(Callgraph.unknowntgtcounter, iaddr)
+    elif tgt.is_inlined_app_target:
+        tgt = cast(InlinedAppTarget, tgt)
+        fname = tgt.name
+        return InlinedAppCallgraphNode(str(tgt.address), fname)
     else:
         raise UF.CHBNotImplementedError(
-            "Callgraph", "mk_callgraph_node", str(tgt))
+            "Callgraph", "mk_tgt_callgraph_node", str(tgt))
 
 
 def mk_app_callgraph_node(addr: str, fname: Optional[str]) -> CallgraphNode:
@@ -424,4 +452,4 @@ def mk_call_back_node(tgt: CallTarget) -> CallgraphNode:
         return CallbackTableCallgraphNode(addr, offset)
     else:
         raise UF.CHBNotImplementedError(
-            "Callgraph", "mk_callgraph_node", str(tgt))
+            "Callgraph", "mk_call_back_callgraph_node", str(tgt))

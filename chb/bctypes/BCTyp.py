@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ type typ
     | TFloat                                              "tfloat"   2      0
     | TPtr                                                "tptr"     1      1
     | TArray                                              "tarray"   1      2
+    | THandle                                             "thandle"  1      2
     | TFun                                                "tfun"     1      3
     | TNamed                                              "tnamed"   2      0
     | TComp                                               "tcomp"    1      1
@@ -157,6 +158,10 @@ class BCTyp(BCDictionaryRecord):
 
     @property
     def is_array(self) -> bool:
+        return False
+
+    @property
+    def is_handle(self) -> bool:
         return False
 
     def has_constant_size(self) -> bool:
@@ -376,6 +381,34 @@ class BCTypPtr(BCTyp):
 
     def __str__(self) -> str:
         return str(self.tgttyp) + " *"
+
+
+@bcregistry.register_tag("thandle", BCTyp)
+class BCTypHandle(BCTyp):
+
+    def __init__(
+            self,
+            cd: "BCDictionary",
+            ixval: IT.IndexedTableValue) -> None:
+        BCTyp.__init__(self, cd, ixval)
+
+    @property
+    def name(self) -> str:
+        return self.bcd.string(self.args[0])
+
+    @property
+    def is_handle(self) -> bool:
+        return True
+
+    @property
+    def is_scalar(self) -> bool:
+        return True
+
+    def byte_size(self) -> int:
+        return 4
+
+    def __str__(self) -> str:
+        return str(self.name)
 
 
 @bcregistry.register_tag("tarray", BCTyp)

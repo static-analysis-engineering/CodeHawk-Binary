@@ -66,7 +66,7 @@ def get_file_format(ftype: str) -> str:
     if "ELF" in ftype:
         return "elf"
     if "PE32" in ftype:
-        return "pe"
+        return "pe32"
     return "?"
 
 
