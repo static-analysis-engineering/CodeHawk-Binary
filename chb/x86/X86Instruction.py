@@ -164,7 +164,10 @@ class X86Instruction(Instruction):
         return []
 
     def global_refs(self) -> Tuple[Sequence[XVariable], Sequence[XXpr]]:
-        return ([], [])
+
+        return (
+            [x for x in self.lhs if x.is_global_variable],
+            [x for x in self.rhs if x.has_global_references()])
 
     def branch_predicate(self) -> XXpr:
         if self.has_branch_predicate():

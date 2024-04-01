@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -99,6 +99,12 @@ class DotCallgraph:
             sameranknodes: List[str] = []
             for (name, node) in nodes.items():
                 if self.nodefilter(node) and r(node):
+                    if (
+                            ('[' in name or ']' in name or '?' in name)
+                            and not name.startswith('"')):
+                        name = '"' + name + '"'
+                    if len(name) == 0:
+                        continue
                     sameranknodes.append(name)
             self.dotgraph.set_same_rank(sameranknodes)
         return self.dotgraph

@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,13 +31,14 @@ import xml.etree.ElementTree as ET
 from typing import Dict, List, TYPE_CHECKING
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.peformat.PEImportDirectoryEntry import PEImportDirectoryEntry
 
 
 class PEImportDirectoryNameEntry():
-    """epresents a single entry in an import table"""
+    """Represents a single entry in an import table"""
 
     def __init__(
             self,
@@ -49,7 +50,7 @@ class PEImportDirectoryNameEntry():
     @property
     def address(self) -> str:
         xaddr = self.xnode.get("bound-address")
-        if xaddr:
+        if xaddr is not None:
             return xaddr
         else:
             raise UF.CHBError(
@@ -58,7 +59,7 @@ class PEImportDirectoryNameEntry():
     @property
     def hint(self) -> str:
         xhint = self.xnode.get("hint")
-        if xhint:
+        if xhint is not None:
             return xhint
         else:
             raise UF.CHBError("No hint found in PEImportDirectoryNameEntry")
@@ -66,7 +67,11 @@ class PEImportDirectoryNameEntry():
     @property
     def name(self) -> str:
         xname = self.xnode.get("name")
-        if xname:
+        if xname is not None:
+            if xname == "":
+                chklogger.logger.warning(
+                    "Empty name in PEImporDirectorNameEntry for address: "
+                    + self.address + " (hint: " + str(self.hint) + ")")
             return xname
         else:
             raise UF.CHBError("No name found in PEImportDirectoryNameEntry")
@@ -74,7 +79,7 @@ class PEImportDirectoryNameEntry():
     @property
     def rva(self) -> str:
         xrva = self.xnode.get("rva")
-        if xrva:
+        if xrva is not None:
             return xrva
         else:
             raise UF.CHBError("No rva found in PEImportDirectoryNameEntry")

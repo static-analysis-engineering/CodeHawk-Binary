@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -290,6 +290,22 @@ class PEHeader:
                 raise UF.CHBError(
                     "Element section-headers not found in PE header")
         return self._sectionheaders
+
+    @property
+    def max_address_space(self) -> str:
+        result = 0
+        for sh in self.section_headers.values():
+            vaddr = int(sh.virtual_address, 16)
+            vsize = int(sh.virtual_size, 16)
+            if vaddr + vsize > result:
+                result = vaddr + vsize
+        result += int(self.optional_header.image_base, 16)
+        return hex(result)
+
+    def is_in_address_space(self, addr: int) -> bool:
+        base = int(self.optional_header.image_base, 16)
+        maxaddr = int(self.max_address_space, 16)
+        return addr >= base and addr < maxaddr
 
     @property
     def import_tables(self) -> Dict[str, E.PEImportDirectoryEntry]:

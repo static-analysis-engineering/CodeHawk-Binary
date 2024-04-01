@@ -50,12 +50,13 @@ if TYPE_CHECKING:
     from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
-@x86registry.register_tag("mov", X86Opcode)
-class X86Mov(X86Opcode):
-    """MOV dst, src
+@x86registry.register_tag("movapd", X86Opcode)
+class X86FXmmMove(X86Opcode):
+    """FXmmMov dst, src
 
-    args[1]: index of dst in x86dictionary
-    args[2]: index of src in x86dictionary
+    args[0]: 0 or 1
+    args[3]: index of dst in x86dictionary
+    args[4]: index of src in x86dictionary
     """
 
     def __init__(
@@ -66,59 +67,13 @@ class X86Mov(X86Opcode):
 
     @property
     def src_operand(self) -> X86Operand:
-        return self.x86d.operand(self.args[2])
+        return self.x86d.operand(self.args[4])
 
     @property
     def dst_operand(self) -> X86Operand:
-        return self.x86d.operand(self.args[1])
+        return self.x86d.operand(self.args[3])
 
     @property
     def operands(self) -> Sequence[X86Operand]:
         return [self.dst_operand, self.src_operand]
-
-    def opcode_operations(self) -> List[str]:
-        src = self.src_operand
-        dst = self.dst_operand
-        return [dst.to_operand_string() + ' = ' + src.to_operand_string()]
-
-    # xdata: [ "nop" ]  no state change
-    #        [ "a:xx" ; "arg", callsite ],[ x, x, argindex ] function argument
-    #        [ "a:vxx" ]  assignment (lhs, rhs, rhs-simplified)
-    def annotation(self, xdata: InstrXData) -> str:
-        """data format: """
-
-        if len(xdata.tags) > 1 and xdata.tags[1] == 'arg':
-            callsite = xdata.tags[1]
-            argindex = xdata.args[2]
-            xval = str(xdata.xprs[1])
-            return '[' + str(callsite) + ':' + str(argindex) + ': ' + xval + ']'
-        if len(xdata.xprs) == 2:
-            lhs = str(xdata.vars[0])
-            rhs = xdata.xprs[0]
-            rrhs = xdata.xprs[1]
-            xrhs = simplify_result(xdata.args[1], xdata.args[2], rhs, rrhs)
-            return lhs + ' = ' + xrhs
-        else:
-            if len(xdata.tags) > 0:
-                return xdata.tags[0]
-            else:
-                return 'mov:????'
-
-    def lhs(self, xdata: InstrXData) -> List[XVariable]:
-        return xdata.vars
-
-    def rhs(self, xdata: InstrXData) -> List[XXpr]:
-        return xdata.xprs
-
-    def operand_values(self, xdata: InstrXData) -> List[XXpr]:
-        return xdata.xprs
-
-    # --------------------------------------------------------------------------
-    # Copies the second operand (source operand) to the first operand
-    # (destination operand).
-    #
-    # Flags affected: None
-    # --------------------------------------------------------------------------
-    def simulate(self, iaddr: str, simstate: "X86SimulationState") -> None:
-        srcval = simstate.get_rhs(iaddr, self.src_operand)
-        simstate.set(iaddr, self.dst_operand, srcval)
+    

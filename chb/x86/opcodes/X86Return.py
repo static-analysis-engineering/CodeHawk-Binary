@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from chb.x86.simulation.X86SimulationState import X86SimulationState
 
 
+@x86registry.register_tag("repz ret", X86Opcode)
 @x86registry.register_tag("ret", X86Opcode)
 class X86Return(X86Opcode):
     """RET.
@@ -87,6 +88,8 @@ class X86Return(X86Opcode):
         xprs[1]: value of eax simplified
         """
 
+        if len(xdata.xprs) == 0:
+            return "repz ret"
         eax = xdata.xprs[0]
         reax = xdata.xprs[1]
         xeax = simplify_result(xdata.args[0], xdata.args[1], eax, reax)

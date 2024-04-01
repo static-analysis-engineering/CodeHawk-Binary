@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs, LLC
+# Copyright (c) 2021-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -487,24 +487,38 @@ def parse() -> argparse.Namespace:
     pedatacmd = subparsers.add_parser("pedata")
     pedatacmd.add_argument("xname", help="name of executable")
     pedatacmd.add_argument(
-        '--headeronly',
-        action='store_true',
-        help='show only the PE header')
+        "--headeronly",
+        action="store_true",
+        help="show only the PE header")
     pedatacmd.add_argument(
-        '--imports',
-        action='store_true',
-        help='show only import tables')
+        "--imports",
+        action="store_true",
+        help="show only import tables")
     pedatacmd.add_argument(
-        '--headers',
-        action='store_true',
-        help='show only section headers')
+        "--headers",
+        action="store_true",
+        help="show only section headers")
     pedatacmd.add_argument(
-        '--sections',
+        "--sections",
         action='store_true',
-        help='show only sections')
+        help="show only sections")
     pedatacmd.add_argument(
-        '--section',
-        help='show only section at given address')
+        "--section",
+        help="show only section at given address")
+    pedatacmd.add_argument(
+        "--loglevel", "-log",
+        choices=UL.LogLevel.options(),
+        default="NONE",
+        help="activate logging with the given level (default to stderr)")
+    pedatacmd.add_argument(
+        "--logfilename",
+        help="name of file to write log messages")
+    pedatacmd.add_argument(
+        "--logfilemode",
+        choices=["a", "w"],
+        default="a",
+        help="file mode for log file: append (a, default), or write (w)")
+
     pedatacmd.set_defaults(func=FF.pedatacmd)
 
     elfdatacmd = subparsers.add_parser("elfdata")

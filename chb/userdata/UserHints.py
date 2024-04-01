@@ -57,9 +57,6 @@ Currently provided:
 - FunctionNames
       mapping of function entry points to function names
 
-- FunctionSummaries
-      signatures and other info for application functions
-
 - IndirectJumps
       mapping of function/instr address to list of possible targets
 

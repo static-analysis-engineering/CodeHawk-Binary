@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs, LLC
+# Copyright (c) 2021-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,8 @@
 # ------------------------------------------------------------------------------
 """Support functions for the pedata/elfdata subcommand in the command-line interpreter."""
 
+import logging
+
 import argparse
 import json
 
@@ -34,6 +36,8 @@ from typing import Any, cast, Dict, NoReturn, Optional, TYPE_CHECKING
 import chb.app.AppAccess as AP
 import chb.cmdline.commandutil as UC
 import chb.cmdline.XInfo as XI
+
+from chb.util.loggingutil import chklogger
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
@@ -49,6 +53,9 @@ def pedatacmd(args: argparse.Namespace) -> NoReturn:
     headers: bool = args.headers
     sections: bool = args.sections
     section: Optional[str] = args.section
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     try:
         (path, xfile) = UC.get_path_filename(xname)
@@ -56,6 +63,13 @@ def pedatacmd(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="pedata command invoked")
 
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
@@ -95,6 +109,9 @@ def pedatacmd(args: argparse.Namespace) -> NoReturn:
         print(str(i))
     for h in list(peheader.section_headers.values()):
         print(str(h))
+
+    chklogger.logger.info("pedata command completed")
+
     exit(0)
 
 
