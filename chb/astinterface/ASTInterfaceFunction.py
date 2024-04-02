@@ -54,7 +54,10 @@ if TYPE_CHECKING:
     from chb.app.BasicBlock import BasicBlock
     from chb.app.Function import Function
     from chb.app.JumpTables import JumpTable
+    from chb.arm.ARMCfg import ARMCfg
     from chb.arm.ARMCfgBlock import ARMCfgTrampolineBlock
+    from chb.arm.ARMFunction import ARMFunction
+    from chb.cmdline.PatchResults import PatchEvent
     from chb.invariants.InvariantFact import InitialVarEqualityFact, NRVFact
 
 
@@ -65,10 +68,13 @@ class ASTInterfaceFunction(ASTFunction):
             faddr: str,
             fname: str,
             f: "Function",
-            astinterface: ASTInterface) -> None:
+            astinterface: ASTInterface,
+            patchevents: Dict[str, "PatchEvent"] = {}) -> None:
         ASTFunction.__init__(self, faddr, fname)
         self._function = f
         self._astinterface = astinterface
+        self._patchevents = patchevents
+        self._cfgtc: Optional["ARMCfg"] = None
         self._astblocks: Dict[str, ASTInterfaceBasicBlock] = {}
         self._astinstructions: Dict[str, ASTInterfaceInstruction] = {}
 
@@ -76,8 +82,8 @@ class ASTInterfaceFunction(ASTFunction):
     def astblocks(self) -> Dict[str, ASTInterfaceBasicBlock]:
         if len(self._astblocks) == 0:
             for (addr, block) in self.function.blocks.items():
-                if addr in self.function.cfg.blocks:
-                    cfgblock = self.function.cfg.blocks[addr]
+                if addr in self.cfg_tc.blocks:
+                    cfgblock = self.cfg_tc.blocks[addr]
                     if cfgblock.is_trampoline:
                         cfgblock = cast("ARMCfgTrampolineBlock", cfgblock)
                         roles: Dict[str, "BasicBlock"] = {}
@@ -93,12 +99,23 @@ class ASTInterfaceFunction(ASTFunction):
         return self._astblocks
 
     @property
+    def cfg_tc(self) -> "ARMCfg":
+        if self._cfgtc is None:
+            self._cfgtc = cast(
+                "ARMFunction", self.function).cfg_tc(self.patchevents)
+        return self._cfgtc
+
+    @property
     def astinstructions(self) -> Dict[str, ASTInterfaceInstruction]:
         if len(self._astinstructions) == 0:
             for block in self.astblocks.values():
                 for (iaddr, instr) in block.instructions.items():
                     self._astinstructions[iaddr] = instr
         return self._astinstructions
+
+    @property
+    def patchevents(self) -> Dict[str, "PatchEvent"]:
+        return self._patchevents
 
     @property
     def jumptables(self) -> Dict[str,JumpTable]:
@@ -137,10 +154,10 @@ class ASTInterfaceFunction(ASTFunction):
         return self.astblocks[startaddr]
 
     def ast(self, support: CustomASTSupport) -> ASTStmt:
-        return self.function.cfg.ast(self, self.astinterface)
+        return self.cfg_tc.ast(self, self.astinterface)
 
     def cfg_ast(self, support: CustomASTSupport) -> ASTStmt:
-        return self.function.cfg.cfg_ast(self, self.astinterface)
+        return self.cfg_tc.cfg_ast(self, self.astinterface)
 
     def mk_asts(self, support: CustomASTSupport) -> List[ASTStmt]:
         highlevel = self.mk_high_level_ast(support)
@@ -157,7 +174,7 @@ class ASTInterfaceFunction(ASTFunction):
             self,
             support: CustomASTSupport) -> ASTStmt:
         try:
-            return self.function.cfg.cfg_ast(self, self.astinterface)
+            return self.cfg_tc.cfg_ast(self, self.astinterface)
         except UF.CHBError as e:
             msg = (
                 "Unable to create low-level ast for "
@@ -172,7 +189,7 @@ class ASTInterfaceFunction(ASTFunction):
             self,
             support: CustomASTSupport) -> List[ASTStmt]:
         try:
-            ast = self.function.cfg.ast(self, self.astinterface)
+            ast = self.cfg_tc.ast(self, self.astinterface)
         except UF.CHBError as e:
             msg = (
                 "Unable to create high-level ast for "

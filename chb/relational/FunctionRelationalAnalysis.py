@@ -45,6 +45,8 @@ if TYPE_CHECKING:
     from chb.app.Function import Function
     from chb.app.Instruction import Instruction
     from chb.arm.ARMCfgBlock import ARMCfgTrampolineBlock
+    from chb.arm.ARMFunction import ARMFunction
+    from chb.cmdline.PatchResults import PatchEvent
 
 
 class FunctionRelationalAnalysis:
@@ -54,15 +56,19 @@ class FunctionRelationalAnalysis:
             app1: "AppAccess",
             fn1: "Function",
             app2: "AppAccess",
-            fn2: "Function") -> None:
+            fn2: "Function",
+            patchevents: Dict[str, "PatchEvent"] = {}) -> None:
         self._app1 = app1
         self._app2 = app2
         self._fn1 = fn1
         self._fn2 = fn2
+        self._patchevents = patchevents
         self._cfg1: Optional["Cfg"] = None
         self._cfg2: Optional["Cfg"] = None
+        self._cfg2tc: Optional["Cfg"] = None   # trampoline collapsed
         self._cfgblocks1: Mapping[str, "CfgBlock"] = {}
         self._cfgblocks2: Mapping[str, "CfgBlock"] = {}
+        self._cfgtcblocks2: Mapping[str, "CfgBlock"] = {}
         self._edges1: Set[Tuple[str, str]] = set([])
         self._edges2: Set[Tuple[str, str]] = set([])
         self._blockmapping: Dict[str, str] = {}
@@ -86,6 +92,10 @@ class FunctionRelationalAnalysis:
     @property
     def faddr2(self) -> str:
         return self.fn2.faddr
+
+    @property
+    def patchevents(self) -> Dict[str, "PatchEvent"]:
+        return self._patchevents
 
     @property
     def offset(self) -> int:
@@ -181,6 +191,18 @@ class FunctionRelationalAnalysis:
         return self._cfg2
 
     @property
+    def cfg2tc(self) -> "Cfg":
+        """Return a cfg in which the trampoline block is collapsed.
+
+        Currently only available for ARM.
+        """
+
+        if not self._cfg2tc:
+            fn2 = cast("ARMFunction", self.fn2)
+            self._cfg2tc = fn2.cfg_tc(self.patchevents)
+        return self._cfg2tc
+
+    @property
     def cfg_blocks1(self) -> Mapping[str, "CfgBlock"]:
         if len(self._cfgblocks1) == 0:
             self._cfgblocks1 = self.cfg1.blocks
@@ -191,6 +213,12 @@ class FunctionRelationalAnalysis:
         if len(self._cfgblocks2) == 0:
             self._cfgblocks2 = self.cfg2.blocks
         return self._cfgblocks2
+
+    @property
+    def cfgtc_blocks2(self) -> Mapping[str, "CfgBlock"]:
+        if len(self._cfgtcblocks2) == 0:
+            self._cfgtcblocks2 = self.cfg2tc.blocks
+        return self._cfgtcblocks2
 
     @property
     def edges1(self) -> Set[Tuple[str, str]]:
@@ -221,7 +249,7 @@ class FunctionRelationalAnalysis:
                 self.cfg1,
                 self.app2,
                 self.fn2,
-                self.cfg2,
+                self.cfg2tc,
                 {},
                 {})
         return self._cfgmatcher
@@ -352,9 +380,9 @@ class FunctionRelationalAnalysis:
     def setup_trampoline_analysis(self, b: str) -> None:
         cfg1unmapped = self.cfgmatcher.unmapped_blocks1
         cfg2unmapped = [
-            b for b in self.cfgmatcher.unmapped_blocks2 if b in self.cfg_blocks2]
+            b for b in self.cfgmatcher.unmapped_blocks2 if b in self.cfgtc_blocks2]
         if (b in cfg2unmapped):
-            trampoline = cast("ARMCfgTrampolineBlock", self.cfg_blocks2[b])
+            trampoline = cast("ARMCfgTrampolineBlock", self.cfgtc_blocks2[b])
             tpre = trampoline.prenodes
             tpost = trampoline.postnodes
             if len(tpre) == 1 and len(tpre) == 1:
@@ -374,7 +402,7 @@ class FunctionRelationalAnalysis:
                         roles)
 
     def has_trampoline(self) -> Optional[str]:
-        for (b, cfgb) in self.cfg_blocks2.items():
+        for (b, cfgb) in self.cfgtc_blocks2.items():
             if cfgb.is_trampoline:
                 return b
         return None
@@ -502,12 +530,10 @@ class FunctionRelationalAnalysis:
 
         elif trampolineblock is not None:
             lines.append("\nTrampoline inserted at " + trampolineblock)
-            trblock = self.cfg_blocks2[trampolineblock]
+            trblock = self.cfgtc_blocks2[trampolineblock]
             lines.append("\nTrampoline components: ")
             for (c, ca) in trblock.roles.items():
                 lines.append("  " + c.ljust(30) + ": " + ca)
-
-
 
             setupinstr = self.fn2.instruction(trblock.roles["setupblock"])
             takedowninstr = self.fn2.instruction(trblock.roles["fallthrough"])
@@ -534,15 +560,7 @@ class FunctionRelationalAnalysis:
 
 
         else:
-            cfgmatcher = CfgMatcher(
-                self.app1,
-                self.fn1,
-                self.cfg1,
-                self.app2,
-                self.fn2,
-                self.cfg2,
-                {},
-                {})
+            cfgmatcher = self.cfgmatcher
             if len(self.instructions1) == len(self.instructions2):
                 lines.append("\nInstructions changed")
                 lines.append("-" * 80)

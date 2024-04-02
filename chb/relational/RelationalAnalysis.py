@@ -35,6 +35,7 @@ import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
+    from chb.cmdline.PatchResults import PatchEvent
 
 
 class RelationalAnalysis:
@@ -72,7 +73,8 @@ class RelationalAnalysis:
             faddrs1: List[str] = [],
             faddrs2: List[str] = [],
             usermapping: Dict[str, str] = {},
-            callees: List[str] = []) -> None:
+            callees: List[str] = [],
+            patchevents: Dict[str, "PatchEvent"] = {}) -> None:
         self._app1 = app1
         self._app2 = app2
         if faddrs1:
@@ -85,6 +87,7 @@ class RelationalAnalysis:
             self._faddrs2 = sorted(app2.appfunction_addrs)
         self._usermapping = usermapping
         self._callees = callees
+        self._patchevents = patchevents
         self._functionmapping: Dict[str, str] = {}  # potentially partial map
         self._functionanalyses: Dict[str, FunctionRelationalAnalysis] = {}
         self._functionnames: Dict[str, str] = {}
@@ -105,6 +108,10 @@ class RelationalAnalysis:
     @property
     def faddrs2(self) -> Sequence[str]:
         return self._faddrs2
+
+    @property
+    def patchevents(self) -> Dict[str, "PatchEvent"]:
+        return self._patchevents
 
     @property
     def md5s1(self) -> Dict[str, str]:
@@ -151,7 +158,7 @@ class RelationalAnalysis:
                     fn1 = self.app1.function(faddr1)
                     fn2 = self.app2.function(faddr2)
                     self._functionanalyses[faddr1] = FunctionRelationalAnalysis(
-                        self.app1, fn1, self.app2, fn2)
+                        self.app1, fn1, self.app2, fn2, self.patchevents)
         return self._functionanalyses
 
     def function_analysis(self, faddr: str) -> FunctionRelationalAnalysis:

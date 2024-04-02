@@ -100,7 +100,7 @@ class TrampolineInfo:
         Note that this address is outside of the trampoline itself.
         In most cases this address is the same as (one of) the prenodes.
         """
-        
+
         return self.patchevent.logicalva
 
     @property
@@ -120,7 +120,7 @@ class TrampolineInfo:
         for (role, addr) in self.roles.items():
             if role.startswith("payload"):
                 result.append(addr)
-        return result                
+        return result
 
     @property
     def cases(self) -> List[str]:
@@ -140,7 +140,6 @@ class TrampolineInfo:
         lines.append("edges        :")
         for src in self.internal_edges:
             lines.append(
-                "   (" + src + " ==> [" ", ".join(self.internal_edges[src]) + "]")
+                "   ("
+                + src + " ==> [" + ", ".join(self.internal_edges[src]) + "])")
         return "\n".join(lines)
-                     
- 

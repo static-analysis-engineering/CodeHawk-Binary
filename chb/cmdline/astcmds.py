@@ -35,8 +35,6 @@ from typing import (
 
 from chb.app.AppAccess import AppAccess
 
-from chb.arm.ARMCfg import astmode, patchevents
-
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTApplicationInterface import ASTApplicationInterface
 from chb.ast.ASTBasicCTyper import ASTBasicCTyper
@@ -54,7 +52,7 @@ from chb.astinterface.BC2ASTConverter import BC2ASTConverter
 from chb.astinterface.CHBASTSupport import CHBASTSupport
 
 import chb.cmdline.commandutil as UC
-from chb.cmdline.PatchResults import PatchResults
+from chb.cmdline.PatchResults import PatchResults, PatchEvent
 import chb.cmdline.XInfo as XI
 
 from chb.userdata.UserHints import UserHints
@@ -146,8 +144,6 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     showdiagnostics: bool = args.showdiagnostics
     showinfolog: bool = args.showinfolog
 
-    astmode.append("ast")
-
     try:
         (path, xfile) = UC.get_path_filename(xname)
         UF.check_analysis_results(path, xfile)
@@ -162,6 +158,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     if xpatchresultsfile is not None:
         with open(xpatchresultsfile, "r") as fp:
             patchresultsdata = json.load(fp)
+
+    patchevents: Dict[str, PatchEvent] = {}
 
     if patchresultsdata is not None:
         patchresults = PatchResults(patchresultsdata)
@@ -286,7 +284,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 showdiagnostics=showdiagnostics,
                 showinfolog=showinfolog)
 
-            astfunction = ASTInterfaceFunction(faddr, fname, f, astinterface)
+            astfunction = ASTInterfaceFunction(
+                faddr, fname, f, astinterface, patchevents=patchevents)
 
             try:
                 asts = astfunction.mk_asts(support)

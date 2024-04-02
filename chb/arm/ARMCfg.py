@@ -38,8 +38,6 @@ import chb.arm.ARMCfgPath as P
 
 import chb.util.fileutil as UF
 
-astmode: List[str] = []
-
 
 if TYPE_CHECKING:
     from chb.arm.ARMFunction import ARMFunction
@@ -47,20 +45,25 @@ if TYPE_CHECKING:
     from chb.cmdline.PatchResults import PatchEvent
 
 
-# initialized in chb.cmdline.astcmds ore chb.cmdline.relationalcmds
-patchevents: Dict[str, "PatchEvent"] = {}  # start of wrapper -> patch event
-
-
 class ARMCfg(Cfg):
 
-    def __init__(self, armf: "ARMFunction", xnode: ET.Element) -> None:
+    def __init__(
+            self,
+            armf: "ARMFunction",
+            xnode: ET.Element,
+            patchevents: Dict[str, "PatchEvent"] = {}) -> None:
         Cfg.__init__(self, armf.faddr, xnode)
         self._armf = armf
         self._blocks: Dict[str, ARMCfgBlock] = {}
+        self._patchevents = patchevents
 
     @property
     def armfunction(self) -> "ARMFunction":
         return self._armf
+
+    @property
+    def patchevents(self) -> Dict[str, "PatchEvent"]:
+        return self._patchevents
 
     def branch_instruction(self, baddr: str) -> "ARMInstruction":
         block = self.blocks[baddr]
@@ -96,9 +99,7 @@ class ARMCfg(Cfg):
                     b.get("ba"))
                 blocks[baddr] = ARMCfgBlock(b)
 
-            # check if astmode has been activated
-            # currently set from either astcmds.py and relationalcmds.py
-            if len(astmode) > 0:
+            if len(self.patchevents) > 0:
                 if any(b.is_in_trampoline for b in blocks.values()):
                     self.set_trampoline_blocks(blocks)
                 else:
@@ -188,10 +189,10 @@ class ARMCfg(Cfg):
         trampolineblocks: Dict[str, str] = {}
 
         for (baddr, b) in blocks.items():
-            if not (baddr in patchevents):
+            if not (baddr in self.patchevents):
                 continue
 
-            patchevent = patchevents[baddr]
+            patchevent = self.patchevents[baddr]
             canonical_cases = list(sorted(patchevent.cases))
             if canonical_cases == []:
                 # Not a trampoline
@@ -200,6 +201,7 @@ class ARMCfg(Cfg):
             trampolines[baddr] = trinfo = TrampolineInfo(patchevent)
 
             trinfo.add_role("setupblock", baddr)
+            trampolineblocks[baddr] = baddr
 
             if not patchevent.has_payload():
                 print(
@@ -260,6 +262,10 @@ class ARMCfg(Cfg):
         cfgedges: Dict[str, List[str]] = {}
 
         for src in localedges:
+            if src in trampolineblocks:
+                trampolinesetup = trampolineblocks[src]
+                cfgedges.setdefault(trampolinesetup, [])
+
             for tgt in localedges[src]:
                 if (src in trampolineblocks
                         and tgt in trampolineblocks
