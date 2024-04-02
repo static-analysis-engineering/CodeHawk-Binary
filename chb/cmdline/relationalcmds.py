@@ -35,12 +35,10 @@ import subprocess
 
 from typing import Any, cast, Dict, List, NoReturn, Optional, Tuple
 
-from chb.arm.ARMCfg import astmode, patchevents
-
 from chb.cmdline.AnalysisManager import AnalysisManager
 import chb.cmdline.commandutil as UC
 import chb.cmdline.jsonresultutil as JU
-from chb.cmdline.PatchResults import PatchResults
+from chb.cmdline.PatchResults import PatchResults, PatchEvent
 from chb.cmdline.XComparison import XComparison
 import chb.cmdline.XInfo as XI
 
@@ -401,8 +399,9 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
         with open(xpatchresults, "r") as fp:
             patchresultsdata = json.load(fp)
 
+    patchevents: Dict[str, PatchEvent] = {} # start of wrapper -> patch event
+
     if patchresultsdata is not None:
-        astmode.append("ast")
         patchresults = PatchResults(patchresultsdata)
         for event in patchresults.events:
             if event.is_trampoline:
@@ -418,7 +417,11 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
     app2 = UC.get_app(path2, xfile2, xinfo2)
 
     relanalysis = RelationalAnalysis(
-        app1, app2, faddrs1=addresses, usermapping=usermapping)
+        app1,
+        app2,
+        faddrs1=addresses,
+        usermapping=usermapping,
+        patchevents=patchevents)
 
     print(relational_header(
         xname1,
@@ -458,13 +461,14 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
         print(str(e.wrap()))
         exit(1)
 
+    patchevents: Dict[str, PatchEvent] = {} # start of wrapper -> patch event
+
     patchresultsdata: Optional[Dict[str, Any]] = None
     if xpatchresults is not None:
         with open(xpatchresults, "r") as fp:
             patchresultsdata = json.load(fp)
 
     if patchresultsdata is not None:
-        astmode.append("ast")
         patchresults = PatchResults(patchresultsdata)
         for event in patchresults.events:
             if event.is_trampoline:
@@ -490,7 +494,8 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     app1 = UC.get_app(path1, xfile1, xinfo1)
     app2 = UC.get_app(path2, xfile2, xinfo2)
 
-    relanalysis = RelationalAnalysis(app1, app2, usermapping=usermapping)
+    relanalysis = RelationalAnalysis(
+        app1, app2, usermapping=usermapping, patchevents=patchevents)
 
     functionschanged = relanalysis.functions_changed()
     if len(functionschanged) == 0:

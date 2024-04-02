@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -57,6 +57,8 @@ from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
+if TYPE_CHECKING:
+    from chb.cmdline.PatchResults import PatchEvent
 
 
 class ARMFunction(Function):
@@ -77,6 +79,7 @@ class ARMFunction(Function):
             self, path, filename, bcd, bd, ixd, finfo, stringsxrefs, names, xnode)
         self._armd = armd
         self._cfg: Optional[ARMCfg] = None
+        self._cfg_tc: Optional[ARMCfg] = None
         self._jumptables: Dict[str, JumpTable] = {}
         self._blocks: Dict[str, ARMBlock] = {}
         self._instructions: Dict[str, ARMInstruction] = {}
@@ -199,6 +202,16 @@ class ARMFunction(Function):
             self._cfg = ARMCfg(self, xcfg)
         return self._cfg
 
+    def cfg_tc(self, patchevents: Dict[str, "PatchEvent"] = {}) -> ARMCfg:
+        """Return a CFG with trampoline collapsed."""
+
+        if self._cfg_tc is None:
+            xcfg = self.xnode.find("cfg")
+            if xcfg is None:
+                raise UF.CHBError("cfg element is missing from arm function")
+            self._cfg_tc = ARMCfg(self, xcfg, patchevents)
+        return self._cfg_tc
+
     def byte_string(self, chunksize: Optional[int] = None) -> str:
         s: List[str] = []
 
@@ -230,7 +243,7 @@ class ARMFunction(Function):
             lines.append(" ")
         if proofobligations:
             lines.append(str(self.proofobligations))
-            lines.append(".~" * 40)            
+            lines.append(".~" * 40)
         for b in sorted(self.blocks):
             lines.append(
                 self.blocks[b].to_string(
