@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -48,8 +48,8 @@ from chb.models.ModelsAccess import ModelsAccess
 from chb.models.ModelsType import MNamedType
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+
 
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget
@@ -78,10 +78,6 @@ class ARMBranchLinkExchange(ARMCallOpcode):
             bytestring: str,
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        try:
-            return self.ast_call_prov(
-                astree, iaddr, bytestring, "BranchLinkExchange (BLX)", xdata)
-        except UF.CHBError as e:
-            msg = iaddr + ": " + str(e)
-            astree.add_diagnostic(msg)
-            return ([], [])
+
+        return self.ast_call_prov(
+            astree, iaddr, bytestring, "BranchLinkExchange (BLX)", xdata)

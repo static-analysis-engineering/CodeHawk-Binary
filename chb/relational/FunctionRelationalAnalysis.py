@@ -36,6 +36,8 @@ from chb.relational.InstructionRelationalAnalysis import (
 from chb.relational.CfgMatcher import CfgMatcher
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger, LogLevel
+
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
@@ -411,7 +413,6 @@ class FunctionRelationalAnalysis:
         """Return a list of block addresses that are not md5-equal."""
 
         result: List[str] = []
-        r = self.report(False)
         for baddr in self.block_analyses:
             if not self.block_analyses[baddr].is_md5_equal:
                 result.append(baddr)
@@ -432,7 +433,9 @@ class FunctionRelationalAnalysis:
             self, setup: "Instruction", restore: "Instruction") -> str:
 
         lines: List[str] = []
-        if setup.mnemonic.startswith("PUSH") and restore.mnemonic.startswith("POP"):
+        if (
+                setup.mnemonic.startswith("PUSH")
+                and restore.mnemonic.startswith("POP")):
             pushassigns = list(zip(setup.xdata.vars, setup.xdata.xprs[2:]))
             popassigns = list(zip(restore.xdata.vars, restore.xdata.xprs[2:]))
 
@@ -445,20 +448,38 @@ class FunctionRelationalAnalysis:
                 "iaddr".ljust(16)
                 + setup.real_iaddr.ljust(32)
                 + restore.real_iaddr.ljust(16))
-            lines.append(
-                "SP before".ljust(16)
-                + str(setup.stackpointer_offset.offsetvalue()).ljust(32)
-                + str(restore.stackpointer_offset.offsetvalue()).ljust(32))
+            if (
+                    setup.stackpointer_offset.offset.is_singleton
+                    and restore.stackpointer_offset.offset.is_singleton):
+                lines.append(
+                    "SP before".ljust(16)
+                    + str(setup.stackpointer_offset.offsetvalue()).ljust(32)
+                    + str(restore.stackpointer_offset.offsetvalue()).ljust(32))
+            else:
+                chklogger.logger.warning(
+                    "Unable to perform setup-restore-context-comparison: "
+                    + "Stackpointer at setup or restore not known: "
+                    + "setup: %s; restore: %s",
+                    str(setup.stackpointer_offset.offset),
+                    str(setup.stackpointer_offset.offset))
             lines.append(
                 "opcode".ljust(16)
             + setup.mnemonic.ljust(32)
                 + restore.mnemonic)
             spsetup = pushassigns[0][1]
             sprestore = popassigns[0][1]
-            lines.append(
-                "SP after".ljust(16)
-                + str(spsetup.stack_address_offset()).ljust(32)
-                + str(sprestore.stack_address_offset()).ljust(32))
+            if spsetup.is_stack_address and sprestore.is_stack_address:
+                lines.append(
+                    "SP after".ljust(16)
+                    + str(spsetup.stack_address_offset()).ljust(32)
+                    + str(sprestore.stack_address_offset()).ljust(32))
+            else:
+                chklogger.logger.warning(
+                    "Unable to compare stackpointers: "
+                    + "Expression(s) are not stack addresseses: "
+                    + "sp at setup: %s; sp at restore: %s",
+                    str(spsetup),
+                    str(sprestore))
             lines.append("\nregister saves and restores:")
             pushassigns = list(zip(setup.xdata.vars, setup.xdata.xprs[2:]))
             popassigns = list(zip(restore.xdata.vars, restore.xdata.xprs[2:]))

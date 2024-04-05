@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,8 +40,9 @@ from chb.pwr.PowerOpcode import PowerOpcode
 from chb.pwr.PowerOperand import PowerOperand
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.pwr.PowerDictionary import PowerDictionary
@@ -69,7 +70,8 @@ class PWRBranchNotEqual(PowerOpcode):
     xprs[4]: target address (absolute)
     """
 
-    def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
+    def __init__(
+            self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
         PowerOpcode.__init__(self, pwrd, ixval)
 
     @property
@@ -94,7 +96,8 @@ class PWRBranchNotEqual(PowerOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         if xdata.has_branch_conditions():
-            return "if " + str(xdata.xprs[2]) + " then goto " + str(xdata.xprs[4])
+            return (
+                "if " + str(xdata.xprs[2]) + " then goto " + str(xdata.xprs[4]))
         else:
             return "?"
 
@@ -104,7 +107,8 @@ class PWRBranchNotEqual(PowerOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
-            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+            reverse: bool) -> Tuple[
+                Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
 
         annotations: List[str] =  [iaddr, "bne"]
 
@@ -149,7 +153,8 @@ class PWRBranchNotEqual(PowerOpcode):
                 astop2s = XU.xxpr_to_ast_def_exprs(xop2, xdata, csetter, astree)
 
                 if len(astop1s) == 1 and len(astop2s) == 1:
-                    hl_astcond = astree.mk_binary_op(xoperator, astop1s[0], astop2s[0])
+                    hl_astcond = astree.mk_binary_op(
+                        xoperator, astop1s[0], astop2s[0])
 
                 else:
                     raise UF.CHBError(
@@ -157,7 +162,8 @@ class PWRBranchNotEqual(PowerOpcode):
 
             elif condition.is_compound:
                 csetter = xdata.tags[2]
-                astconditions = XU.xxpr_to_ast_def_exprs(condition, xdata, csetter, astree)
+                astconditions = XU.xxpr_to_ast_def_exprs(
+                    condition, xdata, csetter, astree)
                 if len(astconditions) == 1:
                     hl_astcond = astconditions[0]
 
@@ -172,9 +178,13 @@ class PWRBranchNotEqual(PowerOpcode):
             return (hl_astcond, hl_astcond)
 
         elif len(ftconds) == 0:
-            astree.add_diagnostic(iaddr + ": no branch condition found")
-            return (astree.mk_integer_constant(0), astree.mk_integer_constant(0))
+            chklogger.logger.error(
+                "CBrancNotEqual at address %s: condition not found; "
+                + "returning zero", iaddr)
+            return (
+                astree.mk_integer_constant(0), astree.mk_integer_constant(0))
 
         else:
             raise UF.CHBError(
-                "PWRCBranchNotEqual: one or more than two conditions at " + iaddr)
+                "PWRCBranchNotEqual: one or more than two conditions at "
+                + iaddr)

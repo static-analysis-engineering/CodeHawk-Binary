@@ -38,6 +38,8 @@ from chb.jsoninterface.JSONSchema import JSONSchema
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger, LogLevel
+
 
 if TYPE_CHECKING:
     from chb.app.BasicBlock import BasicBlock

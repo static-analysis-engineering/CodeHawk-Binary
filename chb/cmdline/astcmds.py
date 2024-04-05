@@ -26,6 +26,8 @@
 # ------------------------------------------------------------------------------
 """Commands related to decompilation and generation of abstract syntax trees."""
 
+import logging
+
 import argparse
 import json
 import os
@@ -58,6 +60,8 @@ import chb.cmdline.XInfo as XI
 from chb.userdata.UserHints import UserHints
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger, LogLevel
+
 
 if TYPE_CHECKING:
     from chb.api.AppFunctionSignature import AppFunctionSignature
@@ -141,8 +145,9 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     remove_edges: List[str] = args.remove_edges
     add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
-    showdiagnostics: bool = args.showdiagnostics
-    showinfolog: bool = args.showinfolog
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     try:
         (path, xfile) = UC.get_path_filename(xname)
@@ -150,6 +155,13 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="results ast invoked")
 
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
@@ -280,9 +292,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 astprototype=astprototype,
                 appsignature=appsignature,
                 varintros=varintros,
-                verbose=verbose,
-                showdiagnostics=showdiagnostics,
-                showinfolog=showinfolog)
+                verbose=verbose)
 
             astfunction = ASTInterfaceFunction(
                 faddr, fname, f, astinterface, patchevents=patchevents)
@@ -338,6 +348,9 @@ def buildast(args: argparse.Namespace) -> NoReturn:
         print("Successfully lifted " + str(functions_lifted) + " functions")
     if functions_failed > 0:
         print("Failures: " + str(functions_failed) + " functions")
+
+    chklogger.logger.info("results ast completed")
+
     exit(0)
 
 

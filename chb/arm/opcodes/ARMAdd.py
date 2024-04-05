@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,8 +39,9 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
@@ -194,7 +195,8 @@ class ARMAdd(ARMOpcode):
             hl_lhs = hl_lhss[0]
 
         if str(lhs) == "PC":
-            astree.add_diagnostic(iaddr + ": ADD instruction sets PC")
+            chklogger.logger.info(
+                "Add (ADD) instruction at address %s sets PC", iaddr)
 
         # resulting expression is a stack address
         if str(rhs1) == "SP" and rhs3.is_stack_address:
@@ -214,9 +216,11 @@ class ARMAdd(ARMOpcode):
                     if rhs3.is_string_reference:
                         saddr = hex(rhsval)
                         cstr = rhs3.constant.string_reference()
-                        rhsast = astree.mk_string_constant(rhsexprs[0], cstr, saddr)
+                        rhsast = astree.mk_string_constant(
+                            rhsexprs[0], cstr, saddr)
                     else:
-                        rhsast = astree.mk_global_address_constant(rhsval, rhsexprs[0])
+                        rhsast = astree.mk_global_address_constant(
+                            rhsval, rhsexprs[0])
                 else:
                     raise UF.CHBError(
                         "ADD: multiple expressions in pc-relative expression")

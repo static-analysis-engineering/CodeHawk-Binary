@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,8 +40,9 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -172,62 +173,6 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
 
         rhss = XU.xxpr_list_to_ast_exprs(xprs, xdata, iaddr, astree)
 
-        '''
-        if len(rhss) == 1 and rhss[0].ctype and rhss[0].ctype.is_struct:
-            # the registers represent a single struct
-            structtype = cast("BCTypComp", rhss[0].ctype)
-            compinfo = structtype.compinfo
-
-            if vars[0].is_memory_variable:
-                xvar = cast("VMemoryVariable", vars[0].denotation)
-                if xvar.base.is_local_stack_frame:
-                    startingoffset = xvar.offset.offsetvalue()
-                    offset = startingoffset
-                    for field in compinfo.fieldinfos:
-                        fieldtype = field.fieldtype
-                        if fieldtype.is_scalar:
-                            lhs = astree.mk_stack_variable_lval(
-                                offset, vtype=fieldtype)
-                            fieldoffset = astree.mk_field_offset(field.fieldname, fieldtype)
-                            rhslval = astree.mk_lval(rhs0.lval.lhost, fieldoffset)
-                            rhs0 = cast(AST.ASTLvalExpr, rhss[0])
-                            rhs = astree.mk_lval_expr(rhslval)
-                            instrs.append(astree.mk_assign(lhs, rhs, annotations=annotations))
-                            offset += fieldtype.byte_size()
-                        elif fieldtype.is_array:
-                            arraytype = cast("BCTypArray", fieldtype)
-                            if arraytype.has_constant_size:
-                                arraysize = arraytype.sizevalue
-                                eltsize = arraytype.tgttyp.byte_size()
-                                for index in range(0, arraysize):
-                                    lhs = astree.mk_stack_variable_lval(
-                                        offset, vtype=arraytype.tgttyp)
-                                    indexoffset = astree.mk_scalar_index_offset(index)
-                                    varoffset = astree.mk_field_offset(
-                                        field.fieldname, fieldtype, offset=indexoffset)
-                                    rhs0 = cast(AST.ASTLvalExpr, rhss[0])
-                                    rhslval = astree.mk_lval(rhs0.lval.lhost, varoffset)
-                                    rhs = astree.mk_lval_expr(rhslval)
-                                    instrs.append(astree.mk_assign(lhs, rhs, annotations=annotations))
-                                    offset += eltsize
-                        else:
-                            continue
-
-            else:
-                instrs.append(astree.mk_assign(lhs, rhss[0], annotations=annotations))
-        else:
-            for (v, x) in zip(vars, xprs):
-                lhss = XU.xvariable_to_ast_lvals(v, astree)
-                rhss = XU.xxpr_to_ast_exprs(x, astree)
-                if len(lhss) == 1 and len(rhss) == 1:
-                    lhs = lhss[0]
-                    rhs = rhss[0]
-                    instrs.append(astree.mk_assign(lhs, rhs, annotations=annotations))
-                else:
-                    raise UF.CHBError(
-                        "ARMStoreMultipleDecrementBefore: multiple expressions/lvals in ast")
-        '''
-
         return instrs
 
     def ast_prov(
@@ -330,29 +275,29 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         rhss = XU.xxpr_list_to_ast_exprs(rregrhss, xdata, iaddr, astree)
 
         if len(rhss) != 1:
-            astree.add_diagnostic(
-                "StoreMultipleDecrementBefore (STMDB): "
-                + "none or multiple values for rhs: "
-                + ", ".join(str(r) for r in rhss)
-                + " (use default)")
+            chklogger.logger.warning(
+                "StoreMultipleDecrementBefore (STMDB): No or multiple values "
+                + "for rhs: %s at address %s (use default)",
+                ", ".join(str(r) for r in rhss),
+                iaddr)
             return default()
 
         rhs = rhss[0]
         rhstype = rhs.ctype(astree.ctyper)
         if rhstype is None:
-            astree.add_diagnostic(
-                "StoreMultipleDecrementBefore (STMDB): "
-                + "no type found for "
-                + str(rhs)
-                + " (use default)")
+            chklogger.logger.warning(
+                "StoreMultipleDecrementBefore (STMDB): No type found for %s "
+                + "at address %s (use default)",
+                str(rhs),
+                iaddr)
             return default()
 
         if not rhstype.is_compound:
-            astree.add_diagnostic(
-                "StoreMultipleDecrementBefore (STMDB): "
-                + "type is not a struct: "
-                + str(rhs.ctype(astree.ctyper))
-                + " use default")
+            chklogger.logger.warning(
+                "StoreMultipleDecrementBefore (STMDB): Type is not a struct: "
+                + "%s at address %s (use default)",
+                str(rhs.ctype(astree.ctyper)),
+                iaddr)
             return default()
 
         # Right-hand side is a struct
@@ -361,17 +306,20 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         compinfo = astree.compinfo(rhstype.compkey)
 
         if not memlhss[0].is_memory_variable:
-            astree.add_diagnostic(
-                "StoreMultipleDecrementBefore (STMDB): "
-                + "first variable is not a memory var: " + str(memlhss[0]))
+            chklogger.logger.warning(
+                "StoreMultipleDecrementBefore (STMDB): First variable is not "
+                + "a memory variable: %s at address %s (use default)",
+                str(memlhss[0]),
+                iaddr)
             return default()
 
         xvar = cast("VMemoryVariable", memlhss[0].denotation)
         if not xvar.base.is_local_stack_frame:
-            astree.add_diagnostic(
-                "StoreMultipleDecrementBefore (STMDB): "
-                + "variable is not a stack variable: "
-                + str(xvar))
+            chklogger.logger.warning(
+                "StoreMultipleDecrementBefore (STMDB): Variable is not a "
+                + "stack variable: %s at address %s (use default)",
+                str(xvar),
+                iaddr)
             return default()
 
         startingoffset = xvar.offset.offsetvalue()
@@ -401,19 +349,20 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                 if fieldsize is not None:
                     offset += fieldsize
                 else:
-                    astree.add_diagnostic(
-                        "StoreMultipleDecrementBefore (STMDB): "
-                        + "size of field "
-                        + str(field)
-                        + " cannot be determined")
+                    chklogger.logger.warning(
+                        "StoreMultipleDecrementBefore (STMDB): Size of field "
+                        + "%s cannot be determined at address %s (use default)",
+                        str(field),
+                        iaddr)
                     return default()
 
             elif fieldtype.is_array:
                 arraytype = cast(AST.ASTTypArray, fieldtype)
                 if not arraytype.has_constant_size():
-                    astree.add_diagnostic(
-                        "StoreMultipleDecrementBefore (STMDB): "
-                        + "array type does not have constant size")
+                    chklogger.logger.warning(
+                        "StoreMultipleDecrementBefore (STMDB): Array type "
+                        + "does not have constant size at address %s",
+                        iaddr)
                     return default()
 
                 arraysize = arraytype.size_value()
@@ -421,11 +370,11 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
                 elttype = astree.resolve_type(arraytype.tgttyp)
                 eltsize = astree.type_size_in_bytes(elttype)
                 if eltsize is None:
-                    astree.add_diagnostic(
-                        "StoreMultipleDecrementBefore (STMDB): "
-                        + "array element size of field "
-                        + str(field)
-                        + " not known")
+                    chklogger.logger.warning(
+                        "StoreMultipleDecrementBefore (STMDB): Array element "
+                        + "size of field %s not known at address %s",
+                        str(field),
+                        iaddr)
                     return default()
 
                 for index in range(0, arraysize):
@@ -441,10 +390,11 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             else:
                 fieldsize = astree.type_size_in_bytes(fieldtype)
                 if fieldsize is None:
-                    astree.add_diagnostic(
-                        "StoreMultipleDecrementBefore (STMDB): "
-                        + "field size not known for field "
-                        + str(field))
+                    chklogger.logger.warning(
+                        "StoreMultipleDecrementBefore (STMDB): Field size not "
+                        + "known for field %s at address %s",
+                        str(field),
+                        iaddr)
                     return default()
 
                 lhs = astree.mk_stack_variable_lval(offset, vtype=fieldtype)
@@ -477,7 +427,8 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             hl_instructions.extend(hl_assigns)
 
             for hl_asg in hl_assigns:
-                astree.add_local_vardefinition(iaddr, str(hl_asg.lhs), hl_asg.rhs)
+                astree.add_local_vardefinition(
+                    iaddr, str(hl_asg.lhs), hl_asg.rhs)
                 astree.add_instr_mapping(hl_asg, ll_assign)
                 astree.add_instr_address(hl_asg, [iaddr])
                 astree.add_expr_mapping(hl_asg.rhs, ll_assign.rhs)

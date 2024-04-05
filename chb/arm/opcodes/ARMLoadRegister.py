@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,8 +40,9 @@ from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -161,17 +162,20 @@ class ARMLoadRegister(ARMOpcode):
 
         hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
         if len(hl_rhss) == 0:
-            astree.add_diagnostic("LDR (" + iaddr + "): no rhs value found")
+            chklogger.logger.warning(
+                "LDR at address %s: no rhs value found", iaddr)
 
         if len(hl_rhss) > 1:
-            astree.add_diagnostic(
-                "LDR ("
-                + iaddr
-                + "): Multiple rhs values: "
-                + ", ".join(str(x) for x in hl_rhss))
+            chklogger.logger.warning(
+                "LDR at address %s: multiple rhs values found: %s",
+                iaddr,
+                ", ".join(str(x) for x in hl_rhss))
             hl_rhs = None
 
-        if len(hl_rhss) != 1 or rhs.is_tmp_variable or rhs.has_unknown_memory_base():
+        if (
+                len(hl_rhss) != 1
+                or rhs.is_tmp_variable
+                or rhs.has_unknown_memory_base()):
             addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
             hl_rhs = astree.mk_lval_expression(addrlval)
 
@@ -180,7 +184,8 @@ class ARMLoadRegister(ARMOpcode):
             if str(hl_rhs).startswith("localvar"):
                 deflocs = xdata.reachingdeflocs_for_s(str(rhs))
                 if len(deflocs) == 1:
-                    definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
+                    definition = astree.localvardefinition(
+                        str(deflocs[0]), str(hl_rhs))
                     if definition is not None:
                         hl_rhs = definition
 

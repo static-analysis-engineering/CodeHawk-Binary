@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -48,8 +48,8 @@ import chb.simulation.SimSymbolicValue as SSV
 import chb.simulation.SimValue as SV
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 
 if TYPE_CHECKING:
@@ -199,7 +199,8 @@ class ARMOpcode(ARMDictionaryRecord):
             astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+            xdata: InstrXData) -> Tuple[
+                Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
         """ Return default; should be overridden by instruction opcodes."""
 
         return (None, None)
@@ -241,9 +242,12 @@ class ARMOpcode(ARMDictionaryRecord):
             annotations=annotations)
 
         if addregdef:
-            astree.add_infologmsg(
-                "regdef:" + str(ll_lhs),
-                iaddr + ": " + str(regdef_lhs) + " with " + str(hl_rhs))
+            chklogger.logger.debug(
+                "Add register definition at %s for %s: %s with %s",
+                iaddr,
+                str(ll_lhs),
+                str(regdef_lhs),
+                str(hl_rhs))
             astree.add_reg_definition(iaddr, regdef_lhs, hl_rhs)
 
         hl_assigns = [hl_assign]

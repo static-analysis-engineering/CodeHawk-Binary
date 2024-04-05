@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -45,8 +45,9 @@ from chb.pwr.PowerOperand import PowerOperand
 from chb.pwr.PowerOperandKind import PowerOperandKind, PowerAbsoluteOp
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget, StaticStubTarget
@@ -59,7 +60,8 @@ class PowerCallOpcode(PowerOpcode):
 
     """
 
-    def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
+    def __init__(
+            self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
         PowerOpcode.__init__(self, pwrd, ixval)
 
     @property
@@ -114,7 +116,7 @@ class PowerCallOpcode(PowerOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         if xdata.has_inlined_call_target():
-            astree.add_diagnostic("Inlined call omitted at " + iaddr)
+            chklogger.logger.info("Inlined call omitted at %s", iaddr)
             return ([], [])
 
         annotations: List[str] = [iaddr, "BL"]
@@ -131,7 +133,8 @@ class PowerCallOpcode(PowerOpcode):
                 fnsymbol = self.app.function_name(faddr)
                 if astree.globalsymboltable.has_symbol(fnsymbol):
                     tgtvinfo = astree.globalsymboltable.get_symbol(fnsymbol)
-                    tgtxpr: AST.ASTExpr = astree.mk_vinfo_lval_expression(tgtvinfo)
+                    tgtxpr: AST.ASTExpr = astree.mk_vinfo_lval_expression(
+                        tgtvinfo)
                 else:
                     tgtxpr = astree.mk_global_variable_expr(
                         fnsymbol, globaladdress=int(str(tgtaddr.address), 16))
@@ -157,7 +160,9 @@ class PowerCallOpcode(PowerOpcode):
             if tgt_xprtype.is_function:
                 tgt_xprtype = cast(AST.ASTTypFun, tgt_xprtype)
                 tgt_returntype = astree.resolve_type(tgt_xprtype.returntyp)
-                if (not tgt_xprtype.is_varargs) and tgt_xprtype.argtypes is not None:
+                if (
+                        (not tgt_xprtype.is_varargs)
+                        and tgt_xprtype.argtypes is not None):
                     tgt_funargs = tgt_xprtype.argtypes.funargs
                     tgt_argtypes = [f.argtyp for f in tgt_funargs]
                     tgt_argcount = len(tgt_argtypes)
@@ -168,7 +173,8 @@ class PowerCallOpcode(PowerOpcode):
             else:
                 if len(xdata.vars) > 0:
                     returnvar = xdata.vars[0]
-                    returnval = cast("VFunctionReturnValue", returnvar.denotation.auxvar)
+                    returnval = cast(
+                        "VFunctionReturnValue", returnvar.denotation.auxvar)
                     hl_lhs = XU.vfunctionreturn_value_to_ast_lvals(
                         returnval, xdata, astree)[0]
                 else:
@@ -182,7 +188,8 @@ class PowerCallOpcode(PowerOpcode):
             else:
                 if len(xdata.vars) > 0:
                     returnvar = xdata.vars[0]
-                    returnval = cast("VFunctionReturnValue", returnvar.denotation.auxvar)
+                    returnval = cast(
+                        "VFunctionReturnValue", returnvar.denotation.auxvar)
                     hl_lhs = XU.vfunctionreturn_value_to_ast_lvals(
                         returnval, xdata, astree)[0]
                 else:
@@ -192,7 +199,8 @@ class PowerCallOpcode(PowerOpcode):
                     hl_lhs = astree.mk_lval(astreturnvar, nooffset)
 
         if not (self.is_call(xdata) and xdata.has_call_target()):
-            raise UF.CHBError(name + " at " + iaddr + ": Call without call target")
+            raise UF.CHBError(
+                name + " at " + iaddr + ": Call without call target")
 
         callargs = self.arguments(xdata)
         if tgt_argcount == -1:
@@ -204,7 +212,8 @@ class PowerCallOpcode(PowerOpcode):
 
         argregs = ["r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10"][:argcount]
         argxprs: List[AST.ASTExpr] = []
-        for (i, (reg, arg, argtype)) in enumerate(zip(argregs, callargs, argtypes)):
+        for (i, (reg, arg, argtype)) in enumerate(
+                zip(argregs, callargs, argtypes)):
             if arg.is_string_reference:
                 regast = astree.mk_register_variable_expr(reg)
                 cstr = arg.constant.string_reference()
@@ -238,7 +247,8 @@ class PowerCallOpcode(PowerOpcode):
                     if len(astops) == 1:
                         argxprs.append(astops[0])
                     else:
-                        astxprs = XU.xxpr_to_ast_def_exprs(arg, xdata, iaddr, astree)
+                        astxprs = XU.xxpr_to_ast_def_exprs(
+                            arg, xdata, iaddr, astree)
                         if len(astxprs) == 0:
                             raise UF.CHBError(
                                 name +
@@ -290,4 +300,3 @@ class PowerCallOpcode(PowerOpcode):
             astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
         return ([hl_call], [ll_call])
-    

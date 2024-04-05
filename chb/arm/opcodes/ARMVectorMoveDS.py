@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,8 +42,9 @@ from chb.invariants.XXpr import XXpr, XprConstant
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -112,7 +113,7 @@ class ARMVectorMoveDS(ARMOpcode):
 
     @property
     def vfp_datatype(self) -> "ARMVfpDatatype":
-        return self.armd.arm_vfp_datatype(self.args[0])    
+        return self.armd.arm_vfp_datatype(self.args[0])
 
     @property
     def operands(self) -> List[ARMOperand]:
@@ -201,9 +202,12 @@ class ARMVectorMoveDS(ARMOpcode):
                 bytestring=bytestring,
                 annotations=annotations)
 
-            astree.add_infologmsg(
-                "regdef:" + str(ll_lhs),
-                iaddr + ": " + str(hl_lhs) + " with " + str(hl_rhs))
+            chklogger.logger.info(
+                "Register definition: %s at address %s: %s with %s",
+                str(ll_lhs),
+                iaddr,
+                str(hl_lhs),
+                str(hl_rhs))
 
             astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
             astree.add_instr_mapping(hl_assign, ll_assign)

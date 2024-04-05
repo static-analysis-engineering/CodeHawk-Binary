@@ -49,8 +49,9 @@ from chb.models.ModelsAccess import ModelsAccess
 from chb.models.ModelsType import MNamedType
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget, StaticStubTarget
@@ -185,7 +186,7 @@ class ARMBranch(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         if xdata.has_inlined_call_target():
-            astree.add_diagnostic("Inlined call omitted at " + iaddr)
+            chklogger.logger.info("Inlined call omitted at %s", iaddr)
             return ([], [])
 
         rdefs = xdata.reachingdefs
@@ -292,25 +293,23 @@ class ARMBranch(ARMOpcode):
                 except UF.CHBError as e:
                     break
                 if len(funargs) == 0:
-                    astree.add_diagnostic(
-                        "BL ("
-                        + iaddr
-                        + "): no function argument for index "
-                        + str(argindex)
-                        + " in call to "
-                        + str(tgtxpr))
+                    chklogger.logger.warning(
+                        "No function arguments for argument %s in call to %s "
+                        + "at address %s",
+                        str(argindex),
+                        str(tgtxpr),
+                        iaddr)
+
                     funarg: Optional[AST.ASTLval] = None
 
                 elif len(funargs) > 1:
-                    astree.add_diagnostic(
-                        "BL ("
-                        + iaddr
-                        + "): multiple values for function argument for index "
-                        + str(argindex)
-                        + " in call to "
-                        + str(tgtxpr)
-                        + ": "
-                        + ", ".join(str(x) for x in funargs))
+                    chklogger.logger.warning(
+                        "Multiple function arguments for argumen %s in call "
+                        + "to %s: %s at address %s",
+                        str(argindex),
+                        str(tgtxpr),
+                        ", ".join(str(x) for x in funargs),
+                        iaddr)
                     funarg = None
                 else:
                     funarg = funargs[0]
@@ -398,109 +397,14 @@ class ARMBranch(ARMOpcode):
             return ([hl_call], [ll_call])
 
 
-    '''
-    def lhs_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> Tuple[AST.ASTLval, List[AST.ASTInstruction]]:
-
-        def indirect_lhs(
-                rtype: Optional[AST.ASTTyp]) -> Tuple[
-                    AST.ASTLval, List[AST.ASTInstruction]]:
-            tmplval = astree.mk_returnval_variable_lval(iaddr, rtype)
-            tmprhs = astree.mk_lval_expr(tmplval)
-            reglval = astree.mk_register_variable_lval("R0")
-            assign = astree.mk_assign(
-                reglval, tmprhs, iaddr=iaddr, bytestring=bytestring)
-            return (tmplval, [assign])
-
-        calltarget = xdata.call_target(self.ixd)
-        tgtname = calltarget.name
-        models = ModelsAccess()
-        if astree.has_symbol(tgtname):
-            fnsymbol = astree.get_symbol(tgtname)
-            return indirect_lhs(fnsymbol.vtype)
-        else:
-            return indirect_lhs(None)
-
-    def assembly_ast(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        if self.is_call_instruction(xdata) and xdata.has_call_target():
-            lhs = astree.mk_register_variable_lval("R0")
-            tgt = self.operands[0]
-            if tgt.is_absolute:
-                tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
-                if self.app.has_function_name(tgtaddr.address.get_hex()):
-                    faddr = tgtaddr.address.get_hex()
-                    fnsymbol = self.app.function_name(faddr)
-                    tgtxpr: AST.ASTExpr = astree.mk_global_variable_expr(
-                        fnsymbol, globaladdress=tgtaddr.address.get_int())
-                else:
-                    (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
-            else:
-                (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
-            call = astree.mk_call(
-                lhs, tgtxpr, [], iaddr=iaddr, bytestring=bytestring)
-            return [call]
-        else:
-            return []
-
-    def ast(self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> List[AST.ASTInstruction]:
-        if self.is_call_instruction(xdata) and xdata.has_call_target():
-            tgtxpr = self.target_expr_ast(astree, xdata)
-            (lhs, assigns) = self.lhs_ast(astree, iaddr, bytestring, xdata)
-            args = self.arguments(xdata)
-            argregs = ["R0", "R1", "R2", "R3"]
-            callargs = argregs[:len(args)]
-            argxprs: List[AST.ASTExpr] = []
-            for (reg, arg) in zip(callargs, args):
-                if XU.is_struct_field_address(arg, astree):
-                    addr = XU.xxpr_to_struct_field_address_expr(arg, astree)
-                    argxprs.append(addr)
-                elif arg.is_string_reference:
-                    regast = astree.mk_register_variable_expr(reg)
-                    cstr = arg.constant.string_reference()
-                    saddr = hex(arg.constant.value)
-                    argxprs.append(astree.mk_string_constant(regast, cstr, saddr))
-                elif arg.is_argument_value:
-                    argindex = arg.argument_index()
-                    funargs = astree.function_argument(argindex)
-                    if len(funargs) != 1:
-                        raise UF.CHBError(
-                            "ARMBranch: no or multiple function arguments")
-                    funarg = funargs[0]
-                    if funarg:
-                        argxprs.append(astree.mk_lval_expr(funarg))
-                    else:
-                        argxprs.append(astree.mk_register_variable_expr(reg))
-                else:
-                    argxprs.append(astree.mk_register_variable_expr(reg))
-            if len(args) > 4:
-                for a in args[4:]:
-                    argxprs.extend(XU.xxpr_to_ast_exprs(a, xdata, astree))
-            call = cast(AST.ASTInstruction, astree.mk_call(
-                lhs, tgtxpr, argxprs, iaddr=iaddr, bytestring=bytestring))
-            return [call] + assigns
-        else:
-            return []
-    '''
     def ast_condition_prov(
             self,
             astree: ASTInterface,
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
-            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+            reverse: bool) -> Tuple[
+                Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
 
         annotations: List[str] = [iaddr, "B"]
 
@@ -563,7 +467,8 @@ class ARMBranch(ARMOpcode):
                 astop2s = XU.xxpr_to_ast_def_exprs(xop2, xdata, csetter, astree)
 
                 if len(astop1s) == 1 and len(astop2s) == 1:
-                    hl_astcond = astree.mk_binary_op(xoperator, astop1s[0], astop2s[0])
+                    hl_astcond = astree.mk_binary_op(
+                        xoperator, astop1s[0], astop2s[0])
 
                 else:
                     raise UF.CHBError(
@@ -571,7 +476,8 @@ class ARMBranch(ARMOpcode):
 
             elif condition.is_compound:
                 csetter = xdata.tags[2]
-                astconditions = XU.xxpr_to_ast_def_exprs(condition, xdata, csetter, astree)
+                astconditions = XU.xxpr_to_ast_def_exprs(
+                    condition, xdata, csetter, astree)
                 if len(astconditions) == 1:
                     hl_astcond = astconditions[0]
                 else:
@@ -584,13 +490,15 @@ class ARMBranch(ARMOpcode):
 
             astree.add_expr_mapping(hl_astcond, ll_astcond)
             astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
-            astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
+            astree.add_flag_expr_reachingdefs(
+                ll_astcond, xdata.flag_reachingdefs)
             astree.add_condition_address(ll_astcond, [iaddr])
 
             return (hl_astcond, ll_astcond)
 
         elif len(ftconds) == 0:
-            astree.add_diagnostic(iaddr + ": no branch condition found")
+            chklogger.logger.error(
+                "No branch condition found at address %s", iaddr)
             return (astree.mk_integer_constant(0), astree.mk_integer_constant(0))
 
         else:

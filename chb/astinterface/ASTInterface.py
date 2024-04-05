@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@
 """Construction of abstract syntax tree for an individual function."""
 
 import json
+import logging
 
 from typing import (
     Any,
@@ -61,6 +62,7 @@ from chb.astinterface.ASTIProvenance import ASTIProvenance
 import chb.astinterface.ASTIUtil as AU
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 
 if TYPE_CHECKING:
@@ -174,9 +176,7 @@ class ASTInterface:
             astprototype: Optional[AST.ASTVarInfo] = None,
             appsignature: Optional["AppFunctionSignature"] = None,
             varintros: Dict[str, str] = {},
-            verbose: bool = False,
-            showinfolog: bool = False,
-            showdiagnostics: bool = False) -> None:
+            verbose: bool = False) -> None:
         self._astree = astree
         self._srcprototype = srcprototype
         self._astprototype = astprototype
@@ -184,8 +184,6 @@ class ASTInterface:
         self._varintros = varintros
         self._typconverter = typconverter
         self._verbose = verbose
-        self._showinfolog = showinfolog
-        self._showdiagnostics = showdiagnostics
         self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
         self._bytesizecalculator = ASTByteSizeCalculator(
             self._ctyper,
@@ -194,8 +192,6 @@ class ASTInterface:
         self._srcformals: List[ASTIFormalVarInfo] = []
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
-        self._infolog: Dict[str, List[str]] = {}
-        self._diagnostics: List[str] = []
         self._astiprovenance = ASTIProvenance()
         self._ignoredlhs = self.mk_variable_lval("ignored")
         self._regdefinitions: Dict[str, Dict[str, Tuple[int, AST.ASTExpr]]] = {}
@@ -236,14 +232,6 @@ class ASTInterface:
         return self._verbose
 
     @property
-    def showdiagnostics(self) -> bool:
-        return self._showdiagnostics
-
-    @property
-    def showinfolog(self) -> bool:
-        return self._showinfolog
-
-    @property
     def ctyper(self) -> ASTCTyper:
         return self._ctyper
 
@@ -265,27 +253,6 @@ class ASTInterface:
     @property
     def annotations(self) -> Dict[int, List[str]]:
         return self._annotations
-
-    @property
-    def infolog(self) -> Dict[str, List[str]]:
-        return self._infolog
-
-    def infolog_topic(self, topic: str) -> List[str]:
-        if topic in self.infolog:
-            return self.infolog[topic]
-        else:
-            return []
-
-    def add_infologmsg(self, topic: str, msg: str) -> None:
-        self._infolog.setdefault(topic, [])
-        self._infolog[topic].append(msg)
-
-    @property
-    def diagnostics(self) -> List[str]:
-        return self._diagnostics
-
-    def add_diagnostic(self, msg: str) -> None:
-        self._diagnostics.append(msg)
 
     @property
     def astiprovenance(self) -> ASTIProvenance:
@@ -440,6 +407,9 @@ class ASTInterface:
     def globalsymboltable(self) -> ASTGlobalSymbolTable:
         return self.symboltable.globaltable
 
+    def has_compinfo(self, ckey: int) -> bool:
+        return self.globalsymboltable.has_compinfo(ckey)
+
     def compinfo(self, ckey: int) -> AST.ASTCompInfo:
         return self.globalsymboltable.compinfo(ckey)
 
@@ -447,7 +417,10 @@ class ASTInterface:
         try:
             return typ.index(self.bytesize_calculator)
         except ASTByteSizeCalculationException as e:
-            self.add_diagnostic("type_size_in_bytes: " + str(e))
+            chklogger.logger.warning(
+                "Size of type cannot be calculated: %s (%s)",
+                str(typ),
+                str(e))
             return None
 
     def resolve_type(self, t: AST.ASTTyp) -> AST.ASTTyp:
@@ -495,7 +468,7 @@ class ASTInterface:
                     self.symboltable.add_compinfo(astcompinfo)
 
         else:
-            self.add_diagnostic("No source prototype found")
+            chklogger.logger.warning("No source prototype found")
 
     def global_symbols(self) -> Sequence[AST.ASTVarInfo]:
         return []
@@ -549,12 +522,12 @@ class ASTInterface:
                     lvals.append(self.mk_lval(regvar, offset))
                 return lvals
             else:
-                self.add_diagnostic(
+                chklogger.logger.warning(
                     "Function prototype does not match code: "
-                    + " argument index reference "
-                    + str(index)
-                    + " not accomodated by the formal arguments found: "
-                    + ". ".join(str(f) for f in self.srcformals))
+                    + "argument index reference %s is not accomodated by the "
+                    + "formal arguments found: %s",
+                    str(index),
+                    ", ".join(str(f) for f in self.srcformals))
                 return []
         else:
             return []
@@ -1209,11 +1182,10 @@ class ASTInterface:
             t1 = exp1.ctype(self.ctyper)
             if t1 is not None and not t1.is_integer:
                 tgtt = self.astree.mk_integer_ikind_type("iuint")
-                self.add_diagnostic(
-                    "add iuint cast to "
-                    + str(exp1)
-                    + ":"
-                    + str(t1))
+                chklogger.logger.info(
+                    "Cast added to %s: %s",
+                    str(exp1),
+                    str(t1))
                 exp1 = self.astree.mk_cast_expression(tgtt, exp1)
 
         return self.astree.mk_binary_expression(
