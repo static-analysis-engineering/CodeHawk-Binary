@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,8 +39,9 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -124,8 +125,8 @@ class ARMUnsignedExtractBitField(ARMOpcode):
         try:
             hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
         except UF.CHBError as e:
-            astree.add_diagnostic(
-                iaddr + ": Error in UBFX: " + str(e) + "; use ll_rhs")
+            chklogger.logger.error(
+                "Error in UBFX at address %s: %s", iaddr, str(e))
             hl_rhss = [ll_rhs]
 
         if len(hl_rhss) == 1 and len(hl_lhss) == 1:

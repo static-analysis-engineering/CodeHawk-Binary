@@ -146,10 +146,6 @@ class ASTInterfaceFunction(ASTFunction):
     def verbose(self) -> bool:
         return self.astinterface.verbose
 
-    @property
-    def showdiagnostics(self) -> bool:
-        return self.astinterface.showdiagnostics
-
     def astblock(self, startaddr: str) -> ASTInterfaceBasicBlock:
         return self.astblocks[startaddr]
 
@@ -216,17 +212,6 @@ class ASTInterfaceFunction(ASTFunction):
             prettyprinter = ASTCPrettyPrinter(self.astinterface.symboltable)
             print("\n\nTransformed code")
             print(prettyprinter.to_c(transformedcode))
-            print("\n\nDiagnostics")
-            print("\n".join(self.astinterface.diagnostics))
-            print("\n\nInfo log")
-            for (topic, entries) in sorted(self.astinterface.infolog.items()):
-                print(topic)
-                for line in entries:
-                    print("  " + line)
-
-        elif self.showdiagnostics:
-            print("\n\nDiagnostics")
-            print("\n".join(self.astinterface.diagnostics))
 
         return [transformedcode, ast]
 

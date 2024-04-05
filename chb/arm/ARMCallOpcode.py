@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -46,8 +46,9 @@ from chb.invariants.XXpr import XXpr, XprCompound
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget, StaticStubTarget
@@ -136,7 +137,7 @@ class ARMCallOpcode(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         if xdata.has_inlined_call_target():
-            astree.add_diagnostic("Inlined call omitted at " + iaddr)
+            chklogger.logger.info("Inlined call omitted at %s", iaddr)
             return ([], [])
 
         rdefs = xdata.reachingdefs
@@ -266,25 +267,22 @@ class ARMCallOpcode(ARMOpcode):
                 except UF.CHBError as e:
                     break
                 if len(funargs) == 0:
-                    astree.add_diagnostic(
-                        "BL ("
-                        + iaddr
-                        + "): no function argument for index "
-                        + str(argindex)
-                        + " in call to "
-                        + str(tgtxpr))
+                    chklogger.logger.warning(
+                        "No function arguments for argument %s in call to %s "
+                        + "at address %s",
+                        str(argindex),
+                        str(tgtxpr),
+                        iaddr)
                     funarg: Optional[AST.ASTLval] = None
 
                 elif len(funargs) > 1:
-                    astree.add_diagnostic(
-                        "BL ("
-                        + iaddr
-                        + "): multiple values for function argument for index "
-                        + str(argindex)
-                        + " in call to "
-                        + str(tgtxpr)
-                        + ": "
-                        + ", ".join(str(x) for x in funargs))
+                    chklogger.logger.warning(
+                        "Multiple function arguments for argumen %s in call "
+                        + "to %s: %s at address %s",
+                        str(argindex),
+                        str(tgtxpr),
+                        ", ".join(str(x) for x in funargs),
+                        iaddr)
                     funarg = None
                 else:
                     funarg = funargs[0]
@@ -321,11 +319,11 @@ class ARMCallOpcode(ARMOpcode):
                             argtype = cast(AST.ASTTypPtr, argtype)
                             vtype: Optional[AST.ASTTyp] = argtype.tgttyp
                         else:
-                            astree.add_diagnostic(
-                                iaddr
-                                + ": stack-address call argument "
-                                + "with unexpected type: "
-                                + str(argtype))
+                            chklogger.logger.warning(
+                                "Stack-address call argument with unexpected "
+                                + "type: %s at address %s",
+                                str(argtype),
+                                iaddr)
                             vtype = None
                         arglval = astree.mk_stack_variable_lval(
                             stackoffset, vtype=vtype)

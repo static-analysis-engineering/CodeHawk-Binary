@@ -26,6 +26,8 @@
 # ------------------------------------------------------------------------------
 """Initiate relational analysis of two binaries."""
 
+import logging
+
 import argparse
 import datetime
 import importlib
@@ -55,7 +57,7 @@ from chb.relational.RelationalAnalysis import RelationalAnalysis
 
 import chb.util.dotutil as UD
 import chb.util.fileutil as UF
-import chb.cmdline.commandutil as UC
+from chb.util.loggingutil import chklogger, LogLevel
 
 
 def relational_header(xname1: str, xname2: str, md5: str, header: str) -> str:
@@ -373,6 +375,9 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
     details: bool = args.details
     addresses: List[str] = args.addresses
     usermappingfile: Optional[str] = args.usermapping
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -382,6 +387,13 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path1,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="relational compare function invoked")
 
     usermapping: Dict[str, str] = {}
     if usermappingfile is not None:
@@ -434,6 +446,8 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
     print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
     print("=" * 80)
 
+    chklogger.logger.info("relational compare function completed")
+
     exit(0)
 
 
@@ -449,6 +463,9 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     outputfilename: str = args.outputfilename
     fileformat: str = args.format
     xjson: bool = args.json
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     print("Visual comparison of the cfgs for " + xname1 + " and " + xname2)
 
@@ -460,6 +477,13 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path1,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="relational compare cfgs invoked")
 
     patchevents: Dict[str, PatchEvent] = {} # start of wrapper -> patch event
 
@@ -583,6 +607,8 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     print("=" * 80)
     print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
     print("=" * 80)
+
+    chklogger.logger.info("relational compare cfgs completed")
 
     exit(0)
 

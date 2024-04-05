@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -56,6 +56,8 @@ from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMBlock import ARMBlock
@@ -280,14 +282,8 @@ class ARMInstruction(Instruction):
 
     def ast_switch_condition_prov(self, astree: ASTInterface) -> Tuple[
             Optional[ASTExpr], Optional[ASTExpr]]:
-
-        try:
-            return self.opcode.ast_switch_condition_prov(
-                astree, self.iaddr, self.bytestring, self.xdata)
-        except Exception as e:
-            astree.add_diagnostic("No switch condition available at " + self.iaddr)
-            expr = astree.mk_integer_constant(0)
-            return (expr, expr)
+        return self.opcode.ast_switch_condition_prov(
+            astree, self.iaddr, self.bytestring, self.xdata)
 
     @property
     def stackpointer_offset(self) -> StackPointerOffset:

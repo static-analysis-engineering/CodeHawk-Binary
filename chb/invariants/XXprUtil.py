@@ -38,6 +38,8 @@ from chb.invariants.XVariable import XVariable
 import chb.invariants.XXpr as X
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.app.InstrXData import InstrXData
@@ -145,7 +147,7 @@ def xxpr_to_ast_def_exprs(
     def reg_to_ast_def_exprs(xreg: X.XXpr) -> Optional[AST.ASTExpr]:
         vdefs = xdata.reachingdeflocs_for_s(str(xreg))
         if len(vdefs) == 0:
-            astree.add_diagnostic(iaddr + ": no definitions for " + str(xreg))
+            chklogger.logger.info("No definitions for register %s", str(xreg))
             return None
 
         elif len(vdefs) > 1:
@@ -170,23 +172,27 @@ def xxpr_to_ast_def_exprs(
                     '''
                     return vregdef0
 
-                # temporary fix: assume that reaching definitions from allocations do
-                # not conflict with the types of alternate reaching definitions; log
-                # the fact that these are filtered out.
+                # temporary fix: assume that reaching definitions from
+                # allocations do not conflict with the types of alternate
+                # reaching definitions; log that these are filtered out.
                 nonallocdefs: List[Tuple[int, AST.ASTExpr]] = []
                 for vregdef in vregdefs:
                     if str(vregdef[1]).endswith("calloc"):
                         continue
                     nonallocdefs.append(vregdef)
                 if len(nonallocdefs) == 1:
-                    astree.add_diagnostic(
-                        iaddr
-                        + " filter out alloc return values for definitions of "
-                        + str(xreg)
-                        + ": "
-                        + ", ".join(str(d) for d in vdefs)
-                        + "; "
-                        + ", ".join("(" + str(v[0]) + "," + str(v[1]) + ")" for v in vregdefs))
+                    chklogger.logger.info(
+                        "Filter out alloc return values for definitions of %s: "
+                        + "%s; %s at address %s",
+                        str(xreg),
+                        ", ".join(str(d) for d in vdefs),
+                        ", ".join(
+                            "("
+                            + str(v[0])
+                            + ", "
+                            + str(v[1])
+                            + ")" for v in vregdefs),
+                        iaddr)
                     return nonallocdefs[0][1]
 
             equalizedvar: Optional[str] = None
@@ -196,68 +202,63 @@ def xxpr_to_ast_def_exprs(
                     if equalizedvar is None:
                         equalizedvar = str(ivar)
                     elif not (equalizedvar == str(ivar)):
-                        astree.add_diagnostic(
-                            iaddr
-                            + ": multiple different introductions: "
-                            + str(equalizedvar)
-                            + ", "
-                            + str(ivar))
+                        chklogger.logger.warning(
+                            "Multiple different introductions at address %s: "
+                            + "%s, %s",
+                            iaddr,
+                            str(equalizedvar),
+                            str(ivar))
                         return None
                     else:
                         pass
                 else:
-                    astree.add_diagnostic(
-                        iaddr
-                        + ": multiple definitions; not all of them with varintro: "
-                        + str(d))
+                    chklogger.logger.warning(
+                        "Multiple definitions; not all of them with varintro: "
+                        "%s at address %s",
+                        str(d),
+                        iaddr)
                     return None
 
-                astree.add_diagnostic(
-                    iaddr
-                    + ": convert multiple definitions for "
-                    + str(xreg)
-                    + ": "
-                    + ", ".join(str(d) for d in vdefs)
-                    + " into varintro "
-                    + str(equalizedvar))
+                chklogger.logger.warning(
+                    "Convert multiple definitions for %s: %s into varintro: "
+                    + "%s at address %s",
+                    str(xreg),
+                    ", ".join(str(d) for d in vdefs),
+                    str(equalizedvar),
+                    iaddr)
                 xlval = astree.mk_named_lval_expression(str(equalizedvar))
                 return xlval
 
-
-            astree.add_diagnostic(
-                iaddr
-                + ": multiple definitions for "
-                + str(xreg)
-                + ": "
-                + ", ".join(str(d) for d in vdefs)
-                + "; "
-                + ", ".join("(" + str(v[0]) + "," + str(v[1]) + ")" for v in vregdefs))
+            chklogger.logger.warning(
+                "Multiple definitions for %s: %s; %s at address %s",
+                str(xreg),
+                ", ".join(str(d) for d in vdefs),
+                ", ".join("(" + str(v[0]) + ", " + str(v[1]) + ")"
+                          for v in vregdefs),
+                iaddr)
             return None
 
         else:
             regdef = astree.regdefinition(str(vdefs[0]), str(xreg))
             if regdef is None:
-                astree.add_diagnostic(
-                    iaddr
-                    + ": no definition found for "
-                    + str(xreg)
-                    + " at location "
-                    + str(vdefs[0]))
+                chklogger.logger.warning(
+                    "No definition found for %s at location %s at address %s",
+                    str(xreg),
+                    str(vdefs[0]),
+                    iaddr)
                 return None
 
             if astree.expr_has_registers(regdef[1]):
-                astree.add_diagnostic(
-                    iaddr
-                    + ": unable to use "
-                    + str(regdef[1])
-                    + " for "
-                    + str(xreg)
-                    + " because of register contained in expr at location "
-                    + str(vdefs[0]))
+                chklogger.logger.warning(
+                    "Unable to use %s for %s because of register contained "
+                    + "in expr at location %s at address %s",
+                    str(regdef[1]),
+                    str(xreg),
+                    str(vdefs[0]),
+                    iaddr)
                 return None
 
             else:
-                # astree.astiprovenance.inactivate_lval_defuse_high(regdef[0], iaddr)
                 return regdef[1]
 
     def compound_to_ast_def_exprs(xcomp: X.XXpr) -> Optional[AST.ASTExpr]:
@@ -270,8 +271,9 @@ def xxpr_to_ast_def_exprs(
             if x1.is_register_variable:
                 regdef = reg_to_ast_def_exprs(x1)
                 if xoperator in ["lsb", "lsh"]:
-                    astree.add_diagnostic(
-                        iaddr + ": ast-def: " + str(xcomp))
+                    chklogger.logger.debug(
+                        "ast-def with lsb/lsh: %s at address %s",
+                        str(xcomp), iaddr)
                     return regdef
 
                 elif regdef is not None:
@@ -293,51 +295,60 @@ def xxpr_to_ast_def_exprs(
                         if xoperator == "lsb" and xvarlvalsize == 1:
                             return astree.mk_lval_expr(xvarlval)
                         else:
-                            astree.add_diagnostic(
-                                iaddr
-                                + ": unable to convert xvarlval: "
-                                + str(xvarlval))
+                            chklogger.logger.debug(
+                                "unable to convert xvarlval %s with operator "
+                                + "%s and type %s at address %s",
+                                str(xvarlval),
+                                xoperator,
+                                str(xvarlvaltype),
+                                iaddr)
                             return None
                     else:
-                        astree.add_diagnostic(
-                            iaddr
-                            + ": unable to convert xvarlval (no type): "
-                            + str(xvarlval))
+                        chklogger.logger.debug(
+                            "unable to convert xvarlval (no type): %s at "
+                            + "address %s",
+                            str(xvarlval),
+                            iaddr)
                         return None
                 elif len(xvarlvals) == 4:
                     if xoperator == "lsb":
                         return astree.mk_lval_expr(xvarlvals[0])
                     else:
-                        astree.add_diagnostic(
-                            iaddr
-                            + ": unable to convert x1 (4 lvals): " + str(x1))
+                        chklogger.logger.debug(
+                            "unable to convert x1 (4 lvals): %s at address %s",
+                            str(x1),
+                            iaddr)
                         return None
                 else:
-                    astree.add_diagnostic(
-                        iaddr
-                        + ": unable to convert x1 (multiple lvals): " + str(x1))
+                    chklogger.logger.debug(
+                        "unable to convert x1 (multiple lvals): %s at "
+                        + "address %s",
+                        str(x1),
+                        iaddr)
                     return None
 
             elif x1.is_compound:
                 regdef = compound_to_ast_def_exprs(x1)
                 if regdef is not None:
                     if xoperator in ["lsb", "lsh"]:
-                        astree.add_diagnostic(
-                            iaddr + ": ast_def: " + str(xcomp))
+                        chklogger.logger.debug(
+                            "ast-def with lsb/lsh: %s at address %s",
+                            str(xcomp), iaddr)
                         return None
                     else:
                         return astree.mk_unary_op(xoperator, regdef)
                 else:
-                    astree.add_diagnostic(
-                        iaddr
-                        + ": unable to convert compound x1: "
-                        + str(x1))
+                    chklogger.logger.debug(
+                        "unable to convert compound x1: %s at address %s",
+                        str(x1),
+                        iaddr)
                     return None
             else:
-                astree.add_diagnostic(
-                    iaddr
-                    + ": unable to convert; other compound expression: "
-                    + str(x1))
+                chklogger.logger.debug(
+                    "unable to convert; other compound expressions: %s "
+                    + " at address",
+                    str(x1),
+                    iaddr)
                 return None
 
         elif len(xoperands) == 2:
@@ -380,15 +391,13 @@ def xxpr_to_ast_def_exprs(
 
                 return astree.mk_binary_op(xoperator, regdef1, regdef2)
             else:
-                astree.add_diagnostic(
-                    iaddr
-                    + ": unable to convert compound expression "
-                    + str(xpr)
-                    + " (regdef1: "
-                    + str(regdef1)
-                    + ", regdef2: "
-                    + str(regdef2)
-                    + ")")
+                chklogger.logger.debug(
+                    "unable to convert compound expression %s (regdef1: %s "
+                    + ", regdef2: %s) at address %s",
+                    str(xpr),
+                    str(regdef1),
+                    str(regdef2),
+                    iaddr)
                 return None
 
         else:
@@ -418,15 +427,16 @@ def xxpr_to_ast_def_exprs(
         if len(xvarlvals) == 1:
             return [astree.mk_lval_expr(xvarlvals[0])]
         else:
-            astree.add_diagnostic(
-                iaddr
-                + ": unable to convert "
-                + str(xpr)
-                + ": variable not recognized")
+            chklogger.logger.debug(
+                "unable to convert %s: variable not recognized, at address %s",
+                str(xpr),
+                iaddr)
             return default()
     else:
-        astree.add_diagnostic(
-            iaddr + ": unable to convert " + str(xpr) + ": not recognized")
+        chklogger.logger.debug(
+            "unable to convert %s: not recognized, at address %s",
+            str(xpr),
+            iaddr)
         return default()
 
 
@@ -454,12 +464,14 @@ def xconstant_to_ast_exprs(
             return [astree.mk_integer_constant(1)]
 
     elif xc.is_random_constant:
-        astree.add_diagnostic(iaddr + ": unknown random constant")
+        chklogger.logger.warning(
+            "AST conversion of random constant at address %s", iaddr)
         return [astree.mk_integer_constant(0)]
 
     else:
-        raise UF.CHBError(
-            "AST conversion of xconstant " + str(xc) + " not yet supported")
+        chklogger.logger.error(
+            "AST conversion of constant %s not yet supported", str(xc))
+        return [astree.mk_integer_constant(0)]
 
 
 def xprvariable_list_to_ast_exprs(
@@ -470,7 +482,8 @@ def xprvariable_list_to_ast_exprs(
 
     lvals = xvariable_list_to_ast_lvals(
         [xv.variable for xv in xvs], xdata, astree, anonymous=anonymous)
-    return [astree.mk_lval_expression(lval, anonymous=anonymous) for lval in lvals]
+    return [astree.mk_lval_expression(
+        lval, anonymous=anonymous) for lval in lvals]
 
 
 def xprvariable_to_ast_exprs(
@@ -484,7 +497,11 @@ def xprvariable_to_ast_exprs(
 
     def default() -> List[AST.ASTExpr]:
         lvals = xvariable_to_ast_lvals(
-            xv.variable, xdata, astree, ispointer=ispointer, size=size, anonymous=anonymous)
+            xv.variable,
+            xdata, astree,
+            ispointer=ispointer,
+            size=size,
+            anonymous=anonymous)
         return [astree.mk_lval_expression(
             lval, anonymous=anonymous) for lval in lvals]
 
@@ -515,7 +532,9 @@ def xprvariable_to_ast_exprs(
 
     if xv.variable.denotation.is_function_return_value:
         fr = cast("VFunctionReturnValue", xv.variable.denotation.auxvar)
-        if fr.has_call_target() and str(fr.call_target()) in ["calloc", "malloc", "realloc"]:
+        if (
+                fr.has_call_target()
+                and str(fr.call_target()) in ["calloc", "malloc", "realloc"]):
             lvalexpr = astree.mk_named_lval_expression(
                 str(xv),
                 vtype=astree.astree.mk_pointer_type(AST.ASTTypVoid()),
@@ -547,7 +566,9 @@ def xtyped_expr_to_ast_exprs(
     op1type = op1.ctype(astree.ctyper)
 
     if op1type is None:
-        raise UF.CHBError("Expression is not typed: " + str(op1))
+        chklogger.logger.error(
+            "Expression is not typed: %s at address %s", str(op1), iaddr)
+        return [astree.mk_binary_expression(op, op1, op2, anonymous=anonymous)]
 
     if op1type.is_pointer and op2.is_integer_constant and op == "plus":
         op2 = cast(AST.ASTIntegerConstant, op2)
@@ -560,12 +581,12 @@ def xtyped_expr_to_ast_exprs(
             lval = astree.mk_memref_lval(op1, fieldoffset, anonymous=anonymous)
             return [astree.mk_address_of(lval, anonymous=anonymous)]
         else:
-            astree.add_diagnostic(
-                iaddr
-                + ": conversion to index expression not yet supported: "
-                + str(op1)
-                + " with type "
-                + str(op1type))
+            chklogger.logger.debug(
+                "conversion to index expression not yet supported: %s "
+                + "with type %s at address %s",
+                str(op1),
+                str(op1type),
+                iaddr)
 
     elif op1type.is_pointer:
         tgttype = cast(AST.ASTTypPtr, op1type).tgttyp
@@ -582,13 +603,15 @@ def xtyped_expr_to_ast_exprs(
             lval = astree.mk_memref_lval(op1, indexoffset)
             return [astree.mk_address_of(lval, anonymous=anonymous)]
 
-    astree.add_diagnostic(
-        iaddr
-        + ": unable to convert typed expression: "
-        + str(op1)
-        + " with type "
-        + str(op1type))
-    return [astree.mk_binary_expression(op, op1, op2, anonymous=anonymous)]
+    result = astree.mk_binary_expression(op, op1, op2, anonymous=anonymous)
+
+    chklogger.logger.debug(
+        "unable to convert typed expression at address %s; returning original "
+        + "expression: %s",
+        str(result),
+        iaddr)
+
+    return [result]
 
 
 def xcompound_to_ast_exprs(
@@ -597,7 +620,10 @@ def xcompound_to_ast_exprs(
         iaddr: str,
         astree: ASTInterface,
         anonymous: bool = False) -> List[AST.ASTExpr]:
-    """Convert a compound expression to an AST Expr node."""
+    """Convert a compound expression to an AST Expr node.
+
+    Returns an empty list in case of an error.
+    """
 
     op = xc.operator
     operands = xc.operands
@@ -627,9 +653,11 @@ def xcompound_to_ast_exprs(
             return [op1s[0]]
 
         else:
-            raise UF.CHBError(
-                "Multiple operands to unary operation: "
-                + ", ".join(str(x) for x in op1s))
+            chklogger.logger.error(
+                "Multiple operands to unary operation: %s at address %s",
+                ", ".join(str(x) for x in op1s),
+                iaddr)
+            return []
 
     elif len(operands) == 2:
 
@@ -657,25 +685,29 @@ def xcompound_to_ast_exprs(
                         return [x2]
 
                 elif op in ["plus", "minus"]:
-                    try:
-                        op1type = op1.ctype(astree.ctyper)
-                        return xtyped_expr_to_ast_exprs(
-                            iaddr, op, op1, op2, xdata, astree, anonymous=anonymous)
-                    except Exception:
-                        return [astree.mk_binary_expression(
-                            op, op1, op2, anonymous=anonymous)]
+                    op1type = op1.ctype(astree.ctyper)
+                    return xtyped_expr_to_ast_exprs(
+                        iaddr,
+                        op,
+                        op1,
+                        op2,
+                        xdata,
+                        astree,
+                        anonymous=anonymous)
+
                 elif op in AST.operators:
                     return [astree.mk_binary_expression(
                         op, op1, op2, anonymous=anonymous)]
                 else:
-                    raise UF.CHBError(
+                    chklogger.logger.error(
                         "Compound expression with unsupported operator: "
-                        + op
-                        + " ("
-                        + str(op1)
-                        + ", "
-                        + str(op2)
-                        + ")")
+                        + "%s (%s, %s) at address %s",
+                        op,
+                        str(op1),
+                        str(op2),
+                        iaddr)
+                    return []
+
             elif op == "band" and len(op2s) == 1 and op2s[0].is_integer_constant:
                 mask = cast(AST.ASTIntegerConstant, op2s[0])
                 if mask.cvalue == 255 and len(op1s) == 4:
@@ -686,33 +718,30 @@ def xcompound_to_ast_exprs(
                 elif mask.cvalue > 0 and mask.cvalue < 255:
                     return [astree.mk_binary_op(op, op1s[0], op2s[0])]
                 else:
-                    raise UF.CHBError(
+                    chklogger.logger.error(
                         "Multiple operands for one or more operands to binary "
-                        + "operation: "
-                        + op
-                        + " on "
-                        + "["
-                        + ", ".join(str(x) for x in op1s)
-                        + "], ["
-                        + ", ".join(str(x) for x in op2s)
-                        + "]")
-
+                        + "operation: %s on [%s], [%s] at address %s",
+                        op,
+                        ", ".join(str(x) for x in op1s),
+                        ", ".join(str(x) for x in op2s),
+                        iaddr)
+                    return []
             else:
-                raise UF.CHBError(
+                chklogger.logger.error(
                     "Multiple operands for one or more operands to binary "
-                    + "operation: "
-                    + op
-                    + " on "
-                    + "["
-                    + ", ".join(str(x) for x in op1s)
-                    + "], ["
-                    + ", ".join(str(x) for x in op2s)
-                    + "]")
+                    + "operation: %s on [%s], [%s] at address %s",
+                    op,
+                    ", ".join(str(x) for x in op1s),
+                    ", ".join(str(x) for x in op2s),
+                    iaddr)
+                return []
 
-    raise UF.CHBError(
-        "AST conversion of compound expression "
-        + str(xc)
-        + " not yet supported")
+    chklogger.logger.error(
+        "AST conversion of compound expression %s not yet supported "
+        + "at address %s",
+        str(xc),
+        iaddr)
+    return []
 
 
 def stack_variable_to_ast_lvals(
@@ -838,16 +867,17 @@ def basevar_variable_to_ast_lvals(
                     return [astree.mk_lval(
                         baselval.lhost, indexoffset, anonymous=anonymous)]
                 elif tgttype.is_compound:
-                    try:
-                        fcompkey = cast(AST.ASTTypComp, tgttype).compkey
+                    fcompkey = cast(AST.ASTTypComp, tgttype).compkey
+                    if astree.has_compinfo(fcompkey):
                         compinfo = astree.compinfo(fcompkey)
                         fieldoffset = field_at_offset(
                             compinfo, offsetvalue, xdata, astree)
                         return [astree.mk_memref_lval(
                             basexpr, fieldoffset, anonymous=anonymous)]
-                    except Exception as e:
-                        astree.add_diagnostic(
-                            "Compkey not found for " + str(tgttype) + ": " + str(e))
+                    else:
+                        chklogger.logger.error(
+                            "Compkey not found for struct type %s",
+                            str(tgttype))
 
                 elif tgttype.is_void:
                     index = offsetvalue
@@ -862,7 +892,8 @@ def basevar_variable_to_ast_lvals(
         else:
             index = offsetvalue
             indexoffset = astree.mk_scalar_index_offset(index)
-            return [astree.mk_lval(baselval.lhost, indexoffset, anonymous=anonymous)]
+            return [astree.mk_lval(
+                baselval.lhost, indexoffset, anonymous=anonymous)]
 
     return [astree.mk_named_lval(str(basevar) + str(offset), anonymous=anonymous)]
 
@@ -1193,11 +1224,14 @@ def xvariable_to_ast_lvals(
             # astlval = astree.mk_named_lval(str(ssaval), vtype=asttyp)
             return [astlval]
         else:
-            astree.add_diagnostic("No ssa value found for " + name)
+            if not anonymous:
+                chklogger.logger.debug(
+                    "No ssa value found for register %s", name)
 
         if ispointer:
             vtype = astree.astree.mk_pointer_type(AST.ASTTypVoid())
-            astlval = astree.mk_register_variable_lval(name, vtype=vtype, anonymous=anonymous)
+            astlval = astree.mk_register_variable_lval(
+                name, vtype=vtype, anonymous=anonymous)
         else:
             astlval = astree.mk_register_variable_lval(name, anonymous=anonymous)
         return [astlval]

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,8 +42,9 @@ from chb.invariants.XXpr import XXpr, XprCompound
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -100,7 +101,8 @@ class ARMCompareBranchZero(ARMOpcode):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
-            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+            reverse: bool) -> Tuple[
+                Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
 
         annotations: List[str] = [iaddr, "CBNZ"]
 
@@ -122,13 +124,18 @@ class ARMCompareBranchZero(ARMOpcode):
 
             astconds = XU.xxpr_to_ast_def_exprs(condition, xdata, iaddr, astree)
             if len(astconds) == 0:
-                raise UF.CHBError(
-                    "CompareBranchNonZero (CBNZ): no rhs values found")
+                chklogger.logger.error(
+                    "CompareBranchNonZero (CBNZ) at address %s: no rhs values "
+                    + "found; returning zero", iaddr)
+                return (zero, zero)
 
             if len(astconds) > 1:
-                raise UF.CHBError(
-                    "CompareBranchNonZero (CBNZ): multiple rhs values found: "
-                    + ", ".join(str(v) for v in astconds))
+                chklogger.logger.error(
+                    "CompareBranchNonZero (CBNZ) at address %s: mutliple rhs "
+                    + " values found at address %s: %s; returning zero",
+                    iaddr,
+                    ", ".join(str(v) for v in astconds))
+                return (zero, zero)
 
             hl_cond = astconds[0]
 
@@ -140,6 +147,8 @@ class ARMCompareBranchZero(ARMOpcode):
             return (hl_cond, ll_cond)
 
         else:
-            astree.add_diagnostic(
-                iaddr + ": CBNZ: No condition expressions found")
+            chklogger.logger.error(
+                "CompareBranchNonZero (CBNZ) at address %s: no condition "
+                + "found; returning zero",
+                iaddr)
             return (zero, zero)

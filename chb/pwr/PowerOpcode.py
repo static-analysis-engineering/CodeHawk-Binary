@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -44,8 +44,9 @@ from chb.pwr.PowerDictionaryRecord import PowerDictionaryRecord
 from chb.pwr.PowerOperand import PowerOperand
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.pwr.PowerDictionary import PowerDictionary
@@ -58,7 +59,8 @@ call_opcodes: List[str] = []
 
 class PowerOpcode(PowerDictionaryRecord):
 
-    def __init__(self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
+    def __init__(
+            self, pwrd: "PowerDictionary", ixval: IndexedTableValue) -> None:
         PowerDictionaryRecord.__init__(self, pwrd, ixval)
 
     @property
@@ -138,7 +140,8 @@ class PowerOpcode(PowerDictionaryRecord):
             iaddr: str,
             bytestring: str,
             xdata: InstrXData,
-            reverse: bool) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+            reverse: bool) -> Tuple[
+                Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
         """Return default; should be overridden by instruction opcodes."""
 
         expr = astree.mk_integer_constant(0)
@@ -180,9 +183,12 @@ class PowerOpcode(PowerDictionaryRecord):
             annotations=annotations)
 
         if addregdef:
-            astree.add_infologmsg(
-                "regdef:" + str(ll_lhs),
-                iaddr + ": " + str(regdef_lhs) + " with " + str(hl_rhs))
+            chklogger.logger.info(
+                "Register definition at address %s for %s: %s with %s",
+                iaddr,
+                str(ll_lhs),
+                str(regdef_lhs),
+                str(hl_rhs))
             astree.add_reg_definition(iaddr, regdef_lhs, hl_rhs)
 
         hl_assigns = [hl_assign]
