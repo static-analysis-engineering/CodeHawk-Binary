@@ -225,11 +225,6 @@ class ASTInterfaceBasicBlock:
                 chklogger.logger.critical(
                     "trampoline payload cannot be lifted: "
                     + "expected to find conditional MOV instruction")
-        else:
-            chklogger.logger.critical(
-                "trampoline payload cannot be lifted: "
-                + "expected to find MOV instruction, but found %s",
-                chkinstr.mnemonic_stem)
         return self.trampoline_block_ast("payload", astree)
 
     def trampoline_payload_sideeffect_ast(
