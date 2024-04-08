@@ -219,7 +219,7 @@ def xxpr_to_ast_def_exprs(
                         iaddr)
                     return None
 
-                chklogger.logger.warning(
+                chklogger.logger.info(
                     "Convert multiple definitions for %s: %s into varintro: "
                     + "%s at address %s",
                     str(xreg),
@@ -686,14 +686,18 @@ def xcompound_to_ast_exprs(
 
                 elif op in ["plus", "minus"]:
                     op1type = op1.ctype(astree.ctyper)
-                    return xtyped_expr_to_ast_exprs(
-                        iaddr,
-                        op,
-                        op1,
-                        op2,
-                        xdata,
-                        astree,
-                        anonymous=anonymous)
+                    if op1type is not None:
+                        return xtyped_expr_to_ast_exprs(
+                            iaddr,
+                            op,
+                            op1,
+                            op2,
+                            xdata,
+                            astree,
+                            anonymous=anonymous)
+                    else:
+                        return [astree.mk_binary_expression(
+                            op, op1, op2, anonymous=anonymous)]
 
                 elif op in AST.operators:
                     return [astree.mk_binary_expression(

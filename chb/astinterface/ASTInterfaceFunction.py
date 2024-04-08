@@ -48,6 +48,7 @@ from chb.astinterface.CHBASTSupport import CHBASTSupport
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 
 if TYPE_CHECKING:
