@@ -150,6 +150,9 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     xprint: bool = not args.json
     xssa: bool = args.ssa
     xconstruct_all_functions: bool = args.construct_all_functions
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -158,6 +161,13 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path1,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="relational prepare invoked")
 
     is_thumb: bool = check_hints_for_thumb(hints)
     userhints = UC.prepare_executable(path2, xfile2, True, True, hints=hints)
@@ -229,6 +239,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
                 ifilename = f[:-2] + ".i"
                 ifilenames.append(ifilename)
                 gcccmd = ["gcc", "-std=gnu99", "-m32", "-E", "-o", ifilename, f]
+                chklogger.logger.debug("execute command %s", " ".join(gcccmd))
                 p = subprocess.call(gcccmd, cwd=path2, stderr=subprocess.STDOUT)
                 if not (p == 0):
                     UC.print_error("Error in " + str(gcccmd))
@@ -287,6 +298,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         print(str(e.wrap()))
         exit(1)
 
+    chklogger.logger.info("relational prepare completed")
     exit(0)
 
 
@@ -694,6 +706,9 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
     xname1: str = args.xname1
     xname2: str = args.xname2
     usermappingfile: Optional[str] = args.usermapping
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     print("Comparison of the invariants for " + xname1 + " and " + xname2)
 
@@ -705,6 +720,13 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path1,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="relational compare invariants invoked")
 
     usermapping: Dict[str, str] = {}
     if usermappingfile is not None:
@@ -829,5 +851,7 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
     print("=" * 80)
     print("||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
     print("=" * 80)
+
+    chklogger.logger.info("relational compare invariants completed")
 
     exit(0)

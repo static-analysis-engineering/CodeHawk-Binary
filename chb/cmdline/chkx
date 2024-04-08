@@ -339,8 +339,8 @@ def parse() -> argparse.Namespace:
     parser_version.set_defaults(func=showversion)
 
     # ------------------------------------------------------------ analyze --
-    analyzecmd = subparsers.add_parser('analyze')
-    analyzecmd.add_argument('xname', help='name of executable')
+    analyzecmd = subparsers.add_parser("analyze")
+    analyzecmd.add_argument("xname", help="name of executable")
     analyzecmd.add_argument(
         "-d", "--disassemble",
         action='store_true',
@@ -481,6 +481,20 @@ def parse() -> argparse.Namespace:
         type=int,
         default=0,
         help="disable relational analysis for functions with more basic blocks")
+    analyzecmd.add_argument(
+        "--loglevel", "-log",
+        choices=UL.LogLevel.options(),
+        default="NONE",
+        help="activate logging with the given level (default to stderr)")
+    analyzecmd.add_argument(
+        "--logfilename",
+        help="name of file to write log messages")
+    analyzecmd.add_argument(
+        "--logfilemode",
+        choices=["a", "w"],
+        default="a",
+        help="file mode for log file: append (a, default), or write (w)")
+
     analyzecmd.set_defaults(func=UCC.analyzecmd)
 
     # --------------------------------------------------------- PE/ELF data ---
@@ -1259,6 +1273,20 @@ def parse() -> argparse.Namespace:
     relationalprepare.add_argument(
         "--patch_results_file",
         help="name of patch results file (required if the patch includes trampolines)")
+    relationalprepare.add_argument(
+        "--loglevel", "-log",
+        choices=UL.LogLevel.options(),
+        default="NONE",
+        help="activate logging with the given level (default to stderr)")
+    relationalprepare.add_argument(
+        "--logfilename",
+        help="name of file to write log messages")
+    relationalprepare.add_argument(
+        "--logfilemode",
+        choices=["a", "w"],
+        default="a",
+        help="file mode for log file: append (a, default), or write (w)")
+
     relationalprepare.set_defaults(func=R.relational_prepare_command)
 
     # --- relational compare --
@@ -1378,6 +1406,20 @@ def parse() -> argparse.Namespace:
         "xname2", help="name of second (patched) executable (assumed analyzed)")
     relationalcompareinvs.add_argument(
         "--usermapping", help="name of json file with initial function mapping")
+    relationalcompareinvs.add_argument(
+        "--loglevel", "-log",
+        choices=UL.LogLevel.options(),
+        default="NONE",
+        help="activate logging with the given level (default to stderr)")
+    relationalcompareinvs.add_argument(
+        "--logfilename",
+        help="name of file to write log messages")
+    relationalcompareinvs.add_argument(
+        "--logfilemode",
+        choices=["a", "w"],
+        default="a",
+        help="file mode for log file: append (a, default), or write (w)")
+
     relationalcompareinvs.set_defaults(func=R.relational_compare_invs_cmd)
 
     # --- relational_compare md5s
