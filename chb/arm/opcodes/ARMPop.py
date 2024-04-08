@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,6 +40,7 @@ from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 from chb.util.IndexedTable import IndexedTableValue
 
@@ -104,7 +105,9 @@ class ARMPop(ARMOpcode):
         xctr = len(vars)
         pairs = list(zip(vars, xprs[:xctr]))
         for (v, x) in pairs:
-            if str(v) == "PC" and str(x) == "LR_in":
+            if str(v) == "PC" and str(x) in ["LR_in", "LR_t_in"]:
+                if str(x) == "LR_t_in":
+                    chklogger.logger.debug("Return instruction relies on LR_t_in")
                 return True
         else:
             return False
