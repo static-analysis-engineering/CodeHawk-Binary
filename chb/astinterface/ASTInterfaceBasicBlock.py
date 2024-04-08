@@ -35,6 +35,8 @@ from chb.astinterface.ASTInterfaceInstruction import ASTInterfaceInstruction
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMCfgBlock import ARMCfgBlock
@@ -210,6 +212,24 @@ class ASTInterfaceBasicBlock:
                     cc = aexprs[0]
                     brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
                     return brstmt
+                elif len(aexprs) == 0:
+                    chklogger.logger.critical(
+                        "trampoline payload cannot be lifted: "
+                        + "no dispatch condition found")
+                else:
+                    chklogger.logger.critical(
+                        "trampoline payload cannot be lifted: "
+                        + "multiple dispatch conditions found: %s",
+                        ", ".join(str(x) for x in aexprs))
+            else:
+                chklogger.logger.critical(
+                    "trampoline payload cannot be lifted: "
+                    + "expected to find conditional MOV instruction")
+        else:
+            chklogger.logger.critical(
+                "trampoline payload cannot be lifted: "
+                + "expected to find MOV instruction, but found %s",
+                chkinstr.mnemonic_stem)
         return self.trampoline_block_ast("payload", astree)
 
     def trampoline_payload_sideeffect_ast(
@@ -256,7 +276,7 @@ class ASTInterfaceBasicBlock:
     def trampoline_takedown_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         if not self.is_trampoline:
             raise UF.CHBError("Internal error")
-        return self.trampoline_block_ast("takedown", astree)
+        return self.trampoline_block_ast("fallthrough", astree)
 
     def trampoline_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         stmts: List[AST.ASTStmt] = []
@@ -270,8 +290,12 @@ class ASTInterfaceBasicBlock:
                 stmts.append(self.trampoline_payload_loop_ast(astree))
             elif len(self.trampoline_payload_roles) == 3:
                 stmts.append(self.trampoline_payload_sideeffect_ast(astree))
-            else:
+            elif len(self.trampoline_payload_roles) == 1:
                 stmts.append(self.trampoline_payload_ast(astree))
-        if "takedown" in self.trampoline:
+            else:
+                chklogger.logger.critical(
+                    "trampoline payload with %s basic blocks not recognized",
+                    str(len(self.trampoline_payload_roles)))
+        if "fallthrough" in self.trampoline:
             stmts.append(self.trampoline_takedown_ast(astree))
         return astree.mk_block(stmts)
