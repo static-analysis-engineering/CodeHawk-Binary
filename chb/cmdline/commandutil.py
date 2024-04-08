@@ -414,12 +414,22 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     lineq_block_cutoff: int = args.lineq_block_cutoff
     xssa: bool = args.ssa    # use ssa in analysis
     xarmextensionregisters: bool = args.arm_extension_registers
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
     try:
         (path, xfile) = get_path_filename(xname)
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    set_logging(
+        loglevel,
+        path,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="analyze invoked")
 
     if skip_if_asm and UF.has_asm_results(path, xfile):
         # we have what we need
@@ -447,6 +457,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
 
     if doextract:
         # we are done
+        chklogger.logger.info("analyze -x completed")
         exit(0)
 
     xinfo = XI.XInfo()
@@ -514,7 +525,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
             (startaddr, endaddr) = savedatablocks.split(":")
             app = get_app(path, xfile, xinfo)
             systeminfo = app.systeminfo
-            datablocks = systeminfo.datablocks.datablocks_in_range(startaddr, endaddr)
+            datablocks = systeminfo.datablocks.datablocks_in_range(
+                startaddr, endaddr)
             userdata: Dict[str, Any] = {}
             udata = userdata["userdata"] = {}
             dbdata = udata["data-blocks"] = []
@@ -524,6 +536,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 dbdata.append(dbrec)
             with open(outputfile + ".json", "w") as fp:
                 json.dump(userdata, fp, indent=2)
+
+        chklogger.logger.info("analyze -d completed")
         exit(0)
 
     else:
@@ -553,6 +567,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         except UF.CHBError as e:
             print_error(str(e.wrap()))
             exit(1)
+
+        chklogger.logger.info("analyze completed")
         exit(0)
 
 

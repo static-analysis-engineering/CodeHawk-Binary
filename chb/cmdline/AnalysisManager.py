@@ -45,6 +45,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from chb.util.Config import Config
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 import chb.util.xmlutil as UX
 
 
@@ -130,14 +131,16 @@ class AnalysisManager(object):
         cwd = os.getcwd()
         os.chdir(self.path)    # temporary change in directory
         xdir = UF.get_executable_dir(self.path, self.filename)
+        chklogger.logger.debug("create directory %s", xdir)
         self._makedir(xdir)
 
         # create userdata directory
         udir = UF.get_userdata_dir(self.path, self.filename)
         fndir = os.path.join(udir, "functions")
+        chklogger.logger.debug("create directory %s", udir)
         self._makedir(udir)
+        chklogger.logger.debug("create directory %s", fndir)
         self._makedir(fndir)
-        # self._make_userdata_file()
 
         cmd: List[str] = [
             self.chx86_analyze,
@@ -162,23 +165,33 @@ class AnalysisManager(object):
         for s in self.so_libraries:
             cmd.extend(["-so_library", s])
         cmd.append(self.filename)
+        chklogger.logger.debug(
+            "execute command to extract executable: %s", " ".join(cmd))
         p = subprocess.call(cmd, stderr=subprocess.STDOUT)
         if not (p == 0):
+            chklogger.logger.debug(
+                "remove directory %s",
+                str(os.path.join(self.filename + ".ch", "x")))
             shutil.rmtree(os.path.join(self.filename + ".ch", "x"))
             return p
 
         # create analysis directory
         adir = UF.get_analysis_dir(self.path, self.filename)
         fndir = os.path.join(adir, "functions")
+        chklogger.logger.debug("create analysis directory %s", adir)
         self._makedir(adir)
+        chklogger.logger.debug("create analysis functions directory %s", fndir)
         self._makedir(fndir)
 
         # create results directory
         rdir = UF.get_results_dir(self.path, self.filename)
         fndir = os.path.join(rdir, "functions")
+        chklogger.logger.debug("create results directory %s", rdir)
         self._makedir(rdir)
+        chklogger.logger.debug("create results functions directory %s", fndir)
         self._makedir(fndir)
 
+        chklogger.logger.debug("return to cwd: %s", cwd)
         os.chdir(cwd)    # return to original directory
         return p
 
@@ -188,9 +201,12 @@ class AnalysisManager(object):
         xdir = os.path.join(self.filename + ".ch", "x")
         tarfilename = self.filename + ".chx.tar.gz"
         if os.path.isfile(tarfilename):
+            chklogger.logger.debug("remove file %s", tarfilename)
             os.remove(tarfilename)
         tarcmd: List[str] = ["tar", "cfz", tarfilename, xdir]
+        chklogger.logger.debug("execute command: %s", " ".join(tarcmd))
         subprocess.call(tarcmd, cwd=self.path, stderr=subprocess.STDOUT)
+        chklogger.logger.debug("return to cwd: %s", cwd)
         os.chdir(cwd)    # return to original directory
 
     # Disassembly --------------------------------------------------------------
@@ -204,6 +220,7 @@ class AnalysisManager(object):
             preamble_cutoff: int = 12,
             save_asm: str = "yes") -> None:
         cwd = os.getcwd()
+        chklogger.logger.debug("change directory to %s", self.path)
         os.chdir(self.path)     # temporary change in directory
         cmd: List[str] = [self.chx86_analyze, "-summaries", self.chsummaries]
         cmd.extend(["-preamble_cutoff", str(preamble_cutoff)])
@@ -241,6 +258,7 @@ class AnalysisManager(object):
         cmd.extend(["-disassemble", self.filename])
         print_progress_update(" ".join(cmd))
         if sys.version_info > (3, 0) and timeout:
+            chklogger.logger.debug("execute command %s (v3)", " ".join(cmd))
             try:
                 result = subprocess.call(
                     cmd,
@@ -250,9 +268,11 @@ class AnalysisManager(object):
             except subprocess.TimeoutExpired:
                 print_progress_update(str(cmd) + " timed out!")
         else:
+            chklogger.logger.debug("execute command %s", " ".join(cmd))
             result = subprocess.call(cmd, stderr=subprocess.STDOUT)
             print_progress_update("Exit code: " + str(result))
 
+        chklogger.logger.debug("return to cwd %s", cwd)
         os.chdir(cwd)    # return to original directory
 
     # Analysis -----------------------------------------------------------------
@@ -288,6 +308,7 @@ class AnalysisManager(object):
     def _makedir(self, name: str) -> None:
         if os.path.isdir(name):
             return
+        chklogger.logger.debug("create directory %s", name)
         os.makedirs(name)
 
     def _make_userdata_file(self) -> None:
@@ -308,6 +329,7 @@ class AnalysisManager(object):
         snode.extend(children)
         snode.extend(UX.create_xml_userdata(self.hints))
         with open(ufilename, "w") as fp:
+            chklogger.logger.debug("write user system info file %s", ufilename)
             fp.write(UX.doc_to_pretty(tree))
 
     def _analysis_setup(self, extract: bool) -> None:
@@ -386,9 +408,11 @@ class AnalysisManager(object):
         lines.append("-" * 80)
         return "\n".join(lines)
 
-    def _call_analysis(self, cmd: List[str], timeout: Optional[int] = None) -> int:
+    def _call_analysis(
+            self, cmd: List[str], timeout: Optional[int] = None) -> int:
         if sys.version_info < (3, 0) and timeout is not None:
             try:
+                chklogger.logger.debug("execute command %s", " ".join(cmd))
                 result = subprocess.call(
                     cmd,
                     cwd=self.path,
@@ -399,6 +423,7 @@ class AnalysisManager(object):
                 print(str(cmd) + " timed out (" + str(timeout) + ")!")
                 return 600
         else:
+            chklogger.logger.debug("execute command %s", " ".join(cmd))
             result = subprocess.check_call(
                 cmd,
                 cwd=self.path,
@@ -483,8 +508,10 @@ class AnalysisManager(object):
         firstcmd = cmd[:]
         for ifile in self.ifilenames:
             firstcmd.extend(["-ifile", ifile])
+        chklogger.logger.debug("execute command %s", " ".join(firstcmd))
         result = self._call_analysis(firstcmd, timeout=timeout)
         if result != 0:
+            chklogger.logger.debug("return to cwd %s", cwd)
             os.chdir(cwd)   # return to original directory
             return result
         (isstable, results, r_update) = self._get_results()
@@ -501,23 +528,29 @@ class AnalysisManager(object):
                 or (count > iterations))
 
             if isfinished:
+                chklogger.logger.debug("execute command %s", " ".join(jarcmd))
                 subprocess.call(jarcmd, stderr=subprocess.STDOUT)
                 fincmd = cmd + ["-collectdata"]
                 if self.use_ssa:
                     fincmd = fincmd + ["-ssa"]
+                chklogger.logger.debug("execute command %s", " ".join(fincmd))
                 result = self._call_analysis(fincmd, timeout=timeout)
+                chklogger.logger.debug("execute command %s", " ".join(jarcmd))
                 subprocess.call(jarcmd, stderr=subprocess.STDOUT)
                 count += 1
                 (stable, results, r_update) = self._get_results()
                 print_progress_update(r_update + "  " + self.filename)
                 lines.append(results)
+                chklogger.logger.debug("return to cwd %s", cwd)
                 os.chdir(cwd)   # return to original directory
                 print("\n".join(lines))
                 return isstable == "yes"
 
+            chklogger.logger.debug("execute command %s", " ".join(jarcmd))
             subprocess.call(jarcmd, stderr=subprocess.STDOUT)
             result = self._call_analysis(cmd, timeout=timeout)
             if result != 0:
+                chklogger.logger.debug("return cwd %s", cwd)
                 os.chdir(cwd)    # return to original directory
                 print("\n".join(lines))
                 return result

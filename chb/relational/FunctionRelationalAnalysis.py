@@ -349,17 +349,14 @@ class FunctionRelationalAnalysis:
                     for b1 in self.basic_blocks1:
                         self._blockmapping[b1] = mapping[b1]
                 except KeyError as e:
-                    print(
-                        "Error in mapping returned from cfg matcher of "
-                        + self.faddr1
-                        + " ("
-                        + str(len(self.basic_blocks1))
-                        + ") and "
-                        + self.faddr2
-                        + " ("
-                        + str(len(self.basic_blocks2))
-                        + "): "
-                        + str(e))
+                    chklogger.logger.warning(
+                        "Error in mapping returned from cfg matcher of %s (%s) "
+                        + "and %s (%s): %s",
+                        self.faddr1,
+                        str(len(self.basic_blocks1)),
+                        self.faddr2,
+                        str(len(self.basic_blocks2)),
+                        str(e))
 
         return self._blockmapping
 
