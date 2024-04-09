@@ -125,13 +125,9 @@ def function_invariants_to_json_result(
 
 def cfg_edge_to_json_result(
         f: "Function", src: str, tgt: str, kind: str) -> JSONResult:
-    # remove context from addresses
-    real_src = src.split("_")[-1] if src.startswith("F") else src
-    real_tgt = tgt.split("_")[-1] if tgt.startswith("F") else tgt
-
     content: Dict[str, Any] = {}
-    content["src"] = real_src
-    content["tgt"] = real_tgt
+    content["src"] = src
+    content["tgt"] = tgt
     content["kind"] = kind
     if kind in ["true", "false"]:
         if src in f.branchconditions:
@@ -151,6 +147,7 @@ def cfg_edge_to_json_result(
 
 def cfg_node_to_json_result(f: "Function", b: "BasicBlock") -> JSONResult:
     content: Dict[str, Any] = {}
+    content["id"] = b.baddr
     content["baddr"] = b.real_baddr
     bresult = b.to_json_result()
     if not bresult.is_ok:
@@ -209,13 +206,13 @@ def cfg_block_map_to_json_result(
     content: Dict[str, Any] = {}
     content["changes"] = blockra.changes()
     content["matches"] = blockra.matches()
-    content["cfg1-block-addr"] = blockra.b1.real_baddr
+    content["cfg1-block-addr"] = blockra.b1.baddr
     cfg2blocks: List[Dict[str, Any]] = []
     for (role, block2) in blockra.b2map.items():
         if len(blockra.b2map) == 1:
             role = "single-mapped"
         b2content: Dict[str, Any] = {}
-        b2content["cfg2-block-addr"] = block2.real_baddr
+        b2content["cfg2-block-addr"] = block2.baddr
         b2content["role"] = role
         cfg2blocks.append(b2content)
     content["cfg2-blocks"] = cfg2blocks
