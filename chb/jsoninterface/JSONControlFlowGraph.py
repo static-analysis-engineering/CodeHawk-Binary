@@ -46,6 +46,15 @@ class JSONCfgNode(JSONObject):
         return self.d.get("baddr", self.property_missing("baddr"))
 
     @property
+    def id(self) -> str:
+        """Returns the unique identifier for this cfg node.
+
+        This normally corresponds to BasicBlock.baddr, whereas baddr
+        above corresponds to BasicBlock.real_baddr.
+        """
+        return self.d.get("id", self.property_missing("id"))
+
+    @property
     def code(self) -> JSONAssemblyBlock:
         if self._code is None:
             self._code = JSONAssemblyBlock(self.d.get("code", {}))
@@ -91,8 +100,8 @@ class JSONCfgEdge(JSONObject):
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_cfg_edge(self)
-        
-    
+
+
 class JSONControlFlowGraph(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
@@ -132,6 +141,3 @@ class JSONControlFlowGraph(JSONObject):
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_control_flow_graph(self)
-    
-
-    
