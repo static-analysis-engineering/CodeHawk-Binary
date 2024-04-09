@@ -64,10 +64,6 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
     def visit_block_expansion(self, obj: BlockC.JSONBlockExpansion) -> None:
         pass
 
-    def visit_block_semantic_comparison(
-            self, obj: BlockC.JSONBlockSemanticComparison) -> None:
-        pass
-
     def visit_callgraph_comparison(
             self, obj: AppC.JSONCallgraphComparison) -> None:
         pass

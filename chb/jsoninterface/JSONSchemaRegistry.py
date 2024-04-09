@@ -47,7 +47,7 @@ class JSONSchemaRegistry:
 
     def add_schema(self, name: str, base: Dict[str, Any]) -> None:
         self._registry[name] = JSONSchema(name, base)
-        
+
     def add_schema_defs(self, schema: JSONSchema) -> None:
         defs: Dict[str, Dict[str, Any]] = {}
 
@@ -108,7 +108,6 @@ chb_schemas: List[Dict[str, Any]] = [
     S.binarycomparison,
     S.blockcomparison,
     S.blockexpansion,
-    S.blocksemanticcomparison,
     S.callgraph,
     S.callgraphedge,
     S.callgraphnode,
