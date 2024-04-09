@@ -258,7 +258,10 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
 
             if md5eq == "no":
                 block_comparison = obj.block_comparison
-                assert block_comparison
+                if not block_comparison:
+                    raise RuntimeError("Unexpectedly got a changed function without "
+                                       "block comparison details. This should not happen. "
+                                       "Change function: %s" % obj)
 
                 instrs_changed = len(block_comparison.summary_instructions_changed)
                 instr_count = obj.instr_count1
