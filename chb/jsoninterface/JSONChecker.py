@@ -142,17 +142,12 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_newline()
         self.add_txt(obj.objname)
         self.inc_indent()
-        self.add_txt(obj.baddr1, tag="baddr1")
-        self.add_txt(obj.baddr2, tag="baddr2")
-        self.add_txt(str(obj.lev_distance), tag="lev-distance")
-        self.add_txt_lst(obj.changes, tag="changes")
-        self.add_txt_lst(obj.changes, tag="matches")
-        self.add_txt_lst(
-            obj.instruction_insertions, tag="instruction-insertions")
-        self.add_txt_lst(
-            obj.instruction_deletions, tag="instruction-deletions")
-        for s in obj.instruction_substitutions:
-            s.accept(self)
+        for i in obj.instructions_added:
+            i.accept(self)
+        for i in obj.instructions_removed:
+            i.accept(self)
+        for i in obj.instructions_changed:
+            i.accept(self)
         self.dec_indent()
 
     def visit_block_expansion(self, obj: BlockC.JSONBlockExpansion) -> None:
@@ -164,14 +159,6 @@ class JSONChecker(JSONObjectNOPVisitor):
             b.accept(self)
         for e in obj.xedges:
             e.accept(self)
-        self.dec_indent()
-
-    def visit_block_semantic_comparison(
-            self, obj: BlockC.JSONBlockSemanticComparison) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        self.add_txt_lst(obj.changes, tag="changes")
         self.dec_indent()
 
     def visit_callgraph_comaprison(
@@ -315,4 +302,3 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_txt(obj.tgt, tag="tgt")
         self.add_txt(obj.role, tag="role")
         self.dec_indent()
-    

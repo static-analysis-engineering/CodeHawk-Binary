@@ -37,20 +37,6 @@ if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
 
 
-# XXX: Unused
-class JSONBlockSemanticComparison(JSONObject):
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "blocksemanticcomparison")
-
-    @property
-    def changes(self) -> List[str]:
-        return self.d.get("changes", [])
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_block_semantic_comparison(self)
-
-
 class JSONBlockComparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
@@ -62,46 +48,6 @@ class JSONBlockComparison(JSONObject):
             Optional[List[JSONInstructionComparison]]) = None
         self._instructionschanged: (
             Optional[List[JSONInstructionComparison]]) = None
-
-        # whole-block semantic comparison
-        self._semanticcomparison: Optional[JSONBlockSemanticComparison] = None
-
-    # XXX: Unused
-    @property
-    def baddr1(self) -> str:
-        return self.d.get("baddr1", self.property_missing("baddr1"))
-
-    @property
-    def baddr2(self) -> str:
-        return self.d.get("baddr2", self.property_missing("baddr2"))
-
-    @property
-    def lev_distance(self) -> int:
-        return self.d.get("lev-distance", -1)
-
-    @property
-    def instr_count1(self) -> int:
-        return self.d.get("instr-count1", self.property_missing("instr-count1"))
-
-    @property
-    def instr_count2(self) -> int:
-        return self.d.get("instr-count2", self.property_missing("instr-count2"))
-
-    @property
-    def changes(self) -> List[str]:
-        return self.d.get("changes", [])
-
-    @property
-    def matches(self) -> List[str]:
-        return self.d.get("matches", [])
-    # XXX: Unused
-
-    @property
-    def semantic_comparison(self) -> JSONBlockSemanticComparison:
-        if self._semanticcomparison is None:
-            self._semanticcomparison = JSONBlockSemanticComparison(
-                self.d.get("semantic-comparison", {}))
-        return self._semanticcomparison
 
     def _get_instr_comparison_summary(self) -> Dict[str, Any]:
         block_summary: Dict[str, Any] = \

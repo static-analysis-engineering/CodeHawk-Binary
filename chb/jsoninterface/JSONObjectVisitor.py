@@ -65,10 +65,6 @@ class JSONObjectVisitor(ABC):
     def visit_block_expansion(self, obj: BlockC.JSONBlockExpansion) -> None:
         ...
 
-    def visit_block_semantic_comparison(
-            self, obj: BlockC.JSONBlockSemanticComparison) -> None:
-        ...
-
     def visit_callgraph(self, obj: Cg.JSONCallgraph) -> None:
         ...
 

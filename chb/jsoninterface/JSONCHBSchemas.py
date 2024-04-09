@@ -989,17 +989,6 @@ instructioncomparison = {
 
 # ---------------------------------------------------- block comparison
 
-blocksemanticcomparison = {
-    "name": "blocksemanticcomparison",
-    "title": "summary of semantic changes in two corresponding blocks",
-    "description": "summary of semantic changes in two corresponding blocks",
-    "type": "object",
-    "properties": {
-        "changes": prop_set(["I/O"])
-    }
-}
-
-
 blockcomparison = {
     "name": "blockcomparison",
     "title": "block-level comparison between two basic blocks",
@@ -1007,33 +996,9 @@ blockcomparison = {
         "syntactic and semantic comparison between two matching blocks "
         + "in fn1 and fn2"),
     "type": "object",
-    "required": ["baddr1", "baddr2"],
+    "required": ["block-comparison-summary", "block-comparison-details"],
     "properties": {
-        "baddr1": strtype("hex address of block in function1"),
-        "baddr2": strtype("hex address of block in function2"),
-        "lev-distance": intvalue(
-            "levenshtein distance between block1 and block2 instruction bytes"),
-        "changes": prop_set(["instructioncount", "bytecount"]),
-        "matches": prop_set(["instructioncount", "bytecount"]),
-        "semantic-comparison": refdef("blocksemanticcomparison"),
-        "instruction-insertions": {
-            "type": "array",
-            "description": (
-                "list of addresses of instructions inserted in fn2"),
-            "items": strtype("hex address of instruction in fn2")
-        },
-        "instruction-deletions": {
-            "type": "array",
-            "description": (
-                "list of addresses of instructions deleted in fn2"),
-            "items": strtype("hex address instruction in fn1")
-        },
-        "instruction-substitutions": {
-            "type": "array",
-            "description": (
-                "list of instruction transformations from fn1 to fn2"),
-            "items": refdef("instructioncomparison")
-        }
+        # TODO: Need to document these
     }
 }
 
