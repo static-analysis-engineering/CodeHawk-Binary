@@ -138,8 +138,8 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
 
         totalblocks = 0
 
-        # XXX: Should this loop over obj.functions_compared instead so we can
-        # report on functions not found? see line 292 in relational/RelationalAnalysis.py
+        # TODO: Should this loop over obj.functions_compared instead so we can
+        # report on functions not found?
         for fn_changed in obj.functions_changed:
             fn_name = fn_changed.display_name
 
@@ -206,8 +206,6 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
         self._report.extend(self.instr_changes_txt)
 
     def _print_trampoline_info(self, block: FunC.JSONCfgBlockMappingItem) -> None:
-        # TODO: In FunctionRelationalAnalysis:report we print save and restore context
-        # and register saves and restores (see setup_restore_context_comparison)
         setupblock = block.trampoline_address()
         if setupblock is None:
             raise Exception("Couldn't find trampoline address. Blocks and roles are %s" %
@@ -218,6 +216,9 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
         for (addr, role) in block.cfg2_blocks:
             if role in ("entry", "exit"):
                 continue
+            # TODO: This prints the address with context which is not the most readable
+            # thing. We should get the "user-presentable" address by looking up addr in the
+            # cfg.
             self.add_txt("  " + role.ljust(30) + ": " + addr)
 
 
@@ -286,7 +287,6 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
                 instr_comp.accept(self)
 
         if obj.instructions_removed:
-            # XXX: Untested
             self.instr_changes_txt.append("\n- Instructions removed:")
             for instr_comp in obj.instructions_removed:
                 self.instr_changes_txt.append("")

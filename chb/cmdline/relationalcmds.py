@@ -477,8 +477,6 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     logfilename: Optional[str] = args.logfilename
     logfilemode: str = args.logfilemode
 
-    # TODO: Convert this to use the unified json file. We will probably need a
-    # custom visitor for that?
     print("Visual comparison of the cfgs for " + xname1 + " and " + xname2)
 
     try:
