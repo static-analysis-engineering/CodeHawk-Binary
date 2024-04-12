@@ -25,11 +25,10 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 
-from chb.jsoninterface.JSONInstructionComparison import (
-    JSONInstructionComparison)
+from chb.jsoninterface.JSONInstructionComparison import JSONInstructionComparison
 from chb.jsoninterface.JSONObject import JSONObject
 
 
@@ -110,72 +109,3 @@ class JSONBlockComparison(JSONObject):
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_block_comparison(self)
-
-
-class JSONXEdgeDetail(JSONObject):
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "xedgedetail")
-
-    @property
-    def src(self) -> str:
-        return self.d.get("src", self.property_missing("src"))
-
-    @property
-    def tgt(self) -> str:
-        return self.d.get("tgt", self.property_missing("tgt"))
-
-    @property
-    def role(self) -> str:
-        return self.d.get("role", self.property_missing("role"))
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_xedge_detail(self)
-
-
-class JSONXBlockDetail(JSONObject):
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "xblockdetail")
-
-    @property
-    def baddr(self) -> str:
-        return self.d.get("baddr", self.property_missing("baddr"))
-
-    @property
-    def role(self) -> str:
-        return self.d.get("role", self.property_missing("role"))
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_xblock_detail(self)
-
-
-class JSONBlockExpansion(JSONObject):
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "blockexpansion")
-        self._xblocks: Optional[List[JSONXBlockDetail]] = None
-        self._xedges: Optional[List[JSONXEdgeDetail]] = None
-
-    @property
-    def kind(self) -> str:
-        return self.d.get("kind", self.property_missing("kind"))
-
-    @property
-    def xblocks(self) -> List[JSONXBlockDetail]:
-        if self._xblocks is None:
-            self._xblocks = []
-            for x in self.d.get("xblocks", []):
-                self._xblocks.append(JSONXBlockDetail(x))
-        return self._xblocks
-
-    @property
-    def xedges(self) -> List[JSONXEdgeDetail]:
-        if self._xedges is None:
-            self._xedges = []
-            for x in self.d.get("xedges", []):
-                self._xedges.append(JSONXEdgeDetail(x))
-        return self._xedges
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_block_expansion(self)

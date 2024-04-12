@@ -58,21 +58,11 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
     def visit_block_comparison(self, obj: BlockC.JSONBlockComparison) -> None:
         pass
 
-    def visit_block_expansion(self, obj: BlockC.JSONBlockExpansion) -> None:
-        pass
-
     def visit_callgraph_comparison(
             self, obj: AppC.JSONCallgraphComparison) -> None:
         pass
 
-    def visit_cfg_comparison(self, obj: FunC.JSONCfgComparison) -> None:
-        pass
-
     def visit_cfg_edge(self, obj: Cfg.JSONCfgEdge) -> None:
-        pass
-
-    def visit_cfg_edge_comparison(
-            self, obj: FunC.JSONCfgEdgeComparison) -> None:
         pass
 
     def visit_cfg_node(self, obj: Cfg.JSONCfgNode) -> None:
@@ -98,10 +88,4 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
 
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
-        pass
-
-    def visit_xblock_detail(self, obj: BlockC.JSONXBlockDetail) -> None:
-        pass
-
-    def visit_xedge_detail(self, obj: BlockC.JSONXEdgeDetail) -> None:
         pass

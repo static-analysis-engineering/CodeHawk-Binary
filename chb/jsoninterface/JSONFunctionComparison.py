@@ -27,39 +27,12 @@
 
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from chb.jsoninterface.JSONBlockComparison import (
-    JSONBlockComparison, JSONBlockExpansion,
-)
+from chb.jsoninterface.JSONBlockComparison import JSONBlockComparison
 from chb.jsoninterface.JSONControlFlowGraph import JSONControlFlowGraph
 from chb.jsoninterface.JSONObject import JSONObject
 
 if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
-
-
-class JSONCfgEdgeComparison(JSONObject):
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "cfgedgecomparison")
-
-    @property
-    def src1(self) -> str:
-        return self.d.get("src1", self.property_missing("src1"))
-
-    @property
-    def src2(self) -> str:
-        return self.d.get("src2", self.property_missing("src2"))
-
-    @property
-    def tgt1(self) -> str:
-        return self.d.get("tgt1", self.property_missing("tgt1"))
-
-    @property
-    def tgt2(self) -> str:
-        return self.d.get("tgt2", self.property_missing("tgt2"))
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_cfg_edge_comparison(self)
 
 
 class JSONCfgBlockMappingItem(JSONObject):
@@ -126,145 +99,6 @@ class JSONCfgBlockMappingItem(JSONObject):
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_cfg_block_mapping_item(self)
-
-
-class JSONCfgComparison(JSONObject):
-    """Comparison between two cfg's in terms of graph edits.
-
-    A comparison consists of a number of graph edits that collectively
-    cover all nodes of cfg1 as domain and all nodes of cfg2 as range,
-    and similarly for the edges.
-
-    Block edits include:
-    - block substitutions: mapping a single node in cfg1 to a single
-      node in cfg2
-    - block insertions: a single node in cfg2
-    - block deletions: a single node in cf1
-    - block expansions: mapping a single node in cfg1 to multiple
-      related blocks in cfg2
-
-    Edge edits include:
-    - edge substitutions: mapping a single edge in cfg1 to a single
-      edge in cfg2
-    - edge insertions: a single edge in cfg2
-    - edge deletions: a single edge in cfg1
-    """
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "cfgcomparison")
-        self._cfg1: Optional[JSONControlFlowGraph] = None
-        self._cfg2: Optional[JSONControlFlowGraph] = None
-
-        # original API
-        self._mapping: Optional[List[JSONCfgBlockMappingItem]] = None
-
-        # new API
-        # block edits (transformations)
-        self._blockinsertions: Optional[List[str]] = None
-        self._blockdeletions: Optional[List[str]] = None
-        self._blocksubstitutions: Optional[List[JSONBlockComparison]] =  None
-        self._blockexpansions: Optional[List[JSONBlockExpansion]] = None
-
-        # edge edits (transformations)
-        self._edgeinsertions: Optional[List[Tuple[str, str]]] = None
-        self._edgedeletions: Optional[List[Tuple[str, str]]] = None
-        self._edgesubstitutions: Optional[List[JSONCfgEdgeComparison]] = None
-
-    @property
-    def similarity(self) -> str:
-        return self.d.get("similarity", self.property_missing("similarity"))
-
-    @property
-    def num_blocks_changed(self) -> int:
-        return self.d.get("num-blocks-changed", self.property_missing("block-mapping"))
-
-    @property
-    def changes(self) -> List[str]:
-        return self.d.get("changes", [])
-
-    @property
-    def cfg1(self) -> JSONControlFlowGraph:
-        if self._cfg1 is None:
-            self._cfg1 = JSONControlFlowGraph(self.d.get("cfg1", {}))
-        return self._cfg1
-
-    @property
-    def cfg2(self) -> JSONControlFlowGraph:
-        if self._cfg2 is None:
-            self._cfg2 = JSONControlFlowGraph(self.d.get("cfg2", {}))
-        return self._cfg2
-
-    @property
-    def cfg_block_mapping(self) -> List[JSONCfgBlockMappingItem]:
-        if self._mapping is None:
-            result: List[JSONCfgBlockMappingItem] = []
-            for m in self.d.get("cfg-block-mapping", []):
-                result.append(JSONCfgBlockMappingItem(m))
-            self._mapping = result
-        return self._mapping
-
-    @property
-    def block_insertions(self) -> List[str]:
-        if self._blockinsertions is None:
-            self._blockinsertions = []
-            for b in self.d.get("block-insertions", []):
-                self._blockinsertions.append(b)
-        return self._blockinsertions
-
-    @property
-    def block_deletions(self) -> List[str]:
-        if self._blockdeletions is None:
-            self._blockdeletions = []
-            for b in self.d.get("block-deletions", []):
-                self._blockdeletions.append(b)
-        return self._blockdeletions
-
-    @property
-    def block_substitutions(self) -> List[JSONBlockComparison]:
-        if self._blocksubstitutions is None:
-            self._blocksubstitutions = []
-            for b in self.d.get("block-substitutions", []):
-                self._blocksubstitutions.append(JSONBlockComparison(b))
-        return self._blocksubstitutions
-
-    @property
-    def block_expansions(self) -> List[JSONBlockExpansion]:
-        if self._blockexpansions is None:
-            self._blockexpansions = []
-            for b in self.d.get("block-expansions", []):
-                self._blockexpansions.append(JSONBlockExpansion(b))
-        return self._blockexpansions
-
-    @property
-    def edge_insertions(self) -> List[Tuple[str, str]]:
-        if self._edgeinsertions is None:
-            self._edgeinsertions = []
-            for e in self.d.get("edge-insertions", []):
-                src = e.get("src", self.property_missing("src"))
-                dst = e.get("dst", self.property_missing("dst"))
-                self._edgeinsertions.append((src, dst))
-        return self._edgeinsertions
-
-    @property
-    def edge_deletions(self) -> List[Tuple[str, str]]:
-        if self._edgedeletions is None:
-            self._edgedeletions = []
-            for e in self.d.get("edge-deletions", []):
-                src = e.get("src", self.property_missing("src"))
-                dst = e.get("dst", self.property_missing("dst"))
-                self._edgedeletions.append((src, dst))
-        return self._edgedeletions
-
-    @property
-    def edge_substitutions(self) -> List[JSONCfgEdgeComparison]:
-        if self._edgesubstitutions is None:
-            self._edgesubstitutions = []
-            for e in self.d.get("edge-substitutions", []):
-                self._edgesubstitutions.append(JSONCfgEdgeComparison(e))
-        return self._edgesubstitutions
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_cfg_comparison(self)
 
 
 class JSONFunctionComparison(JSONObject):

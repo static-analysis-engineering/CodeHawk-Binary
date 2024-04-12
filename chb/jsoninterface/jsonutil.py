@@ -27,12 +27,10 @@
 
 import argparse
 import json
-import os
 
-from typing import Any, Dict, List, NoReturn, Optional
+from typing import Any, Dict, NoReturn
 
 from chb.jsoninterface.JSONAppComparison import JSONAppComparison
-from chb.jsoninterface.JSONFunctionComparison import JSONCfgComparison
 from chb.jsoninterface.JSONChecker import JSONChecker
 
 
@@ -72,18 +70,5 @@ def check_appc_cmd(args: argparse.Namespace) -> NoReturn:
         jsondata = json.load(fp)
 
     print(JSONChecker().check_object(JSONAppComparison(jsondata["content"])))
-
-    exit(0)
-
-
-def check_cfgc_cmd(args: argparse.Namespace) -> NoReturn:
-
-    # arguments
-    jsonfile: str = args.jsonfile
-
-    with open(jsonfile, "r") as fp:
-        jsondata = json.load(fp)
-
-    print(JSONChecker().check_object(JSONCfgComparison(jsondata["content"]["functions-changed"][0])))
 
     exit(0)

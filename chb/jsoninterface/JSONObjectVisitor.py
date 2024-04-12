@@ -61,9 +61,6 @@ class JSONObjectVisitor(ABC):
     def visit_block_comparison(self, obj: BlockC.JSONBlockComparison) -> None:
         ...
 
-    def visit_block_expansion(self, obj: BlockC.JSONBlockExpansion) -> None:
-        ...
-
     def visit_callgraph(self, obj: Cg.JSONCallgraph) -> None:
         ...
 
@@ -94,17 +91,10 @@ class JSONObjectVisitor(ABC):
             self, obj: CR.JSONCallsiteTgtParameter) -> None:
         ...
 
-    def visit_cfg_comparison(self, obj: FunC.JSONCfgComparison) -> None:
-        ...
-
     def visit_cfg_block_mapping_item(self, obj: FunC.JSONCfgBlockMappingItem) -> None:
         ...
 
     def visit_cfg_edge(self, obj: Cfg.JSONCfgEdge) -> None:
-        ...
-
-    def visit_cfg_edge_comparison(
-            self, obj: FunC.JSONCfgEdgeComparison) -> None:
         ...
 
     def visit_cfg_node(self, obj: Cfg.JSONCfgNode) -> None:
@@ -130,10 +120,4 @@ class JSONObjectVisitor(ABC):
 
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
-        ...
-
-    def visit_xblock_detail(self, obj: BlockC.JSONXBlockDetail) -> None:
-        ...
-
-    def visit_xedge_detail(self, obj: BlockC.JSONXEdgeDetail) -> None:
         ...
