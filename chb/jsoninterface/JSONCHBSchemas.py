@@ -1129,30 +1129,6 @@ cfgcomparison = {
 }
 
 
-functionsemanticcomparison = {
-    "name": "functionsemanticcomparison",
-    "title": "Function semantic changes",
-    "description": "Representation of semantic changes between two versions",
-    "type": "object",
-    "properties": {
-        "changes": prop_set(["restrictions"])
-    }
-}
-
-
-localvarscomparison = {
-    "name": "localvarscomparison",
-    "title": "comparison of two corresponding variables in function 1 and 2",
-    "description": (
-        "comparison of local variables of fn1 and fn2"),
-    "type": "object",
-    "properties": {
-        "matches": prop_set([]),
-        "changes": prop_set([])
-    }
-}
-
-
 functioncomparison = {
     "name": "functioncomparison",
     "title": "function-level comparison",
@@ -1168,9 +1144,10 @@ functioncomparison = {
         "name2": strtype("symbolic name of function2 in file2"),
         "changes": prop_set(["blockcount", "cfg-structure", "md5"]),
         "matches": prop_set(["blockcount", "cfg-structure", "md5"]),
-        "cfg-comparison": refdef("cfgcomparison"),
-        "localvars-comparison": refdef("localvarscomparison"),
-        "semantic-comparison": refdef("functionsemanticcomparison")
+        # TODO: Incomplete. Missing
+        # - cfg1 and cfg2
+        # - cfg-block-mapping
+        # - blocks-changed
     }
 }
 

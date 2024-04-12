@@ -25,8 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from abc import ABC
 
 import chb.jsoninterface.JSONAppComparison as AppC
 from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
@@ -125,20 +124,12 @@ class JSONObjectVisitor(ABC):
             self, obj: AppC.JSONFunctionMD5) -> None:
         ...
 
-    def visit_function_semantic_comparison(
-            self, obj: FunC.JSONFunctionSemanticComparison) -> None:
-        ...
-
     def visit_globalvar_comparison(
             self, obj: AppC.JSONGlobalVarComparison) -> None:
         ...
 
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
-        ...
-
-    def visit_localvars_comparison(
-            self, obj: FunC.JSONLocalVarsComparison) -> None:
         ...
 
     def visit_xblock_detail(self, obj: BlockC.JSONXBlockDetail) -> None:
