@@ -150,45 +150,10 @@ class JSONChecker(JSONObjectNOPVisitor):
             i.accept(self)
         self.dec_indent()
 
-    def visit_block_expansion(self, obj: BlockC.JSONBlockExpansion) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        self.add_txt(obj.kind, tag="kind")
-        for b in obj.xblocks:
-            b.accept(self)
-        for e in obj.xedges:
-            e.accept(self)
-        self.dec_indent()
-
     def visit_callgraph_comaprison(
             self, obj: AppC.JSONCallgraphComparison) -> None:
         self.add_newline()
         self.add_txt_lst(obj.changes, tag="changes")
-
-    def visit_cfg_comparison(self, obj: FunC.JSONCfgComparison) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        self.add_txt("cfg1")
-        self.inc_indent()
-        obj.cfg1.accept(self)
-        self.dec_indent()
-        self.add_txt("cfg2")
-        self.inc_indent()
-        obj.cfg2.accept(self)
-        self.dec_indent()
-        self.add_txt_lst(obj.block_insertions, tag="block-insertions")
-        self.add_txt_lst(obj.block_deletions, tag="block-deletions")
-        for s in obj.block_substitutions:
-            s.accept(self)
-        for e in obj.block_expansions:
-            e.accept(self)
-        self.add_txt_tuple_lst(obj.edge_insertions, tag="edge-insertions")
-        self.add_txt_tuple_lst(obj.edge_deletions, tag="edge-deletation")
-        for x in obj.edge_substitutions:
-            x.accept(self)
-        self.dec_indent()
 
     def visit_cfg_edge(self, obj: Cfg.JSONCfgEdge) -> None:
         self.add_newline()
@@ -199,17 +164,6 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_txt(obj.kind, tag="kind")
         if obj.predicate is not None:
             self.add_txt(obj.predicate, tag="predicate")
-        self.dec_indent()
-
-    def visit_cfg_edge_comparison(
-            self, obj: FunC.JSONCfgEdgeComparison) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        self.add_txt(obj.src1, tag="src1")
-        self.add_txt(obj.src2, tag="src2")
-        self.add_txt(obj.tgt1, tag="tgt1")
-        self.add_txt(obj.tgt2, tag="tgt2")
         self.dec_indent()
 
     def visit_cfg_node(self, obj: Cfg.JSONCfgNode) -> None:
@@ -256,6 +210,20 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_txt(obj.faddr2, tag="faddr2")
         self.add_txt_lst(obj.changes, tag="changes")
         self.add_txt_lst(obj.matches, tag="matches")
+        self.add_txt("cfg1")
+        self.inc_indent()
+        obj.cfg1.accept(self)
+        self.dec_indent()
+        self.add_txt("cfg2")
+        self.inc_indent()
+        obj.cfg2.accept(self)
+        self.dec_indent()
+        self.add_txt_lst(obj.blocks_changed, tag="blocks-changed")
+        self.add_txt("block-mapping")
+        self.inc_indent()
+        for m in obj.cfg_block_mapping:
+            m.accept(self)
+        self.dec_indent()
         self.dec_indent()
 
     def visit_globalvar_comparison(
@@ -274,20 +242,3 @@ class JSONChecker(JSONObjectNOPVisitor):
             self, obj: InstrC.JSONInstructionComparison) -> None:
         self.add_newline()
         self.add_txt(obj.objname + " (tbd)")
-
-    def visit_xblock_detail(self, obj: BlockC.JSONXBlockDetail) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        self.add_txt(obj.baddr, tag="baddr")
-        self.add_txt(obj.role, tag="role")
-        self.dec_indent()
-
-    def visit_xedge_detail(self, obj: BlockC.JSONXEdgeDetail) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        self.add_txt(obj.src, tag="src")
-        self.add_txt(obj.tgt, tag="tgt")
-        self.add_txt(obj.role, tag="role")
-        self.dec_indent()

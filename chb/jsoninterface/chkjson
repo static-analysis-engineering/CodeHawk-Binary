@@ -87,11 +87,6 @@ def parse() -> argparse.Namespace:
         default=0)
     checkappc.set_defaults(func=JU.check_appc_cmd)
 
-    # --- check cfgcomparison
-    checkcfgc = checkparsers.add_parser("cfgc")
-    checkcfgc.add_argument("jsonfile", help="name of json file to inspect")
-    checkcfgc.set_defaults(func=JU.check_cfgc_cmd)
-
     # -- parse
     args = parser.parse_args()
     return args
