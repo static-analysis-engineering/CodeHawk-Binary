@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from chb.jsoninterface.JSONBlockComparison import (
     JSONBlockComparison, JSONBlockExpansion,
@@ -35,32 +35,6 @@ from chb.jsoninterface.JSONObject import JSONObject
 
 if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
-
-
-class JSONLocalVarsComparison(JSONObject):
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "localvarscomparison")
-
-    @property
-    def changes(self) -> List[str]:
-        return self.d.get("changes", [])
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_localvars_comparison(self)
-
-
-class JSONFunctionSemanticComparison(JSONObject):
-
-    def __init__(self, d: Dict[str, Any]) -> None:
-        JSONObject.__init__(self, d, "functionsemanticcomparison")
-
-    @property
-    def changes(self) -> List[str]:
-        return self.d.get("changes", [])
-
-    def accept(self, visitor: "JSONObjectVisitor") -> None:
-        visitor.visit_function_semantic_comparison(self)
 
 
 class JSONCfgEdgeComparison(JSONObject):
@@ -302,12 +276,6 @@ class JSONFunctionComparison(JSONObject):
         self._mapping: Optional[List[JSONCfgBlockMappingItem]] = None
         self._blocks_changed: Optional[List[str]] = None
 
-        # XXX: Possibly unused stuff
-        self._cfgcomparison: Optional[JSONCfgComparison] = None
-        self._localvarscomparison: Optional[JSONLocalVarsComparison] = None
-        self._semanticcomparison: Optional[JSONFunctionSemanticComparison] = None
-        self._blockanalyses: Optional[Dict[str, JSONBlockComparison]] = None
-
     @property
     def faddr1(self) -> str:
         return self.d.get("faddr1", self.property_missing("faddr1"))
@@ -377,50 +345,9 @@ class JSONFunctionComparison(JSONObject):
             self._mapping = result
         return self._mapping
 
-    ##### XXX Possibly unused stuff
     @property
     def matches(self) -> List[str]:
         return self.d.get("matches", [])
-
-    @property
-    def cfg_comparison(self) -> JSONCfgComparison:
-        if self._cfgcomparison is None:
-            self._cfgcomparison = JSONCfgComparison(
-                self.d.get("cfg-comparison", {}))
-        return self._cfgcomparison
-
-    @property
-    def localvars_comparison(self) -> JSONLocalVarsComparison:
-        if self._localvarscomparison is None:
-            self._localvarscomparison = JSONLocalVarsComparison(
-                self.d.get("localvars-comparison", {}))
-        return self._localvarscomparison
-
-    @property
-    def semantic_comparison(self) -> JSONFunctionSemanticComparison:
-        if self._semanticcomparison is None:
-            self._semanticcomparison = (
-                JSONFunctionSemanticComparison(
-                    self.d.get("semantic-comparison", {})))
-        return self._semanticcomparison
-
-    @property
-    def is_cfg_isomorphic(self) -> bool:
-        return "cfg-structure" in self.matches
-
-    @property
-    def block_mapping(self) -> Dict[str, str]:
-        return self.d.get("block-mapping", self.property_missing("block-mapping"))
-
-    @property
-    def block_analyses(self) -> Dict[str, JSONBlockComparison]:
-        if self._blockanalyses is None:
-            self._blockanalyses = {}
-            for baddr, blra_json in self.d.get("block-analyses", {}).items():
-                self._blockanalyses[baddr] = JSONBlockComparison(blra_json)
-
-        return self._blockanalyses
-    ##### XXX Possibly unused stuff
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_function_comparison(self)

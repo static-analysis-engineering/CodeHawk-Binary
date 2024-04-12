@@ -25,9 +25,6 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-
-from typing import Any, Dict, List, Optional, Union
-
 import chb.jsoninterface.JSONAppComparison as AppC
 from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
@@ -95,20 +92,12 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
             self, obj: AppC.JSONFunctionMD5) -> None:
         pass
 
-    def visit_function_semantic_comparison(
-            self, obj: FunC.JSONFunctionSemanticComparison) -> None:
-        pass
-
     def visit_globalvar_comparison(
             self, obj: AppC.JSONGlobalVarComparison) -> None:
         pass
 
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
-        pass
-
-    def visit_localvars_comparison(
-            self, obj: FunC.JSONLocalVarsComparison) -> None:
         pass
 
     def visit_xblock_detail(self, obj: BlockC.JSONXBlockDetail) -> None:

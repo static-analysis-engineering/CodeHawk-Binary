@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import List, Tuple
 
 import chb.jsoninterface.JSONAppComparison as AppC
 from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
@@ -256,9 +256,6 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_txt(obj.faddr2, tag="faddr2")
         self.add_txt_lst(obj.changes, tag="changes")
         self.add_txt_lst(obj.matches, tag="matches")
-        obj.cfg_comparison.accept(self)
-        obj.localvars_comparison.accept(self)
-        obj.semantic_comparison.accept(self)
         self.dec_indent()
 
     def visit_globalvar_comparison(
@@ -277,14 +274,6 @@ class JSONChecker(JSONObjectNOPVisitor):
             self, obj: InstrC.JSONInstructionComparison) -> None:
         self.add_newline()
         self.add_txt(obj.objname + " (tbd)")
-
-    def visit_localvars_comparison(
-            self, obj: FunC.JSONLocalVarsComparison) -> None:
-        self.add_newline()
-        self.add_txt(obj.objname)
-        self.inc_indent()
-        self.add_txt_lst(obj.changes, tag="changes")
-        self.dec_indent()
 
     def visit_xblock_detail(self, obj: BlockC.JSONXBlockDetail) -> None:
         self.add_newline()
