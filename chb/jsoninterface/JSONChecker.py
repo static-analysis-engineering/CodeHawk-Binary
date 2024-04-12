@@ -142,12 +142,12 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_newline()
         self.add_txt(obj.objname)
         self.inc_indent()
-        for i in obj.instructions_added:
-            i.accept(self)
-        for i in obj.instructions_removed:
-            i.accept(self)
-        for i in obj.instructions_changed:
-            i.accept(self)
+        for ia in obj.instructions_added:
+            ia.accept(self)
+        for ir in obj.instructions_removed:
+            ir.accept(self)
+        for ic in obj.instructions_changed:
+            ic.accept(self)
         self.dec_indent()
 
     def visit_callgraph_comaprison(

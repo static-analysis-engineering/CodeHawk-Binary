@@ -263,9 +263,9 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
                                        "block comparison details. This should not happen. "
                                        "Change function: %s" % obj)
 
-                instrs_changed = len(block_comparison.summary_instructions_changed)
+                num_instrs_changed = len(block_comparison.summary_instructions_changed)
                 instr_count = obj.instr_count1
-                instrs_changed = f"{instrs_changed} / {instr_count}"
+                instrs_changed = f"{num_instrs_changed} / {instr_count}"
                 instrs_added = str(len(block_comparison.summary_instructions_added))
                 instrs_removed = str(len(block_comparison.summary_instructions_removed))
                 add_txt(obj, moved, md5eq, instrs_changed, instrs_added, instrs_removed)
@@ -294,9 +294,9 @@ class JSONRelationalReport(JSONObjectNOPVisitor):
 
         if obj.instructions_added:
             self.instr_changes_txt.append("\n- Instructions added:")
-            for instr_comp in obj.instructions_added:
+            for new_instr in obj.instructions_added:
                 self.instr_changes_txt.append("")
-                instr_comp.accept(self)
+                new_instr.accept(self)
 
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
