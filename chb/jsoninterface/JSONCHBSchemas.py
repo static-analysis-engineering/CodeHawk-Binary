@@ -998,7 +998,16 @@ blockcomparison = {
     "type": "object",
     "required": ["block-comparison-summary", "block-comparison-details"],
     "properties": {
-        # TODO: Need to document these
+        # TODO: Need to document these (See BlockRelationalAnalysis.to_json_result)
+        # - block-comparison-summary
+        #   - block-instructions-changed
+        #   - block-instructions-removed
+        #   - block-instructions-added
+        #   - changes
+        # - block-comparison-details
+        #   - instructions-changed
+        #   - instructions-removed
+        #   - instructions-added
     }
 }
 

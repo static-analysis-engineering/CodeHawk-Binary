@@ -49,12 +49,9 @@ class JSONBlockComparison(JSONObject):
             Optional[List[JSONInstructionComparison]]) = None
 
     def _get_instr_comparison_summary(self) -> Dict[str, Any]:
-        block_summary: Dict[str, Any] = \
+        instr_summary: Dict[str, Any] = \
             self.d.get("block-comparison-summary",
                        self.property_missing("block-comparison-summary"))
-        instr_summary: Dict[str, Any] = \
-            block_summary.get("block-instructions-comparison-summary",
-                              self.property_missing("block-instructions-comparison-summary"))
         return instr_summary
 
     @property

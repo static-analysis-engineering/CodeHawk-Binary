@@ -245,7 +245,7 @@ class BlockRelationalAnalysis:
         content["cfg2-blocks"] = cfg2blocks
 
         block_comparison: Dict[str, Any] = {}
-        bsummary = self.block_comparison_summary_result(callees)
+        bsummary = self.instructions_comparison_summary_result(callees)
         if bsummary:
             if not bsummary.is_ok:
                 return JSONResult(schema, {}, "fail", bsummary.reason)
@@ -261,27 +261,6 @@ class BlockRelationalAnalysis:
         if block_comparison:
             # Can be read back using JSONBlockComparison
             content['blockcomparison'] = block_comparison
-
-        return JSONResult(schema, content, "ok")
-
-    def block_comparison_summary_result(self, callees: List[str]) -> Optional[JSONResult]:
-        schema = "blockcomparisonsummary"
-        content: Dict[str, Any] = {}
-        binstrs = self.instructions_comparison_summary_result(callees)
-        if binstrs:
-            if not binstrs.is_ok:
-                return JSONResult(schema, {}, "fail", binstrs.reason)
-
-            content["block-instructions-comparison-summary"] = binstrs.content
-
-        bsem = self.semantics_comparison_summary_result()
-        if bsem:
-            if not bsem.is_ok:
-                return JSONResult(schema, {}, "fail", bsem.reason)
-            content["block-semantics-comparison-summary"] = bsem.content
-
-        if not content:
-            return None
 
         return JSONResult(schema, content, "ok")
 
@@ -309,14 +288,6 @@ class BlockRelationalAnalysis:
             return None
 
         content["changes"] = changes
-        return JSONResult(schema, content, "ok")
-
-    def semantics_comparison_summary_result(self) -> Optional[JSONResult]:
-        schema = "blocksemanticscomparisonsummary"
-        content: Dict[str, Any] = {}
-        if not content:
-            return None
-
         return JSONResult(schema, content, "ok")
 
     def block_comparison_details_result(self) -> Optional[JSONResult]:
