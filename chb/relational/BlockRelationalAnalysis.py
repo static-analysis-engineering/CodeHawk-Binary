@@ -80,6 +80,18 @@ class BlockRelationalAnalysis:
         return self.b2map["entry"]
 
     @property
+    def b2instructions(self) -> Mapping[str, "Instruction"]:
+        if "entry" in self.b2map and "exit" in self.b2map:
+            result: Dict[str, "Instruction"] = {}
+            for (a, instr) in self.b2map["entry"].instructions.items():
+                result[a] = instr
+            for (a, instr) in self.b2map["exit"].instructions.items():
+                result[a] = instr
+            return result
+        else:
+            return self.b2.instructions
+
+    @property
     def b1len(self) -> int:
         return len(self.b1.instructions)
 
@@ -148,13 +160,13 @@ class BlockRelationalAnalysis:
     def levenshtein_distance(self) -> Tuple[
             int, List[Tuple[Optional[int], Optional[int]]]]:
         s1 = [i.bytestring for (a, i) in sorted(self.b1.instructions.items())]
-        s2 = [i.bytestring for (a, i) in sorted(self.b2.instructions.items())]
+        s2 = [i.bytestring for (a, i) in sorted(self.b2instructions.items())]
         return UR.levenshtein(s1, s2)
 
     def match_instructions(
             self, mapping: List[Tuple[Optional[int], Optional[int]]]) -> None:
         b1addrs = sorted(self.b1.instructions.keys())
-        b2addrs = sorted(self.b2.instructions.keys())
+        b2addrs = sorted(self.b2instructions.keys())
         for (x, y) in mapping:
             if x is not None and y is not None:
                 self._instrmapping[b1addrs[x]] = b2addrs[y]
@@ -166,8 +178,8 @@ class BlockRelationalAnalysis:
             for iaddr1 in self.b1.instructions:
                 if iaddr1 in self.instr_mapping:
                     iaddr2 = self.instr_mapping[iaddr1]
-                    if iaddr2 in self.b2.instructions:
-                        instr2: Optional["Instruction"] = self.b2.instructions[iaddr2]
+                    if iaddr2 in self.b2instructions:
+                        instr2: Optional["Instruction"] = self.b2instructions[iaddr2]
                     else:
                         instr2 = None
                     self._instranalyses[iaddr1] = InstructionRelationalAnalysis(
@@ -195,7 +207,7 @@ class BlockRelationalAnalysis:
 
     def instrs_added(self) -> List[str]:
         result: List[str] = []
-        for iaddr2 in self.b2.instructions:
+        for iaddr2 in self.b2instructions:
             if iaddr2 not in self.rev_instr_mapping:
                 result.append(iaddr2)
         return result
@@ -339,7 +351,7 @@ class BlockRelationalAnalysis:
                     lines.append("  P: not mapped")
                     lines.append("")
 
-        for iaddr2 in self.b2.instructions:
+        for iaddr2 in self.b2instructions:
 
             def calls(callees: List[str], ann: str) -> bool:
                 for c in callees:
@@ -349,7 +361,7 @@ class BlockRelationalAnalysis:
                     return False
 
             if iaddr2 not in self.rev_instr_mapping:
-                b2instr = self.b2.instructions[iaddr2]
+                b2instr = self.b2instructions[iaddr2]
                 if len(callees) > 0 and calls(callees, b2instr.annotation):
                     pass
 

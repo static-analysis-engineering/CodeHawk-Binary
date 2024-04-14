@@ -384,7 +384,7 @@ class FunctionRelationalAnalysis:
             trampoline = cast("ARMCfgTrampolineBlock", self.cfgtc_blocks2[b])
             tpre = trampoline.prenodes
             tpost = trampoline.postnodes
-            if len(tpre) == 1 and len(tpre) == 1:
+            if len(tpre) == 1 and len(tpost) == 1:
                 if (
                         tpre[0] in cfg2unmapped
                         and tpost[0] in cfg2unmapped
