@@ -235,9 +235,6 @@ class BlockRelationalAnalysis:
 
         cfg2blocks: List[Dict[str, Any]] = []
         for (role, block2) in self.b2map.items():
-            # XXX: This is weird. What would be the role otherwise?
-            if len(self.b2map) == 1:
-                role = "single-mapped"
             b2content: Dict[str, Any] = {}
             b2content["cfg2-block-addr"] = block2.baddr
             b2content["role"] = role
