@@ -93,5 +93,9 @@ class CfgBlock:
         return False
 
     @property
+    def is_trampoline_minimal_pair_2_and_3(self) -> bool:
+        return False
+
+    @property
     def roles(self) -> Dict[str, str]:
         return {}

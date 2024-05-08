@@ -31,6 +31,7 @@ import xml.etree.ElementTree as ET
 from chb.app.CfgBlock import CfgBlock
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 from typing import Dict, List, Optional, TYPE_CHECKING
 
@@ -126,7 +127,11 @@ class ARMCfgTrampolineBlock(ARMCfgBlock):
 
     @property
     def is_trampoline(self) -> bool:
-        return True
+        return self.trampoline_info.patchevent.is_trampoline
+
+    @property
+    def is_trampoline_minimal_pair_2_and_3(self) -> bool:
+        return self.trampoline_info.patchevent.is_trampoline_pair_minimal_2_and_3
 
     @property
     def trampoline_info(self) -> "TrampolineInfo":

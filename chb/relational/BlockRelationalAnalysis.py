@@ -34,6 +34,7 @@ from chb.relational.InstructionRelationalAnalysis import (
 
 import chb.relational.relationalutil as UR
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
@@ -80,13 +81,19 @@ class BlockRelationalAnalysis:
         return self.b2map["entry"]
 
     @property
+    def hook(self) -> Optional[str]:
+        if "entry" in self.b2map:
+            return self.b2map["entry"].lastaddr
+        else:
+            return None
+
+    @property
     def b2instructions(self) -> Mapping[str, "Instruction"]:
         if "entry" in self.b2map and "exit" in self.b2map:
             result: Dict[str, "Instruction"] = {}
-            for (a, instr) in self.b2map["entry"].instructions.items():
-                result[a] = instr
-            for (a, instr) in self.b2map["exit"].instructions.items():
-                result[a] = instr
+            for b in self.b2map.values():
+                for (a, instr) in b.instructions.items():
+                    result[a] = instr
             return result
         else:
             return self.b2.instructions
@@ -124,9 +131,12 @@ class BlockRelationalAnalysis:
                 return self.b1.md5() == self.b2.rev_md5()
 
     def _compute_instr_mappings(self) -> None:
-        (dist, mapping) = self.levenshtein_distance()
-        self._distance = dist
-        self.match_instructions(mapping)
+        if self.hook is not None:
+            self.match_instructions_trampoline()
+        else:
+            (dist, mapping) = self.levenshtein_distance()
+            self._distance = dist
+            self.match_instructions(mapping)
 
     @property
     def instr_mapping(self) -> Mapping[str, str]:
@@ -174,6 +184,26 @@ class BlockRelationalAnalysis:
             if x is not None and y is not None:
                 self._instrmapping[b1addrs[x]] = b2addrs[y]
                 self._revinstrmapping[b2addrs[y]] = b1addrs[x]
+
+    def match_instructions_trampoline(self) -> None:
+
+        # first match instructions by address
+        for iaddr1 in self.b1.instructions:
+            if iaddr1 == self.hook:
+                continue
+            if iaddr1 in self.b2instructions:
+                self._instrmapping[iaddr1] = iaddr1
+                self._revinstrmapping[iaddr1] = iaddr1
+
+        # then check if the original addresses that were not matched
+        # are provided in the instructions of the trampoline
+        for iaddr1 in self.b1.instructions:
+            if iaddr1 not in self._instrmapping:
+                for iaddr2 in self.b2instructions:
+                    if iaddr2 not in self._revinstrmapping:
+                        if self.b1.instructions[iaddr1].bytestring == self.b2instructions[iaddr2].bytestring:
+                            self._instrmapping[iaddr1] = iaddr2
+                            self._revinstrmapping[iaddr2] = iaddr1
 
     @property
     def instr_analyses(self) -> Mapping[str, InstructionRelationalAnalysis]:
@@ -305,11 +335,10 @@ class BlockRelationalAnalysis:
 
         iadded = []
         for iaddr in self.instrs_added():
-            ira = self.instr_analyses[iaddr]
-            iresult = ira.to_json_result()
+            instr = self.b2instructions[iaddr]
+            iresult = instr.to_json_result()
             if not iresult.is_ok:
                 return JSONResult(schema, {}, "fail", iresult.reason)
-
             iadded.append(iresult.content)
 
         if iadded:

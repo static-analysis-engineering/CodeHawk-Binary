@@ -95,6 +95,13 @@ class JSONCfgBlockMappingItem(JSONObject):
             if role == "setupblock":
                 return b_addr
 
+        else:
+            # the TrampolinePairMinimal2and3 patch has just one block: payload
+            # (which is called wrapper in the patch results file)
+            for (b_addr, role) in self.cfg2_blocks:
+                if role == "payload":
+                    return b_addr
+
         return None
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
