@@ -45,6 +45,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
+    from chb.invariants.XXpr import XprCompound
 
 
 @armregistry.register_tag("LDRB", ARMOpcode)
@@ -185,10 +186,17 @@ class ARMLoadRegisterByte(ARMOpcode):
             addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
             hl_rhs = astree.mk_lval_expression(addrlval)
 
+        elif (
+                rhs.is_compound and cast("XprCompound", rhs).is_lsb
+                and cast("XprCompound", rhs).lsb_operand().has_unknown_memory_base()):
+            addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+            hl_rhs = astree.mk_lval_expression(addrlval)
+
         elif str(hl_rhs).startswith("localvar"):
             deflocs = xdata.reachingdeflocs_for_s(str(rhs))
             if len(deflocs) == 1:
-                definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
+                definition = astree.localvardefinition(
+                    str(deflocs[0]), str(hl_rhs))
                 if definition is not None:
                     hl_rhs = definition
 
