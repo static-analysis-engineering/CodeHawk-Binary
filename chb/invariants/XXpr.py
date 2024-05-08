@@ -856,6 +856,16 @@ class XprCompound(XXpr):
         return str(self)
 
     @property
+    def is_lsb(self) -> bool:
+        return self.operator == "lsb"
+
+    def lsb_operand(self) -> XXpr:
+        if self.operator == "lsb":
+            return self.operands[0]
+        else:
+            raise UF.CHBError("Expression is not an lsb operation")
+
+    @property
     def is_four_multiple(self) -> bool:
         if self.operator == 'mult':
             args = self.operands
