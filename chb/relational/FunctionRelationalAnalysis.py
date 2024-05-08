@@ -387,6 +387,12 @@ class FunctionRelationalAnalysis:
             if trampoline is not None:
                 self.setup_trampoline_analysis(trampoline)
 
+            else:
+                trampoline_minimal_pair_2_and_3 = self.has_minimal_pair_2_and_3_trampoline()
+                if trampoline_minimal_pair_2_and_3 is not None:
+                    self.setup_minimal_pair_2_and_3_trampoline_analysis(
+                        trampoline_minimal_pair_2_and_3)
+
         return self._blockanalyses
 
     def setup_trampoline_analysis(self, b: str) -> None:
@@ -413,9 +419,40 @@ class FunctionRelationalAnalysis:
                         self.app2,
                         roles)
 
+    def setup_minimal_pair_2_and_3_trampoline_analysis(self, b: str) -> None:
+        chklogger.logger.info("Setup minimal_pair_2_and_3_trampoline at %s", b)
+        cfg1unmapped = self.cfgmatcher.unmapped_blocks1
+        cfg2unmapped = [
+            b for b in self.cfgmatcher.unmapped_blocks2 if b in self.cfgtc_blocks2]
+        if (b in cfg2unmapped):
+            trampoline = cast("ARMCfgTrampolineBlock", self.cfgtc_blocks2[b])
+            tpre = trampoline.prenodes
+            tpost = trampoline.postnodes
+            if len(tpre) == 1 and len (tpost) == 1:
+                if (
+                        tpre[0] in cfg2unmapped
+                        and tpost[0] in cfg2unmapped
+                        and tpre[0] in cfg1unmapped):
+                    roles: Dict[str, "BasicBlock"] = {}
+                    roles["entry"] = self.basic_blocks2[tpre[0]]
+                    roles["exit"] = self.basic_blocks2[tpost[0]]
+                    for (role, addr) in trampoline.roles.items():
+                        roles[role] = self.basic_blocks2[addr]
+                    self._blockanalyses[tpre[0]] = BlockRelationalAnalysis(
+                        self.app1,
+                        self.basic_blocks1[tpre[0]],
+                        self.app2,
+                        roles)
+
     def has_trampoline(self) -> Optional[str]:
         for (b, cfgb) in self.cfgtc_blocks2.items():
             if cfgb.is_trampoline:
+                return b
+        return None
+
+    def has_minimal_pair_2_and_3_trampoline(self) -> Optional[str]:
+        for (b, cfgb) in self.cfgtc_blocks2.items():
+            if cfgb.is_trampoline_minimal_pair_2_and_3:
                 return b
         return None
 

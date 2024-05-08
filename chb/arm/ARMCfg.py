@@ -37,6 +37,7 @@ from chb.arm.ARMCfgBlock import ARMCfgBlock, ARMCfgTrampolineBlock
 import chb.arm.ARMCfgPath as P
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 
 if TYPE_CHECKING:
@@ -199,6 +200,12 @@ class ARMCfg(Cfg):
                 continue
 
             trampolines[baddr] = trinfo = TrampolineInfo(patchevent)
+
+            if patchevent.is_trampoline_pair_minimal_2_and_3:
+                chklogger.logger.info("Trampoline pair minimal 2 and 3 %s", baddr)
+                trinfo.add_role("payload", baddr)
+                trampolineblocks[baddr] = baddr
+                continue
 
             trinfo.add_role("setupblock", baddr)
             trampolineblocks[baddr] = baddr

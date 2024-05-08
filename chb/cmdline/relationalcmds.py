@@ -339,7 +339,9 @@ def _relational_compare_generate_json(xname1: str,
     if patchresultsdata is not None:
         patchresults = PatchResults(patchresultsdata)
         for event in patchresults.events:
-            if event.is_trampoline:
+            if (
+                    event.is_trampoline
+                    or event.is_trampoline_pair_minimal_2_and_3):
                 if event.has_wrapper():
                     startaddr = event.wrapper.vahex
                     patchevents[startaddr] = event
@@ -505,7 +507,9 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     if patchresultsdata is not None:
         patchresults = PatchResults(patchresultsdata)
         for event in patchresults.events:
-            if event.is_trampoline:
+            if (
+                    event.is_trampoline
+                    or event.is_trampoline_pair_minimal_2_and_3):
                 if event.has_wrapper():
                     startaddr = event.wrapper.vahex
                     patchevents[startaddr] = event
