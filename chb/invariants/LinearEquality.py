@@ -5,8 +5,8 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2020      Henny B. Sipma
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,9 @@
 # ------------------------------------------------------------------------------
 """Invariant expressed by a linear equality."""
 
-from typing import Any, Dict, Iterator, List, Sequence, Tuple, TYPE_CHECKING
+from dataclasses import dataclass
+from typing import (
+    Any, Dict, Iterator, List, Optional, Sequence, Tuple, TYPE_CHECKING)
 
 from chb.invariants.FnDictionaryRecord import FnInvDictionaryRecord
 from chb.invariants.XSymbol import XSymbol
@@ -43,6 +45,12 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.invariants.FnInvDictionary import FnInvDictionary
+
+
+@dataclass
+class LineqTerm:
+    coeff: int
+    variable: XVariable
 
 
 class LinearEquality(FnInvDictionaryRecord):
@@ -70,6 +78,25 @@ class LinearEquality(FnInvDictionaryRecord):
     @property
     def factors(self) -> Sequence[XVariable]:
         return [self.xd.variable(i) for i in self.args]
+
+    @property
+    def terms(self) -> List[LineqTerm]:
+        result: List[LineqTerm] = []
+        for (c, f) in zip(self.coefficients, self.factors):
+            result.append(LineqTerm(c, f))
+        return result
+
+    @property
+    def simple_equality(self) -> Optional[Tuple[XVariable, XVariable]]:
+        terms = self.terms
+        if len(terms) == 2 and self.constant == 0:
+            term1 = terms[0]
+            term2 = terms[1]
+            if (
+                    (term1.coeff == 1 and term2.coeff == -1)
+                    or (term1.coeff == -1 and term2.coeff == 1)):
+                return (term1.variable, term2.variable)
+        return None
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}

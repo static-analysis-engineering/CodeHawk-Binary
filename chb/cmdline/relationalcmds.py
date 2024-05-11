@@ -746,21 +746,23 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
                 if fact.is_nonrelational and not "@" in str(fact.variable):
                     fact = cast(NRVFact, fact)
                     f1table.setdefault(loc, {})
-                    f1table[loc][str(fact.variable)] = fact.value
+                    if str(fact.variable) != "PC":
+                        f1table[loc][str(fact.variable)] = fact.value
         for loc in f2invariants:
             for fact in f2invariants[loc]:
                 if fact.is_nonrelational and not "@" in str(fact.variable):
                     fact = cast(NRVFact, fact)
                     f2table.setdefault(loc, {})
-                    f2table[loc][str(fact.variable)] = fact.value
+                    if str(fact.variable) != "PC":
+                        f2table[loc][str(fact.variable)] = fact.value
         comparison: Dict[str, Dict[
             str,
             Tuple[Optional[NonRelationalValue],
-                      Optional[NonRelationalValue]]]] = {}
+                  Optional[NonRelationalValue]]]] = {}
         for loc in f1table:
             comparison.setdefault(loc, {})
+            f1values = f1table[loc]
             if loc in f2table:
-                f1values = f1table[loc]
                 f2values = f2table[loc]
                 for v1 in f1values:
                     if v1 in f2values:
