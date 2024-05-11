@@ -24,11 +24,31 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+"""Describes the structure of a patch applied to a function.
+
+The patch results file is a json file produced by the patcher that describes
+the components of a patch and their locations in the patched executable.
+
+The purpose of the patch results file is to inform the analyzer about the
+structure of the patch to facilitate a better lifting and to enable proper
+validation of the various components.
+
+The main access point for the patch results data is through the PatchParticulars
+class, which also collects validation results for the patch.
+
+The PatchParticulars class file also contains a detailed description of the
+structure of the different kinds of patches and their respective requirements:
+
+chb/relational/PatchParticulars.py
+
+
+"""
 import json
 
 from typing import Any, Dict, List, Optional
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 
 class PatchPayload:
@@ -90,6 +110,8 @@ class PatchWrapper:
 
     @property
     def vahex(self) -> str:
+        """Returns the hex start address of the wrapper."""
+
         return self._d.get("vahex", "0x0")
 
     def __str__(self) -> str:
@@ -138,14 +160,33 @@ class PatchDetails:
 
 class PatchLabelOffsets:
 
-    def __init__(self, d: Dict[str, Any]) -> None:
+    def __init__(self, d: Dict[str, Any], base: str) -> None:
         self._d = d
+        self._base = base
+
+    @property
+    def base(self) -> str:
+        """Returns the hex base address for the offsets."""
+
+        return self._base
+
+    def _convert_offset(self, offset: int) -> str:
+        """Returns the virtual address corresponding to the offset."""
+
+        return hex(offset + int(self.base, 16))
 
     def label_offset(self, label: str) -> int:
         return self._d.get(label, 0)
 
-    def label_address(self, base: str, label: str) -> str:
-        return hex(int(base, 16) + self.label_offset(label))
+    def label_address(self, label: str) -> str:
+        return self._convert_offset(self.label_offset(label))
+
+    @property
+    def case_fallthrough_jump(self) -> Optional[str]:
+        label = "case_fallthrough_jump"
+        if label in self._d:
+            return self.label_address(label)
+        return None
 
     @property
     def dispatch_offsets(self) -> Dict[str, int]:
@@ -155,11 +196,12 @@ class PatchLabelOffsets:
                 result[name] = self._d[name]
         return result
 
-    def dispatch_addresses(self, base: str) -> Dict[str, str]:
+    @property
+    def dispatch_addresses(self) -> Dict[str, str]:
         result: Dict[str, str] = {}
         for label in self._d:
             if label.startswith("dispatch_"):
-                result[label] = self.label_address(base, label)
+                result[label] = self.label_address(label)
         return result
 
 
@@ -203,18 +245,29 @@ class PatchDestinations:
 
 class PatchExtras:
 
-    def __init__(self, d: Dict[str, Any]) -> None:
+    def __init__(self, d: Dict[str, Any], base: str) -> None:
         self._d = d
+        self._base = base
+
+    @property
+    def base(self) -> str:
+        return self._base
 
     def has_labeloffsets(self) -> bool:
         return "labeloffsets" in self._d
 
     @property
     def labeloffsets(self) -> PatchLabelOffsets:
-        return PatchLabelOffsets(self._d.get("labeloffsets", {}))
+        return PatchLabelOffsets(self._d.get("labeloffsets", {}), self.base)
 
     def has_destinations(self) -> bool:
         return "destinations" in self._d
+
+    @property
+    def case_fallthrough_jump(self) -> Optional[str]:
+        if self.has_labeloffsets():
+            return self.labeloffsets.case_fallthrough_jump
+        return None
 
     @property
     def destinations(self) -> PatchDestinations:
@@ -223,8 +276,9 @@ class PatchExtras:
     def has_fallthrough_destination(self) -> bool:
         return self.destinations.has_fallthrough()
 
-    def dispatch_addresses(self, base: str) -> Dict[str, str]:
-        return self.labeloffsets.dispatch_addresses(base)
+    @property
+    def dispatch_addresses(self) -> Dict[str, str]:
+        return self.labeloffsets.dispatch_addresses
 
     def __str__(self) -> str:
         lines: List[str] = []
@@ -260,6 +314,10 @@ class PatchEvent:
     def is_trampoline_pair_minimal_2_and_3(self) -> bool:
         return self.patchkind == "TrampolinePairMinimal2and3"
 
+    @property
+    def is_supported(self) -> bool:
+        return (self.is_trampoline or self.is_trampoline_pair_minimal_2_and_3)
+
     def has_details(self) -> bool:
         return "details" in self._d
 
@@ -272,13 +330,15 @@ class PatchEvent:
 
     @property
     def extras(self) -> PatchExtras:
-        return PatchExtras(self._d.get("extras", {}))
+        base = self.wrapper.vahex
+        return PatchExtras(self._d.get("extras", {}), base)
 
-    def label_address(self, base: str, label: str) -> str:
-        return self.extras.labeloffsets.label_address(base, label)
+    def label_address(self, label: str) -> str:
+        return self.extras.labeloffsets.label_address(label)
 
-    def dispatch_addresses(self, base: str) -> Dict[str, str]:
-        return self.extras.dispatch_addresses(base)
+    @property
+    def dispatch_addresses(self) -> Dict[str, str]:
+        return self.extras.dispatch_addresses
 
     def has_wrapper(self) -> bool:
         return self.details.has_wrapper()
@@ -304,6 +364,13 @@ class PatchEvent:
     @property
     def fallthrough_destination(self) -> Optional[str]:
         return self.extras.destinations.fallthrough
+
+    @property
+    def case_fallthrough_jump(self) -> Optional[str]:
+        if self.has_wrapper():
+            base = self.wrapper.vahex
+            return self.extras.case_fallthrough_jump
+        return None
 
     def __str__(self) -> str:
         lines: List[str] = []
@@ -347,6 +414,8 @@ class PatchResults:
                     r["wrapper"] = e.wrapper.vahex
                 if e.has_fallthrough_destination() and e.fallthrough_destination:
                     r["fallthrough"] = e.fallthrough_destination
+                if e.case_fallthrough_jump is not None:
+                    r["fallthrough-jump"] = e.case_fallthrough_jump
                 result.append(r)
             elif e.is_trampoline_pair_minimal_2_and_3:
                 r["logicalva"] = e.logicalva
@@ -355,6 +424,8 @@ class PatchResults:
                     r["wrapper"] = e.wrapper.vahex
                 if e.has_fallthrough_destination() and e.fallthrough_destination:
                     r["fallthrough"] = e.fallthrough_destination
+                if e.case_fallthrough_jump is not None:
+                    r["fallthrough-jump"] = e.case_fallthrough_jump
                 result.append(r)
         return result
 
