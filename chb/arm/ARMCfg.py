@@ -216,7 +216,7 @@ class ARMCfg(Cfg):
                     + baddr)
                 exit(1)
 
-            for (label, addr) in patchevent.dispatch_addresses(baddr).items():
+            for (label, addr) in patchevent.dispatch_addresses.items():
                 trinfo.add_role(label, addr)
                 trampolineblocks[addr] = baddr
 
@@ -247,22 +247,22 @@ class ARMCfg(Cfg):
                             trampolineblocks[fa] = baddr
 
             if "fallthrough" in canonical_cases:
-                caseaddr = patchevent.label_address(baddr, "case_fallthrough")
+                caseaddr = patchevent.label_address("case_fallthrough")
                 trinfo.add_role("fallthrough", caseaddr)
                 trampolineblocks[caseaddr] = baddr
 
             if "break" in canonical_cases:
-                caseaddr = patchevent.label_address(baddr, "case_break")
+                caseaddr = patchevent.label_address("case_break")
                 trinfo.add_role("breakout", caseaddr)
                 trampolineblocks[caseaddr] = baddr
 
             if "continue" in canonical_cases:
-                caseaddr = patchevent.label_address(baddr, "case_continue")
+                caseaddr = patchevent.label_address("case_continue")
                 trinfo.add_role("continuepath", caseaddr)
                 trampolineblocks[caseaddr] = baddr
 
             if "return" in canonical_cases:
-                caseaddr = patchevent.label_address(baddr, "case_return")
+                caseaddr = patchevent.label_address("case_return")
                 trinfo.add_role("returnpath", caseaddr)
                 trampolineblocks[caseaddr] = baddr
 
