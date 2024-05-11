@@ -107,6 +107,7 @@ from chb.x86.X86Access import X86Access
 if TYPE_CHECKING:
     import chb.app.Instruction
     import chb.arm.ARMInstruction
+    from chb.invariants.InvariantFact import RelationalFact
     import chb.mips.MIPSInstruction
     import chb.x86.X86Instruction
 
@@ -1146,6 +1147,12 @@ def results_invariants(args: argparse.Namespace) -> NoReturn:
                                 or fact.is_initial_var_equality):
                             continue
                         pfact = str(fact)
+                        if fact.is_relational:
+                            fact = cast("RelationalFact", fact)
+                            equality = fact.equality.simple_equality
+                            if equality is not None:
+                                pfact = f"{equality[0]} == {equality[1]} (eq)"
+
                         if len(xinclude) == 0:
                             if in_exclude(pfact):
                                 continue
