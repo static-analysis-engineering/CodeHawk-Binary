@@ -100,7 +100,7 @@ def json_to_simval(d: Dict[str, Any]) -> SV.SimValue:
         raise UF.CHBError("No deserialization implemented yet for id = " + id)
 
 
-def byte_from_dw(dw: SV.SimDoubleWordValue, pos: int, bigendian=False) -> int:
+def byte_from_dw(dw: SV.SimDoubleWordValue, pos: int, bigendian: bool = False) -> int:
     if dw.is_defined:
         if bigendian:
             if pos == 0:

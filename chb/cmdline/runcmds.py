@@ -36,7 +36,7 @@ import time
 from contextlib import contextmanager
 from multiprocessing import Pool
 
-from typing import Any, cast, Dict, List, NoReturn, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Iterator, cast, Dict, List, NoReturn, Optional, Tuple, TYPE_CHECKING
 
 import chb.app.AppAccess as AP
 import chb.cmdline.commandutil as UC
@@ -61,7 +61,7 @@ def do_cmd(cmd: Tuple[Optional[str], List[str]]) -> Tuple[List[str], int]:
 
 
 @contextmanager
-def timing(activity):
+def timing(activity: str) -> Iterator[None]:
     t0 = time.time()
     yield
     print(

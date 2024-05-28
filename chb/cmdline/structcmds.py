@@ -192,7 +192,7 @@ class StructureClassification:
         self._baserhss: Dict[str, Dict[str, int]] = {}
         self._datastructures: Dict[str, DataStructure] = {}
 
-    def add_function(self, faddr) -> None:
+    def add_function(self, faddr: str) -> None:
         if not faddr in self.functions:
             self._functions[faddr] = StructuredFunction(faddr)
 

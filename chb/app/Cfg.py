@@ -582,7 +582,7 @@ class Cfg:
                     for succ in succs[1:]:
                       bodystmts.extend(switch_case_stmts(succ))
 
-                    # If the default case merely falls through, it can be omitted. 
+                    # If the default case merely falls through, it can be omitted.
                     defaultstmts = do_branch(x, succs[0], ctx)
                     if defaultstmts != []:
                       defaultcase = astree.mk_block(defaultstmts,

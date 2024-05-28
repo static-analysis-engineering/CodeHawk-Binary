@@ -38,7 +38,7 @@ from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 
 class ASTreeSetup:
 
-    def __init__(self, name: str, faddr="0x0") -> None:
+    def __init__(self, name: str, faddr: str = "0x0") -> None:
         self._astapi = ASTApplicationInterface()
         self._localsymboltable = ASTLocalSymbolTable(
             self._astapi.globalsymboltable)

@@ -138,7 +138,7 @@ class InterfaceDictionary:
     def fts_parameter(self, ix: int) -> FtsParameter:
         return FtsParameter(self, self.fts_parameter_table.retrieve(ix))
 
-    def xpredicate(self, ix) -> XXPredicate:
+    def xpredicate(self, ix: int) -> XXPredicate:
         return apiregistry.mk_instance(
             self, self.xxpredicate_table.retrieve(ix), XXPredicate)
 
