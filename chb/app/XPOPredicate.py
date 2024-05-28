@@ -289,6 +289,7 @@ class XPOEnum(XPOPredicate):
             self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
         XPOPredicate.__init__(self, xpod, ixval)
 
+    @property
     def is_xpo_enum(self) -> bool:
         return True
 

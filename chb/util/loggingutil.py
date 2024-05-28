@@ -28,7 +28,7 @@
 
 import logging
 from enum import Enum
-from typing import Optional, Union
+from typing import Optional, List
 
 
 class LogLevel(str, Enum):
@@ -44,12 +44,12 @@ class LogLevel(str, Enum):
     debug = "DEBUG"
 
     @classmethod
-    def all(cls):
+    def all(cls) -> List['LogLevel']:
         return [x for x in cls]
 
     @classmethod
-    def options(cls):
-        return [x for x in cls] + ["NONE"]
+    def options(cls) -> List[str]:
+        return [x.value for x in cls] + ["NONE"]
 
 
 class CHKLogger:
@@ -66,7 +66,7 @@ class CHKLogger:
             self,
             initmsg: str = "",
             level: str = LogLevel.warning,
-            logfilename: str = None,
+            logfilename: Optional[str] = None,
             mode: str = "a") -> None:
 
         if not level in LogLevel.all():
