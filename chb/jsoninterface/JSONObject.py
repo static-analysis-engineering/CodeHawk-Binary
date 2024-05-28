@@ -48,7 +48,7 @@ class JSONObject(ABC):
     def objname(self) -> str:
         return self._objname
 
-    def property_missing(self, propname) -> str:
+    def property_missing(self, propname: str) -> str:
         return "missing:" + self.objname + ":" + propname
 
     @abstractmethod

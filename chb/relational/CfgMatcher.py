@@ -132,25 +132,25 @@ class CfgMatcher:
     def same_endianness(self) -> bool:
         return self.app1.header.is_big_endian == self.app2.header.is_big_endian
 
-    def src1post(self, src1) -> List[str]:
+    def src1post(self, src1: str) -> List[str]:
         if src1 in self._src1map:
             return self._src1map[src1]
         else:
             return []
 
-    def src2post(self, src2) -> List[str]:
+    def src2post(self, src2: str) -> List[str]:
         if src2 in self._src2map:
             return self._src2map[src2]
         else:
             return []
 
-    def tgt1pre(self, tgt1) -> List[str]:
+    def tgt1pre(self, tgt1: str) -> List[str]:
         if tgt1 in self._tgt1map:
             return self._tgt1map[tgt1]
         else:
             return []
 
-    def tgt2pre(self, tgt2) -> List[str]:
+    def tgt2pre(self, tgt2: str) -> List[str]:
         if tgt2 in self._tgt2map:
             return self._tgt2map[tgt2]
         else:

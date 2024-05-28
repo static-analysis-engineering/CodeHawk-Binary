@@ -326,7 +326,7 @@ class PreRelationalCondition(FunctionPrecondition):
                 btermregistry.mk_instance(self.semantics, self.xterm(1), BTerm))
         return self._arg2
 
-    def refers_to_parameter(self, name) -> bool:
+    def refers_to_parameter(self, name: str) -> bool:
         return (
             self.arg1.refers_to_parameter(name)
             or self.arg2.refers_to_parameter(name))

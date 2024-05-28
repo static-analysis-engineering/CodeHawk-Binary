@@ -77,8 +77,8 @@ class AnalysisManager(object):
             fns_include: List[str] = [],
             show_function_timing: bool = False,
             gc_compact: int = 0,
-            lineq_instr_cutoff = 0,
-            lineq_block_cutoff = 0,
+            lineq_instr_cutoff: int = 0,
+            lineq_block_cutoff: int = 0,
             use_ssa: bool = False,
             include_arm_extension_registers: bool = False,
             hints: Dict[str, Any] = {}) -> None:

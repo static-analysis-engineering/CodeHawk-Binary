@@ -1218,13 +1218,13 @@ class AbstractSyntaxTree:
                 return e
 
         # Helpers to get a signed/unsigned version of a type
-        def withsign(ikind):
+        def withsign(ikind: str) -> str:
           if ikind.endswith("char"):
             return "ischar"
           if ikind.startswith("iu"):
             return "i" + ikind[2:]
           return ikind # already signed
-        def sanssign(ikind):
+        def sanssign(ikind: str) -> str:
           if ikind.endswith("char"):
             return "iuchar"
           if not ikind.startswith("iu"):

@@ -52,10 +52,10 @@ class TrampolineInfo:
     def roles(self) -> Dict[str, str]:
         return self._roles
 
-    def has_role(self, role) -> bool:
+    def has_role(self, role: str) -> bool:
         return role in self.roles
 
-    def get_role_startaddr(self, role) -> Optional[str]:
+    def get_role_startaddr(self, role: str) -> Optional[str]:
         return self.roles.get(role, None)
 
     def add_role(self, name: str, addr: str) -> None:

@@ -174,7 +174,7 @@ class ELFSection:
         else:
             raise UF.CHBError("Address not found in section " + self.name)
 
-    def get_word_value(self, address: int, little_endian=True) -> int:
+    def get_word_value(self, address: int, little_endian: bool = True) -> int:
         if address in self.values:
             b1 = self.get_byte_value(address)
             b2 = self.get_byte_value(address + 1)
@@ -185,7 +185,7 @@ class ELFSection:
         else:
             raise UF.CHBError("Word address not found in section " + self.name)
 
-    def get_doubleword_value(self, address: int, little_endian=True) -> int:
+    def get_doubleword_value(self, address: int, little_endian: bool = True) -> int:
         if address in self.values:
             b1 = self.get_byte_value(address)
             b2 = self.get_byte_value(address + 1)

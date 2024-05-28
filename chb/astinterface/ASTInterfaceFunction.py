@@ -119,13 +119,13 @@ class ASTInterfaceFunction(ASTFunction):
         return self._patchevents
 
     @property
-    def jumptables(self) -> Dict[str,JumpTable]:
+    def jumptables(self) -> Dict[str, JumpTable]:
         return self.function.jumptables
 
-    def has_jumptable(self, tgt) -> bool:
+    def has_jumptable(self, tgt: str) -> bool:
         return tgt in self.jumptables
 
-    def get_jumptable(self, tgt) -> JumpTable:
+    def get_jumptable(self, tgt: str) -> JumpTable:
         if self.has_jumptable(tgt):
             return self.jumptables[tgt]
         else:

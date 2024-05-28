@@ -121,7 +121,7 @@ class ELFThumbDisassemblyTestSet:
             cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         return result
 
-    def run(self):
+    def run(self) -> None:
         for r in tests:
             self.create_test(r)
             self.run_test(r)

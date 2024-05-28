@@ -74,7 +74,7 @@ class FnXPODictionary:
 
     # ------------------------------------------ retrieve items from tables ---
 
-    def xpo_predicate(self, ix) -> XPOPredicate:
+    def xpo_predicate(self, ix: int) -> XPOPredicate:
         if ix > 0:
             return xporegistry.mk_instance(
                 self, self.xpo_predicate_table.retrieve(ix), XPOPredicate)

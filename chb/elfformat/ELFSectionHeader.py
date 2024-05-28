@@ -194,7 +194,7 @@ class ELFSectionHeader:
     def is_initialized(self) -> bool:
         return not(self.section_header_type == "SHT_NoBits")
 
-    def is_address_in_section(self, addr: int):
+    def is_address_in_section(self, addr: int) -> bool:
         if self.section_header_type == "SHT_ProgBits":
             vaddr_i = int(self.vaddr, 16)
             eaddr_i = vaddr_i + int(self.size, 16)

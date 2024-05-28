@@ -44,10 +44,10 @@ class UserBTypeStore:
     def add_typedef(self, name: str, t: "UserBType") -> None:
         self._typedefs[name] = t
 
-    def has_named_type(self, name) -> bool:
+    def has_named_type(self, name: str) -> bool:
         return name in self._basetypes or name in self._typedefs
 
-    def has_size_of(self, name) -> bool:
+    def has_size_of(self, name: str) -> bool:
         if name in self._basetypes:
             return True
         else:
@@ -62,7 +62,7 @@ class UserBTypeStore:
         else:
             raise UF.CHBError("Size of named type: " + name + " not found")
 
-    def _initialize(self, namedtypes) -> None:
+    def _initialize(self, namedtypes: Dict[str, int]) -> None:
         for (name, size) in namedtypes.items():
             self._basetypes[name] = UserNamedBType(name, size=size)
 
@@ -165,7 +165,7 @@ class UserPointerBType(UserBType):
 
 class UserArrayBType(UserBType):
 
-    def __init__(self, tgt: UserBType, num_elements) -> None:
+    def __init__(self, tgt: UserBType, num_elements: int) -> None:
         self._tgt = tgt
         self._num_elements = num_elements
 

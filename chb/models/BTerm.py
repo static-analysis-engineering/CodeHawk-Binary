@@ -91,7 +91,7 @@ class BTerm:
     def refers_to_parameter(self, name: str) -> bool:
         return False
 
-    def parameter_refs(self, name) -> List[str]:
+    def parameter_refs(self, name: str) -> List[str]:
         return []
 
 
@@ -140,7 +140,7 @@ class BTermRuntimeValue(BTerm):
             xnode: Optional[ET.Element] = None) -> None:
         BTerm.__init__(self, fsem, tag, xnode)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.tag
 
 
