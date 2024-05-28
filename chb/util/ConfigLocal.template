@@ -35,8 +35,13 @@ any of that config's variables here if you want to use a value other than the de
 """
 
 import os
+from typing import TYPE_CHECKING
 
-def getLocals(config):
+if TYPE_CHECKING:
+    from chb.util.Config import Config
+
+
+def getLocals(config: 'Config') -> None:
     '''Set local configuration variables here if they differ from the defaults in Config.py
     
     # Example :
