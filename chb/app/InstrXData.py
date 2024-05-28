@@ -118,13 +118,16 @@ class InstrXData(IndexedTableValue):
         for v in self._ssavals:
             if v.is_ssa_register_value:
                 ssaval = v.ssa_register_value()
-                return str(ssaval.register) == register
+                if str(ssaval.register) == register:
+                    return True
         return False
 
     def get_ssaval(self, register: str) -> "SSARegisterValue":
         for v in self._ssavals:
             if v.is_ssa_register_value:
-                return v.ssa_register_value()
+                ssaval = v.ssa_register_value()
+                if str(ssaval.register) == register:
+                    return ssaval
         raise UF.CHBError(
             "No ssa value found for register " + register)
 
