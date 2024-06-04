@@ -1498,6 +1498,11 @@ def parse() -> argparse.Namespace:
     table_expr.add_argument("faddr", help="hex address of executable")
     table_expr.set_defaults(func=UCC.show_expr_table)
 
+    # --- type ---
+    table_type = tableparsers.add_parser("type")
+    table_type.add_argument("xname", help="name of executable")
+    table_type.set_defaults(func=UCC.show_type_table)
+
     # --- variables ---
     table_vars = tableparsers.add_parser('variables')
     table_vars.add_argument('xname', help='name of executable')

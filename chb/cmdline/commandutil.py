@@ -863,6 +863,7 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
                     opcodewidth=opcodewidth,
                     proofobligations=proofobligations,
                     stacklayout=stacklayout))
+
             except UF.CHBError as e:
                 print(str(e.wrap()))
 
@@ -2050,5 +2051,29 @@ def show_type_constraint_table(args: argparse.Namespace) -> NoReturn:
     print("\n\n")
 
     print(str(app.type_constraints))
+
+    exit(0)
+
+
+def show_type_table(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    bcdictionary = app.bcdictionary
+
+    print(bcdictionary.typ_table_to_string())
 
     exit(0)
