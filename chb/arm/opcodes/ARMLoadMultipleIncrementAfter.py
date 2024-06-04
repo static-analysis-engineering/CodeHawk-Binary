@@ -111,7 +111,7 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
         return (
             "; ".join(str(v)
                       + " := "
-                      + str(x) for (v, x) in zip(xdata.vars, xdata.xprs))
+                      + str(x) for (v, x) in zip(xdata.vars[1:], xdata.xprs[3:]))
             + wb)
 
     # -------------------------------------------------------------------------

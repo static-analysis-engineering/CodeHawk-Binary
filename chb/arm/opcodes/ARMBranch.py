@@ -134,6 +134,14 @@ class ARMBranch(ARMOpcode):
         else:
             raise UF.CHBError("Instruction is not a call: " + str(self))
 
+    def jump_target(self, xdata: InstrXData) -> Optional["XXpr"]:
+        if self.is_call_instruction(xdata):
+            return None
+        elif xdata.has_branch_conditions():
+            return None
+        else:
+            return xdata.xprs[0]
+
     def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
         return xdata.xprs
 
