@@ -21,11 +21,12 @@ int pthread_create(pthread_t *restrict thread,
        const pthread_attr_t *restrict attr,
        void *(*start_routine)(void*), void *restrict arg);
 
-typedef unsigned long pid_t;
 typedef long time_t;
 
 typedef unsigned long size_t;
 typedef long ssize_t;
+
+typedef unsigned long off_t;
 
 typedef unsigned int sa_family_t;
 
@@ -36,8 +37,47 @@ struct _sockaddr {
 
 typedef struct _sockaddr sockaddr;
 
-struct stat;
-typedef struct stat _stat;
+struct _stat;
+typedef struct _stat stat;
+
+typedef unsigned long sigset_t;
+
+typedef int pid_t;
+typedef unsigned int uid_t;
+
+typedef unsigned int gid_t;
+
+union sigval {
+  int sival_int;
+  void *sival_ptr;
+};
+
+typedef struct {
+  int si_signo;
+  int si_code;
+  pid_t si_pid;
+  uid_t si_uid;
+  void  *si_addr;
+  int  si_status;
+  union sigval si_value;
+} siginfo_t;
+
+
+struct _sigaction {
+  void (*sa_handler)(int);
+  void (*sa_sigaction)(int, siginfo_t *, void *);
+  sigset_t  sa_mask;
+  int       sa_flags;
+  void (*sa_restorer)(void);
+};
+
+typedef struct _sigaction sigaction;
+
+struct _fd_set {
+  unsigned int fds_bits[32];
+};
+
+typedef struct _fd_set fd_set;
 
 
 int main(int argc, char **argv);
