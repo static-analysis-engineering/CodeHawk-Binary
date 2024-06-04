@@ -258,3 +258,14 @@ class BCDictionary:
             for ix in self.compinfo_table.keys():
                 cinfo = self.compinfo(ix)
                 self.compinfo_keys[cinfo.ckey] = cinfo
+
+    # ------------------ Printing ----------------------------------------------
+
+    def typ_table_to_string(self) -> str:
+        lines: List[str] = []
+
+        def f(ix: int, v: IT.IndexedTableValue) -> None:
+            lines.append(str(ix) + ": " + str(self.typ(ix)))
+
+        self.typ_table.iter(f)
+        return "\n".join(lines)
