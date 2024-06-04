@@ -313,6 +313,10 @@ class ARMInstruction(Instruction):
             raise UF.CHBError("Not a call instruction: " + str(self))
 
     @property
+    def jump_target(self) -> Optional["XXpr"]:
+        return self.opcode.jump_target(self.xdata)
+
+    @property
     def call_arguments(self) -> Sequence[XXpr]:
         if self.is_call_instruction and self.has_call_target():
             return self.opcode.arguments(self.xdata)
