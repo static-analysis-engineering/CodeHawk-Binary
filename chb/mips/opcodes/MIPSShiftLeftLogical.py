@@ -81,14 +81,15 @@ class MIPSShiftLeftLogical(MIPSOpcode):
 
         vars[0]: lhs
         xprs[0]: rhs (rt)
-        xprs[1]: rhs * 2^sa (syntactic)
-        xprs[2]: rhs * 2^sa (simplified)
+        xprs[1]: rhs (sa)
+        xprs[2]: rhs * 2^sa (syntactic)
+        xprs[3]: rhs * 2^sa (simplified)
         """
 
         lhs = str(xdata.vars[0])
-        result = xdata.xprs[1]
-        rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
+        result = xdata.xprs[2]
+        rresult = xdata.xprs[3]
+        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
         return lhs + ' := ' + xresult
 
     def ast(
