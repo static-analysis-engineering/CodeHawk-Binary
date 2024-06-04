@@ -388,6 +388,9 @@ class ARMOpcode(ARMDictionaryRecord):
     def call_target(self, xdata: InstrXData) -> CallTarget:
         raise UF.CHBError("Instruction is not a call: " + str(self))
 
+    def jump_target(self, xdata: InstrXData) -> Optional["XXpr"]:
+        return None
+
     def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
         raise UF.CHBError("Instruction is not a call: " + str(self))
 
