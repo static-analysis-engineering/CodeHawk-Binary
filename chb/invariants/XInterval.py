@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020-2021 Henny Sipma
+# Copyright (c) 2020-2021 Henny B. Sipma
 # Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -94,6 +94,12 @@ class XInterval(FnXprDictionaryRecord):
         else:
             raise UF.CHBError(
                 "interval is not a singleton value: " + str(self))
+
+    @staticmethod
+    def mk_instance(
+            xd: "FnXprDictionary", minix: int, maxix: int) -> "XInterval":
+        index = xd.index_interval([], [minix, maxix])
+        return xd.interval(index)
 
     def __str__(self) -> str:
         if self.is_singleton:

@@ -5,6 +5,8 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
+# Copyright (c) 2020-2023 Henny B. Sipma
+# Copyright (c) 2024      Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -157,7 +159,61 @@ class FnXprDictionary:
 
     # ------------- Index items by category ------------------------------------
 
-    # TBD
+    def index_numerical(self, tags: List[str], args: List[int]) -> int:
+
+        def f(index: int, tags: List[str], args: List[int]) -> XNumerical:
+            itv = IT.IndexedTableValue(index, tags, args)
+            return XNumerical(self, itv)
+
+        return self.numerical_table.add_tags_args(tags, args, f)
+
+    def index_bound(self, tags: List[str], args: List[int]) -> int:
+
+        def f(index: int, tags: List[str], args: List[int]) -> XBound:
+            itv = IT.IndexedTableValue(index, tags, args)
+            return xprregistry.mk_instance(self, itv, XBound)
+
+        return self.bound_table.add_tags_args(tags, args, f)
+
+    def index_interval(self, tags: List[str], args: List[int]) -> int:
+
+        def f(index: int, tags: List[str], args: List[int]) -> XInterval:
+            itv = IT.IndexedTableValue(index, tags, args)
+            return XInterval(self, itv)
+
+        return self.interval_table.add_tags_args(tags, args, f)
+
+    def index_symbol(self, tags: List[str], args: List[int]) -> int:
+
+        def f(index: int, tags: List[str], args: List[int]) -> XSymbol:
+            itv = IT.IndexedTableValue(index, tags, args)
+            return XSymbol(self, itv)
+
+        return self.symbol_table.add_tags_args(tags, args, f)
+
+    def index_variable(self, tags: List[str], args: List[int]) -> int:
+
+        def f(index: int, tags: List[str], args: List[int]) -> XVariable:
+            itv = IT.IndexedTableValue(index, tags, args)
+            return XVariable(self, itv)
+
+        return self.variable_table.add_tags_args(tags, args, f)
+
+    def index_xcst(self, tags: List[str], args: List[int]) -> int:
+
+        def f(index: int, tags: List[str], args: List[int]) -> XConstant:
+            itv = IT.IndexedTableValue(index, tags, args)
+            return xprregistry.mk_instance(self, itv, XConstant)
+
+        return self.xcst_table.add_tags_args(tags, args, f)
+
+    def index_xpr(self, tags: List[str], args: List[int]) -> int:
+
+        def f(index: int, tags: List[str], args: List[int]) -> XXpr:
+            itv = IT.IndexedTableValue(index, tags, args)
+            return xprregistry.mk_instance(self, itv, XXpr)
+
+        return self.xpr_table.add_tags_args(tags, args, f)
 
     # -------------- Initialize dictionary from file ---------------------------
 

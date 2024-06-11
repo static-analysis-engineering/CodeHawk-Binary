@@ -5,8 +5,8 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2020-2021 Henny B. Sipma
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,20 +35,25 @@ from chb.invariants.FnDictionaryRecord import FnXprDictionaryRecord
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.invariants.FnXprDictionary
+    from chb.invariants.FnXprDictionary import FnXprDictionary
 
 
 class XNumerical(FnXprDictionaryRecord):
 
     def __init__(
             self,
-            xd: "chb.invariants.FnXprDictionary.FnXprDictionary",
+            xd: "FnXprDictionary",
             ixval: IndexedTableValue) -> None:
         FnXprDictionaryRecord.__init__(self, xd, ixval)
 
     @property
     def value(self) -> int:
         return int(self.tags[0])
+
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary", value: int) -> "XNumerical":
+        index = xd.index_numerical([str(value)], [])
+        return xd.numerical(index)
 
     def __str__(self) -> str:
         return hex(self.value)

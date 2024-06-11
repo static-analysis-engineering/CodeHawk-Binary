@@ -223,7 +223,8 @@ class XVariable(FnXprDictionaryRecord):
         if self.is_argument_value or self.is_stack_argument:
             return self.denotation.argument_index()
         else:
-            raise UF.CHBError("Variable " + self.name + " is not an argument value")
+            raise UF.CHBError(
+                "Variable " + self.name + " is not an argument value")
 
     def to_json_result(self) -> JSONResult:
         if self.has_denotation():
@@ -234,6 +235,11 @@ class XVariable(FnXprDictionaryRecord):
             content["temp"] = self.name
             content["txtrep"] = self.name
             return JSONResult("variable", content, "ok")
+
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary", vt: str, symix: int) -> "XVariable":
+        index = xd.index_variable([vt], [symix])
+        return xd.variable(index)
 
     def __str__(self) -> str:
         if self.has_denotation():

@@ -5,8 +5,8 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2020-2021 Henny B. Sipma
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -137,11 +137,17 @@ class XSymSet(XConstant):
     def is_symset(self) -> bool:
         return True
 
+    @property
     def symbols(self) -> List[XSymbol]:
         return [self.xd.symbol(i) for i in self.args]
 
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary", args: List[int]) -> "XConstant":
+        index = xd.index_xcst(["ss"], args)
+        return xd.xcst(index)
+
     def __str__(self) -> str:
-        return '[' + ','.join([str(x) for x in self.symbols()]) + ']'
+        return '[' + ','.join([str(x) for x in self.symbols]) + ']'
 
 
 @xprregistry.register_tag("ic", XConstant)
@@ -179,6 +185,11 @@ class XIntConst(XConstant):
 
     def string_reference(self) -> str:
         return self.vd.stringsxrefs.string(str(hex(self.value)))
+
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary", numindex: int) -> XConstant:
+        index = xd.index_xcst(["ic"], [numindex])
+        return xd.xcst(index)
 
     def to_json_result(self) -> JSONResult:
         content: Dict[str, Any] = {}
@@ -227,6 +238,11 @@ class XBoolConst(XConstant):
     def is_false(self) -> bool:
         return self.args[0] == 0
 
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary", value: bool) -> XConstant:
+        index = xd.index_xcst(["bc"], [1 if value else 0])
+        return xd.xcst(index)
+
     def __str__(self) -> str:
         return "true" if self.is_true else 'false'
 
@@ -244,6 +260,11 @@ class XRandom(XConstant):
     @property
     def is_random(self) -> bool:
         return True
+
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary") -> XConstant:
+        index = xd.index_xcst(["r"], [])
+        return xd.xcst(index)
 
     def __str__(self) -> str:
         return "??"
@@ -263,6 +284,11 @@ class XUnknownInt(XConstant):
     def is_unknown_int(self) -> bool:
         return True
 
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary") -> XConstant:
+        index = xd.index_xcst(["ui"], [])
+        return xd.xcst(index)
+
     def __str__(self) -> str:
         return "unknown int"
 
@@ -279,6 +305,11 @@ class BXUnknownSet(XConstant):
     @property
     def is_unknown_set(self) -> bool:
         return True
+
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary") -> XConstant:
+        index = xd.index_xcst(["us"], [])
+        return xd.xcst(index)
 
     def __str__(self) -> str:
         return "unknown set"
