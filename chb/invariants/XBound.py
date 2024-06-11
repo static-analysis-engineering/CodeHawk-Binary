@@ -5,8 +5,8 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2020-2021 Henny B. Sipma
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -81,6 +81,11 @@ class XMinusInfBound(XBound):
     def is_min_inf(self) -> bool:
         return True
 
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary") -> XBound:
+        index = xd.index_bound(["m"], [])
+        return xd.bound(index)
+
     def __str__(self) -> str:
         return "minus infinity"
 
@@ -98,6 +103,11 @@ class XPlusInfBound(XBound):
     @property
     def is_max_inf(self) -> bool:
         return True
+
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary") -> XBound:
+        index = xd.index_bound(["p"], [])
+        return xd.bound(index)
 
     def __str__(self) -> str:
         return "plus infinity"
@@ -123,6 +133,11 @@ class XNumberBound(XBound):
     @property
     def bound(self) -> XNumerical:
         return self.xd.numerical(self.args[0])
+
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary", numix: int) -> XBound:
+        index = xd.index_bound(["n"], [numix])
+        return xd.bound(index)
 
     def __str__(self) -> str:
         return str(self.bound)

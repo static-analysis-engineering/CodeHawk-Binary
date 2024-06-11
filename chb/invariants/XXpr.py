@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2020-2021 Henny Sipma
+# Copyright (c) 2020-2021 Henny B. Sipma
 # Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,7 +38,8 @@ type xpr_t =
   | XAttr of string * xpr_t          "a"       2      1
 
 """
-from typing import Any, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING
+from typing import (
+    Any, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING)
 
 from chb.api.CallTarget import CallTarget
 
@@ -480,6 +481,11 @@ class XprVariable(XXpr):
                 "fail",
                 "xexpression: " + str(jvar.reason))
 
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary", varix: int) -> "XXpr":
+        index = xd.index_xpr(["v"], [varix])
+        return xd.xpr(index)
+
     def __str__(self) -> str:
         return str(self.variable)
 
@@ -588,6 +594,11 @@ class XprConstant(XXpr):
         content["cst"] = jcst.content
         content["txtrep"] = str(self)
         return JSONResult("xexpression", content, "ok")
+
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary", cstix: int) -> "XXpr":
+        index = xd.index_xpr(["c"], [cstix])
+        return xd.xpr(index)
 
     def __str__(self) -> str:
         return str(self.constant)
@@ -914,6 +925,11 @@ class XprCompound(XXpr):
         content["operands"] = jops
         content["txtrep"] = str(self)
         return JSONResult("xexpression", content, "ok")
+
+    @staticmethod
+    def mk_instance(xd: "FnXprDictionary", op: str, args: List[int]) -> "XXpr":
+        index = xd.index_xpr(["x", op], args)
+        return xd.xpr(index)
 
     def __str__(self) -> str:
         args = self.operands

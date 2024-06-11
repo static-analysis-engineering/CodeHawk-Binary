@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -61,6 +61,34 @@ class FnStackAccess(FnVarDictionaryRecord):
             self, vd: "FnVarDictionary", ixval: IndexedTableValue) -> None:
         FnVarDictionaryRecord.__init__(self, vd, ixval)
 
+    @property
+    def size(self) -> Optional[int]:
+        return None
+
+    @property
+    def is_register_spill(self) -> bool:
+        return False
+
+    @property
+    def is_register_restore(self) -> bool:
+        return False
+
+    @property
+    def is_load(self) -> bool:
+        return False
+
+    @property
+    def is_store(self) -> bool:
+        return False
+
+    @property
+    def is_block_read(self) -> bool:
+        return False
+
+    @property
+    def is_block_write(self) -> bool:
+        return False
+
 
 @varregistry.register_tag("rs", FnStackAccess)
 class FnStackRegisterSpill(FnStackAccess):
@@ -81,6 +109,14 @@ class FnStackRegisterSpill(FnStackAccess):
     @property
     def register(self) -> Register:
         return self.bd.register(self.args[1])
+
+    @property
+    def size(self) -> Optional[int]:
+        return 4
+
+    @property
+    def is_register_spill(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return "spill(" + str(self.offset) + ", " + str(self.register) + ")"
@@ -105,6 +141,14 @@ class FnStackRegisterRestore(FnStackAccess):
     @property
     def register(self) -> Register:
         return self.bd.register(self.args[1])
+
+    @property
+    def size(self) -> Optional[int]:
+        return 4
+
+    @property
+    def is_register_restore(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return "restore(" + str(self.offset) + ", " + str(self.register) + ")"
@@ -142,6 +186,10 @@ class FnStackLoad(FnStackAccess):
     @property
     def stackvar_type(self) -> "BCTyp":
         return self.bcd.typ(self.args[3])
+
+    @property
+    def is_load(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return (
@@ -194,6 +242,10 @@ class FnStackStore(FnStackAccess):
     def value(self) -> "XXpr":
         return self.xd.xpr(self.args[4])
 
+    @property
+    def is_store(self) -> bool:
+        return True
+
     def __str__(self) -> str:
         return (
             "stack-store("
@@ -236,6 +288,10 @@ class FnStackBlockRead(FnStackAccess):
     @property
     def stackvar_type(self) -> "BCTyp":
         return self.bcd.typ(self.args[2])
+
+    @property
+    def is_block_read(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return (
@@ -281,6 +337,10 @@ class FnStackBlockWrite(FnStackAccess):
     @property
     def value(self) -> "XXpr":
         return self.xd.xpr(self.args[3])
+
+    @property
+    def is_block_write(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return (
