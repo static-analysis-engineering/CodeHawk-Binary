@@ -501,11 +501,13 @@ class Cfg:
                     if len(merges) == 1:
                         loopstmts = node_within(x, [], ctx.in_loop(x, break_to=merges[0]))
                         loop = cast(AST.ASTStmt, astree.mk_loop(mk_block(loopstmts),
-                                                                mergeaddr=merges[0]))
+                                                                mergeaddr=merges[0],
+                                                                continueaddr=x))
                         return [loop] + do_tree(merges[0], ctx)
                     else:
                         loopstmts = node_within(x, merges, ctx.in_loop(x, break_to=ctx.fallthrough))
-                        return [astree.mk_loop(mk_block(loopstmts), mergeaddr=ctx.fallthrough)]
+                        return [astree.mk_loop(mk_block(loopstmts), mergeaddr=ctx.fallthrough,
+                                                                    continueaddr=x)]
 
                 return node_within(x, merges, ctx)
 

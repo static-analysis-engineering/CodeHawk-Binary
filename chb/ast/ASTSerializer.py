@@ -353,6 +353,7 @@ class ASTSerializer(ASTIndexer):
         node["stmtid"] = stmt.stmtid
         node["locationid"] = stmt.locationid
         node["merge-addr"] = stmt.breakaddr
+        node["continue-addr"] = stmt.continueaddr
         return self.add(tags, args, node)
 
     def index_branch_stmt(self, stmt: AST.ASTBranch) -> int:

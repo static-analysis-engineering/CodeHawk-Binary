@@ -408,10 +408,12 @@ class ASTLoop(ASTStmt):
             stmtid: int,
             locationid: int,
             breakaddr: Optional[str],
+            continueaddr: Optional[str],
             body: "ASTStmt") -> None:
         ASTStmt.__init__(self, stmtid, locationid, [], "loop")
         self._body = body
         self._breakaddr = breakaddr
+        self._continueaddr = continueaddr
 
     @property
     def is_ast_loop(self) -> bool:
@@ -424,6 +426,10 @@ class ASTLoop(ASTStmt):
     @property
     def breakaddr(self) -> Optional[str]:
         return self._breakaddr
+
+    @property
+    def continueaddr(self) -> Optional[str]:
+        return self._continueaddr
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_loop_stmt(self)

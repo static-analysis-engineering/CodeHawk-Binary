@@ -363,11 +363,12 @@ class AbstractSyntaxTree:
             self,
             body: AST.ASTStmt,
             mergeaddr: Optional[str] = None,
+            continueaddr: Optional[str] = None,
             optstmtid: Optional[int] = None,
             optlocationid: Optional[int] = None) -> AST.ASTLoop:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
-        return AST.ASTLoop(stmtid, locationid, mergeaddr, body)
+        return AST.ASTLoop(stmtid, locationid, mergeaddr, continueaddr, body)
 
     def mk_break_stmt(
             self,

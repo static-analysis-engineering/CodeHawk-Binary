@@ -62,7 +62,8 @@ class ASTICodeTransformer(ASTIdentityTransformer):
     def transform_loop_stmt(self, stmt: AST.ASTLoop) -> AST.ASTStmt:
         newbody = stmt.body.transform(self)
         return self.astinterface.mk_loop(
-            newbody, mergeaddr=stmt.breakaddr, optlocationid=stmt.locationid)
+            newbody, mergeaddr=stmt.breakaddr, continueaddr=stmt.continueaddr,
+            optlocationid=stmt.locationid)
 
     def transform_block_stmt(self, stmt: AST.ASTBlock) -> AST.ASTStmt:
         newstmts = [s.transform(self) for s in stmt.stmts]
