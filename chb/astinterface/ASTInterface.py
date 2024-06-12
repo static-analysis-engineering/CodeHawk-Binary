@@ -625,8 +625,11 @@ class ASTInterface:
             self,
             body: AST.ASTStmt,
             mergeaddr: Optional[str] = None,
+            continueaddr: Optional[str] = None,
             optlocationid: Optional[int] = None) -> AST.ASTLoop:
-        return self.astree.mk_loop(body, mergeaddr=mergeaddr, optlocationid=optlocationid)
+        return self.astree.mk_loop(body, mergeaddr=mergeaddr,
+                                   continueaddr=continueaddr,
+                                   optlocationid=optlocationid)
 
     def mk_return_stmt(
             self,

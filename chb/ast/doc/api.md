@@ -74,6 +74,7 @@ not present a new value is generated automatically.
     self,
     body: AST.ASTStmt,
     mergeaddr: Optional[str] = None,
+    continueaddr: Optional[str] = None,
     stmtid: Optional[int] = None,
     locationid: Optional[int] = None) -> AST.ASTLoop
   ```
