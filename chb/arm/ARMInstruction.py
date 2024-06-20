@@ -264,7 +264,8 @@ class ARMInstruction(Instruction):
         return self.opcode.is_condition_true(self.xdata)
 
     def ast_condition(
-            self, astree: ASTInterface, reverse: bool = False) -> Optional[ASTExpr]:
+            self, astree: ASTInterface, reverse: bool = False
+    ) -> Optional[ASTExpr]:
         return self.opcode.ast_condition(
             astree, self.iaddr, self.bytestring, self.xdata, reverse)
 
@@ -276,7 +277,10 @@ class ARMInstruction(Instruction):
         try:
             return self.opcode.ast_condition_prov(
                 astree, self.iaddr, self.bytestring, self.xdata, reverse)
-        except Exception:
+        except Exception as e:
+            chklogger.logger.warning(
+                "Error in generating condition at address %s: %s",
+                self.iaddr, str(e))
             expr = astree.mk_integer_constant(0)
             return (expr, expr)
 
