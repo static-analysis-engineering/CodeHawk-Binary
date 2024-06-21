@@ -245,12 +245,12 @@ class ASTInterfaceBasicBlock:
 
         cond = self.trampoline_ast_condition("payload-0", astree, reverse=True)
         initcond = self.trampoline_ast_condition(
-            "payload-2", astree, reverse=True)
+            "payload-1", astree, reverse=True)
         loopcond = self.trampoline_ast_condition(
-            "payload-3", astree, reverse=True)
+            "payload-2", astree, reverse=True)
 
-        initstmt = self.trampoline_block_ast("payload-2", astree)
-        loopbody = self.trampoline_block_ast("payload-3", astree)
+        initstmt = self.trampoline_block_ast("payload-1", astree)
+        loopbody = self.trampoline_block_ast("payload-2", astree)
         rstmt = astree.mk_return_stmt(None)
         breakstmt = astree.mk_break_stmt()
         estmt = astree.mk_instr_sequence([])
@@ -281,7 +281,7 @@ class ASTInterfaceBasicBlock:
         if "setupblock" in self.trampoline:
             stmts.append(self.trampoline_setup_ast(astree))
         if "payload-0" in self.trampoline or "payload" in self.trampoline:
-            if len(self.trampoline_payload_roles) == 6:
+            if len(self.trampoline_payload_roles) == 4:
                 stmts.append(self.trampoline_payload_loop_ast(astree))
             elif len(self.trampoline_payload_roles) == 3:
                 stmts.append(self.trampoline_payload_sideeffect_ast(astree))

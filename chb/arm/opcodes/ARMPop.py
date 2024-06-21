@@ -107,7 +107,8 @@ class ARMPop(ARMOpcode):
         for (v, x) in pairs:
             if str(v) == "PC" and str(x) in ["LR_in", "LR_t_in"]:
                 if str(x) == "LR_t_in":
-                    chklogger.logger.debug("Return instruction relies on LR_t_in")
+                    chklogger.logger.debug(
+                        "Return instruction relies on LR_t_in")
                 return True
         else:
             return False
@@ -124,12 +125,12 @@ class ARMPop(ARMOpcode):
         vars = xdata.vars
         xprs = xdata.xprs
 
-        xctr = len(vars)
+        xctr = len(vars) + 1
         pairs = zip(vars, xprs[2:])
         assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
 
         if xdata.has_instruction_condition():
-            pcond = "if " + str(xprs[xctr]) + " then "
+            pcond = "if " + str(xprs[2 * xctr]) + " then "
             xctr += 1
         elif xdata.has_unknown_instruction_condition():
             pcond = "if ? then "
@@ -137,6 +138,37 @@ class ARMPop(ARMOpcode):
             pcond = ""
 
         return pcond + assigns
+
+    def ast_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData,
+            reverse: bool
+    ) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+
+        if xdata.has_instruction_condition():
+            if reverse:
+                pcond = xdata.xprs[(2 * len(xdata.vars)) + 3]
+            else:
+                pcond = xdata.xprs[(2 * len(xdata.vars)) + 2]
+            astconds = XU.xxpr_to_ast_exprs(pcond, xdata, iaddr, astree)
+            if len(astconds) == 1:
+                hl_astcond = astconds[0]
+            else:
+                hl_astcond = self.ast_cc_expr(astree)
+        else:
+            hl_astcond = self.ast_cc_expr(astree)
+
+        ll_astcond = self.ast_cc_expr(astree)
+
+        astree.add_expr_mapping(hl_astcond, ll_astcond)
+        astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+        astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
+        astree.add_condition_address(ll_astcond, [iaddr])
+
+        return (hl_astcond, ll_astcond)
 
     def ast_prov(
             self,
