@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,10 +28,10 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Mapping, Optional, Tuple, TYPE_CHECKING
+from typing import cast, Dict, List, Mapping, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.Register import Register
-from chb.invariants.FnStackAccess import FnStackAccess
+from chb.invariants.FnStackAccess import FnStackAccess, FnStackStore
 
 if TYPE_CHECKING:
     from chb.app.BDictionary import BDictionary
@@ -72,6 +72,65 @@ class FnSavedRegister:
         lines.append("  save locations: " + ", ".join(self.save_locations))
         lines.append("  restore locations: " + ", ".join(self.restore_locations))
         return "\n".join(lines)
+
+
+class FnStackBuffer:
+
+    def __init__(self, offset: int, size: int) -> None:
+        self._offset = offset
+        self._size = size
+
+    @property
+    def offset(self) -> int:
+        return self._offset
+
+    @property
+    def size(self) -> int:
+        return self._size
+
+    def __str__(self) -> str:
+        return f"{self.offset}: {self.size}"
+
+
+class LogicalStackBuffer:
+
+    def __init__(self, offset: int) -> None:
+        self._offset = offset
+        self._buffers: List[FnStackBuffer] = []
+        self._zeroing: bool = False
+        self._support: List[str] = []
+
+    @property
+    def offset(self) -> int:
+        return self._offset
+
+    @property
+    def size(self) -> int:
+        return sum(b.size for b in self.buffers)
+
+    @property
+    def buffers(self) -> List[FnStackBuffer]:
+        return self._buffers
+
+    def add_buffer(self, b: FnStackBuffer) -> None:
+        self._buffers.append(b)
+
+    def set_zeroing(self) -> None:
+        self._zeroing = True
+
+    @property
+    def support(self) -> List[str]:
+        return self._support
+
+    @property
+    def is_zeroing(self) -> bool:
+        return self._zeroing
+
+    def add_support(self, iaddrs: List[str]) -> None:
+        self._support.extend(iaddrs)
+
+    def has_support(self) -> bool:
+        return self.is_zeroing or len(self.support) > 0
 
 
 class FnStackFrame:
@@ -122,6 +181,150 @@ class FnStackFrame:
                             offsetacc.append((iaddr, sa))
         return self._accesses
 
+    def get_stack_buffer(self, offset: int) -> Optional[LogicalStackBuffer]:
+        for b in self.logical_layout():
+            if b.offset == offset:
+                return b
+        return None
+
+    def offset_layout(self) -> List[Tuple[FnStackBuffer, int]]:
+        result: List[Tuple[FnStackBuffer, int]] = []
+        offsets = sorted(list(self.accesses.keys()))
+        for i in range(0, len(offsets) - 1):
+            buffer = FnStackBuffer(offsets[i], offsets[i+1] - offsets[i])
+            known: int = 0
+            isgreater: int = 0
+            isless: int = 0
+            for (_, acc) in self.accesses[buffer.offset]:
+                if acc.size is None:
+                    known = 4
+                else:
+                    if acc.size > buffer.size:
+                        isgreater = 2
+                    elif acc.size < buffer.size:
+                        isless = 1
+            score = known + isless + isgreater
+            result.append((buffer, score))
+        return result
+
+    def is_zeroed_buffer(self, offset: int) -> bool:
+        has_blockwrite: bool = False
+        has_zerowrite: bool = False
+        for (_, acc) in self.accesses[offset]:
+            if acc.is_block_write:
+                has_blockwrite = True
+            elif acc.is_store:
+                acc = cast(FnStackStore, acc)
+                if str(acc.value) == "0x0":
+                    has_zerowrite = True
+        return has_blockwrite and has_zerowrite
+
+    def is_zeroing_buffer(self, offset: int) -> bool:
+        for (_, acc) in self.accesses[offset]:
+            if acc.is_store:
+                acc = cast(FnStackStore, acc)
+                if str(acc.value) == "0x0":
+                    continue
+                else:
+                    return False
+            else:
+                return False
+        return True
+
+    def size_support(self, b: FnStackBuffer) -> List[str]:
+        result: List[str] = []
+        size = b.size
+        for (iaddr, acc) in self.accesses[b.offset]:
+            if acc.is_block_write or acc.is_block_read:
+                if acc.size is not None:
+                    if acc.size == b.size:
+                        result.append(iaddr + ":size")
+        return result
+
+    def spill_support(self, b: FnStackBuffer) -> List[str]:
+        result: List[str] = []
+        for (iaddr, acc) in self.accesses[b.offset]:
+            if acc.is_register_spill:
+                result.append(iaddr + ":spill")
+        return result
+
+    def logical_layout(self) -> List[LogicalStackBuffer]:
+        result: List[LogicalStackBuffer] = []
+        offsetlayout = self.offset_layout()
+        bcount = len(offsetlayout)
+        i: int = 0
+        activebuffer: Optional[LogicalStackBuffer] = None
+        while i < bcount:
+            (b, _) = offsetlayout[i]
+            activebuffer = LogicalStackBuffer(b.offset)
+            activebuffer.add_support(self.size_support(b))
+            activebuffer.add_buffer(b)
+            if (i + 1) < bcount:
+                (nxtbuf, _) = offsetlayout[i + 1]
+                activebuffer.add_support(self.spill_support(nxtbuf))
+            if self.is_zeroed_buffer(b.offset):
+                activebuffer.set_zeroing()
+                i += 1
+                while (i < bcount):
+                    (b, _) = offsetlayout[i]
+                    if self.is_zeroing_buffer(b.offset):
+                        activebuffer.add_buffer(b)
+                        i += 1
+                    else:
+                        break
+                result.append(activebuffer)
+            else:
+                result.append(activebuffer)
+                i += 1
+        return result
+
+    def logical_layout_obsolete(self) -> List[LogicalStackBuffer]:
+        result: List[LogicalStackBuffer] = []
+        activebuffer: Optional[LogicalStackBuffer] = None
+        for (b, _) in self.offset_layout():
+            if activebuffer is None:
+                activebuffer = LogicalStackBuffer(b.offset)
+                activebuffer.add_support(self.size_support(b))
+                activebuffer.add_buffer(b)
+                if self.is_zeroed_buffer(b.offset):
+                    activebuffer.set_zeroing()
+                else:
+                    result.append(activebuffer)
+                    activebuffer = None
+            else:
+                if self.is_zeroing_buffer(b.offset):
+                    activebuffer.add_buffer(b)
+                else:
+                    result.append(activebuffer)
+                    activebuffer = LogicalStackBuffer(b.offset)
+                    activebuffer.add_support(self.size_support(b))
+                    activebuffer.add_buffer(b)
+                    if self.is_zeroed_buffer(b.offset):
+                        activebuffer.set_zeroing()
+                    else:
+                        result.append(activebuffer)
+                        activebuffer is None
+        return result
+
+    def buffer_partition(self) -> Dict[int, int]:
+        result: Dict[int, int] = {}
+        for (b, _) in self.offset_layout():
+            known: int = 0
+            isgreater: int = 0
+            isless: int = 0
+            for (_, acc) in self.accesses[b.offset]:
+                if acc.size is None:
+                    known = 4
+                else:
+                    if acc.size > b.size:
+                        isgreater = 2
+                    elif acc.size < b.size:
+                        isless = 1
+            score = known + isless + isgreater
+            result.setdefault(score, 0)
+            result[score] += 1
+        return result
+
     def __str__(self) -> str:
         lines: List[str] = []
         for offset in sorted(self.accesses):
@@ -130,6 +333,3 @@ class FnStackFrame:
             for (iaddr, acc) in offsetacc:
                 lines.append("  " + iaddr + ": " + str(acc))
         return "\n".join(lines)
-            
-
-    
