@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -343,9 +343,18 @@ class MIPSFunction(Function):
             stacklayout: bool = False) -> str:
         lines: List[str] = []
         if stacklayout:
+            stackframelayout = self.stacklayout()
+            lines.append(".~" * 40)
+            lines.append(str(stackframelayout))
+            lines.append(".~" * 40)
             lines.append(".~" * 40)
             lines.append(str(self.stackframe))
             lines.append(".~" * 40)
+            lines.append("Offsets")
+            lines.append("\n".join("  " + str(b) + " (" + str(score) + ")" for (b, score) in self.stackframe.offset_layout()))
+            lines.append("=" * 80)
+            lines.append("Buffer score:")
+            lines.append("\n".join("  " + str(s) + ": " + str(c) for (s,c) in self.stackframe.buffer_partition().items()))
         if proofobligations:
             lines.append(str(self.proofobligations))
             lines.append(".~" * 40)

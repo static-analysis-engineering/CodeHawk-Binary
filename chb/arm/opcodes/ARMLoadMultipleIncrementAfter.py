@@ -176,7 +176,7 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
             hl_instrs: List[AST.ASTInstruction] = []
             regsop = self.opargs[1]
             registers = regsop.registers
-            base_increm = 4 * regcount
+            base_increm = 0
             base_offset = base_increm
             for (i, r) in enumerate(registers):
                 base_offset_c = astree.mk_integer_constant(base_offset)

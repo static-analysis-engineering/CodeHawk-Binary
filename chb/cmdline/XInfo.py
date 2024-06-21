@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs, LLC
+# Copyright (c) 2021-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,8 @@ import os
 import subprocess
 
 from typing import Any, Dict, List, Union
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.Config as C
 import chb.util.fileutil as UF
@@ -139,6 +141,14 @@ class XInfo:
     @property
     def is_pe32(self) -> bool:
         return self.format == "pe32"
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["architecture"] = self.architecture
+        content["name"] = self.file
+        content["size"] = self.size
+        content["md5"] = self.md5
+        return JSONResult("xinfodata", content, "ok")
 
     def __str__(self) -> str:
         lines: List[str] = []

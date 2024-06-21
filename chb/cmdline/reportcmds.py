@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs, LLC
+# Copyright (c) 2021-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -50,6 +50,8 @@ from chb.app.Instruction import Instruction
 
 from chb.arm.ARMInstruction import ARMInstruction
 
+from chb.buffer.LibraryCallCallsites import LibraryCallCallsites
+
 import chb.cmdline.commandutil as UC
 import chb.cmdline.jsonresultutil as JU
 import chb.cmdline.XInfo as XI
@@ -61,10 +63,17 @@ from chb.jsoninterface.JSONResult import JSONResult
 from chb.models.ModelsAccess import ModelsAccess
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
+    from chb.api.CallTarget import StubTarget
+    from chb.api.FunctionStub import SOFunction
     from chb.app.AppAccess import AppAccess
-
+    from chb.app.Instruction import Instruction
+    from chb.models.BTerm import BTerm, BTermArithmetic
+    from chb.models.FunctionSummary import FunctionSummary
+    from chb.models.FunctionPrecondition import (
+        FunctionPrecondition, PreDerefWrite)
 
 
 def reportcommand(args: argparse.Namespace) -> NoReturn:
@@ -631,7 +640,7 @@ def report_function_apis(args: argparse.Namespace) -> NoReturn:
             for se in fsem.sideeffect_list:
                 sideeffects.setdefault(se.tags[0], 0)
                 sideeffects[se.tags[0]] += 1
-            
+
 
     print("Functions with signatures: " + str(len(signatures)))
     print("Functions without        : " + str(len(nosignatures)))
@@ -801,18 +810,23 @@ def report_memops(args: argparse.Namespace) -> NoReturn:
         loadtotal += ftotal
         loadknown += fknown
         print(
-            faddr + ": " + str(fknown).rjust(4) + " / " + str(ftotal).ljust(4))
+            faddr
+            + ": "
+            + str(fknown).rjust(4)
+            + " / "
+            + str(ftotal).ljust(4))
 
-    perc = (loadknown / loadtotal) * 100
-    fperc = "{:.2f}".format(perc)
-    print(
-        "\nTotal: "
-        + str(loadknown)
-        + " / "
-        + str(loadtotal)
-        + " ("
-        + fperc
-        + "%)")
+    if loadtotal > 0:
+        perc = (loadknown / loadtotal) * 100
+        fperc = "{:.2f}".format(perc)
+        print(
+            "\nTotal: "
+            + str(loadknown)
+            + " / "
+            + str(loadtotal)
+            + " ("
+            + fperc
+            + "%)")
 
     print("\nStore statistics")
     print("------------------")
@@ -826,16 +840,17 @@ def report_memops(args: argparse.Namespace) -> NoReturn:
         print(
             faddr + ": " + str(fknown).rjust(4) + " / " + str(ftotal).ljust(4))
 
-    perc = (storeknown / storetotal) * 100
-    fperc = "{:.2f}".format(perc)
-    print(
-        "\nTotal: "
-        + str(storeknown)
-        + " / "
-        + str(storetotal)
-        + " ("
-        + fperc
-        + "%)")
+    if storetotal > 0:
+        perc = (storeknown / storetotal) * 100
+        fperc = "{:.2f}".format(perc)
+        print(
+            "\nTotal: "
+            + str(storeknown)
+            + " / "
+            + str(storetotal)
+            + " ("
+            + fperc
+            + "%)")
     exit(0)
 
 
@@ -941,7 +956,8 @@ def report_unresolved(args: argparse.Namespace) -> NoReturn:
     numloads = sum(len(unknownloads[f]) for f in unknownloads)
     numstores = sum(len(unknownstores[f]) for f in unknownstores)
 
-    def count_instrs(d: Mapping[str, Mapping[str, Sequence[Instruction]]]) -> int:
+    def count_instrs(
+            d: Mapping[str, Mapping[str, Sequence[Instruction]]]) -> int:
         result: int = 0
         for faddr in d:
             for baddr in d[faddr]:
@@ -969,4 +985,140 @@ def report_unresolved(args: argparse.Namespace) -> NoReturn:
     with open(filename, "w") as fp:
         json.dump(data, fp, indent=2)
 
+    exit(0)
+
+
+
+
+def report_buffer_bounds(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    xoutput: Optional[str] = args.output
+    xjson: bool = args.json
+    xverbose: bool = args.verbose
+
+    try:
+        (path, xfile) = UC.get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = UC.get_app(path, xfile, xinfo)
+
+    n_calls: int = 0
+    libcalls = LibraryCallCallsites()
+
+    for (faddr, blocks) in app.call_instructions().items():
+        fn = app.function(faddr)
+
+        for (baddr, instrs) in blocks.items():
+            for instr in instrs:
+                n_calls += 1
+                calltgt = instr.call_target
+                if calltgt.is_so_target:
+                    libcalls.add_library_callsite(faddr, instr)
+
+    def write_json_result(
+            xfilename: Optional[str], jresult: JSONResult) -> None:
+        if jresult.is_ok:
+            okresult = JU.jsonok("bufferboundsassessment", jresult.content)
+            if xfilename is not None:
+                filename = xfilename + ".json"
+                with open(filename, "w") as fp:
+                    json.dump(okresult, fp, indent=2)
+                chklogger.logger.info("JSON output written to " + filename)
+            else:
+                print(json.dumps(okresult))
+        else:
+            failresult = JU.jsonfail(jresult.reason)
+            if xfilename is not None:
+                filename = xfilename + ".json"
+                with open(filename, "w") as fp:
+                    json.dump(failresult, fp, indent=2)
+                chklogger.logger.warning(
+                    "JSON failure output written to " + filename)
+            else:
+                print(json.dumps(failresult))
+
+    if xjson:
+        content: Dict[str, Any] = {}
+        xinfodata = xinfo.to_json_result()
+        if xinfodata.is_ok:
+            content["identification"] = xinfodata.content
+        else:
+            write_json_result(xoutput, xinfodata)
+        analysisstats = app.result_metrics.to_json_result()
+        if analysisstats.is_ok:
+            content["analysis"] = analysisstats.content
+        else:
+            write_json_result(xoutput, analysisstats)
+
+        libcallsresult = libcalls.to_json_result()
+        if libcallsresult.is_ok:
+            content["bounds"] = libcallsresult.content
+        else:
+            write_json_result(xoutput, libcallsresult)
+
+        write_json_result(xoutput, JSONResult(
+            "libcboundsanalysis", content, "ok"))
+
+    if not xverbose:
+        exit(0)
+
+    print(f"Calls               : {n_calls}")
+    print(f"Library calls       : {libcalls.n_librarycalls()}")
+    print(f"Summarized          : {libcalls.n_summarized()}")
+    print(f"Writing side effect : {libcalls.n_writing_sideeffect()}")
+
+    print("\nSide effect destination types:")
+    for (name, count) in sorted(
+            libcalls.sideeffect_destination_types().items(),
+            key=lambda i:(i[1], i[0]),
+            reverse=True):
+        print(name.ljust(24) + str(count).rjust(5))
+
+    print("\nSide effect length types:")
+    for (name, count) in sorted(
+            libcalls.sideeffect_length_types().items(),
+            key=lambda i:(i[1], i[0]),
+            reverse=True):
+        print(name.ljust(24) + str(count).rjust(5))
+
+    print("\nKnown input length side effect writes")
+    for (name, count) in sorted(
+            libcalls.known_input_length_sideeffect_writes().items(),
+            key=lambda i:(i[1], i[0]),
+            reverse=True):
+        print(name.ljust(24) + str(count).rjust(5))
+
+    print("\nLength expressions:")
+    for (name, count) in sorted(
+            libcalls.sideeffect_length_exprs().items(),
+            key=lambda i:(i[1], i[0]),
+            reverse=True):
+        print(str(count).rjust(5) + "  " + name)
+
+    patchcandidates = libcalls.patch_candidates()
+    print("\nPatch candidates (" + str(len(patchcandidates)) + "):")
+    for pc in sorted(patchcandidates, key=lambda pc:pc.iaddr):
+        print("  " + pc.iaddr + "  " + pc.annotation)
+
+    print("\nPatch candidate distribution")
+    for (name, count) in sorted(
+            libcalls.patch_candidates_distribution().items(),
+            key=lambda i:(i[1], i[0]),
+            reverse=True):
+        print(name.ljust(24) + str(count).rjust(5))
+
+    print("\nMissing summaries")
+    for (name, count) in sorted(
+            libcalls.missing_summaries().items(),
+            key=lambda i:(i[1], i[0]),
+            reverse=True):
+        print(name.ljust(24) + str(count).rjust(5))
     exit(0)

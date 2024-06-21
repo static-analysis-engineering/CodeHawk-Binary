@@ -142,7 +142,7 @@ class BCCompInfo(BCDictionaryRecord):
         """Return size of largest field."""
 
         if len(self.fieldinfos) == 0:
-            return 0
+            return 1
         else:
             return max(finfo.alignment() for finfo in self.fieldinfos)
 
