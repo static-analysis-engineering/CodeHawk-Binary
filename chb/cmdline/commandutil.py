@@ -414,6 +414,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     lineq_instr_cutoff: int = args.lineq_instr_cutoff
     lineq_block_cutoff: int = args.lineq_block_cutoff
     xssa: bool = args.ssa    # use ssa in analysis
+    xnovarinvs: bool = args.no_varinvs  # don't generate var invariants
     xarmextensionregisters: bool = args.arm_extension_registers
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
@@ -504,6 +505,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         lineq_instr_cutoff=lineq_instr_cutoff,
         lineq_block_cutoff=lineq_block_cutoff,
         use_ssa=xssa,
+        no_varinvs=xnovarinvs,
         include_arm_extension_registers=xarmextensionregisters,
         thumb=(len(thumb) > 0))
 

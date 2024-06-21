@@ -131,7 +131,6 @@ from chb.app.CHVersion import chbversion
 import chb.app.AppAccess as AP
 
 import chb.cmdline.AnalysisManager as AM
-import chb.cmdline.aprcmds as APR
 import chb.cmdline.astcmds as AST
 import chb.cmdline.commandutil as UCC
 import chb.cmdline.structcmds as USC
@@ -403,6 +402,10 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help=("use single static assignment; this will be applied only in the "
               + "final round"))
+    analyzecmd.add_argument(
+        "--no_varinvs",
+        action="store_true",
+        help="do not generate variable invariants")
     analyzecmd.add_argument(
         "--arm_extension_registers",
         action="store_true",
@@ -894,19 +897,6 @@ def parse() -> argparse.Namespace:
 
     resultsfunction.set_defaults(func=UCC.results_function)
 
-    # --- results apr ---
-    resultsapr = resultsparsers.add_parser("apr")
-    resultsapr.add_argument("xname", help="name of executable")
-    resultsapr.add_argument(
-        "outputfile",
-        help="name of json outputfile (without extension)")
-    resultsapr.add_argument(
-        "--callees",
-        nargs="*",
-        default=[],
-        help="callees to be repaired")
-    resultsapr.set_defaults(func=APR.patchdata)
-
     # --- results callback tables ---
     resultscallbacktables = resultsparsers.add_parser("callbacktables")
     resultscallbacktables.add_argument("xname", help="name of executable")
@@ -1121,7 +1111,6 @@ def parse() -> argparse.Namespace:
     report_proofobligations.add_argument("xname", help="name of executable")
     report_proofobligations.set_defaults(func=REP.report_proofobligations)
 
-
     # --- report unresolved
     report_unresolved = reportparsers.add_parser("unresolved")
     report_unresolved.add_argument("xname", help="name of executable")
@@ -1133,6 +1122,23 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="print instructions with unresolved calls/jumps/loads/stores")
     report_unresolved.set_defaults(func=REP.report_unresolved)
+
+    # --- report bounds-violations-risk-assessment
+    report_bufferbounds = reportparsers.add_parser("bufferbounds")
+    report_bufferbounds.add_argument("xname", help="name of executable")
+    report_bufferbounds.add_argument(
+        "--output", "-o",
+        help="name of output file (without extension)")
+    report_bufferbounds.add_argument(
+        "--json",
+        action="store_true",
+        help="output results in json format")
+    report_bufferbounds.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="print functions examined")
+    report_bufferbounds.set_defaults(func=REP.report_buffer_bounds)
+
 
     '''
 

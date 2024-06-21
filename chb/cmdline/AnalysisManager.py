@@ -80,6 +80,7 @@ class AnalysisManager(object):
             lineq_instr_cutoff: int = 0,
             lineq_block_cutoff: int = 0,
             use_ssa: bool = False,
+            no_varinvs: bool = False,
             include_arm_extension_registers: bool = False,
             hints: Dict[str, Any] = {}) -> None:
         """Initializes the analyzer location and target file location
@@ -119,6 +120,7 @@ class AnalysisManager(object):
         self.lineq_block_cutoff = lineq_block_cutoff
         self.fnsanalyzed: List[str] = []
         self.use_ssa = use_ssa
+        self.no_varinvs = no_varinvs
         self.include_arm_extension_registers = include_arm_extension_registers
 
     # Extraction and directory preparation -------------------------------------
@@ -479,6 +481,8 @@ class AnalysisManager(object):
             cmd.append("-verbose")
         if collectdiagnostics:
             cmd.append("-diagnostics")
+        if self.no_varinvs:
+            cmd.append("-no_varinvs")
         if asm:
             cmd.append("-save_asm")
         if construct_all_functions:
@@ -533,6 +537,8 @@ class AnalysisManager(object):
                 fincmd = cmd + ["-collectdata"]
                 if self.use_ssa:
                     fincmd = fincmd + ["-ssa"]
+                if self.no_varinvs:
+                    fincmd = fincmd + ["-no_varinvs"]
                 chklogger.logger.debug("execute command %s", " ".join(fincmd))
                 result = self._call_analysis(fincmd, timeout=timeout)
                 chklogger.logger.debug("execute command %s", " ".join(jarcmd))
