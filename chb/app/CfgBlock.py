@@ -99,3 +99,8 @@ class CfgBlock:
     @property
     def roles(self) -> Dict[str, str]:
         return {}
+
+    @property
+    def has_conditional_returns(self) -> bool:
+        r = self.xnode.get("fnexits")
+        return r is not None
