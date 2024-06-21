@@ -54,6 +54,8 @@ from chb.invariants.NonRelationalValue import NonRelationalValue
 from chb.jsoninterface.JSONAppComparison import JSONAppComparison
 from chb.jsoninterface.JSONRelationalReport import JSONRelationalReport
 from chb.jsoninterface.JSONResult import JSONResult
+
+from chb.relational.PatchParticulars import PatchParticulars
 from chb.relational.RelationalAnalysis import RelationalAnalysis
 
 import chb.util.dotutil as UD
@@ -441,26 +443,76 @@ def relational_compare_function_cmd(args: argparse.Namespace) -> NoReturn:
         mode=logfilemode,
         msg="relational compare function invoked")
 
-    result = _relational_compare_generate_json(xname1, xname2, xpatchresults, usermappingfile, addresses)
-    if not result.is_ok:
-        print("ERROR: Couldn't generate app comparison results")
+
+    patchresultsdata: Optional[Dict[str, Any]] = None
+    if xpatchresults is not None:
+        with open(xpatchresults, "r") as fp:
+            patchresultsdata = json.load(fp)
+
+    if patchresultsdata is None:
+        UC.print_error("Patch results data is missing.")
         exit(1)
 
-    if not result.is_ok:
-        print("ERROR: Couldn't generate app comparison results")
+    patchresults = PatchResults(patchresultsdata)
+
+    try:
+        (path1, xfile1) = UC.get_path_filename(xname1)
+        UF.check_analysis_results(path1, xfile1)
+        (path2, xfile2) = UC.get_path_filename(xname2)
+        UF.check_analysis_results(path2, xfile2)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
         exit(1)
 
-    output = JSONRelationalReport().summary_report(
-        JSONAppComparison(result.content),
-        block_changes=blocks,
-        instr_changes=details)
-    if xoutput:
+    xinfo1 = XI.XInfo()
+    xinfo2 = XI.XInfo()
+    xinfo1.load(path1, xfile1)
+    xinfo2.load(path2, xfile2)
+    app1 = UC.get_app(path1, xfile1, xinfo1)
+    app2 = UC.get_app(path2, xfile2, xinfo2)
+
+    patchparticulars = PatchParticulars(patchresults, app1, app2)
+
+    content: Dict[str, Any] = {}
+    content["patchevents"] = []
+
+    for faddr in addresses:
+        if app1.has_function(faddr) and app2.has_function(faddr):
+            fn1 = app1.function(faddr)
+            fn2 = app2.function(faddr)
+            if fn1.md5 == fn2.md5:
+                chklogger.logger.warning(
+                    "original function %s and its patched version are identical; "
+                    + "both have md5 %s",
+                    faddr, fn1.md5)
+                continue
+            if patchparticulars.has_patch_event(fn1):
+                fnpeparticulars = patchparticulars.patchevent_particulars(
+                    fn1, fn2)
+                if fnpeparticulars is None:
+                    chklogger.logger.critical(
+                        "patch validation for for function %s could not be "
+                        + " completed",
+                        faddr)
+                    continue
+                result = fnpeparticulars.to_json_result()
+                if result.is_ok:
+                    content["patchevents"].append(result.content)
+                else:
+                    chklogger.logger.warning(
+                        "error in patch validation for function %s: %s",
+                        faddr, result.reason)
+
+    jsonresult = JU.jsonok("patchvalidation", content)
+    if xoutput is not None:
+        UC.print_status_update(
+            "Relational function compare results saved in " + xoutput)
         with open(xoutput, "w") as fp:
-            fp.write(output)
+            json.dump(jsonresult, fp)
     else:
-        print(output)
+        print(json.dumps(jsonresult))
 
-    chklogger.logger.info("relational compare app completed")
+    chklogger.logger.info("relational compare function completed")
     exit(0)
 
 

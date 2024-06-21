@@ -90,6 +90,26 @@ def intvalue(desc: Optional[str] = None) -> Dict[str, Optional[str]]:
     return v
 
 
+def numbervalue(desc: Optional[str] = None) -> Dict[str, Optional[str]]:
+    v: Dict[str, Optional[str]] = {}
+    v["type"] = "number"
+    if desc is not None:
+        v["description"] = desc
+    return v
+
+
+def keyintvaluetype(
+        tag1: str, tag2: str, desc: Optional[str] = None) -> Dict[str, Any]:
+    s: Dict[str, Any] = {}
+    s["type"] = "object"
+    if desc is not None:
+        s["description"] = desc
+    s["properties"] = {}
+    s["properties"][tag1] = strtype()
+    s["properties"][tag2] = intvalue()
+    return s
+
+
 stackpointeroffset = {
     "name": "stackpointeroffset",
     "title": "stackpointer offset",
@@ -1309,5 +1329,304 @@ callsiterecords = {
             "description": "list of sites at which function is called",
             "items": refdef("callsiterecord")
         }
+    }
+}
+
+
+# -------------------------------------------------------- patch components
+
+hookinstr = {
+    "name": "hookinstr",
+    "title": "Hook instruction for trampoline",
+    "description": "Unconditional direct jump to or from a trampoline",
+    "$comment": "JSONPatchComponents.JSONHookInstruction",
+    "type": "object",
+    "required": ["srca", "tgta", "size", "instr"],
+    "properties": {
+        "size": intvalue(desc="instruction size in bytes"),
+        "srca": strtype(desc="hex address of jump instruction"),
+        "tgta": strtype(desc="hex address of jump target"),
+        "instr": refdef("assemblyinstruction")
+    }
+}
+
+
+codefragment = {
+    "name": "codefragment",
+    "title": "Code fragment",
+    "description": "Sequence of contiguous instructions without controlflow",
+    "type": "object",
+    "required": ["starta", "instructions"],
+    "properties": {
+        "starta": strtype(desc="hex address of first instruction"),
+        "instructions": {
+            "type": "array",
+            "description": (
+                "list of contiguous assembly instructions within a basic block"
+            ),
+            "items": refdef("assemblyinstruction")
+        }
+    }
+}
+
+
+patchcomponent = {
+    "name": "patchcomponent",
+    "title": "Code component of a patch",
+    "description": "Code component that contributes to a patch",
+    "type": "object",
+    "oneOf": [
+        {
+            "type": "object",
+            "description": "jump to or from a trampoline",
+            "required": ["kind", "value", "role"],
+            "properties": {
+                "kind": prop_kind(["hook"]),
+                "value": refdef("hookinstruction")
+            }
+        },
+        {
+            "type": "object",
+            "description": "code fragment that contributes to a patch",
+            "required": ["kind", "value", "role"],
+            "properties": {
+                "kind": prop_kind(["codefragment"]),
+                "value": refdef("codefragment")
+            }
+        }
+    ]
+}
+
+
+executionstate = {
+    "name": "executionstate",
+    "title": "Execution state",
+    "description": "Invariant facts at a particular location (address)",
+    "type": "object",
+    "properties": {
+        "address": strtype(desc="hex address of the location"),
+        "invariants": {
+            "type": "array",
+            "description": "Invariants that hold at this address",
+            "items": refdef("invariantfact")
+        }
+    }
+}
+
+
+tracetransition = {
+    "name": "tracetransition",
+    "title": "Trace transition",
+    "description": "Transition between two execution states",
+    "type": "object",
+    "required": ["starta", "desta", "instr"],
+    "properties": {
+        "starta": strtype(desc="hex address of the start address"),
+        "desta": strtype(desc="hex address of the destination address"),
+        "instr": refdef("assemblyinstruction"),
+        "condition": refdef("xexpression"),
+        "sideeffect": strtype(desc="observable action")
+    }
+}
+
+
+
+executiontrace = {
+    "name": "executiontrace",
+    "title": "Execution trace",
+    "description": "States and transitions in an execution",
+    "type": "object",
+    "properties": {
+        "executionstates": {
+            "type": "array",
+            "description": "sequence of variable interpretations",
+            "items": refdef("executionstate")
+        },
+        "tracetransitions": {
+            "type": "array",
+            "description": "transitions from one state to the next",
+            "items": refdef("tracetransition")
+        }
+    }
+}
+
+
+tracepair = {
+    "name": "tracepair",
+    "title": "Comparison between two traces",
+    "description": "Comparison between two corresponding traces",
+    "type": "object",
+    "properties": {
+        "trace1": refdef("executiontrace"),
+        "trace2": refdef("executiontrace"),
+        "synchronizationpoints": {
+            "type": "array",
+            "description": "corresponding locations in a trace",
+            "items": refdef("locationstate")
+        }
+    }
+}
+
+simulation = {
+    "name": "simulation",
+    "title": "Trace simulation",
+    "description": "Simulation between two corresponding fragments",
+    "type": "object",
+    "properties": {
+        "tracepairs": {
+            "type": "array",
+            "description": "comparison between two pairs of traces",
+            "items": refdef("tracepair")
+        }
+    }
+}
+
+
+patchvalidation = {
+    "name": "patchvalidation",
+    "title": "Validation of individual components of a patch",
+    "description": "Validation of individual components of a patch",
+    "type": "object",
+    "required": ["patchkind", "components", "checks"],
+    "properties": {
+        "patchkind": strtype(),
+        "components": {
+            "type": "array",
+            "description": "components participating in the patch",
+            "items": {
+                "type": "object",
+                "description": "role and component",
+                "properties": {
+                    "role": strtype(desc="role played by component"),
+                    "component": refdef("patchcomponent")
+                }
+            }
+        },
+        "simulation": refdef("simulation")
+    }
+}
+
+
+analysisstats = {
+    "name": "analysisstats",
+    "title": "Analysis statistics on performance and precision",
+    "description": "Analysis statistics on performance and precision",
+    "properties": {
+        "instructions": intvalue(desc="number of instructions disassembled"),
+        "unknowninstrs": intvalue(
+            desc="number of instructions not recognized"),
+        "functions": intvalue(desc="number of functions identified"),
+        "functioncoverage": numbervalue(
+            desc="percentage of instructions contained in functions"),
+        "espprecision": numbervalue(
+            desc=("percentage of instructions within functions for which "
+                  + "the relative value of the stack pointer is known "
+                  + "exactly")),
+        "readsprecision": numbervalue(
+            desc="percentage of memory loads resolved"),
+        "writesprecision": numbervalue(
+            desc="percentage of memory stores resolve"),
+        "unresolvedjumps": intvalue(desc="number of unresolved jumps"),
+        "calls": intvalue("number of call instructions"),
+        "unresolvedcalls": intvalue(desc="number of unresolved calls"),
+        "appcalls": intvalue(desc="number of application calls"),
+        "so-calls": intvalue(desc="number of calls to shared-object functions"),
+        "no-summaries": intvalue(
+            desc=("number of shared-object calls for which no summary (or "
+                  + "signature) is available")),
+        "analysistime": numbervalue(
+            desc="duration of the analysis in seconds"),
+        "analysisdate": strtype(desc="date/time analysis was performed"),
+        "iterations": intvalue(desc="number of iterations performed"),
+        "fns-excluded": {
+            "type": "array",
+            "description": "functions not analyzed because of time-out",
+            "items": strtype()
+        }
+    }
+}
+
+
+libcboundsstats = {
+    "name": "libcboundsstats",
+    "title": "Statistics on library functions with variable-size side effects",
+    "description": "Library function calls with variable-size side effects",
+    "type": "object",
+    "properties": {
+        "library-calls": intvalue(desc="number of shared object function calls"),
+        "summarized": intvalue(desc="number of so calls with summary"),
+        "sideeffect": intvalue(
+            desc="number of so calls with variable-size side effect"),
+        "patch-candidates": intvalue(
+            desc="number of instructions that are potentially vulnerable"),
+        "sideeffect-destination-types": {
+            "type": "array",
+            "description": "distribution of destination memory regions",
+            "items": keyintvaluetype("name", "count")
+        },
+        "sideeffect-length-types": {
+            "type": "array",
+            "description": "distribution of length argument types",
+            "items": keyintvaluetype("name", "count")
+        },
+        "known-input-length-types": {
+            "type": "array",
+            "description": (
+                "distribution of types of calls with known input length"),
+            "items": keyintvaluetype("name", "count")
+        },
+        "length-expressions": {
+            "type": "array",
+            "description": (
+                "distribution of expressions encountered as length argument"),
+            "items": keyintvaluetype("name", "count")
+        },
+        "patch-condidates": {
+            "type": "array",
+            "description": (
+                "address and annotation of instruction to be patched"),
+            "items": strtupletype("address", "annotation")
+        },
+        "patch-candidates-distribution": {
+            "type": "array",
+            "description": (
+                "distribution of library function calls to be patched"),
+            "items": keyintvaluetype("name", "count")
+        },
+        "missing-summaries": {
+            "type": "array",
+            "description": (
+                "library function calls without signature or summary"),
+            "items": keyintvaluetype("name", "count")
+        }
+    }
+}
+
+
+xinfodata = {
+    "name": "executableid",
+    "title": "Identification and description of executable",
+    "description": "Identification and description of executable",
+    "type": "object",
+    "required": ["architecture", "name", "size", "md5"],
+    "properties": {
+        "architecture": strtype(),
+        "name": strtype(),
+        "size": strtype(),
+        "md5": strtype()
+    }
+}
+
+
+libcboundsanalysis = {
+    "name": "libcboundsanalysis",
+    "title": "Risk assessment of buffer bounds violations in libc calls",
+    "description": "Analysis validity and risk assessment of buffer bounds",
+    "type": "object",
+    "required": ["identification", "analysis", "bounds"],
+    "property": {
+        "identification": refdef("xinfodata"),
+        "analysis": refdef("analysisstats"),
+        "bounds": refdef("libcboundsstats")
     }
 }

@@ -33,6 +33,7 @@ import chb.jsoninterface.JSONControlFlowGraph as Cfg
 import chb.jsoninterface.JSONFunctionComparison as FunC
 import chb.jsoninterface.JSONInstructionComparison as InstrC
 from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
+import chb.jsoninterface.JSONPatchComponent as PC
 
 
 class JSONObjectNOPVisitor(JSONObjectVisitor):
@@ -68,6 +69,9 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
     def visit_cfg_node(self, obj: Cfg.JSONCfgNode) -> None:
         pass
 
+    def visit_codefragment(self, obj: PC.JSONCodeFragment) -> None:
+        pass
+
     def visit_control_flow_graph(self, obj: Cfg.JSONControlFlowGraph) -> None:
         pass
 
@@ -88,4 +92,10 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
 
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
+        pass
+
+    def visit_hookinstr(self, obj: PC.JSONHookInstruction) -> None:
+        pass
+
+    def visit_patch_component(self, obj: PC.JSONPatchComponent) -> None:
         pass
