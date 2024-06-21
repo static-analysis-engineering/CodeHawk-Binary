@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs, LLC
+# Copyright (c) 2021-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -765,6 +765,43 @@ class NonReturningFunctionsHints(HintsEntry):
         return "\n".join(lines)
 
 
+class MaybeNonReturningFunctionsHints(HintsEntry):
+    """Addresses of functions that may or may not return (in hex).
+
+    For now it is considered fully nondeterministic if the function
+    call returns or not.
+    """
+
+    def __init__(self, mnrfunctions: List[str]) -> None:
+        HintsEntry.__init__(self, "maybe-non-returning-functions")
+        self._mnrfunctions = mnrfunctions
+
+    @property
+    def mnrfunctions(self) -> List[str]:
+        return self._mnrfunctions
+
+    def update(self, d: List[str]) -> None:
+        for faddr in d:
+            if faddr not in self._mnrfunctions:
+                self._mnrfunctions.append(faddr)
+
+    def to_xml(self, node: ET.Element) -> None:
+        xmnrfunctions = ET.Element(self.name)
+        node.append(xmnrfunctions)
+        for faddr in self.mnrfunctions:
+            xmnr = ET.Element("mnr")
+            xmnr.set("a", faddr)
+            xmnrfunctions.append(xmnr)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Maybe-non-returning functions")
+        lines.append("-----------------------")
+        lines.append("  [" + ", ".join(sorted(self.mnrfunctions)))
+        return "\n".join(lines)
+
+
+
 class SectionHeadersHints(HintsEntry):
     """Dictionary of section header information."""
 
@@ -1215,6 +1252,14 @@ class UserHints:
                 self.userdata[tag].update(nrfunctions)
             else:
                 self.userdata[tag] = NonReturningFunctionsHints(nrfunctions)
+
+        if "maybe-non-returning-functions" in hints:
+            tag = "maybe-non-returning-functions"
+            mnrfunctions: List[str] = hints[tag]
+            if tag in self.userdata:
+                self.userdata[tag].update(mnrfunctions)
+            else:
+                self.userdata[tag] = MaybeNonReturningFunctionsHints(mnrfunctions)
 
         if "section-headers" in hints:
             tag = "section-headers"
