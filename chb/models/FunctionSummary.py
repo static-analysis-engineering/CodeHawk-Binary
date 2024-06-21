@@ -96,6 +96,9 @@ class FunctionSummary:
                     "No api element found in summary for " + self.name)
         return self._signature
 
+    def parameter_index(self, name: str) -> Optional[int]:
+        return self.signature.parameter_index(name)
+
     @property
     def semantics(self) -> FunctionSemantics:
         if self._semantics is None:

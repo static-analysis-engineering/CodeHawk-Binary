@@ -234,15 +234,19 @@ class StackLayout:
             if self.is_saved_register_slot(offset):
                 return StackBuffer(offset, lb=offset + 4, ub=offset + 4)
             else:
+                lb: Optional[int] = None
+                ub: Optional[int] = None
                 for off in sorted(self.layout):
                     if off <= offset:
                         continue
-                    lb = off
+                    if lb is None:
+                        lb = off
                     if self.is_saved_register_slot(off):
-                        ub = off
-                        return StackBuffer(offset, lb=lb, ub=ub)
-                else:
-                    return None
+                        if ub is None:
+                            ub = off
+                return StackBuffer(offset, lb=lb, ub=ub)
+            # else:
+            #    return None
         else:
             return None
 
@@ -290,8 +294,11 @@ class StackLayout:
 
         if len(unknown) + len(upperbounds) + len(lowerbounds) == 0:
             # all stack offsets are known
-            self._size = -(min(singletons[iaddr] for iaddr in singletons))
 
+            if len(singletons) > 0:
+                self._size = -(min(singletons[iaddr] for iaddr in singletons))
+            else:
+                self._size = -1
         else:
             self._size = -1
 

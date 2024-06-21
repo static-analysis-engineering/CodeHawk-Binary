@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2017-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -259,6 +259,22 @@ class IndexedTable(IndexedTableSuperclass):
         else:
             index = self.next
             obj = f(index, key)
+            self.keytable[key] = index
+            self.indextable[index] = obj
+            self.next += 1
+            return index
+
+    def add_tags_args(
+            self,
+            tags: List[str],
+            args: List[int],
+            f: Callable[[int, List[str], List[int]], IndexedTableValue]) -> int:
+        key = get_key(tags, args)
+        if key in self.keytable:
+            return self.keytable[key]
+        else:
+            index = self.next
+            obj = f(index, tags, args)
             self.keytable[key] = index
             self.indextable[index] = obj
             self.next += 1

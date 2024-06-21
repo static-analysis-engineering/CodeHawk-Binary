@@ -75,6 +75,10 @@ class BTerm:
         return self._fsem
 
     @property
+    def is_arithmetic_expr(self) -> bool:
+        return False
+
+    @property
     def xterms(self) -> Sequence[ET.Element]:
         return self.xnode[1:]
 
@@ -337,6 +341,14 @@ class BTermArithmetic(BTerm):
         BTerm.__init__(self, fsem, tag, xnode)
         self._arg1 = arg1
         self._arg2 = arg2
+
+    @property
+    def operation(self) -> str:
+        return self.tag
+
+    @property
+    def is_arithmetic_expr(self) -> bool:
+        return True
 
     @property
     def arg1(self) -> BTerm:

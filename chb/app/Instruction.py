@@ -131,6 +131,12 @@ class Instruction(ABC):
         ...
 
     @property
+    def size(self) -> int:
+        """Returns the size of the instruction in bytes."""
+
+        return len(self.bytestring) // 2
+
+    @property
     def rev_bytestring(self) -> str:
         """Reverse byte string to account for different endianness."""
 
@@ -217,6 +223,10 @@ class Instruction(ABC):
     @abstractmethod
     def is_branch_instruction(self) -> bool:
         ...
+
+    @property
+    def jump_target(self) -> Optional["XXpr"]:
+        return None
 
     @property
     def is_unresolved(self) -> bool:

@@ -81,7 +81,8 @@ class MIPSBlock(BasicBlock):
             mipsinstr = cast(MIPSInstruction, instr)
             f(ia, mipsinstr)
 
-    def get_sliced_instructions(self, registers: List[str]) -> List[MIPSInstruction]:
+    def get_sliced_instructions(
+            self, registers: List[str]) -> List[MIPSInstruction]:
         result: List[MIPSInstruction] = []
         for ia in sorted(self.instructions):
             instr = self.instructions[ia]
@@ -99,10 +100,6 @@ class MIPSBlock(BasicBlock):
 
         self.iter(f)
         return result
-
-    @property
-    def store_instructions(self) -> Sequence[MIPSInstruction]:
-        return []
 
     def to_sliced_string(self, registers: List[str], loopdepth: int) -> str:
         lines: List[str] = []

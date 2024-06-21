@@ -115,6 +115,13 @@ class FunctionSignature:
         xpars = self.xnode.findall("par")
         return [P.FunctionParameter(self, xpar) for xpar in xpars]
 
+    def parameter_index(self, name: str) -> Optional[int]:
+        for par in self.parameters:
+            if par.name == name:
+                if par.is_stack_parameter:
+                    return par.stack_nr
+        return None
+
     @property
     def preconditions(self) -> List["FunctionPrecondition"]:
         if self._preconditions is None:

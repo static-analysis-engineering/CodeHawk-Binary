@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,9 @@ import xml.etree.ElementTree as ET
 from typing import Any, Callable, Dict, List, Optional
 
 from chb.app.AppResultFunctionMetrics import AppResultFunctionMetrics
+
+from chb.jsoninterface.JSONResult import JSONResult
+
 import chb.util.fileutil as UF
 
 
@@ -280,6 +283,14 @@ class AppResultMetrics:
         return int(self.calls.get("dll", "0"))
 
     @property
+    def so_calls(self) -> int:
+        return int(self.calls.get("so", "0"))
+
+    @property
+    def app_calls(self) -> int:
+        return int(self.calls.get("app", "0"))
+
+    @property
     def application_calls(self) -> int:
         return int(self.calls.get("app", "0"))
 
@@ -390,6 +401,27 @@ class AppResultMetrics:
         self.iter(f)
         return names
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["instructions"] = int(self.instruction_count)
+        content["unknowninstrs"] = int(self.unknown_instructions)
+        content["functions"] = int(self.function_count)
+        content["functioncoverage"] = float(self.pcoverage)
+        content["espprecision"] = self.esp_precision
+        content["readsprecision"] = self.reads_precision
+        content["writesprecision"] = self.writes_precision
+        content["unresolvedjumps"] = self.unresolved_jumps
+        content["calls"] = self.calls_count
+        content["unresolvedcalls"] = self.unresolved_calls
+        content["appcalls"] = self.app_calls
+        content["so-calls"] = self.so_calls
+        content["no-summaries"] = self.no_summary
+        content["analysistime"] = float(self.analysis_time)
+        content["iterations"] = self.run_count
+        content["analysisdate"] = self.date_time
+        content["fns-excluded"] = self.fns_excluded
+        return JSONResult("analysisstats", content, "ok")
+
     def as_dictionary(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {}
         result['name'] = self.filename
@@ -435,7 +467,9 @@ class AppResultMetrics:
         result['calls'] = self.calls_count
         result['unrcalls'] = self.unresolved_calls
         result['nosummaries'] = self.no_summary
+        result['appcalls'] = self.app_calls
         result['dllcalls'] = self.dll_calls
+        result['so-calls'] = self.so_calls
         result['inlinedcalls'] = self.inlined_calls
         result['analysistime'] = self.analysis_time
         result['iterations'] = self.run_count
@@ -470,9 +504,11 @@ class AppResultMetrics:
                + " / "
                + str(self.cc_instructions)).rjust(8))
         lines.append('Calls           : ' + str(self.calls_count).rjust(8))
+        lines.append("App calls       : " + str(self.app_calls).rjust(8))
         lines.append('Unresolved calls: ' + str(self.unresolved_calls).rjust(8))
         lines.append('No summaries    : ' + str(self.no_summary).rjust(8))
         lines.append('Dll calls       : ' + str(self.dll_calls).rjust(8))
+        lines.append("SO calls        : " + str(self.so_calls).rjust(8))
         lines.append('Static dll calls: ' + str(self.static_dll_calls).rjust(8))
         lines.append('Inlined calls   : ' + str(self.inlined_calls).rjust(8))
         lines.append('Wrapped calls   : ' + str(self.wrapped_calls).rjust(8))
