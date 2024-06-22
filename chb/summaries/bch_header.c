@@ -37,6 +37,7 @@ struct _sockaddr {
 
 typedef struct _sockaddr sockaddr;
 
+
 struct _stat;
 typedef struct _stat stat;
 
@@ -47,37 +48,10 @@ typedef unsigned int uid_t;
 
 typedef unsigned int gid_t;
 
-union sigval {
-  int sival_int;
-  void *sival_ptr;
-};
-
-typedef struct {
-  int si_signo;
-  int si_code;
-  pid_t si_pid;
-  uid_t si_uid;
-  void  *si_addr;
-  int  si_status;
-  union sigval si_value;
-} siginfo_t;
-
-
-struct _sigaction {
-  void (*sa_handler)(int);
-  void (*sa_sigaction)(int, siginfo_t *, void *);
-  sigset_t  sa_mask;
-  int       sa_flags;
-  void (*sa_restorer)(void);
-};
-
-typedef struct _sigaction sigaction;
-
 struct _fd_set {
   unsigned int fds_bits[32];
 };
 
 typedef struct _fd_set fd_set;
-
 
 int main(int argc, char **argv);
