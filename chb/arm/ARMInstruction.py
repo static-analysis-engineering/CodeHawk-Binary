@@ -279,7 +279,7 @@ class ARMInstruction(Instruction):
                 astree, self.iaddr, self.bytestring, self.xdata, reverse)
         except Exception as e:
             chklogger.logger.warning(
-                "Error in generating condition at address %s: %s",
+                "Error in generating condition at address %s: %s. Returning 0.",
                 self.iaddr, str(e))
             expr = astree.mk_integer_constant(0)
             return (expr, expr)
@@ -364,6 +364,14 @@ class ARMInstruction(Instruction):
         if spresult.is_ok:
             content["stackpointer"] = spresult.content
         content["bytes"] = self.bytestring
+        if self.mnemonic.startswith("unknown"):
+            reason = (
+                "Instruction opcode not recognized at address "
+                + self.real_iaddr
+                + " (bytes: "
+                + self.bytestring
+                + ")")
+            return JSONResult("assemblyinstruction", {}, "fail", reason)
         try:
             content["opcode"] = [self.mnemonic, self.operandstring]
             content["annotation"] = self.annotation
