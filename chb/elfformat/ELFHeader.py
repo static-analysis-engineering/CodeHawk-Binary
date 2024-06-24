@@ -309,6 +309,14 @@ class ELFHeader:
                     self, self.sectionheaders[index], xsection)
         return self._sections
 
+    def get_programheader_by_index(
+            self, index: int) -> Optional[ELFProgramHeader]:
+        for h in self.programheaders:
+            if h.index == index:
+                return h
+        else:
+            return None
+
     def get_sectionheader_by_name(self, name: str) -> Optional[ELFSectionHeader]:
         for h in self.sectionheaders:
             if h.name == name:
