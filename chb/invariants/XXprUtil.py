@@ -203,8 +203,9 @@ def xxpr_to_ast_def_exprs(
                         equalizedvar = str(ivar)
                     elif not (equalizedvar == str(ivar)):
                         chklogger.logger.warning(
-                            "Multiple different introductions at address %s: "
+                            "Multiple different introductions for %s at address %s: "
                             + "%s, %s",
+                            str(xreg),
                             iaddr,
                             str(equalizedvar),
                             str(ivar))
@@ -213,8 +214,9 @@ def xxpr_to_ast_def_exprs(
                         pass
                 else:
                     chklogger.logger.warning(
-                        "Multiple definitions; not all of them with varintro: "
+                        "Multiple definitions for %s; not all of them with varintro: "
                         "%s at address %s",
+                        str(xreg),
                         str(d),
                         iaddr)
                     return None

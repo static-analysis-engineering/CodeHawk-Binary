@@ -196,18 +196,35 @@ class ASTInterfaceBasicBlock:
         return self.trampoline_block_ast("setupblock", astree)
 
     def trampoline_payload_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
+        """Lifting of payload containing a single condition.
+
+        Patterns currently recognized:
+
+        fallthrough / exit function (return):
+        <condition>
+        MOVxx R0, #1
+        BX    LR
+        ------------
+
+        fallthrough / continue:
+        <condition>
+        MOVxx R1, #1
+        LSL   R0, R1, #1
+        BX    LR
+        """
         if not self.trampoline:
             raise UF.CHBError("Internal error")
         payloadblock = self.trampoline["payload"]
-        (iaddr, chkinstr) = sorted(payloadblock.instructions.items())[-2]
-        chkinstr = cast("ARMInstruction", chkinstr)
-        if chkinstr.mnemonic_stem == "MOV":
-            if chkinstr.has_instruction_condition():
-                condition = chkinstr.get_instruction_condition()
+        payloadinstrs = sorted(payloadblock.instructions.items())
+        (iaddr2, chkinstr2) = payloadinstrs[-2]
+        chkinstr2 = cast("ARMInstruction", chkinstr2)
+        if chkinstr2.mnemonic_stem == "MOV":
+            if chkinstr2.has_instruction_condition():
+                condition = chkinstr2.get_instruction_condition()
                 rstmt = astree.mk_return_stmt(None)
                 estmt = astree.mk_instr_sequence([])
                 aexprs = XU.xxpr_to_ast_exprs(
-                    condition, chkinstr.xdata, chkinstr.iaddr, astree)
+                    condition, chkinstr2.xdata, chkinstr2.iaddr, astree)
                 if len(aexprs) == 1:
                     cc = aexprs[0]
                     brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
@@ -215,16 +232,57 @@ class ASTInterfaceBasicBlock:
                 elif len(aexprs) == 0:
                     chklogger.logger.critical(
                         "trampoline payload cannot be lifted: "
-                        + "no dispatch condition found")
+                        + "no dispatch condition found. "
+                        + "Contact system maintainer for support.")
                 else:
                     chklogger.logger.critical(
                         "trampoline payload cannot be lifted: "
-                        + "multiple dispatch conditions found: %s",
-                        ", ".join(str(x) for x in aexprs))
+                        + "multiple dispatch conditions found: %s. "
+                        + "Contact system maintainer for support.",
+                        ", ".join(str(x) for x in aexprs)
+                        )
             else:
                 chklogger.logger.critical(
                     "trampoline payload cannot be lifted: "
-                    + "expected to find conditional MOV instruction")
+                    + "expected to find conditional MOV instruction. "
+                    + "Contact system maintainer for support.")
+        elif chkinstr2.mnemonic_stem == "LSL":
+            (iaddr3, chkinstr3) = payloadinstrs[-3]
+            chkinstr3 = cast("ARMInstruction", chkinstr3)
+            if chkinstr3.mnemonic_stem == "MOV":
+                if chkinstr3.has_instruction_condition():
+                    condition = chkinstr3.get_instruction_condition()
+                    cstmt = astree.mk_continue_stmt()
+                    estmt = astree.mk_instr_sequence([])
+                    aexprs = XU.xxpr_to_ast_exprs(
+                        condition, chkinstr3.xdata, chkinstr3.iaddr, astree)
+                if len(aexprs) == 1:
+                    cc = aexprs[0]
+                    brstmt = astree.mk_branch(cc, cstmt, estmt, "0x0")
+                    return brstmt
+                elif len(aexprs) == 0:
+                    chklogger.logger.critical(
+                        "trampoline payload cannot be lifted: "
+                        + " no dispatch condition found. "
+                        + "Contact system maintainer for support")
+                else:
+                    chklogger.logger.critical(
+                        "trampoline payload cannot be lifted: "
+                        + "multiple dispatch conditions found: %s. "
+                        + "Contact system maintainer for support.",
+                        ", ".join(str(x) for x in aexprs)
+                    )
+            else:
+                chklogger.logger.critical(
+                    "trampoline payload cannot be lifted: "
+                    + "expected a MOV instruction and not a %s. "
+                    + "Contact system maintainer for support.",
+                    chkinstr3.mnemonic)
+        else:
+            chklogger.logger.critical(
+                "trampoline payload cannot be lifted: "
+                + "pattern not recognized. "
+                + "Contact system maintainer for support.")
         return self.trampoline_block_ast("payload", astree)
 
     def trampoline_payload_sideeffect_ast(
