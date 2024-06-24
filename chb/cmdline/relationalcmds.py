@@ -134,6 +134,7 @@ def compare_executable_content(
         pdfiledata)
 
     xcomparison.compare_sections()
+    xcomparison.compare_segments()
 
     return xcomparison
 

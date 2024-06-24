@@ -33,8 +33,11 @@ import chb.cmdline.commandutil as UC
 
 from chb.jsoninterface.JSONResult import JSONResult
 
+from chb.util.loggingutil import chklogger
+
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
+    from chb.elfformat.ELFProgramHeader import ELFProgramHeader
     from chb.elfformat.ELFSectionHeader import ELFSectionHeader
 
 
@@ -58,14 +61,21 @@ class XComparison:
         self._app1 = app1
         self._app2 = app2
         self._newsections: List["ELFSectionHeader"] = []
+        self._newsegments: List["ELFProgramHeader"] = []
         self._missingsections: List[str] = []
+        self._missingsegments: List[int] = []
         self._sectionheaderpairs: Dict[
             str,
-            Tuple[Optional["ELFSectionHeader"], Optional["ELFSectionHeader"]]] = {}
+            Tuple[Optional["ELFSectionHeader"],
+                  Optional["ELFSectionHeader"]]] = {}
+        self._programheaderpairs: Dict[
+            int,
+            Tuple[Optional["ELFProgramHeader"],
+                  Optional["ELFProgramHeader"]]] = {}
         self._switchpoints: List[str] = []
         self._newcode: List[Tuple[str, str]] = []
         self._pdfiledata = pdfiledata
-        self.compare_sections()
+        self._messages: List[str] = []
 
     @property
     def is_thumb(self) -> bool:
@@ -96,6 +106,22 @@ class XComparison:
         return self._app2
 
     @property
+    def messages(self) -> List[str]:
+        return self._messages
+
+    @property
+    def programheaders1(self) -> List["ELFProgramHeader"]:
+        return self.app1.header.programheaders
+
+    @property
+    def programheaders2(self) -> List["ELFProgramHeader"]:
+        return self.app2.header.programheaders
+
+    @property
+    def newsegments(self) -> List["ELFProgramHeader"]:
+        return self._newsegments
+
+    @property
     def sectionheaders1(self) -> List["ELFSectionHeader"]:
         return self.app1.header.sectionheaders
 
@@ -112,9 +138,20 @@ class XComparison:
         return self._missingsections
 
     @property
-    def sectionheaderpairs(self) -> Dict[str,
+    def missingsegments(self) -> List[int]:
+        return self._missingsegments
+
+    @property
+    def sectionheaderpairs(self) -> Dict[
+            str,
             Tuple[Optional["ELFSectionHeader"], Optional["ELFSectionHeader"]]]:
         return self._sectionheaderpairs
+
+    @property
+    def programheaderpairs(self) -> Dict[
+            int,
+            Tuple[Optional["ELFProgramHeader"], Optional["ELFProgramHeader"]]]:
+        return self._programheaderpairs
 
     @property
     def switchpoints(self) -> List[str]:
@@ -145,14 +182,21 @@ class XComparison:
     def add_missing_section(self, name: str) -> None:
         self._missingsections.append(name)
 
+    def add_missing_segment(self, index: int) -> None:
+        self._missingsegments.append(index)
+
     def add_new_section(self, s: "ELFSectionHeader") -> None:
         self._newsections.append(s)
+
+    def add_new_segment(self, s: "ELFProgramHeader") -> None:
+        self._newsegments.append(s)
 
     def set_sectionheader_pairs(
             self,
             p: Dict[
                 str,
-                Tuple[Optional["ELFSectionHeader"], Optional["ELFSectionHeader"]]]
+                Tuple[Optional["ELFSectionHeader"],
+                      Optional["ELFSectionHeader"]]]
     ) -> None:
         self._sectionheaderpairs = p
 
@@ -162,30 +206,36 @@ class XComparison:
     def add_newcode(self, start: str, endc: str) -> None:
         self._newcode.append((start, endc))
 
+    def compare_segments(self) -> None:
+        for ph1 in self.programheaders1:
+            index = ph1.index
+            if not index in self._programheaderpairs:
+                ph2 = self.app2.header.get_programheader_by_index(index)
+                self._programheaderpairs[index] = (ph1, ph2)
+            else:
+                chklogger.logger.warning("Duplicate header index: %d", index)
+
+        for ph2 in self.programheaders2:
+            index = ph2.index
+            if not index in self._programheaderpairs:
+                self._programheaderpairs[index] = (None, ph2)
+
+        for (index, (optph1, optph2)) in self.programheaderpairs.items():
+            if optph1 is None:
+                if optph2 is not None:
+                    self.add_new_segment(optph2)
+            elif optph2 is None:
+                self.add_missing_segment(optph1.index)
+            else:
+                if optph1.has_memsize() and optph2.has_memsize():
+                    size1 = int(optph1.memsize, 16)
+                    size2 = int(optph2.memsize, 16)
+                    if size1 != size2:
+                        self._messages.append(
+                            (f"Segment {index} size changed from "
+                             + f"{size1} to {size2}"))
+
     def compare_sections(self) -> None:
-
-        def compare_section(
-                sh1: "ELFSectionHeader", sh2: "ELFSectionHeader") -> None:
-            if self.is_thumb:
-                if int(sh2.size, 16) > int(sh1.size, 16):
-                    newvaddr = hex(int(sh1.vaddr, 16) + int(sh1.size, 16))
-                    newvend = hex(int(sh1.vaddr, 16) + int(sh2.size, 16))
-                    self.add_newcode(newvaddr, newvend)
-
-        if len(self.sectionheaders1) > len(self.sectionheaders2):
-            for sh1 in self.sectionheaders1:
-                sh2 =self. app2.header.get_sectionheader_by_name(sh1.name)
-                if sh2 is None:
-                    self.add_missing_section(sh1.name)
-        elif len(self.sectionheaders1) < len(self.sectionheaders2):
-            for sh2 in self.sectionheaders2:
-                sh1 =self.app1.header.get_sectionheader_by_name(sh2.name)
-                if sh1 is None:
-                    vaddr2 = sh2.vaddr
-                    size2 = int(sh2.size, 16)
-                    self.add_new_section(sh2)
-                    if self.is_thumb:
-                        self.add_switchpoint(vaddr2 + ":T")
 
         for sh1 in self.sectionheaders1:
             name = sh1.name
@@ -193,7 +243,7 @@ class XComparison:
                 sh2 = self.app2.header.get_sectionheader_by_name(name)
                 self._sectionheaderpairs[name] = (sh1, sh2)
             else:
-                UC.print_status_update("Duplicate section name: " + name)
+                chklogger.logger.warning("Duplicate section name: " + name)
 
         for sh2 in self.sectionheaders2:
             if not sh2.name in self._sectionheaderpairs:
@@ -203,6 +253,9 @@ class XComparison:
             if optsh1 is None:
                 if optsh2 is not None:
                     self.add_new_section(optsh2)
+                    vaddr2 = optsh2.vaddr
+                    if self.is_thumb:
+                        self.add_switchpoint(vaddr2 + ":T")
             elif optsh2 is None:
                 self.add_missing_section(name)
             else:
@@ -221,6 +274,16 @@ class XComparison:
         content["file2"] = file2 = {}
         file2["path"] = self.path2
         file2["filename"] = self.xfile2
+        if len(self.newsegments) > 0:
+            content["newsegments"] = newsegs = []
+            for ph in self.newsegments:
+                newseg: Dict[str, str] ={}
+                newseg["index"] = str(ph.index)
+                if ph.has_virtual_address():
+                    newseg["vaddr"] = ph.virtual_address
+                if ph.has_memsize():
+                    newseg["size"] = ph.memsize
+                newsegs.append(newseg)
         if len(self.newsections) > 0:
             content["newsections"] = newsecs = []
             for sh in self.newsections:
@@ -266,6 +329,24 @@ class XComparison:
         trampolines = self.trampoline_addresses
         if len(trampolines) > 0:
             result["trampolines"] = trampolines
+        if len(self.newsegments) > 0 and len(self.newsections) == 0:
+            sectionheaders: Dict[str, Dict[str, str]] = {}
+            for (index, (ph1, ph2)) in self.programheaderpairs.items():
+                if ph1 is None and ph2 is not None:
+                    seg: Dict[str, str] = {}
+                    if ph2.has_virtual_address():
+                        seg["addr"] = ph2.virtual_address
+                    if ph2.has_memsize():
+                        seg["size"] = ph2.memsize
+                    seg["offset"] = ph2.get_default_property_value(
+                        "p_offset", "0x0")
+                    seg["type"] = ph2.get_default_property_value(
+                        "p_type", "0x1")
+                    seg["flags"] = ph2.get_default_property_value(
+                        "p_flags", "0x7")
+                    seg["status"] = "new"
+                    sectionheaders["segment_" + str(ph2.index)] = seg
+            result["section-headers"] = sectionheaders
         return result
 
     def prepare_report(self) -> str:
@@ -282,6 +363,14 @@ class XComparison:
                 + "; size: "
                 + str(sh.size)
                 + " bytes")
+
+        for ph in self.newsegments:
+            lines.append(
+                "  A new segment ("
+                + str(ph.index)
+                + ") was added to the patched file: ")
+            lines.append(str(ph))
+            lines.append("")
 
         if len(self.missingsections) + len(self.newsections) == 0:
             lines.append(
