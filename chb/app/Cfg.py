@@ -600,6 +600,10 @@ class Cfg:
                 if astlastinstr.is_condition_true():
                     return xstmts + do_branch(x, succs[1], ctx)
 
+                if astblock.is_trampoline:
+                    # control flow is handled within the trampoline
+                    return xstmts + do_branch(x, succs[1], ctx)
+
                 ifbranch = mk_block(do_branch(x, succs[1], ctx))
                 elsebranch = mk_block(do_branch(x, succs[0], ctx))
                 tgtaddr = succs[1]
@@ -672,6 +676,9 @@ class Cfg:
                 succblock = astree.mk_return_stmt(None)
             elif len(successors) == 1:
                 succblock = astree.mk_goto_stmt(successors[0], successors[0])
+            elif len(successors) == 2 and blocknode.is_trampoline:
+                # control flow is handled within the trampoline block
+                succblock = astree.mk_goto_stmt(successors[1], successors[1])
             elif len(successors) == 2:
                 falsebranch = astree.mk_goto_stmt(
                     successors[0], successors[0], wrapgoto=True)
