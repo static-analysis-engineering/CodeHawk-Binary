@@ -32,6 +32,7 @@ from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.CallgraphMatcher import CallgraphMatcher
 from chb.relational.FunctionRelationalAnalysis import FunctionRelationalAnalysis
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
@@ -207,6 +208,17 @@ class RelationalAnalysis:
         for (faddr, fra) in self.function_analyses.items():
             if fra.moved or not fra.is_md5_equal:
                 result.append(faddr)
+
+        for (faddr1, md51) in self.md5s1.items():
+            if faddr in self.md5s2:
+                if (md51 == self.md5s2[faddr1]) or (faddr in result):
+                    continue
+                else:
+                    chklogger.logger.warning(
+                        "Function not analyzed changed: %s. "
+                        + "Original md5: %s; Patched md5: %s",
+                        faddr1, md51, self.md5s2[faddr])
+                    result.append(faddr1)
         return result
 
     def functions_added(self) -> List[str]:
@@ -251,10 +263,15 @@ class RelationalAnalysis:
         content["functions-compared"] = self.functions_mapped()
         content["functions-changed"] = []
         for faddr in self.functions_changed():
-            fra = self.function_analyses[faddr].to_json_result(self.callees)
-            if fra.is_ok:
-                content["functions-changed"].append(fra.content)
+            if faddr in self.function_analyses:
+                fra = self.function_analyses[faddr].to_json_result(self.callees)
+                if fra.is_ok:
+                    content["functions-changed"].append(fra.content)
+                else:
+                    return JSONResult("appcomparison", {}, "fail", fra.reason)
             else:
-                return JSONResult("appcomparison", {}, "fail", fra.reason)
+                return JSONResult(
+                    "appcomparison", {}, "fail",
+                    "encountered a function not analyzed that changed: " + faddr)
         content["app-md5-comparison"] = self.md5_comparison_to_json_result().content
         return JSONResult("appcomparison", content, "ok")
