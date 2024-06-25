@@ -211,6 +211,19 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     xinfo2 = XI.XInfo()
     xinfo2.load(path2, xfile2)
 
+    if save_aux_userdata is not None:
+        with open(save_aux_userdata + ".json", "w") as fp:
+            json.dump(userhints.hints, fp, indent=2)
+
+    if len(xcomparison.newsegments) > 0:
+        tmpfilename = os.path.join(path2, "tmp_userdata.json")
+        tmpuserdata: Dict[str, Any] = {}
+        tmpuserdata["userdata"] = userhints.hints
+        with open(tmpfilename, "w") as fp:
+            json.dump(tmpuserdata, fp, indent=2)
+        userhints = UC.prepare_executable(
+            path2, xfile2, True, True, hints=[tmpfilename])
+
     if not xjson:
         lines: List[str] = []
         lines.append(relational_header(
