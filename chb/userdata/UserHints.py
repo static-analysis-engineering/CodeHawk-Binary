@@ -1099,7 +1099,12 @@ class UserHints:
     def __init__(self, toxml: bool = True) -> None:
         self.userdata: Dict[str, HintsEntry] = {}
         self.astdata: Dict[str, HintsEntry] = {}
+        self._hints: Dict[str, Any] = {}
         self._toxml = toxml
+
+    @property
+    def hints(self) -> Dict[str, Any]:
+        return self._hints
 
     def variable_names(self) -> VariableNamesRec:
         if "variable-names" in self.astdata:
@@ -1150,6 +1155,8 @@ class UserHints:
         and ast data (used in ast only):
         - variable-names
         """
+
+        self._hints.update(hints)
 
         if "arg-constraints" in hints:
             tag = "arg-constraints"
