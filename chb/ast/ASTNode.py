@@ -2384,8 +2384,11 @@ class ASTTypArray(ASTTyp):
         if self.tgttyp != other.tgttyp:
             return False
 
-        # TODO: Is this the right check?
-        return self.size_value() == other.size_value()
+        if self.has_constant_size() and other.has_constant_size():
+            return self.size_value() == other.size_value()
+        else:
+            # This becomes object equality, which we believe is fine.
+            return self.size_expr == other.size_expr
 
 
 class ASTTypFun(ASTTyp):
@@ -2557,6 +2560,15 @@ class ASTTypNamed(ASTTyp):
 
     def __str__(self) -> str:
         return str(self.typdef) + " " + self.typname
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypNamed):
+            return False
+
+        if self.typname != other.typname:
+            return False
+
+        return self.typdef == other.typdef
 
 
 class ASTTypBuiltinVAList(ASTTyp):
@@ -2777,6 +2789,15 @@ class ASTTypComp(ASTTyp):
     def __str__(self) -> str:
         return "struct " + self.compname
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypComp):
+            return False
+
+        if self.compkey != other.compkey:
+            return False
+
+        return self.compname == other.compname
+
 
 class ASTEnumItem(ASTNode):
 
@@ -2890,3 +2911,12 @@ class ASTTypEnum(ASTTyp):
 
     def __str__(self) -> str:
         return "enum " + self.enumname
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypEnum):
+            return False
+
+        if self.enumkind != other.enumkind:
+            return False
+
+        return self.enumname == other.enumname
