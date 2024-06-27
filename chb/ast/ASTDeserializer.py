@@ -789,9 +789,13 @@ class ASTDeserializer:
             elif tag == "loop":
                 stmtid = r["stmtid"]
                 locationid = r["locationid"]
+                breakaddr = r.get("merge-addr")
+                continueaddr = r.get("continue-addr")
                 body = cast(AST.ASTStmt, mk_node(arg(0)))
                 nodes[id] = astree.mk_loop(
-                    body, optstmtid=stmtid, optlocationid=locationid)
+                    body,
+                    mergeaddr=breakaddr, continueaddr=continueaddr,
+                    optstmtid=stmtid, optlocationid=locationid)
 
             elif tag == "label":
                 locationid = r["locationid"]
