@@ -131,9 +131,18 @@ class ARMFunction(Function):
                 pass
             else:
                 for xjt in xjts.findall("jt"):
-                    jumptable = cast(JumpTable, ARMJumpTable(xjt))
+                    jumptable = cast(JumpTable, ARMJumpTable(self, xjt))
                     self._jumptables[jumptable.va] = jumptable
         return self._jumptables
+
+    def has_jumptable(self, iaddr: str) -> bool:
+        return iaddr in self.jumptables
+
+    def get_jumptable(self, iaddr: str) -> JumpTable:
+        if iaddr in self.jumptables:
+            return self.jumptables[iaddr]
+        else:
+            raise UF.CHBError(f"No jumptable found at address {iaddr}")
 
     @property
     def blocks(self) -> Mapping[str, ARMBlock]:
@@ -252,6 +261,26 @@ class ARMFunction(Function):
                     opcodewidth=opcodewidth,
                     sp=sp))
             lines.append("-" * 80)
+            if self.has_jumptable(self.blocks[b].lastaddr):
+                jumptable = cast(
+                    ARMJumpTable, self.get_jumptable(self.blocks[b].lastaddr))
+                lines.append(
+                    "  Jumptable: ("
+                    + jumptable.startaddr
+                    + " - "
+                    + jumptable.endaddr
+                    + ")")
+                lines.append(
+                    "  Case variable: " + str(jumptable.index_operand))
+                for (caddr, ccases) in jumptable.indexed_targets.items():
+                    lines.append(
+                        "  "
+                        + caddr
+                        + ": ["
+                        + ", ".join(str(c) for c in ccases)
+                        + "]")
+                lines.append("  " + jumptable.default_target + ": [default]")
+                lines.append("-" * 80)
         if hash:
             lines.append("hash: " + self.md5)
         if bytestring:
