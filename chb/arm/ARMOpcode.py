@@ -42,6 +42,7 @@ from chb.astinterface.ASTInterface import ASTInterface
 from chb.invariants.VarInvariantFact import DefUse, DefUseHigh, ReachingDefFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
+import chb.invariants.XXprUtil as XU
 
 import chb.simulation.SimUtil as SU
 import chb.simulation.SimSymbolicValue as SSV
@@ -201,9 +202,16 @@ class ARMOpcode(ARMDictionaryRecord):
             bytestring: str,
             xdata: InstrXData) -> Tuple[
                 Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
-        """ Return default; should be overridden by instruction opcodes."""
 
-        return (None, None)
+        if xdata.is_aggregate_jumptable:
+            condition = xdata.xprs[1]
+            hl_conds = XU.xxpr_to_ast_def_exprs(condition, xdata, iaddr, astree)
+            if len(hl_conds) == 1:
+                return (hl_conds[0], None)
+            else:
+                return (None, None)
+        else:
+            return (None, None)
 
     def ast_variable_intro(
             self,

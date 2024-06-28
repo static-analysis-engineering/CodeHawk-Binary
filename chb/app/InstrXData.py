@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -342,13 +342,21 @@ class InstrXData(IndexedTableValue):
     def has_base_update(self) -> bool:
         return "bu" in self.tags
 
+    @property
+    def is_aggregate_jumptable(self) -> bool:
+        return "agg-jt" in self.tags
+
     def instruction_is_subsumed(self) -> bool:
-        """An instruction may be subsumed as part of an IT construct (ARM)."""
+        """The instruction is subsumed by a larger idiomatic construct.
+
+        Currently this applies only to ARM. Constructs include IfThen
+        composites (Thumb-2) or jump tables set up by multiple instructions.
+        """
 
         return "subsumed" in self.tags
 
     def subsumed_by(self) -> str:
-        """Return the address of the IT instruction that subsumes this instruction."""
+        """Return the address of the subsuming IT instruction."""
 
         if "subsumed" in self.tags:
             index = self.tags.index("subsumed")
@@ -358,8 +366,16 @@ class InstrXData(IndexedTableValue):
                 "XData does not have a subsumed-by address: "
                 + ", ".join(self.tags))
 
+    def instruction_subsumes(self) -> bool:
+        """The instruction is the anchor of a larger idiomatic construct.
+
+        Currently this applies only to ARM. Constructs include IfThne
+        composites (Thumb-2) or jump tables.
+        """
+        return "subsumes" in self.tags
+
     def subsumes(self) -> List[str]:
-        """Return the addresses of the instruction subsumed by this instruction."""
+        """Return the addresses of the subsumed instructions."""
 
         if "subsumes" in self.tags:
             index = self.tags.index("subsumes")

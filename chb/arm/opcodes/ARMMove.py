@@ -99,9 +99,6 @@ class ARMMove(ARMOpcode):
         return ", ".join(str(op) for op in self.operands)
 
     def annotation(self, xdata: InstrXData) -> str:
-        if xdata.instruction_is_subsumed():
-            return "subsumed by ITE"
-
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
         assignment = lhs + " := " + rhs

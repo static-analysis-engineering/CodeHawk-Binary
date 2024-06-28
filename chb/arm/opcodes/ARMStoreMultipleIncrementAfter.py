@@ -211,7 +211,12 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
                         "StoreMultipleIncrementAfter (STMIA): error in assigns")
                 hl_lhs = hl_lhss[0]
                 hl_rhs = hl_rhss[0]
-                hl_assign = astree.mk_assign(hl_lhs, hl_rhs, iaddr=iaddr)
+                hl_assign = astree.mk_assign(
+                    hl_lhs,
+                    hl_rhs,
+                    iaddr=iaddr,
+                    bytestring=bytestring,
+                    annotations=annotations)
                 hl_instrs.append(hl_assign)
 
                 astree.add_instr_mapping(hl_assign, ll_assign)
@@ -221,6 +226,7 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
                 astree.add_expr_reachingdefs(ll_rhs, [regrdefs[i]])
                 astree.add_lval_defuses(hl_lhs, memuses[i])
                 astree.add_lval_defuses_high(hl_lhs, memuseshigh[i])
+                astree.add_lval_store(hl_lhs)
 
                 base_offset += 4
 

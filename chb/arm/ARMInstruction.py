@@ -51,6 +51,7 @@ from chb.arm.opcodes.ARMIfThen import ARMIfThen
 from chb.invariants.InvariantFact import InvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
+import chb.invariants.XXprUtil as XU
 
 from chb.jsoninterface.JSONResult import JSONResult
 
@@ -62,6 +63,7 @@ from chb.util.loggingutil import chklogger
 if TYPE_CHECKING:
     from chb.arm.ARMBlock import ARMBlock
     from chb.arm.ARMFunction import ARMFunction
+    from chb.arm.ARMJumpTable import ARMJumpTable
 
 
 class ARMInstruction(Instruction):
@@ -198,6 +200,10 @@ class ARMInstruction(Instruction):
     def is_subsumed(self) -> bool:
         return self.xdata.instruction_is_subsumed()
 
+    @property
+    def subsumes(self) -> bool:
+        return self.xdata.instruction_subsumes()
+
     def subsumed_by(self) -> str:
         if self.is_subsumed:
             return self.xdata.subsumed_by()
@@ -221,7 +227,14 @@ class ARMInstruction(Instruction):
 
     @property
     def annotation(self) -> str:
-        return self.opcode.annotation(self.xdata)
+        if self.is_subsumed:
+            aggaddr = self.xdata.subsumed_by()
+            return f"subsumed by {aggaddr}"
+        elif self.subsumes:
+            dependents = self.xdata.subsumes()
+            return "subsumes [" + ", ".join(dependents) + "]"
+        else:
+            return self.opcode.annotation(self.xdata)
 
     def has_instruction_condition(self) -> bool:
         return self.xdata.has_instruction_condition()
@@ -286,8 +299,31 @@ class ARMInstruction(Instruction):
 
     def ast_switch_condition_prov(self, astree: ASTInterface) -> Tuple[
             Optional[ASTExpr], Optional[ASTExpr]]:
-        return self.opcode.ast_switch_condition_prov(
-            astree, self.iaddr, self.bytestring, self.xdata)
+
+        if self.xdata.is_aggregate_jumptable:
+            jumptable = cast(
+                "ARMJumpTable", self.armfunction.get_jumptable(self.iaddr))
+            indexop = jumptable.index_operand
+            condition = self.xdata.xprs[1]
+            (ll_cond, _, _) = indexop.ast_rvalue(astree)
+            hl_conds = XU.xxpr_to_ast_def_exprs(
+                condition, self.xdata, self.iaddr, astree)
+            if len(hl_conds) != 1:
+                chklogger.logger.warning(
+                    "Error in converting switch condition at %s", self.iaddr)
+                return (None, ll_cond)
+            hl_cond = hl_conds[0]
+
+            astree.add_expr_mapping(hl_cond, ll_cond)
+            astree.add_expr_reachingdefs(hl_cond, self.xdata.reachingdefs)
+            astree.add_condition_address(
+                ll_cond, (self.xdata.subsumes() + [self.iaddr]))
+
+            return (hl_cond, ll_cond)
+
+        else:
+            return self.opcode.ast_switch_condition_prov(
+                astree, self.iaddr, self.bytestring, self.xdata)
 
     @property
     def stackpointer_offset(self) -> StackPointerOffset:
