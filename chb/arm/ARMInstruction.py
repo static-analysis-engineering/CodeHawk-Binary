@@ -270,8 +270,11 @@ class ARMInstruction(Instruction):
             List[ASTInstruction], List[ASTInstruction]]:
         """Return instruction ast with provenance."""
 
-        return self.opcode.ast_prov(
-            astree, self.iaddr, self.bytestring, self.xdata)
+        if self.is_subsumed:
+            return ([], [])
+        else:
+            return self.opcode.ast_prov(
+                astree, self.iaddr, self.bytestring, self.xdata)
 
     def is_condition_true(self) -> bool:
         return self.opcode.is_condition_true(self.xdata)
