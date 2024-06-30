@@ -1236,6 +1236,10 @@ class ASTVarInfo(ASTNode):
     def vtype(self) -> Optional["ASTTyp"]:
         return self._vtype
 
+    @vtype.setter
+    def vtype(self, new_type: "ASTTyp") -> None:
+        self._vtype = new_type
+
     @property
     def parameter(self) -> Optional[int]:
         return self._parameter
@@ -1247,6 +1251,10 @@ class ASTVarInfo(ASTNode):
     @property
     def vdescr(self) -> Optional[str]:
         return self._vdescr
+
+    @vdescr.setter
+    def vdescr(self, new_descr: str) -> None:
+        self._vdescr = new_descr
 
     @property
     def is_varinfo(self) -> bool:

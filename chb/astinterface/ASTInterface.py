@@ -991,35 +991,6 @@ class ASTInterface:
 
         optlvalid = -1 if anonymous else None
 
-        # Variables with type void are illegal in C. We switch
-        # the type to iuchar as a sensible default.
-        if vtype is not None:
-            if vtype.is_void:
-                vtype = AST.ASTTypInt("iuchar")
-
-        # Check if we already have a variable for this stack location. Otherwise
-        # we risk creating a new variable with the same name but different types.
-        if self.astree.has_symbol(name):
-            var_info = self.astree.get_symbol(name)
-            if var_info.vtype is not None and vtype is not None:
-                if var_info.vtype.is_void and not vtype.is_void:
-                    chklogger.logger.debug("switching type for existing stack variable from void to %s", vtype)
-                    var_info._vtype = vtype
-                elif var_info.vtype != vtype:
-                    chklogger.logger.warn("Should introduce a cast for variable %s from %s to %s",
-                                          name, var_info.vtype, vtype)
-            elif var_info.vtype is None and vtype is not None:
-                chklogger.logger.debug("setting type for existing stack variable to %s", vtype)
-                var_info._vtype = vtype
-
-            # I couldn't find a way to get the existing variable so we create it
-            # again.
-            curr_var = self.astree.mk_vinfo_variable(var_info)
-            storage = self.astree.storageconstructor.mk_stack_storage(offset, None)
-            chklogger.logger.debug("Re-using existing stack variable with name %s, variable is %s with storage %s",
-                                   name, curr_var, storage)
-            return self.astree.mk_lval(curr_var, nooffset, optlvalid=optlvalid, storage=storage)
-
         return self.astree.mk_stack_variable_lval(
             name, offset, vtype=vtype, parameter=parameter, optlvalid=optlvalid)
 

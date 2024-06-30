@@ -64,32 +64,38 @@ class ASTSymbolTable:
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
             vdescr: Optional[str] = None) -> AST.ASTVarInfo:
+
+        # Variables with type void are illegal in C. We switch
+        # the type to iuchar as a sensible default.
+        if vtype is not None and vtype.is_void:
+            vtype = AST.ASTTypInt("iuchar")
+
         if vname in self.table:
             varinfo = self.table[vname]
-            if (
-                    varinfo.vtype is None
-                    and vtype is not None
-                    and parameter is None
-                    and globaladdress is None):
-                # create a new ASTVarInfo with the type added
-                vinfodescr: Optional[str] = None
-                if vdescr is not None:
-                    if varinfo.vdescr is not None:
-                        vinfodescr = vdescr + ";" + varinfo.vdescr
-                    else:
-                        vinfodescr = vdescr
+            if parameter is not None or globaladdress is not None:
+                return varinfo
+
+            if varinfo.vtype is None and vtype is not None:
+                # Add a type to the existing ASTVarInfo. Note that we don't
+                # switch a valid existing type, that seems something the caller
+                # should take care of if they need to (or add a cast).
+                varinfo.vtype = vtype
+
+            # Check if we should update the description
+            vinfodescr: Optional[str] = None
+            if vdescr is not None:
+                if varinfo.vdescr is not None:
+                    vinfodescr = vdescr + ";" + varinfo.vdescr
                 else:
-                    if varinfo.vdescr is not None:
-                        vinfodescr = varinfo.vdescr
-                    else:
-                        vinfodescr = None
-                varinfo = AST.ASTVarInfo(
-                    vname,
-                    vtype=vtype,
-                    parameter=varinfo.parameter,
-                    globaladdress=globaladdress,
-                    vdescr=vinfodescr)
-                self._table[vname] = varinfo
+                    vinfodescr = vdescr
+            else:
+                if varinfo.vdescr is not None:
+                    vinfodescr = varinfo.vdescr
+                else:
+                    vinfodescr = None
+            if vinfodescr:
+                varinfo.vdescr = vinfodescr
+
             return varinfo
         else:
             varinfo = AST.ASTVarInfo(
