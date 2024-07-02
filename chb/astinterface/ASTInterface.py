@@ -108,6 +108,8 @@ class ASTInterface:
             structsizes=self._typconverter.structsizes)
         self._parameter_abi = parameter_abi
         self._srcformals: List[ASTIFormalVarInfo] = []
+        self._ssa_counter: int = 0
+        self._ssa_intros: Dict[str, AST.ASTVarInfo] = {}
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
         self._astiprovenance = ASTIProvenance()
@@ -817,6 +819,39 @@ class ASTInterface:
             self, lval: AST.ASTLval, anonymous: bool = False) -> AST.ASTExpr:
         optexprid = -1 if anonymous else None
         return self.astree.mk_lval_expression(lval, optexprid=optexprid)
+
+    def mk_ssa_register_varinfo(
+            self,
+            name: str,
+            iaddr: str,
+            vtype: Optional[AST.ASTTyp] = None) -> AST.ASTVarInfo:
+        if iaddr in self._ssa_intros:
+            return self._ssa_intros[iaddr]
+
+        # create a new ssa variable
+        ssaid = self._ssa_counter
+        self._ssa_counter += 1
+        vname = "__ssa_" + name + "_" + str(ssaid)
+        varinfo = self.add_symbol(vname, vtype=vtype)
+        self._ssa_intros[iaddr] = varinfo
+        return varinfo
+
+    def mk_ssa_register_variable(
+            self,
+            name: str,
+            iaddr: str,
+            vtype: Optional[AST.ASTTyp] = None) -> AST.ASTVariable:
+        varinfo = self.mk_ssa_register_varinfo(name, iaddr, vtype=vtype)
+        return AST.ASTVariable(varinfo)
+
+    def mk_ssa_register_variable_lval(
+            self,
+            name: str,
+            iaddr: str,
+            vtype: Optional[AST.ASTTyp] = None) -> AST.ASTLval:
+        vinfo = self.mk_ssa_register_varinfo(name, iaddr, vtype=vtype)
+        storage = self.astree.mk_register_storage(name)
+        return self.astree.mk_vinfo_lval(vinfo, storage=storage)
 
     def mk_register_variable(
             self,
