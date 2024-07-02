@@ -171,7 +171,16 @@ class ASTInterfaceFunction(ASTFunction):
             self,
             support: CustomASTSupport) -> ASTStmt:
         try:
-            return self.cfg_tc.cfg_ast(self, self.astinterface)
+            ast = self.cfg_tc.cfg_ast(self, self.astinterface)
+            if self.verbose:
+                print("\n\nLow-level instructions before transformation")
+                print("=============================================")
+                iprettyprinter = ASTICPrettyPrinter(
+                    self.astinterface.symboltable,
+                    self.astinterface.astiprovenance,
+                    annotations=self.astinterface.annotations)
+                print(iprettyprinter.to_c(ast))
+            return ast
         except UF.CHBError as e:
             msg = (
                 "Unable to create low-level ast for "
@@ -200,6 +209,8 @@ class ASTInterfaceFunction(ASTFunction):
         self.complete_instruction_connections()
 
         if self.verbose:
+            print("\n\nHigh-level instructions before transformation")
+            print("=============================================")
             iprettyprinter = ASTICPrettyPrinter(
                 self.astinterface.symboltable,
                 self.astinterface.astiprovenance,
@@ -228,6 +239,9 @@ class ASTInterfaceFunction(ASTFunction):
                         self.astinterface.add_instr_mapping(hl_instr, ll_instr)
 
     def set_invariants(self) -> None:
+        pass
+
+    '''
         invariants = self.function.invariants
         aexprs: Dict[str, Dict[str, Tuple[int, int, str]]] = {}
         for loc in sorted(invariants):
@@ -284,6 +298,7 @@ class ASTInterfaceFunction(ASTFunction):
                     aexprs.setdefault(loc, {})
                     aexprs[loc][str(var)] = (varindex, aexprindex, str(aexpr))
         self.astinterface.set_available_expressions(aexprs)
+    '''
 
     def set_return_sequences(self) -> None:
         """Currently only supports Thumb-2 stack-adjustment, pop return sequence."""

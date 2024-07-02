@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023 Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -60,6 +60,12 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
 
     @property
     def instr_reachingdefs(self) -> List[str]:
+        """Return reachingdefs that were added since last reset.
+
+        Reaching definitions are being added automatcally when subexpressions
+        are visited.
+        """
+
         return self._instr_reachingdefs
 
     def add_reachingdefs(self, rdefs: List["ReachingDefFact"]) -> None:
@@ -81,7 +87,8 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
         if self.provenance.has_expression_mapped(condition.exprid):
             ll_condition = self.provenance.get_expression_mapped(condition.exprid)
             if self.provenance.has_flag_reaching_defs(ll_condition.exprid):
-                flagrdefs = self.provenance.get_flag_reaching_defs(ll_condition.exprid)
+                flagrdefs = self.provenance.get_flag_reaching_defs(
+                    ll_condition.exprid)
             else:
                 flagrdefs = []
 
@@ -124,7 +131,8 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                     mapped_instr = cast(AST.ASTAssign, mapped_instr)
                     if self.provenance.has_instruction_address(instr.instrid):
                         address = ", ".join(
-                            self.provenance.get_instruction_address(instr.instrid))
+                            self.provenance.get_instruction_address(
+                                instr.instrid))
                         self.ccode.write(address)
                         self.ccode.write("  ")
                     mapped_instr.lhs.accept(self)
@@ -135,7 +143,8 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                     mapped_instr = cast(AST.ASTCall, mapped_instr)
                     if self.provenance.has_instruction_address(instr.instrid):
                         address = ", ".join(
-                            self.provenance.get_instruction_address(instr.instrid))
+                            self.provenance.get_instruction_address(
+                                instr.instrid))
                         self.ccode.write(address)
                         self.ccode.write("  ")
                     if mapped_instr.lhs is not None:
@@ -155,7 +164,8 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                 self.ccode.write(str(defuse))
             if self.provenance.has_lval_defuse_high(instr.lhs.lvalid):
                 self.ccode.newline(indent=self.indent + 4)
-                defusehigh = self.provenance.get_lval_defuse_high(instr.lhs.lvalid)
+                defusehigh = self.provenance.get_lval_defuse_high(
+                    instr.lhs.lvalid)
                 self.ccode.write("  // ")
                 self.ccode.write(str(defusehigh))
 
@@ -179,7 +189,13 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                     mapped_instr.lhs.accept(self)
                     self.ccode.write(" = ")
                 mapped_instr.tgt.accept(self)
-                self.ccode.write(";")
+                self.ccode.write("(")
+                if len(mapped_instr.arguments) > 0:
+                    for llarg in mapped_instr.arguments[:-1]:
+                        llarg.accept(self)
+                        self.ccode.write(", ")
+                    mapped_instr.arguments[-1].accept(self)
+                self.ccode.write(");")
             for rdefstring in self.instr_reachingdefs:
                 self.ccode.newline(indent=self.indent + 5)
                 self.ccode.write("  // " + rdefstring)
@@ -192,7 +208,8 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                     self.ccode.write(str(defuse))
                 if self.provenance.has_lval_defuse_high(instr.lhs.lvalid):
                     self.ccode.newline(indent=self.indent + 4)
-                    defusehigh = self.provenance.get_lval_defuse_high(instr.lhs.lvalid)
+                    defusehigh = self.provenance.get_lval_defuse_high(
+                        instr.lhs.lvalid)
                     self.ccode.write("  // ")
                     self.ccode.write(str(defusehigh))
 
