@@ -153,6 +153,10 @@ class ARMOperandKind(ARMDictionaryRecord):
             "Indirect register not available for operand kind " + str(self))
 
     @property
+    def is_write_back(self) -> bool:
+        return False
+
+    @property
     def is_register_list(self) -> bool:
         return False
 
@@ -867,6 +871,17 @@ class ARMOffsetAddressOp(ARMOperandKind):
         else:
             memexp = astree.mk_memref_lval(xindex)
             return (memexp, [], [])
+
+    def ast_addr_rvalue(
+            self,
+            astree: ASTInterface,
+            vtype: Optional[AST.ASTTyp] = None) -> AST.ASTExpr:
+        xreg = astree.mk_register_variable_expr(self.register, vtype=vtype)
+        offset = self.memory_offset.ast_rvalue(astree)
+        if not self.is_add:
+            return astree.mk_binary_op("minus", xreg, offset)
+        else:
+            return astree.mk_binary_op("plus", xreg, offset)
 
     def ast_rvalue(
             self,
