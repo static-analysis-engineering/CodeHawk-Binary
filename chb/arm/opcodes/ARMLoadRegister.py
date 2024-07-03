@@ -46,7 +46,7 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
-
+    from chb.arm.ARMOperandKind import ARMOffsetAddressOp
 
 @armregistry.register_tag("LDR", ARMOpcode)
 class ARMLoadRegister(ARMOpcode):
@@ -61,8 +61,8 @@ class ARMLoadRegister(ARMOpcode):
     args[3]: index of memory location in armdictionary
     args[4]: is-wide (thumb)
 
-    xdata format: a:vvxxxxrrrdh
-    --------------------------
+    xdata format:
+    -------------
     vars[0]: lhs
     vars[1]: memory location expressed as a variable
     xprs[0]: value in rn
@@ -78,7 +78,7 @@ class ARMLoadRegister(ARMOpcode):
     useshigh[0]: use of lhs at high level
 
     optional:
-    vars[1]: lhs base register (if base update)
+    vars[2]: lhs base register (if base update), add "bu" to tags
 
     xprs[.]: instruction condition (if has condition)
     xprs[.]: new address for base register
@@ -146,19 +146,91 @@ class ARMLoadRegister(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
+        memaddr = xdata.xprs[4]
+
+        annotations: List[str] = [iaddr, "LDR", "addr:" + str(memaddr)]
+
+        # low-level assignment
+
+        (ll_rhs, ll_pre, ll_post) = self.opargs[3].ast_rvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # high-level assignment
+
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
-        memaddr = xdata.xprs[4]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        annotations: List[str] = [iaddr, "LDR", "addr:" + str(memaddr)]
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
 
-        (ll_rhs, _, _) = self.opargs[3].ast_rvalue(astree)
-        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
-        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
-        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_rhs, rdefs)
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if self.opargs[3].is_indirect_register and self.opargs[3].is_write_back:
+            addrop = cast("ARMOffsetAddressOp", self.opargs[3].opkind)
+            (ll_addr_lhs, _, _) = self.opargs[1].ast_lvalue(astree)
+            ll_addr_rhs = addrop.ast_addr_rvalue(astree)
+
+            ll_addr_assign = astree.mk_assign(
+                ll_addr_lhs,
+                ll_addr_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
+
+            basereg = xdata.vars[1]
+            newaddr = xdata.xprs[4]
+            hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
+            hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
+
+            hl_addr_assign = astree.mk_assign(
+                hl_addr_lhs,
+                hl_addr_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_assigns: List[AST.ASTInstruction] = [hl_assign, hl_addr_assign]
+
+            astree.add_instr_mapping(hl_addr_assign, ll_addr_assign)
+            astree.add_instr_address(hl_addr_assign, [iaddr])
+            astree.add_expr_mapping(hl_addr_rhs, ll_addr_rhs)
+            astree.add_lval_mapping(hl_addr_lhs, ll_addr_lhs)
+            astree.add_expr_reachingdefs(ll_addr_rhs, [rdefs[0]])
+            astree.add_lval_defuses(ll_addr_lhs, defuses[1])
+            astree.add_lval_defuses_high(ll_addr_lhs, defuseshigh[1])
+        else:
+            ll_assigns = [ll_assign]
+            hl_assigns = [hl_assign]
+
+        return (hl_assigns, (ll_pre + ll_assigns + ll_post))
+
+
+        '''
 
         hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
         if len(hl_rhss) == 0:
@@ -214,3 +286,4 @@ class ARMLoadRegister(ARMOpcode):
             iaddr,
             annotations,
             bytestring)
+        '''

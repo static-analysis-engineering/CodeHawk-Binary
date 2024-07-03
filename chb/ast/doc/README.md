@@ -64,9 +64,9 @@ syntax tree. They are organized in a hierarchy as follows:
     - *ASTIntegerConstant*: integer constant
       - *ASTGlobalAddressConstant*: integer constant that represents the address of
         a global variable
+    - *ASTFloatingPointConstant: floating-point constant
     - *ASTStringConstant*: string constant
   - *ASTLvalExpr*: value in a left-hand-side location
-    - *ASTSubstitutedExpr*: expression equivalent to value in left-hand-side location
   - *ASTSizeOfExpr*: size of a type
   - *ASTCastExpr*: cast of an expression to a given type
   - *ASTUnaryOp*: unary expression
