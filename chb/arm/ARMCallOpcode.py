@@ -53,7 +53,10 @@ from chb.util.loggingutil import chklogger
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget, StaticStubTarget
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.VarInvariantFact import ReachingDefFact
+    from chb.invariants.VAssemblyVariable import VRegisterVariable
     from chb.invariants.VConstantValueVariable import VFunctionReturnValue
+    from chb.invariants.XXpr import XprConstant, XprVariable
 
 
 class ARMCallOpcode(ARMOpcode):
@@ -62,11 +65,11 @@ class ARMCallOpcode(ARMOpcode):
     tags[1]: <c>
     args[0]: index of target operand in armdictionary
 
-    xdata format: a:x[n]xr[n]dh, call   (n arguments)
+    xdata format: a:x[2n]xr[n]dh, call   (n arguments)
     -------------------------------------------------
-    xprs[0..n-1]: argument expressions
-    xprs[n]: call target expression
-    rdefs[0..n-1]: argument reaching definitions
+    xprs[0..2n-1]: (arg location expr, arg value expr) * n
+    xprs[2n]: call target expression
+    rdefs[0..n-1]: arg location reaching definitions
     uses[0]: lhs
     useshigh[0]: lhs
 
@@ -93,6 +96,15 @@ class ARMCallOpcode(ARMOpcode):
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[0])]
 
+    def argument_count(self, xdata: InstrXData) -> int:
+        if self.is_call_instruction(xdata):
+            argcount = xdata.call_target_argument_count()
+            if argcount is not None:
+                return argcount
+        chklogger.logger.warning(
+            "Call instruction does not have argument count")
+        return 0
+
     def has_string_arguments(self, xdata: InstrXData) -> bool:
         return any([x.is_string_reference for x in self.arguments(xdata)])
 
@@ -101,10 +113,10 @@ class ARMCallOpcode(ARMOpcode):
 
     def annotated_call_arguments(
             self, xdata: InstrXData) -> Sequence[Dict[str, Any]]:
-        return [x.to_annotated_value() for x in xdata.xprs]
+        return [x.to_annotated_value() for x in self.arguments(xdata)]
 
     def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return xdata.xprs
+        return xdata.xprs[:self.argument_count(xdata)]
 
     def is_call(self, xdata: InstrXData) -> bool:
         return len(xdata.tags) >= 2 and xdata.tags[1] == "call"
@@ -140,242 +152,175 @@ class ARMCallOpcode(ARMOpcode):
             chklogger.logger.info("Inlined call omitted at %s", iaddr)
             return ([], [])
 
+        annotations: List[str] = [iaddr, "BL"]
+
+        # low-level call data
+
+        lhs = xdata.vars[0]
+        tgt = self.opargs[0]
+
+        if not lhs.is_register_variable:
+            raise UF.CHBError(
+                "Expected a register variable for call lhs at "
+                + iaddr
+                + " but found "
+                + str(lhs))
+
+        lhsreg = cast("VRegisterVariable", lhs.denotation)
+        ll_lhs = astree.mk_register_variable_lval(str(lhsreg))
+        (ll_tgt, _, _) = tgt.ast_rvalue(astree)
+
+        # argument data
+
+        xprs = xdata.xprs
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        tgt = self.operands[0]
+        argcount = self.argument_count(xdata)
 
-        if tgt.is_absolute:
-            tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
-            faddr = tgtaddr.address.get_hex()
-            if self.app.has_function_name(tgtaddr.address.get_hex()):
-                fnsymbol = self.app.function_name(faddr)
-                if astree.globalsymboltable.has_symbol(fnsymbol):
-                    tgtvinfo = astree.globalsymboltable.get_symbol(fnsymbol)
-                    tgtxpr: AST.ASTExpr = astree.mk_vinfo_lval_expression(tgtvinfo)
-                else:
-                    tgtxpr = astree.mk_global_variable_expr(
-                        fnsymbol, globaladdress=int(str(tgtaddr.address), 16))
-            else:
-                (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
-        elif self.is_call_instruction(xdata):
-            ctgt = self.call_target(xdata)
-            if ctgt.is_app_target:
-                ctgt = cast(AppTarget, ctgt)
-                ctgtaddr = str(ctgt.address)
-                if ctgt.has_tgt_name():
-                    ctgtname = ctgt.tgt_name()
-                    if astree.globalsymboltable.has_symbol(ctgtname):
-                        tgtvinfo = astree.globalsymboltable.get_symbol(ctgtname)
-                        tgtxpr = astree.mk_vinfo_lval_expression(tgtvinfo)
+        ll_args: List[AST.ASTExpr] = []
+        hl_args: List[AST.ASTExpr] = []
+
+        if argcount > 0:
+            xargs = xdata.xprs[:argcount]
+            xvarargs = xdata.xprs[argcount:(2 * argcount)]
+            if len(rdefs) >= argcount:
+                llrdefs = rdefs[:argcount]
+                # x represents the (invariant-enhanced) argument value.
+                # xv represents the location of the argument, which can be
+                #  either a register, or a stack location, where the stack
+                #  location is represented by an expression of the form
+                #  (sp + n), with n is the offset from the current stackpointer
+                #  in bytes (note: not the stackpointer at function entry).
+                # rdef represents the reaching definition for the argument
+                #  location.
+                for (x, xv, rdef) in zip(xargs, xvarargs, llrdefs):
+
+                    # low-level argument
+
+                    if xv.is_register_variable:
+                        xv = cast("XprVariable", xv)
+                        xvar = cast("VRegisterVariable", xv.variable.denotation)
+                        xreg = xvar.register
+                        ll_arglval = astree.mk_register_variable_lval(str(xreg))
+                        ll_arg = astree.mk_lval_expression(ll_arglval)
+                    elif xv.is_compound:
+                        xv = cast("XprCompound", xv)
+                        if not (xv.operator == "plus"):
+                            chklogger.logger.warning(
+                                "Expected positive stack offset in call ll_arg: "
+                                + "%s",
+                                str(xv))
+                            ll_arg = astree.mk_integer_constant(0)
+                        if not (len(xv.operands) == 2):
+                            chklogger.logger.warning(
+                                "Expected stack offset expression in call "
+                                + "ll_arg: %s",
+                                str(xv))
+                            ll_arg = astree.mk_integer_constant(0)
+                        if not xv.operands[0].is_register_variable:
+                            chklogger.logger.warning(
+                                "Expected stack offset expression in call "
+                                + "ll_arg: %s",
+                                str(xv))
+                            ll_arg = astree.mk_integer_constant(0)
+                        if not xv.operands[1].is_int_constant:
+                            chklogger.logger.warning(
+                                "Expected integer stack offset in call ll_arg: "
+                                + "%s",
+                                str(xv))
+                            ll_arg = astree.mk_integer_constant(0)
+                        llregvar = cast("XprVariable", xv.operands[0])
+                        llregden = cast(
+                            "VRegisterVariable", llregvar.variable.denotation)
+                        llreg = llregden.register
+                        llreglval = astree.mk_register_variable_lval(str(llreg))
+                        llregexpr = astree.mk_lval_expression(llreglval)
+                        lloffset = cast("XprConstant", xv.operands[1]).intvalue
+                        lloff = astree.mk_integer_constant(lloffset)
+                        ll_argloc = astree.mk_binary_op("plus", llregexpr, lloff)
+                        ll_arg = astree.mk_memref_expr(ll_argloc)
+
                     else:
-                        tgtxpr = astree.mk_global_variable_expr(
-                            ctgtname, globaladdress=int(ctgtaddr, 16))
-                else:
-                    (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
-            else:
-                (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
-        else:
-            (tgtxpr, _, _) = self.operands[0].ast_rvalue(astree)
+                        chklogger.logger.warning(
+                            "Low-level call argument %s not recognized at %s",
+                            str(xv), iaddr)
+                        ll_arg = astree.mk_integer_constant(0)
 
-        ll_lhs = (
-            astree.mk_register_variable_lval("S0")
-            if len(xdata.xprs) > 0 and str(xdata.xprs[0]) == "S0"
-            else astree.mk_register_variable_lval("R0"))
+                    ll_args.append(ll_arg)
+
+                    # high-level argument
+
+                    hl_vars = [str(v) for v in x.variables()]
+                    # we cannot use variable.index equality, because the
+                    # var-invariant fact variable is a symbolic variable,
+                    # while the argument var is a numeric variable.
+                    hl_rdefs: List[Optional["ReachingDefFact"]] = [
+                        rdef for rdef in rdefs
+                        if rdef is not None and str(rdef.variable) in hl_vars]
+
+                    if x.is_string_reference:
+                        cstr = x.constant.string_reference()
+                        saddr = hex(x.constant.value)
+                        hl_arg: AST.ASTExpr = astree.mk_string_constant(
+                            ll_arg, cstr, saddr)
+                    else:
+                        hl_arg = XU.xxpr_to_ast_def_expr(x, xdata, iaddr, astree)
+                    hl_args.append(hl_arg)
+
+                    astree.add_expr_mapping(hl_arg, ll_arg)
+                    astree.add_expr_reachingdefs(ll_arg, [rdef])
+                    astree.add_expr_reachingdefs(hl_arg, hl_rdefs)
 
         ll_call = astree.mk_call(
             ll_lhs,
-            tgtxpr,
-            [],
+            ll_tgt,
+            ll_args,
             iaddr=iaddr,
-            bytestring=bytestring)
+            bytestring=bytestring,
+            annotations=annotations)
 
-        tgt_returntype = None
-        tgt_argtypes: Sequence[AST.ASTTyp] = []
-        tgt_argcount = -1
-        tgt_xprtype = tgtxpr.ctype(astree.ctyper)
-        if tgt_xprtype is not None:
-            if tgt_xprtype.is_function:
-                tgt_xprtype = cast(AST.ASTTypFun, tgt_xprtype)
-                tgt_returntype = astree.resolve_type(tgt_xprtype.returntyp)
-                if (not tgt_xprtype.is_varargs) and tgt_xprtype.argtypes is not None:
-                    tgt_funargs = tgt_xprtype.argtypes.funargs
-                    tgt_argtypes = [f.argtyp for f in tgt_funargs]
-                    tgt_argcount = len(tgt_argtypes)
+        # high-level call data
 
-        if tgt_returntype is None:
-            if len(defuses) == 0 or defuses[0] is None:
-                hl_lhs: Optional[AST.ASTLval] = None
-            else:
-                if len(xdata.vars) > 0:
-                    returnvar = xdata.vars[0]
-                    returnval = cast(
-                        "VFunctionReturnValue", returnvar.denotation.auxvar)
-                    hl_lhs = XU.vfunctionreturn_value_to_ast_lvals(
-                        returnval, xdata, astree)[0]
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_tgt = ll_tgt
+
+        # construct high-level target
+        if tgt.is_absolute:
+            tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
+            faddr = tgtaddr.address.get_hex()
+            if self.app.has_function_name(faddr):
+                fnsymbol = self.app.function_name(faddr)
+                if astree.globalsymboltable.has_symbol(fnsymbol):
+                    tgtvinfo = astree.globalsymboltable.get_symbol(fnsymbol)
+                    hl_tgt = astree.mk_vinfo_lval_expression(tgtvinfo)
                 else:
-                    returnvarname = "rtn_" + iaddr
-                    astreturnvar = astree.mk_named_variable(returnvarname)
-                    hl_lhs = astree.mk_lval(astreturnvar, nooffset)
-
+                    hl_tgt = astree.mk_global_variable_expr(
+                        fnsymbol, globaladdress=int(faddr, 16))
+            else:
+                chklogger.logger.warning(
+                    "No function symbol for %s at address %s",
+                    faddr, iaddr)
+                fnsymbol = "sub_" + faddr[2:]
+                hl_tgt = astree.mk_global_variable_expr(
+                    fnsymbol, globaladdress=int(faddr, 16))
         else:
-            if tgt_returntype.is_void or defuses[0] is None:
-                hl_lhs = None
-            else:
-                if len(xdata.vars) > 0:
-                    returnvar = xdata.vars[0]
-                    returnval = cast(
-                        "VFunctionReturnValue", returnvar.denotation.auxvar)
-                    hl_lhs = XU.vfunctionreturn_value_to_ast_lvals(
-                        returnval, xdata, astree)[0]
-                else:
-                    returnvarname = "rtn_" + iaddr
-                    astreturnvar = astree.mk_named_variable(
-                        returnvarname, vtype=tgt_returntype)
-                    hl_lhs = astree.mk_lval(astreturnvar, nooffset)
-
-        if not (self.is_call(xdata) and xdata.has_call_target()):
-            raise UF.CHBError(
-                name + " at " + iaddr + ": Call without call target")
-
-        callargs = self.arguments(xdata)
-        if tgt_argcount == -1:
-            argcount = len(callargs)
-            argtypes: Sequence[Optional[AST.ASTTyp]] = [None] * argcount
-        else:
-            argcount = tgt_argcount
-            argtypes = tgt_argtypes
-
-        annotations: List[str] = [iaddr, "BL"]
-
-        argregs = ["R0", "R1", "R2", "R3"][:argcount]
-        argxprs: List[AST.ASTExpr] = []
-        for (i, (reg, arg, argtype)) in enumerate(
-                zip(argregs, callargs, argtypes)):
-            if arg.is_string_reference:
-                regast = astree.mk_register_variable_expr(reg)
-                cstr = arg.constant.string_reference()
-                saddr = hex(arg.constant.value)
-                argxprs.append(astree.mk_string_constant(regast, cstr, saddr))
-                if len(rdefs) > i:
-                    astree.add_expr_reachingdefs(regast, [rdefs[i]])
-            elif arg.is_argument_value:
-                argindex = arg.argument_index()
-                try:
-                    funargs = astree.function_argument(argindex)
-                except UF.CHBError as e:
-                    break
-                if len(funargs) == 0:
-                    chklogger.logger.warning(
-                        "No function arguments for argument %s in call to %s "
-                        + "at address %s",
-                        str(argindex),
-                        str(tgtxpr),
-                        iaddr)
-                    funarg: Optional[AST.ASTLval] = None
-
-                elif len(funargs) > 1:
-                    chklogger.logger.warning(
-                        "Multiple function arguments for argumen %s in call "
-                        + "to %s: %s at address %s",
-                        str(argindex),
-                        str(tgtxpr),
-                        ", ".join(str(x) for x in funargs),
-                        iaddr)
-                    funarg = None
-                else:
-                    funarg = funargs[0]
-
-                if funarg is not None:
-                    argxprs.append(astree.mk_lval_expr(funarg))
-                else:
-                    argxprs.append(astree.mk_register_variable_expr(reg))
-            else:
-                if arg.is_register_variable:
-                    astops = XU.xxpr_to_ast_def_exprs(arg, xdata, iaddr, astree)
-                    if len(astops) == 1:
-                        argxprs.append(astops[0])
-                    else:
-                        astxprs = XU.xxpr_to_ast_def_exprs(
-                            arg, xdata, iaddr, astree)
-                        if len(astxprs) == 0:
-                            raise UF.CHBError(
-                                name +
-                                ": No ast value for call argument at " + iaddr)
-                        if len(astxprs) > 1:
-                            raise UF.CHBError(
-                                name
-                                + ": Multiple rhs values for call argument at "
-                                + iaddr
-                                + ": "
-                                + ", ".join(str(a) for a in argxprs))
-                        argxprs.append(astxprs[0])
-                else:
-                    if arg.is_stack_address and argtype is not None:
-                        arg = cast(XprCompound, arg)
-                        stackoffset = arg.stack_address_offset()
-                        if argtype.is_pointer:
-                            argtype = cast(AST.ASTTypPtr, argtype)
-                            vtype: Optional[AST.ASTTyp] = argtype.tgttyp
-                        else:
-                            chklogger.logger.warning(
-                                "Stack-address call argument with unexpected "
-                                + "type: %s at address %s",
-                                str(argtype),
-                                iaddr)
-                            vtype = None
-                        arglval = astree.mk_stack_variable_lval(
-                            stackoffset, vtype=vtype)
-                        argexpr = astree.mk_address_of(arglval)
-                        argxprs.append(argexpr)
-                    else:
-                        astxprs = XU.xxpr_to_ast_exprs(arg, xdata, iaddr, astree)
-                        if len(astxprs) == 0:
-                            raise UF.CHBError(
-                                name
-                                + ":No ast value for call argument at "
-                                + iaddr)
-                        if len(astxprs) > 1:
-                            raise UF.CHBError(
-                                name
-                                + ": Multiple rhs values for call argument at "
-                                + iaddr
-                                + ": "
-                                + ", ".join(str(a) for a in argxprs))
-
-                        argxprs.append(astxprs[0])
+            chklogger.logger.warning(
+                "Indirect call at address %s", iaddr)
 
         hl_call = cast(AST.ASTInstruction, astree.mk_call(
             hl_lhs,
-            tgtxpr,
-            argxprs,
+            hl_tgt,
+            hl_args,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations))
 
         astree.add_instr_mapping(hl_call, ll_call)
         astree.add_instr_address(hl_call, [iaddr])
-        for (i, argxpr) in enumerate(argxprs):
-            if len(rdefs) > i:
-                astree.add_expr_reachingdefs(argxpr, [rdefs[i]])
-        if hl_lhs is not None:
-            astree.add_lval_mapping(hl_lhs, ll_lhs)
-            astree.add_lval_defuses(hl_lhs, defuses[0])
-            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
-        if str(ll_lhs) in ["S0", "R0"] and hl_lhs is not None:
-            hl_lhsx = astree.mk_lval_expr(hl_lhs)
-            hl_var_assign = astree.mk_assign(
-                ll_lhs,
-                hl_lhsx,
-                iaddr=iaddr,
-                annotations=annotations)
-
-            astree.add_reg_definition(iaddr, ll_lhs, hl_lhsx)
-            astree.add_instr_mapping(hl_var_assign, ll_call)
-
-            return ([hl_call, hl_var_assign], [ll_call])
-
-        else:
-            return ([hl_call], [ll_call])
+        return ([hl_call], [ll_call])

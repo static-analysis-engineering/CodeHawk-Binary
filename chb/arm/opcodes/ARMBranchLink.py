@@ -62,21 +62,6 @@ class ARMBranchLink(ARMCallOpcode):
 
     tags[1]: <c>
     args[0]: index of target operand in armdictionary
-
-    xdata format: a:x[n]xr[n]dh, call   (n arguments)
-    -------------------------------------------------
-    xprs[0..n-1]: argument expressions
-    xprs[n]: call target expression
-    rdefs[0..n-1]: argument reaching definitions
-    uses[0]: lhs
-    useshigh[0]: lhs
-
-    or (if call target is not known):
-    xdata format: a:xxxxx
-    ---------------------
-    xprs[0..3]: expressions for R0-R3
-    xprs[4]: target expression
-    rdefs[0]: target reaching definition
     """
 
     def __init__(
