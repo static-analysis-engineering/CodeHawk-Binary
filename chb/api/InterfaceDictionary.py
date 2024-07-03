@@ -188,3 +188,24 @@ class InterfaceDictionary:
                     "Table "
                     + t.name
                     + " not found in interface dictionary")
+
+
+    # ---------------- Printing ------------------------------------------------
+
+    def function_interface_table_to_string(self) -> str:
+        lines: List[str] = []
+
+        def f(ix: int, v: IT.IndexedTableValue) -> None:
+            lines.append(str(ix) + ": " + str(self.function_interface(ix)))
+
+        self.function_interface_table.iter(f)
+        return "\n".join(lines)
+
+    def function_semantics_table_to_string(self) -> str:
+        lines: List[str] = []
+
+        def f(ix: int, v: IT.IndexedTableValue) -> None:
+            lines.append(str(ix) + ": " + str(self.function_semantics(ix)))
+
+        self.function_semantics_table.iter(f)
+        return "\n".join(lines)

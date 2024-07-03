@@ -128,6 +128,17 @@ class FunctionInfo:
                         raise UF.CHBError("Index or name missing from variablename")
         return self._variablenames
 
+    def call_target_info(self, callsite: str) -> CallTargetInfo:
+        if self.has_call_target_info(callsite):
+            return self.calltargetinfos[callsite]
+        else:
+            raise UF.CHBError(
+                f"Function at {self.faddr} does not have a call target at "
+                f"{callsite}")
+
+    def has_call_target_info(self, callsite: str) -> bool:
+        return callsite in self.calltargetinfos
+
     def call_target(self, callsite: str) -> CallTarget:
         if self.has_call_target(callsite):
             return self.calltargets[callsite]

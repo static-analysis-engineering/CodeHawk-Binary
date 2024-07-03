@@ -1494,9 +1494,20 @@ def parse() -> argparse.Namespace:
     parser_table.set_defaults(func=tablecommand)
     tableparsers = parser_table.add_subparsers(title='show options')
 
+    # --- type constraints ---
     table_tc = tableparsers.add_parser("type_constraints")
     table_tc.add_argument("xname", help="name of executable")
     table_tc.set_defaults(func=UCC.show_type_constraint_table)
+
+    # --- function interface ---
+    table_fi = tableparsers.add_parser("function_interface")
+    table_fi.add_argument("xname", help="name of executable")
+    table_fi.set_defaults(func=UCC.show_function_interface_table)
+
+    # --- function semantics ---
+    table_fs = tableparsers.add_parser("function_semantics")
+    table_fs.add_argument("xname", help="name of executable")
+    table_fs.set_defaults(func=UCC.show_function_semantics_table)
 
     # --- expr ---
     table_expr = tableparsers.add_parser('expr')
