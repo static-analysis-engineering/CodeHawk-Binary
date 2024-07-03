@@ -272,6 +272,10 @@ class XXpr(FnXprDictionaryRecord):
         """Returns the factors in this expression."""
         return [self]
 
+    def variables(self) -> Sequence[XVariable]:
+        """Returns the variables in this expressions."""
+        return []
+
     def to_input_constraint(self) -> Optional[IC.InputConstraint]:
         """Returns an input constraint if this expression can be converted."""
         return None
@@ -465,6 +469,9 @@ class XprVariable(XXpr):
                 result["args"] = [
                     a.to_annotated_value() for a in self.returnval_arguments()]
         return result
+
+    def variables(self) -> Sequence[XVariable]:
+        return [self.variable]
 
     def to_json_result(self) -> JSONResult:
         jvar = self.variable.to_json_result()
@@ -906,6 +913,12 @@ class XprCompound(XXpr):
         result['k'] = 'x'
         result['op'] = self.operator
         result['args'] = [a.to_annotated_value() for a in self.operands]
+        return result
+
+    def variables(self) -> Sequence[XVariable]:
+        result: List[XVariable] = []
+        for op in self.operands:
+            result.extend(op.variables())
         return result
 
     def to_json_result(self) -> JSONResult:

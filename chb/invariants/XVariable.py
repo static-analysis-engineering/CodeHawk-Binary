@@ -102,6 +102,13 @@ class XVariable(FnXprDictionaryRecord):
             and self.denotation.auxvar.is_initial_register_value)
 
     @property
+    def is_function_return_value(self) -> bool:
+        return (
+            self.has_denotation()
+            and self.denotation.is_auxiliary_variable
+            and self.denotation.auxvar.is_function_return_value)
+
+    @property
     def is_memory_variable(self) -> bool:
         return self.has_denotation() and self.denotation.is_memory_variable
 
@@ -206,7 +213,7 @@ class XVariable(FnXprDictionaryRecord):
                 return avar.global_base()
         else:
             raise UF.CHBError(
-                "Variable " + self.name + " does not have a global base""")
+                "Variable " + self.name + " does not have a global base")
 
     def get_global_variables(self) -> Dict[str, int]:
         result: Dict[str, int] = {}
