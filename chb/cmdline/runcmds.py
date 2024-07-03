@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs, LLC
+# Copyright (c) 2021-2024  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from chb.arm.ARMAssembly import ARMAssemblyInstruction
 
 
-def do_cmd(cmd: Tuple[Optional[str], List[str]]) -> Tuple[List[str], int]:
+def do_cmd(cmd: Tuple[Optional[str], List[str]]) -> Tuple[List[str], int, str]:
     result = subprocess.run(cmd[1], stdout=subprocess.PIPE, stderr=sys.stderr)
     resultcode = result.returncode
     resultoutput = result.stdout.decode("utf-8")
@@ -54,17 +54,15 @@ def do_cmd(cmd: Tuple[Optional[str], List[str]]) -> Tuple[List[str], int]:
     if filename is not None:
         with open(filename, "w") as fp:
             fp.write(resultoutput)
-        print("Output written to " + filename)
-    else:
-        print(resultoutput)
-    return (cmd[1], resultcode)
+        UC.print_status_update("Output written to " + filename)
+    return (cmd[1], resultcode, resultoutput)
 
 
 @contextmanager
 def timing(activity: str) -> Iterator[None]:
     t0 = time.time()
     yield
-    print(
+    UC.print_status_update(
         '\n'
         + ('=' * 80)
         + '\nCompleted '
@@ -111,11 +109,11 @@ def run_commands(args: argparse.Namespace) -> NoReturn:
         print("-" * 80)
         exit(0)
 
-    results: Dict[str, List[Tuple[List[str], int]]] = {}
+    results: Dict[str, List[Tuple[List[str], int, str]]] = {}
 
     for tgt in targets:
 
-        print("Target: " + tgt)
+        UC.print_status_update("Target: " + tgt)
         if tgt not in cmdtargets:
             UC.print_error(
                 "Target specified: " + tgt + " not found\n"
@@ -191,9 +189,10 @@ def run_commands(args: argparse.Namespace) -> NoReturn:
                         print("  " + str(c).rjust(5) + "  " + f)
 
     for tgt in results:
-        print("\nResults for " + tgt)
+        UC.print_status_update("Results for " + tgt)
         for fresult in results[tgt]:
             status = " ok " if fresult[1] == 0 else "fail"
-            print(status + "  " + " ".join(fresult[0]))
+            UC.print_status_update(status + "  " + " ".join(fresult[0]))
+            print(fresult[2])
 
     exit(0)
