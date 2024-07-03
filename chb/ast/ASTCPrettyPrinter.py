@@ -157,6 +157,17 @@ class ASTCPrettyPrinter(ASTVisitor):
 
     def write_global_declarations(self) -> None:
         """Generates code representing the contents of the global symbol table"""
+
+        self.ccode.newline()
+        self.ccode.write("// Struct definitions")
+        self.ccode.newline()
+        for cinfo in self.globalsymboltable.compinfos.values():
+            self.ccode.newline(indent=self.indent)
+            cinfo.accept(self)
+
+        self.ccode.newline()
+        self.ccode.write("// Function declarations")
+        self.ccode.newline()
         for vinfo in self.globalsymboltable.symbols:
             self.ccode.newline(indent=self.indent)
             if vinfo.vtype is None:
@@ -210,8 +221,12 @@ class ASTCPrettyPrinter(ASTVisitor):
         if include_globals:
             self.ccode.newline()
             self.ccode.write("// Globals")
+            self.ccode.newline()
             self.write_global_declarations()
             self.ccode.newline()
+        self.ccode.newline()
+        self.ccode.write("// Function decompilation")
+        self.ccode.newline()
         varsreferenced = ASTVariablesReferenced().variables_referenced(stmt)
         if self.signature is not None:
             self.ccode.newline()
@@ -584,7 +599,20 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write("struct " + t.compname)
 
     def visit_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
-        self.ccode.write("compinfo")
+        self.ccode.write("struct " + cinfo.compname + " {")
+        self.increase_indent()
+        self.ccode.newline(indent=self.indent)
+        for (i, finfo) in enumerate(cinfo.fieldinfos):
+            finfo.fieldtype.accept(self)
+            self.ccode.write(" ")
+            self.ccode.write(finfo.fieldname)
+            self.ccode.write(";")
+            if i < len(cinfo.fieldinfos) - 1:
+                self.ccode.newline(indent=self.indent)
+        self.decrease_indent()
+        self.ccode.newline(indent=self.indent)
+        self.ccode.write("};")
+        self.ccode.newline()
 
     def visit_fieldinfo(self, finfo: AST.ASTFieldInfo) -> None:
         pass
