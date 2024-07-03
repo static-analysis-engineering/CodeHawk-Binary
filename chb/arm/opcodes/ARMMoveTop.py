@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -105,13 +105,7 @@ class ARMMoveTop(ARMOpcode):
 
         annotations: List[str] = [iaddr, "MOVT"]
 
-        lhs = xdata.vars[0]
-        rhs1 = xdata.xprs[0]
-        rhs2 = xdata.xprs[1]
-        rresult = xdata.xprs[4]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+        # low-level assignment
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
@@ -129,27 +123,16 @@ class ARMMoveTop(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lhsasts) == 0:
-            raise UF.CHBError("MoveTop (MOVT): no lval found")
+        # high-level assignment
 
-        if len(lhsasts) > 1:
-            raise UF.CHBError(
-                "MoveTop (MOVT): multiple lvals in ast: "
-                + ", ".join(str(v) for v in lhsasts))
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[4]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-        hl_lhs = lhsasts[0]
-
-        rhsasts = XU.xxpr_to_ast_exprs(rresult, xdata, iaddr, astree)
-        if len(rhsasts) == 0:
-            raise UF.CHBError("MoveTop (MOVT): no ast value for rhs")
-
-        if len(rhsasts) > 1:
-            raise UF.CHBError(
-                "MoveTop (MOVT): multiple ast values for rhs: "
-                + ", ".join(str(v) for v in rhsasts))
-
-        hl_rhs = rhsasts[0]
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             hl_lhs,

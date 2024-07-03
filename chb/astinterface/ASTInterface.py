@@ -820,6 +820,10 @@ class ASTInterface:
         optexprid = -1 if anonymous else None
         return self.astree.mk_lval_expression(lval, optexprid=optexprid)
 
+    @property
+    def ssa_intros(self) -> Dict[str, AST.ASTVarInfo]:
+        return self._ssa_intros
+
     def mk_ssa_register_varinfo(
             self,
             name: str,
@@ -831,7 +835,7 @@ class ASTInterface:
         # create a new ssa variable
         ssaid = self._ssa_counter
         self._ssa_counter += 1
-        vname = "__ssa_" + name + "_" + str(ssaid)
+        vname = "ssa_" + name + "_" + str(ssaid)
         varinfo = self.add_symbol(vname, vtype=vtype)
         self._ssa_intros[iaddr] = varinfo
         return varinfo

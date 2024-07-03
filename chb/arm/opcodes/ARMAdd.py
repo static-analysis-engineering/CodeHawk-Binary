@@ -158,21 +158,34 @@ class ARMAdd(ARMOpcode):
 
         annotations: List[str] = [iaddr, "ADD"]
 
-        lhs = xdata.vars[0]
-        rhs1 = xdata.xprs[0]
-        rhs2 = xdata.xprs[1]
-        rhs3 = xdata.xprs[3]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+        # low-level assignment
 
         (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (ll_op1, _, _) = self.operands[1].ast_rvalue(astree)
         (ll_op2, _, _) = self.operands[2].ast_rvalue(astree)
         ll_rhs = astree.mk_binary_op("plus", ll_op1, ll_op2)
 
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        rdefs = xdata.reachingdefs
+
         astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
         astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+
+        # high-level assignment
+
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        rhs3 = xdata.xprs[3]
+
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
         if rhs3.is_string_reference:
             ctype = astree.astree.mk_pointer_type(astree.astree.char_type)
@@ -183,16 +196,7 @@ class ARMAdd(ARMOpcode):
                 ispointer=True,
                 ctype=ctype)[0]
         else:
-            hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-            if len(hl_lhss) == 0:
-                raise UF.CHBError("ADD: no lval found")
-
-            if len(hl_lhss) > 1:
-                raise UF.CHBError(
-                    "ADD: multiple lvals in ast: "
-                    + ", ".join(str(v) for v in hl_lhss))
-
-            hl_lhs = hl_lhss[0]
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
 
         if str(lhs) == "PC":
             chklogger.logger.info(
@@ -204,63 +208,42 @@ class ARMAdd(ARMOpcode):
             rhs3 = cast("XprCompound", rhs3)
             stackoffset = rhs3.stack_address_offset()
             rhslval = astree.mk_stack_variable_lval(stackoffset)
-            rhsast: AST.ASTExpr = astree.mk_address_of(rhslval)
+            hl_rhs: AST.ASTExpr = astree.mk_address_of(rhslval)
 
         # resulting expression is a pc-relative address
         elif str(rhs1) == "PC" or str(rhs2) == "PC":
             annotations.append("PC-relative")
             if rhs3.is_int_constant:
-                rhsexprs = XU.xxpr_to_ast_exprs(rhs3, xdata, iaddr, astree)
-                if len(rhsexprs) == 1:
-                    rhsval = cast("XprConstant", rhs3).intvalue
-                    if rhs3.is_string_reference:
-                        saddr = hex(rhsval)
-                        cstr = rhs3.constant.string_reference()
-                        rhsast = astree.mk_string_constant(
-                            rhsexprs[0], cstr, saddr)
-                    else:
-                        rhsast = astree.mk_global_address_constant(
-                            rhsval, rhsexprs[0])
+                rhsexpr = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+                rhsval = cast("XprConstant", rhs3).intvalue
+                if rhs3.is_string_reference:
+                    saddr = hex(rhsval)
+                    cstr = rhs3.constant.string_reference()
+                    hl_rhs = astree.mk_string_constant(
+                        rhsexpr, cstr, saddr)
                 else:
-                    raise UF.CHBError(
-                        "ADD: multiple expressions in pc-relative expression")
+                    hl_rhs = astree.mk_global_address_constant(
+                        rhsval, rhsexpr)
             else:
-                rhsasts = XU.xxpr_to_ast_exprs(rhs3, xdata, iaddr, astree)
-                if len(rhsasts) == 1:
-                    rhsast = rhsasts[0]
-                else:
-                    raise UF.CHBError(
-                        "ADD: multiple expressions in ast")
+                hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
 
         else:
-            rhsasts = XU.xxpr_to_ast_def_exprs(rhs3, xdata, iaddr, astree)
-            if len(rhsasts) == 1:
-                rhsast = rhsasts[0]
-            else:
-                raise UF.CHBError(
-                    "ADD: multiple expressions in ast")
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
 
-        hl_rhs = rhsast
-
-        assigns = self.ast_variable_intro(
-            astree,
-            astree.astree.int_type,
+        hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
-            ll_lhs,
-            ll_rhs,
-            rdefs[2:],
-            rdefs[:2],
-            defuses[0],
-            defuseshigh[0],
-            True,
-            iaddr,
-            annotations,
-            bytestring)
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
 
-        if rhs3.is_string_reference:
-            if len(assigns[0]) == 1:
-                instrid = assigns[0][0].instrid
-                astree.add_expose_instruction(assigns[0][0].instrid)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_expr_reachingdefs(ll_rhs, rdefs[:2])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
-        return assigns
+        return ([hl_assign], [ll_assign])

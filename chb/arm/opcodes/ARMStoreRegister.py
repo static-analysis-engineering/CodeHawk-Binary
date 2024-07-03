@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -46,8 +46,10 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMOperandKind import ARMOffsetAddressOp
     from chb.arm.ARMRegister import ARMRegister
-    from chb.invariants.VAssemblyVariable import VAuxiliaryVariable, VMemoryVariable
+    from chb.invariants.VAssemblyVariable import (
+        VAuxiliaryVariable, VMemoryVariable)
     from chb.invariants.VConstantValueVariable import VInitialRegisterValue
     from chb.invariants.XXpr import XprVariable
 
@@ -65,9 +67,10 @@ class ARMStoreRegister(ARMOpcode):
     args[3]: index of memory location in armdictionary
     args[4]: is-wide (thumb)
 
-    xdata format: a:vxxxxrrrdh
-    --------------------------
+    xdata format
+    ------------
     vars[0]: lhs
+    vars[1]: vrn (base register, only if writeback)
     xprs[0]: xrn (base register)
     xprs[1]: xrm (index)
     xprs[2]: xrt (rhs, source register)
@@ -78,7 +81,9 @@ class ARMStoreRegister(ARMOpcode):
     rdefs[1]: rm
     rdefs[2]: rt
     uses[0]: lhs
+    uses[1]: vrn (base register, only if writeback)
     useshigh[0]: lhs
+    useshigh[1]: vrn (base register, only if writeback)
     """
 
     def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
@@ -97,6 +102,10 @@ class ARMStoreRegister(ARMOpcode):
     @property
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2, 3]]
+
+    @property
+    def is_write_back(self) -> bool:
+        return self.opargs[3].is_write_back
 
     def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
         spill = self.register_spill(xdata)
@@ -161,6 +170,8 @@ class ARMStoreRegister(ARMOpcode):
 
         annotations: List[str] = [iaddr, "STR"]
 
+        # low-level assignment
+
         (ll_rhs, _, _) = self.opargs[0].ast_rvalue(astree)
         (ll_lhs, ll_preinstrs, ll_postinstrs) = self.opargs[3].ast_lvalue(astree)
         ll_assign = astree.mk_assign(
@@ -170,114 +181,16 @@ class ARMStoreRegister(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        # high-level assignment
+
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_preinstrs: List[AST.ASTInstruction] = []
-        hl_postinstrs: List[AST.ASTInstruction] = []
-
-        if rhs.is_register_variable:
-            rhsexprs = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        else:
-            rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
-
-        if len(rhsexprs) == 0:
-            raise UF.CHBError("No rhs for StoreRegister (STR) at " + iaddr)
-
-        if len(rhsexprs) > 1:
-            raise UF.CHBError(
-                "Multiple rhs values for StoreRegister (STR) at "
-                + iaddr
-                + ": "
-                + ", ".join(str(x) for x in rhsexprs))
-
-        hl_rhs = rhsexprs[0]
-
-        def split_assigns(
-                base: AST.ASTLvalExpr,
-                offsets: List[AST.ASTExpr],
-                rhs: AST.ASTLvalExpr) -> Tuple[List[
-                    AST.ASTInstruction], List[AST.ASTInstruction]]:
-
-            hl_assigns: List[AST.ASTInstruction] = []
-            for i in range(0, 4):
-                ioffset = cast(AST.ASTExpr, astree.mk_integer_constant(i))
-                offsetsi = [ioffset] + offsets[:]
-                newoffseti = astree.add_index_list_offset(
-                    base.lval.offset, offsetsi)
-                hl_mem_lhsi = astree.mk_lval(base.lval.lhost, newoffseti)
-                newoffseti = astree.add_to_index_offset(rhs.lval.offset, i)
-                rhsi_lval = astree.mk_lval(rhs.lval.lhost, newoffseti)
-                rhsi = astree.mk_lval_expression(rhsi_lval)
-
-                hl_assigni = astree.mk_assign(
-                    hl_mem_lhsi,
-                    rhsi,
-                    iaddr=iaddr,
-                    bytestring=bytestring,
-                    annotations=annotations)
-
-                astree.add_instr_mapping(hl_assigni, ll_assign)
-                astree.add_expr_mapping(rhsi, ll_rhs)
-                astree.add_lval_mapping(hl_mem_lhsi, ll_lhs)
-                astree.add_expr_reachingdefs(ll_rhs, [rdefs[2]])
-                astree.add_lval_defuses(hl_mem_lhsi, defuses[0])
-                astree.add_lval_defuses_high(hl_mem_lhsi, defuseshigh[0])
-
-                astree.add_lval_store(hl_mem_lhsi)
-                hl_assigns.append(hl_assigni)
-
-            return (hl_assigns, [ll_assign])
-
-        if lhs.is_tmp or lhs.has_unknown_memory_base():
-            hl_lhs = None
-            address = xdata.xprs[4]
-            astaddrs = XU.xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
-            if len(astaddrs) == 1:
-                astaddr = astaddrs[0]
-                if astaddr.is_ast_addressof:
-                    hl_lhs = cast(AST.ASTAddressOf, astaddr).lval
-                else:
-                    try:
-                        astaddrtype = astaddr.ctype(astree.ctyper)
-                        if astaddrtype is not None:
-                            if astaddrtype.is_pointer:
-                                astaddrtype = cast(AST.ASTTypPtr, astaddrtype)
-                                astaddrtgttype = astaddrtype.tgttyp
-                                if astree.type_size_in_bytes(astaddrtgttype) == 1:
-                                    if astaddr.is_ast_binary_op:
-                                        (base, offsets) = astree.split_address_int_offset(astaddr)
-                                        if base.is_ast_lval_expr and hl_rhs.is_ast_lval_expr:
-                                            base = cast(AST.ASTLvalExpr, base)
-                                            hl_rhs = cast(AST.ASTLvalExpr, hl_rhs)
-                                            return split_assigns(base, offsets, hl_rhs)
-                    except Exception as e:
-                        print("Error in instruction at " + iaddr)
-                        print("  with address " + str(astaddr))
-                        print(": " + str(e))
-
-            if hl_lhs is None:
-                hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
-            astree.add_lval_store(hl_lhs)
-
-        else:
-            lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-            if len(lvals) == 0:
-                raise UF.CHBError(
-                    "No lhs value for StoreRegister (STR) at " + iaddr)
-
-            if len(lvals) > 1:
-                raise UF.CHBError(
-                    "Multiple lhs values for StoreRegister (STR) at "
-                    + iaddr
-                    + ": "
-                    + ", ".join(str(x) for x in lvals))
-
-            hl_lhs = lvals[0]
-            astree.add_lval_store(hl_lhs)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -294,8 +207,47 @@ class ARMStoreRegister(ARMOpcode):
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
+        # add optional write-back
+
+        if self.opargs[3].is_indirect_register and self.opargs[3].is_write_back:
+            addrop = cast("ARMOffsetAddressOp", self.opargs[3].opkind)
+            (ll_addr_lhs, _, _) = self.opargs[1].ast_lvalue(astree)
+            ll_addr_rhs = addrop.ast_addr_rvalue(astree)
+
+            ll_addr_assign = astree.mk_assign(
+                ll_addr_lhs,
+                ll_addr_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
+
+            basereg = xdata.vars[1]
+            newaddr = xdata.xprs[4]
+            hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
+            hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
+
+            hl_addr_assign = astree.mk_assign(
+                hl_addr_lhs,
+                hl_addr_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_assigns: List[AST.ASTInstruction] = [hl_assign, hl_addr_assign]
+
+            astree.add_instr_mapping(hl_addr_assign, ll_addr_assign)
+            astree.add_instr_address(hl_addr_assign, [iaddr])
+            astree.add_expr_mapping(hl_addr_rhs, ll_addr_rhs)
+            astree.add_lval_mapping(hl_addr_lhs, ll_addr_lhs)
+            astree.add_expr_reachingdefs(ll_addr_rhs, [rdefs[0]])
+            astree.add_lval_defuses(ll_addr_lhs, defuses[1])
+            astree.add_lval_defuses_high(ll_addr_lhs, defuseshigh[1])
+        else:
+            ll_assigns = [ll_assign]
+            hl_assigns = [hl_assign]
+
         if ll_lhs.lhost.is_memref:
             memexp = cast(AST.ASTMemRef, ll_lhs.lhost).memexp
             astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
 
-        return ([hl_assign], (ll_preinstrs + [ll_assign] + ll_postinstrs))
+        return (hl_assigns, (ll_preinstrs + ll_assigns + ll_postinstrs))
