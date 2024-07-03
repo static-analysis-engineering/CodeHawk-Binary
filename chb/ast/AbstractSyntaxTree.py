@@ -968,7 +968,7 @@ class AbstractSyntaxTree:
     def new_tmp_name(self) -> str:
         tmpid = self._tmpcounter
         self._tmpcounter += 1
-        return "__asttmp_" + str(tmpid) + "__"
+        return "astmem_tmp_" + str(tmpid) + "__"
 
     def mk_tmp_variable(
             self,
