@@ -187,7 +187,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     userhints = UserHints(toxml=False)
     filenames = [os.path.abspath(s) for s in hints]
     if len(filenames) > 0:
-        print("use hints files: " + ", ".join(filenames))
+        chklogger.logger.info("Use hints files: %s",", ".join(filenames))
         for filename in filenames:
             try:
                 with open(filename, "r") as fp:
@@ -232,16 +232,22 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
     for vinfo in app.bcfiles.globalvars:
         vname = vinfo.vname
+
         if vname in revsymbolicaddrs:
             gaddr = int(revsymbolicaddrs[vname], 16)
         elif vname in revfunctionnames:
             gaddr = int(revfunctionnames[vname], 16)
         elif vname in fnames:
             gaddr = int(fnames[vname], 16)
+        elif vname.startswith("sub_"):
+            gaddr = int("0x" + vname[4:], 16)
         else:
             gaddr = 0
-        # if gaddr > 0 or vname in library_targets:
-        if True:
+
+        if vname.startswith("__"):
+            chklogger.logger.debug(
+                "Skip global variable: %s with address %s", vname, hex(gaddr))
+        else:
             globalsymboltable.add_symbol(
                 vname,
                 vtype=vinfo.vtype.convert(typconverter),
@@ -316,11 +322,11 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             if len(asts) >= 2:
                 astapi.add_function_ast(astree, asts, verbose)
 
-                print("\nLifted code for function " + faddr)
-                print("--------------------------------------------------------")
+                print("\n// Lifted code for function " + faddr)
+                print("// --------------------------------------------------")
                 prettyprinter = ASTCPrettyPrinter(
                     localsymboltable, annotations=astinterface.annotations)
-                print(prettyprinter.to_c(asts[0]))
+                print(prettyprinter.to_c(asts[0], include_globals=True))
                 functions_lifted += 1
 
             else:
