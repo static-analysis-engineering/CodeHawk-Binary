@@ -44,6 +44,7 @@ from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 from chb.util.IndexedTable import IndexedTableValue
 
@@ -280,6 +281,20 @@ class InstrXData(IndexedTableValue):
             return True
         else:
             return False
+
+    def call_target_argument_count(self) -> Optional[int]:
+        if len(self.tags) >= 3:
+            if self.tags[1] == "call":
+                try:
+                    return int(self.tags[2])
+                except Exception as e:
+                    chklogger.logger.warning(
+                        "xdata call does not have a valid argument count: %s",
+                        self.tags[2])
+                    return None
+
+        return None
+
 
     def has_inlined_call_target(self) -> bool:
         return len(self.tags) >= 3 and self.tags[2] == "inlined"
