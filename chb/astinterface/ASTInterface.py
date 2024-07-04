@@ -93,12 +93,14 @@ class ASTInterface:
             srcprototype: Optional["BCVarInfo"] = None,
             astprototype: Optional[AST.ASTVarInfo] = None,
             appsignature: Optional["AppFunctionSignature"] = None,
+            rdeflocs: Dict[str, List[List[str]]] = {},
             varintros: Dict[str, str] = {},
             verbose: bool = False) -> None:
         self._astree = astree
         self._srcprototype = srcprototype
         self._astprototype = astprototype
         self._appsignature = appsignature
+        self._rdeflocs = rdeflocs
         self._varintros = varintros
         self._typconverter = typconverter
         self._verbose = verbose
@@ -109,7 +111,7 @@ class ASTInterface:
         self._parameter_abi = parameter_abi
         self._srcformals: List[ASTIFormalVarInfo] = []
         self._ssa_counter: int = 0
-        self._ssa_intros: Dict[str, AST.ASTVarInfo] = {}
+        self._ssa_intros: Dict[str, Dict[str, AST.ASTVarInfo]] = {}
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
         self._astiprovenance = ASTIProvenance()
@@ -134,6 +136,10 @@ class ASTInterface:
     @property
     def appsignature(self) -> Optional["AppFunctionSignature"]:
         return self._appsignature
+
+    @property
+    def rdeflocs(self) -> Dict[str, List[List[str]]]:
+        return self._rdeflocs
 
     @property
     def varintros(self) -> Dict[str, str]:
@@ -821,16 +827,29 @@ class ASTInterface:
         return self.astree.mk_lval_expression(lval, optexprid=optexprid)
 
     @property
-    def ssa_intros(self) -> Dict[str, AST.ASTVarInfo]:
+    def ssa_intros(self) -> Dict[str, Dict[str, AST.ASTVarInfo]]:
+        """Return iaddr -> register -> ssa variable."""
+
         return self._ssa_intros
+
+    def introduce_ssa_variables(
+            self, rdeflocs: Dict[str, List[List[str]]]) -> None:
+        for (reg, locs) in rdeflocs.items():
+            for lst in locs:
+                if len(lst) > 0:
+                    loc1 = lst[0]
+                    vinfo = self.mk_ssa_register_varinfo(reg, loc1)
+                    for loc in lst:
+                        self._ssa_intros.setdefault(loc, {})
+                        self._ssa_intros[loc][reg] = vinfo
 
     def mk_ssa_register_varinfo(
             self,
             name: str,
             iaddr: str,
             vtype: Optional[AST.ASTTyp] = None) -> AST.ASTVarInfo:
-        if iaddr in self._ssa_intros:
-            return self._ssa_intros[iaddr]
+        if iaddr in self.ssa_intros and name in self.ssa_intros[iaddr]:
+            return self.ssa_intros[iaddr][name]
 
         # create a new ssa variable
         if iaddr in self.varintros:
@@ -840,7 +859,8 @@ class ASTInterface:
             self._ssa_counter += 1
             vname = "ssa_" + name + "_" + str(ssaid)
         varinfo = self.add_symbol(vname, vtype=vtype)
-        self._ssa_intros[iaddr] = varinfo
+        self._ssa_intros.setdefault(iaddr, {})
+        self._ssa_intros[iaddr][name] = varinfo
         return varinfo
 
     def mk_ssa_register_variable(
