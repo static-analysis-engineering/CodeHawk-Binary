@@ -53,6 +53,7 @@ from chb.util.loggingutil import chklogger
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget, StaticStubTarget
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.bctypes.BCTyp import BCTypFun
     from chb.invariants.VarInvariantFact import ReachingDefFact
     from chb.invariants.VAssemblyVariable import VRegisterVariable
     from chb.invariants.VConstantValueVariable import VFunctionReturnValue
@@ -283,31 +284,41 @@ class ARMCallOpcode(ARMOpcode):
 
         # high-level call data
 
-        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
         hl_tgt = ll_tgt
+        hl_lhs: Optional[AST.ASTLval] = None
 
         # construct high-level target
-        if tgt.is_absolute:
-            tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
-            faddr = tgtaddr.address.get_hex()
-            if self.app.has_function_name(faddr):
-                fnsymbol = self.app.function_name(faddr)
-                if astree.globalsymboltable.has_symbol(fnsymbol):
-                    tgtvinfo = astree.globalsymboltable.get_symbol(fnsymbol)
-                    hl_tgt = astree.mk_vinfo_lval_expression(tgtvinfo)
-                else:
-                    hl_tgt = astree.mk_global_variable_expr(
-                        fnsymbol, globaladdress=int(faddr, 16))
+        finfo = xdata.function.finfo
+        if finfo.has_call_target_info(iaddr):
+            ctinfo = finfo.call_target_info(iaddr)
+            fname = ctinfo.target_interface.name
+            ftype = ctinfo.target_interface.bctype
+            astftype: Optional[AST.ASTTyp] = None
+            if ftype is not None:
+                astftype = ftype.convert(astree.typconverter)
+            if astree.globalsymboltable.has_symbol(fname):
+                tgtvinfo = astree.globalsymboltable.get_symbol(fname)
+                hl_tgt = astree.mk_vinfo_lval_expression(tgtvinfo)
             else:
-                chklogger.logger.warning(
-                    "No function symbol for %s at address %s",
-                    faddr, iaddr)
-                fnsymbol = "sub_" + faddr[2:]
+                gaddr: int = 0
+                if fname.startswith("sub_"):
+                    gaddr = int("0x" + fname[4:], 16)
+                else:
+                    if tgt.is_absolute:
+                        tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
+                        gaddr = int(tgtaddr.address.get_hex(), 16)
                 hl_tgt = astree.mk_global_variable_expr(
-                    fnsymbol, globaladdress=int(faddr, 16))
-        else:
-            chklogger.logger.warning(
-                "Indirect call at address %s", iaddr)
+                    fname, globaladdress=gaddr, vtype=astftype)
+
+            if ftype is not None and ftype.is_function:
+                ftype = cast("BCTypFun", ftype)
+                rtype = ftype.returntype
+            else:
+                rtype = ctinfo.target_interface.signature.returntype
+            asttype = rtype.convert(astree.typconverter)
+            if not rtype.is_void:
+                hl_lhs = XU.xvariable_to_ast_lval(
+                    lhs, xdata, iaddr, astree, ctype=asttype)
 
         hl_call = cast(AST.ASTInstruction, astree.mk_call(
             hl_lhs,
@@ -319,8 +330,9 @@ class ARMCallOpcode(ARMOpcode):
 
         astree.add_instr_mapping(hl_call, ll_call)
         astree.add_instr_address(hl_call, [iaddr])
-        astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_lval_defuses(hl_lhs, defuses[0])
-        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+        if hl_lhs is not None:
+            astree.add_lval_mapping(hl_lhs, ll_lhs)
+            astree.add_lval_defuses(hl_lhs, defuses[0])
+            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
         return ([hl_call], [ll_call])
