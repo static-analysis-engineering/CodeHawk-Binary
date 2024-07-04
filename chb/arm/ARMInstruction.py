@@ -373,6 +373,21 @@ class ARMInstruction(Instruction):
     def rhs_expressions(self, filter: Callable[[XXpr], bool]) -> List[XXpr]:
         return [x for x in self.opcode.rhs(self.xdata) if filter(x)]
 
+    def rdef_locations(self) -> Dict[str, List[List[str]]]:
+        result: Dict[str, Dict[str, List[str]]] = {}
+
+        for rdef in self.xdata.reachingdefs:
+            if rdef is not None:
+                rdefvar = str(rdef.vardefuse.variable)
+                rdeflocs = [str(s) for s in rdef.vardefuse.symbols]
+                result.setdefault(rdefvar, {})
+                for sx in rdeflocs:
+                    result[rdefvar].setdefault(sx, [])
+                    for sy in rdeflocs:
+                        if sy not in result[rdefvar][sx]:
+                            result[rdefvar][sx].append(sy)
+        return {x:list(r.values()) for (x, r) in result.items()}
+
     def to_string(
             self,
             bytes: bool = False,

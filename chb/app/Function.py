@@ -83,6 +83,7 @@ from chb.jsoninterface.JSONResult import JSONResult
 from chb.userdata.UserHints import UserHints
 
 import chb.util.fileutil as UF
+from chb.util.graphutil import coalesce_lists
 
 if TYPE_CHECKING:
     from chb.app.FnStackFrame import FnStackFrame
@@ -470,6 +471,16 @@ class Function(ABC):
             return self.instructions[iaddr]
         else:
             raise UF.CHBError("No instruction found at address " + iaddr)
+
+    def rdef_locations(self) -> Dict[str, List[List[str]]]:
+        result: Dict[str, List[List[str]]] = {}
+
+        for (iaddr, instr) in self.instructions.items():
+            irdefs = instr.rdef_locations()
+            for (reg, rdeflists) in irdefs.items():
+                result.setdefault(reg, [])
+                result[reg].extend(rdeflists)
+        return result
 
     def stacklayout(self) -> StackLayout:
         if self._stacklayout is None:

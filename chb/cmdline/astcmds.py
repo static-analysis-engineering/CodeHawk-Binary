@@ -262,7 +262,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     for faddr in functions:
         if app.has_function(faddr):
             f = app.function(faddr)
-            fsummary = f.finfo.appsummary
+
             if f is None:
                 UC.print_error("Unable to find function " + faddr)
                 continue
@@ -271,6 +271,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 fname = app.function_name(faddr)
             else:
                 fname = "sub_" + faddr[2:]
+
+            fsummary = f.finfo.appsummary
 
             localsymboltable = ASTLocalSymbolTable(globalsymboltable)
             returnsequences = ASTReturnSequences(codefragments)
@@ -301,6 +303,11 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 appsignature=appsignature,
                 varintros=varintros,
                 verbose=verbose)
+
+            # Introduce ssa variables for all reaching definitions referenced in
+            # xdata records for all instructions in the function. Locations that
+            # have a common user are merged.
+            astinterface.introduce_ssa_variables(f.rdef_locations())
 
             astfunction = ASTInterfaceFunction(
                 faddr, fname, f, astinterface, patchevents=patchevents)

@@ -207,13 +207,50 @@ def xvariable_to_ast_def_lval_expression(
         freturnvar = cast("VFunctionReturnValue", asmvar.auxvar)
         callsite = freturnvar.callsite
         if callsite in astree.ssa_intros:
-            vinfo = astree.ssa_intros[callsite]
-            return astree.mk_vinfo_lval_expression(vinfo)
+            if len(astree.ssa_intros[callsite]) == 1:
+                vinfo = list(astree.ssa_intros[callsite].values())[0]
+                return astree.mk_vinfo_lval_expression(vinfo)
+            else:
+                chklogger.logger.error(
+                    "Call site with multiple ssa variables at address %s "
+                    + "not yet supported",
+                    callsite)
+                return astree.mk_integer_constant(0)
         else:
             chklogger.logger.error(
                 "AST def conversion of function return value %s at address %s "
                 + "unsuccessfull: no ssa_intro found at callsite %s",
                 str(xvar), iaddr, callsite)
+            return astree.mk_integer_constant(0)
+
+    if xvar.is_register_variable:
+        reg = cast("VRegisterVariable", xvar.denotation).register
+        rdefs = xdata.reachingdefs
+        regrdefs: List[str] = []
+        for rdef in rdefs:
+            if rdef is not None:
+                if (str(rdef.vardefuse.variable)) == str(reg):
+                    for sym in rdef.vardefuse.symbols:
+                        if str(sym) not in regrdefs:
+                            regrdefs.append(str(sym))
+        if len(regrdefs) > 0:
+            if (
+                    regrdefs[0] in astree.ssa_intros
+                    and str(reg) in astree.ssa_intros[regrdefs[0]]):
+                vinfo = astree.ssa_intros[regrdefs[0]][str(reg)]
+                return astree.mk_vinfo_lval_expression(vinfo)
+            else:
+                chklogger.logger.error(
+                    "Rdef: %s has not yet been introduced at address %s",
+                    regrdefs[0], iaddr)
+                return astree.mk_integer_constant(0)
+
+        if len(regrdefs) == 0:
+            chklogger.logger.error(
+                "No rdefs found for %s at address %s", str(reg), iaddr)
+            return astree.mk_integer_constant(0)
+
+        else:
             return astree.mk_integer_constant(0)
 
     else:
