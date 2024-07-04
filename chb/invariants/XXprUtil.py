@@ -383,7 +383,7 @@ def xvariable_to_ast_lval(
 
     # register lhs
     elif xv.is_register_variable:
-        return astree.mk_ssa_register_variable_lval(str(xv), iaddr)
+        return astree.mk_ssa_register_variable_lval(str(xv), iaddr, vtype=ctype)
 
     # stack variable lhs
     elif (
