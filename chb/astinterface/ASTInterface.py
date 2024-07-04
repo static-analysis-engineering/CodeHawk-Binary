@@ -833,9 +833,12 @@ class ASTInterface:
             return self._ssa_intros[iaddr]
 
         # create a new ssa variable
-        ssaid = self._ssa_counter
-        self._ssa_counter += 1
-        vname = "ssa_" + name + "_" + str(ssaid)
+        if iaddr in self.varintros:
+            vname = self.varintros[iaddr]
+        else:
+            ssaid = self._ssa_counter
+            self._ssa_counter += 1
+            vname = "ssa_" + name + "_" + str(ssaid)
         varinfo = self.add_symbol(vname, vtype=vtype)
         self._ssa_intros[iaddr] = varinfo
         return varinfo
