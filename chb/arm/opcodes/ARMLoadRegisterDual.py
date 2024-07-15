@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Sequence, TYPE_CHECKING
+from typing import cast, List, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 from chb.app.MemoryAccess import MemoryAccess, RegisterRestore
@@ -34,7 +34,11 @@ from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
 from chb.invariants.XXpr import XXpr
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 
@@ -65,8 +69,8 @@ class ARMLoadRegisterDual(ARMOpcode):
 
     xdata format: a:vvvvxxxxxxxxrrrrddhh
     ------------------------------------
-    vars[0]: lhs1
-    vars[1]: lhs2
+    vars[0]: vrt
+    vars[1]: vrt2
     vars[2]: memvar1
     vars[3]: memvar2
     xprs[0]: xrn (base register)
@@ -77,6 +81,14 @@ class ARMLoadRegisterDual(ARMOpcode):
     xprs[5]: memval2 (simplified)
     xprs[6]: memory address 1
     xprs[7]: memory address 2
+    rdefs[0]: xrn
+    rdefs[1]: xrm
+    rdefs[2]: memvar1
+    rdefs[3]: memvar2
+    defuse[0]: vrt
+    defuse[1]: vrt2
+    defusehigh[0]: vrt
+    defusehigh[1]: vrt2
     """
 
     def __init__(
@@ -89,6 +101,10 @@ class ARMLoadRegisterDual(ARMOpcode):
     @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 4]]
+
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[1]) for i in range(0, 6)]
 
     def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
         restores = self.register_restores(xdata)
@@ -131,18 +147,94 @@ class ARMLoadRegisterDual(ARMOpcode):
         return [xdata.xprs[1], xdata.xprs[3]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vvxxxx .
-
-        vars[0]: lhs1
-        vars[1]: lhs2
-        xprs[0]: value in memory location
-        xprs[1]: value in memory location (simplified)
-        xprs[2]: value in second memory location
-        xprs[3]: value in second memory location (simplified)
-        """
 
         lhs1 = str(xdata.vars[0])
         lhs2 = str(xdata.vars[1])
         rhs = str(xdata.xprs[3])
         rhs2 = str(xdata.xprs[5])
         return lhs1 + " := " + rhs + "; " + lhs2 + " := " + rhs2
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        memaddr = xdata.xprs[6]
+
+        annotations: List[str] = [iaddr, "LDRD", "addr: " + str(memaddr)]
+
+        # low-level assignments
+
+        (ll_rhs1, ll_pre1, ll_post1) = self.opargs[4].ast_rvalue(astree)
+        (ll_lhs1, _, _) = self.opargs[0].ast_lvalue(astree)
+
+        ll_assign1 = astree.mk_assign(
+            ll_lhs1,
+            ll_rhs1,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        (ll_rhs2, ll_pre2, ll_post2) = self.opargs[5].ast_rvalue(astree)
+        (ll_lhs2, _, _) = self.opargs[1].ast_lvalue(astree)
+
+        ll_assign2 = astree.mk_assign(
+            ll_lhs2,
+            ll_rhs2,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # high-level assignments
+
+        lhs1 = xdata.vars[0]
+        lhs2 = xdata.vars[1]
+        rhs1 = xdata.xprs[3]
+        rhs2 = xdata.xprs[5]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_rhs1 = XU.xxpr_to_ast_def_expr(rhs1, xdata, iaddr, astree)
+        hl_lhs1 = XU.xvariable_to_ast_lval(lhs1, xdata, iaddr, astree)
+
+        hl_assign1 = astree.mk_assign(
+            hl_lhs1,
+            hl_rhs1,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        hl_rhs2 = XU.xxpr_to_ast_def_expr(rhs2, xdata, iaddr, astree)
+        hl_lhs2 = XU.xvariable_to_ast_lval(lhs2, xdata, iaddr, astree)
+
+        hl_assign2 = astree.mk_assign(
+            hl_lhs2,
+            hl_rhs2,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # TODO: add writeback
+
+        astree.add_instr_mapping(hl_assign1, ll_assign1)
+        astree.add_instr_mapping(hl_assign2, ll_assign2)
+        astree.add_instr_address(hl_assign1, [iaddr])
+        astree.add_instr_address(hl_assign2, [iaddr])
+        astree.add_expr_mapping(hl_rhs1, ll_rhs1)
+        astree.add_expr_mapping(hl_rhs2, ll_rhs2)
+        astree.add_lval_mapping(hl_lhs1, ll_lhs1)
+        astree.add_lval_mapping(hl_lhs2, ll_lhs2)
+        astree.add_expr_reachingdefs(ll_rhs1, rdefs)
+        astree.add_expr_reachingdefs(ll_rhs2, rdefs)
+        astree.add_lval_defuses(hl_lhs1, defuses[0])
+        astree.add_lval_defuses(hl_lhs2, defuses[1])
+
+        ll_assigns: List[AST.ASTInstruction] = (
+            ll_pre1 + ll_pre2 + [ll_assign1, ll_assign2] + ll_post1 + ll_post2)
+        hl_assigns: List[AST.ASTInstruction] = [hl_assign1, hl_assign2]
+
+        return (hl_assigns, ll_assigns)

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -126,27 +126,36 @@ class ARMSubtract(ARMOpcode):
 
         annotations: List[str] = [iaddr, "SUB"]
 
-        lhs = xdata.vars[0]
-        rhs1 = xdata.xprs[0]
-        rhs2 = xdata.xprs[1]
-        rhs3 = xdata.xprs[3]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+        # low-level assignment
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
         (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
         ll_rhs = astree.mk_binary_op("minus", ll_op1, ll_op2)
 
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        rdefs = xdata.reachingdefs
+
         astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
         astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lhsasts) != 1:
-            raise UF.CHBError("ARMSubtract: no or multiple lvals in ast")
+        # high-level assignment
 
-        hl_lhs = lhsasts[0]
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        rhs3 = xdata.xprs[3]
+
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
 
         # resulting expression is a stack address
         if str(rhs1) == "SP" and rhs3.is_stack_address:
@@ -162,34 +171,24 @@ class ARMSubtract(ARMOpcode):
                 rhsval = cast("XprConstant", rhs3).intvalue
                 rhsast = astree.mk_integer_constant(rhsval)
             else:
-                rhsasts = XU.xxpr_to_ast_exprs(rhs3, xdata, iaddr, astree)
-                if len(rhsasts) == 1:
-                    rhsast = rhsasts[0]
-                else:
-                    raise UF.CHBError(
-                        "ARMSubtract: multiple expressions in ast rhs")
-
+                hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
         else:
-            rhsasts = XU.xxpr_to_ast_def_exprs(rhs3, xdata, iaddr, astree)
-            if len(rhsasts) == 1:
-                rhsast = rhsasts[0]
-            else:
-                raise UF.CHBError(
-                    "ARMSubtract: multiple expressions in ast rhs")
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
 
-        hl_rhs = rhsast
-        return self.ast_variable_intro(
-            astree,
-            astree.astree.int_type,
+        hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
-            ll_lhs,
-            ll_rhs,
-            rdefs[2:],
-            rdefs[:2],
-            defuses[0],
-            defuseshigh[0],
-            True,
-            iaddr,
-            annotations,
-            bytestring)
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_expr_reachingdefs(ll_rhs, rdefs[:2])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])
