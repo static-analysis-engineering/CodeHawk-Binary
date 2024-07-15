@@ -1236,6 +1236,10 @@ class ASTVarInfo(ASTNode):
     def vtype(self) -> Optional["ASTTyp"]:
         return self._vtype
 
+    @vtype.setter
+    def vtype(self, new_type: "ASTTyp") -> None:
+        self._vtype = new_type
+
     @property
     def parameter(self) -> Optional[int]:
         return self._parameter
@@ -1247,6 +1251,10 @@ class ASTVarInfo(ASTNode):
     @property
     def vdescr(self) -> Optional[str]:
         return self._vdescr
+
+    @vdescr.setter
+    def vdescr(self, new_descr: str) -> None:
+        self._vdescr = new_descr
 
     @property
     def is_varinfo(self) -> bool:
@@ -2183,6 +2191,9 @@ class ASTTyp(ASTNode):
     def is_typedef(self) -> bool:
         return False
 
+    def __eq__(self, other: Any) -> bool:
+        return super(ASTTyp, self).__eq__(other)
+
 
 class ASTTypVoid(ASTTyp):
 
@@ -2207,6 +2218,11 @@ class ASTTypVoid(ASTTyp):
 
     def __str__(self) -> str:
         return "void"
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypVoid):
+            return False
+        return True
 
 
 class ASTTypInt(ASTTyp):
@@ -2241,6 +2257,10 @@ class ASTTypInt(ASTTyp):
     def __str__(self) -> str:
         return inttypes[self.ikind]
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypInt):
+            return False
+        return self.ikind == other.ikind
 
 class ASTTypFloat(ASTTyp):
 
@@ -2274,6 +2294,11 @@ class ASTTypFloat(ASTTyp):
     def __str_(self) -> str:
         return floattypes[self.fkind]
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypFloat):
+            return False
+        return self.fkind == other.fkind
+
 
 class ASTTypPtr(ASTTyp):
 
@@ -2303,6 +2328,11 @@ class ASTTypPtr(ASTTyp):
 
     def __str__(self) -> str:
         return str(self.tgttyp) + " *"
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypPtr):
+            return False
+        return self.tgttyp == other.tgttyp
 
 
 class ASTTypArray(ASTTyp):
@@ -2355,6 +2385,19 @@ class ASTTypArray(ASTTyp):
         else:
             return str(self.tgttyp) + "[]"
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypArray):
+            return False
+
+        if self.tgttyp != other.tgttyp:
+            return False
+
+        if self.has_constant_size() and other.has_constant_size():
+            return self.size_value() == other.size_value()
+        else:
+            # This becomes object equality, which we believe is fine.
+            return self.size_expr == other.size_expr
+
 
 class ASTTypFun(ASTTyp):
 
@@ -2399,6 +2442,18 @@ class ASTTypFun(ASTTyp):
     def __str__(self) -> str:
         return "(" + str(self.argtypes) + "):" + str(self.returntyp) + " "
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypFun):
+            return False
+
+        if self.returntyp != other.returntyp:
+            return False
+
+        if self.is_varargs != other.is_varargs:
+            return False
+
+        return self.argtypes == other.argtypes
+
 
 class ASTFunArgs(ASTNode):
 
@@ -2424,6 +2479,21 @@ class ASTFunArgs(ASTNode):
 
     def __str__(self) -> str:
         return ", ".join(str(a) for a in self.funargs)
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTFunArgs):
+            return False
+
+        if len(self.funargs) != len(other.funargs):
+            return False
+
+        # This assumes that ordering of the function arguments matters
+        for my_arg, other_arg in zip(self.funargs, other.funargs):
+            if my_arg != other_arg:
+                return False
+
+        return True
+
 
 class ASTFunArg(ASTNode):
 
@@ -2454,6 +2524,15 @@ class ASTFunArg(ASTNode):
 
     def __str__(self) -> str:
         return str(self.argtyp) + " " + self.argname
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTFunArg):
+            return False
+
+        if self.argname != other.argname:
+            return False
+
+        return self.argtyp == other.argtyp
 
 
 class ASTTypNamed(ASTTyp):
@@ -2489,6 +2568,15 @@ class ASTTypNamed(ASTTyp):
 
     def __str__(self) -> str:
         return str(self.typdef) + " " + self.typname
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypNamed):
+            return False
+
+        if self.typname != other.typname:
+            return False
+
+        return self.typdef == other.typdef
 
 
 class ASTTypBuiltinVAList(ASTTyp):
@@ -2709,6 +2797,15 @@ class ASTTypComp(ASTTyp):
     def __str__(self) -> str:
         return "struct " + self.compname
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypComp):
+            return False
+
+        if self.compkey != other.compkey:
+            return False
+
+        return self.compname == other.compname
+
 
 class ASTEnumItem(ASTNode):
 
@@ -2822,3 +2919,12 @@ class ASTTypEnum(ASTTyp):
 
     def __str__(self) -> str:
         return "enum " + self.enumname
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ASTTypEnum):
+            return False
+
+        if self.enumkind != other.enumkind:
+            return False
+
+        return self.enumname == other.enumname

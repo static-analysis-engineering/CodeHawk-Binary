@@ -985,7 +985,9 @@ class ASTInterface:
                 name = "stackargvar_" + str(offset)
         else:
             name = optname
+
         optlvalid = -1 if anonymous else None
+
         return self.astree.mk_stack_variable_lval(
             name, offset, vtype=vtype, parameter=parameter, optlvalid=optlvalid)
 

@@ -133,13 +133,16 @@ class InstrXData(IndexedTableValue):
         for v in self._ssavals:
             if v.is_ssa_register_value:
                 ssaval = v.ssa_register_value()
-                return str(ssaval.register) == register
+                if str(ssaval.register) == register:
+                    return True
         return False
 
     def get_ssaval(self, register: str) -> "SSARegisterValue":
         for v in self._ssavals:
             if v.is_ssa_register_value:
-                return v.ssa_register_value()
+                ssaval = v.ssa_register_value()
+                if str(ssaval.register) == register:
+                    return ssaval
         raise UF.CHBError(
             "No ssa value found for register " + register)
 
@@ -431,4 +434,13 @@ class InstrXData(IndexedTableValue):
             lines.append("rdefs[" + str(i) + "] = " + str(r))
         for (i, f) in enumerate(self.flag_reachingdefs):
             lines.append("flagrdefs[" + str(i) + "] = " + str(f))
+        for (i, d) in enumerate(self.defuses):
+            lines.append("defuses[" + str(i) + "] = " + str(d))
+        for (i, du) in enumerate(self.defuseshigh):
+            lines.append("defuseshigh[" + str(i) + "] = " + str(du))
+        for (i, s) in enumerate(self.ssavals):
+            line = "ssa[" + str(i) + "] = " + str(s)
+            if s.is_ssa_register_value:
+                line += " -> register " + str(s.ssa_register_value().register)
+            lines.append(line)
         return "\n".join(lines)

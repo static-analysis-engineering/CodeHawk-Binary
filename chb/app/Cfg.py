@@ -354,6 +354,9 @@ class ControlFlowContext:
     def in_loop(self, x: str, break_to: Optional[str]) -> 'ControlFlowContext':
         return ControlFlowContext(break_to, x, x)
 
+    def in_switch(self, break_to: Optional[str], fallthrough_to: str) -> 'ControlFlowContext':
+        return ControlFlowContext(break_to, self.continue_to, fallthrough_to)
+
     def with_fallthrough(self, f: Optional[str]) -> 'ControlFlowContext':
         if f == self.break_to:
             f = self.continue_to  # A loop can never fall through to the break target
@@ -577,12 +580,33 @@ class Cfg:
 
                     switchcondition = astlastinstr.ast_switch_condition(astree)
 
-                    def switch_case_stmts(succ):
-                        return succlabels.get(succ, []) + do_branch(x, succ, ctx)
+                    def switch_case_ctx(mb_nextsucc: Optional[str]) -> ControlFlowContext:
+                        """Returns a context for a switch case with (or without)
+                           a fallthrough target."""
+                        if mb_nextsucc is not None:
+                            return ctx.in_switch(mergeaddr, mb_nextsucc)
+                        return ctx
+
+                    def switch_case_stmts(succ, mb_nextsucc):
+                        sctx = switch_case_ctx(mb_nextsucc)
+                        casebody = do_branch(x, succ, sctx)
+                        if casebody == [] and mb_nextsucc is None:
+                            # An empty case not followed by another case label is not
+                            # legal C. Since it falls through to the break location,
+                            # we insert a synthetic break statement to maintain
+                            # syntactic compatibility.
+                            casebody = [astree.mk_break_stmt()]
+                        return succlabels.get(succ, []) + casebody
 
                     bodystmts: List[AST.ASTStmt] = []
-                    for succ in succs[1:]:
-                      bodystmts.extend(switch_case_stmts(succ))
+                    for idx in range(1, len(succs)):
+                        if idx + 1 == len(succs):
+                            casestmts = switch_case_stmts(succs[idx], None)
+                        else:
+                            succ, nextsucc = succs[idx], succs[idx + 1]
+                            casestmts = switch_case_stmts(succ, nextsucc)
+
+                        bodystmts.extend(casestmts)
 
                     # If the default case merely falls through, it can be omitted.
                     defaultstmts = do_branch(x, succs[0], ctx)
