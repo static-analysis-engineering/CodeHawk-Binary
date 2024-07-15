@@ -115,9 +115,11 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
         else:
             print("No expression mapped for " + str(condition))
 
+        self.reset_reachingdefs()
         ASTCPrettyPrinter.visit_branch_stmt(self, stmt)
 
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
+        self.reset_reachingdefs()
         ASTCPrettyPrinter.visit_assign_instr(self, instr)
         if self.provenance.has_instruction_mapped(instr.instrid):
             mapped_instrs = (
@@ -170,6 +172,7 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
                 self.ccode.write(str(defusehigh))
 
     def visit_call_instr(self, instr: AST.ASTCall) -> None:
+        self.reset_reachingdefs()
         ASTCPrettyPrinter.visit_call_instr(self, instr)
         if self.provenance.has_instruction_mapped(instr.instrid):
             mapped_instrs = (
