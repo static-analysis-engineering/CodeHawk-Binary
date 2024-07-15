@@ -205,12 +205,39 @@ class FunctionTypeConstraints:
         return "\n".join(lines)
 
 
+class FunctionRegisterConstraints:
+
+    def __init__(self, faddr: str) -> None:
+        self._faddr = faddr
+        self._var_constraints: List[TC.TypeVariableConstraint] = []
+
+    @property
+    def faddr(self) -> str:
+        return self._faddr
+
+    @property
+    def var_constraints(self) -> List[TC.TypeVariableConstraint]:
+        return self._var_constraints
+
+    def add_var_constraint(self, c: TC.TypeVariableConstraint) -> None:
+        self._var_constraints.append(c)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        if len(self.var_constraints) > 0:
+            lines.append("\nVAR constraints")
+            for vc in self.var_constraints:
+                lines.append("  " + str(vc))
+        return "\n".join(lines)
+
+
 class TypeConstraintStore:
 
     def __init__(self, app: "AppAccess") -> None:
         self._app = app
         self._constraints: Optional[List[TC.TypeConstraint]] = None
         self._functionconstraints: Dict[str, FunctionTypeConstraints] = {}
+        self._functionregconstraints: Dict[str, FunctionRegisterConstraints] = {}
 
     @property
     def app(self) -> "AppAccess":
@@ -251,6 +278,19 @@ class TypeConstraintStore:
                         self._functionconstraints[addr].add_zerocheck_constraint(c)
         return self._functionconstraints
 
+    @property
+    def function_reg_constraints(self) -> Dict[str, FunctionRegisterConstraints]:
+        if len(self._functionregconstraints) == 0:
+            for c in self.constraints:
+                if c.is_var_constraint:
+                    c = cast(TC.TypeVariableConstraint, c)
+                    addr = c.typevar.base_addr
+                    if c.typevar.is_register_lhs:
+                        self._functionregconstraints.setdefault(addr,
+                            FunctionRegisterConstraints(addr))
+                        self._functionregconstraints[addr].add_var_constraint(c)
+        return self._functionregconstraints
+
     def signatures(self) -> str:
         lines: List[str] = []
         for (_, fnc) in sorted(self.function_type_constraints.items()):
@@ -263,4 +303,8 @@ class TypeConstraintStore:
         for (addr, fc) in sorted(self.function_type_constraints.items()):
             lines.append("\n\nsub_" + addr)
             lines.append(str(fc))
+        lines.append("\nFunction register constraints")
+        for (addr, frc) in sorted(self.function_reg_constraints.items()):
+            lines.append("\n\nsub_" + addr)
+            lines.append(str(frc))
         return "\n".join(lines)
