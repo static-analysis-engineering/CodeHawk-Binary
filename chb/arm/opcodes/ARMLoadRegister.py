@@ -172,8 +172,14 @@ class ARMLoadRegister(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
         hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+
+        if rhs.is_tmp_variable or rhs.has_unknown_memory_base():
+            xaddr = xdata.xprs[4]
+            hl_rhs = XU.xmemory_dereference_to_ast_def_expr(
+                xaddr, xdata, iaddr, astree)
+        else:
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -228,62 +234,3 @@ class ARMLoadRegister(ARMOpcode):
             hl_assigns = [hl_assign]
 
         return (hl_assigns, (ll_pre + ll_assigns + ll_post))
-
-
-        '''
-
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
-        if len(hl_rhss) == 0:
-            chklogger.logger.warning(
-                "LDR at address %s: no rhs value found", iaddr)
-
-        if len(hl_rhss) > 1:
-            chklogger.logger.warning(
-                "LDR at address %s: multiple rhs values found: %s",
-                iaddr,
-                ", ".join(str(x) for x in hl_rhss))
-            hl_rhs = None
-
-        if (
-                len(hl_rhss) != 1
-                or rhs.is_tmp_variable
-                or rhs.has_unknown_memory_base()):
-            addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
-            hl_rhs = astree.mk_lval_expression(addrlval)
-
-        else:
-            hl_rhs = hl_rhss[0]
-            if str(hl_rhs).startswith("localvar"):
-                deflocs = xdata.reachingdeflocs_for_s(str(rhs))
-                if len(deflocs) == 1:
-                    definition = astree.localvardefinition(
-                        str(deflocs[0]), str(hl_rhs))
-                    if definition is not None:
-                        hl_rhs = definition
-
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(hl_lhss) == 0:
-            raise UF.CHBError("LDR: no lval found")
-        if len(hl_lhss) > 1:
-            raise UF.CHBError(
-                "LDR: multiple lvals: "
-                + ", ".join(str(v) for v in hl_lhss))
-
-        hl_lhs = hl_lhss[0]
-
-        return self.ast_variable_intro(
-            astree,
-            hl_rhs.ctype(astree.ctyper),
-            hl_lhs,
-            hl_rhs,
-            ll_lhs,
-            ll_rhs,
-            rdefs[3:],
-            rdefs[:3],
-            defuses[0],
-            defuseshigh[0],
-            True,
-            iaddr,
-            annotations,
-            bytestring)
-        '''

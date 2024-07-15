@@ -67,8 +67,11 @@ class ARMPop(ARMOpcode):
     xprs[1]: SP updated
     xprs[2]: SP updated, simplified
     xprs[3..n+2]: x(m) for m: memory location value retrieved
+    xprs[n+3..2n+2]: memory address of memory location value retrieved
+    xprs[2n+3]: (optional) value of R0 if register list includes PC
     rdefs[0]: SP
     rdefs[1..n]: rdef(m) for m: memory location variable
+    rdefs[n+1]: (optional) rdef for R0 if register list includes PC
     uses[0}: SP
     uses[1..n]: uses(r) for r: register popped
     useshigh[0]: SP
@@ -105,10 +108,7 @@ class ARMPop(ARMOpcode):
         xctr = len(vars)
         pairs = list(zip(vars, xprs[:xctr]))
         for (v, x) in pairs:
-            if str(v) == "PC" and str(x) in ["LR_in", "LR_t_in"]:
-                if str(x) == "LR_t_in":
-                    chklogger.logger.debug(
-                        "Return instruction relies on LR_t_in")
+            if str(v) == "PC" and str(x) == "LR_in":
                 return True
         else:
             return False
@@ -208,25 +208,17 @@ class ARMPop(ARMOpcode):
             ll_lhs = astree.mk_variable_lval(r)
             ll_rhs = astree.mk_memref_expr(addr)
             ll_assign = astree.mk_assign(
-                ll_lhs, ll_rhs, iaddr=iaddr, bytestring=bytestring)
+                ll_lhs,
+                ll_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
             ll_instrs.append(ll_assign)
 
             lhs = reglhss[i]
             rhs = memrhss[i]
-            hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-            hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
-            if len(hl_lhss) != 1 and len(hl_rhss) != 1:
-                raise UF.CHBError(
-                    "ARMPop: more than one lhs or ths in assignments")
-            hl_lhs = hl_lhss[0]
-            hl_rhs = hl_rhss[0]
-
-            if str(hl_rhs).startswith("localvar"):
-                deflocs = xdata.reachingdeflocs_for_s(str(rhs))
-                if len(deflocs) == 1:
-                    definition = astree.localvardefinition(str(deflocs[0]), str(hl_rhs))
-                    if definition is not None:
-                        hl_rhs = definition
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
             hl_assign = astree.mk_assign(
                 hl_lhs,
@@ -236,7 +228,6 @@ class ARMPop(ARMOpcode):
                 annotations=annotations)
             hl_instrs.append(hl_assign)
 
-            astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
             astree.add_instr_mapping(hl_assign, ll_assign)
             astree.add_instr_address(hl_assign, [iaddr])
             astree.add_expr_mapping(hl_rhs, ll_rhs)
@@ -247,22 +238,29 @@ class ARMPop(ARMOpcode):
 
             sp_offset += 4
 
+        # low-level SP assignment
+
         ll_sp_lhs = splval
         sp_incr_c = astree.mk_integer_constant(sp_incr)
         ll_sp_rhs = astree.mk_binary_op("plus", sprval, sp_incr_c)
         ll_sp_assign = astree.mk_assign(
-            ll_sp_lhs, ll_sp_rhs, iaddr=iaddr, bytestring=bytestring)
+            ll_sp_lhs,
+            ll_sp_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
         ll_instrs.append(ll_sp_assign)
 
-        hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, xdata, astree)
-        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, xdata, iaddr, astree)
-        if len(hl_sp_lhss) != 1 or len(hl_sp_rhss) != 1:
-            raise UF.CHBError(
-                "ARMPop more than one lhs or rhs in SP assignment")
-        hl_sp_lhs = hl_sp_lhss[0]
-        hl_sp_rhs = hl_sp_rhss[0]
+        # high-level SP assignment
+
+        hl_sp_lhs = XU.xvariable_to_ast_lval(splhs, xdata, iaddr, astree)
+        hl_sp_rhs = XU.xxpr_to_ast_def_expr(sprresult, xdata, iaddr, astree)
         hl_sp_assign = astree.mk_assign(
-            hl_sp_lhs, hl_sp_rhs, iaddr=iaddr, bytestring=bytestring)
+            hl_sp_lhs,
+            hl_sp_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
         hl_instrs.append(hl_sp_assign)
 
         astree.add_instr_mapping(hl_sp_assign, ll_sp_assign)

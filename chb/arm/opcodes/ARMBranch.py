@@ -210,24 +210,8 @@ class ARMBranch(ARMCallOpcode):
         reachingdefs = xdata.reachingdefs
 
         def default(condition: XXpr) -> AST.ASTExpr:
-            astconds = XU.xxpr_to_ast_exprs(condition, xdata, iaddr, astree)
-            if len(astconds) == 0:
-                raise UF.CHBError(
-                    "Branch (B): no ast value for condition at "
-                    + iaddr
-                    + " for "
-                    + str(condition))
-
-            if len(astconds) > 1:
-                raise UF.CHBError(
-                    "Branch (B): multiple ast values for condition at "
-                    + iaddr
-                    + ": "
-                    + ", ".join(str(c) for c in astconds)
-                    + " for condition "
-                    + str(condition))
-
-            return astconds[0]
+            astcond = XU.xxpr_to_ast_def_expr(condition, xdata, iaddr, astree)
+            return astcond
 
         # The basic conditions are the false/true conditions expressed in terms
         # of the registers used in the setter instructions (e.g., CMP); the other
@@ -254,38 +238,10 @@ class ARMBranch(ARMCallOpcode):
             else:
                 condition = ftconds_basic[1]
 
-            if condition.is_register_comparison:
-                condition = cast(XprCompound, condition)
-                xoperator = condition.operator
-                xoperands = condition.operands
-                xop1 = xoperands[0]
-                xop2 = xoperands[1]
-
-                csetter = xdata.tags[2]
-                astop1s = XU.xxpr_to_ast_def_exprs(xop1, xdata, csetter, astree)
-                astop2s = XU.xxpr_to_ast_def_exprs(xop2, xdata, csetter, astree)
-
-                if len(astop1s) == 1 and len(astop2s) == 1:
-                    hl_astcond = astree.mk_binary_op(
-                        xoperator, astop1s[0], astop2s[0])
-
-                else:
-                    raise UF.CHBError(
-                        "Branch at " + iaddr + ": Error in ast condition")
-
-            elif condition.is_compound:
-                csetter = xdata.tags[2]
-                astconditions = XU.xxpr_to_ast_def_exprs(
-                    condition, xdata, csetter, astree)
-                if len(astconditions) == 1:
-                    hl_astcond = astconditions[0]
-                else:
-                    hl_astcond = default(condition)
-
-            else:
-                hl_astcond = default(condition)
-
             ll_astcond = self.ast_cc_expr(astree)
+
+            csetter = xdata.tags[2]
+            hl_astcond = XU.xxpr_to_ast_def_expr(condition, xdata, csetter, astree)
 
             astree.add_expr_mapping(hl_astcond, ll_astcond)
             astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)

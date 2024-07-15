@@ -237,6 +237,15 @@ class ARMAdd(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        # Workaround for a deficiency in the defuse-high invariant generation;
+        # ensures that the instruction is preserved by the code transformer
+        # even if there are no uses for the lhs.
+        # An INFO message is logged if this is actually used in the Code
+        # Transformer.
+        if rdefs[0] is not None:
+            if iaddr in [str(d) for d in rdefs[0].deflocations]:
+                astree.add_expose_instruction(hl_assign.instrid)
+
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)
