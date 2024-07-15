@@ -2,7 +2,7 @@
    summaries. This file is loaded automatically for the analysis.
 */
 
-
+/*
 struct _IO_FILE;
 typedef struct _IO_FILE FILE;
 
@@ -30,9 +30,10 @@ typedef unsigned long off_t;
 
 typedef unsigned int sa_family_t;
 
+
 struct _sockaddr {
-  sa_family_t     sa_family;      /* Address family */
-  char            sa_data[];      /* Socket address */
+  sa_family_t     sa_family;
+  char            sa_data[];
 };
 
 typedef struct _sockaddr sockaddr;
@@ -53,5 +54,6 @@ struct _fd_set {
 };
 
 typedef struct _fd_set fd_set;
+*/
 
 int main(int argc, char **argv);
