@@ -645,11 +645,11 @@ class Cfg:
                 instr = astblock.last_instruction
                 rv = instr.return_value()
                 if rv is not None and not astree.returns_void():
-                    astexprs: List[AST.ASTExpr] = XU.xxpr_to_ast_exprs(
+                    astexpr: Optional[AST.ASTExpr] = XU.xxpr_to_ast_def_expr(
                         rv, instr.xdata, instr.iaddr, astree)
                 else:
-                    astexprs = []
-                astexpr = astexprs[0] if len(astexprs) == 1 else None
+                    astexpr is None
+                # astexpr = astexprs[0] if len(astexprs) == 1 else None
                 rtnstmt = astree.mk_return_stmt(astexpr, instr.iaddr, instr.bytestring)
                 blockstmts[n] = [blocknode, rtnstmt]
             else:

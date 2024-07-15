@@ -64,6 +64,7 @@ if TYPE_CHECKING:
     from chb.arm.ARMBlock import ARMBlock
     from chb.arm.ARMFunction import ARMFunction
     from chb.arm.ARMJumpTable import ARMJumpTable
+    from chb.bctypes.BCTyp import BCTyp
 
 
 class ARMInstruction(Instruction):
@@ -387,6 +388,23 @@ class ARMInstruction(Instruction):
                         if sy not in result[rdefvar][sx]:
                             result[rdefvar][sx].append(sy)
         return {x:list(r.values()) for (x, r) in result.items()}
+
+    def lhs_types(self) -> Dict[str, "BCTyp"]:
+        result: Dict[str, "BCTyp"] = {}
+
+        vars = self.xdata.vars
+        types = self.xdata.types
+        if len(vars) == len(types):
+            for (v, ty) in zip(vars, types):
+                if not ty.is_unknown:
+                    result[str(v)] = ty
+        else:
+            chklogger.logger.warning(
+                "Number of variables and types is not the same: %d vs %d "
+                + "for instruction at address %s",
+                len(vars), len(types), self.iaddr)
+
+        return result
 
     def to_string(
             self,
