@@ -306,8 +306,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
             # Introduce ssa variables for all reaching definitions referenced in
             # xdata records for all instructions in the function. Locations that
-            # have a common user are merged.
-            astinterface.introduce_ssa_variables(f.rdef_locations())
+            # have a common user are merged. Types are provided by lhs_types.
+            astinterface.introduce_ssa_variables(f.rdef_locations(), f.lhs_types())
 
             astfunction = ASTInterfaceFunction(
                 faddr, fname, f, astinterface, patchevents=patchevents)

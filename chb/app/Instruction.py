@@ -59,6 +59,7 @@ if TYPE_CHECKING:
     from chb.app.MemoryAccess import MemoryAccess
     from chb.app.Operand import Operand
     from chb.app.StackPointerOffset import StackPointerOffset
+    from chb.bctypes.BCTyp import BCTyp
     from chb.invariants.XVariable import XVariable
     from chb.invariants.XXpr import XXpr
 
@@ -304,6 +305,11 @@ class Instruction(ABC):
 
     def rdef_locations(self) -> Dict[str, List[List[str]]]:
         """Returns for each register, which locations must be combined."""
+
+        return {}
+
+    def lhs_types(self) -> Dict[str, "BCTyp"]:
+        """Returns a mapping from lhs assigned to its type."""
 
         return {}
 
