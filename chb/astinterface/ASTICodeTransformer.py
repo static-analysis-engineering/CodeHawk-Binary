@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,8 @@ from typing import cast, List, TYPE_CHECKING
 
 from chb.ast.ASTIdentityTransformer import ASTIdentityTransformer
 import chb.ast.ASTNode as AST
+
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.astinterface.ASTInterface import ASTInterface
@@ -78,11 +80,22 @@ class ASTICodeTransformer(ASTIdentityTransformer):
         for instr in stmt.instructions:
             if instr.is_ast_assign:
                 instr = cast(AST.ASTAssign, instr)
-                if (
-                        self.provenance.has_active_lval_defuse_high(instr.lhs.lvalid)
-                        or self.provenance.has_lval_store(instr.lhs.lvalid)
-                        or self.provenance.has_expose_instruction(instr.instrid)):
+                if self.provenance.has_active_lval_defuse_high(instr.lhs.lvalid):
+                    chklogger.logger.debug(
+                        "Transform [%s]: active lval_defuse_high: %s",
+                        str(instr),
+                        self.provenance.active_lval_defuse_high(instr.lhs.lvalid))
                     instrs.append(instr)
+                elif self.provenance.has_lval_store(instr.lhs.lvalid):
+                    chklogger.logger.debug(
+                        "Transform [%s]: lval_store", str(instr))
+                    instrs.append(instr)
+                elif self.provenance.has_expose_instruction(instr.instrid):
+                    chklogger.logger.info(
+                        "Transform [%s]: expose instruction", str(instr))
+                    instrs.append(instr)
+                else:
+                    chklogger.logger.debug("Transform [%s]: remove", str(instr))
             else:
                 instrs.append(instr)
         return self.astinterface.mk_instr_sequence(

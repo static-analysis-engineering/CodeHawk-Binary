@@ -833,12 +833,26 @@ class ASTInterface:
         return self._ssa_intros
 
     def introduce_ssa_variables(
-            self, rdeflocs: Dict[str, List[List[str]]]) -> None:
+            self,
+            rdeflocs: Dict[str, List[List[str]]],
+            ftypes: Dict[str, Dict[str, "BCTyp"]]) -> None:
+        """Creates ssa variables based on reaching definition locations.
+
+        Lists with multiple locations will give rise to a single variable
+        being created for all of those locations, as these all reach a
+        particular use of the variable.
+        """
+
         for (reg, locs) in rdeflocs.items():
             for lst in locs:
                 if len(lst) > 0:
                     loc1 = lst[0]
-                    vinfo = self.mk_ssa_register_varinfo(reg, loc1)
+                    vtype = None
+                    if loc1 in ftypes:
+                        if reg in ftypes[loc1]:
+                            vbctype = ftypes[loc1][reg]
+                            vtype = vbctype.convert(self.typconverter)
+                    vinfo = self.mk_ssa_register_varinfo(reg, loc1, vtype=vtype)
                     for loc in lst:
                         self._ssa_intros.setdefault(loc, {})
                         self._ssa_intros[loc][reg] = vinfo
@@ -849,7 +863,10 @@ class ASTInterface:
             iaddr: str,
             vtype: Optional[AST.ASTTyp] = None) -> AST.ASTVarInfo:
         if iaddr in self.ssa_intros and name in self.ssa_intros[iaddr]:
-            return self.ssa_intros[iaddr][name]
+            vinfo = self.ssa_intros[iaddr][name]
+            if vtype is not None and vinfo.vtype is None:
+                vinfo.vtype = vtype
+            return vinfo
 
         # create a new ssa variable
         if iaddr in self.varintros:

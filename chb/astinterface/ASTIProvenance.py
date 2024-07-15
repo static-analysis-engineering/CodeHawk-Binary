@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,7 @@ import chb.ast.ASTNode as AST
 from chb.ast.ASTProvenance import ASTProvenance
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.invariants.VarInvariantFact import (
@@ -222,6 +223,7 @@ class ASTIProvenance:
             lval: AST.ASTLval,
             uses: Optional["DefUse"]) -> None:
         if uses is not None:
+            chklogger.logger.debug("Add defuse: %s", str(uses))
             self._lval_defuses[lval.lvalid] = uses
             self.add_lval(lval)
 
@@ -230,6 +232,7 @@ class ASTIProvenance:
             lval: AST.ASTLval,
             useshigh: Optional["DefUseHigh"]) -> None:
         if useshigh is not None:
+            chklogger.logger.debug("Add defuse-high: %s", str(useshigh))
             self._lval_defuses_high[lval.lvalid] = useshigh
             self.add_lval(lval)
 
@@ -237,6 +240,8 @@ class ASTIProvenance:
             self,
             lvalid: int,
             defuseaddr: str) -> None:
+        chklogger.logger.debug(
+            "Inactivate defuse-high for %d at address %s", lvalid, defuseaddr)
         self._defuses_high_inactivated.setdefault(lvalid, set([]))
         self._defuses_high_inactivated[lvalid].add(defuseaddr)
 
@@ -351,6 +356,16 @@ class ASTIProvenance:
             return len(active) > 0
 
         return False
+
+    def active_lval_defuse_high(self, lvalid: int) -> str:
+        activelvals: str = ""
+        if lvalid in self.lval_defuses_high:
+            defuseshigh = self.lval_defuses_high[lvalid]
+            locations = [str(x) for x in defuseshigh.uselocations]
+            inactivated = self.defuses_high_inactivated_for(lvalid)
+            active = set(locations).difference(inactivated)
+            activelvals = ", ".join(str(a) for a in active)
+        return activelvals
 
     def has_lval_store(self, lvalid: int) -> bool:
         return lvalid in self.lval_stores
