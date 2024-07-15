@@ -30,6 +30,9 @@ from typing import cast, List, Optional, Tuple, Sequence, TYPE_CHECKING, Union
 
 from chb.app.BDictionary import BDictionary, AsmAddress
 
+from chb.bctypes.BCDictionary import BCDictionary
+from chb.bctypes.BCTyp import BCTyp
+
 from chb.invariants.VarInvariantFact import (
     DefUse,
     DefUseHigh,
@@ -70,6 +73,7 @@ class InstrXData(IndexedTableValue):
         self.expanded = False
         self._ssavals: List[XVariable] = []
         self._vars: List[XVariable] = []
+        self._types: List["BCTyp"] = []
         self._xprs: List[XXpr] = []
         self._intervals: List[XInterval] = []
         self._strs: List[str] = []
@@ -92,6 +96,10 @@ class InstrXData(IndexedTableValue):
         return self.function.bd
 
     @property
+    def bcdictionary(self) -> "BCDictionary":
+        return self.function.bcd
+
+    @property
     def xprdictionary(self) -> "FnXprDictionary":
         return self.function.xprdictionary
 
@@ -108,6 +116,12 @@ class InstrXData(IndexedTableValue):
         if not self.expanded:
             self._expand()
         return self._vars
+
+    @property
+    def types(self) -> List["BCTyp"]:
+        if not self.expanded:
+            self._expand()
+        return self._types
 
     @property
     def ssavals(self) -> List[XVariable]:
@@ -224,6 +238,7 @@ class InstrXData(IndexedTableValue):
                 arg = self.args[i]
                 xd = self.xprdictionary
                 bd = self.bdictionary
+                bcd = self.bcdictionary
                 if c == "v":
                     self._vars.append(xd.variable(arg))
                 elif c == "x":
@@ -236,6 +251,8 @@ class InstrXData(IndexedTableValue):
                     self._intervals.append(xd.interval(arg))
                 elif c == "l":
                     self._ints.append(arg)
+                elif c == "t":
+                    self._types.append(bcd.typ(arg))
                 elif c == "r":
                     varinvd = self.varinvdictionary
                     rdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None

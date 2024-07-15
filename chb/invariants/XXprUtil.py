@@ -288,12 +288,26 @@ def xbinary_to_ast_def_expr(
         iaddr: str,
         astree: ASTInterface) -> AST.ASTExpr:
 
+    def default() -> AST.ASTExpr:
+        astxpr1 = xxpr_to_ast_def_expr(xpr1, xdata, iaddr, astree)
+        astxpr2 = xxpr_to_ast_def_expr(xpr2, xdata, iaddr, astree)
+        if operator in ["plus", "minus", "eq", "ne", "gt"]:
+            return astree.mk_binary_expression(operator, astxpr1, astxpr2)
+        else:
+            chklogger.logger.error(
+                "AST def conversion of binary expression %s, %s with operator %s "
+                + "at address %s not yet supported",
+                str(xpr1), str(xpr2), operator, iaddr)
+            return astree.mk_integer_constant(0)
+
     if xpr1.is_var and xpr2.is_constant:
         xvar = cast(X.XprVariable, xpr1).variable
         astxpr1 = xvariable_to_ast_def_lval_expression(xvar, xdata, iaddr, astree)
         astxpr2 = xxpr_to_ast_expr(xpr2, xdata, iaddr, astree)
         if operator in ["plus", "minus"]:
             return astree.mk_binary_expression(operator, astxpr1, astxpr2)
+        else:
+            return default()
 
     if xpr1.is_compound and xpr2.is_constant:
         xc = cast(X.XprCompound, xpr1)
@@ -301,12 +315,10 @@ def xbinary_to_ast_def_expr(
         astxpr2 = xxpr_to_ast_expr(xpr2, xdata, iaddr, astree)
         if operator in ["plus", "minus"]:
             return astree.mk_binary_expression(operator, astxpr1, astxpr2)
+        else:
+            return default()
 
-    chklogger.logger.error(
-        "AST def conversion of binary expression %s at address %s not yet "
-        + "supported",
-        f"{xpr1} {operator} {xpr2}", iaddr)
-    return astree.mk_integer_constant(0)
+    return default()
 
 
 def xcompound_to_ast_def_expr(
@@ -420,6 +432,10 @@ def xvariable_to_ast_lval(
 
     # register lhs
     elif xv.is_register_variable:
+        if ctype is None:
+            bctype = xdata.function.register_lhs_type(iaddr, str(xv))
+            if bctype is not None:
+                ctype = bctype.convert(astree.typconverter)
         return astree.mk_ssa_register_variable_lval(str(xv), iaddr, vtype=ctype)
 
     # stack variable lhs
@@ -454,6 +470,16 @@ def xmemory_dereference_lval(
         + "not yet supported",
         str(address), iaddr)
     return astree.mk_temp_lval()
+
+
+def xmemory_dereference_to_ast_def_expr(
+        address: X.XXpr,
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface) -> AST.ASTExpr:
+
+    hl_addr = xxpr_to_ast_def_expr(address, xdata, iaddr, astree)
+    return astree.mk_memref_expr(hl_addr)
 
 
 def vfunctionreturn_value_to_ast_lvals(
