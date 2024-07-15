@@ -32,6 +32,7 @@ type type_base_variable_t =                       tags [0]   tags    args
  | FunctionType of string                           "f"        2      0
  | DataAddressType of string                        "d"        2      0
  | GlobalVariableType of string                     "g"        2      0
+ | RegisterLhsType of string * string               "r"        3      0
 
 type type_cap_label_t =
  | FRegParameter of register                        "fr"       1      1
@@ -103,6 +104,10 @@ class TypeBaseVariable(TypeConstraintDictionaryRecord):
         return False
 
     @property
+    def is_register_lhs(self) -> bool:
+        return False
+
+    @property
     def addr(self) -> str:
         raise UF.CHBError("Not implemented")
 
@@ -166,11 +171,44 @@ class TypeBaseGlobalVariabletype(TypeBaseVariable):
         return self.tags[1]
 
     @property
-    def is_global_varibale(self) -> bool:
+    def is_global_variable(self) -> bool:
         return True
 
     def __str__(self) -> str:
         return "gv_" + self.addr
+
+
+@tcdregistry.register_tag("r", TypeBaseVariable)
+class TypBaseRegisterLhsType(TypeBaseVariable):
+
+    def __init__(
+            self,
+            tcd: "TypeConstraintDictionary",
+            ixval: IndexedTableValue) -> None:
+        TypeBaseVariable.__init__(self, tcd, ixval)
+
+    @property
+    def addr(self) -> str:
+        return self.tags[1]
+
+    @property
+    def is_register_lhs(self) -> bool:
+        return True
+
+    @property
+    def register(self) -> "Register":
+        return self.bd.register(self.args[0])
+
+    @property
+    def faddr(self) -> str:
+        return self.tags[1]
+
+    @property
+    def iaddr(self) -> str:
+        return self.tags[2]
+
+    def __str__(self) -> str:
+        return f"reglhs_{self.register}_{self.faddr}_{self.iaddr}"
 
 
 class TypeCapLabel(TypeConstraintDictionaryRecord):
@@ -299,6 +337,24 @@ class TypeCapLabelStore(TypeCapLabel):
         return "store"
 
 
+@tcdregistry.register_tag("d", TypeCapLabel)
+class TypeCapLabelDeref(TypeCapLabel):
+
+    def __init__(
+            self,
+            tcd: "TypeConstraintDictionary",
+            ixval: IndexedTableValue) -> None:
+        TypeCapLabel.__init__(self, tcd, ixval)
+
+    @property
+    def is_store(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return "deref"
+
+
+
 @tcdregistry.register_tag("a", TypeCapLabel)
 class TypeCapLabelOffsetAccess(TypeCapLabel):
 
@@ -396,6 +452,10 @@ class TypeVariable(TypeConstraintDictionaryRecord):
     @property
     def is_global_variable(self) -> bool:
         return self.basevar.is_global_variable
+
+    @property
+    def is_register_lhs(self) -> bool:
+        return self.basevar.is_register_lhs
 
     @property
     def base_addr(self) -> str:
@@ -547,6 +607,23 @@ class TypeConstantTInt(TypeConstant):
 
     def __str__(self) -> str:
         return "int (" + str(self.ikind) + ")"
+
+
+@tcdregistry.register_tag("ts", TypeConstant)
+class TypeConstantTStruct(TypeConstant):
+
+    def __init__(
+            self,
+            tcd: "TypeConstraintDictionary",
+            ixval: IndexedTableValue) -> None:
+        TypeConstant.__init__(self, tcd, ixval)
+
+    @property
+    def name(self) -> str:
+        return self.tags[1]
+
+    def __str__(self) -> str:
+        return "struct " + self.name
 
 
 @tcdregistry.register_tag("tf", TypeConstant)
@@ -726,6 +803,45 @@ class SubTypeConstraint(TypeConstraint):
 
     def __str__(self) -> str:
         return str(self.term1) + " <: " + str(self.term2)
+
+
+@tcdregistry.register_tag("g", TypeConstraint)
+class GroundTypeConstraint(TypeConstraint):
+
+    def __init__(
+            self,
+            tcd: "TypeConstraintDictionary",
+            ixval: IndexedTableValue) -> None:
+        TypeConstraint.__init__(self, tcd, ixval)
+
+    @property
+    def term1(self) -> TypeTerm:
+        return self.tcd.type_term(self.args[0])
+
+    @property
+    def term2(self) -> TypeTerm:
+        return self.tcd.type_term(self.args[1])
+
+    @property
+    def is_subtype_constraint(self) -> bool:
+        return True
+
+    @property
+    def typevars(self) -> List[TypeVariable]:
+        result: List[TypeVariable] = []
+        if self.term1.is_typevar:
+            result.append(cast(TypeTermVariable, self.term1).typevar)
+        if self.term2.is_typevar:
+            result.append(cast(TypeTermVariable, self.term2).typevar)
+        return result
+
+    @property
+    def basevars(self) -> List[TypeBaseVariable]:
+        return [t.basevar for t in self.typevars]
+
+    def __str__(self) -> str:
+        return str(self.term1) + " <:> " + str(self.term2)
+
 
 
 @tcdregistry.register_tag("z", TypeConstraint)
