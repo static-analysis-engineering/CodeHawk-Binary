@@ -84,7 +84,7 @@ class ARMFunction(Function):
         self._blocks: Dict[str, ARMBlock] = {}
         self._instructions: Dict[str, ARMInstruction] = {}
         self._armfnd: Optional[FunctionDictionary] = None
-        self._armfnbtypes: Optional[Dict[str, BCTyp]] = None
+        self._armreglhstypes: Optional[Dict[str, Dict[str, BCTyp]]] = None
 
     @property
     def armdictionary(self) -> ARMDictionary:
@@ -100,28 +100,29 @@ class ARMFunction(Function):
         return self._armfnd
 
     @property
-    def btypes(self) -> Dict[str, BCTyp]:
-        if self._armfnbtypes is None:
-            self._armfnbtypes = {}
-            xbtypes = self.xnode.find("btypes")
-            if xbtypes is not None:
-                for xbt in xbtypes.findall("bt"):
-                    xvix = xbt.get("vix")
-                    xbix = xbt.get("bix")
-                    if xvix is not None and xbix is not None:
-                        v = self.xprdictionary.variable(int(xvix))
-                        bt = self.bcd.typ(int(xbix))
-                        self._armfnbtypes[str(v)] = bt
-        return self._armfnbtypes
+    def register_lhs_types(self) -> Dict[str, Dict[str, BCTyp]]:
+        if self._armreglhstypes is None:
+            self._armreglhstypes = {}
+            xregtypes = self.xnode.find("register-lhs-types")
+            if xregtypes is not None:
+                for xreg in xregtypes.findall("reglhs"):
+                    iaddr = xreg.get("iaddr", "0x0")
+                    self._armreglhstypes.setdefault(iaddr, {})
+                    ireg = xreg.get("ireg")
+                    if ireg is not None:
+                        register = self.bd.register(int(ireg))
+                        ibt = xreg.get("ityp")
+                        if ibt is not None:
+                            bt = self.bcd.typ(int(ibt))
+                            self._armreglhstypes[iaddr][str(register)] = bt
+        return self._armreglhstypes
 
-    def get_cvv_btype(self, cvv: str) -> BCTyp:
-        if cvv in self.btypes:
-            return self.btypes[cvv]
-        else:
-            raise UF.CHBError("No type found for " + cvv)
-
-    def has_cvv_btype(self, cvv: str) -> bool:
-        return cvv in self.btypes
+    def register_lhs_type(self, iaddr: str, reg: str) -> Optional[BCTyp]:
+        if iaddr in self.register_lhs_types:
+            iaddrregs = self.register_lhs_types[iaddr]
+            if reg in iaddrregs:
+                return iaddrregs[reg]
+        return None
 
     @property
     def jumptables(self) -> Dict[str, JumpTable]:

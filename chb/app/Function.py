@@ -372,14 +372,19 @@ class Function(ABC):
         raise UF.CHBError("Property stackframe not implemented for Function")
 
     @property
-    def btypes(self) -> Dict[str, "BCTyp"]:
-        raise UF.CHBError("Property btypes not implemented for Function")
+    def register_lhs_types(self) -> Dict[str, Dict[str, "BCTyp"]]:
+        """Return a mapping from instr. addr. to register to variable type.
 
-    def get_cvv_btype(self, cvv: str) -> "BCTyp":
-        raise UF.CHBError("Property get_cvv_btype not implemented for Function")
+        Contains the inferred types of register left-hand sides that may be
+        converted to ssa variables in the lifting.
+        """
+        raise UF.CHBError(
+            "Property register_lhs_types not implemented for Function")
 
-    def has_cvv_btype(self, cvv: str) -> bool:
-        return False
+    def register_lhs_type(self, iaddr: str, reg: str) -> Optional["BCTyp"]:
+        """Return the type of the register reg assigned at address iaddr."""
+
+        return None
 
     @abstractmethod
     def strings_referenced(self) -> List[str]:
@@ -480,6 +485,19 @@ class Function(ABC):
             for (reg, rdeflists) in irdefs.items():
                 result.setdefault(reg, [])
                 result[reg].extend(rdeflists)
+        return result
+
+    def lhs_types(self) -> Dict[str, Dict[str, "BCTyp"]]:
+        """Return a mapping from iaddr to lhs name to type."""
+
+        result: Dict[str, Dict[str, "BCTyp"]] = {}
+
+        for (iaddr, instr) in self.instructions.items():
+            ilhs_types = instr.lhs_types()
+            result[iaddr] = {}
+            for (vname, vtype) in ilhs_types.items():
+                result[iaddr][vname] = vtype
+
         return result
 
     def stacklayout(self) -> StackLayout:
