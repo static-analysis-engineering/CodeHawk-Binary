@@ -149,11 +149,22 @@ class ASTCPrettyPrinter(ASTVisitor):
                     vinfo.vname in referenced
                     and not self.localsymboltable.is_formal(vinfo.vname)):
                 self.ccode.newline(indent=self.indent)
-                if vinfo.vtype is not None:
+                if vinfo.vtype is None:
+                    self.ccode.write("? " + vinfo.vname)
+                    continue
+
+                if vinfo.vtype.is_array:
+                    atype = cast(AST.ASTTypArray, vinfo.vtype)
+                    atype.tgttyp.accept(self)
+                    self.ccode.write(" ")
+                    self.ccode.write(vinfo.vname)
+                    self.ccode.write("[")
+                    if atype.size_expr is not None:
+                        atype.size_expr.accept(self)
+                        self.ccode.write("];")
+                else:
                     vinfo.vtype.accept(self)
                     self.ccode.write(" " + vinfo.vname + ";")
-                else:
-                    self.ccode.write("? " + vinfo.vname)
 
     def write_global_declarations(self) -> None:
         """Generates code representing the contents of the global symbol table"""
@@ -182,6 +193,8 @@ class ASTCPrettyPrinter(ASTVisitor):
                 self.ccode.write("(")
                 if ftype.argtypes is not None:
                     ftype.argtypes.accept(self)
+                if ftype.is_varargs:
+                    self.ccode.write(", ...")
                 self.ccode.write(");")
             elif vinfo.vtype.is_array:
                 atype = cast(AST.ASTTypArray, vinfo.vtype)
@@ -207,6 +220,8 @@ class ASTCPrettyPrinter(ASTVisitor):
                 self.ccode.write("(")
                 if ftype.argtypes is not None:
                     ftype.argtypes.accept(self)
+                if ftype.is_varargs:
+                    self.ccode.write(", ...")
                 self.ccode.write(")")
                 return None
             else:

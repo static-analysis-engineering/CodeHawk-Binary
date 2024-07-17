@@ -1023,7 +1023,7 @@ class AbstractSyntaxTree:
         return self.storageconstructor.mk_register_storage(name)
 
     def mk_stack_storage(
-            self, offset: int, size: Optional[int]) -> ASTStackStorage:
+            self, offset: int, size: Optional[int] = 4) -> ASTStackStorage:
         return self.storageconstructor.mk_stack_storage(offset, size)
 
     def mk_base_storage(

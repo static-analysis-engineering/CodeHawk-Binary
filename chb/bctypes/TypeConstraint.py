@@ -33,6 +33,7 @@ type type_base_variable_t =                       tags [0]   tags    args
  | DataAddressType of string                        "d"        2      0
  | GlobalVariableType of string                     "g"        2      0
  | RegisterLhsType of string * string               "r"        3      0
+ | LocalStackLhsType of int * string * string       "s"        3      1
 
 type type_cap_label_t =
  | FRegParameter of register                        "fr"       1      1
@@ -209,6 +210,39 @@ class TypBaseRegisterLhsType(TypeBaseVariable):
 
     def __str__(self) -> str:
         return f"reglhs_{self.register}_{self.faddr}_{self.iaddr}"
+
+
+@tcdregistry.register_tag("s", TypeBaseVariable)
+class TypBaseLocalStackLhsType(TypeBaseVariable):
+
+    def __init__(
+            self,
+            tcd: "TypeConstraintDictionary",
+            ixval: IndexedTableValue) -> None:
+        TypeBaseVariable.__init__(self, tcd, ixval)
+
+    @property
+    def addr(self) -> str:
+        return self.tags[1]
+
+    @property
+    def is_local_stack_lhs(self) -> bool:
+        return True
+
+    @property
+    def offset(self) -> int:
+        return self.args[0]
+
+    @property
+    def faddr(self) -> str:
+        return self.tags[1]
+
+    @property
+    def iaddr(self) -> str:
+        return self.tags[2]
+
+    def __str__(self) -> str:
+        return f"localstacklhs_{self.offset}_{self.faddr}_{self.iaddr}"
 
 
 class TypeCapLabel(TypeConstraintDictionaryRecord):

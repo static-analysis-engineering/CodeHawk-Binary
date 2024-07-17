@@ -266,6 +266,13 @@ class ARMCallOpcode(ARMOpcode):
                         saddr = hex(x.constant.value)
                         hl_arg: AST.ASTExpr = astree.mk_string_constant(
                             ll_arg, cstr, saddr)
+
+                    elif x.is_stack_address:
+                        negoffset = x.stack_address_offset()
+                        offset = -negoffset
+                        stackvar = astree.mk_stack_variable_lval(offset)
+                        hl_arg = astree.mk_lval_expr(stackvar)
+
                     else:
                         hl_arg = XU.xxpr_to_ast_def_expr(x, xdata, iaddr, astree)
                     hl_args.append(hl_arg)

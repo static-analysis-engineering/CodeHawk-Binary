@@ -672,7 +672,7 @@ class Cfg:
                     astexpr: Optional[AST.ASTExpr] = XU.xxpr_to_ast_def_expr(
                         rv, instr.xdata, instr.iaddr, astree)
                 else:
-                    astexpr is None
+                    astexpr = None
                 # astexpr = astexprs[0] if len(astexprs) == 1 else None
                 rtnstmt = astree.mk_return_stmt(astexpr, instr.iaddr, instr.bytestring)
                 blockstmts[n] = [blocknode, rtnstmt]

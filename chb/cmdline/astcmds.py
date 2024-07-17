@@ -214,11 +214,12 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
     revfunctionnames = userhints.rev_function_names()
     varintros = userhints.variable_introductions()
+    stackvarintros = userhints.stack_variable_introductions()
 
     if len(varintros) == 0:
         varintros = app.systeminfo.varintros
 
-    library_targets = library_call_targets(app, functions)
+    # library_targets = library_call_targets(app, functions)
 
     globalsymboltable = astapi.globalsymboltable
     codefragments = astapi.codefragments
@@ -302,12 +303,16 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 astprototype=astprototype,
                 appsignature=appsignature,
                 varintros=varintros,
+                stackvarintros=stackvarintros,
                 verbose=verbose)
 
             # Introduce ssa variables for all reaching definitions referenced in
             # xdata records for all instructions in the function. Locations that
             # have a common user are merged. Types are provided by lhs_types.
             astinterface.introduce_ssa_variables(f.rdef_locations(), f.lhs_types())
+
+            # Introduce stack variables for all stack buffers with types
+            astinterface.introduce_stack_variables(f.stack_variable_types)
 
             astfunction = ASTInterfaceFunction(
                 faddr, fname, f, astinterface, patchevents=patchevents)
