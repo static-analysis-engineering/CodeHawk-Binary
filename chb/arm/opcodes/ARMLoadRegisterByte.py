@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -44,7 +44,8 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMOperandKind import ARMOffsetAddressOp
     from chb.invariants.XXpr import XprCompound
 
 
@@ -78,15 +79,18 @@ class ARMLoadRegisterByte(ARMOpcode):
     useshigh[0]: use of lhs at high level
 
     optional:
-    vars[1]: lhs base register (if base update)
+    vars[2]: lhs base register (if base update)
 
     xprs[.]: instruction condition (if has condition)
     xprs[.]: new address for base register
+
+    uses[1]: use of updated base register
+    useshigh[1]: use of updated base register
     """
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "LoadRegisterByte")
@@ -143,85 +147,91 @@ class ARMLoadRegisterByte(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[3]
         memaddr = xdata.xprs[4]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
 
         annotations: List[str] = [iaddr, "LDRB", "addr:" + str(memaddr)]
 
-        (ll_rhs, _, _) = self.opargs[3].ast_rvalue(astree)
+        # low-level assignment
+
+        (ll_rhs, ll_pre, ll_post) = self.opargs[3].ast_rvalue(astree)
         (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
         (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
 
-        if ll_rhs.is_ast_lval_expr:
-            lvalexpr = cast(AST.ASTLvalExpr, ll_rhs)
-            if lvalexpr.lval.lhost.is_memref:
-                memexp = cast(AST.ASTMemRef, lvalexpr.lval.lhost).memexp
-                astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
-
-        hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        byteselected = False
-        if len(hl_rhss) == 0:
-            raise UF.CHBError("LDRB: No rhs value")
-
-        elif len(hl_rhss) == 4:
-            hl_rhs = hl_rhss[0]
-            byteselected = True
-
-        elif len(hl_rhss) == 1:
-            hl_rhs = hl_rhss[0]
-
-        else:
-            raise UF.CHBError(
-                "LDRB: Multiple rhs values: "
-                + ", ".join(str(x) for x in hl_rhss))
-
-        hl_rhs = hl_rhss[0]
-
-        if rhs.is_tmp_variable or rhs.has_unknown_memory_base():
-            addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
-            hl_rhs = astree.mk_lval_expression(addrlval)
-
-        elif (
-                rhs.is_compound and cast("XprCompound", rhs).is_lsb
-                and cast("XprCompound", rhs).lsb_operand().has_unknown_memory_base()):
-            addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
-            hl_rhs = astree.mk_lval_expression(addrlval)
-
-        elif str(hl_rhs).startswith("localvar"):
-            deflocs = xdata.reachingdeflocs_for_s(str(rhs))
-            if len(deflocs) == 1:
-                definition = astree.localvardefinition(
-                    str(deflocs[0]), str(hl_rhs))
-                if definition is not None:
-                    hl_rhs = definition
-
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(hl_lhss) == 0:
-            raise UF.CHBError("LDRB: no lval found")
-        if len(hl_lhss) > 1:
-            raise UF.CHBError(
-                "LDRB: multiple lvals: "
-                + ", ".join(str(v) for v in hl_lhss))
-
-        hl_lhs = hl_lhss[0]
-
-        return self.ast_variable_intro(
-            astree,
-            astree.astree.char_type,
-            hl_lhs,
-            hl_rhs,
+        ll_assign = astree.mk_assign(
             ll_lhs,
             ll_rhs,
-            rdefs[3:],
-            rdefs[:2],
-            defuses[0],
-            defuseshigh[0],
-            True,
-            iaddr,
-            annotations,
-            bytestring)
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # high-level assignment
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+
+        if rhs.is_tmp_variable or rhs.has_unknown_memory_base():
+            xaddr = xdata.xprs[4]
+            hl_rhs = XU.xmemory_dereference_to_ast_def_expr(
+                xaddr, xdata, iaddr, astree)
+        else:
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_rhs, rdefs)
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if self.opargs[3].is_indirect_register and self.opargs[3].is_write_back:
+            addrop = cast("ARMOffsetAddressOp", self.opargs[3].opkind)
+            (ll_addr_lhs, _, _) = self.opargs[1].ast_lvalue(astree)
+            ll_addr_rhs = addrop.ast_addr_rvalue(astree)
+
+            ll_addr_assign = astree.mk_assign(
+                ll_addr_lhs,
+                ll_addr_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
+
+            basereg = xdata.vars[1]
+            newaddr = xdata.xprs[4]
+            hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
+            hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
+
+            hl_addr_assign = astree.mk_assign(
+                hl_addr_lhs,
+                hl_addr_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_assigns: List[AST.ASTInstruction] = [hl_assign, hl_addr_assign]
+
+            astree.add_instr_mapping(hl_addr_assign, ll_addr_assign)
+            astree.add_instr_address(hl_addr_assign, [iaddr])
+            astree.add_expr_mapping(hl_addr_rhs, ll_addr_rhs)
+            astree.add_lval_mapping(hl_addr_lhs, ll_addr_lhs)
+            astree.add_expr_reachingdefs(ll_addr_rhs, [rdefs[0]])
+            astree.add_lval_defuses(ll_addr_lhs, defuses[1])
+            astree.add_lval_defuses_high(ll_addr_lhs, defuseshigh[1])
+        else:
+            ll_assigns = [ll_assign]
+            hl_assigns = [hl_assign]
+
+        return (hl_assigns, (ll_pre + ll_assigns + ll_post))

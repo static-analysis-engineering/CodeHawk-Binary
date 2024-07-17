@@ -163,7 +163,7 @@ class ARMSubtract(ARMOpcode):
             rhs3 = cast("XprCompound", rhs3)
             stackoffset = rhs3.stack_address_offset()
             rhslval = astree.mk_stack_variable_lval(stackoffset)
-            rhsast: AST.ASTExpr = astree.mk_address_of(rhslval)
+            hl_rhs: AST.ASTExpr = astree.mk_address_of(rhslval)
 
         elif str(rhs1) == "PC" or str(rhs2) == "PC":
             annotations.append("PC-relative")

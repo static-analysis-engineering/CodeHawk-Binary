@@ -82,6 +82,9 @@ class ARMLoadRegister(ARMOpcode):
 
     xprs[.]: instruction condition (if has condition)
     xprs[.]: new address for base register
+
+    uses[1]: use of updated base register
+    useshigh[1]: use of updated base register
     """
 
     def __init__(
