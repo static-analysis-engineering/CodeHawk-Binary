@@ -178,6 +178,118 @@ def vinitregister_value_to_ast_lval_expression(
          return astree.mk_named_lval_expression(str(vconstvar))
 
 
+def vreturn_deref_value_to_ast_lval_expression(
+        basevar: "XVariable",
+        offset: "VMemoryOffset",
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface) -> AST.ASTExpr:
+
+    if not offset.is_constant_value_offset:
+        chklogger.logger.error(
+            "Non-constant offset: %s not yet supported at address %s",
+            str(offset), iaddr)
+        return astree.mk_integer_constant(0)
+
+    coff = offset.offsetvalue()
+    if basevar.is_function_return_value:
+        asmvar = cast("VAuxiliaryVariable", basevar.denotation)
+        vreturnvar = cast("VFunctionReturnValue", asmvar.auxvar)
+        callsite = vreturnvar.callsite
+        if callsite in astree.ssa_intros:
+            if len(astree.ssa_intros[callsite]) == 1:
+                vinfo = list(astree.ssa_intros[callsite].values())[0]
+                vexpr = astree.mk_vinfo_lval_expression(vinfo)
+                return astree.mk_memref_expr(vexpr)
+
+    chklogger.logger.error(
+        "AST conversion of dereferenced return value %s not yet supported at "
+        + "address %s",
+        str(basevar), iaddr)
+
+    return astree.mk_integer_constant(0)
+
+def vargument_deref_value_to_ast_lval_expression(
+        basevar: "XVariable",
+        offset: "VMemoryOffset",
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface) -> AST.ASTExpr:
+
+    if not offset.is_constant_value_offset:
+        chklogger.logger.error(
+            "Non-constant offset: %s not yet supported at address %s",
+            str(offset), iaddr)
+        return astree.mk_integer_constant(0)
+
+    coff = offset.offsetvalue()
+    if basevar.is_initial_register_value:
+        asmvar = cast("VAuxiliaryVariable", basevar.denotation)
+        vinitvar = cast("VInitialRegisterValue", asmvar.auxvar)
+        xinitarg = vinitregister_value_to_ast_lval_expression(
+            vinitvar, xdata, iaddr, astree)
+        argtype = xinitarg.ctype(astree.ctyper)
+        if argtype is None:
+            chklogger.logger.error(
+                "Untyped dereferenced argument value %s not yet supported at "
+                + "address %s",
+                str(xinitarg), iaddr)
+            return astree.mk_integer_constant(0)
+
+        if argtype.is_pointer:
+            tgttype = cast(AST.ASTTypPtr, argtype).tgttyp
+            if tgttype.is_compound:
+
+                compkey = cast(AST.ASTTypComp, tgttype).compkey
+                if not astree.has_compinfo(compkey):
+                    chklogger.logger.error(
+                        ("Encountered compinfo key without definition in "
+                         + "symbol table: %d"),
+                        compkey)
+                    return astree.mk_integer_constant(0)
+
+                compinfo = astree.compinfo(compkey)
+                (field, restoffset) = compinfo.field_at_offset(coff)
+                if restoffset > 0:
+                    chklogger.logger.error(
+                        "Rest offset in memory dereference not yet handled at "
+                        + "%s: %s",
+                        iaddr, str(restoffset))
+                    return astree.mk_integer_constant(0)
+                foffset = astree.mk_field_offset(field.fieldname, compkey)
+                return astree.mk_memref_expr(xinitarg, offset = foffset)
+
+    chklogger.logger.error(
+        "AST conversion of argument deref value: %s not yet handled at %s",
+        str(basevar), iaddr)
+
+    return astree.mk_integer_constant(0)
+
+
+
+def vinitmemory_value_to_ast_lval_expression(
+        vconstvar: "VInitialMemoryValue",
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface) -> AST.ASTExpr:
+
+    if vconstvar.is_argument_deref_value:
+        avar = vconstvar.variable.denotation
+        return vargument_deref_value_to_ast_lval_expression(
+            avar.basevar, avar.offset, xdata, iaddr, astree)
+
+    if vconstvar.is_function_return_deref_value:
+        avar = vconstvar.variable.denotation
+        return vreturn_deref_value_to_ast_lval_expression(
+            avar.basevar, avar.offset, xdata, iaddr, astree)
+
+    chklogger.logger.error(
+        "AST Conversion of vinitmemory value %s not yet supported at address %s",
+        str(vconstvar), iaddr)
+
+    return astree.mk_integer_constant(0)
+
+
 def xxpr_to_ast_def_exprs(
         xpr: X.XXpr,
         xdata: "InstrXData",
@@ -198,9 +310,15 @@ def xvariable_to_ast_def_lval_expression(
 
     if xvar.is_initial_register_value:
         asmvar = cast("VAuxiliaryVariable", xvar.denotation)
-        vinitvar = cast("VInitialRegisterValue", asmvar.auxvar)
+        vrinitvar = cast("VInitialRegisterValue", asmvar.auxvar)
         return vinitregister_value_to_ast_lval_expression(
-            vinitvar, xdata, iaddr, astree)
+            vrinitvar, xdata, iaddr, astree)
+
+    if xvar.is_initial_memory_value:
+        asmvar = cast("VAuxiliaryVariable", xvar.denotation)
+        vminitvar = cast("VInitialMemoryValue", asmvar.auxvar)
+        return vinitmemory_value_to_ast_lval_expression(
+            vminitvar, xdata, iaddr, astree)
 
     if xvar.is_function_return_value:
         asmvar = cast("VAuxiliaryVariable", xvar.denotation)
@@ -271,6 +389,11 @@ def xunary_to_ast_def_expr(
     if operator == "lsh":
         astxpr = xxpr_to_ast_def_expr(xpr, xdata, iaddr, astree)
         mask = astree.mk_integer_constant(0xffff)
+        return astree.mk_binary_op("band", astxpr, mask)
+
+    if operator == "lsb":
+        astxpr = xxpr_to_ast_def_expr(xpr, xdata, iaddr, astree)
+        mask = astree.mk_integer_constant(0xff)
         return astree.mk_binary_op("band", astxpr, mask)
 
     chklogger.logger.error(
@@ -479,6 +602,54 @@ def xmemory_dereference_to_ast_def_expr(
         astree: ASTInterface) -> AST.ASTExpr:
 
     hl_addr = xxpr_to_ast_def_expr(address, xdata, iaddr, astree)
+    hl_addr_type = hl_addr.ctype(astree.ctyper)
+    if hl_addr_type is None:
+        return astree.mk_memref_expr(hl_addr)
+
+    if hl_addr_type.is_pointer:
+        tgttype = cast(AST.ASTTypPtr, hl_addr_type).tgttyp
+        if tgttype.is_compound:
+
+            # Identify field offsets
+            compkey = cast(AST.ASTTypComp, tgttype).compkey
+            if not astree.has_compinfo(compkey):
+                chklogger.logger.error(
+                    ("Encountered compinfo key without definition in symbol "
+                     + " table: %d"),
+                    compkey)
+                return astree.mk_memref_expr(hl_addr)
+
+            compinfo = astree.compinfo(compkey)
+            fieldoffset = 0
+            baseaddr = hl_addr
+            if hl_addr.is_ast_binary_op:
+                hl_addr = cast(AST.ASTBinaryOp, hl_addr)
+                if not hl_addr.op == "plus":
+                    chklogger.logger.error(
+                        "Encountered address expression with op %s",
+                        hl_addr.op)
+                    return astree.mk_memref_expr(hl_addr)
+
+                if not hl_addr.exp2.is_integer_constant:
+                    chklogger.logger.warning(
+                        "Non-constant field offset not yet supported: %s",
+                        str(hl_addr.exp2))
+                    return astree.mk_memref_expr(hl_addr)
+
+                fieldoffset = cast(AST.ASTIntegerConstant, hl_addr.exp2).cvalue
+                baseaddr = hl_addr.exp1
+
+            (field, restoffset) = compinfo.field_at_offset(fieldoffset)
+            if restoffset > 0:
+                chklogger.logger.warning(
+                    "Rest offset in memory dereference not yet handled at %s: %s",
+                    iaddr, str(hl_addr))
+            foffset = astree.mk_field_offset(field.fieldname, compkey)
+            return astree.mk_memref_expr(baseaddr, offset = foffset)
+
+    chklogger.logger.warning(
+        "Unexpected type for address in memory dereference: %s",
+        str(hl_addr_type))
     return astree.mk_memref_expr(hl_addr)
 
 

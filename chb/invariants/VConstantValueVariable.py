@@ -166,6 +166,10 @@ class VConstantValueVariable(FnVarDictionaryRecord):
     def is_argument_deref_value(self) -> bool:
         return False
 
+    @property
+    def is_function_return_deref_value(self) -> bool:
+        return False
+
     def has_call_target(self) -> bool:
         return False
 
@@ -341,6 +345,16 @@ class VInitialMemoryValue(VConstantValueVariable):
             xbasevar = avar.basevar
             offset = avar.offset
             return xbasevar.is_argument_value and offset.is_constant_offset
+        else:
+            return False
+
+    property
+    def is_function_return_deref_value(self) -> bool:
+        avar = self.variable.denotation
+        if avar.is_memory_variable and avar.is_basevar_variable:
+            xbasevar = avar.basevar
+            offset = avar.offset
+            return xbasevar.is_function_return_value and offset.is_constant_offset
         else:
             return False
 
