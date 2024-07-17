@@ -1054,6 +1054,45 @@ class VariableIntroductionsHints(HintsEntry):
         return "\n".join(lines)
 
 
+class StackVariableIntroductionsHints(HintsEntry):
+    """Map of stack offsets to name of variable.
+
+    Format: { <offset>: name }
+
+    The offset is the distance in bytes from the stack pointer at function
+    entry. That is, the offset is always positive.
+    """
+
+    def __init__(self, stackintros: Dict[str, str]) -> None:
+        HintsEntry.__init__(self, "stack-variable-introductions")
+        self._stackintros = stackintros
+
+    @property
+    def stackintros(self) -> Dict[str, str]:
+        return self._stackintros
+
+    def update(self, d: Dict[str, str]) -> None:
+        for off in d:
+            self._stackintros[off] = d[off]
+
+    def to_xml(self, node: ET.Element) -> None:
+        xintros = ET.Element(self.name)
+        node.append(xintros)
+        for (off, name) in self.stackintros.items():
+            xintro = ET.Element("st_intro")
+            xintros.append(xintro)
+            xintro.set("name", name)
+            xintro.set("off", str(off))
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Stack variable introductions")
+        lines.append("----------------------------")
+        for (off, name) in sorted (self.stackintros.items()):
+            lines.append(str(off) + ": " + name)
+        return "\n".join(lines)
+
+
 class VariableNamesHints(HintsEntry):
     """Map of local variable names to range-dependent alternative names.
 
@@ -1122,6 +1161,15 @@ class UserHints:
         else:
             return {}
 
+    def stack_variable_introductions(self) -> Dict[int, str]:
+        if "stack-variable-introductions" in self.astdata:
+            entry = cast(
+                StackVariableIntroductionsHints,
+                self.astdata["stack-variable-introductions"])
+            return {int(off): name for (off, name) in entry.stackintros.items()}
+        else:
+            return {}
+
     def symbolic_addresses(self) -> Dict[str, str]:
         if "symbolic-addresses" in self.astdata:
             entry = cast(SymbolicAddressesHints, self.astdata["symbolic-addresses"])
@@ -1151,6 +1199,7 @@ class UserHints:
         - successors
         - symbolic addresses
         - variable introductions
+        - stack-variable introductions
 
         and ast data (used in ast only):
         - variable-names
@@ -1327,6 +1376,22 @@ class UserHints:
                     self.astdata[tag].update(varintros)
                 else:
                     self.astdata[tag] = VariableIntroductionsHints(varintros)
+
+        if "stack-variable-introductions" in hints:
+            tag = "stack-variable-introductions"
+            stackintros: Dict[str, str] = hints[tag]
+            if self._toxml:
+                if tag in self.userdata:
+                    self.userdata[tag].update(stackintros)
+                else:
+                    self.userdata[tag] = StackVariableIntroductionsHints(
+                        stackintros)
+            else:
+                if tag in self.astdata:
+                    self.astdata[tag].update(stackintros)
+                else:
+                    self.astdata[tag] = StackVariableIntroductionsHints(
+                        stackintros)
 
         if "variable-names" in hints:
             tag = "variable-names"

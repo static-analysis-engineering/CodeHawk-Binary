@@ -85,6 +85,7 @@ class ARMFunction(Function):
         self._instructions: Dict[str, ARMInstruction] = {}
         self._armfnd: Optional[FunctionDictionary] = None
         self._armreglhstypes: Optional[Dict[str, Dict[str, BCTyp]]] = None
+        self._stacklhstypes: Optional[Dict[int, BCTyp]] = None
 
     @property
     def armdictionary(self) -> ARMDictionary:
@@ -123,6 +124,26 @@ class ARMFunction(Function):
             if reg in iaddrregs:
                 return iaddrregs[reg]
         return None
+
+    @property
+    def stack_variable_types(self) -> Dict[int, BCTyp]:
+        if self._stacklhstypes is None:
+            self._stacklhstypes = {}
+            xstacktypes = self.xnode.find("stack-variable-types")
+            if xstacktypes is not None:
+                for xstack in xstacktypes.findall("offset"):
+                    offset = xstack.get("off")
+                    ityp = xstack.get("ityp")
+                    if offset is not None and ityp is not None:
+                        bt = self.bcd.typ(int(ityp))
+                        self._stacklhstypes[int(offset)] = bt
+        return self._stacklhstypes
+
+    def stack_variable_type(self, offset: int) -> Optional[BCTyp]:
+        if offset in self.stack_variable_types:
+            return self.stack_variable_types[offset]
+        else:
+            return None
 
     @property
     def jumptables(self) -> Dict[str, JumpTable]:

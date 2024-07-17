@@ -386,6 +386,21 @@ class Function(ABC):
 
         return None
 
+    @property
+    def stack_variable_types(self) -> Dict[int, "BCTyp"]:
+        """Return a mapping from stack offset to stack variable type.
+
+        Contains the inferred types of stack variables, including both stack-
+        allocated arrays and regular stack variables.
+        """
+        raise UF.CHBError(
+            "Property stack_variable_types not implemented for Function")
+
+    def stack_variable_type(self, offset: int) -> Optional["BCTyp"]:
+        """Return the type of the stack variable at stack offset offset. """
+
+        return None
+
     @abstractmethod
     def strings_referenced(self) -> List[str]:
         ...

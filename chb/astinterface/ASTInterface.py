@@ -95,6 +95,7 @@ class ASTInterface:
             appsignature: Optional["AppFunctionSignature"] = None,
             rdeflocs: Dict[str, List[List[str]]] = {},
             varintros: Dict[str, str] = {},
+            stackvarintros: Dict[int, str] = {},
             verbose: bool = False) -> None:
         self._astree = astree
         self._srcprototype = srcprototype
@@ -102,6 +103,7 @@ class ASTInterface:
         self._appsignature = appsignature
         self._rdeflocs = rdeflocs
         self._varintros = varintros
+        self._stackvarintros = stackvarintros
         self._typconverter = typconverter
         self._verbose = verbose
         self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
@@ -112,6 +114,7 @@ class ASTInterface:
         self._srcformals: List[ASTIFormalVarInfo] = []
         self._ssa_counter: int = 0
         self._ssa_intros: Dict[str, Dict[str, AST.ASTVarInfo]] = {}
+        self._stack_variables: Dict[int, AST.ASTVarInfo] = {}
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
         self._astiprovenance = ASTIProvenance()
@@ -144,6 +147,10 @@ class ASTInterface:
     @property
     def varintros(self) -> Dict[str, str]:
         return self._varintros
+
+    @property
+    def stackvarintros(self) -> Dict[int, str]:
+        return self._stackvarintros
 
     @property
     def ignoredlhs(self) -> AST.ASTLval:
@@ -248,6 +255,15 @@ class ASTInterface:
             return self.varintros[iaddr]
         else:
             raise UF.CHBError("No variable intro found for " + iaddr)
+
+    def has_stack_variable_intro(self, offset: int) -> bool:
+        return offset in self.stackvarintros
+
+    def get_stack_variable_intro(self, offset: int) -> str:
+        if self.has_stack_variable_intro(offset):
+            return self.stackvarintros[offset]
+        else:
+            raise UF.CHBError("No stack-variable intro found for " + str(offset))
 
     def set_available_expressions(
             self, aexprs: Dict[str, Dict[str, Tuple[int, int, str]]]) -> None:
@@ -832,6 +848,10 @@ class ASTInterface:
 
         return self._ssa_intros
 
+    @property
+    def stack_variables(self) -> Dict[int, AST.ASTVarInfo]:
+        return self._stack_variables
+
     def introduce_ssa_variables(
             self,
             rdeflocs: Dict[str, List[List[str]]],
@@ -857,6 +877,14 @@ class ASTInterface:
                         self._ssa_intros.setdefault(loc, {})
                         self._ssa_intros[loc][reg] = vinfo
 
+    def introduce_stack_variables(
+            self, stackvartypes: Dict[int, "BCTyp"]) -> None:
+        """Creates stack variables/buffers for all stack offsets with types. """
+
+        for (offset, bctype) in stackvartypes.items():
+            vtype = bctype.convert(self.typconverter)
+            self.mk_stackvarinfo(offset, vtype=vtype)
+
     def mk_ssa_register_varinfo(
             self,
             name: str,
@@ -880,12 +908,36 @@ class ASTInterface:
         self._ssa_intros[iaddr][name] = varinfo
         return varinfo
 
+    def mk_stackvarinfo(
+            self, offset: int, vtype: Optional[AST.ASTTyp]) -> AST.ASTVarInfo:
+        if offset in self.stack_variables:
+            vinfo = self.stack_variables[offset]
+            if vtype is not None and vinfo.vtype is None:
+                vinfo.vtype = vtype
+            return vinfo
+
+        # create a new stack variable
+        if offset in self.stackvarintros:
+            vname = self.stackvarintros[offset]
+        else:
+            vname = "stack_" + str(offset)
+        varinfo = self.add_symbol(vname, vtype=vtype)
+        self._stack_variables[offset] = varinfo
+        return varinfo
+
     def mk_ssa_register_variable(
             self,
             name: str,
             iaddr: str,
             vtype: Optional[AST.ASTTyp] = None) -> AST.ASTVariable:
         varinfo = self.mk_ssa_register_varinfo(name, iaddr, vtype=vtype)
+        return AST.ASTVariable(varinfo)
+
+    def mk_stack_variable(
+            self,
+            offset: int,
+            vtype: Optional[AST.ASTTyp] = None) -> AST.ASTVariable:
+        varinfo = self.mk_stackvarinfo(offset, vtype=vtype)
         return AST.ASTVariable(varinfo)
 
     def mk_ssa_register_variable_lval(
@@ -895,6 +947,14 @@ class ASTInterface:
             vtype: Optional[AST.ASTTyp] = None) -> AST.ASTLval:
         vinfo = self.mk_ssa_register_varinfo(name, iaddr, vtype=vtype)
         storage = self.astree.mk_register_storage(name)
+        return self.astree.mk_vinfo_lval(vinfo, storage=storage)
+
+    def mk_stack_variable_lval(
+            self,
+            offset: int,
+            vtype: Optional[AST.ASTTyp] = None) -> AST.ASTLval:
+        vinfo = self.mk_stackvarinfo(offset, vtype=vtype)
+        storage = self.astree.mk_stack_storage(offset)
         return self.astree.mk_vinfo_lval(vinfo, storage=storage)
 
     def mk_register_variable(
@@ -954,42 +1014,6 @@ class ASTInterface:
         lval = self.mk_register_variable_lval(
             name, vtype=vtype, parameter=parameter, anonymous=anonymous)
         return self.mk_lval_expression(lval, anonymous=anonymous)
-
-    def mk_stack_variable(
-            self,
-            offset: int,
-            name: Optional[str] = None,
-            vtype: Optional[AST.ASTTyp] = None,
-            parameter: Optional[int] = None) -> AST.ASTVariable:
-        if name is None:
-            if offset < 0:
-                name = "stackvar_" + str(-offset)
-            elif offset == 0:
-                name = "stackvar_0"
-            else:
-                name = "stackargvar_" + str(offset)
-        return self.mk_named_variable(name, vtype=vtype, parameter=parameter)
-
-    def mk_stack_variable_lval(
-            self,
-            offset: int,
-            optname: Optional[str] = None,
-            vtype: Optional[AST.ASTTyp] = None,
-            parameter: Optional[int] = None,
-            storage_size: Optional[int] = None,
-            anonymous: bool = False) -> AST.ASTLval:
-        if optname is None:
-            if offset < 0:
-                name = "stackvar_" + str(-offset)
-            else:
-                name = "stackargvar_" + str(offset)
-        else:
-            name = optname
-
-        optlvalid = -1 if anonymous else None
-
-        return self.astree.mk_stack_variable_lval(
-            name, offset, vtype=vtype, parameter=parameter, optlvalid=optlvalid)
 
     def mk_temp_lval(self) -> AST.ASTLval:
         return self.astree.mk_tmp_lval()
