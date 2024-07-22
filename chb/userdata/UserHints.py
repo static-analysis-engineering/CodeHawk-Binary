@@ -1057,39 +1057,46 @@ class VariableIntroductionsHints(HintsEntry):
 class StackVariableIntroductionsHints(HintsEntry):
     """Map of stack offsets to name of variable.
 
-    Format: { <offset>: name }
+    Format: { <function-address>: { <offset>: name } }
 
     The offset is the distance in bytes from the stack pointer at function
     entry. That is, the offset is always positive.
     """
 
-    def __init__(self, stackintros: Dict[str, str]) -> None:
+    def __init__(self, stackintros: Dict[str, Dict[str, str]]) -> None:
         HintsEntry.__init__(self, "stack-variable-introductions")
         self._stackintros = stackintros
 
     @property
-    def stackintros(self) -> Dict[str, str]:
+    def stackintros(self) -> Dict[str, Dict[str, str]]:
         return self._stackintros
 
-    def update(self, d: Dict[str, str]) -> None:
-        for off in d:
-            self._stackintros[off] = d[off]
+    def update(self, d: Dict[str, Dict[str, str]]) -> None:
+        for faddr in d:
+            self._stackintros.setdefault(faddr, {})
+            for off in d[faddr]:
+                self._stackintros[faddr][off] = d[faddr][off]
 
     def to_xml(self, node: ET.Element) -> None:
         xintros = ET.Element(self.name)
         node.append(xintros)
-        for (off, name) in self.stackintros.items():
-            xintro = ET.Element("st_intro")
-            xintros.append(xintro)
-            xintro.set("name", name)
-            xintro.set("off", str(off))
+        for (faddr, offsets) in self.stackintros.items():
+            xfintro = ET.Element("function-st-intros")
+            xintros.append(xfintro)
+            for (off, name) in offsets.items():
+                xintro = ET.Element("st-intro")
+                xfintro.append(xintro)
+                xintro.set("name", name)
+                xintro.set("off", str(off))
 
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append("Stack variable introductions")
         lines.append("----------------------------")
-        for (off, name) in sorted (self.stackintros.items()):
-            lines.append(str(off) + ": " + name)
+        for (faddr, offsets) in sorted(self.stackintros.items()):
+            lines.append("Function " + faddr)
+            for (off, name) in sorted(offsets.items()):
+                lines.append("  " + str(off) + ": " + name)
         return "\n".join(lines)
 
 
@@ -1161,12 +1168,17 @@ class UserHints:
         else:
             return {}
 
-    def stack_variable_introductions(self) -> Dict[int, str]:
+    def stack_variable_introductions(self) -> Dict[str, Dict[int, str]]:
         if "stack-variable-introductions" in self.astdata:
             entry = cast(
                 StackVariableIntroductionsHints,
                 self.astdata["stack-variable-introductions"])
-            return {int(off): name for (off, name) in entry.stackintros.items()}
+            result: Dict[str, Dict[int, str]] = {}
+            for (faddr, offsets) in entry.stackintros.items():
+                result[faddr] = {}
+                for (off, name) in offsets.items():
+                    result[faddr][int(off)] = name
+            return result
         else:
             return {}
 
@@ -1379,7 +1391,7 @@ class UserHints:
 
         if "stack-variable-introductions" in hints:
             tag = "stack-variable-introductions"
-            stackintros: Dict[str, str] = hints[tag]
+            stackintros: Dict[str, Dict[str, str]] = hints[tag]
             if self._toxml:
                 if tag in self.userdata:
                     self.userdata[tag].update(stackintros)

@@ -303,7 +303,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 astprototype=astprototype,
                 appsignature=appsignature,
                 varintros=varintros,
-                stackvarintros=stackvarintros,
+                stackvarintros=stackvarintros.get(faddr, {}),
                 verbose=verbose)
 
             # Introduce ssa variables for all reaching definitions referenced in
@@ -312,7 +312,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             astinterface.introduce_ssa_variables(f.rdef_locations(), f.lhs_types())
 
             # Introduce stack variables for all stack buffers with types
-            astinterface.introduce_stack_variables(f.stack_variable_types)
+            astinterface.introduce_stack_variables(
+                f.stackframe, f.stack_variable_types)
 
             astfunction = ASTInterfaceFunction(
                 faddr, fname, f, astinterface, patchevents=patchevents)
