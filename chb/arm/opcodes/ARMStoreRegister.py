@@ -185,12 +185,14 @@ class ARMStoreRegister(ARMOpcode):
 
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
+        memaddr = xdata.xprs[4]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
         hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
-        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_lhs = XU.xvariable_to_ast_lval(
+            lhs, xdata, iaddr, astree, memaddr=memaddr)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -199,6 +201,8 @@ class ARMStoreRegister(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        if lhs.is_tmp:
+            astree.add_expose_instruction(hl_assign.instrid)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)

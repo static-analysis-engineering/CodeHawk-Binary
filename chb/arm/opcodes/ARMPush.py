@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -161,6 +161,8 @@ class ARMPush(ARMOpcode):
 
         annotations: List[str] = [iaddr, "PUSH"]
 
+        # low-level assignments
+
         (splval, _, _) = self.opargs[0].ast_lvalue(astree)
         (sprval, _, _) = self.opargs[0].ast_rvalue(astree)
 
@@ -176,18 +178,20 @@ class ARMPush(ARMOpcode):
             ll_lhs = astree.mk_memref_lval(addr)
             ll_rhs = astree.mk_register_variable_expr(r)
             ll_assign = astree.mk_assign(
-                ll_lhs, ll_rhs, iaddr=iaddr, bytestring=bytestring)
+                ll_lhs,
+                ll_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
             ll_instrs.append(ll_assign)
+
+            # high-level assignments
 
             lhs = memlhss[i]
             rhs = regrhss[i]
-            hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-            hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-            if len(hl_lhss) != 1 and len(hl_rhss) != 1:
-                raise UF.CHBError(
-                    "ARMPush: more than one lhs or rhs in assignments")
-            hl_lhs = hl_lhss[0]
-            hl_rhs = hl_rhss[0]
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
             hl_assign = astree.mk_assign(
                 hl_lhs,
                 hl_rhs,
@@ -196,7 +200,6 @@ class ARMPush(ARMOpcode):
                 annotations=annotations)
             hl_instrs.append(hl_assign)
 
-            astree.add_local_vardefinition(iaddr, str(hl_assign.lhs), hl_assign.rhs)
             astree.add_instr_mapping(hl_assign, ll_assign)
             astree.add_instr_address(hl_assign, [iaddr])
             astree.add_expr_mapping(hl_rhs, ll_rhs)
@@ -207,22 +210,29 @@ class ARMPush(ARMOpcode):
 
             sp_offset -= 4
 
+        # low-level SP assignment
+
         ll_sp_lhs = splval
         sp_decr_c = astree.mk_integer_constant(sp_decr)
         ll_sp_rhs = astree.mk_binary_op("minus", sprval, sp_decr_c)
         ll_sp_assign = astree.mk_assign(
-            ll_sp_lhs, ll_sp_rhs, iaddr=iaddr, bytestring=bytestring)
+            ll_sp_lhs,
+            ll_sp_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
         ll_instrs.append(ll_sp_assign)
 
-        hl_sp_lhss = XU.xvariable_to_ast_lvals(splhs, xdata, astree)
-        hl_sp_rhss = XU.xxpr_to_ast_exprs(sprresult, xdata, iaddr, astree)
-        if len(hl_sp_lhss) != 1 or len(hl_sp_rhss) != 1:
-            raise UF.CHBError(
-                "ARMPush more than one lhs or rhs in SP assignment")
-        hl_sp_lhs = hl_sp_lhss[0]
-        hl_sp_rhs = hl_sp_rhss[0]
+        # high-level SP assignment
+
+        hl_sp_lhs = XU.xvariable_to_ast_lval(splhs, xdata, iaddr, astree)
+        hl_sp_rhs = XU.xxpr_to_ast_def_expr(sprresult, xdata, iaddr, astree)
         hl_sp_assign = astree.mk_assign(
-            hl_sp_lhs, hl_sp_rhs, iaddr=iaddr, bytestring=bytestring)
+            hl_sp_lhs,
+            hl_sp_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
         hl_instrs.append(hl_sp_assign)
 
         astree.add_instr_mapping(hl_sp_assign, ll_sp_assign)

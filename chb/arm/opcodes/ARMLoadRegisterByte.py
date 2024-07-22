@@ -180,7 +180,7 @@ class ARMLoadRegisterByte(ARMOpcode):
             hl_rhs = XU.xmemory_dereference_to_ast_def_expr(
                 xaddr, xdata, iaddr, astree)
         else:
-            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree, size=1)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -196,6 +196,8 @@ class ARMLoadRegisterByte(ARMOpcode):
         astree.add_expr_reachingdefs(ll_rhs, rdefs)
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        # write-back semantics
 
         if self.opargs[3].is_indirect_register and self.opargs[3].is_write_back:
             addrop = cast("ARMOffsetAddressOp", self.opargs[3].opkind)

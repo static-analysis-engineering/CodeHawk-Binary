@@ -193,6 +193,8 @@ class ARMPop(ARMOpcode):
 
         annotations: List[str] = [iaddr, "POP"]
 
+        # low-level assignments
+
         (splval, _, _) = self.opargs[0].ast_lvalue(astree)
         (sprval, _, _) = self.opargs[0].ast_rvalue(astree)
 
@@ -214,6 +216,8 @@ class ARMPop(ARMOpcode):
                 bytestring=bytestring,
                 annotations=annotations)
             ll_instrs.append(ll_assign)
+
+            # high-level assignments
 
             lhs = reglhss[i]
             rhs = memrhss[i]
