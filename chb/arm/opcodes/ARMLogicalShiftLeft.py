@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -133,13 +133,7 @@ class ARMLogicalShiftLeft(ARMOpcode):
 
         annotations: List[str] = [iaddr, "LSL"]
 
-        lhs = xdata.vars[0]
-        rhs1 = xdata.xprs[0]
-        rhs2 = xdata.xprs[1]
-        rresult = xdata.xprs[3]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+        # low-level assignment
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
@@ -153,26 +147,19 @@ class ARMLogicalShiftLeft(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(hl_lhss) == 0:
-            raise UF.CHBError("ARMLogicalShiftLeft (LSL): no lhs found")
+        # high-level assignment
 
-        if len(hl_lhss) > 1:
-            raise UF.CHBError(
-                "ARMLogicalShiftLeft (LSL): Multiple lhs locations found: "
-                + ", ".join(str(l) for l in hl_lhss))
+        lhs = xdata.vars[0]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        rresult = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-        hl_rhss = XU.xxpr_to_ast_def_exprs(rresult, xdata, iaddr, astree)
-        if len(hl_rhss) == 0:
-            raise UF.CHBError("ARMLogicalShiftLeft (LSL): no rhs found")
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rresult, xdata, iaddr, astree)
 
-        if len(hl_rhss) > 1:
-            raise UF.CHBError(
-                "ARMLogicalShiftLeft (LSL): Multiple rhs values found: "
-                + ", ".join(str(v) for v in hl_rhss))
-
-        hl_lhs = hl_lhss[0]
-        hl_rhs = hl_rhss[0]
         hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
@@ -180,7 +167,6 @@ class ARMLogicalShiftLeft(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_lsl_expr)
