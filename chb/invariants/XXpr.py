@@ -223,6 +223,10 @@ class XXpr(FnXprDictionaryRecord):
         return False
 
     @property
+    def is_symbolic_expr_value(self) -> bool:
+        return False
+
+    @property
     def constant(self) -> XConstant:
         raise UF.CHBError("Constant property not supported for " + str(self))
 
@@ -377,6 +381,13 @@ class XprVariable(XXpr):
     def is_heap_base_address(self) -> bool:
         if self.variable.has_denotation():
             return self.variable.denotation.is_heap_base_address
+        else:
+            return False
+
+    @property
+    def is_symbolic_expr_value(self) -> bool:
+        if self.variable.has_denotation():
+            return self.variable.denotation.is_symbolic_expr_value
         else:
             return False
 

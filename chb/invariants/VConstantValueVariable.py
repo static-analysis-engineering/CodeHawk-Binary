@@ -131,6 +131,10 @@ class VConstantValueVariable(FnVarDictionaryRecord):
         return False
 
     @property
+    def is_symbolic_expr_value(self) -> bool:
+        return False
+
+    @property
     def is_signed_symbolic_value(self) -> bool:
         return False
 
@@ -348,7 +352,7 @@ class VInitialMemoryValue(VConstantValueVariable):
         else:
             return False
 
-    property
+    @property
     def is_function_return_deref_value(self) -> bool:
         avar = self.variable.denotation
         if avar.is_memory_variable and avar.is_basevar_variable:
@@ -834,6 +838,10 @@ class SymbolicValue(VConstantValueVariable):
 
     @property
     def is_symbolic_value(self) -> bool:
+        return True
+
+    @property
+    def is_symbolic_expr_value(self) -> bool:
         return True
 
     def to_json_result(self) -> JSONResult:

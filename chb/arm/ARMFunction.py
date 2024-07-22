@@ -34,10 +34,11 @@ from chb.api.InterfaceDictionary import InterfaceDictionary
 
 from chb.app.BasicBlock import BasicBlock
 from chb.app.BDictionary import BDictionary
+from chb.app.Cfg import Cfg
+from chb.app.FnStackFrame import FnStackFrame
 from chb.app.Function import Function
 from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.FunctionInfo import FunctionInfo
-from chb.app.Cfg import Cfg
 from chb.app.JumpTables import JumpTable
 from chb.app.StringXRefs import StringsXRefs
 
@@ -85,6 +86,7 @@ class ARMFunction(Function):
         self._instructions: Dict[str, ARMInstruction] = {}
         self._armfnd: Optional[FunctionDictionary] = None
         self._armreglhstypes: Optional[Dict[str, Dict[str, BCTyp]]] = None
+        self._stackframe: Optional[FnStackFrame] = None
         self._stacklhstypes: Optional[Dict[int, BCTyp]] = None
 
     @property
@@ -243,6 +245,17 @@ class ARMFunction(Function):
             self._cfg_tc = ARMCfg(self, xcfg, patchevents)
         return self._cfg_tc
 
+    @property
+    def stackframe(self) -> FnStackFrame:
+        if self._stackframe is None:
+            snode = self.xnode.find("stackframe")
+            if snode is not None:
+                self._stackframe = FnStackFrame(self, snode)
+            else:
+                raise UF.CHBError(
+                    "Element stackframe missing from function xml")
+        return self._stackframe
+
     def byte_string(self, chunksize: Optional[int] = None) -> str:
         s: List[str] = []
 
@@ -272,6 +285,14 @@ class ARMFunction(Function):
         if stacklayout:
             lines.append(str(self.stacklayout()))
             lines.append(" ")
+            lines.append(".~" * 40)
+            lines.append(str(self.stackframe))
+            lines.append(".~" * 40)
+            lines.append("Offsets")
+            lines.append("\n".join("  " + str(b) + " (" + str(score) + ")" for (b, score) in self.stackframe.offset_layout()))
+            lines.append("=" * 80)
+            lines.append("Buffer score:")
+            lines.append("\n".join("  " + str(s) + ": " + str(c) for (s,c) in self.stackframe.buffer_partition().items()))
         if proofobligations:
             lines.append(str(self.proofobligations))
             lines.append(".~" * 40)

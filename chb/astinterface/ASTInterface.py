@@ -67,6 +67,7 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.api.AppFunctionSignature import AppFunctionSignature
+    from chb.app.FnStackFrame import FnStackFrame
     from chb.astinterface.BC2ASTConverter import BC2ASTConverter
     from chb.bctypes.BCConverter import BCConverter
     from chb.bctypes.BCFieldInfo import BCFieldInfo
@@ -114,6 +115,7 @@ class ASTInterface:
         self._srcformals: List[ASTIFormalVarInfo] = []
         self._ssa_counter: int = 0
         self._ssa_intros: Dict[str, Dict[str, AST.ASTVarInfo]] = {}
+        self._ssa_values: Dict[str, AST.ASTExpr] = {}
         self._stack_variables: Dict[int, AST.ASTVarInfo] = {}
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
@@ -349,6 +351,10 @@ class ASTInterface:
     def globalsymboltable(self) -> ASTGlobalSymbolTable:
         return self.symboltable.globaltable
 
+    @property
+    def global_addresses(self) -> Mapping[str, AST.ASTVarInfo]:
+        return self.globalsymboltable.symbolic_addresses
+
     def has_compinfo(self, ckey: int) -> bool:
         return self.globalsymboltable.has_compinfo(ckey)
 
@@ -413,8 +419,8 @@ class ASTInterface:
             chklogger.logger.warning("No source prototype found")
 
     def global_symbols(self) -> Sequence[AST.ASTVarInfo]:
-        return []
         # return self.symboltable.global_symbols()
+        return []
 
     def get_formal_binary_argcount(self) -> int:
         """Return the total number of (binary) 4-byte argument slots."""
@@ -804,6 +810,7 @@ class ASTInterface:
             globaladdress=globaladdress,
             vdescr=vdescr,
             storage=storage,
+            offset=offset,
             optlvalid=optlvalid)
 
     def mk_named_lval_expression(
@@ -849,6 +856,12 @@ class ASTInterface:
         return self._ssa_intros
 
     @property
+    def ssa_values(self) -> Dict[str, AST.ASTExpr]:
+        """Return ssa vname -> constant value assigned to ssa variable."""
+
+        return self._ssa_values
+
+    @property
     def stack_variables(self) -> Dict[int, AST.ASTVarInfo]:
         return self._stack_variables
 
@@ -878,11 +891,29 @@ class ASTInterface:
                         self._ssa_intros[loc][reg] = vinfo
 
     def introduce_stack_variables(
-            self, stackvartypes: Dict[int, "BCTyp"]) -> None:
+            self,
+            stackframe: "FnStackFrame",
+            stackvartypes: Dict[int, "BCTyp"]) -> None:
         """Creates stack variables/buffers for all stack offsets with types. """
 
         for (offset, bctype) in stackvartypes.items():
             vtype = bctype.convert(self.typconverter)
+
+            # if the type is an array, its size may have to be adjusted based
+            # on the stacklayout determined in FnStackFrame.
+            if vtype.is_array:
+                vtype = cast(AST.ASTTypArray, vtype)
+                if vtype.has_constant_size() and vtype.size_value() == 1:
+                    buffer = stackframe.get_stack_buffer(-offset)
+                    if buffer is not None:
+                        size = buffer.size
+                        tgttyp = vtype.tgttyp
+                        tgttypsize = tgttyp.index(self.bytesize_calculator)
+                        if tgttypsize > 0:
+                            arraysize = size // tgttypsize
+                            vtype = self.astree.mk_int_sized_array_type(
+                                tgttyp, arraysize)
+
             self.mk_stackvarinfo(offset, vtype=vtype)
 
     def mk_ssa_register_varinfo(
@@ -907,6 +938,12 @@ class ASTInterface:
         self._ssa_intros.setdefault(iaddr, {})
         self._ssa_intros[iaddr][name] = varinfo
         return varinfo
+
+    def set_ssa_value(self, name: str, value: AST.ASTExpr) -> None:
+        self._ssa_values[name] = value
+
+    def get_ssa_value(self, name: str) -> Optional[AST.ASTExpr]:
+        return self.ssa_values.get(name, None)
 
     def mk_stackvarinfo(
             self, offset: int, vtype: Optional[AST.ASTTyp]) -> AST.ASTVarInfo:
@@ -944,9 +981,12 @@ class ASTInterface:
             self,
             name: str,
             iaddr: str,
-            vtype: Optional[AST.ASTTyp] = None) -> AST.ASTLval:
+            vtype: Optional[AST.ASTTyp] = None,
+            ssavalue: Optional[AST.ASTExpr] = None) -> AST.ASTLval:
         vinfo = self.mk_ssa_register_varinfo(name, iaddr, vtype=vtype)
         storage = self.astree.mk_register_storage(name)
+        if ssavalue is not None:
+            self.set_ssa_value(vinfo.vname, ssavalue)
         return self.astree.mk_vinfo_lval(vinfo, storage=storage)
 
     def mk_stack_variable_lval(
@@ -1017,6 +1057,9 @@ class ASTInterface:
 
     def mk_temp_lval(self) -> AST.ASTLval:
         return self.astree.mk_tmp_lval()
+
+    def mk_temp_lval_expression(self) -> AST.ASTExpr:
+        return self.astree.mk_tmp_lval_expression()
 
     def mk_formal_lval(self, formal: ASTIFormalVarInfo) -> AST.ASTLval:
         var = AST.ASTVariable(formal.lifted_vinfo)

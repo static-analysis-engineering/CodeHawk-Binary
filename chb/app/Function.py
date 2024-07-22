@@ -73,7 +73,7 @@ from chb.invariants.FnInvDictionary import FnInvDictionary
 from chb.invariants.FnVarDictionary import FnVarDictionary
 from chb.invariants.FnVarInvDictionary import FnVarInvDictionary
 from chb.invariants.FnXprDictionary import FnXprDictionary
-from chb.invariants.InvariantFact import InvariantFact
+from chb.invariants.InvariantFact import InvariantFact, InitialVarDisEqualityFact
 from chb.invariants.VarInvariantFact import VarInvariantFact
 from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
@@ -242,10 +242,23 @@ class Function(ABC):
                             self.invdictionary.invariant_fact(ix))
         return self._invariants
 
+    def has_var_disequality(self, loc: str, v: XVariable) -> bool:
+        locinv = self.invariants.get(loc, [])
+        for inv in locinv:
+            if inv.is_initial_var_disequality:
+                inv = cast(InitialVarDisEqualityFact, inv)
+                if (
+                        inv.variable.name == v.name
+                        or inv.initial_value.name == v.name):
+                    return True
+        return False
+
     @property
     def var_invariants(self) -> Mapping[str, Sequence[VarInvariantFact]]:
-        if UF.has_function_varinvs_file(
-                self.path, self.filename, self.faddr) and len(self._varinvariants) == 0:
+        if (
+                UF.has_function_varinvs_file(
+                    self.path, self.filename, self.faddr)
+                and len(self._varinvariants) == 0):
             xvarinvnode = UF.get_function_varinvs_xnode(
                 self.path, self.filename, self.faddr)
             xvarfacts = xvarinvnode.find("locations")
