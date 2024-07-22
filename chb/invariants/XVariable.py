@@ -109,6 +109,13 @@ class XVariable(FnXprDictionaryRecord):
             and self.denotation.auxvar.is_function_return_value)
 
     @property
+    def is_symbolic_expr_value(self) -> bool:
+        return (
+            self.has_denotation()
+            and self.denotation.is_auxiliary_variable
+            and self.denotation.auxvar.is_symbolic_expr_value)
+
+    @property
     def is_memory_variable(self) -> bool:
         return self.has_denotation() and self.denotation.is_memory_variable
 

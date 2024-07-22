@@ -273,6 +273,31 @@ class ARMCallOpcode(ARMOpcode):
                         stackvar = astree.mk_stack_variable_lval(offset)
                         hl_arg = astree.mk_lval_expr(stackvar)
 
+                    elif x.is_global_address:
+                        hexgaddr = hex(x.constant.value)
+                        if hexgaddr in astree.global_addresses:
+                            vinfo = astree.global_addresses[hexgaddr]
+                            vtype = vinfo.vtype
+                            if vtype is not None:
+                                if vtype.is_array:
+                                    hl_arg = astree.mk_vinfo_lval_expression(vinfo)
+                                else:
+                                    hl_arg = astree.mk_address_of(
+                                        astree.mk_vinfo_lval(vinfo))
+                            else:
+                                chklogger.logger.warning(
+                                    ("Type of global address %s at instr. address "
+                                     + "%s not known"),
+                                    str(x), iaddr)
+                                hl_arg = astree.mk_address_of(
+                                    astree.mk_vinfo_lval(vinfo))
+                        else:
+                            chklogger.logger.error(
+                                ("Unknown global address %s as call argument at "
+                                 + "address %s"),
+                                hexgaddr, iaddr)
+                            hl_arg = astree.mk_integer_constant(0)
+
                     else:
                         hl_arg = XU.xxpr_to_ast_def_expr(x, xdata, iaddr, astree)
                     hl_args.append(hl_arg)

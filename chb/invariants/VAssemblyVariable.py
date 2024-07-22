@@ -124,6 +124,10 @@ class VAssemblyVariable(FnVarDictionaryRecord):
         return False
 
     @property
+    def is_symbolic_expr_value(self) -> bool:
+        return False
+
+    @property
     def is_symbolic_value(self) -> bool:
         return False
 
@@ -422,6 +426,10 @@ class VAuxiliaryVariable(VAssemblyVariable):
     @property
     def is_function_return_value(self) -> bool:
         return self.auxvar.is_function_return_value
+
+    @property
+    def is_symbolic_expr_value(self) -> bool:
+        return self.auxvar.is_symbolic_expr_value
 
     @property
     def is_symbolic_value(self) -> bool:
