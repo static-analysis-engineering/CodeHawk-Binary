@@ -555,9 +555,15 @@ class ASTInterface:
             self,
             name: str,
             vtype: Optional[AST.ASTTyp] = None,
-            globaladdress: int = 0) -> AST.ASTExpr:
+            offset: AST.ASTOffset = nooffset,
+            globaladdress: int = 0,
+            llref: bool = False) -> AST.ASTExpr:
         return self.astree.mk_named_lval_expression(
-            name, vtype=vtype,globaladdress=globaladdress)
+            name,
+            offset=offset,
+            vtype=vtype,
+            globaladdress=globaladdress,
+            llref=llref)
 
     # ------------------------------------------------------ make statements ---
 

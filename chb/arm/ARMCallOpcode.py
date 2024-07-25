@@ -296,7 +296,7 @@ class ARMCallOpcode(ARMOpcode):
                                 ("Unknown global address %s as call argument at "
                                  + "address %s"),
                                 hexgaddr, iaddr)
-                            hl_arg = astree.mk_integer_constant(0)
+                            hl_arg = astree.mk_temp_lval_expression()
 
                     else:
                         hl_arg = XU.xxpr_to_ast_def_expr(x, xdata, iaddr, astree)
