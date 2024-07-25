@@ -138,11 +138,11 @@ class ARMLogicalShiftLeft(ARMOpcode):
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
         (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
-        ll_lsl_expr = astree.mk_binary_op("lsl", ll_rhs1, ll_rhs2)
+        ll_rhs = astree.mk_binary_op("lsl", ll_rhs1, ll_rhs2)
 
         ll_assign = astree.mk_assign(
             ll_lhs,
-            ll_lsl_expr,
+            ll_rhs,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
@@ -169,9 +169,9 @@ class ARMLogicalShiftLeft(ARMOpcode):
 
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
-        astree.add_expr_mapping(hl_rhs, ll_lsl_expr)
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
         astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(ll_lsl_expr, [rdefs[0], rdefs[1]])
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0], rdefs[1]])
         astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
         astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
         astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])

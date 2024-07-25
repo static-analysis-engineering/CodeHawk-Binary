@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -134,6 +134,8 @@ class ARMStoreRegisterHalfword(ARMOpcode):
 
         annotations: List[str] = [iaddr, "STRH"]
 
+        # low-level assignment
+
         (ll_rhs, _, _) = self.opargs[0].ast_rvalue(astree)
         (ll_lhs, ll_preinstrs, ll_postinstrs) = self.opargs[3].ast_lvalue(astree)
         ll_assign = astree.mk_assign(
@@ -143,111 +145,18 @@ class ARMStoreRegisterHalfword(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        # high-level assignment
+
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
         rdefs = xdata.reachingdefs
+        memaddr = xdata.xprs[4]
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_preinstrs: List[AST.ASTInstruction] = []
-        hl_postinstrs: List[AST.ASTInstruction] = []
-
-        rhsexprs = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-
-        if len(rhsexprs) == 0:
-            raise UF.CHBError("No rhs for StoreRegisterHalfword (STRH) at " + iaddr)
-
-        if len(rhsexprs) > 1:
-            raise UF.CHBError(
-                "Multiple rhs values for StoreRegisterHalfword (STRH) at "
-                + iaddr
-                + ": "
-                + ", ".join(str(x) for x in rhsexprs))
-
-        hl_rhs = rhsexprs[0]
-
-        lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lvals) == 0:
-            raise UF.CHBError(
-                "No lhs value for StoreRegister (STR) at " + iaddr)
-
-        if len(lvals) > 1:
-            raise UF.CHBError(
-                "Multiple lhs values for StoreRegister (STR) at "
-                + iaddr
-                + ": "
-                + ", ".join(str(x) for x in lvals))
-
-        def split_assigns(
-                base: AST.ASTLvalExpr,
-                offsets: List[AST.ASTExpr],
-                rhs: AST.ASTLvalExpr) -> Tuple[List[
-                    AST.ASTInstruction], List[AST.ASTInstruction]]:
-            hl_assigns: List[AST.ASTInstruction] = []
-            for i in range(0, 2):
-                ioffset = cast(AST.ASTExpr, astree.mk_integer_constant(i))
-                offsetsi = [ioffset] + offsets[:]
-                newoffseti = astree.add_index_list_offset(
-                    base.lval.offset, offsetsi)
-                hl_mem_lhsi = astree.mk_lval(base.lval.lhost, newoffseti)
-                newoffseti = astree.add_to_index_offset(rhs.lval.offset, i)
-                rhsi_lval = astree.mk_lval(rhs.lval.lhost, newoffseti)
-                rhsi = astree.mk_lval_expression(rhsi_lval)
-
-                hl_assigni = astree.mk_assign(
-                    hl_mem_lhsi,
-                    rhsi,
-                    iaddr=iaddr,
-                    bytestring=bytestring,
-                    annotations=annotations)
-
-                astree.add_instr_mapping(hl_assigni, ll_assign)
-                astree.add_expr_mapping(rhsi, ll_rhs)
-                astree.add_lval_mapping(hl_mem_lhsi, ll_lhs)
-                astree.add_expr_reachingdefs(ll_rhs, [rdefs[2]])
-                astree.add_lval_defuses(hl_mem_lhsi, defuses[0])
-                astree.add_lval_defuses_high(hl_mem_lhsi, defuseshigh[0])
-
-                astree.add_lval_store(hl_mem_lhsi)
-                hl_assigns.append(hl_assigni)
-
-            return (hl_assigns, [ll_assign])
-
-        if lhs.is_tmp or lhs.has_unknown_memory_base():
-            address = xdata.xprs[4]
-            astaddrs = XU.xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
-            if len(astaddrs) == 1:
-                astaddr = astaddrs[0]
-                astaddrtype = astaddr.ctype(astree.ctyper)
-                if astaddrtype is not None:
-                    if astaddrtype.is_pointer:
-                        astaddrtype = cast(AST.ASTTypPtr, astaddrtype)
-                        astaddrtgttype = astaddrtype.tgttyp
-                        if astree.type_size_in_bytes(astaddrtgttype) == 1:
-                            if astaddr.is_ast_binary_op:
-                                (base, offsets) = astree.split_address_int_offset(astaddr)
-                                if base.is_ast_lval_expr and hl_rhs.is_ast_lval_expr:
-                                    base = cast(AST.ASTLvalExpr, base)
-                                    hl_rhs = cast(AST.ASTLvalExpr, hl_rhs)
-                                    return split_assigns(base, offsets, hl_rhs)
-
-            hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
-            astree.add_lval_store(hl_lhs)
-
-        else:
-            lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-            if len(lvals) == 0:
-                raise UF.CHBError(
-                    "No lhs value for StoreRegister (STRH) at " + iaddr)
-
-            if len(lvals) > 1:
-                raise UF.CHBError(
-                    "Multiple lhs values for StoreRegister (STRH) at "
-                    + iaddr
-                    + ": "
-                    + ", ".join(str(x) for x in lvals))
-
-            hl_lhs = lvals[0]
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+        hl_lhs = XU.xvariable_to_ast_lval(
+            lhs, xdata, iaddr, astree, memaddr=memaddr, size=2)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -256,6 +165,8 @@ class ARMStoreRegisterHalfword(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        if lhs.is_tmp:
+            astree.add_expose_instruction(hl_assign.instrid)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)
@@ -263,9 +174,5 @@ class ARMStoreRegisterHalfword(ARMOpcode):
         astree.add_expr_reachingdefs(ll_rhs, [rdefs[2]])
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-
-        if ll_lhs.lhost.is_memref:
-            memexp = cast(AST.ASTMemRef, ll_lhs.lhost).memexp
-            astree.add_expr_reachingdefs(memexp, [rdefs[0], rdefs[1]])
 
         return ([hl_assign], [ll_assign])

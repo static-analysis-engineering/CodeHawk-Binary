@@ -202,7 +202,6 @@ class ARMPop(ARMOpcode):
         hl_instrs: List[AST.ASTInstruction] = []
         regsop = self.opargs[1]
         registers = regsop.registers
-        sp_incr = 4 * len(registers)
         sp_offset = 0
         for (i, r) in enumerate(registers):
             sp_offset_c = astree.mk_integer_constant(sp_offset)
@@ -245,6 +244,7 @@ class ARMPop(ARMOpcode):
         # low-level SP assignment
 
         ll_sp_lhs = splval
+        sp_incr = 4 * len(registers)
         sp_incr_c = astree.mk_integer_constant(sp_incr)
         ll_sp_rhs = astree.mk_binary_op("plus", sprval, sp_incr_c)
         ll_sp_assign = astree.mk_assign(

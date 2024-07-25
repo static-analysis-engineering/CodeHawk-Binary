@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -147,67 +147,95 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
         baseuseshigh = xdata.defuseshigh[0]
         reguseshigh = xdata.defuseshigh[1:]
 
-        annotations: List[AST.ASTInstruction] = []
+        annotations: List[str] = [iaddr, "LDMIA"]
 
-        ll_wbackinstrs: List[AST.ASTInstruction] = []
-        hl_wbackinstrs: List[AST.ASTInstruction] = []
+        ll_instrs: List[AST.ASTInstruction] = []
+        hl_instrs: List[AST.ASTInstruction] = []
+
+        # low-level assignments
 
         (baselval, _, _) = self.opargs[0].ast_lvalue(astree)
         (baserval, _, _) = self.opargs[0].ast_rvalue(astree)
 
+        regsop = self.opargs[1]
+        registers = regsop.registers
+        base_offset = 0
+        for (i, r) in enumerate(registers):
+
+            # low-level assignments
+
+            base_offset_c = astree.mk_integer_constant(base_offset)
+            addr = astree.mk_binary_op("plus", baserval, base_offset_c)
+            ll_lhs = astree.mk_variable_lval(r)
+            ll_rhs = astree.mk_memref_expr(addr)
+            ll_assign = astree.mk_assign(
+                ll_lhs,
+                ll_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_instrs.append(ll_assign)
+
+            # high-level assignments
+
+            lhs = reglhss[i]
+            rhs = memrhss[i]
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_instrs.append(hl_assign)
+
+            astree.add_instr_mapping(hl_assign, ll_assign)
+            astree.add_instr_address(hl_assign, [iaddr])
+            astree.add_expr_mapping(hl_rhs, ll_rhs)
+            astree.add_lval_mapping(hl_lhs, ll_lhs)
+            astree.add_expr_reachingdefs(ll_rhs, [memrdefs[i]])
+            astree.add_lval_defuses(hl_lhs, reguses[i])
+            astree.add_lval_defuses_high(hl_lhs, reguseshigh[i])
+
+            base_offset += 4
+
         if self.writeback:
-            baseincr = astree.mk_integer_constant(4 * regcount)
-            ll_base_rhs = astree.mk_binary_op("plus", baserval, baseincr)
-            ll_base_assign = astree.mk_assign(baselval, ll_base_rhs, iaddr=iaddr)
-            ll_wbackinstrs.append(ll_base_assign)
 
-            hl_base_lhss = XU.xvariable_to_ast_lvals(baselhs, xdata, astree)
-            hl_base_rhss = XU.xxpr_to_ast_exprs(baseresultr, xdata, iaddr, astree)
-            if len(hl_base_lhss) != 1 or len(hl_base_rhss) != 1:
-                raise UF.CHBError(
-                    "LoadMultiple (LDM): error in wback assign")
-            hl_base_lhs = hl_base_lhss[0]
-            hl_base_rhs = hl_base_rhss[0]
-            hl_base_assign = astree.mk_assign(hl_base_lhs, hl_base_rhs, iaddr=iaddr)
-            hl_wbackinstrs.append(hl_base_assign)
+            # low-level base assignment
 
-        def default() -> Tuple[List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-            ll_instrs: List[AST.ASTInstruction] = []
-            hl_instrs: List[AST.ASTInstruction] = []
-            regsop = self.opargs[1]
-            registers = regsop.registers
-            base_increm = 0
-            base_offset = base_increm
-            for (i, r) in enumerate(registers):
-                base_offset_c = astree.mk_integer_constant(base_offset)
-                addr = astree.mk_binary_op("plus", baserval, base_offset_c)
-                ll_lhs = astree.mk_register_variable_lval(r)
-                ll_rhs = astree.mk_memref_expr(addr)
-                ll_assign = astree.mk_assign(ll_lhs, ll_rhs, iaddr=iaddr)
-                ll_instrs.append(ll_assign)
+            baseincr = 4 * regcount
+            baseincr_c = astree.mk_integer_constant(baseincr)
 
-                lhs = reglhss[i]
-                rhs = memrhss[i]
-                hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-                hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
-                if len(hl_lhss) != 1 or len(hl_rhss) != 1:
-                    raise UF.CHBError(
-                        "LoadMultiple (LDM): error in register-memory assigns")
-                hl_lhs = hl_lhss[0]
-                hl_rhs = hl_rhss[0]
-                hl_assign = astree.mk_assign(hl_lhs, hl_rhs, iaddr=iaddr)
-                hl_instrs.append(hl_assign)
+            ll_base_lhs = baselval
+            ll_base_rhs = astree.mk_binary_op("plus", baserval, baseincr_c)
+            ll_base_assign = astree.mk_assign(
+                ll_base_lhs,
+                ll_base_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_instrs.append(ll_base_assign)
 
-                astree.add_instr_mapping(hl_assign, ll_assign)
-                astree.add_instr_address(hl_assign, [iaddr])
-                astree.add_expr_mapping(hl_rhs, ll_rhs)
-                astree.add_lval_mapping(hl_lhs, ll_lhs)
-                astree.add_expr_reachingdefs(ll_rhs, [memrdefs[i]])
-                astree.add_lval_defuses(hl_lhs, reguses[i])
-                astree.add_lval_defuses_high(hl_lhs, reguseshigh[i])
+            # high-level base assignment
 
-                base_offset += 4
+            hl_base_lhs = XU.xvariable_to_ast_lval(baselhs, xdata, iaddr, astree)
+            hl_base_rhs = XU.xxpr_to_ast_def_expr(
+                baseresultr, xdata, iaddr, astree)
+            hl_base_assign = astree.mk_assign(
+                hl_base_lhs,
+                hl_base_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_instrs.append(hl_base_assign)
 
-            return (hl_instrs + hl_wbackinstrs, ll_instrs + ll_wbackinstrs)
+            astree.add_instr_mapping(hl_base_assign, ll_base_assign)
+            astree.add_instr_address(hl_base_assign, [iaddr])
+            astree.add_expr_mapping(hl_base_rhs, ll_base_rhs)
+            astree.add_lval_mapping(hl_base_lhs, ll_base_lhs)
+            astree.add_expr_reachingdefs(ll_base_rhs, [baserdef])
+            astree.add_lval_defuses(hl_base_lhs, baseuses)
+            astree.add_lval_defuses_high(hl_base_lhs, baseuseshigh)
 
-        return default()
+        return (hl_instrs, ll_instrs)
