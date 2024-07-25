@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -107,32 +107,27 @@ class ARMCompareNegative(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "CMP"]
+        annotations: List[str] = [iaddr, "CMN"]
 
-        rhs = xdata.xprs[2]
-        rdefs = xdata.reachingdefs
+        # low-level assignment
 
         (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
         (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(astree)
-        ll_expr = astree.mk_binary_op("minus", ll_rhs1, ll_rhs2)
+        ll_rhs = astree.mk_binary_op("plus", ll_rhs1, ll_rhs2)
 
         ll_assign = astree.mk_assign(
             astree.ignoredlhs,
-            ll_expr,
+            ll_rhs,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
 
-        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        if len(rhsasts) == 0:
-            raise UF.CHBError("CompareNegative (CMN): no value found for condition")
+        # high-level assignment
 
-        if len(rhsasts) > 1:
-            raise UF.CHBError(
-                "CompareNegative (CMN: multiple condition values found: "
-                + ", ".join(str(x) for x in rhsasts))
+        rhs = xdata.xprs[2]
+        rdefs = xdata.reachingdefs
 
-        hl_rhs = rhsasts[0]
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             astree.ignoredlhs,
@@ -143,7 +138,7 @@ class ARMCompareNegative(ARMOpcode):
 
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
-        astree.add_expr_mapping(hl_rhs, ll_expr)
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
         astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
         astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
         astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
