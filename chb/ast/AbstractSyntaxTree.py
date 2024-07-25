@@ -754,6 +754,7 @@ class AbstractSyntaxTree:
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            llref: bool = False,
             vdescr: Optional[str] = None) -> AST.ASTVarInfo:
         if (
                 (globaladdress is not None)
@@ -762,6 +763,7 @@ class AbstractSyntaxTree:
                 vname,
                 vtype=vtype,
                 globaladdress=globaladdress,
+                llref=llref,
                 vdescr=vdescr)
         else:
             vinfo = self.symboltable.add_symbol(
@@ -829,12 +831,14 @@ class AbstractSyntaxTree:
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            llref: bool = False,
             vdescr: Optional[str] = None) -> AST.ASTVariable:
         vinfo = self.mk_vinfo(
             vname,
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress,
+            llref=llref,
             vdescr=vdescr)
         return self.mk_vinfo_variable(vinfo)
 
@@ -844,6 +848,7 @@ class AbstractSyntaxTree:
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            llref: bool = False,
             vdescr: Optional[str] = None,
             offset: AST.ASTOffset = nooffset,
             optlvalid: Optional[int] = None,
@@ -853,6 +858,7 @@ class AbstractSyntaxTree:
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress,
+            llref=llref,
             vdescr=vdescr)
         return self.mk_lval(
             var,
@@ -948,6 +954,7 @@ class AbstractSyntaxTree:
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            llref: bool = False,
             vdescr: Optional[str] = None,
             offset: AST.ASTOffset = nooffset,
             optlvalid: Optional[int] = None,
@@ -958,6 +965,7 @@ class AbstractSyntaxTree:
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress,
+            llref=llref,
             vdescr=vdescr,
             offset=offset,
             storage=storage,
