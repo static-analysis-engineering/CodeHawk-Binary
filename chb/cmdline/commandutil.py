@@ -2047,8 +2047,12 @@ def show_type_constraint_table(args: argparse.Namespace) -> NoReturn:
 
     tcdictionary = app.tcdictionary
 
-    for tc in tcdictionary.type_constraints():
-        print(str(tc))
+    constraints = [
+        str(tc) for tc in tcdictionary.type_constraints()
+        if not tc.is_var_constraint]
+
+    for tc in sorted(constraints):
+        print(tc)
 
     print("\n\n")
 

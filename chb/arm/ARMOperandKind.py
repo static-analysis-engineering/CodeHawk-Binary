@@ -769,7 +769,10 @@ class ARMLiteralAddressOp(ARMOperandKind):
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         gvname = "gv_" + self.address.get_hex()
         gv = astree.mk_global_variable_expr(
-            gvname, vtype=vtype, globaladdress=self.address.get_int())
+            gvname,
+            vtype=vtype,
+            globaladdress=self.address.get_int(),
+            llref=True)
         return (gv, [], [])
 
     def __str__(self) -> str:

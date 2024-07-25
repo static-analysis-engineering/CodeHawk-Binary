@@ -215,6 +215,45 @@ def vreturn_deref_value_to_ast_lval_expression(
     return astree.mk_temp_lval_expression()
 
 
+def global_variable_to_lval_expression(
+        offset: "VMemoryOffset",
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface,
+        size: int = 4) -> AST.ASTExpr:
+
+    if offset.is_constant_value_offset:
+        gaddr = offset.offsetconstant
+        hexgaddr = hex(gaddr)
+        vinfo = astree.global_addresses.get(hexgaddr, None)
+        if vinfo is not None:
+            return astree.mk_vinfo_lval_expression(vinfo)
+        else:
+            name = "gv_" + hexgaddr
+            return astree.mk_global_variable_expr(name, globaladdress = gaddr)
+
+    if offset.is_constant_offset:
+        gaddr = offset.offsetconstant
+        hexgaddr = hex(gaddr)
+        vinfo = astree.global_addresses.get(hexgaddr, None)
+        if offset.offset.is_field_offset:
+            fieldoffset = cast("VMemoryOffsetFieldOffset", offset.offset)
+            fieldname = fieldoffset.fieldname
+            fieldkey = fieldoffset.ckey
+            astoffset: AST.ASTOffset = astree.mk_field_offset(fieldname, fieldkey)
+            if vinfo is not None:
+                return astree.mk_vinfo_lval_expression(vinfo, astoffset)
+            else:
+                name = "gv_" + hexgaddr
+                return astree.mk_global_variable_expr(
+                    name, offset=astoffset, globaladdress = gaddr)
+
+    chklogger.logger.error(
+        "Conversion of global variable %s at address %s not yet supported",
+        str(offset), iaddr)
+    return astree.mk_temp_lval_expression()
+
+
 def vglobal_variable_value_to_ast_lval_expression(
         offset: "VMemoryOffset",
         xdata: "InstrXData",
@@ -456,6 +495,11 @@ def xvariable_to_ast_def_lval_expression(
         else:
             return astree.mk_temp_lval_expression()
 
+    if xvar.is_global_variable:
+        memvar = cast("VMemoryVariable", xvar.denotation)
+        return global_variable_to_lval_expression(
+            memvar.offset, xdata, iaddr, astree)
+
     else:
         chklogger.logger.error(
             "AST def conversion of variable %s to lval-expression at address "
@@ -516,7 +560,9 @@ def xbinary_to_ast_def_expr(
     def default() -> AST.ASTExpr:
         astxpr1 = xxpr_to_ast_def_expr(xpr1, xdata, iaddr, astree)
         astxpr2 = xxpr_to_ast_def_expr(xpr2, xdata, iaddr, astree)
-        if operator in ["plus", "minus", "mult", "lsl", "eq", "ne", "gt", "le"]:
+        if operator in [
+                "plus", "minus", "mult", "band",
+                "lsl", "lsr", "eq", "ne", "gt", "le"]:
             return astree.mk_binary_expression(operator, astxpr1, astxpr2)
         else:
             chklogger.logger.error(
@@ -667,7 +713,14 @@ def global_variable_to_ast_lval(
             indexvar = indexoffset.indexvariable
             offsetxpr = xvariable_to_ast_def_lval_expression(
                 indexvar, xdata, iaddr, astree)
-            astoffset = astree.mk_expr_index_offset(offsetxpr)
+            astoffset: AST.ASTOffset = astree.mk_expr_index_offset(offsetxpr)
+            return astree.mk_vinfo_lval(vinfo, astoffset)
+
+        if offset.offset.is_field_offset and vinfo is not None:
+            fieldoffset = cast ("VMemoryOffsetFieldOffset", offset.offset)
+            fieldname = fieldoffset.fieldname
+            compkey = fieldoffset.ckey
+            astoffset = astree.mk_field_offset(fieldname, compkey)
             return astree.mk_vinfo_lval(vinfo, astoffset)
 
     chklogger.logger.error(
@@ -713,7 +766,8 @@ def xvariable_to_ast_lval(
             if bctype is not None:
                 ctype = bctype.convert(astree.typconverter)
         if rhs is not None and rhs.is_constant:
-            astrhs = xxpr_to_ast_expr(rhs, xdata, iaddr, astree)
+            astrhs: Optional[AST.ASTExpr] = xxpr_to_ast_expr(
+                rhs, xdata, iaddr, astree)
         else:
             astrhs = None
         return astree.mk_ssa_register_variable_lval(
