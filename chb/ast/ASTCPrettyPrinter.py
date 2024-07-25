@@ -161,7 +161,7 @@ class ASTCPrettyPrinter(ASTVisitor):
                     self.ccode.write("[")
                     if atype.size_expr is not None:
                         atype.size_expr.accept(self)
-                        self.ccode.write("];")
+                    self.ccode.write("];")
                 else:
                     vinfo.vtype.accept(self)
                     self.ccode.write(" " + vinfo.vname + ";")
@@ -180,6 +180,8 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write("// Function declarations")
         self.ccode.newline()
         for vinfo in self.globalsymboltable.symbols:
+            if not (vinfo.vname) in self.globalsymboltable.referenced:
+                continue
             self.ccode.newline(indent=self.indent)
             if vinfo.vtype is None:
                 self.ccode.write("? " + vinfo.vname)
@@ -618,10 +620,20 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.increase_indent()
         self.ccode.newline(indent=self.indent)
         for (i, finfo) in enumerate(cinfo.fieldinfos):
-            finfo.fieldtype.accept(self)
-            self.ccode.write(" ")
-            self.ccode.write(finfo.fieldname)
-            self.ccode.write(";")
+            if finfo.fieldtype.is_array:
+                atype = cast(AST.ASTTypArray, finfo.fieldtype)
+                atype.tgttyp.accept(self)
+                self.ccode.write(" ")
+                self.ccode.write(finfo.fieldname)
+                self.ccode.write("[")
+                if atype.size_expr is not None:
+                    atype.size_expr.accept(self)
+                self.ccode.write("];")
+            else:
+                finfo.fieldtype.accept(self)
+                self.ccode.write(" ")
+                self.ccode.write(finfo.fieldname)
+                self.ccode.write(";")
             if i < len(cinfo.fieldinfos) - 1:
                 self.ccode.newline(indent=self.indent)
         self.decrease_indent()

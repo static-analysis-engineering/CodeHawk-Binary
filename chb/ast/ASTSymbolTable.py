@@ -63,6 +63,7 @@ class ASTSymbolTable:
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            llref: bool = False,
             vdescr: Optional[str] = None) -> AST.ASTVarInfo:
 
         # Variables with type void are illegal in C. We switch
@@ -243,6 +244,7 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            llref: bool = False,
             vdescr: Optional[str] = None) -> AST.ASTVarInfo:
         if parameter is not None:
             raise Exception("Global variable cannot be a formal parameter")
@@ -252,9 +254,12 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
             vtype=vtype,
             globaladdress=globaladdress,
             vdescr=vdescr)
-        if globaladdress is not None and globaladdress > 0:
+        if globaladdress is not None:
             self._symbolicnames[vinfo.vname] = vinfo
-            self._symbolicaddrs[hex(globaladdress)] = vinfo
+            if globaladdress > 0:
+                self._symbolicaddrs[hex(globaladdress)] = vinfo
+            if not llref:
+                self._referenced.add(vinfo.vname)
         return vinfo
 
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:
@@ -324,11 +329,13 @@ class ASTLocalSymbolTable(ASTSymbolTable):
             vname: str,
             vtype: Optional[AST.ASTTyp] = None,
             globaladdress: Optional[int] = None,
+            llref: bool = False,
             vdescr: Optional[str] = None) -> AST.ASTVarInfo:
         return self.globaltable.add_symbol(
             vname,
             vtype=vtype,
             globaladdress=globaladdress,
+            llref=llref,
             vdescr=vdescr)
 
     @property
