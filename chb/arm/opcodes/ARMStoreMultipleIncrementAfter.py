@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING, Tuple
+from typing import cast, List, TYPE_CHECKING, Tuple
 
 from chb.app.InstrXData import InstrXData
 
@@ -41,9 +41,13 @@ import chb.invariants.XXprUtil as XU
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.VAssemblyVariable import VRegisterVariable
+    from chb.invariants.XXpr import XprConstant, XprVariable
 
 
 @armregistry.register_tag("STM", ARMOpcode)
@@ -120,6 +124,156 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         return '; '.join(
             str(lhs) + " := " + str(x) for (lhs, x) in zip(xdata.vars, xdata.xprs))
 
+    def ast_prov_ldmstmcopy(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "STMIA:LDMSTMCOPY"]
+
+        # low-level assignments
+
+        ll_instrs: List[AST.ASTInstruction] = []
+        hl_instrs: List[AST.ASTInstruction] = []
+
+        (baselval, _, _) = self.opargs[0].ast_lvalue(astree)
+        (baserval, _, _) = self.opargs[0].ast_rvalue(astree)
+
+        regsop = self.opargs[1]
+        registers = regsop.registers
+        regcount = len(registers)
+        base_offset = 0
+        for (i, r) in enumerate(registers):
+
+            # low-level assignments
+
+            base_offset_c = astree.mk_integer_constant(base_offset)
+            addr = astree.mk_binary_op("plus", baserval, base_offset_c)
+            ll_lhs = astree.mk_memref_lval(addr)
+            ll_rhs = astree.mk_register_variable_expr(r)
+            ll_assign = astree.mk_assign(
+                ll_lhs,
+                ll_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_instrs.append(ll_assign)
+
+            base_offset += 4
+
+        if self.writeback:
+
+            # low-level base assignment
+
+            baseincr = 4 * regcount
+            baseincr_c = astree.mk_integer_constant(baseincr)
+
+            ll_base_lhs = baselval
+            ll_base_rhs = astree.mk_binary_op("plus", baserval, baseincr_c)
+            ll_base_assign = astree.mk_assign(
+                ll_base_lhs,
+                ll_base_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_instrs.append(ll_base_assign)
+
+        # high-level call
+
+        xdst = xdata.xprs[0]
+        xsrc = xdata.xprs[1]
+        xxdst = xdata.xprs[2]
+        xxsrc = xdata.xprs[3]
+        xsize = xdata.ints[0]
+
+        # low-level arguments
+
+        xdst = cast("XprVariable", xdst)
+        xdstvar = cast("VRegisterVariable", xdst.variable.denotation)
+        xdstreg = xdstvar.register
+        ll_dstlval = astree.mk_register_variable_lval(str(xdstreg))
+        ll_dst_arg = astree.mk_lval_expression(ll_dstlval)
+
+        xsrc = cast("XprVariable", xsrc)
+        xsrcvar = cast("VRegisterVariable", xsrc.variable.denotation)
+        xsrcreg = xsrcvar.register
+        ll_srclval = astree.mk_register_variable_lval(str(xsrcreg))
+        ll_src_arg = astree.mk_lval_expression(ll_srclval)
+
+        # high-level arguments
+
+        if xxdst.is_stack_address:
+            negoffset = xxdst.stack_address_offset()
+            offset = -negoffset
+            stackvar = astree.mk_stack_variable_lval(offset)
+            hl_dst_arg = astree.mk_lval_expr(stackvar)
+
+        else:
+            hl_dst_arg = XU.xxpr_to_ast_def_expr(xxdst, xdata, iaddr, astree)
+
+        if xxsrc.is_string_reference:
+            cstr = xxsrc.constant.string_reference()
+            saddr = hex(xxsrc.constant.value)
+            hl_src_arg: AST.ASTExpr = astree.mk_string_constant(
+                ll_src_arg, cstr, saddr)
+
+        elif xxsrc.is_global_address:
+            hexgaddr = hex(xxsrc.constant.value)
+            if hexgaddr in astree.global_addresses:
+                vinfo = astree.global_addresses[hexgaddr]
+                vtype = vinfo.vtype
+                if vtype is not None:
+                    if vtype.is_array:
+                        hl_src_arg = astree.mk_vinfo_lval_expression(vinfo)
+                    else:
+                        hl_src_arg = astree.mk_address_of(
+                            astree.mk_vinfo_lval(vinfo))
+                else:
+                    chklogger.logger.warning(
+                        ("Type of global address %s at instr.address %s "
+                         + "not known"),
+                        str(xxsrc), iaddr)
+            else:
+                chklogger.logger.error(
+                    "Unknown global address %s as call argument at %s",
+                    hexgaddr, iaddr)
+                hl_src_arg = astree.mk_temp_lval_expression()
+
+        elif xxsrc.is_stack_address:
+            negoffset = xxsrc.stack_address_offset()
+            offset = -negoffset
+            stackvar = astree.mk_stack_variable_lval(offset)
+            hl_src_arg = astree.mk_lval_expr(stackvar)
+
+        else:
+            hl_src_arg = XU.xxpr_to_ast_def_expr(xxsrc, xdata, iaddr, astree)
+
+        if xxsrc.is_string_reference:
+            # TODO: add check for string length vs size
+            hl_tgt = astree.mk_global_variable_expr("strcpy")
+            hl_args = [hl_dst_arg, hl_src_arg]
+
+        else:
+            hl_tgt = astree.mk_global_variable_expr("memcpy")
+            hl_size_arg = astree.mk_integer_constant(xsize)
+            hl_args = [hl_dst_arg, hl_src_arg, hl_size_arg]
+
+        hl_call = cast(AST.ASTInstruction, astree.mk_call(
+            None,
+            hl_tgt,
+            hl_args,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations))
+
+        astree.add_instr_mapping(hl_call, ll_instrs[0])
+        astree.add_instr_address(hl_call, [iaddr] + xdata.subsumes())
+
+        return ([hl_call], ll_instrs)
+
     # --------------------------------------------------------------------------
     # address = R[n];
     # for i = 0 to 14
@@ -139,6 +293,9 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
+        if xdata.instruction_subsumes():
+            return self.ast_prov_ldmstmcopy(astree, iaddr, bytestring, xdata)
+
         regcount = len(xdata.reachingdefs) - 1
         baselhs = xdata.vars[0]
         memlhss = xdata.vars[1:]
@@ -156,80 +313,93 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
         annotations: List[str] = [iaddr, "STMIA"]
 
-        ll_wbackinstrs: List[AST.ASTInstruction] = []
-        hl_wbackinstrs: List[AST.ASTInstruction] = []
+        # low-level assignments
+
+        ll_instrs: List[AST.ASTInstruction] = []
+        hl_instrs: List[AST.ASTInstruction] = []
 
         (baselval, _, _) = self.opargs[0].ast_lvalue(astree)
         (baserval, _, _) = self.opargs[0].ast_rvalue(astree)
 
-        # Writeback means that the final address that is stored to is written
-        # back into Rn
-        if self.writeback:
-            baseincr = astree.mk_integer_constant(4 * regcount)
-            ll_base_rhs = astree.mk_binary_op("plus", baserval, baseincr)
-            ll_base_assign = astree.mk_assign(baselval, ll_base_rhs, iaddr=iaddr)
-            ll_wbackinstrs.append(ll_base_assign)
+        regsop = self.opargs[1]
+        registers = regsop.registers
+        base_offset = 0
+        for (i, r) in enumerate(registers):
 
-            hl_base_lhss = XU.xvariable_to_ast_lvals(baselhs, xdata, astree)
-            hl_base_rhss = XU.xxpr_to_ast_exprs(baseresultr, xdata, iaddr, astree)
-            if len(hl_base_lhss) != 1 or len(hl_base_rhss) != 1:
-                raise UF.CHBError(
-                    "StoreMultipleIncrementAfter (STMIA): error in wback assign")
-            hl_base_lhs = hl_base_lhss[0]
-            hl_base_rhs = hl_base_rhss[0]
-            hl_base_assign = astree.mk_assign(hl_base_lhs, hl_base_rhs, iaddr=iaddr)
-            hl_wbackinstrs.append(hl_base_assign)
+            # low-level assignments
+
+            base_offset_c = astree.mk_integer_constant(base_offset)
+            addr = astree.mk_binary_op("plus", baserval, base_offset_c)
+            ll_lhs = astree.mk_memref_lval(addr)
+            ll_rhs = astree.mk_register_variable_expr(r)
+            ll_assign = astree.mk_assign(
+                ll_lhs,
+                ll_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_instrs.append(ll_assign)
+
+            # high-level assignments
+
+            lhs = memlhss[i]
+            rhs = regrhss[i]
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_instrs.append(hl_assign)
+
+            astree.add_instr_mapping(hl_assign, ll_assign)
+            astree.add_instr_address(hl_assign, [iaddr])
+            astree.add_expr_mapping(hl_rhs, ll_rhs)
+            astree.add_lval_mapping(hl_lhs, ll_lhs)
+            astree.add_expr_reachingdefs(ll_rhs, [regrdefs[i]])
+            astree.add_lval_defuses(hl_lhs, memuses[i])
+            astree.add_lval_defuses_high(hl_lhs, memuseshigh[i])
+
+            base_offset += 4
+
+        if self.writeback:
+
+            # low-level base assignment
+
+            baseincr = 4 * regcount
+            baseincr_c = astree.mk_integer_constant(baseincr)
+
+            ll_base_lhs = baselval
+            ll_base_rhs = astree.mk_binary_op("plus", baserval, baseincr_c)
+            ll_base_assign = astree.mk_assign(
+                ll_base_lhs,
+                ll_base_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_instrs.append(ll_base_assign)
+
+            # high-level base assignment
+
+            hl_base_lhs = XU.xvariable_to_ast_lval(baselhs, xdata, iaddr, astree)
+            hl_base_rhs = XU.xxpr_to_ast_def_expr(
+                baseresultr, xdata, iaddr, astree)
+            hl_base_assign = astree.mk_assign(
+                hl_base_lhs,
+                hl_base_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_instrs.append(hl_base_assign)
 
             astree.add_instr_mapping(hl_base_assign, ll_base_assign)
             astree.add_instr_address(hl_base_assign, [iaddr])
             astree.add_expr_mapping(hl_base_rhs, ll_base_rhs)
-            astree.add_lval_mapping(hl_base_lhs, baselval)
+            astree.add_lval_mapping(hl_base_lhs, ll_base_lhs)
             astree.add_expr_reachingdefs(ll_base_rhs, [baserdef])
             astree.add_lval_defuses(hl_base_lhs, baseuses)
             astree.add_lval_defuses_high(hl_base_lhs, baseuseshigh)
 
-        def default() -> Tuple[List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-            ll_instrs: List[AST.ASTInstruction] = []
-            hl_instrs: List[AST.ASTInstruction] = []
-            regsop = self.opargs[1]
-            registers = regsop.registers
-            base_incr = 0
-            base_offset = base_incr
-            for (i, r) in enumerate(registers):
-                base_offset_c = astree.mk_integer_constant(base_offset)
-                addr = astree.mk_binary_op("plus", baserval, base_offset_c)
-                ll_lhs = astree.mk_memref_lval(addr)
-                ll_rhs = astree.mk_register_variable_expr(r)
-                ll_assign = astree.mk_assign(ll_lhs, ll_rhs, iaddr=iaddr)
-                ll_instrs.append(ll_assign)
-                lhs = memlhss[i]
-                rhs = regrhss[i]
-                hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-                hl_rhss = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
-                if len(hl_lhss) != 1 or len(hl_rhss) != 1:
-                    raise UF.CHBError(
-                        "StoreMultipleIncrementAfter (STMIA): error in assigns")
-                hl_lhs = hl_lhss[0]
-                hl_rhs = hl_rhss[0]
-                hl_assign = astree.mk_assign(
-                    hl_lhs,
-                    hl_rhs,
-                    iaddr=iaddr,
-                    bytestring=bytestring,
-                    annotations=annotations)
-                hl_instrs.append(hl_assign)
-
-                astree.add_instr_mapping(hl_assign, ll_assign)
-                astree.add_instr_address(hl_assign, [iaddr])
-                astree.add_expr_mapping(hl_rhs, ll_rhs)
-                astree.add_lval_mapping(hl_lhs, ll_lhs)
-                astree.add_expr_reachingdefs(ll_rhs, [regrdefs[i]])
-                astree.add_lval_defuses(hl_lhs, memuses[i])
-                astree.add_lval_defuses_high(hl_lhs, memuseshigh[i])
-                astree.add_lval_store(hl_lhs)
-
-                base_offset += 4
-
-            return (hl_instrs + hl_wbackinstrs, ll_instrs + ll_wbackinstrs)
-
-        return default()
+        return (hl_instrs, ll_instrs)
