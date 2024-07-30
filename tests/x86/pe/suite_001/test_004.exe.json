@@ -15,7 +15,7 @@
 		"0x401001": {
 		    "mn": "pop",
 		    "invs": [ "esp == (esp_in - 0x4)",
-			      "var.0004 == ebp_in" ]
+			      "var_0004 == ebp_in" ]
 		},
 		"0x401002": {
 		    "mn": "ret",
