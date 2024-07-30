@@ -228,9 +228,9 @@ def global_variable_to_lval_expression(
         vinfo = astree.global_addresses.get(hexgaddr, None)
         if vinfo is not None:
             return astree.mk_vinfo_lval_expression(vinfo)
-        else:
-            name = "gv_" + hexgaddr
-            return astree.mk_global_variable_expr(name, globaladdress = gaddr)
+
+        name = "gv_" + hexgaddr
+        return astree.mk_global_variable_expr(name, globaladdress = gaddr)
 
     if offset.is_constant_offset:
         gaddr = offset.offsetconstant
@@ -240,7 +240,23 @@ def global_variable_to_lval_expression(
             fieldoffset = cast("VMemoryOffsetFieldOffset", offset.offset)
             fieldname = fieldoffset.fieldname
             fieldkey = fieldoffset.ckey
-            astoffset: AST.ASTOffset = astree.mk_field_offset(fieldname, fieldkey)
+            if fieldoffset.offset.is_no_offset:
+                subfieldastoffset: AST.ASTOffset = nooffset
+            elif fieldoffset.offset.is_field_offset:
+                subfieldoffset = cast(
+                    "VMemoryOffsetFieldOffset", fieldoffset.offset)
+                subfieldname = subfieldoffset.fieldname
+                subfieldkey = subfieldoffset.ckey
+                subfieldastoffset = astree.mk_field_offset(
+                    subfieldname, subfieldkey)
+            else:
+                chklogger.logger.error(
+                    "Index sub offset of global offset %s not yet handled at %s",
+                    str(offset), iaddr)
+                subfieldastoffset = nooffset
+
+            astoffset: AST.ASTOffset = astree.mk_field_offset(
+                fieldname, fieldkey, offset=subfieldastoffset)
             if vinfo is not None:
                 return astree.mk_vinfo_lval_expression(vinfo, astoffset)
             else:
@@ -267,9 +283,9 @@ def vglobal_variable_value_to_ast_lval_expression(
         vinfo = astree.global_addresses.get(hexgaddr, None)
         if vinfo is not None:
             return astree.mk_vinfo_lval_expression(vinfo)
-        else:
-            name = "gv_" + hex(gaddr)
-            return astree.mk_global_variable_expr(name, globaladdress = gaddr)
+
+        name = "gv_" + hex(gaddr)
+        return astree.mk_global_variable_expr(name, globaladdress = gaddr)
 
     # element of global array
     if offset.is_constant_offset and offset.offset.is_constant_value_offset:
@@ -614,6 +630,29 @@ def xcompound_to_ast_def_expr(
     return astree.mk_temp_lval_expression()
 
 
+def stack_address_to_ast_expr(
+        xpr: X.XXpr,
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface) -> AST.ASTExpr:
+    offset = xpr.stack_address_offset()
+    vinfo = astree.stack_varinfos.get(offset, None)
+    if vinfo is not None:
+        stackvar = astree.mk_vinfo_lval(vinfo)
+        if vinfo.vtype is None or not vinfo.vtype.is_array:
+            return astree.mk_address_of(stackvar)
+        else:
+            return astree.mk_lval_expr(stackvar)
+
+    else:
+        stackvar = astree.mk_stack_variable_lval(offset)
+        vtype = stackvar.ctype(astree.ctyper)
+        if vtype is None or not vtype.is_array:
+            return astree.mk_address_of(stackvar)
+        else:
+            return astree.mk_lval_expr(stackvar)
+
+
 def xxpr_to_ast_def_expr(
         xpr: X.XXpr,
         xdata: "InstrXData",
@@ -623,6 +662,9 @@ def xxpr_to_ast_def_expr(
 
     if xpr.is_constant:
         return xxpr_to_ast_expr(xpr, xdata, iaddr, astree)
+
+    if xpr.is_stack_address:
+        return stack_address_to_ast_expr(xpr, xdata, iaddr, astree)
 
     if xpr.is_var:
         xvar = cast(X.XprVariable, xpr).variable
@@ -720,7 +762,23 @@ def global_variable_to_ast_lval(
             fieldoffset = cast ("VMemoryOffsetFieldOffset", offset.offset)
             fieldname = fieldoffset.fieldname
             compkey = fieldoffset.ckey
-            astoffset = astree.mk_field_offset(fieldname, compkey)
+            if fieldoffset.offset.is_no_offset:
+                subfieldastoffset: AST.ASTOffset = nooffset
+            elif fieldoffset.offset.is_field_offset:
+                subfieldoffset = cast(
+                    "VMemoryOffsetFieldOffset", fieldoffset.offset)
+                subfieldname = subfieldoffset.fieldname
+                subfieldkey = subfieldoffset.ckey
+                subfieldastoffset = astree.mk_field_offset(
+                    subfieldname, subfieldkey)
+            else:
+                chklogger.logger.error(
+                    "Index sub offset of global offset %s not yet handled at %s",
+                    str(offset), iaddr)
+                subfieldastoffset = nooffset
+
+            astoffset = astree.mk_field_offset(
+                fieldname, compkey, offset=subfieldastoffset)
             return astree.mk_vinfo_lval(vinfo, astoffset)
 
     chklogger.logger.error(
