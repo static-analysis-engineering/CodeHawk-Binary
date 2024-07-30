@@ -1169,6 +1169,17 @@ class UserHints:
             return {}
 
     def stack_variable_introductions(self) -> Dict[str, Dict[int, str]]:
+        """Return map from function address to stack offset to variable name.
+
+        Note that the stack offsets are the difference between the stack-pointer
+        value at function entry and the stack-pointer value at the start of
+        the variable (in bytes).
+
+        Internally (in astcmds) the stack offsets are converted to their
+        negation (the difference between stack-pointer value at the start of
+        the variable the stack-pointer value at function entry.
+        """
+
         if "stack-variable-introductions" in self.astdata:
             entry = cast(
                 StackVariableIntroductionsHints,
@@ -1184,7 +1195,8 @@ class UserHints:
 
     def symbolic_addresses(self) -> Dict[str, str]:
         if "symbolic-addresses" in self.astdata:
-            entry = cast(SymbolicAddressesHints, self.astdata["symbolic-addresses"])
+            entry = cast(
+                SymbolicAddressesHints, self.astdata["symbolic-addresses"])
             return entry.symbolicaddrs
         else:
             return {}
