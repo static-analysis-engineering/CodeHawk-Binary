@@ -84,6 +84,8 @@ class ASTBasicCTyper(ASTCTyper):
         elif hosttype.is_array:
             if lval.offset.is_index_offset and lval.offset.offset.is_no_offset:
                 return cast(AST.ASTTypArray, hosttype).tgttyp
+            elif lval.offset.is_index_offset and lval.offset.offset.is_field_offset:
+                return lval.offset.offset.ctype(self)
             else:
                 return lval.offset.offset.offset.ctype(self)
         else:

@@ -295,6 +295,17 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             elif fname == "main":
                 astprototype = astree.mk_vinfo_main_function(faddr)
 
+            # Offsets are negated to make them consistent with their internal
+            # numerical value.
+            #
+            # For convenience local stack variable introductions are specified
+            # with positive offsets. Internally these are negative values (i.e.,
+            # the difference between stackpointer value and stackpointer value
+            # at function entry, with a stack growing down).
+            fstackvarintros = {
+                -off: name
+                for (off, name) in stackvarintros.get(faddr, {}).items()}
+
             astinterface = ASTInterface(
                 astree,
                 typconverter,
@@ -303,7 +314,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 astprototype=astprototype,
                 appsignature=appsignature,
                 varintros=varintros,
-                stackvarintros=stackvarintros.get(faddr, {}),
+                stackvarintros=fstackvarintros,
                 verbose=verbose)
 
             # Introduce ssa variables for all reaching definitions referenced in
