@@ -30,7 +30,7 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Callable, List, Optional, Tuple, TYPE_CHECKING
+from typing import Callable, cast, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from chb.invariants.FnDictionaryRecord import varinvregistry
 from chb.invariants.FnVarDictionary import FnVarDictionary
@@ -43,6 +43,8 @@ import chb.util.IndexedTable as IT
 
 if TYPE_CHECKING:
     from chb.app.Function import Function
+    from chb.invariants.VarInvariantFact import ReachingDefFact
+    from chb.invariants.XVariable import XVariable
 
 
 class FnVarInvDictionary:
