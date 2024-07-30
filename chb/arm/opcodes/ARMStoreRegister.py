@@ -201,8 +201,15 @@ class ARMStoreRegister(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        if lhs.is_tmp:
+        # Currently def-use info does not properly account for assignments
+        # to variables that are part of a struct or array variable, so these
+        # assignments must be explicitly forced to appear in the lifting
+        if (
+                lhs.is_tmp
+                or hl_lhs.offset.is_index_offset
+                or hl_lhs.offset.is_field_offset):
             astree.add_expose_instruction(hl_assign.instrid)
+
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)

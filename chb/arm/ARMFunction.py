@@ -129,6 +129,15 @@ class ARMFunction(Function):
 
     @property
     def stack_variable_types(self) -> Dict[int, BCTyp]:
+        """Return a mapping from (negated) stack offset to inferred type.
+
+        The stack offset is the absolute difference between the value
+        of the stack pointer at function entry and the start of the variable.
+        That is var_1244 has an offset of 1244 (not -1244), and the variable
+        contents go down, that is, fields are at lower offset than the variable
+        offset itself.
+        """
+
         if self._stacklhstypes is None:
             self._stacklhstypes = {}
             xstacktypes = self.xnode.find("stack-variable-types")

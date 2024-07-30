@@ -39,6 +39,7 @@ from chb.arm.ARMOperandKind import ARMOperandKind, ARMAbsoluteOp
 from chb.ast.AbstractSyntaxTree import nooffset
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
+from chb.astinterface.ASTIUtil import assign_type_compatible
 
 from chb.bctypes.BCTyp import BCTyp
 
@@ -171,12 +172,51 @@ class ARMCallOpcode(ARMOpcode):
         ll_lhs = astree.mk_register_variable_lval(str(lhsreg))
         (ll_tgt, _, _) = tgt.ast_rvalue(astree)
 
-        # argument data
-
         xprs = xdata.xprs
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
+
+        # high-level call data
+
+        hl_tgt = ll_tgt
+        hl_lhs: Optional[AST.ASTLval] = None
+
+        astfntype: Optional[AST.ASTTyp] = None
+
+        # construct high-level target
+        finfo = xdata.function.finfo
+        if finfo.has_call_target_info(iaddr):
+            ctinfo = finfo.call_target_info(iaddr)
+            fname = ctinfo.target_interface.name
+            ftype = ctinfo.target_interface.bctype
+            if ftype is not None:
+                astfntype = ftype.convert(astree.typconverter)
+            if astree.globalsymboltable.has_symbol(fname):
+                tgtvinfo = astree.globalsymboltable.get_symbol(fname)
+                hl_tgt = astree.mk_vinfo_lval_expression(tgtvinfo)
+            else:
+                gaddr: int = 0
+                if fname.startswith("sub_"):
+                    gaddr = int("0x" + fname[4:], 16)
+                else:
+                    if tgt.is_absolute:
+                        tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
+                        gaddr = int(tgtaddr.address.get_hex(), 16)
+                hl_tgt = astree.mk_global_variable_expr(
+                    fname, globaladdress=gaddr, vtype=astfntype)
+
+            if ftype is not None and ftype.is_function:
+                ftype = cast("BCTypFun", ftype)
+                rtype = ftype.returntype
+            else:
+                rtype = ctinfo.target_interface.signature.returntype
+            asttype = rtype.convert(astree.typconverter)
+            if not (rtype.is_void or defuses[0] is None):
+                hl_lhs = XU.xvariable_to_ast_lval(
+                    lhs, xdata, iaddr, astree, ctype=asttype)
+
+        # argument data
 
         argcount = self.argument_count(xdata)
 
@@ -184,6 +224,20 @@ class ARMCallOpcode(ARMOpcode):
         hl_args: List[AST.ASTExpr] = []
 
         if argcount > 0:
+            if astfntype is None:
+                astargtypes: List[Optional[AST.ASTTyp]] = [None] * argcount
+            else:
+                astfntype = cast(AST.ASTTypFun, astfntype)
+                astfunargs = astfntype.argtypes
+                if astfunargs is None:
+                    astargtype = [None] * argcount
+                else:
+                    astargtypes = [a.argtyp for a in astfunargs.funargs]
+
+                # add extra elements for vararg arguments
+                if len(astargtypes) < argcount:
+                    astargtypes += ([None] * (argcount - len(astargtypes)))
+
             xargs = xdata.xprs[:argcount]
             xvarargs = xdata.xprs[argcount:(2 * argcount)]
             if len(rdefs) >= argcount:
@@ -196,7 +250,7 @@ class ARMCallOpcode(ARMOpcode):
                 #  in bytes (note: not the stackpointer at function entry).
                 # rdef represents the reaching definition for the argument
                 #  location.
-                for (x, xv, rdef) in zip(xargs, xvarargs, llrdefs):
+                for (x, xv, rdef, argtype) in zip(xargs, xvarargs, llrdefs, astargtypes):
 
                     # low-level argument
 
@@ -213,7 +267,7 @@ class ARMCallOpcode(ARMOpcode):
                                 "Expected positive stack offset in call ll_arg: "
                                 + "%s",
                                 str(xv))
-                            ll_arg = astree.mk_integer_constant(0)
+                            ll_arg = astree.mk_temp_lval_expression()
                         if not (len(xv.operands) == 2):
                             chklogger.logger.warning(
                                 "Expected stack offset expression in call "
@@ -225,13 +279,13 @@ class ARMCallOpcode(ARMOpcode):
                                 "Expected stack offset expression in call "
                                 + "ll_arg: %s",
                                 str(xv))
-                            ll_arg = astree.mk_integer_constant(0)
+                            ll_arg = astree.mk_temp_lval_expression()
                         if not xv.operands[1].is_int_constant:
                             chklogger.logger.warning(
                                 "Expected integer stack offset in call ll_arg: "
                                 + "%s",
                                 str(xv))
-                            ll_arg = astree.mk_integer_constant(0)
+                            ll_arg = astree.mk_temp_lval_expression()
                         llregvar = cast("XprVariable", xv.operands[0])
                         llregden = cast(
                             "VRegisterVariable", llregvar.variable.denotation)
@@ -268,10 +322,8 @@ class ARMCallOpcode(ARMOpcode):
                             ll_arg, cstr, saddr)
 
                     elif x.is_stack_address:
-                        negoffset = x.stack_address_offset()
-                        offset = -negoffset
-                        stackvar = astree.mk_stack_variable_lval(offset)
-                        hl_arg = astree.mk_lval_expr(stackvar)
+                        hl_arg = XU.stack_address_to_ast_expr(
+                            x, xdata, iaddr, astree)
 
                     elif x.is_global_address:
                         hexgaddr = hex(x.constant.value)
@@ -300,6 +352,16 @@ class ARMCallOpcode(ARMOpcode):
 
                     else:
                         hl_arg = XU.xxpr_to_ast_def_expr(x, xdata, iaddr, astree)
+
+                    # add a cast if the type of the argument is not compatible
+                    # with the declared parameter type
+                    if argtype is not None and not hl_arg.is_ast_constant:
+                        hl_arg_type = hl_arg.ctype(astree.ctyper)
+                        if hl_arg_type is not None:
+                            if not assign_type_compatible(
+                                    astree, hl_arg_type, argtype):
+                                hl_arg = astree.mk_cast_expr(argtype, hl_arg)
+
                     hl_args.append(hl_arg)
 
                     astree.add_expr_mapping(hl_arg, ll_arg)
@@ -313,44 +375,6 @@ class ARMCallOpcode(ARMOpcode):
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
-
-        # high-level call data
-
-        hl_tgt = ll_tgt
-        hl_lhs: Optional[AST.ASTLval] = None
-
-        # construct high-level target
-        finfo = xdata.function.finfo
-        if finfo.has_call_target_info(iaddr):
-            ctinfo = finfo.call_target_info(iaddr)
-            fname = ctinfo.target_interface.name
-            ftype = ctinfo.target_interface.bctype
-            astftype: Optional[AST.ASTTyp] = None
-            if ftype is not None:
-                astftype = ftype.convert(astree.typconverter)
-            if astree.globalsymboltable.has_symbol(fname):
-                tgtvinfo = astree.globalsymboltable.get_symbol(fname)
-                hl_tgt = astree.mk_vinfo_lval_expression(tgtvinfo)
-            else:
-                gaddr: int = 0
-                if fname.startswith("sub_"):
-                    gaddr = int("0x" + fname[4:], 16)
-                else:
-                    if tgt.is_absolute:
-                        tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
-                        gaddr = int(tgtaddr.address.get_hex(), 16)
-                hl_tgt = astree.mk_global_variable_expr(
-                    fname, globaladdress=gaddr, vtype=astftype)
-
-            if ftype is not None and ftype.is_function:
-                ftype = cast("BCTypFun", ftype)
-                rtype = ftype.returntype
-            else:
-                rtype = ctinfo.target_interface.signature.returntype
-            asttype = rtype.convert(astree.typconverter)
-            if not rtype.is_void:
-                hl_lhs = XU.xvariable_to_ast_lval(
-                    lhs, xdata, iaddr, astree, ctype=asttype)
 
         hl_call = cast(AST.ASTInstruction, astree.mk_call(
             hl_lhs,
