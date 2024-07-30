@@ -151,7 +151,7 @@ class ARMLoadRegister(ARMOpcode):
 
         memaddr = xdata.xprs[4]
 
-        annotations: List[str] = [iaddr, "LDR", "addr:" + str(memaddr)]
+        annotations: List[str] = [iaddr, "LDR", "addr: " + str(memaddr)]
 
         # low-level assignment
 

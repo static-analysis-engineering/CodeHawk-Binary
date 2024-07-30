@@ -206,10 +206,13 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         # high-level arguments
 
         if xxdst.is_stack_address:
-            negoffset = xxdst.stack_address_offset()
-            offset = -negoffset
+            offset = xxdst.stack_address_offset()
             stackvar = astree.mk_stack_variable_lval(offset)
-            hl_dst_arg = astree.mk_lval_expr(stackvar)
+            stackvartyp = stackvar.ctype(astree.ctyper)
+            if stackvartyp is not None and stackvartyp.is_array:
+                hl_dst_arg = astree.mk_lval_expr(stackvar)
+            else:
+                hl_dst_arg = astree.mk_address_of(stackvar)
 
         else:
             hl_dst_arg = XU.xxpr_to_ast_def_expr(xxdst, xdata, iaddr, astree)
