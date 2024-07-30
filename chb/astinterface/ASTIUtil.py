@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,13 +28,16 @@
 
 import copy
 
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING
+from typing import (
+    cast, Dict, List, Mapping, Optional, Sequence, Tuple, TYPE_CHECKING)
+
+import chb.ast.ASTNode as AST
 
 import chb.util.fileutil as UF
 
 
 if TYPE_CHECKING:
-    from chb.ast.ASTNode import ASTExpr, ASTLval
+    from chb.astinterface.ASTInterface import ASTInterface
 
 
 arm_registers = [
@@ -107,3 +110,25 @@ def get_arg_loc(callingconvention: str, bytecounter: int, size: int) -> str:
         return get_power_arg_loc(bytecounter, size)
     else:
         return "?"
+
+
+def assign_type_compatible(
+        astree: "ASTInterface",
+        actual: AST.ASTTyp,
+        declared: AST.ASTTyp) -> bool:
+    if actual == declared:
+        return True
+
+    if actual.is_array and declared.is_pointer:
+        actual = cast(AST.ASTTypArray, actual)
+        declared = cast(AST.ASTTypPtr, declared)
+        if declared.tgttyp.is_void:
+            return True
+        else:
+            return assign_type_compatible(astree, actual.tgttyp, declared.tgttyp)
+
+    if actual.is_pointer and declared.is_pointer:
+        declared = cast(AST.ASTTypPtr, declared)
+        return declared.tgttyp.is_void
+
+    return False

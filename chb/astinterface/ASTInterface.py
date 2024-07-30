@@ -116,7 +116,8 @@ class ASTInterface:
         self._ssa_counter: int = 0
         self._ssa_intros: Dict[str, Dict[str, AST.ASTVarInfo]] = {}
         self._ssa_values: Dict[str, AST.ASTExpr] = {}
-        self._stack_variables: Dict[int, AST.ASTVarInfo] = {}
+        self._stack_varinfos: Dict[int, AST.ASTVarInfo] = {}
+        self._stack_variables: Dict[int, AST.ASTLval] = {}
         self._unsupported: Dict[str, List[str]] = {}
         self._annotations: Dict[int, List[str]] = {}
         self._astiprovenance = ASTIProvenance()
@@ -868,8 +869,33 @@ class ASTInterface:
         return self._ssa_values
 
     @property
-    def stack_variables(self) -> Dict[int, AST.ASTVarInfo]:
+    def stack_variables(self) -> Dict[int, AST.ASTLval]:
+        """Return a map from stack offset in bytes to lval at that offset.
+
+        This map includes all lvals to the lowest granularity, including fields
+        and array elements. The latter are represented in the offset of the lval
+        returned.
+
+        Note: currently this is not yet fully recursive, so if the field
+        itself is a struct, this struct will be returned rather than the
+        field of that struct, and so on.
+        """
+
         return self._stack_variables
+
+    @property
+    def stack_varinfos(self) -> Dict[int, AST.ASTVarInfo]:
+        """Return a map from stack offset in bytes to varinfo at that offset.
+
+        This map differs from the stack_variables map in that only top-level
+        variables are included (i.e., the ones that are declared in the
+        function.
+
+        Note that for structs this map returns the struct, while the
+        stack_variables map will return the first field of the struct.
+        """
+
+        return self._stack_varinfos
 
     def introduce_ssa_variables(
             self,
@@ -900,9 +926,14 @@ class ASTInterface:
             self,
             stackframe: "FnStackFrame",
             stackvartypes: Dict[int, "BCTyp"]) -> None:
-        """Creates stack variables/buffers for all stack offsets with types. """
+        """Creates stack variables/buffers for all stack offsets with types."""
 
-        for (offset, bctype) in stackvartypes.items():
+        # local variable stack offsets from the type inference are positive,
+        # so they must be negated here. For the same reason, to capture the
+        # largest extent of every varinfo, offsets must be traversed in reverse
+        # order.
+        for (offset, bctype) in sorted(stackvartypes.items(), reverse=True):
+            offset = -offset
             vtype = bctype.convert(self.typconverter)
 
             # if the type is an array, its size may have to be adjusted based
@@ -910,17 +941,26 @@ class ASTInterface:
             if vtype.is_array:
                 vtype = cast(AST.ASTTypArray, vtype)
                 if vtype.has_constant_size() and vtype.size_value() == 1:
-                    buffer = stackframe.get_stack_buffer(-offset)
+                    buffer = stackframe.get_stack_buffer(offset)
                     if buffer is not None:
                         size = buffer.size
                         tgttyp = vtype.tgttyp
                         tgttypsize = tgttyp.index(self.bytesize_calculator)
                         if tgttypsize > 0:
                             arraysize = size // tgttypsize
-                            vtype = self.astree.mk_int_sized_array_type(
-                                tgttyp, arraysize)
+                            if arraysize > 0:
+                                vtype = self.astree.mk_int_sized_array_type(
+                                    tgttyp, arraysize)
+                            else:
+                                chklogger.logger.warning(
+                                    "Array size for stack variable at offset "
+                                    + "%s does not fit in stack frame; "
+                                    + "adjusting stack buffer to size %d",
+                                    str(offset), tgttypsize)
+                                vtype = self.astree.mk_int_sized_array_type(
+                                    tgttyp, 1)
 
-            self.mk_stackvarinfo(offset, vtype=vtype)
+            self.mk_stack_variable_lval(offset, vtype=vtype)
 
     def mk_ssa_register_varinfo(
             self,
@@ -951,22 +991,88 @@ class ASTInterface:
     def get_ssa_value(self, name: str) -> Optional[AST.ASTExpr]:
         return self.ssa_values.get(name, None)
 
-    def mk_stackvarinfo(
-            self, offset: int, vtype: Optional[AST.ASTTyp]) -> AST.ASTVarInfo:
+    def mk_stack_variable_lval(
+            self, offset: int, vtype: Optional[AST.ASTTyp]=None) -> AST.ASTLval:
+
+        # Update varinfo type with vtype if existing varinfo vtype is None
+        if offset in self.stack_varinfos and vtype is not None:
+            if self.stack_varinfos[offset].vtype is None:
+                self.stack_varinfos[offset].vtype = vtype
+
+            return self.stack_variables[offset]
+
         if offset in self.stack_variables:
-            vinfo = self.stack_variables[offset]
-            if vtype is not None and vinfo.vtype is None:
-                vinfo.vtype = vtype
-            return vinfo
+            return self.stack_variables[offset]
 
         # create a new stack variable
         if offset in self.stackvarintros:
             vname = self.stackvarintros[offset]
         else:
-            vname = "stack_" + str(offset)
+            if offset < 0:
+                vname = "localstackvar_" + str(-offset)
+            else:
+                vname = "stack_" + str(offset)
+        size: Optional[int] = None
+        if vtype is not None:
+            size = self.type_size_in_bytes(vtype)
         varinfo = self.add_symbol(vname, vtype=vtype)
-        self._stack_variables[offset] = varinfo
-        return varinfo
+        self._stack_varinfos[offset] = varinfo
+
+        storage = self.astree.mk_stack_storage(offset, size)
+        lval = self.astree.mk_vinfo_lval(varinfo, storage=storage)
+        self._stack_variables[offset] = lval
+
+        if varinfo.vtype is None:
+            return lval
+
+        if varinfo.vtype.is_array:
+            arraytyp = cast(AST.ASTTypArray, varinfo.vtype)
+            eltyp = arraytyp.tgttyp
+            elsize = self.type_size_in_bytes(eltyp)
+            if elsize is None:
+                chklogger.logger.warning(
+                    "Unable to lay out stack array %s at offset %s due to "
+                    + "missing element size",
+                    str(varinfo), str(offset))
+                return lval
+
+            if arraytyp.has_constant_size():
+                arraysize = arraytyp.size_value()
+            else:
+                chklogger.logger.warning(
+                    "Assuming array size 1 for array %s with unknown size "
+                    + "at offset %s",
+                    str(varinfo), str(offset))
+                arraysize = 1
+            if eltyp.is_compound:
+                structtyp = cast(AST.ASTTypComp, eltyp)
+                ckey = structtyp.compkey
+                compinfo = self.globalsymboltable.compinfo(ckey)
+                elementoffset = offset
+                for i in range(arraysize):
+                    for (cfoff, fname) in sorted(compinfo.field_offsets.items()):
+                        fieldoffset = self.mk_field_offset(fname, ckey)
+                        indexoffset = self.mk_scalar_index_offset(i, fieldoffset)
+                        fieldlval = self.astree.mk_vinfo_lval(
+                            varinfo, offset=indexoffset)
+                        self._stack_variables[elementoffset + cfoff] = fieldlval
+                    elementoffset += elsize
+
+        return lval
+
+
+
+    def mk_stackvarinfo_offset(
+            self, offset: int, vtype: Optional[AST.ASTTyp]) -> None:
+        """Creates a new stack variable if none exists at offset.
+
+        If the offset is already covered by another stack variable, it
+        determines the offset within the existing variable and records this
+        in the stack_variables data field (if not already present).
+        Otherwise it creates a new stack variable, and, in case of a struct
+        variable, also creates entries for the fields.
+        """
+        pass
 
     def mk_ssa_register_variable(
             self,
@@ -974,13 +1080,6 @@ class ASTInterface:
             iaddr: str,
             vtype: Optional[AST.ASTTyp] = None) -> AST.ASTVariable:
         varinfo = self.mk_ssa_register_varinfo(name, iaddr, vtype=vtype)
-        return AST.ASTVariable(varinfo)
-
-    def mk_stack_variable(
-            self,
-            offset: int,
-            vtype: Optional[AST.ASTTyp] = None) -> AST.ASTVariable:
-        varinfo = self.mk_stackvarinfo(offset, vtype=vtype)
         return AST.ASTVariable(varinfo)
 
     def mk_ssa_register_variable_lval(
@@ -993,14 +1092,6 @@ class ASTInterface:
         storage = self.astree.mk_register_storage(name)
         if ssavalue is not None:
             self.set_ssa_value(vinfo.vname, ssavalue)
-        return self.astree.mk_vinfo_lval(vinfo, storage=storage)
-
-    def mk_stack_variable_lval(
-            self,
-            offset: int,
-            vtype: Optional[AST.ASTTyp] = None) -> AST.ASTLval:
-        vinfo = self.mk_stackvarinfo(offset, vtype=vtype)
-        storage = self.astree.mk_stack_storage(offset)
         return self.astree.mk_vinfo_lval(vinfo, storage=storage)
 
     def mk_register_variable(
@@ -1177,18 +1268,23 @@ class ASTInterface:
                 self.add_to_index_offset(baseoffset.offset, increm))
         else:
             baseoffset = cast(AST.ASTIndexOffset, baseoffset)
-            if baseoffset.index_expr.is_integer_constant and baseoffset.offset.is_no_offset:
+            if (
+                    baseoffset.index_expr.is_integer_constant
+                    and baseoffset.offset.is_no_offset):
                 baseindex = cast(AST.ASTIntegerConstant, baseoffset.index_expr)
                 newindex = baseindex.cvalue + increm
                 return self.mk_scalar_index_offset(newindex)
             else:
                 raise UF.CHBError("add_to_index_offset: not yet supported")
 
-    def mk_integer_constant(self, cvalue: int, ikind: str = "iint") -> AST.ASTIntegerConstant:
+    def mk_integer_constant(
+            self, cvalue: int, ikind: str = "iint") -> AST.ASTIntegerConstant:
         return self.astree.mk_integer_constant(cvalue, ikind=ikind)
 
     def mk_float_constant(
-            self, fvalue: float, fkind: str = "float") -> AST.ASTFloatingPointConstant:
+            self,
+            fvalue: float,
+            fkind: str = "float") -> AST.ASTFloatingPointConstant:
         return self.astree.mk_float_constant(fvalue, fkind=fkind)
 
     def mk_global_address_constant(
