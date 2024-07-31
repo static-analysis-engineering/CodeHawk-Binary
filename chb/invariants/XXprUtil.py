@@ -461,8 +461,8 @@ def xvariable_to_ast_def_lval_expression(
             else:
                 chklogger.logger.error(
                     "Call site with multiple ssa variables at address %s "
-                    + "not yet supported",
-                    callsite)
+                    + "for callsite %s not yet supported",
+                    iaddr, callsite)
                 return astree.mk_temp_lval_expression()
         else:
             chklogger.logger.error(

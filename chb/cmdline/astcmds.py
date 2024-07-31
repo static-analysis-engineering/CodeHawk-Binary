@@ -315,6 +315,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 appsignature=appsignature,
                 varintros=varintros,
                 stackvarintros=fstackvarintros,
+                patchevents=patchevents,
                 verbose=verbose)
 
             # Introduce ssa variables for all reaching definitions referenced in

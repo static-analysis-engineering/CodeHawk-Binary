@@ -41,6 +41,7 @@ from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 from chb.util.IndexedTable import IndexedTableValue
 
@@ -187,26 +188,42 @@ class ARMPush(ARMOpcode):
 
             # high-level assignments
 
+            regrdef = regrdefs[i]
             lhs = memlhss[i]
             rhs = regrhss[i]
-            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
-            hl_assign = astree.mk_assign(
-                hl_lhs,
-                hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-            hl_instrs.append(hl_assign)
+            # if a reaching definition includes a definition from a clobbered
+            # variable, saving the value is meaningless in the program
+            if regrdef is not None and regrdef.has_clobbered_defs():
+               chklogger.logger.info(
+                   "Skip spill of %s at %s due to clobbered definition",
+                   str(rhs), iaddr)
 
-            astree.add_instr_mapping(hl_assign, ll_assign)
-            astree.add_instr_address(hl_assign, [iaddr])
-            astree.add_expr_mapping(hl_rhs, ll_rhs)
-            astree.add_lval_mapping(hl_lhs, ll_lhs)
-            astree.add_expr_reachingdefs(ll_rhs, [regrdefs[i]])
-            astree.add_lval_defuses(hl_lhs, memuses[i])
-            astree.add_lval_defuses_high(hl_lhs, memuseshigh[i])
+            elif astree.is_in_wrapper(iaddr):
+                chklogger.logger.info(
+                    "Skip spill of %s (%s) at %s within trampoline wrapper",
+                    str(ll_rhs), str(rhs), iaddr)
+
+            else:
+
+                hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+                hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+                hl_assign = astree.mk_assign(
+                    hl_lhs,
+                    hl_rhs,
+                    iaddr=iaddr,
+                    bytestring=bytestring,
+                    annotations=annotations)
+                hl_instrs.append(hl_assign)
+
+                astree.add_instr_mapping(hl_assign, ll_assign)
+                astree.add_instr_address(hl_assign, [iaddr])
+                astree.add_expr_mapping(hl_rhs, ll_rhs)
+                astree.add_lval_mapping(hl_lhs, ll_lhs)
+                astree.add_expr_reachingdefs(ll_rhs, [regrdef])
+                astree.add_lval_defuses(hl_lhs, memuses[i])
+                astree.add_lval_defuses_high(hl_lhs, memuseshigh[i])
 
             sp_offset -= 4
 

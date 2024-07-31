@@ -254,10 +254,8 @@ class ASTInterfaceBasicBlock:
                     condition = chkinstr3.get_instruction_condition()
                     cstmt = astree.mk_continue_stmt()
                     estmt = astree.mk_instr_sequence([])
-                    aexprs = XU.xxpr_to_ast_exprs(
+                    cc = XU.xxpr_to_ast_def_expr(
                         condition, chkinstr3.xdata, chkinstr3.iaddr, astree)
-                if len(aexprs) == 1:
-                    cc = aexprs[0]
                     brstmt = astree.mk_branch(cc, cstmt, estmt, "0x0")
                     return brstmt
                 elif len(aexprs) == 0:

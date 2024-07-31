@@ -220,24 +220,31 @@ class ARMPop(ARMOpcode):
 
             lhs = reglhss[i]
             rhs = memrhss[i]
-            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
-            hl_assign = astree.mk_assign(
-                hl_lhs,
-                hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
-            hl_instrs.append(hl_assign)
+            if astree.is_in_wrapper(iaddr):
+                chklogger.logger.info(
+                    "Skip restore of %s at %s within trampoline wrapper",
+                    str(lhs), iaddr)
 
-            astree.add_instr_mapping(hl_assign, ll_assign)
-            astree.add_instr_address(hl_assign, [iaddr])
-            astree.add_expr_mapping(hl_rhs, ll_rhs)
-            astree.add_lval_mapping(hl_lhs, ll_lhs)
-            astree.add_expr_reachingdefs(ll_rhs, [memrdefs[i]])
-            astree.add_lval_defuses(hl_lhs, reguses[i])
-            astree.add_lval_defuses_high(hl_lhs, reguseshigh[i])
+            else:
+                hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+                hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+                hl_assign = astree.mk_assign(
+                    hl_lhs,
+                    hl_rhs,
+                    iaddr=iaddr,
+                    bytestring=bytestring,
+                    annotations=annotations)
+                hl_instrs.append(hl_assign)
+
+                astree.add_instr_mapping(hl_assign, ll_assign)
+                astree.add_instr_address(hl_assign, [iaddr])
+                astree.add_expr_mapping(hl_rhs, ll_rhs)
+                astree.add_lval_mapping(hl_lhs, ll_lhs)
+                astree.add_expr_reachingdefs(ll_rhs, [memrdefs[i]])
+                astree.add_lval_defuses(hl_lhs, reguses[i])
+                astree.add_lval_defuses_high(hl_lhs, reguseshigh[i])
 
             sp_offset += 4
 
