@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -60,6 +60,18 @@ class VarDefUse(FnVarInvDictionaryRecord):
     @property
     def symbols(self) -> Sequence[XSymbol]:
         return [self.xd.symbol(i) for i in self.args[1:]]
+
+    @property
+    def locations(self) -> Sequence[str]:
+        return [x.name for x in self.symbols]
+
+    @property
+    def valid_locations(self) -> Sequence[str]:
+        return [x.name for x in self.symbols if "clobber" not in x.attrs]
+
+    @property
+    def clobber_locations(self) -> Sequence[str]:
+        return [x.name for x in self.symbols if "clobber" in x.attrs]
 
     def __str__(self) -> str:
         return (

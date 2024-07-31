@@ -114,6 +114,16 @@ class PatchWrapper:
 
         return self._d.get("vahex", "0x0")
 
+    def in_wrapper(self, addr: str) -> bool:
+        """Returns true if addr is contained within the wrapper."""
+
+        if addr.startswith("0x"):
+            intva = int(self.vahex, 16)
+            intaddr = int(addr, 16)
+            return intva <= intaddr and intaddr < intva + self.inserted
+        else:
+            return False
+
     def __str__(self) -> str:
         return (
             "Wrapper("
@@ -346,6 +356,12 @@ class PatchEvent:
     @property
     def wrapper(self) -> PatchWrapper:
         return self.details.wrapper
+
+    def in_wrapper(self, addr: str) -> bool:
+        if self.has_wrapper():
+            return self.wrapper.in_wrapper(addr)
+        else:
+            return False
 
     def has_payload(self) -> bool:
         return self.details.has_payload()

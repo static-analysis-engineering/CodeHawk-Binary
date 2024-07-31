@@ -380,7 +380,7 @@ class ARMInstruction(Instruction):
         for rdef in self.xdata.reachingdefs:
             if rdef is not None:
                 rdefvar = str(rdef.vardefuse.variable)
-                rdeflocs = [str(s) for s in rdef.vardefuse.symbols]
+                rdeflocs = [str(s) for s in rdef.valid_deflocations]
                 result.setdefault(rdefvar, {})
                 for sx in rdeflocs:
                     result[rdefvar].setdefault(sx, [])

@@ -178,27 +178,47 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
             mapped_instrs = (
                 self.provenance.get_instructions_mapped(instr.instrid))
             for (i, mapped_instr) in enumerate(mapped_instrs):
-                mapped_instr = cast(AST.ASTCall, mapped_instr)
-                if i > 0:
-                    self.ccode.newline(indent=self.indent)
-                self.ccode.write(" " * (60 - self.ccode.pos))
-                self.ccode.write("// ")
-                if self.provenance.has_instruction_address(instr.instrid):
-                    address = ", ".join(
-                        self.provenance.get_instruction_address(instr.instrid))
-                    self.ccode.write(address)
-                    self.ccode.write("  ")
-                if mapped_instr.lhs is not None:
+                if mapped_instr.is_ast_call:
+                    mapped_instr = cast(AST.ASTCall, mapped_instr)
+                    if i > 0:
+                        self.ccode.newline(indent=self.indent)
+                    self.ccode.write(" " * (60 - self.ccode.pos))
+                    self.ccode.write("// ")
+                    if self.provenance.has_instruction_address(instr.instrid):
+                        address = ", ".join(
+                            self.provenance.get_instruction_address(
+                                instr.instrid))
+                        self.ccode.write(address)
+                        self.ccode.write("  ")
+                    if mapped_instr.lhs is not None:
+                        mapped_instr.lhs.accept(self)
+                        self.ccode.write(" = ")
+                    mapped_instr.tgt.accept(self)
+                    self.ccode.write("(")
+                    if len(mapped_instr.arguments) > 0:
+                        for llarg in mapped_instr.arguments[:-1]:
+                            llarg.accept(self)
+                            self.ccode.write(", ")
+                        mapped_instr.arguments[-1].accept(self)
+                    self.ccode.write(");")
+                elif mapped_instr.is_ast_assign:
+                    mapped_instr = cast(AST.ASTAssign, mapped_instr)
+                    if i > 0:
+                        self.ccode.newline(indent=self.indent)
+                    self.ccode.write(" " * (60 - self.ccode.pos))
+                    self.ccode.write("// ")
+                    if self.provenance.has_instruction_address(instr.instrid):
+                        address = ", ".join(
+                            self.provenance.get_instruction_address(
+                                instr.instrid))
+                        self.ccode.write(address)
+                        self.ccode.write("  ")
                     mapped_instr.lhs.accept(self)
                     self.ccode.write(" = ")
-                mapped_instr.tgt.accept(self)
-                self.ccode.write("(")
-                if len(mapped_instr.arguments) > 0:
-                    for llarg in mapped_instr.arguments[:-1]:
-                        llarg.accept(self)
-                        self.ccode.write(", ")
-                    mapped_instr.arguments[-1].accept(self)
-                self.ccode.write(");")
+                    mapped_instr.rhs.accept(self)
+                    self.ccode.write(");")
+
+
             for rdefstring in self.instr_reachingdefs:
                 self.ccode.newline(indent=self.indent + 5)
                 self.ccode.write("  // " + rdefstring)

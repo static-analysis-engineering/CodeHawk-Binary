@@ -75,6 +75,7 @@ if TYPE_CHECKING:
     from chb.bctypes.BCFunctionDefinition import BCFunctionDefinition
     from chb.bctypes.BCTyp import BCTyp, BCTypFun, BCTypComp, BCTypArray, BCTypPtr
     from chb.bctypes.BCVarInfo import BCVarInfo
+    from chb.cmdline.PatchResults import PatchEvent
     from chb.invariants.VarInvariantFact import (
         DefUse,
         DefUseHigh,
@@ -97,6 +98,7 @@ class ASTInterface:
             rdeflocs: Dict[str, List[List[str]]] = {},
             varintros: Dict[str, str] = {},
             stackvarintros: Dict[int, str] = {},
+            patchevents: Dict[str, "PatchEvent"] = {},
             verbose: bool = False) -> None:
         self._astree = astree
         self._srcprototype = srcprototype
@@ -105,6 +107,7 @@ class ASTInterface:
         self._rdeflocs = rdeflocs
         self._varintros = varintros
         self._stackvarintros = stackvarintros
+        self._patchevents = patchevents
         self._typconverter = typconverter
         self._verbose = verbose
         self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
@@ -154,6 +157,16 @@ class ASTInterface:
     @property
     def stackvarintros(self) -> Dict[int, str]:
         return self._stackvarintros
+
+    @property
+    def patchevents(self) -> Dict[str, "PatchEvent"]:
+        return self._patchevents
+
+    def is_in_wrapper(self, addr: str) -> bool:
+        for p in self. patchevents.values():
+            if p.in_wrapper(addr):
+                return True
+        return False
 
     @property
     def ignoredlhs(self) -> AST.ASTLval:
@@ -332,6 +345,15 @@ class ASTInterface:
             self,
             lval: AST.ASTLval,
             uses: Optional["DefUseHigh"]) -> None:
+
+        if uses is not None:
+            uselocs = [str(x) for x in uses.uselocations]
+            if len(uselocs) == 1 and self.is_in_wrapper(uselocs[0]):
+                chklogger.logger.info(
+                    "Filter out use-high location %s in wrapper for %s",
+                    str(uselocs[0]), str(lval))
+                return
+
         self.astiprovenance.add_lval_defuses_high(lval, uses)
 
     def add_lval_store(self, lval: AST.ASTLval) -> None:
@@ -952,7 +974,7 @@ class ASTInterface:
                                 vtype = self.astree.mk_int_sized_array_type(
                                     tgttyp, arraysize)
                             else:
-                                chklogger.logger.warning(
+                                chklogger.logger.info(
                                     "Array size for stack variable at offset "
                                     + "%s does not fit in stack frame; "
                                     + "adjusting stack buffer to size %d",

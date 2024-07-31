@@ -94,6 +94,15 @@ class ReachingDefFact(VarInvariantFact):
     def deflocations(self) -> Sequence[XSymbol]:
         return self.vardefuse.symbols
 
+    @property
+    def valid_deflocations(self) -> Sequence[str]:
+        """Returns the reaching def locs not originating from clobbered defs."""
+
+        return self.vardefuse.valid_locations
+
+    def has_clobbered_defs(self) -> bool:
+        return len(self.vardefuse.clobber_locations) > 0
+
     def __str__(self) -> str:
         return "RD: " + str(self.vardefuse)
 
