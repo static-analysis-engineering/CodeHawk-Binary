@@ -116,7 +116,7 @@ class ASTInterface:
             structsizes=self._typconverter.structsizes)
         self._parameter_abi = parameter_abi
         self._srcformals: List[ASTIFormalVarInfo] = []
-        self._ssa_counter: int = 0
+        self._ssa_prefix_counters: Dict[str, int] = {"ssa": 0}
         self._ssa_intros: Dict[str, Dict[str, AST.ASTVarInfo]] = {}
         self._ssa_values: Dict[str, AST.ASTExpr] = {}
         self._stack_varinfos: Dict[int, AST.ASTVarInfo] = {}
@@ -922,7 +922,8 @@ class ASTInterface:
     def introduce_ssa_variables(
             self,
             rdeflocs: Dict[str, List[List[str]]],
-            ftypes: Dict[str, Dict[str, "BCTyp"]]) -> None:
+            ftypes: Dict[str, Dict[str, "BCTyp"]],
+            ssanames: Dict[str, str] = {}) -> None:
         """Creates ssa variables based on reaching definition locations.
 
         Lists with multiple locations will give rise to a single variable
@@ -939,7 +940,8 @@ class ASTInterface:
                         if reg in ftypes[loc1]:
                             vbctype = ftypes[loc1][reg]
                             vtype = vbctype.convert(self.typconverter)
-                    vinfo = self.mk_ssa_register_varinfo(reg, loc1, vtype=vtype)
+                    vinfo = self.mk_ssa_register_varinfo(
+                        reg, loc1, vtype=vtype, prefix=ssanames.get(loc1))
                     for loc in lst:
                         self._ssa_intros.setdefault(loc, {})
                         self._ssa_intros[loc][reg] = vinfo
@@ -988,7 +990,8 @@ class ASTInterface:
             self,
             name: str,
             iaddr: str,
-            vtype: Optional[AST.ASTTyp] = None) -> AST.ASTVarInfo:
+            vtype: Optional[AST.ASTTyp] = None,
+            prefix: Optional[str] = None) -> AST.ASTVarInfo:
         if iaddr in self.ssa_intros and name in self.ssa_intros[iaddr]:
             vinfo = self.ssa_intros[iaddr][name]
             if vtype is not None and vinfo.vtype is None:
@@ -998,9 +1001,14 @@ class ASTInterface:
         # create a new ssa variable
         if iaddr in self.varintros:
             vname = self.varintros[iaddr]
+        elif prefix is not None:
+            self._ssa_prefix_counters.setdefault(prefix, 0)
+            ssaid = self._ssa_prefix_counters[prefix]
+            self._ssa_prefix_counters[prefix] += 1
+            vname = prefix + "__" + str(ssaid)
         else:
-            ssaid = self._ssa_counter
-            self._ssa_counter += 1
+            ssaid = self._ssa_prefix_counters["ssa"]
+            self._ssa_prefix_counters["ssa"] += 1
             vname = "ssa_" + name + "_" + str(ssaid)
         varinfo = self.add_symbol(vname, vtype=vtype)
         self._ssa_intros.setdefault(iaddr, {})

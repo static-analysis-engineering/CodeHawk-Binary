@@ -400,6 +400,10 @@ class Function(ABC):
         return None
 
     @property
+    def lhs_names(self) -> Dict[str, str]:
+        return self.finfo.lhs_names
+
+    @property
     def stack_variable_types(self) -> Dict[int, "BCTyp"]:
         """Return a mapping from stack offset to stack variable type.
 

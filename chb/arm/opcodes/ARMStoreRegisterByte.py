@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -73,8 +73,9 @@ class ARMStoreRegisterByte(ARMOpcode):
     rdefs[1]: rm
     rdefs[2]: rt
     uses[0]: lhs
+    uses[1]: vrn (base register, only if writeback)
     useshigh[0]: lhs
-
+    useshigh[1]: vrn (base register, only if writeback)
     """
 
     def __init__(
@@ -134,6 +135,8 @@ class ARMStoreRegisterByte(ARMOpcode):
 
         annotations: List[str] = [iaddr, "STRB"]
 
+        # low-level assignment
+
         (ll_rhs, _, _) = self.opargs[0].ast_rvalue(astree)
         (ll_lhs, ll_preinstrs, ll_postinstrs) = self.opargs[3].ast_lvalue(astree)
         ll_assign = astree.mk_assign(
@@ -143,70 +146,18 @@ class ARMStoreRegisterByte(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        # high-level assignment
+
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
+        memaddr = xdata.xprs[4]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_preinstrs: List[AST.ASTInstruction] = []
-        hl_postinstrs: List[AST.ASTInstruction] = []
-
-        rhsexprs = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-
-        if len(rhsexprs) == 0:
-            raise UF.CHBError("No rhs for StoreRegisterByte (STRB) at " + iaddr)
-
-        if len(rhsexprs) > 1:
-            raise UF.CHBError(
-                "Multiple rhs values for StoreRegisterByte (STRB) at "
-                + iaddr
-                + ": "
-                + ", ".join(str(x) for x in rhsexprs))
-
-        hl_rhs = rhsexprs[0]
-
-        lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lvals) == 0:
-            raise UF.CHBError(
-                "No lhs value for StoreRegisterByte (STRB) at " + iaddr)
-
-        if len(lvals) > 1:
-            raise UF.CHBError(
-                "Multiple lhs values for StoreRegisterByte (STRB) at "
-                + iaddr
-                + ": "
-                + ", ".join(str(x) for x in lvals))
-
-        hl_lhs = lvals[0]
-
-        if lhs.is_tmp or lhs.has_unknown_memory_base():
-            hl_mem_lhs = None
-            address = xdata.xprs[4]
-            astaddrs = XU.xxpr_to_ast_def_exprs(address, xdata, iaddr, astree)
-            if len(astaddrs) == 1:
-                astaddr = astaddrs[0]
-                if astaddr.is_ast_addressof:
-                    hl_mem_lhs = cast(AST.ASTAddressOf, astaddr).lval
-                else:
-                    astaddrtype = astaddr.ctype(astree.ctyper)
-                    if astaddrtype is not None:
-                        if astaddrtype.is_pointer:
-                            astaddrtype = cast(AST.ASTTypPtr, astaddrtype)
-                            astaddrtgttype = astaddrtype.tgttyp
-                            if astree.type_size_in_bytes(astaddrtgttype) == 1:
-                                if astaddr.is_ast_binary_op:
-                                    (base, offsets) = astree.split_address_int_offset(astaddr)
-                                    if base.is_ast_lval_expr:
-                                        base = cast(AST.ASTLvalExpr, base)
-                                        newoffset = astree.add_index_list_offset(
-                                            base.lval.offset, offsets)
-                                        hl_mem_lhs = astree.mk_lval(base.lval.lhost, newoffset)
-            if hl_mem_lhs is None:
-                hl_lhs = XU.xmemory_dereference_lval(xdata.xprs[4], xdata, iaddr, astree)
-            else:
-                hl_lhs = hl_mem_lhs
-            astree.add_lval_store(hl_lhs)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+        hl_lhs = XU.xvariable_to_ast_lval(
+            lhs, xdata, iaddr, astree, memaddr=memaddr)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -214,6 +165,11 @@ class ARMStoreRegisterByte(ARMOpcode):
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
+
+        # to highlight missing info, expose in the lifting store instructions
+        # that are unresolved
+        if lhs.is_tmp:
+            astree.add_expose_instruction(hl_assign.instrid)
 
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])

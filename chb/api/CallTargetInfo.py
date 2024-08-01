@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 """Information associated with a call target (target interface, semantics)."""
 
-from typing import cast, List, TYPE_CHECKING
+from typing import cast, List, Optional, TYPE_CHECKING
 
 from chb.api.InterfaceDictionaryRecord import (
     InterfaceDictionaryRecord, apiregistry)
@@ -50,10 +50,12 @@ class CallTargetInfo:
             self,
             calltarget: "CallTarget",
             targetinterface: "AppFunctionInterface",
-            targetsemantics: "AppFunctionSemantics") -> None:
+            targetsemantics: "AppFunctionSemantics",
+            lhsname: Optional[str] = None) -> None:
         self._tgt = calltarget
         self._fintf = targetinterface
         self._fsem = targetsemantics
+        self._lhsname = lhsname
 
     @property
     def calltarget(self) -> "CallTarget":
@@ -66,6 +68,10 @@ class CallTargetInfo:
     @property
     def target_semantics(self) -> "AppFunctionSemantics":
         return self._fsem
+
+    @property
+    def lhsname(self) -> Optional[str]:
+        return self._lhsname
 
     def __str__(self) -> str:
         lines: List[str] = []

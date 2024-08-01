@@ -884,11 +884,7 @@ def xmemory_dereference_lval(
                 lvalhost = xlval.lval.lhost
                 return astree.mk_lval(lvalhost, astoffset)
 
-    chklogger.logger.error(
-        "AST creation of memory dereference for address %s (%s) at address %s "
-        + "not yet supported",
-        str(address), str(xaddr), iaddr)
-    return astree.mk_temp_lval()
+    return astree.mk_memref_lval(xaddr)
 
 
 def xmemory_dereference_to_ast_def_expr(
