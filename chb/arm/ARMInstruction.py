@@ -310,13 +310,8 @@ class ARMInstruction(Instruction):
             indexop = jumptable.index_operand
             condition = self.xdata.xprs[1]
             (ll_cond, _, _) = indexop.ast_rvalue(astree)
-            hl_conds = XU.xxpr_to_ast_def_exprs(
+            hl_cond = XU.xxpr_to_ast_def_expr(
                 condition, self.xdata, self.iaddr, astree)
-            if len(hl_conds) != 1:
-                chklogger.logger.warning(
-                    "Error in converting switch condition at %s", self.iaddr)
-                return (None, ll_cond)
-            hl_cond = hl_conds[0]
 
             astree.add_expr_mapping(hl_cond, ll_cond)
             astree.add_expr_reachingdefs(hl_cond, self.xdata.reachingdefs)

@@ -216,9 +216,6 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     varintros = userhints.variable_introductions()
     stackvarintros = userhints.stack_variable_introductions()
 
-    if len(varintros) == 0:
-        varintros = app.systeminfo.varintros
-
     # library_targets = library_call_targets(app, functions)
 
     globalsymboltable = astapi.globalsymboltable
@@ -321,7 +318,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             # Introduce ssa variables for all reaching definitions referenced in
             # xdata records for all instructions in the function. Locations that
             # have a common user are merged. Types are provided by lhs_types.
-            astinterface.introduce_ssa_variables(f.rdef_locations(), f.lhs_types())
+            astinterface.introduce_ssa_variables(
+                f.rdef_locations(), f.lhs_types(), f.lhs_names)
 
             # Introduce stack variables for all stack buffers with types
             astinterface.introduce_stack_variables(

@@ -239,6 +239,8 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
                         ("Type of global address %s at instr.address %s "
                          + "not known"),
                         str(xxsrc), iaddr)
+                    hl_src_arg = astree.mk_address_of(
+                        astree.mk_vinfo_lval(vinfo))
             else:
                 chklogger.logger.error(
                     "Unknown global address %s as call argument at %s",
