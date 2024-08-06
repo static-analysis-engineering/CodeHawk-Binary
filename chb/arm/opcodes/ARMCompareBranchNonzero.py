@@ -106,7 +106,7 @@ class ARMCompareBranchZero(ARMOpcode):
 
         annotations: List[str] = [iaddr, "CBNZ"]
 
-        rdefs = xdata.reachingdefs
+        # low-level condition
 
         (ll_op, _, _) = self.opargs[0].ast_rvalue(astree)
         zero = astree.mk_integer_constant(0)
@@ -115,6 +115,10 @@ class ARMCompareBranchZero(ARMOpcode):
         else:
             ll_cond = astree.mk_binary_op("ne", ll_op, zero)
 
+        # high-level condition
+
+        rdefs = xdata.reachingdefs
+
         ftconds = self.ft_conditions(xdata)
         if len(ftconds) == 2:
             if reverse:
@@ -122,22 +126,7 @@ class ARMCompareBranchZero(ARMOpcode):
             else:
                 condition = ftconds[1]
 
-            astconds = XU.xxpr_to_ast_def_exprs(condition, xdata, iaddr, astree)
-            if len(astconds) == 0:
-                chklogger.logger.error(
-                    "CompareBranchNonZero (CBNZ) at address %s: no rhs values "
-                    + "found; returning zero", iaddr)
-                return (zero, zero)
-
-            if len(astconds) > 1:
-                chklogger.logger.error(
-                    "CompareBranchNonZero (CBNZ) at address %s: mutliple rhs "
-                    + " values found at address %s: %s; returning zero",
-                    iaddr,
-                    ", ".join(str(v) for v in astconds))
-                return (zero, zero)
-
-            hl_cond = astconds[0]
+            hl_cond = XU.xxpr_to_ast_def_expr(condition, xdata, iaddr, astree)
 
             astree.add_expr_mapping(hl_cond, ll_cond)
             astree.add_expr_reachingdefs(hl_cond, rdefs)
@@ -151,4 +140,4 @@ class ARMCompareBranchZero(ARMOpcode):
                 "CompareBranchNonZero (CBNZ) at address %s: no condition "
                 + "found; returning zero",
                 iaddr)
-            return (zero, zero)
+            return (astree.mk_temp_lval_expression(), ll_cond)

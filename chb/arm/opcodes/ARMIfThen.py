@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -99,26 +99,6 @@ class ARMIfThen(ARMOpcode):
 
         reachingdefs = xdata.reachingdefs
 
-        def default(condition: XXpr) -> AST.ASTExpr:
-            astconds = XU.xxpr_to_ast_exprs(condition, xdata, iaddr, astree)
-            if len(astconds) == 0:
-                raise UF.CHBError(
-                    "IfThen (IT): no ast value for condition at "
-                    + iaddr
-                    + " for "
-                    + str(condition))
-
-            if len(astconds) > 1:
-                raise UF.CHBError(
-                    "IfThen (IT): multiple ast values for condition at "
-                    + iaddr
-                    + ": "
-                    + ", ".join(str(c) for c in astconds)
-                    + " for  condition "
-                    + str(condition))
-
-            return astconds[0]
-
         ftconds = self.ft_conditions(xdata)
         if len(ftconds) == 2:
             if reverse:
@@ -126,7 +106,7 @@ class ARMIfThen(ARMOpcode):
             else:
                 condition = ftconds[1]
 
-        hl_astcond = default(condition)
+        hl_astcond = XU.xxpr_to_ast_def_expr(condition, xdata, iaddr, astree)
         ll_astcond = self.ast_cc_expr(astree)
 
         astree.add_expr_mapping(hl_astcond, ll_astcond)

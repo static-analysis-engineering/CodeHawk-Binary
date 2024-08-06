@@ -171,18 +171,13 @@ class ARMLoadRegister(ARMOpcode):
 
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
+        xaddr = xdata.xprs[4]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-
-        if rhs.is_tmp_variable or rhs.has_unknown_memory_base():
-            xaddr = xdata.xprs[4]
-            hl_rhs = XU.xmemory_dereference_to_ast_def_expr(
-                xaddr, xdata, iaddr, astree)
-        else:
-            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhs)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree, memaddr=xaddr)
 
         hl_assign = astree.mk_assign(
             hl_lhs,

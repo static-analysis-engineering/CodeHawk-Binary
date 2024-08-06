@@ -83,8 +83,16 @@ class XVariable(FnXprDictionaryRecord):
         return (self.seqnr == -1)
 
     @property
+    def is_constant_value_variable(self) -> bool:
+        return self.has_denotation() and self.denotation.is_auxiliary_variable
+
+    @property
     def is_register_variable(self) -> bool:
         return self.has_denotation() and self.denotation.is_register_variable
+
+    @property
+    def is_local_stack_variable(self) -> bool:
+        return self.has_denotation() and self.denotation.is_local_stack_variable
 
     @property
     def is_bridge_variable(self) -> bool:

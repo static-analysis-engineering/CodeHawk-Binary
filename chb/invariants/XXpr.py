@@ -134,6 +134,10 @@ class XXpr(FnXprDictionaryRecord):
         return False
 
     @property
+    def is_constant_value_variable(self) -> bool:
+        return False
+
+    @property
     def is_int_constant(self) -> bool:
         return False
 
@@ -319,6 +323,10 @@ class XprVariable(XXpr):
     @property
     def variable(self) -> XVariable:
         return self.xd.variable(self.args[0])
+
+    @property
+    def is_constant_value_variable(self) -> bool:
+        return self.variable.is_constant_value_variable
 
     @property
     def is_register_variable(self) -> bool:
