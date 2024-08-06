@@ -184,6 +184,10 @@ class BCTyp(BCDictionaryRecord):
         return False
 
     @property
+    def is_typedef(self) -> bool:
+        return False
+
+    @property
     def is_unknown(self) -> bool:
         return False
 
@@ -550,6 +554,10 @@ class BCTypNamed(BCTyp):
     @property
     def typedef(self) -> "BCTypeInfo":
         return self.bcd.typeinfo_by_name(self.tname)
+
+    @property
+    def is_typedef(self) -> bool:
+        return True
 
     @property
     def is_scalar(self) -> bool:

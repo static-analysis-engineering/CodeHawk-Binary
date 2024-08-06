@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Contains all global types in a CIL file."""
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
 
 import xml.etree.ElementTree as ET
 
@@ -34,7 +34,7 @@ from chb.bctypes.BCCompInfo import BCCompInfo
 from chb.bctypes.BCDictionary import BCDictionary
 from chb.bctypes.BCEnumInfo import BCEnumInfo
 from chb.bctypes.BCFunctionDefinition import BCFunctionDefinition
-from chb.bctypes.BCTyp import BCTyp
+from chb.bctypes.BCTyp import BCTyp, BCTypComp
 from chb.bctypes.BCTypeInfo import BCTypeInfo
 from chb.bctypes.BCVarInfo import BCVarInfo
 
@@ -76,6 +76,15 @@ class BCFiles:
     @property
     def genumtags(self) -> List[BCEnumInfo]:
         return self._genumtags
+
+    @property
+    def fsum_compinfos(self) -> List[BCCompInfo]:
+        result: List[BCCompInfo] = []
+        for typ in self.gtypes:
+            if typ.is_struct:
+                compinfo = cast("BCTypComp", typ).compinfo
+                result.append(compinfo)
+        return result
 
     @property
     def gvardecls(self) -> List[BCVarInfo]:
