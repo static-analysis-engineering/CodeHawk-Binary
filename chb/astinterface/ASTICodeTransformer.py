@@ -80,6 +80,10 @@ class ASTICodeTransformer(ASTIdentityTransformer):
         for instr in stmt.instructions:
             if instr.is_ast_assign:
                 instr = cast(AST.ASTAssign, instr)
+                if self.astinterface.has_ssa_value(str(instr.lhs)):
+                    chklogger.logger.info(
+                        "Remove [%s]: has ssa value", str(instr))
+                    continue
                 if self.provenance.has_active_lval_defuse_high(instr.lhs.lvalid):
                     chklogger.logger.debug(
                         "Transform [%s]: active lval_defuse_high: %s",
@@ -93,6 +97,10 @@ class ASTICodeTransformer(ASTIdentityTransformer):
                 elif self.provenance.has_expose_instruction(instr.instrid):
                     chklogger.logger.info(
                         "Transform [%s]: expose instruction", str(instr))
+                    instrs.append(instr)
+                elif instr.lhs.lhost.is_global:
+                    chklogger.logger.debug(
+                        "Transfor [%s]: global lhs", str(instr))
                     instrs.append(instr)
                 else:
                     chklogger.logger.debug("Transform [%s]: remove", str(instr))
