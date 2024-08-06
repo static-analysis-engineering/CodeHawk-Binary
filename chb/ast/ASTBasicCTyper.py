@@ -166,7 +166,13 @@ class ASTBasicCTyper(ASTCTyper):
 
     def ctype_binary_expression(
             self, expr: AST.ASTBinaryOp) -> Optional[AST.ASTTyp]:
-        return expr.exp1.ctype(self)
+        exp1type = expr.exp1.ctype(self)
+        exp2type = expr.exp2.ctype(self)
+        if exp1type == exp2type:
+            return exp1type
+
+        # Perhaps we should attempt integer promotion here
+        return None
 
     def ctype_question_expression(
             self, expr: AST.ASTQuestion) -> Optional[AST.ASTTyp]:

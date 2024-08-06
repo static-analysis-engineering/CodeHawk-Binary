@@ -228,6 +228,11 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             fname = app.function_name(faddr)
             fnames[fname] = faddr
 
+    # These are compinfos that may be used in function summaries, and possibly
+    # in casts.
+    for cinfo in app.bcfiles.fsum_compinfos:
+        typconverter.add_compinfo_reference(cinfo)
+
     for vinfo in app.bcfiles.globalvars:
         vname = vinfo.vname
 

@@ -152,6 +152,16 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
         return self._compinfos
 
     @property
+    def declared_compinfos(self) -> List[AST.ASTCompInfo]:
+        """Return a sorted list of compinfos to be printed in the lifting.
+
+        This is an attempt to list compinfos in order of reference in the
+        lifting, but this may fail in case of recursive structs, which
+        would require a vacuous declaration up front.
+        """
+        return sorted(self.compinfos.values(), key=lambda c:c.compkey)
+
+    @property
     def enuminfos(self) -> Mapping[str, AST.ASTEnumInfo]:
         return self._enuminfos
 

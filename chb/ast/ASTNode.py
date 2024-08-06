@@ -1249,6 +1249,10 @@ class ASTVarInfo(ASTNode):
         return self._globaladdress
 
     @property
+    def is_global(self) -> bool:
+        return self.globaladdress is not None
+
+    @property
     def vdescr(self) -> Optional[str]:
         return self._vdescr
 
@@ -1289,6 +1293,10 @@ class ASTVariable(ASTLHost):
     @property
     def varinfo(self) -> "ASTVarInfo":
         return self._vinfo
+
+    @property
+    def is_global(self) -> bool:
+        return self.varinfo.is_global
 
     @property
     def vname(self) -> str:
