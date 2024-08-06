@@ -205,8 +205,6 @@ class ARMBranch(ARMCallOpcode):
             reverse: bool) -> Tuple[
                 Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
 
-        annotations: List[str] = [iaddr, "B"]
-
         reachingdefs = xdata.reachingdefs
 
         def default(condition: XXpr) -> AST.ASTExpr:
@@ -232,16 +230,17 @@ class ARMBranch(ARMCallOpcode):
         ftconds_basic = self.ft_conditions(xdata)
         ftconds = self.ft_conditions(xdata)
 
+        ll_astcond = self.ast_cc_expr(astree)
+
         if len(ftconds_basic) == 2:
             if reverse:
                 condition = ftconds_basic[0]
             else:
                 condition = ftconds_basic[1]
 
-            ll_astcond = self.ast_cc_expr(astree)
-
             csetter = xdata.tags[2]
-            hl_astcond = XU.xxpr_to_ast_def_expr(condition, xdata, csetter, astree)
+            hl_astcond = XU.xxpr_to_ast_def_expr(
+                condition, xdata, csetter, astree)
 
             astree.add_expr_mapping(hl_astcond, ll_astcond)
             astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
@@ -254,7 +253,8 @@ class ARMBranch(ARMCallOpcode):
         elif len(ftconds) == 0:
             chklogger.logger.error(
                 "No branch condition found at address %s", iaddr)
-            return (astree.mk_integer_constant(0), astree.mk_integer_constant(0))
+            hl_astcond = astree.mk_temp_lval_expression()
+            return (hl_astcond, ll_astcond)
 
         else:
             raise UF.CHBError(

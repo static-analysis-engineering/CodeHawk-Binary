@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Tuple, TYPE_CHECKING
+from typing import cast, List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -76,6 +76,8 @@ class ARMAdd(ARMOpcode):
     xprs[1]: rhs2 (Rm)
     xprs[2]: rhs1 + rhs2
     xprs[3]: rhs1 + rhs2 (simplified)
+    xprs[4]: rhs1 (simplified)
+    xprs[5]: rhs2 (simplified)
     rdefs[0]: rhs1
     rdefs[1]: rhs2
     rdefs[2:..]: reaching definitions for simplified result expression
@@ -183,6 +185,8 @@ class ARMAdd(ARMOpcode):
         rhs1 = xdata.xprs[0]
         rhs2 = xdata.xprs[1]
         rhs3 = xdata.xprs[3]
+        rrhs1 = xdata.xprs[4]
+        rrhs2 = xdata.xprs[5]
 
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -202,8 +206,95 @@ class ARMAdd(ARMOpcode):
             chklogger.logger.info(
                 "Add (ADD) instruction at address %s sets PC", iaddr)
 
+        hl_lhs_type = hl_lhs.ctype(astree.ctyper)
+
+        def array_index_expression() -> Optional[AST.ASTExpr]:
+            hl_rhs1 = XU.xxpr_to_ast_def_expr(rrhs1, xdata, iaddr, astree)
+            hl_rhs2 = XU.xxpr_to_ast_def_expr(rrhs2, xdata, iaddr, astree)
+            hl_rhs1_type = hl_rhs1.ctype(astree.ctyper)
+            hl_rhs2_type = hl_rhs2.ctype(astree.ctyper)
+
+            if hl_rhs1_type is None or hl_rhs2_type is None:
+                return None
+
+            if hl_rhs1_type.is_array and hl_rhs2_type.is_integer:
+                elttype = cast(AST.ASTTypArray, hl_rhs1_type).tgttyp
+                eltsize = astree.type_size_in_bytes(elttype)
+                if eltsize is None:
+                    chklogger.logger.info(
+                        "Unable to determine size of array element %s at %s",
+                        str(hl_rhs1), iaddr)
+                    return None
+                if eltsize > 1:
+                    asteltsize = astree.mk_integer_constant(eltsize)
+                    index = astree.mk_binary_op("div", hl_rhs2, asteltsize)
+                    indexoffset = astree.mk_expr_index_offset(index)
+                    if hl_rhs1.is_ast_lval_expr:
+                        hl_rhs1 = cast(AST.ASTLvalExpr, hl_rhs1)
+                        lvalhost = hl_rhs1.lval.lhost
+                        lval = astree.mk_lval(lvalhost, indexoffset)
+                        annotations.append("scaled by " + str(asteltsize))
+                        return astree.mk_address_of(lval)
+
+                return None
+            else:
+                return None
+
+        def pointer_arithmetic_expr() -> AST.ASTExpr:
+            hl_rhs1 = XU.xxpr_to_ast_def_expr(rrhs1, xdata, iaddr, astree)
+            hl_rhs2 = XU.xxpr_to_ast_def_expr(rrhs2, xdata, iaddr, astree)
+            hl_rhs1_type = hl_rhs1.ctype(astree.ctyper)
+            hl_rhs2_type = hl_rhs2.ctype(astree.ctyper)
+
+            if hl_rhs1_type is None:
+                chklogger.logger.error(
+                    "Unable to lift pointer arithmetic without type for "
+                    + "%s at address %s",
+                    str(rhs3), iaddr)
+                return astree.mk_temp_lval_expression()
+
+            if hl_rhs1_type.is_pointer:
+                rhs1tgttyp = cast(AST.ASTTypPtr, hl_rhs1_type).tgttyp
+                tgttypsize = astree.type_size_in_bytes(rhs1tgttyp)
+                if tgttypsize is None:
+                    chklogger.logger.error(
+                        "Unable to lift pointer arithmetic without size for "
+                        + "%s at address %s",
+                        str(hl_rhs1_type), iaddr)
+                    return astree.mk_temp_lval_expression()
+
+                if tgttypsize == 1:
+                    return XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+
+                if hl_rhs2.is_integer_constant:
+                    addend = cast(AST.ASTIntegerConstant, hl_rhs2).cvalue
+                    addend = addend // tgttypsize
+                    astaddend: AST.ASTExpr = astree.mk_integer_constant(addend)
+                    annotations.append("scaled by " + str(tgttypsize))
+                    return astree.mk_binary_op("plus", hl_rhs1, astaddend)
+
+                scale = astree.mk_integer_constant(tgttypsize)
+                scaled = astree.mk_binary_op("div", hl_rhs2, scale)
+                return astree.mk_binary_op("plus", hl_rhs1, scaled)
+
+            if hl_rhs2_type is None:
+                chklogger.logger.error(
+                    "Unable to lift pointer arithmetic without type for "
+                    + "%s at address %s",
+                    str(rhs2), iaddr)
+                return astree.mk_temp_lval_expression()
+
+            chklogger.logger.error(
+                "Second operand pointer variable not yet supported for %s at "
+                + "address %s",
+                str(rhs3), iaddr)
+            return astree.mk_temp_lval_expression()
+
+
         # resulting expression is a stack address
-        if str(rhs1) == "SP" and rhs3.is_stack_address:
+        if (
+                (str(rrhs1) == "SP" or rrhs1.is_stack_address)
+                and rhs3.is_stack_address):
             annotations.append("stack address")
             rhs3 = cast("XprCompound", rhs3)
             stackoffset = rhs3.stack_address_offset()
@@ -211,7 +302,7 @@ class ARMAdd(ARMOpcode):
             hl_rhs: AST.ASTExpr = astree.mk_address_of(rhslval)
 
         # resulting expression is a pc-relative address
-        elif str(rhs1) == "PC" or str(rhs2) == "PC":
+        elif str(rrhs1) == "PC" or str(rhs2) == "PC":
             annotations.append("PC-relative")
             if rhs3.is_int_constant:
                 rhsexpr = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
@@ -224,6 +315,16 @@ class ARMAdd(ARMOpcode):
                 else:
                     hl_rhs = astree.mk_global_address_constant(
                         rhsval, rhsexpr)
+            else:
+                hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+
+        elif hl_lhs_type is not None and hl_lhs_type.is_pointer:
+            hl_rhs = pointer_arithmetic_expr()
+
+        elif array_index_expression() is not None:
+            indexxpr = array_index_expression()
+            if indexxpr is not None:
+                hl_rhs = indexxpr
             else:
                 hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
 

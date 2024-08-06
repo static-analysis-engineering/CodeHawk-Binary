@@ -148,27 +148,27 @@ class ARMPop(ARMOpcode):
             reverse: bool
     ) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
 
+        ll_astcond = self.ast_cc_expr(astree)
+
         if xdata.has_instruction_condition():
             if reverse:
                 pcond = xdata.xprs[(2 * len(xdata.vars)) + 3]
             else:
                 pcond = xdata.xprs[(2 * len(xdata.vars)) + 2]
-            astconds = XU.xxpr_to_ast_exprs(pcond, xdata, iaddr, astree)
-            if len(astconds) == 1:
-                hl_astcond = astconds[0]
-            else:
-                hl_astcond = self.ast_cc_expr(astree)
+            hl_astcond = XU.xxpr_to_ast_def_expr(pcond, xdata, iaddr, astree)
+
+            astree.add_expr_mapping(hl_astcond, ll_astcond)
+            astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+            astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
+            astree.add_condition_address(ll_astcond, [iaddr])
+
+            return (hl_astcond, ll_astcond)
+
         else:
-            hl_astcond = self.ast_cc_expr(astree)
-
-        ll_astcond = self.ast_cc_expr(astree)
-
-        astree.add_expr_mapping(hl_astcond, ll_astcond)
-        astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
-        astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
-        astree.add_condition_address(ll_astcond, [iaddr])
-
-        return (hl_astcond, ll_astcond)
+            chklogger.logger.error(
+                "No condition found at address %s", iaddr)
+            hl_astcond = astree.mk_temp_lval_expression()
+            return (hl_astcond, ll_astcond)
 
     def ast_prov(
             self,

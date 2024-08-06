@@ -73,6 +73,10 @@ class VAssemblyVariable(FnVarDictionaryRecord):
         return False
 
     @property
+    def is_local_stack_variable(self) -> bool:
+        return False
+
+    @property
     def is_basevar_variable(self) -> bool:
         return False
 
