@@ -172,7 +172,7 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.newline()
         self.ccode.write("// Struct definitions")
         self.ccode.newline()
-        for cinfo in self.globalsymboltable.compinfos.values():
+        for cinfo in self.globalsymboltable.declared_compinfos:
             self.ccode.newline(indent=self.indent)
             cinfo.accept(self)
 
