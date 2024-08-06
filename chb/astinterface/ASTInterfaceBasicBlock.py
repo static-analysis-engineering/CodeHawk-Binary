@@ -200,7 +200,7 @@ class ASTInterfaceBasicBlock:
 
         Patterns currently recognized:
 
-        fallthrough / exit function (return):
+        case 1: fallthrough / exit function (return):
         <condition>
         MOVxx R0, #1
         BX    LR
@@ -214,10 +214,13 @@ class ASTInterfaceBasicBlock:
         """
         if not self.trampoline:
             raise UF.CHBError("Internal error")
+
         payloadblock = self.trampoline["payload"]
         payloadinstrs = sorted(payloadblock.instructions.items())
         (iaddr2, chkinstr2) = payloadinstrs[-2]
         chkinstr2 = cast("ARMInstruction", chkinstr2)
+
+        # case 1
         if chkinstr2.mnemonic_stem == "MOV":
             if chkinstr2.has_instruction_condition():
                 condition = chkinstr2.get_instruction_condition()
@@ -246,6 +249,8 @@ class ASTInterfaceBasicBlock:
                     "trampoline payload cannot be lifted: "
                     + "expected to find conditional MOV instruction. "
                     + "Contact system maintainer for support.")
+
+        # case 2
         elif chkinstr2.mnemonic_stem == "LSL":
             (iaddr3, chkinstr3) = payloadinstrs[-3]
             chkinstr3 = cast("ARMInstruction", chkinstr3)
@@ -285,6 +290,7 @@ class ASTInterfaceBasicBlock:
 
     def trampoline_payload_sideeffect_ast(
             self, astree: "ASTInterface") -> AST.ASTStmt:
+
         cond = self.trampoline_ast_condition("payload-0", astree)
         # need to exclude last instruction of payload-1
         sideeffect = self.trampoline_block_ast("payload-1", astree, trim=1)

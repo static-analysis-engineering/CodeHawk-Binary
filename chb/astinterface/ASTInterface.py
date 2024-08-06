@@ -39,6 +39,7 @@ from typing import (
     NewType,
     Optional,
     Sequence,
+    Set,
     Tuple,
     TYPE_CHECKING,
     Union)
@@ -119,6 +120,7 @@ class ASTInterface:
         self._ssa_prefix_counters: Dict[str, int] = {"ssa": 0}
         self._ssa_intros: Dict[str, Dict[str, AST.ASTVarInfo]] = {}
         self._ssa_values: Dict[str, AST.ASTExpr] = {}
+        self._ssa_addresses: Dict[str, Set[str]] = {}
         self._stack_varinfos: Dict[int, AST.ASTVarInfo] = {}
         self._stack_variables: Dict[int, AST.ASTLval] = {}
         self._unsupported: Dict[str, List[str]] = {}
@@ -929,6 +931,9 @@ class ASTInterface:
         Lists with multiple locations will give rise to a single variable
         being created for all of those locations, as these all reach a
         particular use of the variable.
+
+        Record addresses associated with a given variable to avoid assigning
+        constants to variables that appear multiple times.
         """
 
         for (reg, locs) in rdeflocs.items():
@@ -942,9 +947,12 @@ class ASTInterface:
                             vtype = vbctype.convert(self.typconverter)
                     vinfo = self.mk_ssa_register_varinfo(
                         reg, loc1, vtype=vtype, prefix=ssanames.get(loc1))
+                    self._ssa_addresses.setdefault(vinfo.vname, set([]))
                     for loc in lst:
                         self._ssa_intros.setdefault(loc, {})
                         self._ssa_intros[loc][reg] = vinfo
+                        self._ssa_addresses[vinfo.vname].add(loc)
+
 
     def introduce_stack_variables(
             self,
@@ -991,7 +999,8 @@ class ASTInterface:
             name: str,
             iaddr: str,
             vtype: Optional[AST.ASTTyp] = None,
-            prefix: Optional[str] = None) -> AST.ASTVarInfo:
+            prefix: Optional[str] = None,
+            save_loc: bool = False) -> AST.ASTVarInfo:
         if iaddr in self.ssa_intros and name in self.ssa_intros[iaddr]:
             vinfo = self.ssa_intros[iaddr][name]
             if vtype is not None and vinfo.vtype is None:
@@ -1013,6 +1022,12 @@ class ASTInterface:
         varinfo = self.add_symbol(vname, vtype=vtype)
         self._ssa_intros.setdefault(iaddr, {})
         self._ssa_intros[iaddr][name] = varinfo
+        if save_loc:
+            self._ssa_addresses.setdefault(varinfo.vname, set([]))
+            self._ssa_addresses[varinfo.vname].add(iaddr)
+            chklogger.logger.info(
+                "On the fly addition of ssa variable %s for address %s",
+                varinfo.vname, iaddr)
         return varinfo
 
     def set_ssa_value(self, name: str, value: AST.ASTExpr) -> None:
@@ -1020,6 +1035,9 @@ class ASTInterface:
 
     def get_ssa_value(self, name: str) -> Optional[AST.ASTExpr]:
         return self.ssa_values.get(name, None)
+
+    def has_ssa_value(self, name: str) -> bool:
+        return name in self._ssa_values
 
     def mk_stack_variable_lval(
             self, offset: int, vtype: Optional[AST.ASTTyp]=None) -> AST.ASTLval:
@@ -1109,7 +1127,8 @@ class ASTInterface:
             name: str,
             iaddr: str,
             vtype: Optional[AST.ASTTyp] = None) -> AST.ASTVariable:
-        varinfo = self.mk_ssa_register_varinfo(name, iaddr, vtype=vtype)
+        varinfo = self.mk_ssa_register_varinfo(
+            name, iaddr, vtype=vtype, save_loc=True)
         return AST.ASTVariable(varinfo)
 
     def mk_ssa_register_variable_lval(
@@ -1118,10 +1137,18 @@ class ASTInterface:
             iaddr: str,
             vtype: Optional[AST.ASTTyp] = None,
             ssavalue: Optional[AST.ASTExpr] = None) -> AST.ASTLval:
-        vinfo = self.mk_ssa_register_varinfo(name, iaddr, vtype=vtype)
+        vinfo = self.mk_ssa_register_varinfo(
+            name, iaddr, vtype=vtype, save_loc=True)
         storage = self.astree.mk_register_storage(name)
         if ssavalue is not None:
-            self.set_ssa_value(vinfo.vname, ssavalue)
+            if len(self._ssa_addresses[vinfo.vname]) > 1:
+                chklogger.logger.info(
+                    "Unable to set ssa value for %s due to multiple variable "
+                    + "instances: {%s}",
+                    vinfo.vname,
+                    ", ".join(str(x) for x in self._ssa_addresses[vinfo.vname]))
+            else:
+                self.set_ssa_value(vinfo.vname, ssavalue)
         return self.astree.mk_vinfo_lval(vinfo, storage=storage)
 
     def mk_register_variable(
