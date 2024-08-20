@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -184,6 +184,10 @@ class ASTVisitor(ABC):
 
     @abstractmethod
     def visit_address_of_expression(self, expr: AST.ASTAddressOf) -> None:
+        ...
+
+    @abstractmethod
+    def visit_start_of_expression(self, expr: AST.ASTStartOf) -> None:
         ...
 
     @abstractmethod

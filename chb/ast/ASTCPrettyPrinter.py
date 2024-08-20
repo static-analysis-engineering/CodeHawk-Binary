@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -558,6 +558,9 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write("&(")
         addressof.lval.accept(self)
         self.ccode.write(")")
+
+    def visit_start_of_expression(self, startof: AST.ASTStartOf) -> None:
+        startof.lval.accept(self)
 
     def visit_void_typ(self, t: AST.ASTTypVoid) -> None:
         self.ccode.write("void")

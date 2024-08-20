@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -179,6 +179,10 @@ class ASTIndexer(ABC):
 
     @abstractmethod
     def index_address_of_expression(self, expr: AST.ASTAddressOf) -> int:
+        ...
+
+    @abstractmethod
+    def index_start_of_expression(self, expr: AST.ASTStartOf) -> int:
         ...
 
     @abstractmethod

@@ -1629,6 +1629,10 @@ class ASTExpr(ASTNode):
     def is_ast_addressof(self) -> bool:
         return False
 
+    @property
+    def is_ast_startof(self) -> bool:
+        return False
+
     @abstractmethod
     def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
         ...
@@ -2147,6 +2151,36 @@ class ASTAddressOf(ASTExpr):
 
     def __str__(self) -> str:
         return "&(" + str(self.lval) + ")"
+
+
+class ASTStartOf(ASTExpr):
+
+    def __init__(self, exprid: int, lval: "ASTLval") -> None:
+        ASTExpr.__init__(self, exprid, "start-of")
+        self._lval = lval
+
+    @property
+    def is_ast_startof(self) -> bool:
+        return True
+
+    @property
+    def lval(self) -> "ASTLval":
+        return self._lval
+
+    def accept(self, visitor: "ASTVisitor") -> None:
+        visitor.visit_start_of_expression(self)
+
+    def transform(self, transformer: "ASTTransformer") -> "ASTExpr":
+        return transformer.transform_start_of_expression(self)
+
+    def index(self, indexer: "ASTIndexer") -> int:
+        return indexer.index_start_of_expression(self)
+
+    def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
+        return ctyper.ctype_start_of_expression(self)
+
+    def __str__(self) -> str:
+        return str(self.lval)
 
 
 class ASTTyp(ASTNode):

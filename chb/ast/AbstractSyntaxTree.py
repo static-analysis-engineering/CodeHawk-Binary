@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -1117,7 +1117,9 @@ class AbstractSyntaxTree:
     - mk_question_expression: create an expression that applies the question
         operator to three expressions
     - mk_address_of_expression: create an expression that applies the address-of
-        operator an lval
+        operator to an lval
+    - mk_start_of_expression: create an expression that applies the start-of
+        operator to an lval (to be applied only to array types)
     - mk_cast_expression: create an expression that casts another expression to
         a given type
 
@@ -1197,6 +1199,13 @@ class AbstractSyntaxTree:
             optexprid: Optional[int] = None) -> AST.ASTAddressOf:
         exprid = self.get_exprid(optexprid)
         return AST.ASTAddressOf(exprid, lval)
+
+    def mk_start_of_expression(
+            self,
+            lval: AST.ASTLval,
+            optexprid: Optional[int] = None) -> AST.ASTStartOf:
+        exprid = self.get_exprid(optexprid)
+        return AST.ASTStartOf(exprid, lval)
 
     def _cast_if_needed(self, e: AST.ASTExpr, opunsigned: bool) -> AST.ASTExpr:
         # CIL encodes signedness in the shift operator but C infers

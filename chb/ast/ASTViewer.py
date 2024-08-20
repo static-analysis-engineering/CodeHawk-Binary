@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -378,6 +378,16 @@ class ASTViewer(ASTNOPVisitor):
         self.add_node(
             name,
             labeltxt="addressof:" + str(expr.exprid) + connections,
+            color=nodecolors["expr"])
+        self.add_edge(name, self.lval_name(expr.lval))
+        expr.lval.accept(self)
+
+    def visit_start_of_expression(self, expr: AST.ASTStartOf) -> None:
+        name = self.expr_name(expr)
+        connections = self.get_expr_connections(expr)
+        self.add_node(
+            name,
+            labeltxt="startof:" + str(expr.exprid) + connections,
             color=nodecolors["expr"])
         self.add_edge(name, self.lval_name(expr.lval))
         expr.lval.accept(self)
