@@ -605,6 +605,12 @@ class ASTDeserializer:
                 nodes[id] = astree.mk_address_of_expression(
                     lval, optexprid=exprid)
 
+            elif tag == "start-of":
+                exprid = r["exprid"]
+                lval = cast(AST.ASTLval, mk_node(arg(0)))
+                nodes[id] = astree.mk_start_of_expression(
+                    lval, optexprid=exprid)
+
             elif tag == "unary-op":
                 exprid = r["exprid"]
                 exp1 = cast(AST.ASTExpr, mk_node(arg(0)))

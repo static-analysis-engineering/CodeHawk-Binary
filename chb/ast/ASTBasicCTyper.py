@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023 Aarno Labs LLC
+# Copyright (c) 2022-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -183,6 +183,18 @@ class ASTBasicCTyper(ASTCTyper):
         lvaltyp = expr.lval.ctype(self)
         if lvaltyp is not None:
             return AST.ASTTypPtr(lvaltyp)
+        else:
+            return None
+
+    def ctype_start_of_expression(
+            self, expr: AST.ASTStartOf) -> Optional[AST.ASTTyp]:
+        lvaltyp = expr.lval.ctype(self)
+        if lvaltyp is not None:
+            if lvaltyp.is_array:
+                tgttyp = cast(AST.ASTTypArray, lvaltyp).tgttyp
+                return AST.ASTTypPtr(tgttyp)
+            else:
+                return None
         else:
             return None
 

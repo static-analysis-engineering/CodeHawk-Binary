@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs LLC
+# Copyright (c) 2022-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -178,6 +178,11 @@ class ASTCTyper(ABC):
     @abstractmethod
     def ctype_address_of_expression(
             self, expr: AST.ASTAddressOf) -> Optional[AST.ASTTyp]:
+        ...
+
+    @abstractmethod
+    def ctype_start_of_expression(
+            self, expr: AST.ASTStartOf) -> Optional[AST.ASTTyp]:
         ...
 
     def ctype_void_typ(self, typ: AST.ASTTypVoid) -> Optional[AST.ASTTyp]:
