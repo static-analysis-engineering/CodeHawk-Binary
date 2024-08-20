@@ -56,7 +56,8 @@ and constant_value_variable_t =
       ctxt_iaddress_t
       * string
       * bool
-  | MemoryAddress of int * memory_offset_t         "ma"       1      2
+  | MemoryAddress of
+        int * memory_offset_t * string option      "ma"       1      2
   | BridgeVariable of ctxt_iaddress_t * int        "bv"       2      1
   | FieldValue of string * int * string            "fv"       1      3
   | SymbolicValue of xpr_t                         "sv"       1      1
@@ -66,7 +67,7 @@ and constant_value_variable_t =
   | ChifTemp                                 "chiftemp"       1      0
 """
 
-from typing import Any, Dict, List, Sequence, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
 
@@ -116,6 +117,10 @@ class VConstantValueVariable(FnVarDictionaryRecord):
 
     @property
     def is_bridge_variable(self) -> bool:
+        return False
+
+    @property
+    def is_memory_address(self) -> bool:
         return False
 
     @property
@@ -686,6 +691,7 @@ class MemoryAddress(VConstantValueVariable):
 
     args[0]: index of memory base in vardictionary
     args[1]: index of memory offset in vardictionary
+    args[2]: index of optional name or -1
     """
 
     def __init__(
@@ -695,12 +701,23 @@ class MemoryAddress(VConstantValueVariable):
         VConstantValueVariable.__init__(self, vd, ixval)
 
     @property
+    def is_memory_address(self) -> bool:
+        return True
+
+    @property
     def base(self) -> VMemoryBase:
         return self.vd.memory_base(self.args[0])
 
     @property
     def offset(self) -> VMemoryOffset:
         return self.vd.memory_offset(self.args[1])
+
+    @property
+    def name(self) -> Optional[str]:
+        if self.args[2] == -1:
+            return None
+        else:
+            return self.bd.string(self.args[2])
 
     def to_json_result(self) -> JSONResult:
         jbase = self.base.to_json_result()

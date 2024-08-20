@@ -48,7 +48,7 @@ if TYPE_CHECKING:
         VMemoryVariable, VAuxiliaryVariable, VRegisterVariable)
     from chb.invariants.VConstantValueVariable import (
         VInitialRegisterValue, VInitialMemoryValue, VFunctionReturnValue,
-        SymbolicValue)
+        SymbolicValue, MemoryAddress)
     from chb.invariants.VMemoryOffset import (
         VMemoryOffset,
         VMemoryOffsetConstantOffset,
@@ -151,6 +151,43 @@ def xxpr_to_ast_expr(
             "AST conversion of expression %s not yet supported at address %s",
             str(xpr), iaddr)
         return astree.mk_temp_lval_expression()
+
+
+def xxpr_memory_address_value_to_ast_expr(
+        xpr: X.XXpr,
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface) -> AST.ASTExpr:
+
+    if not xpr.is_memory_address_value:
+        chklogger.logger.error(
+            "Encountered expression that is not a memory address value: %s "
+            + "at address %s",
+            str(xpr), iaddr)
+
+    xvar = cast(X.XprVariable, xpr).variable
+    addr = cast("MemoryAddress", xvar.denotation.auxvar)
+    name = addr.name
+    if name is None:
+        chklogger.logger.error(
+            "AST conversion of unnamed memory address value %s not yet "
+            + "supported at address %s",
+            str(xvar), iaddr)
+        return astree.mk_temp_lval_expression()
+
+    if not astree.globalsymboltable.has_symbol(name):
+        chklogger.logger.error(
+            "AST conversion of memory address value %s not in global symbol "
+            + "not yet supported at address %s",
+            str(xvar), iaddr)
+        return astree.mk_temp_lval_expression()
+
+    vinfo = astree.globalsymboltable.get_symbol(name)
+    lval = astree.mk_vinfo_lval(vinfo)
+    if vinfo.vtype is not None and vinfo.vtype.is_array:
+        return astree.mk_start_of(lval)
+    else:
+        return astree.mk_address_of(lval)
 
 
 def vinitregister_value_to_ast_lval_expression(
@@ -532,6 +569,25 @@ def xvariable_to_ast_def_lval_expression(
         stacklval = astree.mk_stack_variable_lval(offset)
         return astree.mk_lval_expr(stacklval)
 
+    if xvar.is_memory_address_value:
+        addr = cast("MemoryAddress", xvar.denotation.auxvar)
+        name = addr.name
+        if name is None:
+            chklogger.logger.error(
+                "AST def conversion of unnamed memory address variable %s to "
+                + "lval at address %s not yet supported",
+                str(xvar), iaddr)
+            return astree.mk_temp_lval_expression()
+
+        if not astree.globalsymboltable.has_symbol(name):
+            chklogger.logger.error(
+                "AST def conversion of memory address % to lval at address %s "
+                + "not yet supported",
+                name, iaddr)
+
+        vinfo = astree.globalsymboltable.get_symbol(name)
+        return astree.mk_vinfo_lval_expression(vinfo)
+
     chklogger.logger.error(
         "AST def conversion of variable %s to lval-expression at address "
         + "%s not yet supported",
@@ -572,12 +628,76 @@ def xunary_to_ast_def_expr(
         else:
             return astree.mk_binary_op("band", astxpr, mask)
 
+    if operator == "bnot":
+        astxpr = xxpr_to_ast_def_expr(xpr, xdata, iaddr, astree)
+        return astree.mk_unary_op("bnot", astxpr)
 
     chklogger.logger.error(
         "AST def conversion of unary expression %s at address %s not yet "
         + "supported",
         f"{operator} {xpr}", iaddr)
     return astree.mk_temp_lval_expression()
+
+
+def mk_xpointer_expr(
+        operator: str,
+        axpr1: AST.ASTExpr,
+        aptrty1: AST.ASTTypPtr,
+        axpr2: AST.ASTExpr,
+        iaddr: str,
+        astree: ASTInterface) -> AST.ASTExpr:
+
+    def default() -> AST.ASTExpr:
+        return astree.mk_binary_expression(operator, axpr1, axpr2)
+
+    tgttyp = aptrty1.tgttyp
+
+    if not axpr2.is_integer_constant:
+        chklogger.logger.warning(
+            "AST def conversion of pointer expression encountered non-constant "
+            + " addend: %s at address %s",
+            str(axpr2), iaddr)
+        return default()
+
+    cst2 = cast(AST.ASTIntegerConstant, axpr2).cvalue
+
+    if not axpr1.is_ast_lval_expr:
+        chklogger.logger.warning(
+            "AST def conversion of pointer expression encountered unexpected "
+            + " base expression %s at address %s",
+            str(axpr1), iaddr)
+        return default()
+
+    if tgttyp.is_compound:
+        tgttyp = cast(AST.ASTTypComp, tgttyp)
+        compkey = tgttyp.compkey
+        if not astree.globalsymboltable.has_compinfo(compkey):
+            chklogger.logger.warning(
+                "AST def conversion of pointer expression encountered unknown "
+                + " compinfo key %d (%s) at address %s",
+                compkey, tgttyp.compname, iaddr)
+            return astree.mk_temp_lval_expression()
+
+        compinfo = astree.globalsymboltable.compinfo(compkey)
+        (fieldinfo, remainder) = compinfo.field_at_offset(cst2)
+
+        if remainder > 0:
+            chklogger.logger.warning(
+                "AST def conversion of multilevel struct field expression not "
+                + "yet supported at address %s",
+                iaddr)
+            return default()
+
+        fieldoffset = astree.mk_field_offset(fieldinfo.fieldname, compkey)
+        memreflval = astree.mk_memref_lval(axpr1, fieldoffset)
+
+        if fieldinfo.fieldtype.is_array:
+            return astree.mk_lval_expr(memreflval)
+        else:
+            return astree.mk_address_of(memreflval)
+
+    else:
+        return default()
 
 
 def xbinary_to_ast_def_expr(
@@ -607,7 +727,19 @@ def xbinary_to_ast_def_expr(
         astxpr1 = xvariable_to_ast_def_lval_expression(xvar, xdata, iaddr, astree)
         astxpr2 = xxpr_to_ast_expr(xpr2, xdata, iaddr, astree)
         if operator in ["plus", "minus"]:
-            return astree.mk_binary_expression(operator, astxpr1, astxpr2)
+            ty1 = astxpr1.ctype(astree.ctyper)
+            if ty1 is not None:
+                if ty1.is_pointer:
+                    return mk_xpointer_expr(
+                        operator,
+                        astxpr1,
+                        cast(AST.ASTTypPtr, ty1),
+                        astxpr2,
+                        iaddr,
+                        astree)
+                return astree.mk_binary_expression(operator, astxpr1, astxpr2)
+            else:
+                return default()
         else:
             return default()
 
@@ -768,6 +900,9 @@ def xxpr_to_ast_def_expr(
 
     if xpr.is_constant:
         return xxpr_to_ast_expr(xpr, xdata, iaddr, astree)
+
+    if xpr.is_memory_address_value:
+        return xxpr_memory_address_value_to_ast_expr(xpr, xdata, iaddr, astree)
 
     if xpr.is_stack_address:
         return stack_address_to_ast_expr(xpr, xdata, iaddr, astree)

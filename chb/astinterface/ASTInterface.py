@@ -1362,6 +1362,9 @@ class ASTInterface:
         optexprid = -1 if anonymous else None
         return self.astree.mk_address_of_expression(lval, optexprid=optexprid)
 
+    def mk_start_of(self, lval: AST.ASTLval) -> AST.ASTStartOf:
+        return self.astree.mk_start_of_expression(lval, optexprid=None)
+
     def mk_byte_expr(self, index: int, x: AST.ASTExpr) -> AST.ASTExpr:
         if index == 0:
             mask = self.mk_integer_constant(255)

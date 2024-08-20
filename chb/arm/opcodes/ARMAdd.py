@@ -208,38 +208,6 @@ class ARMAdd(ARMOpcode):
 
         hl_lhs_type = hl_lhs.ctype(astree.ctyper)
 
-        def array_index_expression() -> Optional[AST.ASTExpr]:
-            hl_rhs1 = XU.xxpr_to_ast_def_expr(rrhs1, xdata, iaddr, astree)
-            hl_rhs2 = XU.xxpr_to_ast_def_expr(rrhs2, xdata, iaddr, astree)
-            hl_rhs1_type = hl_rhs1.ctype(astree.ctyper)
-            hl_rhs2_type = hl_rhs2.ctype(astree.ctyper)
-
-            if hl_rhs1_type is None or hl_rhs2_type is None:
-                return None
-
-            if hl_rhs1_type.is_array and hl_rhs2_type.is_integer:
-                elttype = cast(AST.ASTTypArray, hl_rhs1_type).tgttyp
-                eltsize = astree.type_size_in_bytes(elttype)
-                if eltsize is None:
-                    chklogger.logger.info(
-                        "Unable to determine size of array element %s at %s",
-                        str(hl_rhs1), iaddr)
-                    return None
-                if eltsize > 1:
-                    asteltsize = astree.mk_integer_constant(eltsize)
-                    index = astree.mk_binary_op("div", hl_rhs2, asteltsize)
-                    indexoffset = astree.mk_expr_index_offset(index)
-                    if hl_rhs1.is_ast_lval_expr:
-                        hl_rhs1 = cast(AST.ASTLvalExpr, hl_rhs1)
-                        lvalhost = hl_rhs1.lval.lhost
-                        lval = astree.mk_lval(lvalhost, indexoffset)
-                        annotations.append("scaled by " + str(asteltsize))
-                        return astree.mk_address_of(lval)
-
-                return None
-            else:
-                return None
-
         def pointer_arithmetic_expr() -> AST.ASTExpr:
             hl_rhs1 = XU.xxpr_to_ast_def_expr(rrhs1, xdata, iaddr, astree)
             hl_rhs2 = XU.xxpr_to_ast_def_expr(rrhs2, xdata, iaddr, astree)
@@ -262,6 +230,19 @@ class ARMAdd(ARMOpcode):
                         + "%s at address %s",
                         str(hl_rhs1_type), iaddr)
                     return astree.mk_temp_lval_expression()
+
+                if hl_rhs1.is_ast_startof:
+                    arraylval = cast(AST.ASTStartOf, hl_rhs1).lval
+                    arrayvinfo = cast(AST.ASTVariable, arraylval.lhost).varinfo
+                    if tgttypsize == 1:
+                        scaled = hl_rhs2
+                    else:
+                        scale = astree.mk_integer_constant(tgttypsize)
+                        scaled = astree.mk_binary_op("div", hl_rhs2, scale)
+
+                    offset = astree.mk_expr_index_offset(scaled)
+                    offsetlval = astree.mk_vinfo_lval(arrayvinfo, offset)
+                    return astree.mk_address_of(offsetlval)
 
                 if tgttypsize == 1:
                     return XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
@@ -320,13 +301,6 @@ class ARMAdd(ARMOpcode):
 
         elif hl_lhs_type is not None and hl_lhs_type.is_pointer:
             hl_rhs = pointer_arithmetic_expr()
-
-        elif array_index_expression() is not None:
-            indexxpr = array_index_expression()
-            if indexxpr is not None:
-                hl_rhs = indexxpr
-            else:
-                hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
 
         else:
             hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)

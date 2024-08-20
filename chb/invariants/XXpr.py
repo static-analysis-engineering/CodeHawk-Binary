@@ -165,6 +165,10 @@ class XXpr(FnXprDictionaryRecord):
         return False
 
     @property
+    def is_memory_address_value(self) -> bool:
+        return False
+
+    @property
     def is_stack_base_address(self) -> bool:
         return False
 
@@ -339,6 +343,10 @@ class XprVariable(XXpr):
     @property
     def is_var(self) -> bool:
         return True
+
+    @property
+    def is_memory_address_value(self) -> bool:
+        return self.variable.is_memory_address_value
 
     @property
     def is_tmp_variable(self) -> bool:
