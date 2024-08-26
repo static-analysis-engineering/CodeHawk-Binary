@@ -452,7 +452,7 @@ def extract_format_items(s: str) -> List[Tuple[int, str]]:
     https://stackoverflow.com/questions/30011379/how-can-i-parse-a-c-format-string-in-python
     """
 
-    cfmt = '''\
+    cfmt = r'''
     (                                  # start of capture group 1
     %                                  # literal "%"
     (?:                                # first option
