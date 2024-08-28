@@ -1031,7 +1031,14 @@ class ASTInterface:
         return varinfo
 
     def set_ssa_value(self, name: str, value: AST.ASTExpr) -> None:
-        self._ssa_values[name] = value
+        if len(self._ssa_addresses[name]) > 1:
+            chklogger.logger.info(
+                "Unable to set ssa value for %s due to multiple variable "
+                + "instances: {%s}",
+                name,
+                ", ".join(str(x) for x in self._ssa_addresses[name]))
+        else:
+            self._ssa_values[name] = value
 
     def get_ssa_value(self, name: str) -> Optional[AST.ASTExpr]:
         return self.ssa_values.get(name, None)
@@ -1141,14 +1148,7 @@ class ASTInterface:
             name, iaddr, vtype=vtype, save_loc=True)
         storage = self.astree.mk_register_storage(name)
         if ssavalue is not None:
-            if len(self._ssa_addresses[vinfo.vname]) > 1:
-                chklogger.logger.info(
-                    "Unable to set ssa value for %s due to multiple variable "
-                    + "instances: {%s}",
-                    vinfo.vname,
-                    ", ".join(str(x) for x in self._ssa_addresses[vinfo.vname]))
-            else:
-                self.set_ssa_value(vinfo.vname, ssavalue)
+            self.set_ssa_value(vinfo.vname, ssavalue)
         return self.astree.mk_vinfo_lval(vinfo, storage=storage)
 
     def mk_register_variable(

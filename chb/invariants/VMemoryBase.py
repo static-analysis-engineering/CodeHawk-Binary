@@ -36,6 +36,7 @@ type memory_base_t =
 | BAllocatedStackFrame  (* extended stack frame from alloca *)     "a"
 | BGlobal               (* global data *)                          "g"
 | BaseVar of variable_t (* base provided by an externally controlled variable *) "v"
+| BaseArray of variable_t * btype_t
 | BaseUnknown of string (* address without interpretation *)  "u"
 
 """
@@ -51,6 +52,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    from chb.bctypes.BCTyp import BCTyp
     from chb.invariants.FnVarDictionary import FnVarDictionary
     from chb.invariants.XVariable import XVariable
 
@@ -77,6 +79,10 @@ class VMemoryBase(FnVarDictionaryRecord):
 
     @property
     def is_basevar(self) -> bool:
+        return False
+
+    @property
+    def is_basearray(self) -> bool:
         return False
 
     @property
@@ -201,6 +207,46 @@ class VMemoryBaseBaseVar(VMemoryBase):
 
     def __str__(self) -> str:
         return str(self.basevar)
+
+
+@varregistry.register_tag("b", VMemoryBase)
+class VMemoryBaseBaseArray(VMemoryBase):
+    """Base array address.
+
+    args[0]: index of variable in xprdictionary
+    args[1]: index of array type in bcdictionary
+    """
+
+    def __init__(
+            self,
+            vd: "FnVarDictionary",
+            ixval: IndexedTableValue) -> None:
+        VMemoryBase.__init__(self, vd, ixval)
+
+    @property
+    def is_basearray(self) -> bool:
+        return True
+
+    @property
+    def basearray(self) -> "XVariable":
+        return self.xd.variable(self.args[0])
+
+    @property
+    def basetyp(self) -> "BCTyp":
+        return self.bcd.typ(self.args[1])
+
+    def to_json_result(self) -> JSONResult:
+        ptrvar = self.basearray.to_json_result()
+        if ptrvar.is_ok:
+            content: Dict[str, Any] = {}
+            content["ptrvar"] = ptrvar.content
+            return JSONResult("memorybase", content, "ok")
+        else:
+            return JSONResult(
+                "memorybase", {}, "fail", "memorybase: " + str(ptrvar.reason))
+
+    def __str__(self) -> str:
+        return str(self.basearray)
 
 
 @varregistry.register_tag("g", VMemoryBase)

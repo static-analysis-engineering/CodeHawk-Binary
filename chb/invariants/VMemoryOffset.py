@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ type memory_offset_t =
   | ConstantOffset of numerical_t * memory_offset_t      "c"      2      1
   | FieldOffset of string * int * memory_offset_t        "f"      2      2
   | IndexOffset of variable_t * int * memory_offset_t    "i"      1      3
+  | ArrayIndexOffset of xpr_t * memory_offset_t          "a"      1      2
   | UnknownOffset                                        "u"      1      0
 
 """
@@ -52,6 +53,7 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.invariants.FnVarDictionary import FnVarDictionary
     from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
 
 
 class VMemoryOffset(FnVarDictionaryRecord):
@@ -76,6 +78,10 @@ class VMemoryOffset(FnVarDictionaryRecord):
 
     @property
     def is_index_offset(self) -> bool:
+        return False
+
+    @property
+    def is_array_index_offset(self) -> bool:
         return False
 
     @property
@@ -321,6 +327,61 @@ class VMemoryOffsetIndexOffset(VMemoryOffset):
 
     def __str__(self) -> str:
         return "[" + str(self.indexvariable) + "]" + str(self.offset)
+
+
+@varregistry.register_tag("a", VMemoryOffset)
+class VMemoryOffsetArrayIndexOffset(VMemoryOffset):
+    """Array index offset
+
+    args[0]: index of index expression in xprdictionary
+    args[1]: index of next-level offset in vardictionary
+
+    Note: the difference with IndexOffset is that the index expression is
+    already scaled for the size of the array element (that is, it is similar
+    to a C index expression).
+    """
+
+    def __init__(
+            self,
+            vd: "FnVarDictionary",
+            ixval: IndexedTableValue) -> None:
+        VMemoryOffset.__init__(self, vd, ixval)
+
+    @property
+    def index_expression(self) -> "XXpr":
+        return self.xd.xpr(self.args[0])
+
+    @property
+    def offset(self) -> VMemoryOffset:
+        return self.vd.memory_offset(self.args[1])
+
+    @property
+    def is_array_index_offset(self) -> bool:
+        return True
+
+    def has_no_offset(self) -> bool:
+        return self.offset.is_no_offset
+
+    def to_json_result(self) -> JSONResult:
+        jxpr = self.index_expression.to_json_result()
+        if not jxpr.is_ok:
+            return JSONResult("memoryoffset", {}, "fail", jxpr.reason)
+        content: Dict[str, Any] = {}
+        if self.has_no_offset():
+            content["kind"] = "aiv"
+            content["aixpr"] = jxpr.content
+        else:
+            jmem = self.offset.to_json_result()
+            if not jmem.is_ok:
+                return JSONResult("memoryoffset", {}, "fail", jmem.reason)
+            content["kind"] = "aivo"
+            content["aixpr"] = jxpr.content
+            content["suboffset"] = jmem.content
+        content["txtrep"] = str(self)
+        return JSONResult("memoryoffset", content, "ok")
+
+    def __str__(self) -> str:
+        return "[" + str(self.index_expression) + "]" + str(self.offset)
 
 
 @varregistry.register_tag("u", VMemoryOffset)

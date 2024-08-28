@@ -217,6 +217,12 @@ class XXpr(FnXprDictionaryRecord):
         raise UF.CHBError(
             "Expression is not a stack address with stack address offset")
 
+    @property
+    def is_addressof_var(self) -> bool:
+        """Returns true if this is a unary address-of compound expression."""
+
+        return False
+
     def initial_register_value_register(self) -> Register:
         """Returns the register of which this expression represents the initial value."""
         raise UF.CHBError(
@@ -232,6 +238,14 @@ class XXpr(FnXprDictionaryRecord):
 
     @property
     def is_symbolic_expr_value(self) -> bool:
+        return False
+
+    @property
+    def is_constant_expression(self) -> bool:
+        """Returns true if all terms of this expression are either numerical
+        or symbolic constants (i.e., constant-value variables).
+        """
+
         return False
 
     @property
@@ -331,6 +345,10 @@ class XprVariable(XXpr):
     @property
     def is_constant_value_variable(self) -> bool:
         return self.variable.is_constant_value_variable
+
+    @property
+    def is_constant_expression(self) -> bool:
+        return self.is_constant_value_variable
 
     @property
     def is_register_variable(self) -> bool:
@@ -538,6 +556,10 @@ class XprConstant(XXpr):
         return self.xd.xcst(self.args[0])
 
     @property
+    def is_constant_expression(self) -> bool:
+        return True
+
+    @property
     def intvalue(self) -> int:
         if self.is_int_constant:
             return self.constant.value
@@ -666,6 +688,13 @@ class XprCompound(XXpr):
     def operands(self) -> Sequence[XXpr]:
         return [self.xd.xpr(i) for i in self.args]
 
+    @property
+    def is_constant_expression(self) -> bool:
+        if self.is_addressof_var:
+            return True
+        else:
+            return all(x.is_constant_expression for x in self.operands)
+
     def terms(self) -> Sequence[XXpr]:
         if len(self._terms) == 0:
             if self.operator == "plus":
@@ -697,6 +726,10 @@ class XprCompound(XXpr):
     @property
     def is_structured_expr(self) -> bool:
         return any([op.is_structured_expr for op in self.operands])
+
+    @property
+    def is_addressof_var(self) -> bool:
+        return self.operator == "xf_addressofvar"
 
     def has_global_variables(self) -> bool:
         return any([op.has_global_variables() for op in self.operands])
