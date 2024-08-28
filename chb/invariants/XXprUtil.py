@@ -49,10 +49,12 @@ if TYPE_CHECKING:
     from chb.invariants.VConstantValueVariable import (
         VInitialRegisterValue, VInitialMemoryValue, VFunctionReturnValue,
         SymbolicValue, MemoryAddress)
+    from chb.invariants.VMemoryBase import VMemoryBaseBaseArray
     from chb.invariants.VMemoryOffset import (
         VMemoryOffset,
         VMemoryOffsetConstantOffset,
         VMemoryOffsetFieldOffset,
+        VMemoryOffsetArrayIndexOffset,
         VMemoryOffsetIndexOffset)
     from chb.mips.MIPSRegister import MIPSRegister
 
@@ -178,7 +180,7 @@ def xxpr_memory_address_value_to_ast_expr(
     if not astree.globalsymboltable.has_symbol(name):
         chklogger.logger.error(
             "AST conversion of memory address value %s not in global symbol "
-            + "not yet supported at address %s",
+            + "table not yet supported at address %s",
             str(xvar), iaddr)
         return astree.mk_temp_lval_expression()
 
@@ -632,6 +634,16 @@ def xunary_to_ast_def_expr(
         astxpr = xxpr_to_ast_def_expr(xpr, xdata, iaddr, astree)
         return astree.mk_unary_op("bnot", astxpr)
 
+    if operator == "xf_addressofvar":
+        if xpr.is_var:
+            xvar = cast(X.XprVariable, xpr).variable
+            astvar = xvariable_to_ast_lval(xvar, xdata, iaddr, astree)
+            vtype = astvar.ctype(astree.ctyper)
+            if vtype is not None and vtype.is_array:
+                return astree.mk_start_of(astvar)
+            else:
+                return astree.mk_address_of(astvar)
+
     chklogger.logger.error(
         "AST def conversion of unary expression %s at address %s not yet "
         + "supported",
@@ -967,6 +979,77 @@ def stack_variable_to_ast_lval(
     return astree.mk_temp_lval()
 
 
+def array_offset_to_ast_offset(
+        elementtyp: AST.ASTTyp,
+        offset: "VMemoryOffsetArrayIndexOffset",
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface) -> AST.ASTOffset:
+
+    indexxpr = xxpr_to_ast_def_expr(
+        offset.index_expression, xdata, iaddr, astree)
+
+    if offset.has_no_offset():
+        return astree.mk_expr_index_offset(indexxpr)
+
+    def to_ast_offset(suboffset: "VMemoryOffset") -> AST.ASTOffset:
+        if suboffset.is_constant_value_offset:
+            return astree.mk_scalar_index_offset(suboffset.offsetconstant)
+        elif suboffset.is_field_offset:
+            suboffset = cast ("VMemoryOffsetFieldOffset", suboffset)
+            return astree.mk_field_offset(suboffset.fieldname, suboffset.ckey)
+        else:
+            return nooffset
+
+    return astree.mk_expr_index_offset(indexxpr, offset=to_ast_offset(offset.offset))
+
+def array_variable_to_ast_lval(
+        base: "MemoryAddress",
+        elementtyp: AST.ASTTyp,
+        offset: "VMemoryOffset",
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface) -> AST.ASTLval:
+
+    name = base.name
+    if name is None:
+        chklogger.logger.error(
+            "AST conversion of array variable at %s encountered nameless "
+            + "base %s",
+            str(iaddr), str(base))
+        return astree.mk_temp_lval()
+
+    if not astree.globalsymboltable.has_symbol(name):
+        chklogger.logger.error(
+            "AST conversion of memory address value %s not in global symbol "
+            + " table not yet supported at address %s",
+            str(name), iaddr)
+        return astree.mk_temp_lval()
+
+    vinfo = astree.globalsymboltable.get_symbol(name)
+    if not offset.is_array_index_offset:
+        chklogger.logger.error(
+            "AST conversion of array variable expected to find array index "
+            + "offset, but found %s at address %s",
+            str(offset), iaddr)
+        return astree.mk_temp_lval()
+
+    astoffset = array_offset_to_ast_offset(
+        elementtyp,
+        cast("VMemoryOffsetArrayIndexOffset", offset),
+        xdata,
+        iaddr,
+        astree)
+
+    return astree.mk_vinfo_lval(vinfo, offset=astoffset)
+
+
+    chklogger.logger.error(
+        "Array variable to astlval still in progress at %s for %s with offset %s",
+        iaddr, str(base), str(offset))
+    return astree.mk_temp_lval()
+
+
 def global_variable_to_ast_lval(
         offset: "VMemoryOffset",
         xdata: "InstrXData",
@@ -1105,6 +1188,27 @@ def xvariable_to_ast_lval(
             ctype=ctype,
             memaddr=memaddr)
 
+    elif (
+            xv.is_memory_variable
+            and cast ("VMemoryVariable",
+                      xv.denotation).base.is_basearray):
+        xvmem = cast("VMemoryVariable", xv.denotation)
+        base = cast("VMemoryBaseBaseArray", xvmem.base).basearray
+        if not base.is_memory_address_value:
+            chklogger.logger.error(
+                "AST conversion of lval %s encountered invalid BaseArray at %s",
+                str(xv), iaddr)
+            return astree.mk_temp_lval()
+        basevar = cast("MemoryAddress", base.denotation.auxvar)
+        basetyp = cast("VMemoryBaseBaseArray", xvmem.base).basetyp.convert(astree.typconverter)
+        return array_variable_to_ast_lval(
+            basevar,
+            cast(AST.ASTTypArray, basetyp).tgttyp,
+            xvmem.offset,
+            xdata,
+            iaddr,
+            astree)
+
     else:
         chklogger.logger.error(
             "AST conversion of lval %s at address %s not yet supported",
@@ -1129,7 +1233,12 @@ def xmemory_dereference_lval(
                 lvalhost = xlval.lval.lhost
                 return astree.mk_lval(lvalhost, astoffset)
 
-    return astree.mk_memref_lval(xaddr)
+    if xaddr.is_ast_addressof:
+        xaddr = cast(AST.ASTAddressOf, xaddr)
+        return xaddr.lval
+
+    else:
+        return astree.mk_memref_lval(xaddr)
 
 
 def xmemory_dereference_to_ast_def_expr(

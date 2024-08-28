@@ -299,8 +299,15 @@ class ARMAdd(ARMOpcode):
             else:
                 hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
 
-        elif hl_lhs_type is not None and hl_lhs_type.is_pointer:
+        elif rhs3.is_addressof_var:
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+            if rhs3.is_constant_expression:
+                astree.set_ssa_value(str(hl_lhs), hl_rhs)
+
+        elif (hl_lhs_type is not None and hl_lhs_type.is_pointer):
             hl_rhs = pointer_arithmetic_expr()
+            if rhs3.is_constant_expression:
+                astree.set_ssa_value(str(hl_lhs), hl_rhs)
 
         else:
             hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)

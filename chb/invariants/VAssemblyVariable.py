@@ -112,6 +112,10 @@ class VAssemblyVariable(FnVarDictionaryRecord):
         return False
 
     @property
+    def is_memory_address(self) -> bool:
+        return False
+
+    @property
     def is_stack_argument(self) -> bool:
         return False
 
