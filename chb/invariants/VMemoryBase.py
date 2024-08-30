@@ -86,6 +86,10 @@ class VMemoryBase(FnVarDictionaryRecord):
         return False
 
     @property
+    def is_basestruct(self) -> bool:
+        return False
+
+    @property
     def is_global(self) -> bool:
         return False
 
@@ -247,6 +251,46 @@ class VMemoryBaseBaseArray(VMemoryBase):
 
     def __str__(self) -> str:
         return str(self.basearray)
+
+
+@varregistry.register_tag("s", VMemoryBase)
+class VMemoryBaseBaseStruct(VMemoryBase):
+    """Base struct address.
+
+    args[0]: index of variable in xprdictionary
+    args[1]: index of struct type in bcdictionary
+    """
+
+    def __init__(
+            self,
+            vd: "FnVarDictionary",
+            ixval: IndexedTableValue) -> None:
+        VMemoryBase.__init__(self, vd, ixval)
+
+    @property
+    def is_basestruct(self) -> bool:
+        return True
+
+    @property
+    def basestruct(self) -> "XVariable":
+        return self.xd.variable(self.args[0])
+
+    @property
+    def basetyp(self) -> "BCTyp":
+        return self.bcd.typ(self.args[1])
+
+    def to_json_result(self) -> JSONResult:
+        ptrvar = self.basestruct.to_json_result()
+        if ptrvar.is_ok:
+            content: Dict[str, Any] = {}
+            content["ptrvar"] = ptrvar.content
+            return JSONResult("memorybase", content, "ok")
+        else:
+            return JSONResult(
+                "memorybase", {}, "fail", "memorybase: " + str(ptrvar.reason))
+
+    def __str__(self) -> str:
+        return str(self.basestruct)
 
 
 @varregistry.register_tag("g", VMemoryBase)
