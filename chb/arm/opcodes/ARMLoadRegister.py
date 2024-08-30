@@ -207,8 +207,8 @@ class ARMLoadRegister(ARMOpcode):
                 annotations=annotations)
             ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
 
-            basereg = xdata.vars[1]
-            newaddr = xdata.xprs[4]
+            basereg = xdata.vars[2]
+            newaddr = xdata.xprs[5]
             hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
             hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
 
@@ -219,6 +219,9 @@ class ARMLoadRegister(ARMOpcode):
                 bytestring=bytestring,
                 annotations=annotations)
             hl_assigns: List[AST.ASTInstruction] = [hl_assign, hl_addr_assign]
+
+            # Note: work-around for deficiency in def-use propagation
+            astree.add_expose_instruction(hl_addr_assign.instrid)
 
             astree.add_instr_mapping(hl_addr_assign, ll_addr_assign)
             astree.add_instr_address(hl_addr_assign, [iaddr])
