@@ -574,8 +574,11 @@ class Cfg:
                         for succ in succs:
                             if jumptable.has_target(succ) and succ not in succlabels:
                                 cvs = jumptable.get_target(succ)
-                                labels = [cast(AST.ASTStmtLabel, astree.mk_case_label(
-                                    astree.mk_integer_constant(c))) for c in cvs]
+                                def rawlabel(c):
+                                    r = astree.mk_case_label(astree.mk_integer_constant(c))
+                                    astree.add_instruction_span(r.locationid, succ, "")
+                                    return r
+                                labels = [cast(AST.ASTStmtLabel, rawlabel(c)) for c in cvs]
                                 succlabels[succ] = labels
 
                     switchcondition = astlastinstr.ast_switch_condition(astree)
