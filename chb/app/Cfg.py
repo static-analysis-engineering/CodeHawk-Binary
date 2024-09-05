@@ -522,13 +522,14 @@ class Cfg:
                     return []
 
                 if tgt == ctx.continue_to:
-                    return [astree.mk_continue_stmt()]
+                    return [with_last_insn_span(src, astree.mk_continue_stmt())]
 
                 if tgt == ctx.break_to:
-                    return [astree.mk_break_stmt()]
+                    return [with_last_insn_span(src, astree.mk_break_stmt())]
 
                 gotolabels.add(labelize(tgt))
-                return [astree.mk_goto_stmt(labelize(tgt), tgt)]
+                s = astree.mk_goto_stmt(labelize(tgt), tgt)
+                return [with_last_insn_span(src, s)]
 
             def is_loop_header(x: str) -> bool:
                 return any(is_backward(pred, x) for pred in self.flowgraph.pre(x))
@@ -539,6 +540,15 @@ class Cfg:
             def is_backward(src: str, tgt: str) -> bool:
                 # Could compare rpo numbers instead but this seems clearer.
                 return self.flowgraph._edge_flavors[(src, tgt)] == "back"
+
+            def with_last_insn_span(x: str, s: AST.ASTStmt) -> AST.ASTStmt:
+                """Adds span information from the last insn in basic block `x`
+                to the stmt `s`. Returns `s`."""
+                astblock = astfn.astblock(x)
+                astlastinstr = astblock.last_instruction
+                astree.add_instruction_span(s.locationid,
+                        astlastinstr.iaddr, astlastinstr.bytestring)
+                return s
 
             def labeled_if_needed(x: str) -> List[AST.ASTStmt]:
                 xstmts = blockstmts[x]
@@ -622,6 +632,10 @@ class Cfg:
                     switchstmt = cast(AST.ASTSwitchStmt,
                         astree.mk_switch_stmt(switchcondition, switchbody, mergeaddr))
                     return (xstmts + [switchstmt])
+                    # We don't use with_last_insn_span(x, switchstmt) because when we have
+                    # a switch lifted from a conditional jump (for explicit cases) plus an
+                    # unconditional jump (for the default case), the unconditional jump
+                    # is the last insn but we want both spans.
 
                 assert nsuccs == 2
                 astblock = astfn.astblock(x)
