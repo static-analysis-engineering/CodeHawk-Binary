@@ -204,6 +204,11 @@ class ASTInterfaceFunction(ASTFunction):
                 + self.address
                 + "):\n  "
                 + str(e))
+            chklogger.logger.error(
+                "Unable to create high-level ast for %s (%s): %s",
+                self.name,
+                self.address,
+                str(e))
             raise UF.CHBError(msg)
 
         self.complete_instruction_connections()
