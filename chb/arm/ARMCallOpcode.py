@@ -43,6 +43,7 @@ from chb.astinterface.ASTIUtil import assign_type_compatible
 
 from chb.bctypes.BCTyp import BCTyp
 
+from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr, XprCompound
 import chb.invariants.XXprUtil as XU
 
@@ -97,6 +98,12 @@ class ARMCallOpcode(ARMOpcode):
     @property
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[0])]
+
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
+        if len(xdata.vars) > 0:
+            return [xdata.vars[0]]
+        else:
+            return []
 
     def argument_count(self, xdata: InstrXData) -> int:
         if self.is_call_instruction(xdata):
@@ -326,29 +333,49 @@ class ARMCallOpcode(ARMOpcode):
                             x, xdata, iaddr, astree)
 
                     elif x.is_global_address:
-                        hexgaddr = hex(x.constant.value)
-                        if hexgaddr in astree.global_addresses:
-                            vinfo = astree.global_addresses[hexgaddr]
-                            vtype = vinfo.vtype
-                            if vtype is not None:
-                                if vtype.is_array:
-                                    hl_arg = astree.mk_vinfo_lval_expression(vinfo)
+                        if argtype is not None and argtype.is_integer:
+                            argtype = cast(AST.ASTTypInt, argtype)
+                            hl_arg = astree.mk_integer_constant(
+                                x.constant.value, argtype.ikind)
+
+                        elif (
+                                argtype is not None
+                                and (argtype.is_function
+                                     or (argtype.is_pointer
+                                         and cast(
+                                             AST.ASTTypPtr,
+                                             argtype).tgttyp.is_function))):
+                            hexaddr = hex(x.constant.value)
+                            argname = "sub_" + hexaddr[2:]
+                            hl_arg = astree.mk_global_variable_expr(
+                                argname,
+                                vtype=argtype,
+                                globaladdress=x.constant.value)
+                        else:
+                            hexgaddr = hex(x.constant.value)
+                            if hexgaddr in astree.global_addresses:
+                                vinfo = astree.global_addresses[hexgaddr]
+                                vtype = vinfo.vtype
+                                if vtype is not None:
+                                    if vtype.is_array:
+                                        hl_arg = astree.mk_vinfo_lval_expression(
+                                            vinfo)
+                                    else:
+                                        hl_arg = astree.mk_address_of(
+                                            astree.mk_vinfo_lval(vinfo))
                                 else:
-                                    hl_arg = astree.mk_address_of(
-                                        astree.mk_vinfo_lval(vinfo))
-                            else:
-                                chklogger.logger.warning(
-                                    ("Type of global address %s at instr. address "
-                                     + "%s not known"),
-                                    str(x), iaddr)
+                                    chklogger.logger.warning(
+                                        ("Type of global address %s at instr. "
+                                         + "address %s not known"),
+                                        str(x), iaddr)
                                 hl_arg = astree.mk_address_of(
                                     astree.mk_vinfo_lval(vinfo))
-                        else:
-                            chklogger.logger.error(
-                                ("Unknown global address %s as call argument at "
-                                 + "address %s"),
-                                hexgaddr, iaddr)
-                            hl_arg = astree.mk_temp_lval_expression()
+                            else:
+                                chklogger.logger.error(
+                                    ("Unknown global address %s as call "
+                                     + "argument at address %s"),
+                                    hexgaddr, iaddr)
+                                hl_arg = astree.mk_temp_lval_expression()
 
                     else:
                         hl_arg = XU.xxpr_to_ast_def_expr(x, xdata, iaddr, astree)
