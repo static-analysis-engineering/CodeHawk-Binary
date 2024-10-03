@@ -458,6 +458,12 @@ def vargument_deref_value_to_ast_lval_expression(
                 foffset = astree.mk_field_offset(field.fieldname, compkey)
                 return astree.mk_memref_expr(xinitarg, offset = foffset)
 
+            elif tgttype.is_pointer:
+                tgttgttype = cast(AST.ASTTypPtr, tgttype).tgttyp
+                if coff == 0:
+                    return astree.mk_memref_expr(xinitarg)
+
+
     chklogger.logger.error(
         "AST conversion of argument deref value: %s not yet handled at %s",
         str(basevar), iaddr)
@@ -607,16 +613,16 @@ def xvariable_to_ast_def_lval_expression(
         return global_variable_to_lval_expression(
             memvar.offset, xdata, iaddr, astree)
 
-    if xvar.is_memory_variable:
-        memvar = cast("VMemoryVariable", xvar.denotation)
-        return memory_variable_to_lval_expression(
-            memvar.base, memvar.offset, xdata, iaddr, astree)
-
     if xvar.is_local_stack_variable:
         stackvar = cast("VMemoryVariable", xvar.denotation)
         offset = stackvar.offset.offsetvalue()
         stacklval = astree.mk_stack_variable_lval(offset)
         return astree.mk_lval_expr(stacklval)
+
+    if xvar.is_memory_variable:
+        memvar = cast("VMemoryVariable", xvar.denotation)
+        return memory_variable_to_lval_expression(
+            memvar.base, memvar.offset, xdata, iaddr, astree)
 
     if xvar.is_memory_address_value:
         addr = cast("MemoryAddress", xvar.denotation.auxvar)
@@ -771,7 +777,7 @@ def xbinary_to_ast_def_expr(
         astxpr1 = xxpr_to_ast_def_expr(xpr1, xdata, iaddr, astree)
         astxpr2 = xxpr_to_ast_def_expr(xpr2, xdata, iaddr, astree)
         if operator in [
-                "plus", "minus", "mult", "band", "lor",
+                "plus", "minus", "mult", "band", "land", "lor", "bor", "asr",
                 "lsl", "lsr", "eq", "ne", "gt", "le", "lt", "ge"]:
             return astree.mk_binary_expression(operator, astxpr1, astxpr2)
         else:
@@ -1402,8 +1408,8 @@ def xmemory_dereference_to_ast_def_expr(
             if not astree.has_compinfo(compkey):
                 chklogger.logger.error(
                     ("Encountered compinfo key without definition in symbol "
-                     + " table: %d"),
-                    compkey)
+                     + " table: %d at address %s"),
+                    compkey, iaddr)
                 return astree.mk_memref_expr(hl_addr)
 
             compinfo = astree.compinfo(compkey)
@@ -1413,14 +1419,15 @@ def xmemory_dereference_to_ast_def_expr(
                 hl_addr = cast(AST.ASTBinaryOp, hl_addr)
                 if not hl_addr.op == "plus":
                     chklogger.logger.error(
-                        "Encountered address expression with op %s",
-                        hl_addr.op)
+                        "Encountered address expression with op %s at address %s",
+                        hl_addr.op, iaddr)
                     return astree.mk_memref_expr(hl_addr)
 
                 if not hl_addr.exp2.is_integer_constant:
                     chklogger.logger.warning(
-                        "Non-constant field offset not yet supported: %s",
-                        str(hl_addr.exp2))
+                        "Non-constant field offset not yet supported: %s "
+                        + "at address %s",
+                        str(hl_addr.exp2), iaddr)
                     return astree.mk_memref_expr(hl_addr)
 
                 fieldoffset = cast(AST.ASTIntegerConstant, hl_addr.exp2).cvalue
@@ -1435,8 +1442,8 @@ def xmemory_dereference_to_ast_def_expr(
             return astree.mk_memref_expr(baseaddr, offset = foffset)
 
     chklogger.logger.warning(
-        "Unexpected type for address in memory dereference: %s",
-        str(hl_addr_type))
+        "Unexpected type for address in memory dereference: %s at address %s",
+        str(hl_addr_type), iaddr)
     return astree.mk_memref_expr(hl_addr)
 
 

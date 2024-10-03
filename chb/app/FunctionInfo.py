@@ -111,17 +111,15 @@ class FunctionInfo:
                         ctgt = self.ixd.read_xml_call_target(ctinfo)
                         fintf = self.ixd.read_xml_function_interface(ctinfo)
                         fsem = self.ixd.read_xml_function_semantics(ctinfo)
-                        lhsname = ctinfo.get("lhs", None)
                         self._calltargetinfos[xaddr] = CallTargetInfo(
-                            ctgt, fintf, fsem, lhsname)
+                            ctgt, fintf, fsem)
         return self._calltargetinfos
 
     @property
     def lhs_names(self) -> Dict[str, str]:
         result: Dict[str, str] = {}
         for (iaddr, ctinfo) in self.calltargetinfos.items():
-            if ctinfo.lhsname is not None:
-                result[iaddr] = ctinfo.lhsname
+            result[iaddr] = "rtn_" + ctinfo.calltarget.name
         return result
 
     @property
