@@ -555,6 +555,18 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write(")")
 
     def visit_address_of_expression(self, addressof: AST.ASTAddressOf) -> None:
+        lval = addressof.lval
+
+        # print &a[0] as a
+        if lval.offset.is_index_offset:
+            lvaloffset = cast(AST.ASTIndexOffset, lval.offset)
+            if lvaloffset.offset.is_no_offset:
+                if lvaloffset.index_expr.is_integer_constant:
+                    ioffset = cast(AST.ASTIntegerConstant, lvaloffset.index_expr)
+                    if ioffset.cvalue == 0:
+                        lval.lhost.accept(self)
+                        return
+
         self.ccode.write("&(")
         addressof.lval.accept(self)
         self.ccode.write(")")
