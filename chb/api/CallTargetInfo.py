@@ -50,12 +50,11 @@ class CallTargetInfo:
             self,
             calltarget: "CallTarget",
             targetinterface: "AppFunctionInterface",
-            targetsemantics: "AppFunctionSemantics",
-            lhsname: Optional[str] = None) -> None:
+            targetsemantics: "AppFunctionSemantics"
+    ) -> None:
         self._tgt = calltarget
         self._fintf = targetinterface
         self._fsem = targetsemantics
-        self._lhsname = lhsname
 
     @property
     def calltarget(self) -> "CallTarget":
@@ -68,10 +67,6 @@ class CallTargetInfo:
     @property
     def target_semantics(self) -> "AppFunctionSemantics":
         return self._fsem
-
-    @property
-    def lhsname(self) -> Optional[str]:
-        return self._lhsname
 
     def __str__(self) -> str:
         lines: List[str] = []
