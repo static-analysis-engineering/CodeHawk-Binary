@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -146,14 +146,7 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
 
         annotations: List[str] = [iaddr, "UMULL"]
 
-        lhs1 = xdata.vars[0]
-        lhs2 = xdata.vars[1]
-        rhs1 = xdata.xprs[0]
-        rhs2 = xdata.xprs[1]
-        result = xdata.xprs[3]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+        # low-level assignments
 
         (ll_lhslo, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_lhshi, _, _) = self.opargs[1].ast_lvalue(astree)
@@ -178,33 +171,23 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs1, xdata, astree)
-        if len(lhsasts) == 0:
-            raise UF.CHBError(
-                "UnsignedMultiplyLong (UMULL): no lvals found: "
-                + str(lhs1))
+        # high-level assignments
 
-        if len(lhsasts) > 1:
-            raise UF.CHBError(
-                "UnsigendMultiplyLong (UMULL): multiple lvals found: "
-                + ", ".join(str(v) for v in lhsasts))
+        lhs1 = xdata.vars[0]
+        lhs2 = xdata.vars[1]
+        rhs1 = xdata.xprs[0]
+        rhs2 = xdata.xprs[1]
+        result = xdata.xprs[3]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-        hl_lhslo = lhsasts[0]
-        hl_lhshi = ll_lhshi
+        hl_lhslo = XU.xvariable_to_ast_lval(lhs1, xdata, iaddr, astree)
+        hl_lhshi = XU.xvariable_to_ast_lval(lhs2, xdata, iaddr, astree)
 
-        rhsasts = XU.xxpr_to_ast_def_exprs(result, xdata, iaddr, astree)
-        if len(rhsasts) == 0:
-            raise UF.CHBError(
-                "UnsignedMultiplyLong (UMULL): no rhs value found: "
-                + str(result))
-
-        if len(rhsasts) > 1:
-            raise UF.CHBError(
-                "UnsignedMultiplyLong (UMULL): multiple rhs values found: "
-                + ", ".join(str(v) for v in rhsasts))
-
-        hl_rhslo = rhsasts[0]
-        hl_rhshi = astree.mk_binary_op("lsr", hl_rhslo, astree.mk_integer_constant(32))
+        hl_rhslo = XU.xxpr_to_ast_def_expr(result, xdata, iaddr, astree)
+        hl_rhshi = astree.mk_binary_op(
+            "lsr", hl_rhslo, astree.mk_integer_constant(32))
 
         hl_assign_lo = astree.mk_assign(
             hl_lhslo,
@@ -219,8 +202,6 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        astree.add_reg_definition(iaddr, hl_lhslo, hl_rhslo)
-        astree.add_reg_definition(iaddr, ll_lhshi, hl_rhshi)
         astree.add_instr_mapping(hl_assign_lo, ll_assign_lo)
         astree.add_instr_mapping(hl_assign_hi, ll_assign_hi)
         astree.add_instr_address(hl_assign_lo, [iaddr])
@@ -229,8 +210,8 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
         astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
         astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
         astree.add_lval_defuses(hl_lhslo, defuses[0])
-        astree.add_lval_defuses(ll_lhshi, defuses[1])
+        astree.add_lval_defuses(hl_lhshi, defuses[1])
         astree.add_lval_defuses_high(hl_lhslo, defuseshigh[0])
-        astree.add_lval_defuses_high(ll_lhshi, defuseshigh[1])
+        astree.add_lval_defuses_high(hl_lhshi, defuseshigh[1])
 
         return ([hl_assign_lo, hl_assign_hi], [ll_assign_lo, ll_assign_hi])

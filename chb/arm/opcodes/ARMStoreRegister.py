@@ -37,7 +37,7 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
-from chb.invariants.XXpr import XXpr, XprCompound, XprVariable
+from chb.invariants.XXpr import XXpr, XprCompound, XprConstant, XprVariable
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
@@ -191,6 +191,13 @@ class ARMStoreRegister(ARMOpcode):
         defuseshigh = xdata.defuseshigh
 
         hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        if rhs.is_string_reference:
+            rhsval = cast(XprConstant, rhs).intvalue
+            saddr = hex(rhsval)
+            cstr = rhs.constant.string_reference()
+            hl_rhs = astree.mk_string_constant(hl_rhs, cstr, saddr)
+
         hl_lhs = XU.xvariable_to_ast_lval(
             lhs, xdata, iaddr, astree, memaddr=memaddr)
 

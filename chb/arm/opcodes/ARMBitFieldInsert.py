@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -133,6 +133,16 @@ class ARMBitFieldInsert(ARMOpcode):
 
         annotations: List[str] = [iaddr, "BFI"]
 
+        if self.width == 0:
+            nopinstr = astree.mk_nop_instruction(
+                "BFI (width = 0)",
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            astree.add_instr_address(nopinstr, [iaddr])
+
+            return ([], [nopinstr])
+
         lhs = xdata.vars[0]
         rhs1 = xdata.xprs[0]
         rhs2 = xdata.xprs[1]
@@ -143,6 +153,7 @@ class ARMBitFieldInsert(ARMOpcode):
         (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (ll_op1, _, _) = self.operands[0].ast_rvalue(astree)
         (ll_op2, _, _) = self.operands[0].ast_rvalue(astree)
+
         mask1 = int("1" * self.width, 2)
         mask1const = astree.mk_integer_constant(mask1)
         ll_rhs2 = astree.mk_binary_op("band", ll_op2, mask1const)
