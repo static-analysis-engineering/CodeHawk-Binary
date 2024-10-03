@@ -243,13 +243,14 @@ class Callgraph:
         for n in self.nodes.values():
             result.add_node(n)
         for (src, dsts) in self.edges.items():
-            srcnode = self.nodes[src]
-            for dst in dsts:
-                dstnode = self.nodes[dst]
-                if reverse:
-                    result.add_edge(dstnode, srcnode)
-                else:
-                    result.add_edge(srcnode, dstnode)
+            if src in self.nodes:
+                srcnode = self.nodes[src]
+                for dst in dsts:
+                    dstnode = self.nodes[dst]
+                    if reverse:
+                        result.add_edge(dstnode, srcnode)
+                    else:
+                        result.add_edge(srcnode, dstnode)
         return result
 
     @property
@@ -275,7 +276,10 @@ class Callgraph:
             self._nodes[node.name] = node
         # In some binaries, we may first see a stub for a user function
         # (represented as a library node) and then see the user function itself.
-        elif node.is_app_node and self._nodes[node.name].is_lib_node:
+        elif (
+                node.is_app_node
+                and node.name in self._nodes
+                and self._nodes[node.name].is_lib_node):
             self._nodes[node.name] = node
         else:
             pass
@@ -340,7 +344,8 @@ class Callgraph:
         for (src, dsts) in self.edges.items():
             for dst in dsts:
                 if (
-                        result.has_node(self.nodes[src])
+                        src in self.nodes
+                        and result.has_node(self.nodes[src])
                         and not result.has_edge(src, dst)):
                     result.add_edge(self.nodes[src], self.nodes[dst])
                     edgesadded = True
@@ -348,12 +353,13 @@ class Callgraph:
         while edgesadded:
             edgesadded = False
             for (src, dsts) in self.edges.items():
-                if not result.has_node(self.nodes[src]):
+                if src in self.nodes and not result.has_node(self.nodes[src]):
                     continue
                 for dst in dsts:
                     if not result.has_edge(src, dst):
-                        result.add_edge(self.nodes[src], self.nodes[dst])
-                        edgesadded = True
+                        if src in self.nodes:
+                            result.add_edge(self.nodes[src], self.nodes[dst])
+                            edgesadded = True
         return result
 
     def constrain_sinks(self, sinks: List[str]) -> "Callgraph":
