@@ -934,6 +934,10 @@ class ASTInterface:
 
         Record addresses associated with a given variable to avoid assigning
         constants to variables that appear multiple times.
+
+        The ssanames, a map from locations to names, provide an alternative
+        prefix for the newly introduced name. The default name is ssa_<reg>,
+        where <reg> is the name of the register being assigned.
         """
 
         for (reg, locs) in rdeflocs.items():
@@ -980,7 +984,9 @@ class ASTInterface:
                         tgttypsize = tgttyp.index(self.bytesize_calculator)
                         if tgttypsize > 0:
                             arraysize = size // tgttypsize
-                            if arraysize > 0:
+                            if arraysize == 1:
+                                vtype = tgttyp
+                            if arraysize > 1:
                                 vtype = self.astree.mk_int_sized_array_type(
                                     tgttyp, arraysize)
                             else:
@@ -989,8 +995,7 @@ class ASTInterface:
                                     + "%s does not fit in stack frame; "
                                     + "adjusting stack buffer to size %d",
                                     str(offset), tgttypsize)
-                                vtype = self.astree.mk_int_sized_array_type(
-                                    tgttyp, 1)
+                                vtype = tgttyp
 
             self.mk_stack_variable_lval(offset, vtype=vtype)
 
@@ -1078,6 +1083,17 @@ class ASTInterface:
         self._stack_variables[offset] = lval
 
         if varinfo.vtype is None:
+            return lval
+
+        if varinfo.vtype.is_compound:
+            structtyp = cast(AST.ASTTypComp, varinfo.vtype)
+            ckey = structtyp.compkey
+            compinfo = self.globalsymboltable.compinfo(ckey)
+            for (cfoff, fname) in sorted(compinfo.field_offsets.items()):
+                fieldoffset = self.mk_field_offset(fname, ckey)
+                fieldlval = self.astree.mk_vinfo_lval(
+                    varinfo, offset=fieldoffset)
+                self.stack_variables[offset + cfoff] = fieldlval
             return lval
 
         if varinfo.vtype.is_array:
