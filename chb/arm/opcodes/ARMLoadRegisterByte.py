@@ -36,6 +36,7 @@ from chb.arm.ARMOperand import ARMOperand
 import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
+from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
@@ -47,6 +48,7 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMOperandKind import ARMOffsetAddressOp
     from chb.invariants.XXpr import XprCompound
+
 
 
 @armregistry.register_tag("LDRB", ARMOpcode)
@@ -107,6 +109,9 @@ class ARMLoadRegisterByte(ARMOpcode):
     @property
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2, 3]]
+
+    def lhs(self, xdata: InstrXData) -> List[XVariable]:
+        return [xdata.vars[0]]
 
     def is_load_instruction(self, xdata: InstrXData) -> bool:
         return True

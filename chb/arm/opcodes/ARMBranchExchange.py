@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@ from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
+from chb.arm.ARMCallOpcode import ARMCallOpcode
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, simplify_result
 from chb.arm.ARMOperand import ARMOperand
@@ -43,11 +44,12 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    from chb.api.CallTarget import CallTarget, AppTarget, StaticStubTarget
     import chb.arm.ARMDictionary
 
 
 @armregistry.register_tag("BX", ARMOpcode)
-class ARMBranchExchange(ARMOpcode):
+class ARMBranchExchange(ARMCallOpcode):
     """Branch to an address and instruction set specified by a register.
 
     tags[1]: <c>
@@ -84,17 +86,36 @@ class ARMBranchExchange(ARMOpcode):
         else:
             return None
 
+    def is_call(self, xdata: InstrXData) -> bool:
+        return len(xdata.tags) >= 2 and xdata.tags[1] == "call"
+
+    def is_call_instruction(self, xdata: InstrXData) -> bool:
+        return xdata.has_call_target()
+
+    def call_target(self, xdata: InstrXData) -> "CallTarget":
+        if self.is_call_instruction(xdata):
+            return xdata.call_target(self.ixd)
+        else:
+            raise UF.CHBError("Instruction is not a call: " + str(self))
+
+    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
+        return xdata.xprs
+
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:x .
 
         xprs[0]: target operand
         """
+        if self.is_call_instruction(xdata):
+            tgt = xdata.call_target(self.ixd)
+            args = ", ".join(str(x) for x in self.arguments(xdata))
+            return "call " + str(tgt) + "(" + args + ")"
 
-        tgt = str(xdata.xprs[0])
-        if tgt == "LR":
+        tgtop = str(xdata.xprs[0])
+        if tgtop == "LR":
             return "return"
         else:
-            return "goto " + tgt
+            return "goto " + tgtop
 
     def assembly_ast(
             self,
@@ -115,8 +136,24 @@ class ARMBranchExchange(ARMOpcode):
 
         annotations: List[str] = [iaddr, "BX"]
 
-        nopinstr = astree.mk_nop_instruction(
-            "BX", iaddr=iaddr, bytestring=bytestring, annotations=annotations)
-        astree.add_instr_address(nopinstr, [iaddr])
+        if self.is_call_instruction(xdata) and xdata.has_call_target():
+            return self.ast_call_prov(
+                astree, iaddr, bytestring, "BranchExchange", xdata)
+        else:
+            nopinstr = astree.mk_nop_instruction(
+                "BX", iaddr=iaddr, bytestring=bytestring, annotations=annotations)
+            astree.add_instr_address(nopinstr, [iaddr])
 
-        return ([], [nopinstr])
+            return ([], [nopinstr])
+
+    def ast_call_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            name: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        return ARMCallOpcode.ast_call_prov(
+            self, astree, iaddr, bytestring, "BranchExchange (BX)", xdata)

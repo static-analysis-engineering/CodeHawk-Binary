@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -123,6 +123,22 @@ class ARMArithmeticShiftRight(ARMOpcode):
 
         annotations: List[str] = [iaddr, "ASR"]
 
+        # low-level assignment
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_asr = astree.mk_binary_op("asr", ll_rhs1, ll_rhs2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_asr,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # high-level assignment
+
         lhs = xdata.vars[0]
         rhs1 = xdata.xprs[0]
         rhs2 = xdata.xprs[1]
@@ -131,43 +147,25 @@ class ARMArithmeticShiftRight(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
-        (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
-        (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
-        ll_asr_expr = astree.mk_binary_op("asr", ll_rhs1, ll_rhs2)
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
 
-        ll_assign = astree.mk_assign(
-            ll_lhs,
-            ll_asr_expr,
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        hl_rhss = XU.xxpr_to_ast_exprs(rhs3, xdata, iaddr, astree)
-        if len(hl_lhss) == 1 and len(hl_rhss) == 1:
-            hl_lhs = hl_lhss[0]
-            hl_rhs = hl_rhss[0]
-            hl_assign = astree.mk_assign(
-                hl_lhs,
-                hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_asr)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_asr, [rdefs[0], rdefs[1]])
+        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
-            astree.add_instr_mapping(hl_assign, ll_assign)
-            astree.add_instr_address(hl_assign, [iaddr])
-            astree.add_expr_mapping(hl_rhs, ll_asr_expr)
-            astree.add_lval_mapping(hl_lhs, ll_lhs)
-            astree.add_expr_reachingdefs(ll_asr_expr, [rdefs[0], rdefs[1]])
-            astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
-            astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
-            astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
-            astree.add_lval_defuses(hl_lhs, defuses[0])
-            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-
-            return ([hl_assign], [ll_assign])
-
-        else:
-            raise UF.CHBError(
-                "ARMArithmeticShiftRight: multiple lval/expressions in ast")
+        return ([hl_assign], [ll_assign])
