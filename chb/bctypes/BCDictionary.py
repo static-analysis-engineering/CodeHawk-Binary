@@ -26,7 +26,8 @@
 # ------------------------------------------------------------------------------
 """Dictionary of CIL-types as produced by the CIL parser."""
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import (
+    Any, Callable, cast, Dict, List, Optional, Tuple, TYPE_CHECKING)
 
 import xml.etree.ElementTree as ET
 
@@ -43,7 +44,7 @@ from chb.bctypes.BCFunArgs import BCFunArg, BCFunArgs
 from chb.bctypes.BCLHost import BCLHost
 from chb.bctypes.BCLval import BCLval
 from chb.bctypes.BCOffset import BCOffset
-from chb.bctypes.BCTyp import BCTyp
+from chb.bctypes.BCTyp import BCTyp, BCTypNamed
 from chb.bctypes.BCTypSig import BCTypSig, BCTypSigList
 from chb.bctypes.BCTypeInfo import BCTypeInfo
 from chb.bctypes.BCVarInfo import BCVarInfo
@@ -118,6 +119,9 @@ class BCDictionary:
         return self._app
 
     # ------------------------- retrieve items by name/key ---------------------
+
+    def has_typeinfo_by_name(self, name: str) -> bool:
+        return name in self.typeinfo_names
 
     def typeinfo_by_name(self, name: str) -> BCTypeInfo:
         if name in self.typeinfo_names:
@@ -265,7 +269,24 @@ class BCDictionary:
         lines: List[str] = []
 
         def f(ix: int, v: IT.IndexedTableValue) -> None:
-            lines.append(str(ix) + ": " + str(self.typ(ix)))
+            ty = self.typ(ix)
+            if ty.is_typedef:
+                ty = cast(BCTypNamed, ty)
+                resolves = ""
+                if ty.typedef is not None:
+                    resolves = " (resolves to " + str(ty.typedef.ttype) + ")"
+                lines.append(str(ix) + ": " + ty.tname + resolves)
+            else:
+                lines.append(str(ix) + ": " + str(self.typ(ix)))
 
         self.typ_table.iter(f)
+        return "\n".join(lines)
+
+    def compinfo_table_to_string(self) -> str:
+        lines: List[str] = []
+
+        def f(ix: int, v: IT.IndexedTableValue) -> None:
+            lines.append(str(ix) + ": " + str(self.compinfo(ix)))
+
+        self.compinfo_table.iter(f)
         return "\n".join(lines)

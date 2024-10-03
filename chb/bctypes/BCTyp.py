@@ -552,8 +552,11 @@ class BCTypNamed(BCTyp):
         return self.tags[1]
 
     @property
-    def typedef(self) -> "BCTypeInfo":
-        return self.bcd.typeinfo_by_name(self.tname)
+    def typedef(self) -> Optional["BCTypeInfo"]:
+        if self.bcd.has_typeinfo_by_name(self.tname):
+            return self.bcd.typeinfo_by_name(self.tname)
+        else:
+            return None
 
     @property
     def is_typedef(self) -> bool:
@@ -561,78 +564,141 @@ class BCTypNamed(BCTyp):
 
     @property
     def is_scalar(self) -> bool:
-        return self.typedef.ttype.is_scalar
+        if self.typedef is not None:
+            return self.typedef.ttype.is_scalar
+        else:
+            return False
 
     @property
     def is_integer(self) -> bool:
-        return self.typedef.ttype.is_integer
+        if self.typedef is not None:
+            return self.typedef.ttype.is_integer
+        else:
+            return False
 
     @property
     def is_float(self) -> bool:
-        return self.typedef.ttype.is_float
+        if self.typedef is not None:
+            return self.typedef.ttype.is_float
+        else:
+            return False
 
     @property
     def is_pointer(self) -> bool:
-        return self.typedef.ttype.is_pointer
+        if self.typedef is not None:
+            return self.typedef.ttype.is_pointer
+        else:
+            return False
 
     @property
     def is_array(self) -> bool:
-        return self.typedef.ttype.is_array
+        if self.typedef is not None:
+            return self.typedef.ttype.is_array
+        else:
+            return False
+
+    @property
+    def is_struct(self) -> bool:
+        if self.typedef is not None:
+            return self.typedef.ttype.is_struct
+        else:
+            return False
 
     def has_constant_size(self) -> bool:
-        return self.typedef.ttype.has_constant_size()
+        if self.typedef is not None:
+            return self.typedef.ttype.has_constant_size()
+        else:
+            return False
 
     @property
     def is_function(self) -> bool:
-        return self.typedef.ttype.is_function
+        if self.typedef is not None:
+            return self.typedef.ttype.is_function
+        else:
+            return False
 
     @property
     def is_vararg(self) -> bool:
-        return self.typedef.ttype.is_vararg
+        if self.typedef is not None:
+            return self.typedef.ttype.is_vararg
+        else:
+            return False
 
     @property
     def ikind(self) -> str:
-        return self.typedef.ttype.ikind
+        if self.typedef is not None:
+            return self.typedef.ttype.ikind
+        else:
+            raise UF.CHBError("No type definition for " + self.tname)
 
     @property
     def fkind(self) -> str:
-        return self.typedef.ttype.fkind
+        if self.typedef is not None:
+            return self.typedef.ttype.fkind
+        else:
+            raise UF.CHBError("No type definition for " + self.tname)
 
     @property
     def tgttyp(self) -> "BCTyp":
-        return self.typedef.ttype.tgttyp
+        if self.typedef is not None:
+            return self.typedef.ttype.tgttyp
+        else:
+            raise UF.CHBError("No type definition for " + self.tname)
 
     @property
     def size_expr(self) -> Optional["BCExp"]:
-        return self.typedef.ttype.size_expr
+        if self.typedef is not None:
+            return self.typedef.ttype.size_expr
+        else:
+            return None
 
     @property
     def sizevalue(self) -> int:
-        return self.typedef.ttype.sizevalue
+        if self.typedef is not None:
+            return self.typedef.ttype.sizevalue
+        else:
+            raise UF.CHBError("No type definition for " + self.tname)
 
     @property
     def returntype(self) -> "BCTyp":
-        return self.typedef.ttype.returntype
+        if self.typedef is not None:
+            return self.typedef.ttype.returntype
+        else:
+            raise UF.CHBError("No type definition for " + self.tname)
 
     @property
     def argtypes(self) -> Optional["BCFunArgs"]:
-        return self.typedef.ttype.argtypes
+        if self.typedef is not None:
+            return self.typedef.ttype.argtypes
+        else:
+            return None
 
     def is_leq(self, other: "BCTyp") -> bool:
-        return self.typedef.ttype.is_leq(other)
+        if self.typedef is not None:
+            return self.typedef.ttype.is_leq(other)
+        else:
+            raise UF.CHBError("No type definition for " + self.tname)
 
     def byte_size(self) -> int:
-        return self.typedef.ttype.byte_size()
+        if self.typedef is not None:
+            return self.typedef.ttype.byte_size()
+        else:
+            raise UF.CHBError("No type definition for " + self.tname)
 
     def alignment(self) -> int:
-        return self.typedef.ttype.alignment()
+        if self.typedef is not None:
+            return self.typedef.ttype.alignment()
+        else:
+            raise UF.CHBError("No type definition for " + self.tname)
 
     def convert(self, converter: "BCConverter") -> AST.ASTTyp:
         return converter.convert_named_typ(self)
 
     def __str__(self) -> str:
-        return str(self.typedef.ttype)
-        # return self.tname + " (" + str(self.typedef.ttype) + ")"
+        if self.typedef is not None:
+            return str(self.typedef.ttype)
+        else:
+            return self.tname + " (no typedefinition available)"
 
 
 @bcregistry.register_tag("tcomp", BCTyp)
