@@ -107,6 +107,8 @@ from chb.x86.X86Access import X86Access
 if TYPE_CHECKING:
     import chb.app.Instruction
     import chb.arm.ARMInstruction
+    from chb.bctypes.BCCompInfo import BCCompInfo
+    from chb.bctypes.BCTyp import BCTypComp, BCTypFun, BCTypNamed, BCTypPtr
     from chb.invariants.InvariantFact import RelationalFact
     import chb.mips.MIPSInstruction
     import chb.x86.X86Instruction
@@ -779,6 +781,10 @@ def results_globalvars(args: argparse.Namespace) -> NoReturn:
             lhsdir[str(v)].setdefault(faddr, 0)
             lhsdir[str(v)][faddr] += 1
 
+    total_lhs_assignments = 0
+    for faddr in lhsglobals:
+        total_lhs_assignments += len(lhsglobals[faddr])
+
     for gv in sorted(lhsdir):
         print("\nGlobal variable " + gv)
         for faddr in sorted(lhsdir[gv]):
@@ -794,10 +800,110 @@ def results_globalvars(args: argparse.Namespace) -> NoReturn:
             rhsdir[str(x)].setdefault(faddr, 0)
             rhsdir[str(x)][faddr] += 1
 
+    print("\nGlobal expressions (" + str(len(rhsdir)) + ")")
+    print("---------------------------------------")
     for gx in sorted(rhsdir):
         print("\nGlobal expression " + gx)
         for faddr in sorted(rhsdir[gx]):
             print("  " + faddr + ": " + str(rhsdir[gx][faddr]))
+
+    print("\nGlobal variable statistics")
+    print("---------------------------------------")
+    print("Number of functions in which globals get assigned: "
+          + str(len(lhsglobals)))
+    print("Total number of global variable assignments: "
+          + str(total_lhs_assignments))
+    print("Total number of functions in which globals get referenced: "
+          + str(len(rhsglobals)))
+
+    exit(0)
+
+
+def results_classifyfunctions(args: argparse.Namespace) -> NoReturn:
+    """Returns a classification of function based on a classifier."""
+
+    xname: str = str(args.xname)
+    classificationfile: str = str(args.classification_file)
+
+    with open(classificationfile, "r") as fp:
+        classifier = json.load(fp)
+
+    revclassifier: Dict[str, str] = {}
+    for category in classifier["classification"]:
+        for libfun in classifier["classification"][category]:
+            revclassifier[libfun] = category
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+    fns = app.appfunction_addrs
+
+    classification: Dict[str, Dict[str, int]] = {}  # faddr -> libcat -> count
+
+    for faddr in fns:
+        classification.setdefault(faddr, {})
+        f = app.function(faddr)
+        fcalls = f.call_instructions()
+        for baddr in fcalls:
+            for instr in fcalls[baddr]:
+                tgtname = instr.call_target.name
+                if tgtname in revclassifier:
+                    category = revclassifier[tgtname]
+                    classification[faddr].setdefault(category, 0)
+                    classification[faddr][category] += 1
+
+    catfprevalence: Dict[str, int] = {}
+    catcprevalence: Dict[str, int] = {}
+    catstats: Dict[int, int] = {}
+    singlecat: Dict[str, int] = {}
+    doublecat: Dict[Tuple[str, str], int] = {}
+    for faddr in classification:
+        for cat in classification[faddr]:
+            catfprevalence.setdefault(cat, 0)
+            catcprevalence.setdefault(cat, 0)
+            catfprevalence[cat] += 1
+            catcprevalence[cat] += classification[faddr][cat]
+
+        numcats = len(classification[faddr])
+        catstats.setdefault(numcats, 0)
+        catstats[numcats] += 1
+        if numcats == 1:
+            cat = list(classification[faddr].keys())[0]
+            singlecat.setdefault(cat, 0)
+            singlecat[cat] += 1
+
+        if numcats == 2:
+            cats = sorted(list(classification[faddr].keys()))
+            cattuple = (cats[0], cats[1])
+            doublecat.setdefault(cattuple, 0)
+            doublecat[cattuple] += 1
+
+    for (m, c) in sorted(catstats.items()):
+        print(str(m).rjust(5) + ": " + str(c).rjust(5))
+
+    print("\nSingle category")
+    for (cat, count) in sorted(singlecat.items()):
+        print(str(count).rjust(5) + "  " + cat)
+
+    print("\nDouble category")
+    for ((cat1, cat2), count) in sorted(doublecat.items()):
+        print(str(count).rjust(5) + "  " + cat1 + ", " + cat2)
+
+    classificationresults: Dict[str, Any] = {}
+    classificationresults["catfprevalence"] = catfprevalence
+    classificationresults["catcprevalence"] = catcprevalence
+    classificationresults["functions"] = classification
+
+    with open("classification_results.json", "w") as fp:
+        json.dump(classificationresults, fp, indent=2)
 
     exit(0)
 
@@ -1486,7 +1592,7 @@ def results_fileio(args: argparse.Namespace) -> NoReturn:
                 if ctgt in ["fopen", "fopen64"]:
                     results.setdefault(ctgt, {})
                     callargs = instr.call_arguments
-                    if len(args) > 1:
+                    if len(callargs) > 1:
                         results[ctgt].setdefault(str(callargs[0]), 0)
                         results[ctgt][str(callargs[0])] += 1
 
@@ -1495,6 +1601,106 @@ def results_fileio(args: argparse.Namespace) -> NoReturn:
     for tgt in results:
         for c in sorted(results[tgt]):
             print(str(results[tgt][c]).rjust(5) + "  " + c)
+
+    exit(0)
+
+
+def results_struct_arguments(args: argparse.Namespace) -> NoReturn:
+    """Prints out a list of constant structs referred to in call arguments.
+
+    Note: experimental, format will change.
+    """
+
+    # arguments
+    xname: str = str(args.xname)
+    optfname: Optional[str] = args.fname
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    results: Dict[int, Tuple[int, "BCCompInfo"]] = {}
+    callinstrs = app.call_instructions()
+    for faddr in callinstrs:
+        for (baddr, instrs) in callinstrs[faddr].items():
+            fn = app.function(faddr)
+            finfo = fn.finfo
+            for instr in instrs:
+                iaddr = instr.iaddr
+                if finfo.has_call_target_info(iaddr):
+                    ctinfo = finfo.call_target_info(iaddr)
+                    fname = ctinfo.target_interface.name
+                    if optfname and optfname != fname:
+                        continue
+                    ftype = ctinfo.target_interface.bctype
+                    if ftype is None:
+                        continue
+                    if not ftype.is_function:
+                        continue
+                    ftype = cast("BCTypFun", ftype)
+                    funargs = ftype.argtypes
+                    if funargs is None:
+                        continue
+                    callargs = instr.call_arguments
+                    if len(callargs) == len(funargs.funargs):
+                        for (funarg, x) in zip(funargs.funargs, callargs):
+                            if not x.is_int_constant:
+                                continue
+                            if not funarg.typ.is_pointer:
+                                continue
+                            funargtyp = cast("BCTypPtr", funarg.typ)
+                            if not funargtyp.tgttyp.is_struct:
+                                continue
+                            if funargtyp.tgttyp.is_typedef:
+                                funargtgt = cast("BCTypNamed", funargtyp.tgttyp)
+                                funargtgtdef = funargtgt.typedef
+                                if funargtgtdef is None:
+                                    continue
+                                structtype = funargtgtdef.ttype
+                            else:
+                                structtype = funargtyp.tgttyp
+
+                            structtype = cast("BCTypComp", structtype)
+                            addr = x.intvalue
+                            elfsection = app.header.get_elf_section_index(addr)
+                            if elfsection is not None:
+                                print(
+                                    "struct: "
+                                    + structtype.compname
+                                    + " at "
+                                    + str(x))
+                                if addr not in results:
+                                    results[addr] = (
+                                        elfsection, structtype.compinfo)
+
+    for (addr, (elfsection, compinfo)) in sorted(results.items()):
+        print("\nstruct " + compinfo.cname + " at " + hex(addr))
+        for (foffset, fieldinfo) in compinfo.fieldoffsets():
+            fieldval = app.header.get_doubleword_value(elfsection, addr + foffset)
+            print(
+                str(foffset).rjust(4)
+                + "  "
+                + fieldinfo.fieldname
+                + ": "
+                + hex(fieldval))
+            if fieldinfo.fieldtype.is_pointer:
+                fieldtype = cast("BCTypPtr", fieldinfo.fieldtype)
+                if (
+                        fieldtype.tgttyp.is_integer
+                        and fieldtype.tgttyp.byte_size() == 1):
+                    fieldsection = app.header.get_elf_section_index(fieldval)
+                    if fieldsection is not None:
+                        fieldstring = app.header.get_string(
+                            fieldsection, fieldval)
+                        print("     Constant string: " + fieldstring)
 
     exit(0)
 
@@ -2081,6 +2287,30 @@ def show_type_table(args: argparse.Namespace) -> NoReturn:
     bcdictionary = app.bcdictionary
 
     print(bcdictionary.typ_table_to_string())
+
+    exit(0)
+
+
+def show_compinfo_table(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    bcdictionary = app.bcdictionary
+
+    print(bcdictionary.compinfo_table_to_string())
 
     exit(0)
 

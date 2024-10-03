@@ -795,6 +795,14 @@ def parse() -> argparse.Namespace:
         help="list of edges to be added (in the form src-addr:tgt-addr in hex)")
     showcfg.set_defaults(func=UCC.showcfg)
 
+    # --- results classify_functions ---
+    resultsclassifyfunctions = resultsparsers.add_parser("classify_functions")
+    resultsclassifyfunctions.add_argument("xname", help="name of executable")
+    resultsclassifyfunctions.add_argument(
+        "classification_file",
+        help="name of json classification file")
+    resultsclassifyfunctions.set_defaults(func=UCC.results_classifyfunctions)
+
     # --- results functions ---
     resultsfunctions = resultsparsers.add_parser('functions')
     resultsfunctions.add_argument('xname', help='name of executable')
@@ -1016,6 +1024,13 @@ def parse() -> argparse.Namespace:
     resultsfileio = resultsparsers.add_parser("fileio")
     resultsfileio.add_argument("xname", help="name of executable")
     resultsfileio.set_defaults(func=UCC.results_fileio)
+
+    # --- results struct arguments ---
+    resultsstructargs = resultsparsers.add_parser("struct_arguments")
+    resultsstructargs.add_argument("xname", help="name of executable")
+    resultsstructargs.add_argument(
+        "--fname", help="restrict to function (callee) name")
+    resultsstructargs.set_defaults(func=UCC.results_struct_arguments)
 
     # -- results cfgpaths (paths through the control flow graph) --
     resultscfgpaths = resultsparsers.add_parser("cfgpaths")
@@ -1519,6 +1534,11 @@ def parse() -> argparse.Namespace:
     table_type = tableparsers.add_parser("type")
     table_type.add_argument("xname", help="name of executable")
     table_type.set_defaults(func=UCC.show_type_table)
+
+    # --- compinfo ---
+    table_compinfo = tableparsers.add_parser("compinfo")
+    table_compinfo.add_argument("xname", help="name of executable")
+    table_compinfo.set_defaults(func=UCC.show_compinfo_table)
 
     # --- variables ---
     table_vars = tableparsers.add_parser('variables')
