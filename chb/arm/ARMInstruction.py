@@ -339,7 +339,7 @@ class ARMInstruction(Instruction):
         rhs = self.opcode.rhs(self.xdata)
         return (
             [x for x in lhs if x.is_global_variable],
-            [x for x in rhs if x.has_global_references()])
+            [x for x in rhs if x.has_global_references() or x.is_global_address])
 
     def string_pointer_loaded(self) -> Optional[Tuple[str, str]]:
         return None
