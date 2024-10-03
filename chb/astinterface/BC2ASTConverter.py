@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Converter from the BC types (CIL) to the AST types."""
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from chb.ast.ASTIndexer import ASTIndexer
 import chb.ast.ASTNode as AST
@@ -48,6 +48,7 @@ import chb.bctypes.BCTyp as BCT
 from chb.bctypes.BCVarInfo import BCVarInfo
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 bc2ast_operators: Dict[str, str] = {
     "div": "div",
@@ -255,11 +256,16 @@ class BC2ASTConverter(BCConverter):
         return AST.ASTFunArg(arg.name, arg.typ.convert(self))
 
     def convert_named_typ(self, t: BCT.BCTypNamed) -> AST.ASTTyp:
-        typdef = t.typedef.ttype.convert(self)
-        namedtype = AST.ASTTypNamed(t.tname, typdef)
-        self.symboltable.add_typedef(namedtype)
-        # return namedtype
-        return typdef
+        typdef = t.typedef
+        if typdef is not None:
+            asttypdef = typdef.ttype.convert(self)
+            namedtype = AST.ASTTypNamed(t.tname, asttypdef)
+            self.symboltable.add_typedef(namedtype)
+            return asttypdef
+        else:
+            chklogger.logger.error(
+                "No definition for typedef %s", t.tname)
+            raise UF.CHBError("No definition for typedef name " + t.tname)
 
     def convert_builtin_va_list(
             self, t: BCT.BCTypBuiltinVaList) -> AST.ASTTypBuiltinVAList:
