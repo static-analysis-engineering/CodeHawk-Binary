@@ -1372,7 +1372,13 @@ def xmemory_dereference_lval(
     xaddr = xxpr_to_ast_def_expr(address, xdata, iaddr, astree)
     if xaddr.is_ast_binary_op:
         xaddr = cast(AST.ASTBinaryOp, xaddr)
-        if xaddr.exp1.is_ast_lval_expr:
+        if xaddr.exp1.is_ast_startof:
+            xalval = cast(AST.ASTStartOf, xaddr.exp1)
+            astoffset = astree.mk_expr_index_offset(xaddr.exp2)
+            lvalhost = xalval.lval.lhost
+            return astree.mk_lval(lvalhost, astoffset)
+
+        elif xaddr.exp1.is_ast_lval_expr:
             xlval = cast(AST.ASTLvalExpr, xaddr.exp1)
             xlvaltype = xlval.ctype(astree.ctyper)
             if xlvaltype is not None and xlvaltype.is_array:
