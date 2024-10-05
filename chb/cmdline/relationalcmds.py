@@ -324,6 +324,9 @@ def _relational_compare_generate_json(xname1: str,
                                       xpatchresults: Optional[str],
                                       usermappingfile: Optional[str],
                                       addresses: List[str],
+                                      loglevel: str,
+                                      logfilename: Optional[str],
+                                      logfilemode: str,
                                      ) -> JSONResult:
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -333,6 +336,13 @@ def _relational_compare_generate_json(xname1: str,
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path1,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="relational compare all")
 
     usermapping: Dict[str, str] = {}
     if usermappingfile is not None:
@@ -387,8 +397,13 @@ def relational_compare_all_cmd(args: argparse.Namespace) -> NoReturn:
     xpatchresults: Optional[str] = args.patch_results_file
     xoutput: str = args.output
     usermappingfile: Optional[str] = args.usermapping
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
-    result = _relational_compare_generate_json(xname1, xname2, xpatchresults, usermappingfile, [])
+    result = _relational_compare_generate_json(xname1, xname2, xpatchresults,
+                                               usermappingfile, [],
+                                               loglevel, logfilename, logfilemode)
     if result.is_ok:
         jsonresult = JU.jsonok("compareall", result.content)
         exitval = 0
@@ -418,8 +433,13 @@ def relational_compare_app_cmd(args: argparse.Namespace) -> NoReturn:
     xpatchresults: Optional[str] = args.patch_results_file
     xoutput: str = args.output
     usermappingfile: Optional[str] = args.usermapping
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
 
-    result = _relational_compare_generate_json(xname1, xname2, xpatchresults, usermappingfile, [])
+    result = _relational_compare_generate_json(xname1, xname2, xpatchresults,
+                                               usermappingfile, [],
+                                               loglevel, logfilename, logfilemode)
     if not result.is_ok:
         print("ERROR: Couldn't generate app comparison results")
         exit(1)
