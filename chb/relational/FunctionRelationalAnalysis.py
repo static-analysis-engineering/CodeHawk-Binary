@@ -400,6 +400,9 @@ class FunctionRelationalAnalysis:
             trampoline = cast("ARMCfgTrampolineBlock", self.cfgtc_blocks2[b])
             tpre = trampoline.prenodes
             tpost = trampoline.postnodes
+            # Need this definition up here, otherwise mypy gets mad.
+            roles: Dict[str, "BasicBlock"] = {}
+
             if len(tpre) == 1 and len(tpost) == 1:
                 if (
                         tpre[0] in cfg2unmapped
@@ -407,7 +410,6 @@ class FunctionRelationalAnalysis:
                         and tpre[0] in cfg1unmapped):
                     # Case where trampoline has an early return and a fallthrough case
                     # (what we mark as the exit block)
-                    roles: Dict[str, "BasicBlock"] = {}
                     roles["entry"] = self.basic_blocks2[tpre[0]]
                     roles["exit"] = self.basic_blocks2[tpost[0]]
                     for (role, addr) in trampoline.roles.items():
@@ -447,7 +449,6 @@ class FunctionRelationalAnalysis:
                                            fallthrough.baddr, fallthrough_post)
                     return
 
-                roles: Dict[str, "BasicBlock"] = {}
                 roles["entry"] = self.basic_blocks2[tpre[0]]
                 roles["exit"] = self.basic_blocks2[fallthrough_post[0]]
                 for (role, addr) in trampoline.roles.items():
