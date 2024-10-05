@@ -671,6 +671,10 @@ def parse() -> argparse.Namespace:
         "--patch_results_file",
         help="name of patch results file (required if there are trampolines)")
     buildast.add_argument(
+        "--hide_globals",
+        help="do not include global declarations and definitions in printed output",
+        action="store_true")
+    buildast.add_argument(
         "--remove_edges",
         nargs="*",
         default=[],

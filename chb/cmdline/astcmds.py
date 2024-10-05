@@ -142,6 +142,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     functions: List[str] = args.functions
     hints: List[str] = args.hints  # names of json files
     xpatchresultsfile = args.patch_results_file
+    hide_globals: bool = args.hide_globals
     remove_edges: List[str] = args.remove_edges
     add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
@@ -354,7 +355,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 print("// --------------------------------------------------")
                 prettyprinter = ASTCPrettyPrinter(
                     localsymboltable, annotations=astinterface.annotations)
-                print(prettyprinter.to_c(asts[0], include_globals=True))
+                print(prettyprinter.to_c(asts[0], include_globals=(not hide_globals)))
                 functions_lifted += 1
 
             else:
