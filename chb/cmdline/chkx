@@ -1328,6 +1328,19 @@ def parse() -> argparse.Namespace:
         help="name of patch results file (required if there are trampolines)")
     relationalcompareall.add_argument(
         "--output", "-o", help="save json output in file")
+    relationalcompareall.add_argument(
+        "--loglevel", "-log",
+        choices=UL.LogLevel.options(),
+        default="NONE",
+        help="activate logging with the given level (default to stderr)")
+    relationalcompareall.add_argument(
+        "--logfilename",
+        help="name of file to write log messages")
+    relationalcompareall.add_argument(
+        "--logfilemode",
+        choices=["a", "w"],
+        default="a",
+        help="file mode for log file: append (a, default), or write (w)")
     relationalcompareall.set_defaults(func=R.relational_compare_all_cmd)
 
     # --- relational compare app --
@@ -1343,6 +1356,19 @@ def parse() -> argparse.Namespace:
         help="name of patch results file (required if there are trampolines)")
     relationalcomparefns.add_argument(
         "--output", "-o", help="save output in file")
+    relationalcompareall.add_argument(
+        "--loglevel", "-log",
+        choices=UL.LogLevel.options(),
+        default="NONE",
+        help="activate logging with the given level (default to stderr)")
+    relationalcompareall.add_argument(
+        "--logfilename",
+        help="name of file to write log messages")
+    relationalcompareall.add_argument(
+        "--logfilemode",
+        choices=["a", "w"],
+        default="a",
+        help="file mode for log file: append (a, default), or write (w)")
     relationalcomparefns.set_defaults(func=R.relational_compare_app_cmd)
 
     # --- relational compare function --
