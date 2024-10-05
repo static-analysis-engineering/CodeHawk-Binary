@@ -27,16 +27,14 @@
 """Compares two related functions in two binaries."""
 
 from typing import (
-    Any, cast, Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING)
+    Any, cast, Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING,
+)
 
 from chb.jsoninterface.JSONResult import JSONResult
 from chb.relational.BlockRelationalAnalysis import BlockRelationalAnalysis
-from chb.relational.InstructionRelationalAnalysis import (
-    InstructionRelationalAnalysis)
 from chb.relational.CfgMatcher import CfgMatcher
 
-import chb.util.fileutil as UF
-from chb.util.loggingutil import chklogger, LogLevel
+from chb.util.loggingutil import chklogger
 
 
 if TYPE_CHECKING:
