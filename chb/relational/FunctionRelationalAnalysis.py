@@ -384,7 +384,6 @@ class FunctionRelationalAnalysis:
             trampoline = self.has_trampoline()
             if trampoline is not None:
                 self.setup_trampoline_analysis(trampoline)
-
             else:
                 trampoline_minimal_pair_2_and_3 = self.has_minimal_pair_2_and_3_trampoline()
                 if trampoline_minimal_pair_2_and_3 is not None:
@@ -406,6 +405,8 @@ class FunctionRelationalAnalysis:
                         tpre[0] in cfg2unmapped
                         and tpost[0] in cfg2unmapped
                         and tpre[0] in cfg1unmapped):
+                    # Case where trampoline has an early return and a fallthrough case
+                    # (what we mark as the exit block)
                     roles: Dict[str, "BasicBlock"] = {}
                     roles["entry"] = self.basic_blocks2[tpre[0]]
                     roles["exit"] = self.basic_blocks2[tpost[0]]
@@ -416,6 +417,50 @@ class FunctionRelationalAnalysis:
                         self.basic_blocks1[tpre[0]],
                         self.app2,
                         roles)
+                else:
+                    chklogger.logger.warning("Found unhandled trampoline case. Should be an early return "
+                                             "trampoline (pre %s, post %s), but the blocks are not "
+                                             "in the unmapped lists. cfg1: %s, cfg2: %s",
+                                             tpre[0], tpost[0], cfg1unmapped, cfg2unmapped)
+            elif len(tpre) == 1 and len(tpost) == 2:
+                # Trampoline has a continue statement.
+                # One of the post blocks is the fallthrough/exit, one is the loop continuation.
+                # Need to figure out which one is which
+                if not 'continuepath' in trampoline.roles:
+                    chklogger.logger.error("Found unsupported trampoline case, "
+                                           "There are 2 post trampoline blocks %s but no continuepath role %s",
+                                           tpost, trampoline.roles)
+                    return
+
+                cont = self.basic_blocks2[trampoline.roles['continuepath']]
+                cont_post = self.cfg2.edges[cont.baddr]
+                if len(cont_post) != 1:
+                    chklogger.logger.error("Found unsupported trampoline case, "
+                                           "continue block %s has more than one outgoing edges: %s",
+                                           cont.baddr, cont_post)
+                    return
+                fallthrough = self.basic_blocks2[trampoline.roles['fallthrough']]
+                fallthrough_post = self.cfg2.edges[fallthrough.baddr]
+                if len(fallthrough_post) != 1:
+                    chklogger.logger.error("Found unsupported trampoline case, "
+                                           "fallthrough block %s has more than one outgoing edges: %s",
+                                           fallthrough.baddr, fallthrough_post)
+                    return
+
+                roles: Dict[str, "BasicBlock"] = {}
+                roles["entry"] = self.basic_blocks2[tpre[0]]
+                roles["exit"] = self.basic_blocks2[fallthrough_post[0]]
+                for (role, addr) in trampoline.roles.items():
+                    roles[role] = self.basic_blocks2[addr]
+                self._blockanalyses[tpre[0]] = BlockRelationalAnalysis(
+                    self.app1,
+                    self.basic_blocks1[tpre[0]],
+                    self.app2,
+                    roles)
+            else:
+                    chklogger.logger.warning("Found unhandled trampoline case. Have %d pre-blocks "
+                                             "%d post-blocks. pre: %s, post %s",
+                                             len(tpre), len(tpost), tpre, tpost)
 
     def setup_minimal_pair_2_and_3_trampoline_analysis(self, b: str) -> None:
         chklogger.logger.info("Setup minimal_pair_2_and_3_trampoline at %s", b)
