@@ -582,13 +582,15 @@ class ASTInterface:
             vtype: Optional[AST.ASTTyp] = None,
             offset: AST.ASTOffset = nooffset,
             globaladdress: int = 0,
-            llref: bool = False) -> AST.ASTExpr:
+            llref: bool = False,
+            anonymous: bool = False) -> AST.ASTExpr:
         return self.astree.mk_named_lval_expression(
             name,
             offset=offset,
             vtype=vtype,
             globaladdress=globaladdress,
-            llref=llref)
+            llref=llref,
+            anonymous=anonymous)
 
     # ------------------------------------------------------ make statements ---
 

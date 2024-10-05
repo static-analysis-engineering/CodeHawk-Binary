@@ -244,9 +244,6 @@ class ASTInterfaceFunction(ASTFunction):
                         self.astinterface.add_instr_mapping(hl_instr, ll_instr)
 
     def set_invariants(self) -> None:
-        pass
-
-    '''
         invariants = self.function.invariants
         aexprs: Dict[str, Dict[str, Tuple[int, int, str]]] = {}
         for loc in sorted(invariants):
@@ -263,47 +260,72 @@ class ASTInterfaceFunction(ASTFunction):
                         # Exclude auxiliary analysis variables
                         continue
 
-                    var = XU.xvariable_to_ast_lvals(
+                    if fact.variable.is_constant_value_variable:
+                        # Exclude invariants that equate symbolic constants
+                        # with constant values
+                        continue
+
+                    var = XU.xvariable_to_ast_lval(
                         fact.variable,
                         instr.xdata,
+                        instr.iaddr,
                         self.astinterface,
-                        anonymous=True)[0]
+                        anonymous=True)
+
                     varindex = var.index(self.astinterface.serializer)
                     value = fact.value
                     if value.is_singleton_value:
                         aexpr: ASTExpr = self.astinterface.mk_integer_constant(
                             value.singleton_value)
                         aexprindex = aexpr.index(self.astinterface.serializer)
+
                     elif value.is_symbolic_expression:
-                        aexpr = XU.xxpr_to_ast_exprs(
+                        aexpr = XU.xxpr_to_ast_def_expr(
                             fact.value.expr,
                             instr.xdata,
                             instr.iaddr,
                             self.astinterface,
-                            anonymous=True)[0]
+                            anonymous=True)
                         aexprindex = aexpr.index(self.astinterface.serializer)
                     else:
                         continue
                     aexprs.setdefault(loc, {})
                     aexprs[loc][str(var)] = (varindex, aexprindex, str(aexpr))
+
                 if fact.is_initial_var_equality:
                     fact = cast("InitialVarEqualityFact", fact)
-                    var = XU.xvariable_to_ast_lvals(
+
+                    if fact.variable.is_constant_value_variable:
+                        continue
+
+                    if fact.variable.is_global_variable:
+                        continue
+
+                    # Filter out initial-value equalities on return values
+                    if "rtn_" in str(fact.variable):
+                        continue
+
+                    var = XU.xvariable_to_ast_lval(
                         fact.variable,
                         instr.xdata,
+                        instr.iaddr,
                         self.astinterface,
-                        anonymous=True)[0]
+                        anonymous=True)
+
                     varindex = var.index(self.astinterface.serializer)
-                    aelval = XU.xvariable_to_ast_lvals(
+                    aexpr = XU.xvariable_to_ast_def_lval_expression(
                         fact.initial_value,
                         instr.xdata,
-                        self.astinterface)[0]
-                    aexpr = self.astinterface.mk_lval_expr(aelval)
+                        instr.iaddr,
+                        self.astinterface)
+
                     aexprindex = aexpr.index(self.astinterface.serializer)
                     aexprs.setdefault(loc, {})
                     aexprs[loc][str(var)] = (varindex, aexprindex, str(aexpr))
+
+        num_aexprs = sum(len(aexprs[a]) for a in aexprs)
+        chklogger.logger.info("Set %d available expressions", num_aexprs)
         self.astinterface.set_available_expressions(aexprs)
-    '''
 
     def set_return_sequences(self) -> None:
         """Currently only supports Thumb-2 stack-adjustment, pop return sequence."""

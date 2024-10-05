@@ -219,9 +219,18 @@ class ARMCallOpcode(ARMOpcode):
             else:
                 rtype = ctinfo.target_interface.signature.returntype
             asttype = rtype.convert(astree.typconverter)
-            if not (rtype.is_void or defuses[0] is None):
-                hl_lhs = XU.xvariable_to_ast_lval(
-                    lhs, xdata, iaddr, astree, ctype=asttype)
+
+            # Create a lhs even if it is not used, because the ssa value
+            # introduced may be used in the available expressions.
+            hl_lhs = XU.xvariable_to_ast_lval(
+                lhs, xdata, iaddr, astree, ctype=asttype)
+
+            if rtype.is_void or defuses[0] is None:
+                chklogger.logger.info(
+                    "Unused: introduced ssa-variable: %s for return value of %s "
+                    + "at address %s",
+                    str(hl_lhs), str(hl_tgt), iaddr)
+                hl_lhs = None
 
         # argument data
 

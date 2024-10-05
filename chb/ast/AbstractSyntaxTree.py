@@ -852,7 +852,8 @@ class AbstractSyntaxTree:
             vdescr: Optional[str] = None,
             offset: AST.ASTOffset = nooffset,
             optlvalid: Optional[int] = None,
-            storage: Optional[ASTStorage] = None) -> AST.ASTLval:
+            storage: Optional[ASTStorage] = None,
+            anonymous: bool = False) -> AST.ASTLval:
         var = self.mk_named_variable(
             vname,
             vtype=vtype,
@@ -860,6 +861,8 @@ class AbstractSyntaxTree:
             globaladdress=globaladdress,
             llref=llref,
             vdescr=vdescr)
+        if optlvalid is None and anonymous:
+            optlvalid = -1
         return self.mk_lval(
             var,
             offset,
@@ -959,7 +962,10 @@ class AbstractSyntaxTree:
             offset: AST.ASTOffset = nooffset,
             optlvalid: Optional[int] = None,
             optexprid: Optional[int] = None,
-            storage: Optional[ASTStorage] = None) -> AST.ASTLvalExpr:
+            storage: Optional[ASTStorage] = None,
+            anonymous: bool = False) -> AST.ASTLvalExpr:
+        if optlvalid is None and anonymous:
+            optlvalid = -1
         lval = self.mk_named_lval(
             vname,
             vtype=vtype,
