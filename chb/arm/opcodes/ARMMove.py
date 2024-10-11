@@ -99,6 +99,9 @@ class ARMMove(ARMOpcode):
         return ", ".join(str(op) for op in self.operands)
 
     def annotation(self, xdata: InstrXData) -> str:
+        if xdata.is_nop:
+            return "NOP"
+
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
         assignment = lhs + " := " + rhs
@@ -149,10 +152,20 @@ class ARMMove(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
+        annotations: List[str] = [iaddr, "MOV"]
+
+        if xdata.is_nop:
+            nopinstr = astree.mk_nop_instruction(
+                "MOV:NOP",
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            astree.add_instr_address(nopinstr, [iaddr])
+
+            return ([], [nopinstr])
+
         if xdata.instruction_is_subsumed():
             return self.ast_prov_subsumed(astree, iaddr, bytestring, xdata)
-
-        annotations: List[str] = [iaddr, "MOV"]
 
         # low-level assignment
 
