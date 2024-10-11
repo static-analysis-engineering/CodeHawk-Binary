@@ -272,6 +272,12 @@ class ASTInterfaceFunction(ASTFunction):
                         self.astinterface,
                         anonymous=True)
 
+                    if str(var).startswith("astmem_tmp"):
+                        chklogger.logger.info(
+                            "Skipping invariant %s at %s",
+                            str(fact), str(loc))
+                        continue
+
                     varindex = var.index(self.astinterface.serializer)
                     value = fact.value
                     if value.is_singleton_value:
@@ -318,6 +324,12 @@ class ASTInterfaceFunction(ASTFunction):
                         instr.xdata,
                         instr.iaddr,
                         self.astinterface)
+
+                    if str(var).startswith("astmem_tmp"):
+                        chklogger.logger.info(
+                            "Skipping invariant %s at %s",
+                            str(fact), str(loc))
+                        continue
 
                     aexprindex = aexpr.index(self.astinterface.serializer)
                     aexprs.setdefault(loc, {})
