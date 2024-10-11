@@ -133,7 +133,8 @@ class FunctionInfo:
                     if vix is not None and vname is not None:
                         self._variablenames[int(vix)] = vname
                     else:
-                        raise UF.CHBError("Index or name missing from variablename")
+                        raise UF.CHBError(
+                            "Index or name missing from variablename")
         return self._variablenames
 
     def call_target_info(self, callsite: str) -> CallTargetInfo:

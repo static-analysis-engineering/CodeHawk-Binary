@@ -112,6 +112,10 @@ class InstrXData(IndexedTableValue):
         return self.function.varinvdictionary
 
     @property
+    def is_nop(self) -> bool:
+        return len(self.tags) == 1 and self.tags[0] == "nop"
+
+    @property
     def vars(self) -> List[XVariable]:
         if not self.expanded:
             self._expand()
@@ -230,6 +234,8 @@ class InstrXData(IndexedTableValue):
         """
         self.expanded = True
         if len(self.tags) == 0:
+            return
+        if self.tags[0] == "nop":
             return
         key = self.tags[0]
         if key.startswith("a:"):
