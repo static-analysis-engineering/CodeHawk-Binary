@@ -117,7 +117,7 @@ class ASTInterface:
             structsizes=self._typconverter.structsizes)
         self._parameter_abi = parameter_abi
         self._srcformals: List[ASTIFormalVarInfo] = []
-        self._ssa_prefix_counters: Dict[str, int] = {"ssa": 0}
+        self._ssa_prefix_counters: Dict[str, int] = {}
         self._ssa_intros: Dict[str, Dict[str, AST.ASTVarInfo]] = {}
         self._ssa_values: Dict[str, AST.ASTExpr] = {}
         self._ssa_addresses: Dict[str, Set[str]] = {}
@@ -959,7 +959,6 @@ class ASTInterface:
                         self._ssa_intros[loc][reg] = vinfo
                         self._ssa_addresses[vinfo.vname].add(loc)
 
-
     def introduce_stack_variables(
             self,
             stackframe: "FnStackFrame",
@@ -1023,9 +1022,11 @@ class ASTInterface:
             self._ssa_prefix_counters[prefix] += 1
             vname = prefix + "__" + str(ssaid)
         else:
-            ssaid = self._ssa_prefix_counters["ssa"]
-            self._ssa_prefix_counters["ssa"] += 1
-            vname = "ssa_" + name + "_" + str(ssaid)
+            ssaprefix = "ssa_" + name
+            self._ssa_prefix_counters.setdefault(ssaprefix, 0)
+            ssaid = self._ssa_prefix_counters[ssaprefix]
+            self._ssa_prefix_counters[ssaprefix] += 1
+            vname = ssaprefix + "_" + str(ssaid)
         varinfo = self.add_symbol(vname, vtype=vtype)
         self._ssa_intros.setdefault(iaddr, {})
         self._ssa_intros[iaddr][name] = varinfo
