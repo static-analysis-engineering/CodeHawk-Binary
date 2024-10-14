@@ -390,7 +390,7 @@ def memory_variable_to_lval_expression(
             vinfo, astoffset, anonymous=anonymous)
 
     elif offset.is_array_index_offset:
-        offset = cast("VMemoryArrayIndexOffset", offset)
+        offset = cast("VMemoryOffsetArrayIndexOffset", offset)
         index = offset.index_expression
         astindex = xxpr_to_ast_def_expr(
             index, xdata, iaddr, astree, anonymous=anonymous)
