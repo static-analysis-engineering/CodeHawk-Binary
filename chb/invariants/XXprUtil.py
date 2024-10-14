@@ -389,6 +389,27 @@ def memory_variable_to_lval_expression(
         return astree.mk_vinfo_lval_expression(
             vinfo, astoffset, anonymous=anonymous)
 
+    elif offset.is_array_index_offset:
+        offset = cast("VMemoryArrayIndexOffset", offset)
+        index = offset.index_expression
+        astindex = xxpr_to_ast_def_expr(
+            index, xdata, iaddr, astree, anonymous=anonymous)
+        suboffset = offset.offset
+
+        if suboffset.is_no_offset:
+            astindexoffset = astree.mk_expr_index_offset(astindex)
+            return astree.mk_vinfo_lval_expression(
+                vinfo, astindexoffset, anonymous=anonymous)
+
+        if suboffset.is_field_offset:
+            suboffset = cast("VMemoryOffsetFieldOffset", suboffset)
+            astsuboffset = field_offset_to_ast_offset(
+                suboffset, xdata, iaddr, astree)
+            astindexoffset = astree.mk_expr_index_offset(
+                astindex, offset = astsuboffset)
+            return astree.mk_vinfo_lval_expression(
+                vinfo,astindexoffset, anonymous=anonymous)
+
     chklogger.logger.error(
         "AST conversion of memory variable %s with other offset not yet "
         + "supported at address %s",
