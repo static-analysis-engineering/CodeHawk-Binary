@@ -226,24 +226,12 @@ class ASTInterfaceBasicBlock:
                 condition = chkinstr2.get_instruction_condition()
                 rstmt = astree.mk_return_stmt(None)
                 estmt = astree.mk_instr_sequence([])
-                aexprs = XU.xxpr_to_ast_exprs(
-                    condition, chkinstr2.xdata, chkinstr2.iaddr, astree)
-                if len(aexprs) == 1:
-                    cc = aexprs[0]
-                    brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
-                    return brstmt
-                elif len(aexprs) == 0:
-                    chklogger.logger.critical(
-                        "trampoline payload cannot be lifted: "
-                        + "no dispatch condition found. "
-                        + "Contact system maintainer for support.")
-                else:
-                    chklogger.logger.critical(
-                        "trampoline payload cannot be lifted: "
-                        + "multiple dispatch conditions found: %s. "
-                        + "Contact system maintainer for support.",
-                        ", ".join(str(x) for x in aexprs)
-                        )
+                cc = XU.xxpr_to_ast_def_expr(condition,
+                                             chkinstr2.xdata,
+                                             chkinstr2.iaddr,
+                                             astree)
+                brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
+                return brstmt
             else:
                 chklogger.logger.critical(
                     "trampoline payload cannot be lifted: "
@@ -263,18 +251,11 @@ class ASTInterfaceBasicBlock:
                         condition, chkinstr3.xdata, chkinstr3.iaddr, astree)
                     brstmt = astree.mk_branch(cc, cstmt, estmt, "0x0")
                     return brstmt
-                elif len(aexprs) == 0:
-                    chklogger.logger.critical(
-                        "trampoline payload cannot be lifted: "
-                        + " no dispatch condition found. "
-                        + "Contact system maintainer for support")
                 else:
                     chklogger.logger.critical(
                         "trampoline payload cannot be lifted: "
-                        + "multiple dispatch conditions found: %s. "
-                        + "Contact system maintainer for support.",
-                        ", ".join(str(x) for x in aexprs)
-                    )
+                        + "expected to find conditional MOV instruction. "
+                        + "Contact system maintainer for support.")
             else:
                 chklogger.logger.critical(
                     "trampoline payload cannot be lifted: "
