@@ -206,7 +206,7 @@ class ASTInterfaceBasicBlock:
         BX    LR
         ------------
 
-        fallthrough / continue:
+        case 2: fallthrough / continue:
         <condition>
         MOVxx R1, #1
         LSL   R0, R1, #1

@@ -323,7 +323,8 @@ class ASTInterfaceFunction(ASTFunction):
                         fact.initial_value,
                         instr.xdata,
                         instr.iaddr,
-                        self.astinterface)
+                        self.astinterface,
+                        anonymous=True)
 
                     if str(var).startswith("astmem_tmp"):
                         chklogger.logger.info(

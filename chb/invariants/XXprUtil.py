@@ -185,7 +185,8 @@ def xxpr_memory_address_value_to_ast_expr(
         xpr: X.XXpr,
         xdata: "InstrXData",
         iaddr: str,
-        astree: ASTInterface) -> AST.ASTExpr:
+        astree: ASTInterface,
+        anonymous: bool = False) -> AST.ASTExpr:
 
     if not xpr.is_memory_address_value:
         chklogger.logger.error(
@@ -631,7 +632,7 @@ def vinitmemory_value_to_ast_lval_expression(
                 "AST conversion of vinitmemory value %s with basevar %s and "
                 + "offset %s at address %s unsuccessful because of lack of type "
                 + "of basevar",
-                str(vconstvar), str(astbase), str(astbasetype), str(coff), iaddr)
+                str(vconstvar), str(astbase), str(coff), iaddr)
             return astree.mk_temp_lval_expression()
 
         if astbasetype.is_pointer:
@@ -702,7 +703,6 @@ def xvariable_to_ast_def_lval_expression(
     if (
             xvar.is_initial_memory_value
             and not xdata.function.has_var_disequality(iaddr, xvar)):
-
         asmvar = cast("VAuxiliaryVariable", xvar.denotation)
         vminitvar = cast("VInitialMemoryValue", asmvar.auxvar)
         return vinitmemory_value_to_ast_lval_expression(
@@ -711,15 +711,14 @@ def xvariable_to_ast_def_lval_expression(
     if (
             xvar.is_initial_memory_value
             and xdata.function.has_var_disequality(iaddr, xvar)):
-        chklogger.logger.info(
-            "AST def conversion of initial memory value %s that may have "
-            + "changed reverted to original variable at %s",
-            str(xvar), str(iaddr))
-        asmvar = cast("VAuxiliaryVariable", xvar.denotation)
-        vminitvar = cast("VInitialMemoryValue", asmvar.auxvar)
-        xxvar = vminitvar.variable
-        return xvariable_to_ast_def_lval_expression(
-            xxvar, xdata, iaddr, astree, size=size, anonymous=anonymous)
+
+        if (not anonymous):
+            chklogger.logger.warning(
+                "AST def conversion of initial memory value %s that may have "
+                + "changed reverted to original variable at %s",
+                str(xvar), str(iaddr))
+
+        return astree.mk_temp_lval_expression()
 
     if xvar.is_function_return_value:
         asmvar = cast("VAuxiliaryVariable", xvar.denotation)
@@ -769,7 +768,8 @@ def xvariable_to_ast_def_lval_expression(
                 if ssavalue is not None:
                     return ssavalue
                 else:
-                    return astree.mk_vinfo_lval_expression(vinfo)
+                    return astree.mk_vinfo_lval_expression(
+                        vinfo, anonymous=anonymous)
             else:
                 chklogger.logger.error(
                     "Rdef: %s has not yet been introduced at address %s",
@@ -871,7 +871,7 @@ def xunary_to_ast_def_expr(
         if xpr.is_var:
             xvar = cast(X.XprVariable, xpr).variable
             astxvar = xvariable_to_ast_def_lval_expression(
-                xvar, xdata, iaddr, astree)
+                xvar, xdata, iaddr, astree, anonymous=anonymous)
             if not astxvar.is_ast_lval_expr:
                 chklogger.logger.error(
                     "Expected to receive an lval expression for %s at %s",
@@ -994,8 +994,10 @@ def xbinary_to_ast_def_expr(
         anonymous: bool = False) -> AST.ASTExpr:
 
     def default() -> AST.ASTExpr:
-        astxpr1 = xxpr_to_ast_def_expr(xpr1, xdata, iaddr, astree)
-        astxpr2 = xxpr_to_ast_def_expr(xpr2, xdata, iaddr, astree)
+        astxpr1 = xxpr_to_ast_def_expr(
+            xpr1, xdata, iaddr, astree, anonymous=anonymous)
+        astxpr2 = xxpr_to_ast_def_expr(
+            xpr2, xdata, iaddr, astree, anonymous=anonymous)
         if operator in [
                 "plus", "minus", "mult", "div",
                 "band", "land", "lor", "bor", "asr",
@@ -1010,7 +1012,8 @@ def xbinary_to_ast_def_expr(
 
     if xpr1.is_var and xpr2.is_constant:
         xvar = cast(X.XprVariable, xpr1).variable
-        astxpr1 = xvariable_to_ast_def_lval_expression(xvar, xdata, iaddr, astree)
+        astxpr1 = xvariable_to_ast_def_lval_expression(
+            xvar, xdata, iaddr, astree, anonymous=anonymous)
         astxpr2 = xxpr_to_ast_expr(xpr2, xdata, iaddr, astree)
         if operator in ["plus", "minus"]:
             ty1 = astxpr1.ctype(astree.ctyper)
@@ -1022,7 +1025,8 @@ def xbinary_to_ast_def_expr(
                         cast(AST.ASTTypPtr, ty1),
                         astxpr2,
                         iaddr,
-                        astree)
+                        astree,
+                        anonymous=anonymous)
                 return astree.mk_binary_expression(operator, astxpr1, astxpr2)
             else:
                 return default()
@@ -1224,22 +1228,25 @@ def xxpr_to_ast_def_expr(
             anonymous=anonymous)
 
     if xpr.is_constant:
-        return xxpr_to_ast_expr(xpr, xdata, iaddr, astree)
+        return xxpr_to_ast_expr(xpr, xdata, iaddr, astree, anonymous=anonymous)
 
     if xpr.is_memory_address_value:
-        return xxpr_memory_address_value_to_ast_expr(xpr, xdata, iaddr, astree)
+        return xxpr_memory_address_value_to_ast_expr(
+            xpr, xdata, iaddr, astree, anonymous=anonymous)
 
     if xpr.is_stack_address:
-        return stack_address_to_ast_expr(xpr, xdata, iaddr, astree)
+        return stack_address_to_ast_expr(
+            xpr, xdata, iaddr, astree, anonymous=anonymous)
 
     if xpr.is_var:
         xvar = cast(X.XprVariable, xpr).variable
         return xvariable_to_ast_def_lval_expression(
-            xvar, xdata, iaddr, astree, size=size)
+            xvar, xdata, iaddr, astree, size=size, anonymous=anonymous)
 
     if xpr.is_compound:
         xpr = cast(X.XprCompound, xpr)
-        return xcompound_to_ast_def_expr(xpr, xdata, iaddr, astree, size=size)
+        return xcompound_to_ast_def_expr(
+            xpr, xdata, iaddr, astree, size=size, anonymous=anonymous)
 
     else:
         chklogger.logger.error(
@@ -1273,7 +1280,8 @@ def stack_variable_to_ast_lval(
         astree: ASTInterface,
         size: int = 4,
         ctype: Optional[AST.ASTTyp] = None,
-        memaddr: Optional[X.XXpr] = None) -> AST.ASTLval:
+        memaddr: Optional[X.XXpr] = None,
+        anonymous: bool = False) -> AST.ASTLval:
 
     if offset.is_constant_value_offset:
         if size == 4:
@@ -1461,7 +1469,7 @@ def global_variable_to_ast_lval(
             indexoffset = cast("VMemoryOffsetIndexOffset", offset.offset)
             indexvar = indexoffset.indexvariable
             offsetxpr = xvariable_to_ast_def_lval_expression(
-                indexvar, xdata, iaddr, astree)
+                indexvar, xdata, iaddr, astree, anonymous=anonymous)
             astoffset: AST.ASTOffset = astree.mk_expr_index_offset(offsetxpr)
             return astree.mk_vinfo_lval(vinfo, astoffset, anonymous=anonymous)
 
