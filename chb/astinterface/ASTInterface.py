@@ -1377,9 +1377,38 @@ class ASTInterface:
         return self.astree.mk_string_constant(expr, cstr, saddr)
 
     def mk_address_of(
-            self, lval: AST.ASTLval, anonymous: bool = False) -> AST.ASTAddressOf:
+            self, lval: AST.ASTLval, anonymous: bool = False) -> AST.ASTExpr:
         optexprid = -1 if anonymous else None
+        if lval.offset.tail_offset.is_index_offset:
+            indexexpr = cast(
+                AST.ASTIndexOffset, lval.offset.tail_offset).index_expr
+            if indexexpr.is_integer_constant_zero:
+                return self.mk_index_parent_start_of(lval)
+
         return self.astree.mk_address_of_expression(lval, optexprid=optexprid)
+
+    def mk_index_parent_start_of(self, lval: AST.ASTLval) -> AST.ASTStartOf:
+
+        def replace_tail(offset: AST.ASTOffset) -> AST.ASTOffset:
+            if offset.is_no_offset:
+                chklogger.logger.error("Inconsistent offset")
+                return offset
+            elif offset.is_field_offset:
+                offset = cast(AST.ASTFieldOffset, offset)
+                suboffset = replace_tail(offset.offset)
+                return self.mk_field_offset(
+                    offset.fieldname, offset.compkey, offset = suboffset)
+            else:
+                if offset.offset.is_no_offset:
+                    return offset.offset
+                else:
+                    offset = cast(AST.ASTIndexOffset, offset)
+                    suboffset = replace_tail(offset.offset)
+                    return self.mk_expr_index_offset(
+                        offset.index_expr, offset=suboffset)
+
+        lval = self.mk_lval(lval.lhost, replace_tail(lval.offset))
+        return self.mk_start_of(lval)
 
     def mk_start_of(self, lval: AST.ASTLval) -> AST.ASTStartOf:
         return self.astree.mk_start_of_expression(lval, optexprid=None)

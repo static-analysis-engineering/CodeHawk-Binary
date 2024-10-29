@@ -1112,7 +1112,7 @@ class ASTAsm(ASTInstruction):
 
     def __str__(self) -> str:
         vol = " volatile" if self.volatile else ""
-        return "asm{}({}, {})".format(vol, self.template, self.clobbers) 
+        return "asm{}({}, {})".format(vol, self.template, self.clobbers)
 
 
 class ASTLval(ASTNode):
@@ -1396,6 +1396,10 @@ class ASTOffset(ASTNode):
     def offset(self) -> "ASTOffset":
         raise Exception("offset property not supported for " + str(self))
 
+    @property
+    def tail_offset(self) -> "ASTOffset":
+        raise Exception("tail offset property not supported for " + str(self))
+
     @abstractmethod
     def transform(self, transformer: "ASTTransformer") -> "ASTOffset":
         ...
@@ -1418,6 +1422,10 @@ class ASTNoOffset(ASTOffset):
     @property
     def is_no_offset(self) -> bool:
         return True
+
+    @property
+    def tail_offset(self) -> "ASTOffset":
+        return self
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_no_offset(self)
@@ -1472,6 +1480,13 @@ class ASTFieldOffset(ASTOffset):
     def offset(self) -> "ASTOffset":
         return self._byteoffset
 
+    @property
+    def tail_offset(self) -> "ASTOffset":
+        if self.offset.is_no_offset:
+            return self
+        else:
+            return self._byteoffset.tail_offset
+
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_field_offset(self)
 
@@ -1515,6 +1530,13 @@ class ASTIndexOffset(ASTOffset):
     @property
     def offset(self) -> "ASTOffset":
         return self._offset
+
+    @property
+    def tail_offset(self) -> "ASTOffset":
+        if self.offset.is_no_offset:
+            return self
+        else:
+            return self.offset.tail_offset
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_index_offset(self)
@@ -1591,6 +1613,10 @@ class ASTExpr(ASTNode):
 
     @property
     def is_integer_constant(self) -> bool:
+        return False
+
+    @property
+    def is_integer_constant_zero(self) -> bool:
         return False
 
     @property
@@ -1685,6 +1711,10 @@ class ASTIntegerConstant(ASTConstant):
     @property
     def is_integer_constant(self) -> bool:
         return True
+
+    @property
+    def is_integer_constant_zero(self) -> bool:
+        return self.cvalue == 0
 
     @property
     def cvalue(self) -> int:
