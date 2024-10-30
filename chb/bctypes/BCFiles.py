@@ -34,7 +34,7 @@ from chb.bctypes.BCCompInfo import BCCompInfo
 from chb.bctypes.BCDictionary import BCDictionary
 from chb.bctypes.BCEnumInfo import BCEnumInfo
 from chb.bctypes.BCFunctionDefinition import BCFunctionDefinition
-from chb.bctypes.BCTyp import BCTyp, BCTypComp
+from chb.bctypes.BCTyp import BCTyp, BCTypComp, BCTypNamed
 from chb.bctypes.BCTypeInfo import BCTypeInfo
 from chb.bctypes.BCVarInfo import BCVarInfo
 
@@ -81,6 +81,10 @@ class BCFiles:
     def fsum_compinfos(self) -> List[BCCompInfo]:
         result: List[BCCompInfo] = []
         for typ in self.gtypes:
+            if typ.is_typedef:
+                typedef = cast("BCTypNamed", typ).typedef
+                if typedef:
+                    typ = typ = cast("BCTypeInfo", typedef).ttype
             if typ.is_struct:
                 compinfo = cast("BCTypComp", typ).compinfo
                 result.append(compinfo)
