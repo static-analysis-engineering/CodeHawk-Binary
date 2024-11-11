@@ -142,9 +142,6 @@ class ARMBranch(ARMCallOpcode):
         else:
             return xdata.xprs[0]
 
-    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return xdata.xprs
-
     def annotation(self, xdata: InstrXData) -> str:
         if self.is_call_instruction(xdata):
             tgt = xdata.call_target(self.ixd)
