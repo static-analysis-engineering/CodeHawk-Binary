@@ -760,6 +760,10 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="add calls to nodes")
     showcfg.add_argument(
+        "--nops",
+        action="store_true",
+        help="show node in yellow if first instruction is a no-op")
+    showcfg.add_argument(
         "--instr_opcodes",
         action="store_true",
         help="add all assembly instruction opcode text to nodes")

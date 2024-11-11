@@ -1764,6 +1764,7 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
     xview: bool = args.view
     xpredicates: bool = args.predicates
     xcalls: bool = args.calls
+    xnops: bool = args.nops
     xstores: bool = args.stores
     xinstr_opcodes: bool = args.instr_opcodes
     xinstr_text: bool = args.instr_text
@@ -1810,6 +1811,10 @@ def showcfg(args: argparse.Namespace) -> NoReturn:
             if b in invariants:
                 if any(k.is_unreachable for k in invariants[b]):
                     nodecolors[b] = "grey"
+
+            if xnops:
+                if f.instruction(b).is_nop_instruction:
+                    nodecolors[b] = "yellow"
 
         if xjson:
             fresult = JU.function_cfg_to_json_result(f)

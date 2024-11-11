@@ -98,6 +98,9 @@ class ARMMove(ARMOpcode):
     def operandstring(self) -> str:
         return ", ".join(str(op) for op in self.operands)
 
+    def is_nop_instruction(self, xdata: InstrXData) -> bool:
+        return xdata.is_nop
+
     def annotation(self, xdata: InstrXData) -> str:
         if xdata.is_nop:
             return "NOP"
