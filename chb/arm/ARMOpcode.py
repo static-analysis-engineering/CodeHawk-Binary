@@ -408,6 +408,9 @@ class ARMOpcode(ARMDictionaryRecord):
     def is_store_instruction(self, xdata: InstrXData) -> bool:
         return False
 
+    def is_nop_instruction(self, xdata: InstrXData) -> bool:
+        return False
+
     def simulate(self, iaddr: str, simstate: "SimulationState") -> str:
         raise SU.CHBSimError(
             simstate,

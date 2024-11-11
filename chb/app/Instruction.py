@@ -207,6 +207,10 @@ class Instruction(ABC):
         ...
 
     @property
+    def is_nop_instruction(self) -> bool:
+        return False
+
+    @property
     @abstractmethod
     def call_target(self) -> CallTarget:
         ...
