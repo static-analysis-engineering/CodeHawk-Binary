@@ -167,6 +167,9 @@ class ARMOpcode(ARMDictionaryRecord):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         """Return default; should be overridden by instruction opcodes."""
 
+        chklogger.logger.error(
+            "no lifting support available for instruction %s at address %s",
+            self.mnemonic, iaddr)
         instrs = self.ast(astree, iaddr, bytestring, xdata)
         return (instrs, instrs)
 

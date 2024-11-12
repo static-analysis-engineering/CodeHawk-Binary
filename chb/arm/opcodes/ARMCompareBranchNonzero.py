@@ -95,6 +95,17 @@ class ARMCompareBranchZero(ARMOpcode):
         tgt = str(xdata.xprs[5])
         return "if " + xpr + " != 0 goto " + tgt
 
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        instrs = ARMOpcode.assembly_ast(
+            self, astree, iaddr, bytestring, xdata)
+        return (instrs, instrs)
+
     def ast_condition_prov(
             self,
             astree: ASTInterface,
