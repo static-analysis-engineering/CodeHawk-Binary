@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -118,12 +118,6 @@ class ARMBitwiseExclusiveOr(ARMOpcode):
 
         annotations: List[str] = [iaddr, "EOR"]
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[3]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
-
         (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (ll_op1, _, _) = self.operands[0].ast_rvalue(astree)
         (ll_op2, _, _) = self.operands[0].ast_rvalue(astree)
@@ -136,27 +130,20 @@ class ARMBitwiseExclusiveOr(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lhsasts) == 0:
-            raise UF.CHBError("BitwiseExclusiveOr (EOR): no lval found")
+        rdefs = xdata.reachingdefs
 
-        if len(lhsasts) > 1:
-            raise UF.CHBError(
-                "BitwiseExclusiveOr (EOR): multiple lvals found: "
-                + ", ".join(str(v) for v in lhsasts))
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
 
-        hl_lhs = lhsasts[0]
+        # high-level assignment
 
-        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        if len(rhsasts) == 0:
-            raise UF.CHBError("BitwiseExclusiveOr (EOR): no lval found")
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[3]
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-        if len(rhsasts) > 1:
-            raise UF.CHBError(
-                "BitwiseExclusiveOr (EOR): multiple rhs values found: "
-                + ", ".join(str(v) for v in rhsasts))
-
-        hl_rhs = rhsasts[0]
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -165,13 +152,12 @@ class ARMBitwiseExclusiveOr(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)
         astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
-        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_expr_reachingdefs(ll_rhs, rdefs[:2])
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 

@@ -120,42 +120,42 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
 
         annotations: List[str] = [iaddr, "UXTH"]
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[2]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
-
         (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-
-        if len(hl_lhss) == 0:
-            raise UF.CHBError("UXTH: no lvals in ast")
-        if len(hl_lhss) > 1:
-            raise UF.CHBError("UXTH: multiple lvals in ast")
-        if len(hl_rhss) == 0:
-            raise UF.CHBError("UXTH: no rhs expressions in ast")
-        if len(hl_rhss) > 1:
-            raise UF.CHBError("UXTH: multiplve rhs expressions in ast")
-
-        hl_lhs = hl_lhss[0]
-        hl_rhs = hl_rhss[0]
-
-        return self.ast_variable_intro(
-            astree,
-            astree.astree.unsigned_short_type,
-            hl_lhs,
-            hl_rhs,
+        ll_assign = astree.mk_assign(
             ll_lhs,
             ll_rhs,
-            rdefs[1:],
-            [rdefs[0]],
-            defuses[0],
-            defuseshigh[0],
-            True,
-            iaddr,
-            annotations,
-            bytestring)
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        rdefs = xdata.reachingdefs
+
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
+
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[2]
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
+        astree.add_expr_reachingdefs(ll_rhs, rdefs[:1])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

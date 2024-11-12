@@ -39,7 +39,7 @@ type xpr_t =
 
 """
 from typing import (
-    Any, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING)
+    Any, Callable, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING)
 
 from chb.api.CallTarget import CallTarget
 
@@ -287,6 +287,10 @@ class XXpr(FnXprDictionaryRecord):
     def has_global_references(self) -> bool:
         return False
 
+    def has_variables_with_property(
+            self, p: Callable[[XVariable], bool]) -> bool:
+        return False
+
     def negated_value(self) -> int:
         raise UF.CHBError("Get_negated_value not supported for " + str(self))
 
@@ -436,6 +440,10 @@ class XprVariable(XXpr):
 
     def has_global_references(self) -> bool:
         return self.has_global_variables()
+
+    def has_variables_with_property(
+            self, p: Callable[[XVariable], bool]) -> bool:
+        return p(self.variable)
 
     def argument_index(self) -> int:
         if self.is_argument_value:
@@ -736,6 +744,10 @@ class XprCompound(XXpr):
 
     def has_global_references(self) -> bool:
         return any([op.has_global_references() for op in self.operands])
+
+    def has_variables_with_property(
+            self, p: Callable[[XVariable], bool]) -> bool:
+        return any([op.has_variables_with_property(p) for op in self.operands])
 
     @property
     def is_stack_address(self) -> bool:

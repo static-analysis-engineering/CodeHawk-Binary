@@ -131,22 +131,7 @@ class ARMCompareBranchZero(ARMOpcode):
             else:
                 condition = ftconds[1]
 
-            astconds = XU.xxpr_to_ast_def_exprs(condition, xdata, iaddr, astree)
-            if len(astconds) == 0:
-                chklogger.logger.error(
-                    "CompareBranchZero (CBZ) at address %s: no rhs values "
-                    + "found; returning zero", iaddr)
-                return (zero, zero)
-
-            if len(astconds) > 1:
-                chklogger.logger.error(
-                    "CompareBranchZero (CBZ) at address %s: multiple rhs "
-                    + "values found at address %s: %s; returning zero",
-                    iaddr,
-                    ", ".join(str(v) for v in astconds))
-                return (zero, zero)
-
-            hl_cond = astconds[0]
+            hl_cond = XU.xxpr_to_ast_def_expr(condition, xdata, iaddr, astree)
 
             astree.add_expr_mapping(hl_cond, ll_cond)
             astree.add_expr_reachingdefs(hl_cond, rdefs)
