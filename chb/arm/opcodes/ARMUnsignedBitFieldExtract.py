@@ -111,44 +111,43 @@ class ARMUnsignedExtractBitField(ARMOpcode):
 
         annotations: List[str] = [iaddr, "UBFX"]
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[1]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
-
         (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
 
-        try:
-            hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        except UF.CHBError as e:
-            chklogger.logger.error(
-                "Error in UBFX at address %s: %s", iaddr, str(e))
-            hl_rhss = [ll_rhs]
+        rdefs = xdata.reachingdefs
 
-        if len(hl_rhss) == 1 and len(hl_lhss) == 1:
-            hl_lhs = hl_lhss[0]
-            hl_rhs = hl_rhss[0]
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
 
-            return self.ast_variable_intro(
-                astree,
-                astree.astree.unsigned_char_type,
-                hl_lhs,
-                hl_rhs,
-                ll_lhs,
-                ll_rhs,
-                rdefs[1:],
-                [rdefs[0]],
-                defuses[0],
-                defuseshigh[0],
-                True,
-                iaddr,
-                annotations,
-                bytestring)
+        # high-level assignment
 
-        else:
-            raise UF.CHBError(
-                "ARMUnsignedBitFieldExtract: multiple expressions/lvals in ast")
+        lhs = xdata.vars[0]
+        rhs = xdata.xprs[1]
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

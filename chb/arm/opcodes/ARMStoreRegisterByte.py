@@ -150,12 +150,19 @@ class ARMStoreRegisterByte(ARMOpcode):
 
         lhs = xdata.vars[0]
         rhs = xdata.xprs[3]
+        rhs_basic = xdata.xprs[2]
         memaddr = xdata.xprs[4]
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+        if rhs.has_variables_with_property(
+                lambda v: v.is_initial_memory_value
+                and xdata.function.has_var_disequality(iaddr, v)):
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs_basic, xdata, iaddr, astree)
+        else:
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
         hl_lhs = XU.xvariable_to_ast_lval(
             lhs, xdata, iaddr, astree, memaddr=memaddr)
 

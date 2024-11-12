@@ -390,7 +390,7 @@ def memory_variable_to_lval_expression(
         return astree.mk_vinfo_lval_expression(
             vinfo, astoffset, anonymous=anonymous)
 
-    elif offset.is_array_index_offset:
+    if offset.is_array_index_offset:
         offset = cast("VMemoryOffsetArrayIndexOffset", offset)
         index = offset.index_expression
         astindex = xxpr_to_ast_def_expr(
@@ -411,10 +411,22 @@ def memory_variable_to_lval_expression(
             return astree.mk_vinfo_lval_expression(
                 vinfo,astindexoffset, anonymous=anonymous)
 
+    if offset.is_index_offset:
+        offset = cast("VMemoryOffsetIndexOffset", offset)
+        indexvar = offset.indexvariable
+        astindexvar = xvariable_to_ast_def_lval_expression(
+            indexvar, xdata, iaddr, astree, anonymous=anonymous)
+        suboffset = offset.offset
+
+        if suboffset.is_no_offset:
+            astindexoffset = astree.mk_expr_index_offset(astindexvar)
+            return astree.mk_vinfo_lval_expression(
+                vinfo, astindexoffset, anonymous=anonymous)
+
     chklogger.logger.error(
-        "AST conversion of memory variable %s with other offset not yet "
+        "AST conversion of memory variable %s with other offset: %s not yet "
         + "supported at address %s",
-        name, iaddr)
+        name, str(offset), iaddr)
 
     return astree.mk_temp_lval_expression()
 
@@ -1000,7 +1012,7 @@ def xbinary_to_ast_def_expr(
             xpr2, xdata, iaddr, astree, anonymous=anonymous)
         if operator in [
                 "plus", "minus", "mult", "div",
-                "band", "land", "lor", "bor", "asr",
+                "band", "land", "lor", "bor", "asr", "bxor",
                 "lsl", "lsr", "eq", "ne", "gt", "le", "lt", "ge"]:
             return astree.mk_binary_expression(operator, astxpr1, astxpr2)
         else:
