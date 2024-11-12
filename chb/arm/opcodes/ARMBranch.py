@@ -178,8 +178,9 @@ class ARMBranch(ARMCallOpcode):
             return self.ast_call_prov(
                 astree, iaddr, bytestring, "Branch (B.W)", xdata)
         else:
-            return ARMOpcode.ast_prov(
+            instrs = ARMOpcode.assembly_ast(
                 self, astree, iaddr, bytestring, xdata)
+            return (instrs, instrs)
 
     def ast_call_prov(
             self,

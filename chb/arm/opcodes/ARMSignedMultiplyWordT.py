@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -67,4 +67,8 @@ class ARMSignedMultiplyWordT(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return "pending"
+        lhs = str(xdata.vars[0])
+        result = xdata.xprs[2]
+        rresult = xdata.xprs[3]
+        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
+        return lhs + " := " + xresult
