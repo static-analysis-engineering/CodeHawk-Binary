@@ -748,16 +748,45 @@ def relational_compare_md5s_cmd(args: argparse.Namespace) -> NoReturn:
         elif comparison[f] == "new":
             newfns.append(f)
 
+    md5sdict: Dict[str, Tuple[List[str], List[str]]] = {}
+
+    for (f, md5) in md5s1.items():
+        md5sdict.setdefault(md5, ([], []))
+        md5sdict[md5][0].append(f)
+
+    for (f, md5) in md5s2.items():
+        md5sdict.setdefault(md5, ([], []))
+        md5sdict[md5][1].append(f)
+
     print("Md5 comparison")
     print("=" * 80)
     print("Equal: " + str(eqcount))
     print("")
-    print("Different: " + ", ".join(neq))
+    print("Different: " + str(len(neq)) + "\n" + ", ".join(neq))
     print("")
-    print("Missing: " + ", ".join(missing))
+    print("Missing: " + str(len(missing)) + "\n" + ", ".join(missing))
     print("")
-    print("New functions: " + ", ".join(newfns))
+    print("New functions: " + str(len(newfns)) + "\n" + ", ".join(newfns))
     print("")
+
+    print("\nmd5 mapping")
+    for (md5, t) in sorted(md5sdict.items()):
+        print(md5 + "   " + str(t))
+
+    count = 0
+    countall = 0
+    print("\nmd5s that appear in both")
+    for (md5, t) in sorted(md5sdict.items()):
+        if len(t[0]) > 0 and len(t[1]) > 0:
+            count += 1
+            if len(t[0]) == len(t[1]):
+                countall += len(t[0])
+            else:
+                print(" *** lengths are different")
+            print(str(t[0]) + " ===> " + str(t[1]))
+
+    print("\nPartial matches: " + str(count))
+    print("All matches: " + str(countall))
 
     exit(0)
 
