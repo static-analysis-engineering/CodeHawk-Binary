@@ -80,7 +80,8 @@ class ASTCPrettyPrinter(ASTVisitor):
             localsymboltable: "ASTLocalSymbolTable",
             indentation: int = 2,
             annotations: Dict[int, List[str]] = {},
-            livevars_on_exit: Dict[int, Set[str]] = {}) -> None:
+            livevars_on_exit: Dict[int, Set[str]] = {},
+            hide_annotations: bool = False) -> None:
         self._indentation = indentation    # indentation amount
         self._indent = 0                   # current indentation
         self._localsymboltable = localsymboltable

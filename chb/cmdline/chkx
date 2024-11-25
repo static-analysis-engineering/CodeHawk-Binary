@@ -380,6 +380,10 @@ def parse() -> argparse.Namespace:
         choices=["yes", "no"],
         help='save asm listing in analysis directory')
     analyzecmd.add_argument(
+        "--save_asm_cfg_info",
+        action="store_true",
+        help="save list of functions with cfg info in xml (may be slow)")
+    analyzecmd.add_argument(
         "--construct_all_functions",
         action="store_true",
         help="construct all functions even if not all functions are analyzed")
@@ -673,6 +677,10 @@ def parse() -> argparse.Namespace:
     buildast.add_argument(
         "--hide_globals",
         help="do not include global declarations and definitions in printed output",
+        action="store_true")
+    buildast.add_argument(
+        "--hide_annotations",
+        help="do not include annotations in printed C code",
         action="store_true")
     buildast.add_argument(
         "--remove_edges",
@@ -1493,6 +1501,32 @@ def parse() -> argparse.Namespace:
     relationalcomparemd5s.add_argument(
         "xname2", help="name of second (patched) executable (assumed analyzed)")
     relationalcomparemd5s.set_defaults(func=R.relational_compare_md5s_cmd)
+
+    # --- relational_compare elfdata
+    relationalcompareelf = relationalcompareparsers.add_parser("elfdata")
+    relationalcompareelf.add_argument(
+        "xname1",
+        help="name of first (original) executable (assumed disassembled)")
+    relationalcompareelf.add_argument(
+        "xname2",
+        help="name of second (patched) executable (assumed disassembled)")
+    relationalcompareelf.set_defaults(func=R.relational_compare_elfdata)
+
+    # --- relational_compare cfg-info
+    relationalcomparecfginfo = relationalcompareparsers.add_parser("cfg_info")
+    relationalcomparecfginfo.add_argument(
+        "xname1",
+        help="name of first (original) executable (assumed disassembled)")
+    relationalcomparecfginfo.add_argument(
+        "xname2",
+        help="name of second (patched) executable (asseumed disassembled)"),
+    relationalcomparecfginfo.add_argument(
+        "--newfunctions",
+        nargs="*",
+        default=[],
+        help="list of functions that are new in xname2")
+    relationalcomparecfginfo.set_defaults(
+        func=R.relational_compare_cfg_info)
 
     # ------------------------------------------------------ simulate subcommand
     parser_simulate = subparsers.add_parser("simulate")

@@ -948,3 +948,141 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
     chklogger.logger.info("relational compare invariants completed")
 
     exit(0)
+
+
+def relational_compare_elfdata(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname1: str = args.xname1
+    xname2: str = args.xname2
+
+    try:
+        (path1, xfile1) = UC.get_path_filename(xname1)
+        (path2, xfile2) = UC.get_path_filename(xname2)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo1 = XI.XInfo()
+    xinfo1.load(path1, xfile1)
+
+    xinfo2 = XI.XInfo()
+    xinfo2.load(path2, xfile2)
+
+    app1 = UC.get_app(path1, xfile1, xinfo1)
+    app2 = UC.get_app(path2, xfile2, xinfo2)
+
+    sectionheaders1 = app1.header.sectionheaders
+    sectionheaders2 = app2.header.sectionheaders
+
+    xcomparison = XComparison(
+        False,
+        path1,
+        xfile1,
+        path2,
+        xfile2,
+        app1,
+        app2)
+
+    xcomparison.compare_sections()
+    xcomparison.compare_segments()
+
+    print(xcomparison.diffs_as_table())
+
+    exit(0)
+
+
+def relational_compare_cfg_info(args: argparse.Namespace) -> NoReturn:
+    """This command helps to establish a function mapping between two
+    binaries. The assumption is that the two binaries are roughly
+    similar, in particular that the order in which the functions appear
+    is stable, but some functions may have changed in size, or some new
+    functions may have been inserted.
+
+    It only requires both binaries to have been disassembled with the
+    option --save_asm_cfg_info; it does not require the binaries to have
+    been analyzed.
+    """
+
+    # arguments
+    xname1: str = args.xname1
+    xname2: str = args.xname2
+    newfunctions: List[str] = args.newfunctions
+
+    try:
+        (path1, xfile1) = UC.get_path_filename(xname1)
+        (path2, xfile2) = UC.get_path_filename(xname2)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo1 = XI.XInfo()
+    xinfo1.load(path1, xfile1)
+
+    xinfo2 = XI.XInfo()
+    xinfo2.load(path2, xfile2)
+
+    app1 = UC.get_app(path1, xfile1, xinfo1)
+    app2 = UC.get_app(path2, xfile2, xinfo2)
+
+    cfginfo1 = app1.appcfginfo
+    cfginfo2 = app2.appcfginfo
+
+    if len(cfginfo1.function_cfg_infos) == 0:
+        UC.print_error(
+            "No function data found for " + xname1 + " in " + path1
+            + "\n Please disassemble with option -save_cfg_info")
+        exit(1)
+
+    if len(cfginfo2.function_cfg_infos) == 0:
+        UC.print_error(
+            "No function data found for " + xname2 + " in " + path2
+            + "\n Please disassemble with option -save_cfg_info")
+        exit(1)
+
+    cfginfos1 = cfginfo1.cfg_infos
+    cfginfos2 = cfginfo2.cfg_infos
+
+    print("app1: " + str(len(cfginfos1)))
+    print("app2: " + str(len(cfginfos2)))
+
+    cfginfos2 = [x for x in cfginfos2 if x.faddr not in newfunctions]
+
+    cfginfos2 = cfginfos2[:len(cfginfos1)]
+
+    diffcount = 0
+
+    for (ci1, ci2) in zip(cfginfos1, cfginfos2):
+        if (
+                ci1.basic_blocks == ci2.basic_blocks
+                and ci1.instructions == ci2.instructions):
+            cfgdiff = ""
+        elif ci1.basic_blocks == ci2.basic_blocks:
+            cfgdiff = (
+                "diff: " +
+                str(ci1.basic_blocks).rjust(8) + "  "
+                + str(ci1.instructions) + " => " + str(ci2.instructions))
+            diffcount += 1
+        else:
+            cfgdiff = (
+                "diff: " +
+                str(ci1.basic_blocks) + " => " + str(ci2.basic_blocks)
+                + "  "
+                + str(ci1.instructions) + " => " + str(ci2.instructions))
+            diffcount += 1
+        if ci1.name is not None and ci2.name is not None and ci1.name == ci2.name:
+            name = ci1.name
+        elif ci1.name is not None:
+            name = ci1.name + " (original)"
+        elif ci2.name is not None:
+            name = ci2.name + " (patched)"
+        else:
+            name = ""
+
+        print(ci1.faddr + "   " + ci2.faddr + "   " +
+              str(ci2.faddr_i - ci1.faddr_i).rjust(4) + "  " + cfgdiff.ljust(24)
+              + name)
+
+    print("\nNumber of functions different: " + str(diffcount))
+
+    exit(0)
