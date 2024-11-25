@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,6 +49,7 @@ from typing import (
 from chb.api.CallTarget import CallTarget, IndirectTarget, CallbackTableTarget
 from chb.api.InterfaceDictionary import InterfaceDictionary
 
+from chb.app.AppCfgInfo import AppCfgInfo
 from chb.app.AppResultData import AppResultData
 from chb.app.AppResultMetrics import AppResultMetrics
 from chb.app.BDictionary import BDictionary
@@ -110,6 +111,7 @@ class AppAccess(ABC, Generic[HeaderTy]):
 
         # functions
         self._appresultdata: Optional[AppResultData] = None
+        self._appcfginfo: Optional[AppCfgInfo] = None
         self._functioninfos: Dict[str, FunctionInfo] = {}
 
         # callgraph
@@ -255,6 +257,13 @@ class AppAccess(ABC, Generic[HeaderTy]):
             x = UF.get_resultdata_xnode(self.path, self.filename)
             self._appresultdata = AppResultData(x)
         return self._appresultdata
+
+    @property
+    def appcfginfo(self) -> AppCfgInfo:
+        if self._appcfginfo is None:
+            x = UF.get_app_cfg_info_xnode(self.path, self.filename)
+            self._appcfginfo = AppCfgInfo(x)
+        return self._appcfginfo
 
     @property
     def appfunction_addrs(self) -> Sequence[str]:

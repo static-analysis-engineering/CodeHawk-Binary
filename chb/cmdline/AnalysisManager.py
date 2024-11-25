@@ -220,7 +220,8 @@ class AnalysisManager(object):
             verbose: bool = False,
             collectdiagnostics: bool = True,
             preamble_cutoff: int = 12,
-            save_asm: str = "yes") -> None:
+            save_asm: str = "yes",
+            save_asm_cfg_info: bool = False) -> None:
         cwd = os.getcwd()
         chklogger.logger.debug("change directory to %s", self.path)
         os.chdir(self.path)     # temporary change in directory
@@ -233,6 +234,8 @@ class AnalysisManager(object):
             cmd.extend(["-specialization", s])
         if save_asm == "yes":
             cmd.append("-save_asm")
+        if save_asm_cfg_info:
+            cmd.append("-save_asm_cfg_info")
         if collectdiagnostics:
             cmd.append("-diagnostics")
         if self.mips:

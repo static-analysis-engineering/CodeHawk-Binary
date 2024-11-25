@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -816,6 +816,19 @@ def get_resultdata_filename(path: str, xfile: str) -> str:
 def get_resultdata_xnode(path: str, xfile: str) -> ET.Element:
     filename = get_resultdata_filename(path, xfile)
     return get_chb_xnode(filename, "application-results")
+
+
+def get_app_cfg_info_filename(path: str, xfile: str) -> str:
+    fdir = get_analysis_dir(path, xfile)
+    return get_chb_filename(fdir, xfile, "functions.xml")
+
+
+def get_app_cfg_info_xnode(path: str, xfile: str) -> Optional[ET.Element]:
+    filename = get_app_cfg_info_filename(path, xfile)
+    if os.path.isfile(filename):
+        return get_chb_xnode(filename, "functions")
+    else:
+        return None
 
 
 def get_md5profile_filename(path: str, xfile: str) -> str:

@@ -399,5 +399,38 @@ class XComparison:
 
         return "\n".join(lines)
 
+    def diffs_as_table(self) -> str:
+
+        lines: List[str] = []
+        lines.append(
+            "section".ljust(16)
+            + "virtual address".rjust(28)
+            + "section size (bytes)".rjust(28)
+            + " difference")
+        lines.append("-" * 82)
+        for (name, (optsh1, optsh2)) in self.sectionheaderpairs.items():
+            if optsh1 is not None and optsh2 is not None:
+                if optsh1.vaddr != optsh2.vaddr or optsh1.size != optsh2.size:
+                    if optsh1.vaddr == optsh2.vaddr:
+                        vaddr = optsh1.vaddr
+                    else:
+                        vaddr = (optsh1.vaddr + " => " + optsh2.vaddr)
+                    if optsh1.size == optsh2.size:
+                        size = optsh1.size
+                        strdiff = ""
+                    else:
+                        diff = int(optsh2.size, 16) - int(optsh1.size, 16)
+                        if diff > 0:
+                            strdiff = "(+ " + str(diff) + ")"
+                        else:
+                            strdiff = "(- " + str(-diff) + ")"
+                        size = (optsh1.size + " => " + optsh2.size)
+                    lines.append(
+                        name.ljust(16)
+                        + vaddr.rjust(28)  + size.rjust(28) + strdiff.rjust(10))
+
+        return "\n".join(lines)
+
+
     def __str__(self) -> str:
         return self.prepare_report()

@@ -143,6 +143,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     hints: List[str] = args.hints  # names of json files
     xpatchresultsfile = args.patch_results_file
     hide_globals: bool = args.hide_globals
+    hide_annotations: bool = args.hide_annotations
     remove_edges: List[str] = args.remove_edges
     add_edges: List[str] = args.add_edges
     verbose: bool = args.verbose
@@ -353,8 +354,11 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
                 print("\n// Lifted code for function " + faddr)
                 print("// --------------------------------------------------")
+                annotations: Dict[int, List[str]] = {}
+                if not hide_annotations:
+                    annotations = astinterface.annotations
                 prettyprinter = ASTCPrettyPrinter(
-                    localsymboltable, annotations=astinterface.annotations)
+                    localsymboltable, annotations=annotations)
                 print(prettyprinter.to_c(asts[0], include_globals=(not hide_globals)))
                 functions_lifted += 1
 
