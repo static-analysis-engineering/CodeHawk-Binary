@@ -195,23 +195,28 @@ class ARMCallOpcode(ARMOpcode):
         finfo = xdata.function.finfo
         if finfo.has_call_target_info(iaddr):
             ctinfo = finfo.call_target_info(iaddr)
-            fname = ctinfo.target_interface.name
             ftype = ctinfo.target_interface.bctype
             if ftype is not None:
                 astfntype = ftype.convert(astree.typconverter)
-            if astree.globalsymboltable.has_symbol(fname):
-                tgtvinfo = astree.globalsymboltable.get_symbol(fname)
-                hl_tgt = astree.mk_vinfo_lval_expression(tgtvinfo)
+
+            if xdata.is_bx_call:
+                # indirect call
+                hl_tgt = XU.xxpr_to_ast_def_expr(xprs[-1], xdata, iaddr, astree)
             else:
-                gaddr: int = 0
-                if fname.startswith("sub_"):
-                    gaddr = int("0x" + fname[4:], 16)
+                fname = ctinfo.target_interface.name
+                if astree.globalsymboltable.has_symbol(fname):
+                    tgtvinfo = astree.globalsymboltable.get_symbol(fname)
+                    hl_tgt = astree.mk_vinfo_lval_expression(tgtvinfo)
                 else:
-                    if tgt.is_absolute:
-                        tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
-                        gaddr = int(tgtaddr.address.get_hex(), 16)
-                hl_tgt = astree.mk_global_variable_expr(
-                    fname, globaladdress=gaddr, vtype=astfntype)
+                    gaddr: int = 0
+                    if fname.startswith("sub_"):
+                        gaddr = int("0x" + fname[4:], 16)
+                    else:
+                        if tgt.is_absolute:
+                            tgtaddr = cast(ARMAbsoluteOp, tgt.opkind)
+                            gaddr = int(tgtaddr.address.get_hex(), 16)
+                    hl_tgt = astree.mk_global_variable_expr(
+                        fname, globaladdress=gaddr, vtype=astfntype)
 
             if ftype is not None and ftype.is_function:
                 ftype = cast("BCTypFun", ftype)

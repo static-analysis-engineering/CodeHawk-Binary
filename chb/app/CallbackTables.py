@@ -78,11 +78,11 @@ class CallbackTableRecord:
         return (-1)
 
     @property
-    def tag(self) -> str:
+    def tag(self) -> Optional[str]:
         if self.tag_offset >= 0:
             return self.fields[self.tag_offset][1]
         else:
-            return "?"
+            return None
 
     def value_at_offset(self, offset: int) -> str:
         if offset in self.fields:
@@ -131,8 +131,8 @@ class CallbackTable:
         for r in self.records:
             counter += 1
             tag = r.tag
-            if tag == "?":
-                tag = "unknown_" + str(counter)
+            if tag is None:
+                tag = str(counter)
             result[tag] = r.value_at_offset(offset)
         return result
 

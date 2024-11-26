@@ -103,6 +103,8 @@ class DotCallgraph:
                             ('[' in name or ']' in name or '?' in name)
                             and not name.startswith('"')):
                         name = '"' + name + '"'
+                    if ":" in name:
+                        continue
                     if len(name) == 0:
                         continue
                     sameranknodes.append(name)

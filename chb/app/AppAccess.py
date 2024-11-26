@@ -410,7 +410,8 @@ class AppAccess(ABC, Generic[HeaderTy]):
                             cbttgts = cbtable.tagged_fields_at_offset(cbtgt.offset)
                             for (tag, cbfaddr) in cbttgts.items():
                                 if self.has_function_name(cbfaddr):
-                                    cbfname = tag + ":" + self.function_name(cbfaddr)
+                                    cbfname = (
+                                        tag + ":" + self.function_name(cbfaddr))
                                 else:
                                     cbfname = tag + ":" + cbfaddr
                                 apptgtnode = mk_tagged_app_callgraph_node(
