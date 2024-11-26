@@ -39,7 +39,9 @@ from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
 
+
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 
 from chb.util.IndexedTable import IndexedTableValue
 
@@ -98,8 +100,19 @@ class ARMBranchExchange(ARMCallOpcode):
         else:
             raise UF.CHBError("Instruction is not a call: " + str(self))
 
+    def argument_count(self, xdata: InstrXData) -> int:
+        if self.is_call_instruction(xdata):
+            argcount = xdata.call_target_argument_count()
+            if argcount is not None:
+                return argcount
+            chklogger.logger.warning(
+                "Call instruction does not have argument count")
+            return 0
+        else:
+            raise UF.CHBError("Instruction is not a call: " + str(self))
+
     def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return xdata.xprs
+        return xdata.xprs[:self.argument_count(xdata)]
 
     def annotation(self, xdata: InstrXData) -> str:
         """xdata format: a:x .

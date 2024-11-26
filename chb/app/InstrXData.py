@@ -308,6 +308,10 @@ class InstrXData(IndexedTableValue):
         else:
             return False
 
+    @property
+    def is_bx_call(self) -> bool:
+        return "bx-call" in self.tags
+
     def call_target_argument_count(self) -> Optional[int]:
         if len(self.tags) >= 3:
             if self.tags[1] == "call":
