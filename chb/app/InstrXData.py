@@ -334,7 +334,9 @@ class InstrXData(IndexedTableValue):
         return (len(self.tags) == 2 and self.tags[1] == "u" and len(self.args) > 1)
 
     def call_target(self, ixd: "InterfaceDictionary") -> "CallTarget":
-        if self.has_call_target():
+        if self.has_call_target() and self.is_bx_call:
+            return ixd.call_target(self.args[-5])
+        elif self.has_call_target():
             return ixd.call_target(self.args[-1])
         else:
             raise UF.CHBError(

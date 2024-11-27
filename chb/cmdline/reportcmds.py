@@ -988,8 +988,6 @@ def report_unresolved(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
-
-
 def report_buffer_bounds(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -1121,4 +1119,85 @@ def report_buffer_bounds(args: argparse.Namespace) -> NoReturn:
             key=lambda i:(i[1], i[0]),
             reverse=True):
         print(name.ljust(24) + str(count).rjust(5))
+    exit(0)
+
+
+def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname = args.xname
+    xoutput: Optional[str] = args.output
+    xjson: bool = args.json
+    xverbose: bool = args.verbose
+    xtargets: List[str] = args.targets
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
+
+    try:
+        (path, xfile) = UC.get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="report_patch_candidates invoked")
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = UC.get_app(path, xfile, xinfo)
+
+    n_calls: int = 0
+    libcalls = LibraryCallCallsites()
+
+    for (faddr, blocks) in app.call_instructions().items():
+        fn = app.function(faddr)
+
+        for (baddr, instrs) in blocks.items():
+            for instr in instrs:
+                n_calls += 1
+                calltgt = instr.call_target
+                if calltgt.is_so_target and calltgt.name in xtargets:
+                    libcalls.add_library_callsite(faddr, instr)
+
+    print("Number of calls: " + str(n_calls))
+
+    patchcallsites = libcalls.patch_callsites()
+
+    for pc in sorted(patchcallsites, key=lambda pc:pc.faddr):
+        instr = cast("ARMInstruction", pc.instr)
+        dstarg = pc.dstarg
+        if dstarg is None:
+            chklogger.logger.warning(
+                "No expression found for destination argument: %s",
+                str(instr))
+            continue
+        dstoffset = dstarg.stack_address_offset()
+        fn = instr.armfunction
+        stackframe = fn.stackframe
+        stackbuffer = stackframe.get_stack_buffer(dstoffset)
+        if stackbuffer is None:
+            chklogger.logger.warning(
+                "No stackbuffer found for %s at offset %s",
+                str(instr), str(dstoffset))
+            continue
+        buffersize = stackbuffer.size
+
+        print("  " + pc.instr.iaddr + "  " + pc.instr.annotation)
+        print("  - faddr: " + pc.faddr)
+        print("  - iaddr: " + pc.instr.iaddr)
+        print("  - target function: " + str(pc.summary.name))
+        print("  - stack offset: " + str(dstoffset))
+        print("  - length argument: " + str(pc.lenarg))
+        print("  - buffersize: " + str(buffersize))
+        print("")
+
+    print("Number of patch callsites: " + str(len(patchcallsites)))
+
     exit(0)

@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2024 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 
 
 class FunctionSummary:
-    "Signature and summary semantics for a function."""
+    """Signature and summary semantics for a function."""
 
     def __init__(self,
                  library: "FunctionSummaryLibrary",

@@ -1171,6 +1171,41 @@ def parse() -> argparse.Namespace:
     report_bufferbounds.set_defaults(func=REP.report_buffer_bounds)
 
 
+    # --- report patch candidates
+    report_patchcandidates = reportparsers.add_parser("patchcandidates")
+    report_patchcandidates.add_argument("xname", help="name of executable")
+    report_patchcandidates.add_argument(
+        "--output", "-o",
+        help="name of output file (without extension)")
+    report_patchcandidates.add_argument(
+        "--json",
+        action="store_true",
+        help="output results in json format")
+    report_patchcandidates.add_argument(
+        "--targets",
+        nargs="*",
+        default=[],
+        help="list of target library functions to include")
+    report_patchcandidates.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="print functions examined")
+    report_patchcandidates.add_argument(
+        "--loglevel", "-log",
+        choices=UL.LogLevel.options(),
+        default="NONE",
+        help="activate logging with the given level (default to stderr)")
+    report_patchcandidates.add_argument(
+        "--logfilename",
+        help="name of file to write log messages")
+    report_patchcandidates.add_argument(
+        "--logfilemode",
+        choices=["a", "w"],
+        default="a",
+        help="file mode for log file: append (a, default), or write (w)")
+
+    report_patchcandidates.set_defaults(func=REP.report_patch_candidates)
+
     '''
 
     # -- report application calls --
@@ -1195,7 +1230,7 @@ def parse() -> argparse.Namespace:
     report_iocs.set_defaults(func=reportiocs)
     '''
 
-    # -------------------------------------------------------------- summaries subcommand
+    # ----------------------------------------------------- summaries subcommand
 
     parser_summaries = subparsers.add_parser("summaries")
     parser_summaries.set_defaults(func=SC.summariescommand)

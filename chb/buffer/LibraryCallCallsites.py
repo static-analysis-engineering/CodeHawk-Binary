@@ -51,15 +51,21 @@ class LibraryCallSideeffect:
     def __init__(
             self,
             summary: "FunctionSummary",
+            faddr: str,
             instr: "Instruction",
             pre: "PreDerefWrite") -> None:
         self._summary = summary
+        self._faddr = faddr
         self._instr = instr
         self._pre = pre
 
     @property
     def summary(self) -> "FunctionSummary":
         return self._summary
+
+    @property
+    def faddr(self) -> str:
+        return self._faddr
 
     @property
     def instr(self) -> "Instruction":
@@ -286,7 +292,8 @@ class LibraryCallCallsite:
         for pre in self.preconditions:
             if pre.is_deref_write:
                 pre = cast("PreDerefWrite", pre)
-                lcwrite = LibraryCallSideeffect(self.summary, self.instr, pre)
+                lcwrite = LibraryCallSideeffect(
+                    self.summary, self.faddr, self.instr, pre)
                 result.append(lcwrite)
         return result
 
@@ -444,6 +451,13 @@ class LibraryCallCallsites:
             for cs in ics.values():
                 for c in cs.patch_candidates:
                     result.append(c.instr)
+        return result
+
+    def patch_callsites(self) -> List[LibraryCallSideeffect]:
+        result: List[LibraryCallSideeffect] = []
+        for (_, ics) in self.callsites.items():
+            for cs in ics.values():
+                result.extend(cs.patch_candidates)
         return result
 
     def patch_candidates_distribution(self) -> Dict[str, int]:
