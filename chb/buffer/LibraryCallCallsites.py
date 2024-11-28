@@ -52,10 +52,12 @@ class LibraryCallSideeffect:
             self,
             summary: "FunctionSummary",
             faddr: str,
+            baddr: str,
             instr: "Instruction",
             pre: "PreDerefWrite") -> None:
         self._summary = summary
         self._faddr = faddr
+        self._baddr = baddr
         self._instr = instr
         self._pre = pre
 
@@ -66,6 +68,10 @@ class LibraryCallSideeffect:
     @property
     def faddr(self) -> str:
         return self._faddr
+
+    @property
+    def baddr(self) -> str:
+        return self._baddr
 
     @property
     def instr(self) -> "Instruction":
@@ -234,14 +240,22 @@ class LibraryCallSideeffect:
 class LibraryCallCallsite:
 
     def __init__(
-            self, faddr: str, iaddr: str, callinstr: "Instruction") -> None:
+            self, faddr: str,
+            baddr: str,
+            iaddr: str,
+            callinstr: "Instruction") -> None:
         self._faddr = faddr
+        self._baddr = baddr
         self._iaddr = iaddr
         self._instr = callinstr
 
     @property
     def faddr(self) -> str:
         return self._faddr
+
+    @property
+    def baddr(self) -> str:
+        return self._baddr
 
     @property
     def iaddr(self) -> str:
@@ -293,7 +307,7 @@ class LibraryCallCallsite:
             if pre.is_deref_write:
                 pre = cast("PreDerefWrite", pre)
                 lcwrite = LibraryCallSideeffect(
-                    self.summary, self.faddr, self.instr, pre)
+                    self.summary, self.faddr, self.baddr, self.instr, pre)
                 result.append(lcwrite)
         return result
 
@@ -369,9 +383,9 @@ class LibraryCallCallsites:
         return self._duplicates
 
     def add_library_callsite(
-            self, faddr: str, callinstr: "Instruction") -> None:
+            self, faddr: str, baddr: str, callinstr: "Instruction") -> None:
         iaddr = callinstr.iaddr
-        lccs = LibraryCallCallsite(faddr, iaddr, callinstr)
+        lccs = LibraryCallCallsite(faddr, baddr, iaddr, callinstr)
         self._callsites.setdefault(faddr, {})
         if iaddr in self._callsites[faddr]:
             chklogger.logger.warning(

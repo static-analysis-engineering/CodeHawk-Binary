@@ -69,7 +69,9 @@ if TYPE_CHECKING:
     from chb.api.CallTarget import StubTarget
     from chb.api.FunctionStub import SOFunction
     from chb.app.AppAccess import AppAccess
+    from chb.app.BasicBlock import BasicBlock
     from chb.app.Instruction import Instruction
+    from chb.mips.MIPSInstruction import MIPSInstruction
     from chb.models.BTerm import BTerm, BTermArithmetic
     from chb.models.FunctionSummary import FunctionSummary
     from chb.models.FunctionPrecondition import (
@@ -1019,7 +1021,7 @@ def report_buffer_bounds(args: argparse.Namespace) -> NoReturn:
                 n_calls += 1
                 calltgt = instr.call_target
                 if calltgt.is_so_target:
-                    libcalls.add_library_callsite(faddr, instr)
+                    libcalls.add_library_callsite(faddr, baddr, instr)
 
     def write_json_result(
             xfilename: Optional[str], jresult: JSONResult) -> None:
@@ -1151,6 +1153,20 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
+    def find_spare_instruction(
+            block: "BasicBlock", iaddr: str) -> Optional[str]:
+        if xinfo.is_mips:
+            found = None
+            for (addr, instr) in block.instructions.items():
+                instr = cast("MIPSInstruction", instr)
+                if instr.iaddr > iaddr:
+                    break
+                if instr.is_load_instruction:
+                    if str(instr.operands[0]) == "t9":
+                        found = instr.iaddr
+            return found
+        return None
+
     app = UC.get_app(path, xfile, xinfo)
 
     n_calls: int = 0
@@ -1164,14 +1180,14 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                 n_calls += 1
                 calltgt = instr.call_target
                 if calltgt.is_so_target and calltgt.name in xtargets:
-                    libcalls.add_library_callsite(faddr, instr)
+                    libcalls.add_library_callsite(faddr, baddr, instr)
 
     print("Number of calls: " + str(n_calls))
 
     patchcallsites = libcalls.patch_callsites()
 
     for pc in sorted(patchcallsites, key=lambda pc:pc.faddr):
-        instr = cast("ARMInstruction", pc.instr)
+        instr = pc.instr
         dstarg = pc.dstarg
         if dstarg is None:
             chklogger.logger.warning(
@@ -1179,7 +1195,7 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                 str(instr))
             continue
         dstoffset = dstarg.stack_address_offset()
-        fn = instr.armfunction
+        fn = app.function(pc.faddr)
         stackframe = fn.stackframe
         stackbuffer = stackframe.get_stack_buffer(dstoffset)
         if stackbuffer is None:
@@ -1188,6 +1204,8 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                 str(instr), str(dstoffset))
             continue
         buffersize = stackbuffer.size
+        basicblock = fn.block(pc.baddr)
+        spare = find_spare_instruction(basicblock, instr.iaddr)
 
         print("  " + pc.instr.iaddr + "  " + pc.instr.annotation)
         print("  - faddr: " + pc.faddr)
@@ -1196,6 +1214,7 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
         print("  - stack offset: " + str(dstoffset))
         print("  - length argument: " + str(pc.lenarg))
         print("  - buffersize: " + str(buffersize))
+        print("  - spare: " + str(spare))
         print("")
 
     print("Number of patch callsites: " + str(len(patchcallsites)))
