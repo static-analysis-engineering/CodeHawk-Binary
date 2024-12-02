@@ -66,7 +66,8 @@ import chb.util.fileutil as UF
 from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
-    from chb.api.CallTarget import StubTarget
+    from chb.api.CallTarget import (
+        StubTarget, CallTarget)
     from chb.api.FunctionStub import SOFunction
     from chb.app.AppAccess import AppAccess
     from chb.app.BasicBlock import BasicBlock
@@ -1172,6 +1173,13 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
     n_calls: int = 0
     libcalls = LibraryCallCallsites()
 
+    include_all = xtargets == ['all']
+
+    def include_target(target: 'CallTarget') -> bool:
+        if include_all:
+            return True
+        return target.name in xtargets
+
     for (faddr, blocks) in app.call_instructions().items():
         fn = app.function(faddr)
 
@@ -1179,7 +1187,7 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
             for instr in instrs:
                 n_calls += 1
                 calltgt = instr.call_target
-                if calltgt.is_so_target and calltgt.name in xtargets:
+                if calltgt.is_so_target and include_target(calltgt):
                     libcalls.add_library_callsite(faddr, baddr, instr)
 
     print("Number of calls: " + str(n_calls))
