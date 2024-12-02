@@ -40,10 +40,13 @@ if TYPE_CHECKING:
     from chb.api.CallTarget import StubTarget
     from chb.api.FunctionStub import SOFunction
     from chb.app.Instruction import Instruction
+    from chb.app.AppAccess import AppAccess
+    from chb.app.Function import Function
     from chb.models.BTerm import BTerm, BTermArithmetic
     from chb.models.FunctionSummary import FunctionSummary
     from chb.models.FunctionPrecondition import (
         FunctionPrecondition, PreDerefWrite)
+    from chb.mips.MIPSInstruction import MIPSInstruction
 
 
 class LibraryCallSideeffect:
@@ -232,6 +235,68 @@ class LibraryCallSideeffect:
                 return "string-concatenation"
             else:
                 return lenterm
+
+    @property
+    def dstoffset(self) -> Optional[int]:
+        """Returns the stack offset for our destination buffer"""
+        if self.dstarg is None:
+            return None
+        return self.dstarg.stack_address_offset()
+
+    def find_spare_instruction(self,
+                               app: 'AppAccess',
+                               fn: 'Function',
+                              ) -> Optional[str]:
+        if app.is_mips:
+            block = fn.block(self.baddr)
+            found = None
+            for (addr, instr) in block.instructions.items():
+                instr = cast("MIPSInstruction", instr)
+                if instr.iaddr > self.instr.iaddr:
+                    break
+                if instr.is_load_instruction:
+                    if str(instr.operands[0]) == "t9":
+                        found = instr.iaddr
+            return found
+        return None
+
+    def to_json_result(self, app: 'AppAccess') -> JSONResult:
+        if self.dstarg is None:
+            chklogger.logger.warning(
+                "No expression found for destination argument: %s", self)
+            return JSONResult("librarycallsideeffect", {}, "fail",
+                              "No expression found for destination argument")
+        dstoffset = self.dstoffset
+        if dstoffset is None:
+            chklogger.logger.warning(
+                "No value found for destination stack offset : %s", self)
+            return JSONResult("librarycallsideeffect", {}, "fail",
+                              "No value found for destination stack offset")
+
+        fn = app.function(self.faddr)
+        stackframe = fn.stackframe
+        stackbuffer = stackframe.get_stack_buffer(dstoffset)
+        if stackbuffer is None:
+            chklogger.logger.warning(
+                "No stackbuffer found for %s at offset %s", self.instr, dstoffset)
+            return JSONResult("librarycallsideeffect", {}, "fail",
+                              "No stackbuffer found for %s at offset %s" %
+                              (self.instr, dstoffset))
+
+        buffersize = stackbuffer.size
+        spare = self.find_spare_instruction(app, fn)
+
+        content: Dict[str, Any] = {}
+        content["annotation"] = self.instr.annotation
+        content["faddr"] = self.faddr
+        content["iaddr"] = self.instr.iaddr
+        content["buffersize"] = buffersize
+        content["target-function"] = self.summary.name
+        content["stack-offset"] = dstoffset
+        content["length-argument"] = str(self.lenarg)
+        content["spare"] = spare
+
+        return JSONResult("librarycallsideeffect", content, "ok")
 
     def __str__(self) -> str:
         return self.instr.iaddr + ": " + str(self.instr.annotation)

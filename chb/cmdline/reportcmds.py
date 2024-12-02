@@ -991,6 +991,30 @@ def report_unresolved(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def write_json_result(xfilename: Optional[str],
+                      jresult: JSONResult,
+                      schema_name: str,
+                     ) -> None:
+    if jresult.is_ok:
+        okresult = JU.jsonok(schema_name, jresult.content)
+        if xfilename is not None:
+            filename = xfilename + ".json"
+            with open(filename, "w") as fp:
+                json.dump(okresult, fp, indent=2)
+            chklogger.logger.info("JSON output written to " + filename)
+        else:
+            print(json.dumps(okresult))
+    else:
+        failresult = JU.jsonfail(jresult.reason)
+        if xfilename is not None:
+            filename = xfilename + ".json"
+            with open(filename, "w") as fp:
+                json.dump(failresult, fp, indent=2)
+            chklogger.logger.warning(
+                "JSON failure output written to " + filename)
+        else:
+            print(json.dumps(failresult))
+
 def report_buffer_bounds(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -1024,49 +1048,27 @@ def report_buffer_bounds(args: argparse.Namespace) -> NoReturn:
                 if calltgt.is_so_target:
                     libcalls.add_library_callsite(faddr, baddr, instr)
 
-    def write_json_result(
-            xfilename: Optional[str], jresult: JSONResult) -> None:
-        if jresult.is_ok:
-            okresult = JU.jsonok("bufferboundsassessment", jresult.content)
-            if xfilename is not None:
-                filename = xfilename + ".json"
-                with open(filename, "w") as fp:
-                    json.dump(okresult, fp, indent=2)
-                chklogger.logger.info("JSON output written to " + filename)
-            else:
-                print(json.dumps(okresult))
-        else:
-            failresult = JU.jsonfail(jresult.reason)
-            if xfilename is not None:
-                filename = xfilename + ".json"
-                with open(filename, "w") as fp:
-                    json.dump(failresult, fp, indent=2)
-                chklogger.logger.warning(
-                    "JSON failure output written to " + filename)
-            else:
-                print(json.dumps(failresult))
-
     if xjson:
         content: Dict[str, Any] = {}
         xinfodata = xinfo.to_json_result()
         if xinfodata.is_ok:
             content["identification"] = xinfodata.content
         else:
-            write_json_result(xoutput, xinfodata)
+            write_json_result(xoutput, xinfodata, "bufferboundsassessment")
         analysisstats = app.result_metrics.to_json_result()
         if analysisstats.is_ok:
             content["analysis"] = analysisstats.content
         else:
-            write_json_result(xoutput, analysisstats)
+            write_json_result(xoutput, analysisstats, "bufferboundsassessment")
 
         libcallsresult = libcalls.to_json_result()
         if libcallsresult.is_ok:
             content["bounds"] = libcallsresult.content
         else:
-            write_json_result(xoutput, libcallsresult)
+            write_json_result(xoutput, libcallsresult,"bufferboundsassessment" )
 
         write_json_result(xoutput, JSONResult(
-            "libcboundsanalysis", content, "ok"))
+            "libcboundsanalysis", content, "ok"), "bufferboundsassessment")
 
     if not xverbose:
         exit(0)
@@ -1154,20 +1156,6 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
-    def find_spare_instruction(
-            block: "BasicBlock", iaddr: str) -> Optional[str]:
-        if xinfo.is_mips:
-            found = None
-            for (addr, instr) in block.instructions.items():
-                instr = cast("MIPSInstruction", instr)
-                if instr.iaddr > iaddr:
-                    break
-                if instr.is_load_instruction:
-                    if str(instr.operands[0]) == "t9":
-                        found = instr.iaddr
-            return found
-        return None
-
     app = UC.get_app(path, xfile, xinfo)
 
     n_calls: int = 0
@@ -1181,8 +1169,6 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
         return target.name in xtargets
 
     for (faddr, blocks) in app.call_instructions().items():
-        fn = app.function(faddr)
-
         for (baddr, instrs) in blocks.items():
             for instr in instrs:
                 n_calls += 1
@@ -1190,41 +1176,48 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                 if calltgt.is_so_target and include_target(calltgt):
                     libcalls.add_library_callsite(faddr, baddr, instr)
 
-    print("Number of calls: " + str(n_calls))
+    chklogger.logger.debug("Number of calls: %s", n_calls)
 
     patchcallsites = libcalls.patch_callsites()
 
-    for pc in sorted(patchcallsites, key=lambda pc:pc.faddr):
-        instr = pc.instr
-        dstarg = pc.dstarg
-        if dstarg is None:
-            chklogger.logger.warning(
-                "No expression found for destination argument: %s",
-                str(instr))
-            continue
-        dstoffset = dstarg.stack_address_offset()
-        fn = app.function(pc.faddr)
-        stackframe = fn.stackframe
-        stackbuffer = stackframe.get_stack_buffer(dstoffset)
-        if stackbuffer is None:
-            chklogger.logger.warning(
-                "No stackbuffer found for %s at offset %s",
-                str(instr), str(dstoffset))
-            continue
-        buffersize = stackbuffer.size
-        basicblock = fn.block(pc.baddr)
-        spare = find_spare_instruction(basicblock, instr.iaddr)
+    content: Dict[str, Any] = {}
+    if xjson:
+        xinfodata = xinfo.to_json_result()
+        if xinfodata.is_ok:
+            content["identification"] = xinfodata.content
+        else:
+            write_json_result(xoutput, xinfodata, "patchcandidates")
 
-        print("  " + pc.instr.iaddr + "  " + pc.instr.annotation)
-        print("  - faddr: " + pc.faddr)
-        print("  - iaddr: " + pc.instr.iaddr)
-        print("  - target function: " + str(pc.summary.name))
-        print("  - stack offset: " + str(dstoffset))
-        print("  - length argument: " + str(pc.lenarg))
-        print("  - buffersize: " + str(buffersize))
-        print("  - spare: " + str(spare))
+    patch_records = []
+
+    for pc in sorted(patchcallsites, key=lambda pc:pc.faddr):
+        jresult = pc.to_json_result(app)
+        if not jresult.is_ok:
+            chklogger.logger.warning("Couldn't process patch callsite %s", pc)
+            continue
+
+        patch_records.append(jresult.content)
+
+    content["patch-records"] = patch_records
+    chklogger.logger.debug("Number of patch callsites: %s", len(content['patch-records']))
+
+    if xjson:
+        jcontent = JSONResult("patchcandidates", content, "ok")
+        write_json_result(xoutput, jcontent, "patchcandidates")
+        exit(0)
+
+    for patch_record in content["patch-records"]:
+        print("  " + patch_record['iaddr'] + "  " + patch_record['annotation'])
+        print("  - faddr: %s" % patch_record['faddr'])
+        print("  - iaddr: %s" % patch_record['iaddr'])
+        print("  - target function: %s" % patch_record['target-function'])
+        print("  - stack offset: %s" % patch_record['stack-offset'])
+        print("  - length argument: %s" % patch_record['length-argument'])
+        print("  - buffersize: %s" % patch_record['buffersize'])
+        print("  - spare: %s" % patch_record['spare'])
         print("")
 
-    print("Number of patch callsites: " + str(len(patchcallsites)))
+    print("Generated %d patch records from %d library calls" %
+          (len(content['patch-records']), n_calls))
 
     exit(0)
