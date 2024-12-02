@@ -293,7 +293,10 @@ class LibraryCallSideeffect:
         content["buffersize"] = buffersize
         content["target-function"] = self.summary.name
         content["stack-offset"] = dstoffset
-        content["length-argument"] = str(self.lenarg)
+        if self.lenarg is not None:
+            content["length-argument"] = str(self.lenarg)
+        else:
+            content["length-argument"] = None
         content["spare"] = spare
 
         return JSONResult("librarycallsideeffect", content, "ok")
