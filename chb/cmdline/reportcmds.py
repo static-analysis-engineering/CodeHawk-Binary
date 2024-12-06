@@ -1065,7 +1065,7 @@ def report_buffer_bounds(args: argparse.Namespace) -> NoReturn:
         if libcallsresult.is_ok:
             content["bounds"] = libcallsresult.content
         else:
-            write_json_result(xoutput, libcallsresult,"bufferboundsassessment" )
+            write_json_result(xoutput, libcallsresult, "bufferboundsassessment" )
 
         write_json_result(xoutput, JSONResult(
             "libcboundsanalysis", content, "ok"), "bufferboundsassessment")
@@ -1156,6 +1156,20 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
 
+    def find_spare_instruction(
+            block: "BasicBlock", iaddr: str) -> Optional[str]:
+        if xinfo.is_mips:
+            found = None
+            for (addr, instr) in block.instructions.items():
+                instr = cast("MIPSInstruction", instr)
+                if instr.iaddr > iaddr:
+                    break
+                if instr.is_load_instruction:
+                    if str(instr.operands[0]) == "t9":
+                        found = instr.iaddr
+            return found
+        return None
+
     app = UC.get_app(path, xfile, xinfo)
 
     n_calls: int = 0
@@ -1191,7 +1205,27 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
     patch_records = []
 
     for pc in sorted(patchcallsites, key=lambda pc:pc.faddr):
-        jresult = pc.to_json_result(app)
+        instr = pc.instr
+        dstarg = pc.dstarg
+        if dstarg is None:
+            chklogger.logger.warning(
+                "No expression found for destination argument: %s",
+                str(instr))
+            continue
+        dstoffset = dstarg.stack_address_offset()
+        fn = app.function(pc.faddr)
+        stackframe = fn.stackframe
+        stackbuffer = stackframe.get_stack_buffer(dstoffset)
+        if stackbuffer is None:
+            chklogger.logger.warning(
+                "No stackbuffer found for %s at offset %s",
+                str(instr), str(dstoffset))
+            continue
+        buffersize = stackbuffer.size
+        basicblock = fn.block(pc.baddr)
+        spare = find_spare_instruction(basicblock, instr.iaddr)
+
+        jresult = pc.to_json_result(dstoffset, buffersize, spare)
         if not jresult.is_ok:
             chklogger.logger.warning("Couldn't process patch callsite %s", pc)
             continue
