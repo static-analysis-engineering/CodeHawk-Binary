@@ -622,7 +622,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     elif sortby == "time":
         sortkey = lambda f: f.time
     else:
-        sortkey = lambda f: f.faddr
+        sortkey = lambda f: int(f.faddr, 16)
     for f in sorted(stats.get_function_results(), key=sortkey):
         print(f.metrics_to_string(shownocallees=nocallees))
 
@@ -945,7 +945,7 @@ def results_functions(args: argparse.Namespace) -> NoReturn:
 
     app = get_app(path, xfile, xinfo)
     if len(functions) == 0:
-        fns: Sequence[str] = sorted(app.appfunction_addrs)
+        fns: Sequence[str] = sorted(app.appfunction_addrs, key=lambda f:int(f, 16))
     else:
         fns = functions
 
@@ -2366,5 +2366,64 @@ def show_function_semantics_table(args: argparse.Namespace) -> NoReturn:
     ixdictionary = app.interfacedictionary
 
     print(ixdictionary.function_semantics_table_to_string())
+
+    exit(0)
+
+
+def ddata_gvars(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = str(args.xname)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    memmap = app.globalmemorymap
+    glocs = memmap.locations
+    gundefs = memmap.undefined_locations
+
+    print("Defined locations")
+    for gaddr in sorted(glocs, key=lambda g: int(g, 16)):
+        pgrefs: Dict[str, int] = {}   # count identical grefs
+        gloc = glocs[gaddr]
+        gtype = gloc.gtype
+        if gtype is not None:
+            sgtype = str(gtype)
+        else:
+            sgtype = ""
+        print(gloc.addr.rjust(8)
+              + "  "
+              + gloc.name.ljust(60)
+              + "  "
+              + sgtype.ljust(20))
+        for gref in gloc.grefs:
+            pgrefs.setdefault(str(gref), 0)
+            pgrefs[str(gref)] += 1
+        for (pgref, count) in sorted(pgrefs.items()):
+            print("  " + str(count).rjust(4) + "  " + str(pgref))
+
+    print("\nUndefined locations")
+    for (gaddr, grefs) in sorted(gundefs.items(), key=lambda g: int(g[0], 16)):
+        print(gaddr)
+        pgrefs = {}
+        for gref in grefs:
+            pgrefs.setdefault(str(gref), 0)
+            pgrefs[str(gref)] += 1
+        for (pgref, count) in sorted(pgrefs.items()):
+            print("  " + str(count).rjust(4) + "  " + str(pgref))
+
+    (count, coverage) = memmap.coverage()
+
+    print("\nNumber of locations: " + str(len(glocs)))
+    print("Coverage: " + str(coverage) + " (typed: " + str(count) + ")")
+    print("Number of undefined references: " + str(len(memmap.undefined_locations)))
 
     exit(0)

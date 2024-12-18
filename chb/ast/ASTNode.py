@@ -2239,6 +2239,10 @@ class ASTTyp(ASTNode):
         return False
 
     @property
+    def is_void_pointer(self) -> bool:
+        return False
+
+    @property
     def is_scalar(self) -> bool:
         return (
             self.is_integer
@@ -2385,6 +2389,10 @@ class ASTTypPtr(ASTTyp):
     @property
     def is_pointer(self) -> bool:
         return True
+
+    @property
+    def is_void_pointer(self) -> bool:
+        return self.tgttyp.is_void
 
     def accept(self, visitor: "ASTVisitor") -> None:
         return visitor.visit_pointer_typ(self)

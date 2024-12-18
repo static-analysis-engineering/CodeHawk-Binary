@@ -220,6 +220,9 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
     # library_targets = library_call_targets(app, functions)
 
+    globallocs: Dict[str, str] = {k: v.name for (k, v) in app.globalmemorymap.locations.items()}
+    revgloballocs = {v.name: k for (k, v) in app.globalmemorymap.locations.items()}
+
     globalsymboltable = astapi.globalsymboltable
     codefragments = astapi.codefragments
     typconverter = BC2ASTConverter(app.bcfiles, globalsymboltable)
@@ -240,16 +243,28 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
         if vname in revsymbolicaddrs:
             gaddr = int(revsymbolicaddrs[vname], 16)
+        elif vname in revgloballocs:
+            gaddr = int(revgloballocs[vname], 16)
         elif vname in revfunctionnames:
             gaddr = int(revfunctionnames[vname], 16)
         elif vname in fnames:
             gaddr = int(fnames[vname], 16)
         elif vname.startswith("sub_"):
-            gaddr = int("0x" + vname[4:], 16)
+            if "_" in vname[4:]:
+                index = vname[4:].index("_")
+                gaddr = int("0x" + vname[4:(index+4)], 16)
+            else:
+                gaddr = int("0x" + vname[4:], 16)
+        elif vname.startswith("gv_"):
+            if "_" in vname[3:]:
+                index = vname[3:].index("_")
+                gaddr = int("0x" + vname[3:(index+3)], 16)
+            else:
+                gaddr = int("0x" + vname[3:], 16)
         else:
             gaddr = 0
 
-        if vname.startswith("__"):
+        if vname.startswith("___"):
             chklogger.logger.debug(
                 "Skip global variable: %s with address %s", vname, hex(gaddr))
         else:

@@ -1086,3 +1086,62 @@ def relational_compare_cfg_info(args: argparse.Namespace) -> NoReturn:
     print("\nNumber of functions different: " + str(diffcount))
 
     exit(0)
+
+
+def relational_compare_globalvars(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname1: str = args.xname1
+    xname2: str = args.xname2
+
+    try:
+        (path1, xfile1) = UC.get_path_filename(xname1)
+        (path2, xfile2) = UC.get_path_filename(xname2)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo1 = XI.XInfo()
+    xinfo1.load(path1, xfile1)
+
+    xinfo2 = XI.XInfo()
+    xinfo2.load(path2, xfile2)
+
+    app1 = UC.get_app(path1, xfile1, xinfo1)
+    app2 = UC.get_app(path2, xfile2, xinfo2)
+
+    memmap1 = app1.globalmemorymap
+    memmap2 = app2.globalmemorymap
+
+    if len(memmap1.locations) == 0:
+        UC.print_error(
+            "No memory map found for " + xname1 + " in " + path1)
+        exit(1)
+
+    if len(memmap2.locations) == 0:
+        UC.print_error(
+            "No memory map found for " + xname2 + " in " + path2)
+        exit(1)
+
+    glocs1 = memmap1.locations
+    glocs2 = memmap2.locations
+
+    result: Dict[str, Tuple[str, str]] = {}
+
+    for (addr, gloc1) in sorted(glocs1.items()):
+        gloc2 = memmap2.get_location_by_name(gloc1.name)
+        if gloc2 is not None:
+            result[addr] = (gloc1.name, gloc2.addr)
+
+    for (addr1, (name, addr2)) in sorted(result.items()):
+        diff = int(addr2, 16) - int(addr1, 16)
+        print("  " + addr1.rjust(8) + "  " + addr2.rjust(8) + "  " + str(diff).rjust(8) + "  " + name)
+
+    (loc1count, loc1coverage) = memmap1.coverage()
+    (loc2count, loc2coverage) = memmap2.coverage()
+
+    print("\nCoverage")
+    print("App1: " + str(loc1count) + ", " + str(loc1coverage))
+    print("App2: " + str(loc2count) + ", " + str(loc2coverage))
+
+    exit(0)

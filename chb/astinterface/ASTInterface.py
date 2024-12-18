@@ -1532,6 +1532,12 @@ class ASTInterface:
         return self.astree.mk_function_with_arguments_type(
             returntype, arguments, varargs=varargs)
 
+    def convert_void_pointer(self, t: AST.ASTTyp) -> AST.ASTTyp:
+        if t.is_void_pointer:
+            return self.astree.mk_pointer_type(self.astree.unsigned_char_type)
+        else:
+            return t
+
     def __str__(self) -> str:
         lines: List[str] = []
         for r in self.astree.spans:
