@@ -214,14 +214,39 @@ class ARMAdd(ARMOpcode):
             hl_rhs1_type = hl_rhs1.ctype(astree.ctyper)
             hl_rhs2_type = hl_rhs2.ctype(astree.ctyper)
 
-            if hl_rhs1_type is None:
+            if hl_rhs1_type is None and hl_rhs2_type is None:
                 chklogger.logger.error(
                     "Unable to lift pointer arithmetic without type for "
                     + "%s at address %s",
                     str(rhs3), iaddr)
                 return astree.mk_temp_lval_expression()
 
-            if hl_rhs1_type.is_pointer:
+            if hl_rhs2_type is not None and hl_rhs2_type.is_pointer:
+                rhs2tgttyp = cast(AST.ASTTypPtr, hl_rhs2_type).tgttyp
+                tgttypsize = astree.type_size_in_bytes(rhs2tgttyp)
+                if tgttypsize is None:
+                    chklogger.logger.warning(
+                        "Unable to lift pointer arithmetic without size for "
+                        + "%s at address %s; set type size to 1",
+                        str(hl_rhs2_type), iaddr)
+                    # return astree.mk_temp_lval_expression()
+                    tgttypsize = 1
+
+                if tgttypsize == 1:
+                    return XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+
+                if hl_rhs1.is_integer_constant:
+                    addend = cast(AST.ASTIntegerConstant, hl_rhs1).cvalue
+                    addend = addend // tgttypsize
+                    astaddend: AST.ASTExpr = astree.mk_integer_constant(addend)
+                    annotations.append("scaled by " + str(tgttypsize))
+                    return astree.mk_binary_op("plus", hl_rhs2, astaddend)
+
+                scale = astree.mk_integer_constant(tgttypsize)
+                scaled = astree.mk_binary_op("div", hl_rhs1, scale)
+                return astree.mk_binary_op("plus", hl_rhs2, scaled)
+
+            if hl_rhs1_type is not None and hl_rhs1_type.is_pointer:
                 rhs1tgttyp = cast(AST.ASTTypPtr, hl_rhs1_type).tgttyp
                 tgttypsize = astree.type_size_in_bytes(rhs1tgttyp)
                 if tgttypsize is None:
@@ -250,7 +275,7 @@ class ARMAdd(ARMOpcode):
                 if hl_rhs2.is_integer_constant:
                     addend = cast(AST.ASTIntegerConstant, hl_rhs2).cvalue
                     addend = addend // tgttypsize
-                    astaddend: AST.ASTExpr = astree.mk_integer_constant(addend)
+                    astaddend = astree.mk_integer_constant(addend)
                     annotations.append("scaled by " + str(tgttypsize))
                     return astree.mk_binary_op("plus", hl_rhs1, astaddend)
 
