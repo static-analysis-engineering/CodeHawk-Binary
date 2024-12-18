@@ -233,6 +233,31 @@ class LibraryCallSideeffect:
             else:
                 return lenterm
 
+    def to_json_result(self,
+                       dstoffset: int,
+                       buffersize: int,
+                       spare: Optional[str],
+                      ) -> JSONResult:
+        if self.dstarg is None:
+            chklogger.logger.warning(
+                "No expression found for destination argument: %s", self)
+            return JSONResult("librarycallsideeffect", {}, "fail",
+                              "No expression found for destination argument")
+        content: Dict[str, Any] = {}
+        content["annotation"] = self.instr.annotation
+        content["faddr"] = self.faddr
+        content["iaddr"] = self.instr.iaddr
+        content["buffersize"] = buffersize
+        content["target-function"] = self.summary.name
+        content["stack-offset"] = dstoffset
+        if self.lenarg is not None:
+            content["length-argument"] = str(self.lenarg)
+        else:
+            content["length-argument"] = None
+        content["spare"] = spare
+
+        return JSONResult("librarycallsideeffect", content, "ok")
+
     def __str__(self) -> str:
         return self.instr.iaddr + ": " + str(self.instr.annotation)
 
