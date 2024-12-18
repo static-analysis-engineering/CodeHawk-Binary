@@ -105,6 +105,9 @@ class ARMMove(ARMOpcode):
         if xdata.is_nop:
             return "NOP"
 
+        elif len(xdata.vars) == 0:
+            return "insufficient information"
+
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[1])
         assignment = lhs + " := " + rhs

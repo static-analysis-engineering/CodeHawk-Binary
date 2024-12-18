@@ -92,7 +92,8 @@ class ARMBranchExchange(ARMCallOpcode):
         return len(xdata.tags) >= 2 and xdata.tags[1] == "call"
 
     def is_call_instruction(self, xdata: InstrXData) -> bool:
-        return xdata.has_call_target()
+        # return xdata.has_call_target()
+        return False
 
     def call_target(self, xdata: InstrXData) -> "CallTarget":
         if self.is_call_instruction(xdata):

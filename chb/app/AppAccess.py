@@ -63,6 +63,7 @@ from chb.app.Callgraph import (
 from chb.app.Function import Function
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.FunctionsData import FunctionsData
+from chb.app.GlobalMemoryMap import GlobalMemoryMap
 from chb.app.JumpTables import JumpTables
 from chb.app.SystemInfo import SystemInfo
 from chb.app.StringXRefs import StringsXRefs
@@ -128,6 +129,7 @@ class AppAccess(ABC, Generic[HeaderTy]):
         self._bcfiles: Optional[BCFiles] = None
 
         self._typeconstraints = TypeConstraintStore(self)
+        self._globalmemorymap: Optional[GlobalMemoryMap] = None
         self._systeminfo: Optional[SystemInfo] = None
 
     @property
@@ -189,6 +191,16 @@ class AppAccess(ABC, Generic[HeaderTy]):
             else:
                 self._tcdictionary = TypeConstraintDictionary(self, None)
         return self._tcdictionary
+
+    @property
+    def globalmemorymap(self) -> GlobalMemoryMap:
+        if self._globalmemorymap is None:
+            if UF.has_global_locations_file(self.path, self.filename):
+                x = UF.get_global_locations_xnode(self.path, self.filename)
+                self._globalmemorymap = GlobalMemoryMap(self, x)
+            else:
+                self._globalmemorymap = GlobalMemoryMap(self, None)
+        return self._globalmemorymap
 
     @property
     def bdictionary(self) -> BDictionary:

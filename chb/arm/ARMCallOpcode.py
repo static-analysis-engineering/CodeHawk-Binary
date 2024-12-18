@@ -351,20 +351,6 @@ class ARMCallOpcode(ARMOpcode):
                             argtype = cast(AST.ASTTypInt, argtype)
                             hl_arg = astree.mk_integer_constant(
                                 x.constant.value, argtype.ikind)
-
-                        elif (
-                                argtype is not None
-                                and (argtype.is_function
-                                     or (argtype.is_pointer
-                                         and cast(
-                                             AST.ASTTypPtr,
-                                             argtype).tgttyp.is_function))):
-                            hexaddr = hex(x.constant.value)
-                            argname = "sub_" + hexaddr[2:]
-                            hl_arg = astree.mk_global_variable_expr(
-                                argname,
-                                vtype=argtype,
-                                globaladdress=x.constant.value)
                         else:
                             hexgaddr = hex(x.constant.value)
                             if hexgaddr in astree.global_addresses:
@@ -377,6 +363,20 @@ class ARMCallOpcode(ARMOpcode):
                                     else:
                                         hl_arg = astree.mk_address_of(
                                             astree.mk_vinfo_lval(vinfo))
+                                elif (
+                                        argtype is not None
+                                        and (argtype.is_function
+                                             or (argtype.is_pointer
+                                                 and cast(
+                                                     AST.ASTTypPtr,
+                                                     argtype).tgttyp.is_function))):
+                                    hexaddr = hex(x.constant.value)
+                                    argname = "sub_" + hexaddr[2:]
+                                    hl_arg = astree.mk_global_variable_expr(
+                                        argname,
+                                        vtype=argtype,
+                                        globaladdress=x.constant.value)
+
                                 else:
                                     chklogger.logger.warning(
                                         ("Type of global address %s at instr. "

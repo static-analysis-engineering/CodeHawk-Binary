@@ -48,6 +48,7 @@ analysis:
     x_bdict.xml             basic types
     x_ixdict.xml            interface types
     x_global_state.xml
+    x_global_locations.xml
     x_system_info.xml
     x_functions.jar
     x_asm.log
@@ -529,6 +530,21 @@ def get_systeminfo_filename(path: str, xfile: str) -> str:
 def get_systeminfo_xnode(path: str, xfile: str) -> ET.Element:
     filename = get_systeminfo_filename(path, xfile)
     return get_chb_xnode(filename, "system-info")
+
+
+def has_global_locations_file(path:str, xfile: str) -> bool:
+    filename = get_global_locations_filename(path, xfile)
+    return os.path.isfile(filename)
+
+
+def get_global_locations_filename(path: str, xfile: str) -> str:
+    fdir = get_analysis_dir(path, xfile)
+    return get_chb_filename(fdir, xfile, "global_locations.xml")
+
+
+def get_global_locations_xnode(path: str, xfile: str) -> ET.Element:
+    filename = get_global_locations_filename(path, xfile)
+    return get_chb_xnode(filename, "global-locations")
 
 
 def get_tcdictionary_filename(path: str, xfile: str) -> str:

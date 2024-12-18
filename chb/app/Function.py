@@ -86,6 +86,7 @@ import chb.util.fileutil as UF
 from chb.util.graphutil import coalesce_lists
 
 if TYPE_CHECKING:
+    from chb.app.AppAccess import AppAccess
     from chb.app.FnStackFrame import FnStackFrame
     from chb.bctypes.BCTyp import BCTyp
 
@@ -128,6 +129,10 @@ class Function(ABC):
     @property
     def filename(self) -> str:
         return self._filename
+
+    @property
+    def app(self) -> "AppAccess":
+        return self.ixd.app
 
     @property
     def bd(self) -> BDictionary:

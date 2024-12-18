@@ -561,6 +561,15 @@ def parse() -> argparse.Namespace:
         help=("json filename (without extension) to save opcode statistics"))
     elfdatacmd.set_defaults(func=FF.elfdatacmd)
 
+    # -------------------------------------------------------- disassembly data --
+    ddatacmd = subparsers.add_parser("ddata")
+    ddataparsers = ddatacmd.add_subparsers(title="show options")
+
+    # -- ddata globalvars --
+    ddatagvars = ddataparsers.add_parser("globalvars")
+    ddatagvars.add_argument("xname", help="name of executable")
+    ddatagvars.set_defaults(func=UCC.ddata_gvars)
+
     # ----------------------------------------------------------------- results --
     resultscmd = subparsers.add_parser('results')
     resultscmd.set_defaults(func=resultscommand)
@@ -1555,7 +1564,7 @@ def parse() -> argparse.Namespace:
         help="name of first (original) executable (assumed disassembled)")
     relationalcomparecfginfo.add_argument(
         "xname2",
-        help="name of second (patched) executable (asseumed disassembled)"),
+        help="name of second (patched) executable (asseumed disassembled)")
     relationalcomparecfginfo.add_argument(
         "--newfunctions",
         nargs="*",
@@ -1563,6 +1572,17 @@ def parse() -> argparse.Namespace:
         help="list of functions that are new in xname2")
     relationalcomparecfginfo.set_defaults(
         func=R.relational_compare_cfg_info)
+
+    # --- relational_compare globalvars
+    relationalcompareglobalvars = relationalcompareparsers.add_parser("globalvars")
+    relationalcompareglobalvars.add_argument(
+        "xname1",
+        help="name of first (original) executable (assumed disassembled)")
+    relationalcompareglobalvars.add_argument(
+        "xname2",
+        help="name of second (patched) executable (asseumed disassembled)")
+    relationalcompareglobalvars.set_defaults(
+        func=R.relational_compare_globalvars)
 
     # ------------------------------------------------------ simulate subcommand
     parser_simulate = subparsers.add_parser("simulate")
