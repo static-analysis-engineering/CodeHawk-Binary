@@ -211,12 +211,21 @@ class ASTInterfaceBasicBlock:
         MOVxx R1, #1
         LSL   R0, R1, #1
         BX    LR
+
+        case 3: fallthrough
+        LDR
+        MOV   R1, #0
+        <condition>
+        STRxx R1, <mem>
+        MOVxx R1, #1
+        MOV   R0
         """
         if not self.trampoline:
             raise UF.CHBError("Internal error")
 
         payloadblock = self.trampoline["payload"]
         payloadinstrs = sorted(payloadblock.instructions.items())
+        payloadlen = len(payloadblock.instructions)
         (iaddr2, chkinstr2) = payloadinstrs[-2]
         chkinstr2 = cast("ARMInstruction", chkinstr2)
 
@@ -232,11 +241,30 @@ class ASTInterfaceBasicBlock:
                                              astree)
                 brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
                 return brstmt
-            else:
-                chklogger.logger.critical(
-                    "trampoline payload cannot be lifted: "
-                    + "expected to find conditional MOV instruction. "
-                    + "Contact system maintainer for support.")
+
+            elif payloadlen == 7:
+                (iaddr3, chkinstr3) = payloadinstrs[-3]
+                (iaddr4, chkinstr4) = payloadinstrs[-4]
+                chkinstr3 = cast("ARMInstruction", chkinstr3)
+                chkinstr4 = cast("ARMInstruction", chkinstr4)
+                if (
+                        chkinstr3.has_instruction_condition()
+                        and chkinstr4.has_instruction_condition()):
+                    condition = chkinstr3.get_instruction_condition()
+                    rstmt = astree.mk_return_stmt(None)
+                    estmt = astree.mk_instr_sequence([])
+                    cc = XU.xxpr_to_ast_def_expr(condition,
+                                                 chkinstr2.xdata,
+                                                 chkinstr2.iaddr,
+                                                 astree)
+                    brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
+                    return brstmt
+
+                else:
+                    chklogger.logger.critical(
+                        "trampoline payload cannot be lifted: "
+                        + "expected to find conditional MOV instruction. "
+                        + "Contact system maintainer for support.")
 
         # case 2
         elif chkinstr2.mnemonic_stem == "LSL":
