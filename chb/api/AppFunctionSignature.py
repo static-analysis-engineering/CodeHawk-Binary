@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -54,7 +54,9 @@ class AppFunctionSignature(InterfaceDictionaryRecord):
     args[6..]: indices of registers preserved (not normally preserved)
     """
 
-    def __init__(self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
+    def __init__(
+            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue
+    ) -> None:
         InterfaceDictionaryRecord.__init__(self, ixd, ixval)
 
     @property
@@ -69,9 +71,16 @@ class AppFunctionSignature(InterfaceDictionaryRecord):
     def returntype(self) -> "BCTyp":
         return self.bcd.typ(self.args[3])
 
-    def index_of_register_parameter_location(self, r: "Register") -> Optional[int]:
+    def index_of_register_parameter_location(
+            self, r: "Register") -> Optional[int]:
         for p in self.parameter_list:
             if p.is_register_parameter_location(r):
+                return p.argindex
+        return None
+
+    def index_of_stack_parameter_location(self, offset: int) -> Optional[int]:
+        for p in self.parameter_list:
+            if p.is_stack_parameter_location(offset):
                 return p.argindex
         return None
 
@@ -81,4 +90,3 @@ class AppFunctionSignature(InterfaceDictionaryRecord):
             + " ("
             + ", ".join(str(p) for p in self.parameter_list)
             + ")")
-        

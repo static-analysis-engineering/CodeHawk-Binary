@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2024  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -81,6 +81,9 @@ class FtsParameterLocation(InterfaceDictionaryRecord):
     def is_register_parameter_location_of(self, r: "Register") -> bool:
         return False
 
+    def is_stack_parameter_location_of(self, offset: int) -> bool:
+        return False
+
 
 @apiregistry.register_tag("s", FtsParameterLocation)
 class FtsStackParameter(FtsParameterLocation):
@@ -98,8 +101,11 @@ class FtsStackParameter(FtsParameterLocation):
         return True
 
     @property
-    def index(self) -> int:
+    def offset(self) -> int:
         return self.args[0]
+
+    def is_stack_parameter_location_of(self, offset: int) -> bool:
+        return offset == self.offset
 
     def __str__(self) -> str:
         return "stack-parameter " + str(self.index)
