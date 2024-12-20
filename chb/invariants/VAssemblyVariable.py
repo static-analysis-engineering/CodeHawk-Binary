@@ -250,7 +250,7 @@ class VMemoryVariable(VAssemblyVariable):
         return (
             self.base.is_local_stack_frame
             and self.offset.is_constant_value_offset
-            and self.offset.offsetvalue() > 0)
+            and self.offset.offsetvalue() >= 0)
 
     @property
     def is_local_stack_variable(self) -> bool:

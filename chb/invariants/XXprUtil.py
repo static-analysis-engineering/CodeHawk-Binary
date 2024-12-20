@@ -601,6 +601,40 @@ def vargument_deref_value_to_ast_lval_expression(
     return astree.mk_temp_lval_expression()
 
 
+def stack_argument_to_ast_lval_expression(
+        offset: int,
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface,
+        anonymous: bool = False) -> AST.ASTExpr:
+
+    fsig = astree.appsignature
+    if fsig is None:
+        chklogger.logger.error(
+            "Unable to judge stack argument with offset %d without app "
+            + "at address %s",
+            offset, iaddr)
+        return astree.mk_temp_lval_expression()
+
+    optindex = fsig.index_of_stack_parameter_location(offset)
+    if optindex is not None:
+        arglvals = astree.function_argument(optindex - 1)
+        if len(arglvals) != 1:
+            chklogger.logger.error(
+                "Encountered multiple arg values for initial stack argument "
+                + "%s at address %s",
+                str(offset), iaddr)
+            return astree.mk_temp_lval_expression()
+        else:
+            return astree.mk_lval_expression(arglvals[0], anonymous=anonymous)
+    else:
+        chklogger.logger.error(
+            "Cannot determine argument index for initial stack argument %s "
+            + "at address %s",
+            str(offset), iaddr)
+        return astree.mk_temp_lval_expression()
+
+
 def vinitmemory_value_to_ast_lval_expression(
         vconstvar: "VInitialMemoryValue",
         xdata: "InstrXData",
@@ -677,6 +711,10 @@ def vinitmemory_value_to_ast_lval_expression(
             str(vconstvar), str(astbase), str(astbasetype), str(avar.offset),
             iaddr)
         return astree.mk_temp_lval_expression()
+
+    if avar.is_memory_variable and avar.is_stack_argument:
+        return stack_argument_to_ast_lval_expression(
+            avar.offset.offsetvalue(), xdata, iaddr, astree, anonymous=anonymous)
 
     chklogger.logger.error(
         "AST conversion of vinitmemory value %s of %s not yet supported at "
