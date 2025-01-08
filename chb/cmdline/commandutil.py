@@ -1192,6 +1192,38 @@ def results_finfo(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def results_globalrefs(args: argparse.Namespace) -> NoReturn:
+    """Prints out a list of global references made within a function."""
+
+    # arguments
+    xname: str = str(args.xname)
+    xfaddr: str = args.faddr
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    if not app.has_function(xfaddr):
+        print_error("Function " + xfaddr + " not found")
+        exit(1)
+
+    f = app.function(xfaddr)
+    for (gaddr, grefs) in f.globalrefs().items():
+        print(gaddr)
+        for gref in grefs:
+            print(str("  " + str(gref)))
+
+    exit(0)
+
+
 def results_invariants(args: argparse.Namespace) -> NoReturn:
     """Prints out a list of invariants for a function per location."""
 
@@ -2388,7 +2420,6 @@ def ddata_gvars(args: argparse.Namespace) -> NoReturn:
 
     memmap = app.globalmemorymap
     glocs = memmap.locations
-    gundefs = memmap.undefined_locations
 
     print("Defined locations")
     for gaddr in sorted(glocs, key=lambda g: int(g, 16)):
@@ -2404,26 +2435,10 @@ def ddata_gvars(args: argparse.Namespace) -> NoReturn:
               + gloc.name.ljust(60)
               + "  "
               + sgtype.ljust(20))
-        for gref in gloc.grefs:
-            pgrefs.setdefault(str(gref), 0)
-            pgrefs[str(gref)] += 1
-        for (pgref, count) in sorted(pgrefs.items()):
-            print("  " + str(count).rjust(4) + "  " + str(pgref))
-
-    print("\nUndefined locations")
-    for (gaddr, grefs) in sorted(gundefs.items(), key=lambda g: int(g[0], 16)):
-        print(gaddr)
-        pgrefs = {}
-        for gref in grefs:
-            pgrefs.setdefault(str(gref), 0)
-            pgrefs[str(gref)] += 1
-        for (pgref, count) in sorted(pgrefs.items()):
-            print("  " + str(count).rjust(4) + "  " + str(pgref))
 
     (count, coverage) = memmap.coverage()
 
     print("\nNumber of locations: " + str(len(glocs)))
     print("Coverage: " + str(coverage) + " (typed: " + str(count) + ")")
-    print("Number of undefined references: " + str(len(memmap.undefined_locations)))
 
     exit(0)

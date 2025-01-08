@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2024 Aarno Labs LLC
+# Copyright (c) 2024-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@ import xml.etree.ElementTree as ET
 
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
+import chb.util.fileutil as UF
 from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
@@ -37,93 +38,105 @@ if TYPE_CHECKING:
     from chb.app.Instruction import Instruction
     from chb.bctypes.BCDictionary import BCDictionary
     from chb.bctypes.BCTyp import BCTyp
+    from chb.invariants.FnVarDictionary import FnVarDictionary
+    from chb.invariants.FnXprDictionary import FnXprDictionary
+    from chb.invariants.VMemoryOffset import VMemoryOffset
+    from chb.invariants.XXpr import XXpr
 
 
 class GlobalReference:
 
-    def __init__(self, grefaddr: str, mmap: "GlobalMemoryMap") -> None:
-        self._mmap = mmap
-        self._grefaddr = grefaddr
+    def __init__(self,
+                 function: "Function",
+                 gloc: "GlobalLocation",
+                 xnode: ET.Element) -> None:
+        self._function = function
+        self._gloc = gloc
+        self._xnode = xnode
+
+    @property
+    def xnode(self) -> ET.Element:
+        return self._xnode
 
     @property
     def mmap(self) -> "GlobalMemoryMap":
-        return self._mmap
+        return self._gloc.mmap
 
     @property
     def app(self) -> "AppAccess":
         return self.mmap.app
 
     @property
-    def grefaddr(self) -> str:
-        return self._grefaddr
+    def function(self) -> "Function":
+        return self._function
+
+    @property
+    def vardictionary(self) -> "FnVarDictionary":
+        return self.function.vardictionary
+
+    @property
+    def xprdictionary(self) -> "FnXprDictionary":
+        return self.vardictionary.xd
+
+    @property
+    def gloc(self) -> "GlobalLocation":
+        return self._gloc
+
+    @property
+    def gaddr(self) -> str:
+        return self.gloc.addr
+
+    @property
+    def faddr(self) -> str:
+        return self.function.faddr
+
+    @property
+    def iaddr(self) -> str:
+        iaddr = self._xnode.get("i")
+        if iaddr is None:
+            raise UF.CHBError("Attribute i is missing for " + self.gaddr)
+        return iaddr
+
+    @property
+    def grefvalue(self) -> "XXpr":
+        xix = self._xnode.get("xix")
+        if xix is None:
+            raise UF.CHBError("Attribute xix is missing for " + self.gaddr)
+        return self.xprdictionary.xpr(int(xix))
 
     def __str__(self) -> str:
-        return "Ref: " + self.grefaddr
+        return "Ref: " + self.gaddr + ": " + str(self.grefvalue)
 
-    
+
 class GlobalLoad(GlobalReference):
 
     def __init__(
             self,
-            grefaddr: str,
-            mmap: "GlobalMemoryMap",
+            function: "Function",
+            gloc: "GlobalLocation",
             xnode: ET.Element) -> None:
-        GlobalReference.__init__(self, grefaddr, mmap)
-        self._xnode = xnode
-
-    @property
-    def gaddr(self) -> str:
-        return self._xnode.get("a", self.grefaddr)
-
-    @property
-    def instr(self) -> str:
-        return self._xnode.get("i", "0x0")
-
-    @property
-    def function(self) -> "Function":
-        return self.app.function(self.faddr)
-
-    @property
-    def faddr(self) -> str:
-        return self._xnode.get("f", "0x0")
+        GlobalReference.__init__(self, function, gloc, xnode)
 
     @property
     def size(self) -> int:
-        return int(self._xnode.get("s", "0"))
+        return int(self.xnode.get("s", "0"))
 
     def __str__(self) -> str:
-        if self.grefaddr == self.gaddr:
-            return "Load: " + str(self.size)
-        else:
-            offset = int(self.gaddr, 16) - int(self.grefaddr, 16)
-            return "Load[" + str(offset) + "]: " + str(self.size)
+        return "Load: " + str(self.grefvalue) + " (" + self.gaddr + ")"
 
 
 class GlobalStore(GlobalReference):
 
     def __init__(
             self,
-            grefaddr: str,
-            mmap: "GlobalMemoryMap",
+            function: "Function",
+            gloc: "GlobalLocation",
             xnode: ET.Element) -> None:
-        GlobalReference.__init__(self, grefaddr, mmap)
-        self._xnode = xnode
-
-    @property
-    def gaddr(self) -> str:
-        return self._xnode.get("a", self.grefaddr)
-
-    @property
-    def instr(self) -> str:
-        return self._xnode.get("i", "0x0")
-
-    @property
-    def faddr(self) -> str:
-        return self._xnode.get("f", "0x0")
+        GlobalReference.__init__(self, function, gloc, xnode)
 
     @property
     def size(self) -> int:
-        return int(self._xnode.get("s", "0"))
+        return int(self.xnode.get("s", "0"))
 
     @property
     def value(self) -> Optional[int]:
@@ -134,65 +147,45 @@ class GlobalStore(GlobalReference):
             return None
 
     def __str__(self) -> str:
-        if self.grefaddr == self.gaddr:
-            offset = ""
-        else:
-            offset = "[" + str(int(self.gaddr, 16) - int(self.grefaddr, 16)) + "]"
-        if self.value is None:
-            strvalue = ""
-        else:
-            strvalue = " (:= " + str(self.value) + ")"
-        return "Store" + offset + ": " + str(self.size) + strvalue
-        
+        return "Store: " + str(self.grefvalue) + " (" + self.gaddr + ")"
+
 
 class GlobalAddressArgument(GlobalReference):
 
     def __init__(
             self,
-            grefaddr: str,
-            mmap: "GlobalMemoryMap",
+            function: "Function",
+            gloc: "GlobalLocation",
             xnode: ET.Element) -> None:
-        GlobalReference.__init__(self, grefaddr, mmap)
-        self._xnode = xnode
-
-    @property
-    def gaddr(self) -> str:
-        return self._xnode.get("a", self.grefaddr)
-
-    @property
-    def iaddr(self) -> str:
-        return self._xnode.get("i", "0x0")
-
-    @property
-    def faddr(self) -> str:
-        return self._xnode.get("f", "0x0")
-
-    @property
-    def function(self) -> "Function":
-        return self.app.function(self.faddr)
-
-    @property
-    def instr(self) -> "Instruction":
-        return self.function.instruction(self.iaddr)
+        GlobalReference.__init__(self, function, gloc, xnode)
 
     @property
     def argindex(self) -> int:
-        return int(self._xnode.get("aix", "-1"))
+        return int(self.xnode.get("aix", "-1"))
+
+    @property
+    def memory_offset(self) -> Optional["VMemoryOffset"]:
+        mix = self.xnode.get("mix")
+        if mix is not None:
+            return self.vardictionary.memory_offset(int(mix))
+        return None
 
     def __str__(self) -> str:
-        if self.grefaddr == self.gaddr:
-            offset = ""
-        else:
-            offset = "[" + str(int(self.gaddr, 16) - int(self.grefaddr, 16)) + "]"
-        return "Argument" + offset + ": " + str(self.instr.annotation)
+        return (
+            "Argument: "
+            + str(self.grefvalue)
+            + " with offset "
+            + str(self.memory_offset)
+            + " ("
+            + self.gaddr
+            + ")")
 
-                   
+
 class GlobalLocation:
 
     def __init__(self, mmap: "GlobalMemoryMap", xnode: ET.Element) -> None:
         self._mmap = mmap
         self._xnode = xnode
-        self._grefs: Optional[List[GlobalReference]] = None
 
     @property
     def mmap(self) -> "GlobalMemoryMap":
@@ -214,27 +207,6 @@ class GlobalLocation:
         return None
 
     @property
-    def grefs(self) -> List[GlobalReference]:
-        if self._grefs is None:
-            self._grefs = []
-            for xgref in self._xnode.findall("gref"):
-                xt = xgref.get("t", "U")
-                if xt == "L":
-                    gload = GlobalLoad(self.addr, self.mmap, xgref)
-                    self._grefs.append(gload)
-                elif xt == "S":
-                    gstore = GlobalStore(self.addr, self.mmap, xgref)
-                    self._grefs.append(gstore)
-                elif xt == "CA":
-                    garg = GlobalAddressArgument(self.addr, self.mmap, xgref)
-                    self._grefs.append(garg)
-                else:
-                    chklogger.logger.error(
-                        "Global reference type not known: %s for address %s",
-                        xt, self.addr)
-        return self._grefs
-
-    @property
     def size(self) -> Optional[int]:
         s = self._xnode.get("size", None)
         if s is not None:
@@ -249,7 +221,6 @@ class GlobalMemoryMap:
         self._app = app
         self._xnode = xnode
         self._locations: Optional[Dict[str, GlobalLocation]] = None
-        self._undefinedlocs: Optional[Dict[str, List[GlobalReference]]] = None
 
     @property
     def app(self) -> "AppAccess":
@@ -280,33 +251,6 @@ class GlobalMemoryMap:
                     addr = xgloc.get("a", "0x0")
                     self._locations[addr] = GlobalLocation(self, xgloc)
         return self._locations
-
-    @property
-    def undefined_locations(self) -> Dict[str, List[GlobalReference]]:
-        if self._undefinedlocs is None:
-            self._undefinedlocs = {}
-            if self.refaddrnode is not None:
-                for xundef in self.refaddrnode.findall("orphan-loc"):
-                    refaddr = xundef.get("a", "0x0")
-                    xlst: List[GlobalReference] = []
-                    for xgref in xundef.findall("gref"):
-                        xt = xgref.get("t", "U")
-                        if xt == "L":
-                            gload = GlobalLoad(refaddr, self, xgref)
-                            xlst.append(gload)
-                        elif xt == "S":
-                            gstore = GlobalStore(refaddr, self, xgref)
-                            xlst.append(gstore)
-                        elif xt == "CA":
-                            garg = GlobalAddressArgument(refaddr, self, xgref)
-                            xlst.append(garg)
-                        else:
-                            chklogger.logger.error(
-                                "Global reference type not known: %s for "
-                                + "address %s",
-                                xt, refaddr)
-                    self._undefinedlocs[refaddr] = xlst
-        return self._undefinedlocs             
 
     def get_location_by_name(self, name: str) -> Optional[GlobalLocation]:
         for gloc in self.locations.values():
