@@ -982,6 +982,12 @@ def parse() -> argparse.Namespace:
             + " for text output)"))
     resultsinvariants.set_defaults(func=UCC.results_invariants)
 
+    # --- results globalrefs ---
+    resultsglobalrefs = resultsparsers.add_parser("globalrefs")
+    resultsglobalrefs.add_argument("xname", help="name of executable")
+    resultsglobalrefs.add_argument("faddr", help="hex address of function")
+    resultsglobalrefs.set_defaults(func=UCC.results_globalrefs)
+
     # --- results functioninfo ---
     resultsfinfo = resultsparsers.add_parser(
         "functioninfo",

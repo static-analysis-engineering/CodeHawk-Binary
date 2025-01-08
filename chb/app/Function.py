@@ -59,6 +59,8 @@ from chb.app.Cfg import Cfg
 from chb.app.FnProofObligations import FnProofObligations
 from chb.app.FnXPODictionary import FnXPODictionary
 from chb.app.FunctionInfo import FunctionInfo
+from chb.app.GlobalMemoryMap import (
+    GlobalLoad, GlobalStore, GlobalAddressArgument)
 from chb.app.Instruction import Instruction
 from chb.app.JumpTables import JumpTable
 from chb.app.StackLayout import StackLayout
@@ -84,10 +86,14 @@ from chb.userdata.UserHints import UserHints
 
 import chb.util.fileutil as UF
 from chb.util.graphutil import coalesce_lists
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
     from chb.app.FnStackFrame import FnStackFrame
+    from chb.app.GlobalMemoryMap import (
+        GlobalMemoryMap, GlobalLocation, GlobalReference)
     from chb.bctypes.BCTyp import BCTyp
 
 
@@ -120,6 +126,7 @@ class Function(ABC):
         self._invariants: Dict[str, List[InvariantFact]] = {}
         self._varinvariants: Dict[str, List[VarInvariantFact]] = {}
         self._stacklayout: Optional[StackLayout] = None
+        self._globalrefs: Optional[Dict[str, List["GlobalReference"]]] = None
         self._proofobligations: Optional[FnProofObligations] = None
 
     @property
@@ -548,6 +555,44 @@ class Function(ABC):
                     stacklayout.add_access(instr)
             self._stacklayout = stacklayout
         return self._stacklayout
+
+    def globalrefs(self) -> Dict[str, List["GlobalReference"]]:
+        if self._globalrefs is None:
+            self._globalrefs = {}
+            gnode = self.xnode.find("global-references")
+            if gnode is not None:
+                glnode = gnode.find("location-references")
+                if glnode is not None:
+                    for rnode in glnode.findall("gref"):
+                        gaddr = rnode.get("g")
+                        if gaddr is None:
+                            chklogger.logger.error(
+                                "Global address is missing in xml gref")
+                            continue
+                        gloc = self.app.globalmemorymap.get_location(gaddr)
+                        if gloc is None:
+                            chklogger.logger.error(
+                                "Global location is missing for %s", gaddr)
+                            continue
+                        gt = rnode.get("t")
+                        if gt is None:
+                            chklogger.logger.error(
+                                "Global reference type is missing for %s", gaddr)
+                            continue
+                        if gt == "L":
+                            gref: "GlobalReference" = GlobalLoad(self, gloc, rnode)
+                        elif gt == "S":
+                            gref = GlobalStore(self, gloc, rnode)
+                        elif gt == "CA":
+                            gref = GlobalAddressArgument(self, gloc, rnode)
+                        else:
+                            chklogger.logger.error(
+                                "Global reference type %s not recognized for %s",
+                                gt, gaddr)
+                            continue
+                        self._globalrefs.setdefault(gaddr, [])
+                        self._globalrefs[gaddr].append(gref)
+        return self._globalrefs
 
     @abstractmethod
     def to_string(
