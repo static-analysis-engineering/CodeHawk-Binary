@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -73,8 +73,10 @@ class InstrXData(IndexedTableValue):
         self.expanded = False
         self._ssavals: List[XVariable] = []
         self._vars: List[XVariable] = []
+        self._vars_r: List[Optional[XVariable]] = []
         self._types: List["BCTyp"] = []
         self._xprs: List[XXpr] = []
+        self._xprs_r: List[Optional[XXpr]] = []
         self._intervals: List[XInterval] = []
         self._strs: List[str] = []
         self._ints: List[int] = []
@@ -122,6 +124,12 @@ class InstrXData(IndexedTableValue):
         return self._vars
 
     @property
+    def vars_r(self) -> List[Optional[XVariable]]:
+        if not self.expanded:
+            self._expand()
+        return self._vars_r
+
+    @property
     def types(self) -> List["BCTyp"]:
         if not self.expanded:
             self._expand()
@@ -161,11 +169,28 @@ class InstrXData(IndexedTableValue):
                 + str(len(self.vars))
                 + ")")
 
+    def get_var_x(self, index: int) -> Optional[XVariable]:
+        if index < len(self.vars_r):
+            return self.vars_r[index]
+        else:
+            raise UF.CHBError(
+                "xdata: var-index out-of-bound: "
+                + str(index)
+                + " (length is "
+                + str(len(self.vars))
+                + ")")
+
     @property
     def xprs(self) -> List[XXpr]:
         if not self.expanded:
             self._expand()
         return self._xprs
+
+    @property
+    def xprs_r(self) -> List[Optional[XXpr]]:
+        if not self.expanded:
+            self._expand()
+        return self._xprs_r
 
     @property
     def intervals(self) -> List[XInterval]:
@@ -223,6 +248,18 @@ class InstrXData(IndexedTableValue):
                     return rdef.deflocations
         return []
 
+    @property
+    def is_ok(self) -> bool:
+        """Returns false if the data key is ar: and one or more of the
+        variables and/or expressions are error values (None). Returns true
+        otherwise."""
+
+        key = self.tags[0]
+        if key.startswith("ar:"):
+            return all(self.vars_r) and all(self.xprs_r)
+        else:
+            return True
+
     def _expand(self) -> None:
         """Expand the arguments based on the argument string in the keys.
 
@@ -240,49 +277,72 @@ class InstrXData(IndexedTableValue):
         key = self.tags[0]
         if key.startswith("a:"):
             keyletters = key[2:]
-            for (i, c) in enumerate(keyletters):
-                arg = self.args[i]
-                xd = self.xprdictionary
-                bd = self.bdictionary
-                bcd = self.bcdictionary
-                if c == "v":
-                    self._vars.append(xd.variable(arg))
-                elif c == "x":
-                    self._xprs.append(xd.xpr(arg))
-                elif c == "a":
-                    self._xprs.append(xd.xpr(arg))
-                elif c == "s":
-                    self._strs.append(bd.string(arg))
-                elif c == "i":
-                    self._intervals.append(xd.interval(arg))
-                elif c == "l":
-                    self._ints.append(arg)
-                elif c == "t":
-                    self._types.append(bcd.typ(arg))
-                elif c == "r":
-                    varinvd = self.varinvdictionary
-                    rdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
-                    rdef = cast(Optional[ReachingDefFact], rdef)
-                    self._reachingdefs.append(rdef)
-                elif c == "d":
-                    varinvd = self.varinvdictionary
-                    use = varinvd.var_invariant_fact(arg) if arg >= 0 else None
-                    use = cast(Optional[DefUse], use)
-                    self._defuses.append(use)
-                elif c == "h":
-                    varinvd = self.varinvdictionary
-                    usehigh = varinvd.var_invariant_fact(arg) if arg > 0 else None
-                    usehigh = cast(Optional[DefUseHigh], usehigh)
-                    self._defuseshigh.append(usehigh)
-                elif c == "f":
-                    varinvd = self.varinvdictionary
-                    flagrdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
-                    flagrdef = cast(Optional[FlagReachingDefFact], flagrdef)
-                    self._flagreachingdefs.append(flagrdef)
-                elif c == "c":
-                    self._ssavals.append(xd.variable(arg))
+            use_result = False
+        elif key.startswith("ar:"):
+            keyletters = key[3:]
+            use_result = True
+        else:
+            chklogger.logger.error(
+                "InstrXData tag: %s not recognized", key)
+            return
+
+        for (i, c) in enumerate(keyletters):
+            arg = self.args[i]
+            xd = self.xprdictionary
+            bd = self.bdictionary
+            bcd = self.bcdictionary
+            if c == "v":
+                if use_result:
+                    if arg == -2:
+                        self._vars_r.append(None)
+                    else:
+                        self._vars_r.append(xd.variable(arg))
                 else:
-                    raise UF.CHBError("Key letter not recognized: " + c)
+                    self._vars.append(xd.variable(arg))
+
+            elif c == "x":
+                if use_result:
+                    if arg == -2:
+                        self._xprs_r.append(None)
+                    else:
+                        self._xprs_r.append(xd.xpr(arg))
+                else:
+                    self._xprs.append(xd.xpr(arg))
+
+            elif c == "a":
+                self._xprs.append(xd.xpr(arg))
+            elif c == "s":
+                self._strs.append(bd.string(arg))
+            elif c == "i":
+                self._intervals.append(xd.interval(arg))
+            elif c == "l":
+                self._ints.append(arg)
+            elif c == "t":
+                self._types.append(bcd.typ(arg))
+            elif c == "r":
+                varinvd = self.varinvdictionary
+                rdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                rdef = cast(Optional[ReachingDefFact], rdef)
+                self._reachingdefs.append(rdef)
+            elif c == "d":
+                varinvd = self.varinvdictionary
+                use = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                use = cast(Optional[DefUse], use)
+                self._defuses.append(use)
+            elif c == "h":
+                varinvd = self.varinvdictionary
+                usehigh = varinvd.var_invariant_fact(arg) if arg > 0 else None
+                usehigh = cast(Optional[DefUseHigh], usehigh)
+                self._defuseshigh.append(usehigh)
+            elif c == "f":
+                varinvd = self.varinvdictionary
+                flagrdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                flagrdef = cast(Optional[FlagReachingDefFact], flagrdef)
+                self._flagreachingdefs.append(flagrdef)
+            elif c == "c":
+                self._ssavals.append(xd.variable(arg))
+            else:
+                raise UF.CHBError("Key letter not recognized: " + c)
 
     @property
     def is_function_argument(self) -> bool:

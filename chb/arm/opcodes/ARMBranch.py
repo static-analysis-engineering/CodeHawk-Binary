@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -57,6 +57,57 @@ if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget, StaticStubTarget
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.invariants.VConstantValueVariable import VFunctionReturnValue
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMBranchXData:
+
+    def __init__(self, xdata: InstrXData) -> None:
+        self._xdata = xdata
+
+    @property
+    def is_ok(self) -> bool:
+        return self._xdata.is_ok
+
+    @property
+    def is_unconditional(self) -> bool:
+        return len(self._xdata.xprs_r) == 2
+
+    def xpr(self, index: int, msg: str) -> "XXpr":
+        x = self._xdata.xprs_r[index]
+        if x is None:
+            raise UF.CHBError("ARMBranchXData:" + msg)
+        return x
+
+    @property
+    def txpr(self) -> "XXpr":
+        return self.xpr(0, "txpr")
+
+    @property
+    def fxpr(self) -> "XXpr":
+        return self.xpr(1, "fxpr")
+
+    @property
+    def tcond(self) -> "XXpr":
+        return self.xpr(2, "tcond")
+
+    @property
+    def fcond(self) -> "XXpr":
+        return self.xpr(3, "fcond")
+
+    @property
+    def xtgt(self) -> "XXpr":
+        index = 1 if self.is_unconditional else 4
+        return self.xpr(index, "xtgt")
+
+    @property
+    def annotation(self) -> str:
+        if self._xdata.has_branch_conditions():
+            return "if " + str(self.tcond) + " then goto " + str(self.xtgt)
+        elif self.is_unconditional:
+            return "goto " + str(self.xtgt)
+        else:
+            return "?"
 
 
 @armregistry.register_tag("B", ARMOpcode)
@@ -84,10 +135,7 @@ class ARMBranch(ARMCallOpcode):
     xprs[0]: target address (absolute)
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMCallOpcode.__init__(self, d, ixval)
         self.check_key(2, 2, "Branch")
 
@@ -143,16 +191,16 @@ class ARMBranch(ARMCallOpcode):
             return xdata.xprs[0]
 
     def annotation(self, xdata: InstrXData) -> str:
-        if self.is_call_instruction(xdata):
-            tgt = xdata.call_target(self.ixd)
-            args = ", ".join(str(x) for x in self.arguments(xdata))
-            return "call " + str(tgt) + "(" + args + ")"
-        elif xdata.has_branch_conditions():
-            return "if " + str(xdata.xprs[2]) + " then goto " + str(xdata.xprs[4])
-        elif self.tags[1] in ["a", "unc"]:
-            return "goto " + str(xdata.xprs[0])
+        xd = ARMBranchXData(xdata)
+        if xd.is_ok:
+            if self.is_call_instruction(xdata):
+                tgt = xdata.call_target(self.ixd)
+                args = ", ".join(str(x) for x in self.arguments(xdata))
+                return "call " + str(tgt) + "(" + args + ")"
+            else:
+                return xd.annotation
         else:
-            return "if ? goto " + str(xdata.xprs[0])
+            return "Error value"
 
     def target_expr_ast(
             self,

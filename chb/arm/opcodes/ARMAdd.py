@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -44,8 +44,108 @@ from chb.util.loggingutil import chklogger
 
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
-    from chb.invariants.XXpr import XprCompound, XprConstant
+    from  chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.VarInvariantFact import ReachingDefFact
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
+
+
+class ARMAddXData:
+    """Add <rd> <rn> <rm>  ==> result
+
+    xdata format: a:vxxxxxxrrdh
+    -------------------------
+    vars[0]: vrd (Rd)
+    xprs[0]: xrn (Rn)
+    xprs[1]: xrm (Rm)
+    xprs[2]: result: xrn + xrm
+    xprs[3]: rresult: xrn + xrm (rewritten)
+    xprs[4]: xxrn (xrn rewritten)
+    xprs[5]: xxrm (xrm rewritten)
+    xprs[6]: tcond (optional)
+    xprs[7]: fcond (optional)
+    rdefs[0]: xrn
+    rdefs[1]: xrm
+    rdefs[2:..]: reaching definitions for simplified result expression
+    uses[0]: vrd
+    useshigh[0]: vrd
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        self._xdata = xdata
+
+    @property
+    def is_ok(self) -> bool:
+        return self._xdata.is_ok
+
+    @property
+    def vrd(self) -> "XVariable":
+        v = self._xdata.vars_r[0]
+        if v is None:
+            raise UF.CHBError("ARMAddXData:vrd")
+        return v
+
+    def xpr(self, index: int, msg: str) -> "XXpr":
+        x = self._xdata.xprs_r[index]
+        if x is None:
+            raise UF.CHBError("ARMAddXData:" + msg)
+        return x
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(2, "result")
+
+    @property
+    def rresult(self) -> "XXpr":
+        return self.xpr(3, "rresult")
+
+    @property
+    def result_simplified(self) -> str:
+        return simplify_result(
+            self._xdata.args[3], self._xdata.args[4], self.result, self.rresult)
+
+    @property
+    def xxrn(self) -> "XXpr":
+        return self.xpr(4, "xxrn")
+
+    @property
+    def xxrm(self) -> "XXpr":
+        return self.xpr(5, "xxrm")
+
+    @property
+    def tcond(self) -> "XXpr":
+        return self.xpr(6, "tcond")
+
+    @property
+    def fcond(self) -> "XXpr":
+        return self.xpr(7, "fcond")
+
+    @property
+    def rn_rdef(self) -> Optional["ReachingDefFact"]:
+        return self._xdata.reachingdefs[0]
+
+    @property
+    def rm_rdef(self) -> Optional["ReachingDefFact"]:
+        return self._xdata.reachingdefs[1]
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vrd) + " := " + self.result_simplified
+        if self._xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif self._xdata.has_instruction_condition():
+            c = str(self.tcond)
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
 
 
 @armregistry.register_tag("ADD", ARMOpcode)
@@ -69,26 +169,9 @@ class ARMAdd(ARMOpcode):
     args[3]: index of op3 in armdictionary
     args[4]: is-wide (thumb)
 
-    xdata format: a:vxxxxrrdh
-    -------------------------
-    vars[0]: lhs (Rd)
-    xprs[0]: rhs1 (Rn)
-    xprs[1]: rhs2 (Rm)
-    xprs[2]: rhs1 + rhs2
-    xprs[3]: rhs1 + rhs2 (simplified)
-    xprs[4]: rhs1 (simplified)
-    xprs[5]: rhs2 (simplified)
-    rdefs[0]: rhs1
-    rdefs[1]: rhs2
-    rdefs[2:..]: reaching definitions for simplified result expression
-    uses[0]: lhs
-    useshigh[0]: lhs
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "Add")
 
@@ -111,18 +194,11 @@ class ARMAdd(ARMOpcode):
         return wb + cc + wide
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
-        assignment = lhs + " := " + xresult
-        if xdata.has_unknown_instruction_condition():
-            return "if ? then " + assignment
-        elif xdata.has_instruction_condition():
-            c = str(xdata.xprs[1])
-            return "if " + c + " then " + assignment
+        xd = ARMAddXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
         else:
-            return assignment
+            return "Error Value"
 
     # --------------------------------------------------------------------------
     # AddWithCarry()

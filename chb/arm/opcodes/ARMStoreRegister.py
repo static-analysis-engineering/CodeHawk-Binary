@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -51,7 +51,90 @@ if TYPE_CHECKING:
     from chb.invariants.VAssemblyVariable import (
         VAuxiliaryVariable, VMemoryVariable)
     from chb.invariants.VConstantValueVariable import VInitialRegisterValue
+    from chb.invariants.XVariable import XVariable
     from chb.invariants.XXpr import XprVariable
+
+
+class ARMStoreRegisterXData:
+
+    def __init__(self, xdata: InstrXData) -> None:
+        self._xdata = xdata
+
+    @property
+    def is_ok(self) -> bool:
+        return self._xdata.is_ok
+
+    def var(self, index: int, msg: str) -> "XVariable":
+        v = self._xdata.vars_r[index]
+        if v is None:
+            raise UF.CHBError("ARMStoreRegisterXData:" + msg)
+        return v
+
+    def xpr(self, index: int, msg: str) -> "XXpr":
+        x = self._xdata.xprs_r[index]
+        if x is None:
+            raise UF.CHBError("ARMStoreRegisterXData:" + msg)
+        return x
+
+    @property
+    def is_writeback(self) -> bool:
+        return len(self._xdata.vars_r) == 2
+
+    @property
+    def vmem(self) -> "XVariable":
+        return self.var(0, "vmem")
+
+    @property
+    def vrn(self) -> "XVariable":
+        return self.var(1, "vrn")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def xrt(self) -> "XXpr":
+        return self.xpr(2, "xrt")
+
+    @property
+    def xxrt(self) -> "XXpr":
+        return self.xpr(3, "xxrt")
+
+    @property
+    def xaddr(self) -> "XXpr":
+        return self.xpr(4, "xaddr")
+
+    @property
+    def xaddr_updated(self) -> "XXpr":
+        return self.xpr(5, "xaddr_updated")
+
+    @property
+    def tcond(self) -> "XXpr":
+        index = 6 if self.is_writeback else 7
+        return self.xpr(index, "tcond")
+
+    @property
+    def fcond(self) -> "XXpr":
+        index = 7 if self.is_writeback else 8
+        return self.xpr(index, "fcond")
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vmem) + " := " + str(self.xxrt)
+        if self.is_writeback:
+            wb_assign = str(self.vrn) + " := " + str(self.xaddr_updated)
+            assignment += "; " + wb_assign
+        if self._xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif self._xdata.has_instruction_condition():
+            c = str(self.tcond)
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
 
 
 @armregistry.register_tag("STR", ARMOpcode)
@@ -141,24 +224,11 @@ class ARMStoreRegister(ARMOpcode):
         return None
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[3]
-        if rhs.is_function_return_value:
-            rhsp = str(rhs.variable.denotation)
+        xd = ARMStoreRegisterXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
         else:
-            rhsp = str(rhs)
-        assign = str(lhs) + " := " + rhsp
-
-        xctr = 5
-        if xdata.has_instruction_condition():
-            pcond = "if " + str(xdata.xprs[xctr]) + " then "
-            xctr += 1
-        elif xdata.has_unknown_instruction_condition():
-            pcond = "if ? then "
-        else:
-            pcond = ""
-
-        return pcond + assign
+            return "Error value"
 
     def ast_prov(
             self,
