@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, Sequence, Tuple, TYPE_CHECKING
+from typing import cast, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 from chb.app.MemoryAccess import MemoryAccess, RegisterSpill
@@ -46,6 +46,93 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.VarInvariantFact import ReachingDefFact
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMStoreRegisterDualXData:
+
+    def __init__(self, xdata: InstrXData) -> None:
+        self._xdata = xdata
+
+    @property
+    def is_ok(self) -> bool:
+        return self._xdata.is_ok
+
+    def var(self, index: int, msg: str) -> "XVariable":
+        v = self._xdata.vars_r[index]
+        if v is None:
+            raise UF.CHBError("ARMStoreRegisterDualXData:" + msg)
+        return v
+
+    def xpr(self, index: int, msg: str) -> "XXpr":
+        x = self._xdata.xprs_r[index]
+        if x is None:
+            raise UF.CHBError("ARMStoreRegisterDualXData:" + msg)
+        return x
+
+    @property
+    def is_writeback(self) -> bool:
+        return len(self._xdata.vars_r) == 3
+
+    @property
+    def vmem1(self) -> "XVariable":
+        return self.var(0, "vmem1")
+
+    @property
+    def vmem2(self) -> "XVariable":
+        return self.var(1, "vmem2")
+
+    @property
+    def vrn(self) -> "XVariable":
+        return self.var(2, "vrn")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def xrt(self) -> "XXpr":
+        return self.xpr(2, "xrt")
+
+    @property
+    def xxrt(self) -> "XXpr":
+        return self.xpr(3, "xxrt")
+
+    @property
+    def xrt2(self) -> "XXpr":
+        return self.xpr(4, "xrt2")
+
+    @property
+    def xxrt2(self) -> "XXpr":
+        return self.xpr(5, "xxrt2")
+
+    @property
+    def xaddr1(self) -> "XXpr":
+        return self.xpr(6, "xaddr1")
+
+    @property
+    def xaddr2(self) -> "XXpr":
+        return self.xpr(7, "xaddr2")
+
+    @property
+    def xaddr_updated(self) -> "XXpr":
+        return self.xpr(8, "xaddr_updated")
+
+    @property
+    def annotation(self) -> str:
+        assignment = (
+            str(self.vmem1) + " := " + str(self.xxrt) + "; "
+                + str(self.vmem2) + " := " + str(self.xxrt2))
+        if self.is_writeback:
+            wb_assign = str(self.vrn) + " := " + str(self.xaddr_updated)
+            assignment += "; " + wb_assign
+        return assignment
 
 
 @armregistry.register_tag("STRD", ARMOpcode)
@@ -128,11 +215,11 @@ class ARMStoreRegisterDual(ARMOpcode):
         return result
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs1 = str(xdata.vars[0])
-        lhs2 = str(xdata.vars[1])
-        rhs = str(xdata.xprs[3])
-        rhs2 = str(xdata.xprs[5])
-        return lhs1 + " := " + rhs + "; " + lhs2 + " := " + rhs2
+        xd = ARMStoreRegisterDualXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
     def assembly_ast(
             self,

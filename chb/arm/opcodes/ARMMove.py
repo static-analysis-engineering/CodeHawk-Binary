@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -45,6 +45,58 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMMoveXData:
+
+    def __init__(self, xdata: InstrXData) -> None:
+        self._xdata = xdata
+
+    @property
+    def is_ok(self) -> bool:
+        return self._xdata.is_ok
+
+    @property
+    def vrd(self) -> "XVariable":
+        v = self._xdata.vars_r[0]
+        if v is None:
+            raise UF.CHBError("ARMMoveXData:vrd")
+        return v
+
+    def xpr(self, index: int, msg: str) -> "XXpr":
+        x = self._xdata.xprs_r[index]
+        if x is None:
+            raise UF.CHBError("ARMMoveXData:" + msg)
+        return x
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(0, "xrm")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(1, "result")
+
+    @property
+    def tcond(self) -> "XXpr":
+        return self.xpr(2, "tcond")
+
+    @property
+    def fcond(self) -> "XXpr":
+        return self.xpr(3, "fcond")
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vrd) + " := " + str(self.result)
+        if self._xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif self._xdata.has_instruction_condition():
+            c = str(self.tcond)
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
 
 
 @armregistry.register_tag("MOV", ARMOpcode)
@@ -105,19 +157,11 @@ class ARMMove(ARMOpcode):
         if xdata.is_nop:
             return "NOP"
 
-        elif len(xdata.vars) == 0:
-            return "insufficient information"
-
-        lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[1])
-        assignment = lhs + " := " + rhs
-        if xdata.has_unknown_instruction_condition():
-            return "if ? then " + assignment
-        elif xdata.has_instruction_condition():
-            c = str(xdata.xprs[2])
-            return "if " + c + " then " + assignment
+        xd = ARMMoveXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
         else:
-            return assignment
+            return "Error value"
 
     def ast_prov_subsumed(
             self,

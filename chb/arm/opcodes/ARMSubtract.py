@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -43,8 +43,72 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
-    from chb.invariants.XXpr import XprCompound, XprConstant
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
+
+
+class ARMSubtractXData:
+
+    def __init__(self, xdata: InstrXData) -> None:
+        self._xdata = xdata
+
+    @property
+    def is_ok(self) -> bool:
+        return self._xdata.is_ok
+
+    @property
+    def vrd(self) -> "XVariable":
+        v = self._xdata.vars_r[0]
+        if v is None:
+            raise UF.CHBError("ARMSubstractXData:vrd")
+        return v
+
+    def xpr(self, index: int, msg: str) -> "XXpr":
+        x = self._xdata._xprs_r[index]
+        if x is None:
+            raise UF.CHBError("ARMSubtractXData:" + msg)
+        return x
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(2, "result")
+
+    @property
+    def rresult(self) -> "XXpr":
+        return self.xpr(3, "rresult")
+
+    @property
+    def tcond(self) -> "XXpr":
+        return self.xpr(4, "tcond")
+
+    @property
+    def fcond(self) -> "XXpr":
+        return self.xpr(5, "fcond")
+
+    @property
+    def result_simplified(self) -> str:
+        return simplify_result(
+            self._xdata.args[3], self._xdata.args[4], self.result, self.rresult)
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vrd) + " := " + self.result_simplified
+        if self._xdata.has_unknown_instruction_condition():
+            return "if ? then " + assignment
+        elif self._xdata.has_instruction_condition():
+            c = str(self.tcond)
+            return "if " + c + " then " + assignment
+        else:
+            return assignment
 
 
 @armregistry.register_tag("SUBW", ARMOpcode)
@@ -76,10 +140,7 @@ class ARMSubtract(ARMOpcode):
     useshigh[0]: lhs
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 6, "Subtract")
 
@@ -110,11 +171,11 @@ class ARMSubtract(ARMOpcode):
         return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
-        return lhs + " := " + xresult
+        xd = ARMSubtractXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
     def ast_prov(
             self,
