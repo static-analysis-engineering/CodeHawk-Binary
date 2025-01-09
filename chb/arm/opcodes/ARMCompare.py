@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -43,7 +43,56 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMCompareXData:
+
+    def __init__(self, xdata: InstrXData) -> None:
+        self._xdata = xdata
+
+    @property
+    def is_ok(self) -> bool:
+        return self._xdata.is_ok
+
+    def xpr(self, index: int, msg: str) -> "XXpr":
+        x = self._xdata.xprs_r[index]
+        if x is None:
+            raise UF.CHBError("ARMCompareXData:" + msg)
+        return x
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(2, "result")
+
+    @property
+    def tcond(self) -> "XXpr":
+        return self.xpr(3, "tcond")
+
+    @property
+    def fcond(self) -> "XXpr":
+        return self.xpr(4, "fcond")
+
+    @property
+    def annotation(self) -> str:
+        ann = "compare " + str(self.xrn) + " and " + str(self.xrm)
+        ann += " (" + str(self.result) + ")"
+        if self._xdata.has_unknown_instruction_condition():
+            return "if ? then " + ann
+        elif self._xdata.has_instruction_condition():
+            c = str(self.tcond)
+            return "if " + c + " then " + ann
+        else:
+            return ann
 
 
 @armregistry.register_tag("CMP", ARMOpcode)
@@ -72,10 +121,7 @@ class ARMCompare(ARMOpcode):
     rdefs[2..]: xrn - xrm (simplified)
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 3, "Compare")
 
@@ -93,17 +139,11 @@ class ARMCompare(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args[:-1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        rhs1 = str(xdata.xprs[0])
-        rhs2 = str(xdata.xprs[1])
-        result = str(xdata.xprs[2])
-        ann = "compare " + str(rhs1) + " and " + str(rhs2) + " (" + result + ")"
-        if xdata.has_unknown_instruction_condition():
-            return "if ? then " + ann
-        elif xdata.has_instruction_condition():
-            c = str(xdata.xprs[1])
-            return "if " + c + " then " + ann
+        xd = ARMCompareXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
         else:
-            return ann
+            return "Error value"
 
     def ast_prov(
             self,
