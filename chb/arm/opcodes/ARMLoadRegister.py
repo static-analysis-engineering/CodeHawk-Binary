@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -48,6 +48,122 @@ from chb.util.loggingutil import chklogger
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMOperandKind import ARMOffsetAddressOp
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMLoadRegisterXData:
+
+    def __init__(self, xdata: InstrXData) -> None:
+        self._xdata = xdata
+        self._varnames = ["vrt", "vmem"]
+        self._xprnames = ["xrn", "xrm", "xmem", "xrmem", "xaddr"]
+
+    @property
+    def is_ok(self) -> bool:
+        return self._xdata.is_ok
+
+    @property
+    def error_value_indices(self) -> Tuple[List[int], List[int]]:
+        return self._xdata.error_values
+
+    @property
+    def error_value_names(self) -> List[str]:
+        result: List[str] = []
+        (vars_e, xprs_e) = self.error_value_indices
+        for i in vars_e:
+            result.append(self._varnames[i])
+        for i in xprs_e:
+            result.append(self._xprnames[i])
+        return result
+
+    def var(self, index: int, msg: str) -> "XVariable":
+        v = self._xdata.vars_r[index]
+        if v is None:
+            raise UF.CHBError("ARMLoadRegisterXData:" + msg)
+        return v
+
+    def xpr(self, index: int, msg: str) -> "XXpr":
+        x = self._xdata.xprs_r[index]
+        if x is None:
+            raise UF.CHBError("ARMLoadRegisterXData:" + msg)
+        return x
+
+    @property
+    def vrt(self) -> "XVariable":
+        return self.var(0, "vrt")
+
+    @property
+    def vmem(self) -> "XVariable":
+        return self.var(1, "vmem")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def xmem(self) -> "XXpr":
+        return self.xpr(2, "xmem")
+
+    @property
+    def xrmem(self) -> "XXpr":
+        return self.xpr(3, "xrmem")
+
+    @property
+    def xaddr(self) -> "XXpr":
+        return self.xpr(4, "xaddr")
+
+    @property
+    def is_memval_unknown(self) -> bool:
+        return "xrmem" in self.error_value_names
+
+    @property
+    def is_address_known(self) -> bool:
+        return "xaddr" not in self.error_value_names
+
+    @property
+    def annotation(self) -> str:
+
+        xctr = 5
+        if self._xdata.has_instruction_condition():
+            pcond = "if " + str(self.xpr(xctr, "tcond"))
+            xctr += 1
+        elif self._xdata.has_unknown_instruction_condition():
+            pcond = "if ? then "
+        else:
+            pcond = ""
+
+        vctr = 2
+        if self._xdata.has_base_update():
+            pbupd = (
+                "; "
+                + str(self.var(vctr, "vrn"))
+                + " := "
+                + str(self.xpr(xctr, "upd")))
+        else:
+            pbupd = ""
+
+        if self.is_ok:
+            return pcond + str(self.vrt) + " := " + str(self.xrmem) + pbupd
+
+        elif self.is_memval_unknown and self.is_address_known:
+
+            return (
+                pcond
+                + str(self.vrt)
+                + " := *("
+                + str(self.xaddr)
+                + ")"
+                + pbupd)
+
+        else:
+            return "Error value"
+
+
 
 @armregistry.register_tag("LDR", ARMOpcode)
 class ARMLoadRegister(ARMOpcode):
@@ -88,10 +204,7 @@ class ARMLoadRegister(ARMOpcode):
     useshigh[1]: use of updated base register
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "LoadRegister")
 
@@ -120,6 +233,10 @@ class ARMLoadRegister(ARMOpcode):
     def annotation(self, xdata: InstrXData) -> str:
         """lhs, rhs, with optional instr condition and base update."""
 
+        return ARMLoadRegisterXData(xdata).annotation
+
+        '''
+
         lhs = str(xdata.vars[0])
         rhs = str(xdata.xprs[3])
 
@@ -144,6 +261,7 @@ class ARMLoadRegister(ARMOpcode):
             return pcond + lhs + " := *(" + str(xdata.xprs[4]) + ")"
 
         return pcond + lhs + " := " + rhs + pbupd
+        '''
 
     def ast_prov(
             self,

@@ -260,6 +260,20 @@ class InstrXData(IndexedTableValue):
         else:
             return True
 
+    @property
+    def error_values(self) -> Tuple[List[int], List[int]]:
+
+        key = self.tags[0]
+        if key.startswith("ar:"):
+            vars_e: List[int] = [
+                i for i in range(0, len(self.vars_r)) if self.vars_r[i] is None]
+            xprs_e: List[int] = [
+                i for i in range(0, len(self.xprs_r)) if self.xprs_r[i] is None]
+            return (vars_e, xprs_e)
+        else:
+            return ([], [])
+
+
     def _expand(self) -> None:
         """Expand the arguments based on the argument string in the keys.
 
@@ -373,6 +387,11 @@ class InstrXData(IndexedTableValue):
         return "bx-call" in self.tags
 
     def call_target_argument_count(self) -> Optional[int]:
+        if any(s.startswith("argcount:") for s in self.tags):
+            tag = next(s for s in self.tags if s.startswith("argcount:"))
+            argcount = int(tag[9:])
+            return argcount
+
         if len(self.tags) >= 3:
             if self.tags[1] == "call":
                 try:
@@ -384,7 +403,6 @@ class InstrXData(IndexedTableValue):
                     return None
 
         return None
-
 
     def has_inlined_call_target(self) -> bool:
         return len(self.tags) >= 3 and self.tags[2] == "inlined"

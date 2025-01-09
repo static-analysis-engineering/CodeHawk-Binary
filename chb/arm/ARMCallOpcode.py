@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2024  Aarno Labs LLC
+# Copyright (c) 2022-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -54,12 +54,62 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget, StaticStubTarget
+    from chb.api.InterfaceDictionary import InterfaceDictionary
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.bctypes.BCTyp import BCTypFun
     from chb.invariants.VarInvariantFact import ReachingDefFact
     from chb.invariants.VAssemblyVariable import VRegisterVariable
     from chb.invariants.VConstantValueVariable import VFunctionReturnValue
-    from chb.invariants.XXpr import XprConstant, XprVariable
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr, XprConstant, XprVariable
+
+
+class ARMCallOpcodeXData:
+
+    def __init__(
+            self,
+            xdata: InstrXData,
+            ixd: "InterfaceDictionary") -> None:
+        self._xdata = xdata
+        self._ixd = ixd
+
+    @property
+    def is_ok(self) -> bool:
+        return self._xdata.is_ok
+
+    @property
+    def argument_count(self) -> int:
+        argcount = self._xdata.call_target_argument_count()
+        if argcount is None:
+            chklogger.logger.error(
+                "No argument count found for call")
+            return 0
+        return argcount
+
+    @property
+    def arguments(self) -> List["XXpr"]:
+        argcount = self.argument_count
+        arguments: List["XXpr"] = []
+        for i in range(argcount):
+            x = self._xdata.xprs_r[i]
+            if x is None:
+                x = self._xdata.xprs_r[i + argcount]
+                if x is None:
+                    raise UF.CHBError(
+                        "Unexpected None-value call argument at index "
+                        + str(i))
+            arguments.append(x)
+        return arguments
+
+    @property
+    def calltarget(self) -> "CallTarget":
+        return self._xdata.call_target(self._ixd)
+
+    @property
+    def annotation(self) -> str:
+        tgt = str(self.calltarget)
+        args = ", ".join(str(x) for x in self.arguments)
+        return "call " + str(tgt) + "(" + args + ")"
 
 
 class ARMCallOpcode(ARMOpcode):
@@ -134,13 +184,8 @@ class ARMCallOpcode(ARMOpcode):
         return xdata.has_call_target()
 
     def annotation(self, xdata: InstrXData) -> str:
-        if self.is_call(xdata) and xdata.has_call_target():
-            tgt = xdata.call_target(self.ixd)
-            args = ", ".join(str(x) for x in self.arguments(xdata))
-            return "call " + str(tgt) + "(" + args + ")"
-
-        ctgt = str(xdata.xprs[0])
-        return "call " + ctgt
+        xd = ARMCallOpcodeXData(xdata, self.ixd)
+        return xd.annotation
 
     def call_target(self, xdata: InstrXData) -> "CallTarget":
         if self.is_call(xdata):

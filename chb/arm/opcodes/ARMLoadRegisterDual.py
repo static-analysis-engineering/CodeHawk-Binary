@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,8 +49,85 @@ if TYPE_CHECKING:
     from chb.arm.ARMRegister import ARMRegister
     from chb.invariants.VAssemblyVariable import (
         VAuxiliaryVariable, VRegisterVariable)
-
     from chb.invariants.VConstantValueVariable import VInitialRegisterValue
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMLoadRegisterDualXData:
+
+    def __init__(self, xdata: InstrXData) -> None:
+        self._xdata = xdata
+
+    def is_ok(self) -> bool:
+        return self._xdata.is_ok
+
+    def var(self, index: int, msg: str) -> "XVariable":
+        v = self._xdata.vars_r[index]
+        if v is None:
+            raise UF.CHBError("ARMLoadRegisterDualXData:" + msg)
+        return v
+
+    def xpr(self, index: int, msg: str) -> "XXpr":
+        x = self._xdata.xprs_r[index]
+        if x is None:
+            raise UF.CHBError("ARMLoadRegisterDualXData:" + msg)
+        return x
+
+    @property
+    def vrt(self) -> "XVariable":
+        return self.var(0, "vrt")
+
+    @property
+    def vrt2(self) -> "XVariable":
+        return self.var(1, "vrt2")
+
+    @property
+    def vmem(self) -> "XVariable":
+        return self.var(2, "vmem")
+
+    @property
+    def vmem2(self) -> "XVariable":
+        return self.var(3, "vmem2")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def xmem(self) -> "XXpr":
+        return self.xpr(2, "xmem")
+
+    @property
+    def xrmem(self) -> "XXpr":
+        return self.xpr(3, "xrmem")
+
+    @property
+    def xmem2(self) -> "XXpr":
+        return self.xpr(4, "xmem2")
+
+    @property
+    def xrmem2(self) -> "XXpr":
+        return self.xpr(5, "xrmem2")
+
+    @property
+    def xaddr1(self) -> "XXpr":
+        return self.xpr(6, "xaddr1")
+
+    @property
+    def xaddr2(self) -> "XXpr":
+        return self.xpr(7, "xaddr2")
+
+    @property
+    def annotation(self) -> str:
+        assignment = (
+            str(self.vrt) + " := " + str(self.xrmem) + "; "
+            + str(self.vrt2) + " := " + str(self.xrmem2) )
+        return assignment
 
 
 @armregistry.register_tag("LDRD", ARMOpcode)
@@ -147,12 +224,11 @@ class ARMLoadRegisterDual(ARMOpcode):
         return [xdata.xprs[1], xdata.xprs[3]]
 
     def annotation(self, xdata: InstrXData) -> str:
-
-        lhs1 = str(xdata.vars[0])
-        lhs2 = str(xdata.vars[1])
-        rhs = str(xdata.xprs[3])
-        rhs2 = str(xdata.xprs[5])
-        return lhs1 + " := " + rhs + "; " + lhs2 + " := " + rhs2
+        xd = ARMLoadRegisterDualXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
     def ast_prov(
             self,
