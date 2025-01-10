@@ -146,22 +146,22 @@ class ARMOpcodeXData:
 
     def get_base_update_var(self) -> "XVariable":
         if self.is_writeback:
-            return self.get_base_update_var()
+            return self.xdata.get_base_update_var()
         else:
             raise UF.CHBError(
                 self.__class__.__name__ + " does not have writeback")
 
     def get_base_update_xpr(self) -> "XXpr":
         if self.is_writeback:
-            return self.get_base_update_xpr()
+            return self.xdata.get_base_update_xpr()
         else:
             raise UF.CHBError(
                 self.__class__.__name__ + " does not have writeback")
 
     def writeback_update(self) -> str:
         if self.xdata.has_base_update():
-            vbu = self.xdata.get_base_update_var()
-            xbu = self.xdata.get_base_update_xpr()
+            vbu = self.get_base_update_var()
+            xbu = self.get_base_update_xpr()
             return "; " + str(vbu) + " := " + str(xbu)
         else:
             return ""

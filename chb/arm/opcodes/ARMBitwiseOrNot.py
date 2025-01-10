@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -39,11 +39,54 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMBitwiseOrNotXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def xrmn(self) -> "XXpr":
+        return self.xpr(2, "xrmn")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(3, "result")
+
+    @property
+    def rresult(self) -> "XXpr":
+        return self.xpr(4, "rresult")
+
+    @property
+    def result_simplified(self) -> str:
+        return simplify_result(
+            self.xdata.args[4], self.xdata.args[5], self.result, self.rresult)
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vrd) + " := " + self.result_simplified
+        return self.add_instruction_condition(assignment)
 
 
 @armregistry.register_tag("ORN", ARMOpcode)
@@ -74,10 +117,7 @@ class ARMBitwiseOrNot(ARMOpcode):
     useshigh[0]: lhs
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 4, "BitwiseOrNot")
 
@@ -99,18 +139,11 @@ class ARMBitwiseOrNot(ARMOpcode):
         return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[3]
-        rresult = xdata.xprs[4]
-        xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
-        assignment = lhs + " := " + xresult
-        if xdata.has_unknown_instruction_condition():
-            return "if ? then " + assignment
-        elif xdata.has_instruction_condition():
-            c = str(xdata.xprs[1])
-            return "if " + c + " then " + assignment
+        xd = ARMBitwiseOrNotXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
         else:
-            return assignment
+            return "Error value"
 
     def ast_prov(
             self,
@@ -121,14 +154,6 @@ class ARMBitwiseOrNot(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "ORN"]
-
-        lhs = xdata.vars[0]
-        rhs1 = xdata.xprs[0]
-        rhs2 = xdata.xprs[1]
-        rhs4 = xdata.xprs[4]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
@@ -143,27 +168,21 @@ class ARMBitwiseOrNot(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lhsasts) == 0:
-            raise UF.CHBError("BitwiseOrNot (ORN): no lval found")
+        xd = ARMBitwiseOrNotXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+            return ([], [])
 
-        if len(lhsasts) > 1:
-            raise UF.CHBError(
-                "BitwiseOrNot (ORN): multiple lvals found: "
-                + ", ".join(str(v) for v in lhsasts))
+        lhs = xd.vrd
+        rhs = xd.rresult
 
-        hl_lhs = lhsasts[0]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-        rhsasts = XU.xxpr_to_ast_def_exprs(rhs4, xdata, iaddr, astree)
-        if len(rhsasts) == 0:
-            raise UF.CHBError("BitwiseOrNot (ORN): no lval found")
-
-        if len(rhsasts) > 1:
-            raise UF.CHBError(
-                "BitwiseOrNot (ORN): multiple rhs values found: "
-                + ", ".join(str(v) for v in rhsasts))
-
-        hl_rhs = rhsasts[0]
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
