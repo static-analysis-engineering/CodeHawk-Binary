@@ -32,7 +32,7 @@ from chb.api.CallTarget import AppTarget
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 from chb.arm.ARMOperandKind import ARMOperandKind, ARMAbsoluteOp
 
@@ -64,18 +64,27 @@ if TYPE_CHECKING:
     from chb.invariants.XXpr import XXpr, XprConstant, XprVariable
 
 
-class ARMCallOpcodeXData:
+class ARMCallOpcodeXData(ARMOpcodeXData):
+    """
+    xdata format: a:x[2n]xr[n]dh, call   (n arguments)
+    -------------------------------------------------
+    xprs[0..2n-1]: (arg location expr, arg value expr) * n
+    xprs[2n]: call target expression
+    rdefs[0..n-1]: arg location reaching definitions
+    uses[0]: lhs
+    useshigh[0]: lhs
+    """
 
     def __init__(
             self,
             xdata: InstrXData,
             ixd: "InterfaceDictionary") -> None:
-        self._xdata = xdata
+        ARMOpcodeXData.__init__(self, xdata)
         self._ixd = ixd
 
     @property
-    def is_ok(self) -> bool:
-        return self._xdata.is_ok
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
 
     @property
     def argument_count(self) -> int:
@@ -102,6 +111,12 @@ class ARMCallOpcodeXData:
         return arguments
 
     @property
+    def argumentxvars(self) -> List["XXpr"]:
+        argcount = self.argument_count
+        return [x for x in self._xdata.xprs_r[argcount:2 * argcount]
+                if x is not None]
+
+    @property
     def calltarget(self) -> "CallTarget":
         return self._xdata.call_target(self._ixd)
 
@@ -109,7 +124,8 @@ class ARMCallOpcodeXData:
     def annotation(self) -> str:
         tgt = str(self.calltarget)
         args = ", ".join(str(x) for x in self.arguments)
-        return "call " + str(tgt) + "(" + args + ")"
+        call = "call " + str(tgt) + "(" + args + ")"
+        return self.add_instruction_condition(call)
 
 
 class ARMCallOpcode(ARMOpcode):
@@ -118,15 +134,7 @@ class ARMCallOpcode(ARMOpcode):
     tags[1]: <c>
     args[0]: index of target operand in armdictionary
 
-    xdata format: a:x[2n]xr[n]dh, call   (n arguments)
-    -------------------------------------------------
-    xprs[0..2n-1]: (arg location expr, arg value expr) * n
-    xprs[2n]: call target expression
-    rdefs[0..n-1]: arg location reaching definitions
-    uses[0]: lhs
-    useshigh[0]: lhs
-
-    or (if call target is not known):
+    (if call target is not known):
     xdata format: a:xxxxx
     ---------------------
     vars[0]: return value variable
@@ -135,10 +143,7 @@ class ARMCallOpcode(ARMOpcode):
     rdefs[0]: target reaching definition
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
 
     @property
@@ -150,19 +155,10 @@ class ARMCallOpcode(ARMOpcode):
         return [self.armd.arm_operand(self.args[0])]
 
     def lhs(self, xdata: InstrXData) -> List[XVariable]:
-        if len(xdata.vars) > 0:
-            return [xdata.vars[0]]
-        else:
-            return []
+        return [ARMCallOpcodeXData(xdata, self.ixd).vrd]
 
     def argument_count(self, xdata: InstrXData) -> int:
-        if self.is_call_instruction(xdata):
-            argcount = xdata.call_target_argument_count()
-            if argcount is not None:
-                return argcount
-        chklogger.logger.warning(
-            "Call instruction does not have argument count")
-        return 0
+        return ARMCallOpcodeXData(xdata, self.ixd).argument_count
 
     def has_string_arguments(self, xdata: InstrXData) -> bool:
         return any([x.is_string_reference for x in self.arguments(xdata)])
@@ -175,7 +171,7 @@ class ARMCallOpcode(ARMOpcode):
         return [x.to_annotated_value() for x in self.arguments(xdata)]
 
     def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return xdata.xprs[:self.argument_count(xdata)]
+        return ARMCallOpcodeXData(xdata, self.ixd).arguments
 
     def is_call(self, xdata: InstrXData) -> bool:
         return len(xdata.tags) >= 2 and xdata.tags[1] == "call"
@@ -206,11 +202,13 @@ class ARMCallOpcode(ARMOpcode):
             chklogger.logger.info("Inlined call omitted at %s", iaddr)
             return ([], [])
 
+        xd = ARMCallOpcodeXData(xdata, self.ixd)
+
         annotations: List[str] = [iaddr, "BL"]
 
         # low-level call data
 
-        lhs = xdata.vars[0]
+        lhs = xd.vrd
         tgt = self.opargs[0]
 
         if not lhs.is_register_variable:
@@ -224,7 +222,7 @@ class ARMCallOpcode(ARMOpcode):
         ll_lhs = astree.mk_register_variable_lval(str(lhsreg))
         (ll_tgt, _, _) = tgt.ast_rvalue(astree)
 
-        xprs = xdata.xprs
+        xprs = xd.arguments
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -284,7 +282,7 @@ class ARMCallOpcode(ARMOpcode):
 
         # argument data
 
-        argcount = self.argument_count(xdata)
+        argcount = xd.argument_count
 
         ll_args: List[AST.ASTExpr] = []
         hl_args: List[AST.ASTExpr] = []
@@ -304,8 +302,8 @@ class ARMCallOpcode(ARMOpcode):
                 if len(astargtypes) < argcount:
                     astargtypes += ([None] * (argcount - len(astargtypes)))
 
-            xargs = xdata.xprs[:argcount]
-            xvarargs = xdata.xprs[argcount:(2 * argcount)]
+            xargs = xd.arguments
+            xvarargs = xd.argumentxvars
             if len(rdefs) >= argcount:
                 llrdefs = rdefs[:argcount]
                 # x represents the (invariant-enhanced) argument value.
@@ -316,7 +314,8 @@ class ARMCallOpcode(ARMOpcode):
                 #  in bytes (note: not the stackpointer at function entry).
                 # rdef represents the reaching definition for the argument
                 #  location.
-                for (x, xv, rdef, argtype) in zip(xargs, xvarargs, llrdefs, astargtypes):
+                for (x, xv, rdef, argtype) in zip(
+                        xargs, xvarargs, llrdefs, astargtypes):
 
                     # low-level argument
 

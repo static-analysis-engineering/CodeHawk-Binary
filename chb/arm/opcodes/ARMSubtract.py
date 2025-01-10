@@ -30,7 +30,7 @@ from typing import cast, List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -39,8 +39,9 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -48,27 +49,14 @@ if TYPE_CHECKING:
     from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
 
 
-class ARMSubtractXData:
+class ARMSubtractXData(ARMOpcodeXData):
 
     def __init__(self, xdata: InstrXData) -> None:
-        self._xdata = xdata
-
-    @property
-    def is_ok(self) -> bool:
-        return self._xdata.is_ok
+        ARMOpcodeXData.__init__(self, xdata)
 
     @property
     def vrd(self) -> "XVariable":
-        v = self._xdata.vars_r[0]
-        if v is None:
-            raise UF.CHBError("ARMSubstractXData:vrd")
-        return v
-
-    def xpr(self, index: int, msg: str) -> "XXpr":
-        x = self._xdata._xprs_r[index]
-        if x is None:
-            raise UF.CHBError("ARMSubtractXData:" + msg)
-        return x
+        return self.var(0, "vrd")
 
     @property
     def xrn(self) -> "XXpr":
@@ -102,13 +90,7 @@ class ARMSubtractXData:
     @property
     def annotation(self) -> str:
         assignment = str(self.vrd) + " := " + self.result_simplified
-        if self._xdata.has_unknown_instruction_condition():
-            return "if ? then " + assignment
-        elif self._xdata.has_instruction_condition():
-            c = str(self.tcond)
-            return "if " + c + " then " + assignment
-        else:
-            return assignment
+        return self.add_instruction_condition(assignment)
 
 
 @armregistry.register_tag("SUBW", ARMOpcode)
@@ -185,6 +167,7 @@ class ARMSubtract(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
+        xd = ARMSubtractXData(xdata)
         annotations: List[str] = [iaddr, "SUB"]
 
         # low-level assignment
@@ -208,10 +191,14 @@ class ARMSubtract(ARMOpcode):
 
         # high-level assignment
 
-        lhs = xdata.vars[0]
-        rhs1 = xdata.xprs[0]
-        rhs2 = xdata.xprs[1]
-        rhs3 = xdata.xprs[3]
+        if not xd.is_ok:
+            chklogger.logger.error("Error value encountered at %s", iaddr)
+            return ([], [])
+
+        lhs = xd.vrd
+        rhs1 = xd.xrn
+        rhs2 = xd.xrm
+        rhs3 = xd.rresult
 
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,8 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 """ARM opcodes."""
+
+import inspect
 
 from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 
@@ -55,6 +57,8 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
     from chb.simulation.SimulationState import SimulationState
 
 
@@ -99,6 +103,68 @@ def get_extension(e: str) -> str:
         return extensions[e]
     else:
         return e
+
+
+class ARMOpcodeXData:
+
+    def __init__(self, xdata: InstrXData) -> None:
+        self._xdata = xdata
+
+    @property
+    def xdata(self) -> InstrXData:
+        return self._xdata
+
+    @property
+    def is_ok(self) -> bool:
+        return self.xdata.is_ok
+
+    def var(self, index: int, name: str) -> "XVariable":
+        v = self.xdata.vars_r[index]
+        if v is None:
+            raise UF.CHBError(
+                self.__class__.__name__ + ":" + name + " has an error value")
+        return v
+
+    def xpr(self, index: int, name: str) -> "XXpr":
+        x = self.xdata.xprs_r[index]
+        if x is None:
+            raise UF.CHBError(
+                self.__class__.__name__ + ":" + name + " has an error value")
+        return x
+
+    def add_instruction_condition(self, s: str) -> str:
+        if self.xdata.has_unknown_instruction_condition():
+            return "if ? then " + s
+        elif self.xdata.has_instruction_condition():
+            c = str(self.xdata.get_instruction_condition())
+            return "if " + c + " then " + s
+        else:
+            return s
+
+    def is_writeback(self) -> bool:
+        return self.xdata.has_base_update()
+
+    def get_base_update_var(self) -> "XVariable":
+        if self.is_writeback:
+            return self.get_base_update_var()
+        else:
+            raise UF.CHBError(
+                self.__class__.__name__ + " does not have writeback")
+
+    def get_base_update_xpr(self) -> "XXpr":
+        if self.is_writeback:
+            return self.get_base_update_xpr()
+        else:
+            raise UF.CHBError(
+                self.__class__.__name__ + " does not have writeback")
+
+    def writeback_update(self) -> str:
+        if self.xdata.has_base_update():
+            vbu = self.xdata.get_base_update_var()
+            xbu = self.xdata.get_base_update_xpr()
+            return "; " + str(vbu) + " := " + str(xbu)
+        else:
+            return ""
 
 
 class ARMOpcode(ARMDictionaryRecord):

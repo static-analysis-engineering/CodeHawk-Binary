@@ -30,7 +30,7 @@ from typing import cast, List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -39,28 +39,29 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.invariants.XXpr import XXpr
 
 
-class ARMCompareXData:
+class ARMCompareXData(ARMOpcodeXData):
+    """
+    xdata format: a:xxxrr
+    ---------------------
+    xprs[0]: xrn
+    xprs[1]: xrm
+    xprs[2]: xrn - xrm (simplified)
+    rdefs[0]: rn
+    rdefs[1]: rm
+    rdefs[2..]: xrn - xrm (simplified)
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
-        self._xdata = xdata
-
-    @property
-    def is_ok(self) -> bool:
-        return self._xdata.is_ok
-
-    def xpr(self, index: int, msg: str) -> "XXpr":
-        x = self._xdata.xprs_r[index]
-        if x is None:
-            raise UF.CHBError("ARMCompareXData:" + msg)
-        return x
+        ARMOpcodeXData.__init__(self, xdata)
 
     @property
     def xrn(self) -> "XXpr":
@@ -75,29 +76,15 @@ class ARMCompareXData:
         return self.xpr(2, "result")
 
     @property
-    def tcond(self) -> "XXpr":
-        return self.xpr(3, "tcond")
-
-    @property
-    def fcond(self) -> "XXpr":
-        return self.xpr(4, "fcond")
-
-    @property
     def annotation(self) -> str:
         ann = "compare " + str(self.xrn) + " and " + str(self.xrm)
         ann += " (" + str(self.result) + ")"
-        if self._xdata.has_unknown_instruction_condition():
-            return "if ? then " + ann
-        elif self._xdata.has_instruction_condition():
-            c = str(self.tcond)
-            return "if " + c + " then " + ann
-        else:
-            return ann
+        return self.add_instruction_condition(ann)
 
 
 @armregistry.register_tag("CMP", ARMOpcode)
 class ARMCompare(ARMOpcode):
-    """Subtracts a register or immediate value from a register value and sets flags.
+    """Subtracts a register or imm. value from a register value and sets flags.
 
     CMP<c> <Rn>, #<imm8>
     CMP<c>.W <Rn>, #<const>
@@ -110,15 +97,6 @@ class ARMCompare(ARMOpcode):
     args[0]: index of rn in armdictionary
     args[1]: index of rm in armdictionary
     args[2]: is-wide (thumb)
-
-    xdata format: a:xxxrr
-    ---------------------
-    xprs[0]: xrn
-    xprs[1]: xrm
-    xprs[2]: xrn - xrm (simplified)
-    rdefs[0]: rn
-    rdefs[1]: rm
-    rdefs[2..]: xrn - xrm (simplified)
     """
 
     def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
@@ -154,6 +132,7 @@ class ARMCompare(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         """Creates assignments of the subtraction performed with lhs ignored."""
 
+        xd = ARMCompareXData(xdata)
         annotations: List[str] = [iaddr, "CMP"]
 
         # low-level assignment
@@ -171,7 +150,12 @@ class ARMCompare(ARMOpcode):
 
         # high-level assignment
 
-        rhs = xdata.xprs[2]
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Error value encountered at address %s", iaddr)
+            return ([], [])
+
+        rhs = xd.result
         rdefs = xdata.reachingdefs
 
         hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)

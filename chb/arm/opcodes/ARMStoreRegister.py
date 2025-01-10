@@ -31,7 +31,7 @@ from chb.app.InstrXData import InstrXData
 from chb.app.MemoryAccess import MemoryAccess, RegisterSpill
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -41,8 +41,9 @@ from chb.invariants.XXpr import XXpr, XprCompound, XprConstant, XprVariable
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -55,30 +56,10 @@ if TYPE_CHECKING:
     from chb.invariants.XXpr import XprVariable
 
 
-class ARMStoreRegisterXData:
+class ARMStoreRegisterXData(ARMOpcodeXData):
 
     def __init__(self, xdata: InstrXData) -> None:
-        self._xdata = xdata
-
-    @property
-    def is_ok(self) -> bool:
-        return self._xdata.is_ok
-
-    def var(self, index: int, msg: str) -> "XVariable":
-        v = self._xdata.vars_r[index]
-        if v is None:
-            raise UF.CHBError("ARMStoreRegisterXData:" + msg)
-        return v
-
-    def xpr(self, index: int, msg: str) -> "XXpr":
-        x = self._xdata.xprs_r[index]
-        if x is None:
-            raise UF.CHBError("ARMStoreRegisterXData:" + msg)
-        return x
-
-    @property
-    def is_writeback(self) -> bool:
-        return len(self._xdata.vars_r) == 2
+        ARMOpcodeXData.__init__(self, xdata)
 
     @property
     def vmem(self) -> "XVariable":
@@ -113,28 +94,10 @@ class ARMStoreRegisterXData:
         return self.xpr(5, "xaddr_updated")
 
     @property
-    def tcond(self) -> "XXpr":
-        index = 6 if self.is_writeback else 7
-        return self.xpr(index, "tcond")
-
-    @property
-    def fcond(self) -> "XXpr":
-        index = 7 if self.is_writeback else 8
-        return self.xpr(index, "fcond")
-
-    @property
     def annotation(self) -> str:
         assignment = str(self.vmem) + " := " + str(self.xxrt)
-        if self.is_writeback:
-            wb_assign = str(self.vrn) + " := " + str(self.xaddr_updated)
-            assignment += "; " + wb_assign
-        if self._xdata.has_unknown_instruction_condition():
-            return "if ? then " + assignment
-        elif self._xdata.has_instruction_condition():
-            c = str(self.tcond)
-            return "if " + c + " then " + assignment
-        else:
-            return assignment
+        wbu = self.writeback_update()
+        return self.add_instruction_condition(assignment + wbu)
 
 
 @armregistry.register_tag("STR", ARMOpcode)
@@ -192,10 +155,11 @@ class ARMStoreRegister(ARMOpcode):
 
     def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
         spill = self.register_spill(xdata)
+        xd = ARMStoreRegisterXData(xdata)
         if spill is not None:
-            return [RegisterSpill(xdata.xprs[4], spill)]
+            return [RegisterSpill(xd.xaddr, spill)]
         else:
-            return [MemoryAccess(xdata.xprs[4], "W", size=4)]
+            return [MemoryAccess(xd.xaddr, "W", size=4)]
 
     @property
     def membase_operand(self) -> ARMOperand:
@@ -209,9 +173,10 @@ class ARMStoreRegister(ARMOpcode):
         return True
 
     def register_spill(self, xdata: InstrXData) -> Optional[str]:
-        swaddr = xdata.xprs[4]
+        xd = ARMStoreRegisterXData(xdata)
+        swaddr = xd.xaddr
         if swaddr.is_stack_address:
-            rhs = xdata.xprs[3]
+            rhs = xd.xxrt
             if rhs.is_var:
                 rhsv = cast("XprVariable", rhs).variable
                 if rhsv.denotation.is_auxiliary_variable:
@@ -238,6 +203,7 @@ class ARMStoreRegister(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
+        xd = ARMStoreRegisterXData(xdata)
         annotations: List[str] = [iaddr, "STR"]
 
         # low-level assignment
@@ -253,9 +219,13 @@ class ARMStoreRegister(ARMOpcode):
 
         # high-level assignment
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[3]
-        memaddr = xdata.xprs[4]
+        if not xd.is_ok:
+            chklogger.logger.error("Error value encountered at %s", iaddr)
+            return ([], [])
+
+        lhs = xd.vmem
+        rhs = xd.xxrt
+        memaddr = xd.xaddr
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -310,8 +280,8 @@ class ARMStoreRegister(ARMOpcode):
                 annotations=annotations)
             ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
 
-            basereg = xdata.vars[1]
-            newaddr = xdata.xprs[4]
+            basereg = xd.get_base_update_var()
+            newaddr = xd.get_base_update_xpr()
             hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
             hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
 

@@ -32,7 +32,7 @@ from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMCallOpcode import ARMCallOpcode
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 from chb.arm.ARMOperandKind import ARMOperandKind, ARMAbsoluteOp
 
@@ -60,24 +60,14 @@ if TYPE_CHECKING:
     from chb.invariants.XXpr import XXpr
 
 
-class ARMBranchXData:
+class ARMBranchXData(ARMOpcodeXData):
 
     def __init__(self, xdata: InstrXData) -> None:
-        self._xdata = xdata
-
-    @property
-    def is_ok(self) -> bool:
-        return self._xdata.is_ok
+        ARMOpcodeXData.__init__(self, xdata)
 
     @property
     def is_unconditional(self) -> bool:
         return len(self._xdata.xprs_r) == 2
-
-    def xpr(self, index: int, msg: str) -> "XXpr":
-        x = self._xdata.xprs_r[index]
-        if x is None:
-            raise UF.CHBError("ARMBranchXData:" + msg)
-        return x
 
     @property
     def txpr(self) -> "XXpr":
@@ -159,8 +149,9 @@ class ARMBranch(ARMCallOpcode):
             return []
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
+        xd = ARMBranchXData(xdata)
         if xdata.has_branch_conditions():
-            return [xdata.xprs[3], xdata.xprs[2]]
+            return [xd.fcond, xd.tcond]
         else:
             return []
 

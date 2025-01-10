@@ -30,7 +30,7 @@ from typing import cast, List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -40,8 +40,9 @@ import chb.invariants.XXpr as X
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -49,27 +50,14 @@ if TYPE_CHECKING:
     from chb.invariants.XXpr import XXpr
 
 
-class ARMMoveXData:
+class ARMMoveXData(ARMOpcodeXData):
 
     def __init__(self, xdata: InstrXData) -> None:
-        self._xdata = xdata
-
-    @property
-    def is_ok(self) -> bool:
-        return self._xdata.is_ok
+        ARMOpcodeXData.__init__(self, xdata)
 
     @property
     def vrd(self) -> "XVariable":
-        v = self._xdata.vars_r[0]
-        if v is None:
-            raise UF.CHBError("ARMMoveXData:vrd")
-        return v
-
-    def xpr(self, index: int, msg: str) -> "XXpr":
-        x = self._xdata.xprs_r[index]
-        if x is None:
-            raise UF.CHBError("ARMMoveXData:" + msg)
-        return x
+        return self.var(0, "vrd")
 
     @property
     def xrm(self) -> "XXpr":
@@ -80,23 +68,9 @@ class ARMMoveXData:
         return self.xpr(1, "result")
 
     @property
-    def tcond(self) -> "XXpr":
-        return self.xpr(2, "tcond")
-
-    @property
-    def fcond(self) -> "XXpr":
-        return self.xpr(3, "fcond")
-
-    @property
     def annotation(self) -> str:
         assignment = str(self.vrd) + " := " + str(self.result)
-        if self._xdata.has_unknown_instruction_condition():
-            return "if ? then " + assignment
-        elif self._xdata.has_instruction_condition():
-            c = str(self.tcond)
-            return "if " + c + " then " + assignment
-        else:
-            return assignment
+        return self.add_instruction_condition(assignment)
 
 
 @armregistry.register_tag("MOV", ARMOpcode)
@@ -124,10 +98,7 @@ class ARMMove(ARMOpcode):
     useshigh[0]: lhs
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "Move")
 
@@ -202,6 +173,7 @@ class ARMMove(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
+        xd = ARMMoveXData(xdata)
         annotations: List[str] = [iaddr, "MOV"]
 
         if xdata.is_nop:
@@ -231,8 +203,12 @@ class ARMMove(ARMOpcode):
 
         # high-level assignment
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[1]
+        if not xd.is_ok:
+            chklogger.logger.error("Error value encountered at %s", iaddr)
+            return ([], [])
+
+        lhs = xd.vrd
+        rhs = xd.result
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh

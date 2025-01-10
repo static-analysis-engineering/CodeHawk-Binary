@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import cast, List, Optional, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -41,11 +41,65 @@ import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.loggingutil import chklogger
-
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMPopXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def regcount(self) -> int:
+        return len(self._xdata.vars_r) - 1
+
+    @property
+    def splhs(self) -> "XVariable":
+        return self.var(0, "splhs")
+
+    @property
+    def lhsvars(self) -> List["XVariable"]:
+        return [self.var(i, "lhsvar") for i in range(1, self.regcount + 1)]
+
+    @property
+    def sprhs(self) -> "XXpr":
+        return self.xpr(0, "sprhs")
+
+    @property
+    def spresult(self) -> "XXpr":
+        return self.xpr(1, "spresult")
+
+    @property
+    def rspresult(self) -> "XXpr":
+        return self.xpr(2, "rspresult")
+
+    @property
+    def rrhsexprs(self) -> List["XXpr"]:
+        return [self.xpr(i, "rhsvar") for i in range(3, self.regcount + 3)]
+
+    @property
+    def xaddrs(self) -> List["XXpr"]:
+        return [self.xpr(i, "xaddr")
+                for i in range(self.regcount + 3, (2 * self.regcount) + 3)]
+
+    @property
+    def r0(self) -> Optional["XXpr"]:
+        if "return" in self._xdata.tags:
+            return self.xpr((2 * self.regcount) + 3, "r0")
+        return None
+
+    @property
+    def annotation(self) -> str:
+        pairs = zip(self.lhsvars, self.rrhsexprs)
+        spassign = str(self.splhs) + " := " + str(self.rspresult)
+        assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
+        assigns = spassign + assigns
+        return self.add_instruction_condition(assigns)
 
 
 @armregistry.register_tag("POP", ARMOpcode)
@@ -78,10 +132,7 @@ class ARMPop(ARMOpcode):
     useshigh[1..n]: useshigh(r): for r: register popped used at high level
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 3, "Pop")
 
@@ -103,41 +154,17 @@ class ARMPop(ARMOpcode):
         return str(self.operands[1])
 
     def is_return_instruction(self, xdata: InstrXData) -> bool:
-        vars = xdata.vars[1:]
-        xprs = xdata.xprs[3:]
-        xctr = len(vars)
-        pairs = list(zip(vars, xprs[:xctr]))
-        for (v, x) in pairs:
-            if str(v) == "PC" and str(x) == "LR_in":
-                return True
-        else:
-            return False
+        return "return" in xdata.tags
 
     def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
-        nvars = len(xdata.vars[1:])
-        # this condition is fragile, should be made more robust
-        if len(xdata.xprs) == (2 * nvars) + 4:
-            return xdata.xprs[-1]
-        else:
-            return None
+        return ARMPopXData(xdata).r0
 
     def annotation(self, xdata: InstrXData) -> str:
-        vars = xdata.vars
-        xprs = xdata.xprs
-
-        xctr = len(vars) + 1
-        pairs = zip(vars, xprs[2:])
-        assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
-
-        if xdata.has_instruction_condition():
-            pcond = "if " + str(xprs[2 * xctr]) + " then "
-            xctr += 1
-        elif xdata.has_unknown_instruction_condition():
-            pcond = "if ? then "
+        xd = ARMPopXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
         else:
-            pcond = ""
-
-        return pcond + assigns
+            return "Error value"
 
     def ast_condition_prov(
             self,
@@ -178,12 +205,18 @@ class ARMPop(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        splhs = xdata.vars[0]
-        reglhss = xdata.vars[1:]
-        sprrhs = xdata.xprs[0]
-        spresult = xdata.xprs[1]
-        sprresult = xdata.xprs[2]
-        memrhss = xdata.xprs[3:]
+        xd = ARMPopXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+            return ([], [])
+
+        splhs = xd.splhs
+        reglhss = xd.lhsvars
+        spresult = xd.spresult
+        sprresult = xd.rspresult
+        memrhss = xd.rrhsexprs
+
         sprdef = xdata.reachingdefs[0]
         memrdefs = xdata.reachingdefs[1:]
         spuses = xdata.defuses[0]

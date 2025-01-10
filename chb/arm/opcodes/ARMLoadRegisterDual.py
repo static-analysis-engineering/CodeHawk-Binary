@@ -31,7 +31,7 @@ from chb.app.InstrXData import InstrXData
 from chb.app.MemoryAccess import MemoryAccess, RegisterRestore
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -41,8 +41,9 @@ from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -54,25 +55,10 @@ if TYPE_CHECKING:
     from chb.invariants.XXpr import XXpr
 
 
-class ARMLoadRegisterDualXData:
+class ARMLoadRegisterDualXData(ARMOpcodeXData):
 
     def __init__(self, xdata: InstrXData) -> None:
-        self._xdata = xdata
-
-    def is_ok(self) -> bool:
-        return self._xdata.is_ok
-
-    def var(self, index: int, msg: str) -> "XVariable":
-        v = self._xdata.vars_r[index]
-        if v is None:
-            raise UF.CHBError("ARMLoadRegisterDualXData:" + msg)
-        return v
-
-    def xpr(self, index: int, msg: str) -> "XXpr":
-        x = self._xdata.xprs_r[index]
-        if x is None:
-            raise UF.CHBError("ARMLoadRegisterDualXData:" + msg)
-        return x
+        ARMOpcodeXData.__init__(self, xdata)
 
     @property
     def vrt(self) -> "XVariable":
@@ -127,7 +113,8 @@ class ARMLoadRegisterDualXData:
         assignment = (
             str(self.vrt) + " := " + str(self.xrmem) + "; "
             + str(self.vrt2) + " := " + str(self.xrmem2) )
-        return assignment
+        wbu = self.writeback_update()
+        return self.add_instruction_condition(assignment + wbu)
 
 
 @armregistry.register_tag("LDRD", ARMOpcode)
@@ -185,32 +172,36 @@ class ARMLoadRegisterDual(ARMOpcode):
 
     def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
         restores = self.register_restores(xdata)
+        xd = ARMLoadRegisterDualXData(xdata)
         if len(restores) == 2:
             return [
-                RegisterRestore(xdata.xprs[6], restores[0]),
-                RegisterRestore(xdata.xprs[7], restores[1])]
+                RegisterRestore(xd.xaddr1, restores[0]),
+                RegisterRestore(xd.xaddr2, restores[1])]
         else:
             return [
-                MemoryAccess(xdata.xprs[6], "R", size=4),
-                MemoryAccess(xdata.xprs[7], "R", size=4)]
+                MemoryAccess(xd.xaddr1, "R", size=4),
+                MemoryAccess(xd.xaddr2, "R", size=4)]
 
     def register_restores(self, xdata: InstrXData) -> List[str]:
         result: List[str] = []
+        xd = ARMLoadRegisterDualXData(xdata)
         if (self.operands[0].is_register):
             r1 = cast(
                 "ARMRegister",
-                cast("VRegisterVariable", xdata.vars[0].denotation).register)
+                cast("VRegisterVariable", xd.vrt.denotation).register)
             if r1.is_arm_callee_saved_register:
-                rhs1 = xdata.xprs[3]
+                # rhs1 = xdata.xprs[3]
+                rhs1 = xd.xrmem
                 if rhs1.is_initial_register_value:
                     rr1 = rhs1.initial_register_value_register()
                     if str(rr1) == str(r1):
                         result.append(str(rr1))
             r2 = cast(
                 "ARMRegister",
-                cast("VRegisterVariable", xdata.vars[1].denotation).register)
+                cast("VRegisterVariable", xd.vrt2.denotation).register)
             if r2.is_arm_callee_saved_register:
-                rhs2 = xdata.xprs[5]
+                # rhs2 = xdata.xprs[5]
+                rhs2 = xd.xrmem2
                 if rhs2.is_initial_register_value:
                     rr2 = rhs2.initial_register_value_register()
                     if str(rr2) == str(r2):
@@ -238,7 +229,8 @@ class ARMLoadRegisterDual(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        memaddr = xdata.xprs[6]
+        xd = ARMLoadRegisterDualXData(xdata)
+        memaddr = xd.xaddr1
 
         annotations: List[str] = [iaddr, "LDRD", "addr: " + str(memaddr)]
 
@@ -266,10 +258,16 @@ class ARMLoadRegisterDual(ARMOpcode):
 
         # high-level assignments
 
-        lhs1 = xdata.vars[0]
-        lhs2 = xdata.vars[1]
-        rhs1 = xdata.xprs[3]
-        rhs2 = xdata.xprs[5]
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+            return ([], [])
+
+        lhs1 = xd.vrt
+        lhs2 = xd.vrt2
+        rhs1 = xd.xrmem
+        rhs2 = xd.xrmem2
+
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
