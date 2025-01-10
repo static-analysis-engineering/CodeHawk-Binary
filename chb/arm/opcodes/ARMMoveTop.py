@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -39,11 +39,64 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMMoveTopXData(ARMOpcodeXData):
+    """
+    xdata format: a:vxxxxxrdh
+    -------------------------
+    vars[0]: lhs
+    xprs[0]: immediate value
+    xprs[1]: rhs
+    xprs[2]: rhs shifted by 16 bits
+    xprs[3]: result
+    xprs[4]: result (simplified)
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def ximm(self) -> "XXpr":
+        return self.xpr(0, "ximm")
+
+    @property
+    def xrd(self) -> "XXpr":
+        return self.xpr(1, "xrd")
+
+    @property
+    def xrdm16(self) -> "XXpr":
+        return self.xpr(2, "xrdm16")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(3, "result")
+
+    @property
+    def rresult(self) -> "XXpr":
+        return self.xpr(4, "rresult")
+
+    @property
+    def result_simplified(self) -> str:
+        return simplify_result(
+            self.xdata.args[4], self.xdata.args[5], self.result, self.rresult)
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vrd) + " := " + self.result_simplified
+        return self.add_instruction_condition(assignment)
 
 
 @armregistry.register_tag("MOVT", ARMOpcode)
@@ -55,21 +108,9 @@ class ARMMoveTop(ARMOpcode):
     tags[1]: <c>
     args[0]: index of Rd in arm dictionary
     args[1]: index of imm16 in arm dictionary
-
-    xdata format: a:vxxxxxrdh
-    -------------------------
-    vars[0]: lhs
-    xprs[0]: immediate value
-    xprs[1]: rhs
-    xprs[2]: rhs shifted by 16 bits
-    xprs[3]: result
-    xprs[4]: result (simplified)
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 2, "MoveTop")
 
@@ -82,18 +123,11 @@ class ARMMoveTop(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[3]
-        rresult = xdata.xprs[4]
-        xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
-        assignment = lhs + " := " + xresult
-        if xdata.has_unknown_instruction_condition():
-            return "if ? then " + assignment
-        elif xdata.has_instruction_condition():
-            c = str(xdata.xprs[1])
-            return "if " + c + " then " + assignment
+        xd = ARMMoveTopXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
         else:
-            return assignment
+            return "Error value"
 
     def ast_prov(
             self,
@@ -125,8 +159,14 @@ class ARMMoveTop(ARMOpcode):
 
         # high-level assignment
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[4]
+        xd = ARMMoveTopXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+            return ([], [])
+
+        lhs = xd.vrd
+        rhs = xd.rresult
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh

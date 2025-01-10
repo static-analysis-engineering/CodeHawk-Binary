@@ -456,7 +456,19 @@ class InstrXData(IndexedTableValue):
                 "XData does not have branch conditions: " + str(self))
 
     def has_instruction_condition(self) -> bool:
-        return "ic" in self.tags
+        return any(s.startswith("ic:") for s in self.tags)
+
+    def get_instruction_condition(self) -> XXpr:
+        for t in self.tags:
+            if t.startswith("ic:"):
+                index = int(t[3:])
+                argval = self.args[index]
+                if argval == -2:
+                    raise UF.CHBError(
+                        "Unexpected error value in instruction condition")
+                return self.xprdictionary.xpr(argval)
+        else:
+            raise UF.CHBError("No instruction condition index found")
 
     def has_condition_block_condition(self) -> bool:
         return "TF" in self.tags
@@ -465,7 +477,25 @@ class InstrXData(IndexedTableValue):
         return "uc" in self.tags
 
     def has_base_update(self) -> bool:
-        return "bu" in self.tags
+        return any(s.startswith("vbu:") for s in self.tags)
+
+    def get_base_update_var(self) -> XVariable:
+        vbutag = next(t for t in self.tags if t.startswith("vbu:"))
+        vix = int(vbutag[4:])
+        vbuval = self.args[vix]
+        if vbuval == -2:
+            raise UF.CHBError(
+                "Unexpected error value in base-update variable")
+        return self.xprdictionary.variable(vbuval)
+
+    def get_base_update_xpr(self) -> XXpr:
+        xbutag = next(t for t in self.tags if t.startswith("xbu:"))
+        xix = int(xbutag[4:])
+        xbuval = self.args[xix]
+        if xbuval == -2:
+            raise UF.CHBError(
+                "Unexpected error value in base-update expression")
+        return self.xprdictionary.xpr(xbuval)
 
     @property
     def is_aggregate_jumptable(self) -> bool:

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -249,11 +249,7 @@ class ARMInstruction(Instruction):
         return self.xdata.has_condition_block_condition()
 
     def get_instruction_condition(self) -> XXpr:
-        if self.has_instruction_condition():
-            return self.xdata.xprs[2]
-        else:
-            raise UF.CHBError(
-                "Instruction does not have an instruction condition")
+        return self.xdata.get_instruction_condition()
 
     @property
     def memory_accesses(self) -> Sequence[MemoryAccess]:
@@ -392,7 +388,7 @@ class ARMInstruction(Instruction):
     def lhs_types(self) -> Dict[str, "BCTyp"]:
         result: Dict[str, "BCTyp"] = {}
 
-        vars = self.xdata.vars
+        vars = self.xdata.vars_r
         types = self.xdata.types
         if len(vars) == len(types):
             for (v, ty) in zip(vars, types):
