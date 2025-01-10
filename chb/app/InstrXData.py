@@ -497,6 +497,25 @@ class InstrXData(IndexedTableValue):
                 "Unexpected error value in base-update expression")
         return self.xprdictionary.xpr(xbuval)
 
+    def has_return_xpr(self) -> bool:
+        return any(s.startswith("return:") for s in self.tags)
+
+    def get_return_xpr(self) -> XXpr:
+        rvtag = next(t for t in self.tags if t.startswith("return:"))
+        rvix = int(rvtag[7:])
+        rval = self.args[rvix]
+        if rval == -2:
+            raise UF.CHBError("Unexpected error in return value")
+        return self.xprdictionary.xpr(rval)
+
+    def get_return_xxpr(self) -> XXpr:
+        rvtag = next(t for t in self.tags if t.startswith("return:"))
+        rvix = int(rvtag[7:])
+        rval = self.args[rvix + 1]
+        if rval == -2:
+            raise UF.CHBError("Unexpected error in rewritten return value")
+        return self.xprdictionary.xpr(rval)
+
     @property
     def is_aggregate_jumptable(self) -> bool:
         return "agg-jt" in self.tags

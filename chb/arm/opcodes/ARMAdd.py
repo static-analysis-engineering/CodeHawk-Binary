@@ -97,7 +97,7 @@ class ARMAddXData(ARMOpcodeXData):
     @property
     def result_simplified(self) -> str:
         return simplify_result(
-            self._xdata.args[3], self._xdata.args[4], self.result, self.rresult)
+            self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
 
     @property
     def xxrn(self) -> "XXpr":

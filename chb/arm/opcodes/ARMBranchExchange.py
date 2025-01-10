@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +31,7 @@ from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMCallOpcode import ARMCallOpcode
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -42,12 +42,45 @@ from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
 from chb.util.loggingutil import chklogger
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.api.CallTarget import CallTarget, AppTarget, StaticStubTarget
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMBranchExchangeXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def xtgt(self) -> "XXpr":
+        return self.xpr(0, "xtgt")
+
+    @property
+    def xxtgt(self) -> "XXpr":
+        return self.xpr(1, "xxtgt")
+
+    def has_return_xpr(self) -> bool:
+        return self.xdata.has_return_xpr()
+
+    def returnval(self) -> "XXpr":
+        return self.xdata.get_return_xpr()
+
+    def rreturnval(self) -> "XXpr":
+        return self.xdata.get_return_xxpr()
+
+    @property
+    def annotation(self) -> str:
+        if self.has_return_xpr():
+            return "return " + str(self.rreturnval())
+        else:
+            return "Not supported yet"
 
 
 @armregistry.register_tag("BX", ARMOpcode)
@@ -58,10 +91,7 @@ class ARMBranchExchange(ARMCallOpcode):
     args[0]: index of target operand in armdictionary
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 1, "BranchExchange")
 
@@ -83,8 +113,9 @@ class ARMBranchExchange(ARMCallOpcode):
             return False
 
     def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
-        if self.is_return_instruction(xdata):
-            return xdata.xprs[1]
+        xd = ARMBranchExchangeXData(xdata)
+        if xd.has_return_xpr():
+            return xd.rreturnval()
         else:
             return None
 
@@ -125,11 +156,13 @@ class ARMBranchExchange(ARMCallOpcode):
             args = ", ".join(str(x) for x in self.arguments(xdata))
             return "call " + str(tgt) + "(" + args + ")"
 
-        tgtop = str(xdata.xprs[0])
-        if tgtop == "LR":
-            return "return"
+        xd = ARMBranchExchangeXData(xdata)
+        if xd.has_return_xpr and xd.is_ok:
+            return xd.annotation
+        elif xd.is_ok:
+            return "goto " + str(xd.xxtgt)
         else:
-            return "goto " + tgtop
+            return "Error value"
 
     def assembly_ast(
             self,

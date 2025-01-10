@@ -87,6 +87,15 @@ class ARMPopXData(ARMOpcodeXData):
         return [self.xpr(i, "xaddr")
                 for i in range(self.regcount + 3, (2 * self.regcount) + 3)]
 
+    def has_return_xpr(self) -> bool:
+        return self.xdata.has_return_xpr()
+
+    def returnval(self) -> "XXpr":
+        return self.xdata.get_return_xpr()
+
+    def rreturnval(self) -> "XXpr":
+        return self.xdata.get_return_xxpr()
+
     @property
     def r0(self) -> Optional["XXpr"]:
         if "return" in self._xdata.tags:
@@ -98,8 +107,12 @@ class ARMPopXData(ARMOpcodeXData):
         pairs = zip(self.lhsvars, self.rrhsexprs)
         spassign = str(self.splhs) + " := " + str(self.rspresult)
         assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
-        assigns = spassign + assigns
-        return self.add_instruction_condition(assigns)
+        assigns = spassign + "; " + assigns
+        if self.has_return_xpr():
+            rxpr = "; return " + str(self.rreturnval())
+        else:
+            rxpr = ""
+        return self.add_instruction_condition(assigns + rxpr)
 
 
 @armregistry.register_tag("POP", ARMOpcode)
@@ -154,10 +167,14 @@ class ARMPop(ARMOpcode):
         return str(self.operands[1])
 
     def is_return_instruction(self, xdata: InstrXData) -> bool:
-        return "return" in xdata.tags
+        return ARMPopXData(xdata).has_return_xpr()
 
     def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
-        return ARMPopXData(xdata).r0
+        xd = ARMPopXData(xdata)
+        if xd.has_return_xpr():
+            return xd.rreturnval()
+        else:
+            return None
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMPopXData(xdata)
