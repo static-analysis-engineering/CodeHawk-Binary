@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +31,7 @@ from chb.app.InstrXData import InstrXData
 from chb.app.MemoryAccess import MemoryAccess, RegisterSpill
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -42,13 +42,62 @@ import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.loggingutil import chklogger
-
 from chb.util.IndexedTable import IndexedTableValue
 
+
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMOperandKind import ARMRegListOp
     from chb.arm.ARMRegister import ARMRegister
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMPushXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def regcount(self) -> int:
+        return len(self._xdata.vars_r) - 1
+
+    @property
+    def splhs(self) -> "XVariable":
+        return self.var(0, "splhs")
+
+    @property
+    def lhsvars(self) -> List["XVariable"]:
+        return [self.var(i, "lhsvar") for i in range(1, self.regcount + 1)]
+
+    @property
+    def sprhs(self) -> "XXpr":
+        return self.xpr(0, "sprhs")
+
+    @property
+    def spresult(self) -> "XXpr":
+        return self.xpr(1, "spresult")
+
+    @property
+    def rspresult(self) -> "XXpr":
+        return self.xpr(2, "rspresult")
+
+    @property
+    def rrhsexprs(self) -> List["XXpr"]:
+        return [self.xpr(i, "rhsvar") for i in range(3, self.regcount + 3)]
+
+    @property
+    def xaddrs(self) -> List["XXpr"]:
+        return [self.xpr(i, "xaddr")
+                for i in range(self.regcount + 3, (2 * self.regcount) + 3)]
+
+    @property
+    def annotation(self) -> str:
+        pairs = zip(self.lhsvars, self.rrhsexprs)
+        spassign = str(self.splhs) + " := " + str(self.rspresult)
+        assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
+        assigns = spassign + "; " + assigns
+        return self.add_instruction_condition(assigns)
 
 
 @armregistry.register_tag("PUSH", ARMOpcode)
@@ -79,10 +128,7 @@ class ARMPush(ARMOpcode):
     useshigh[1..n]: useshigh(m): for m: memory location variable used at high level
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 3, "Push")
 
@@ -104,22 +150,23 @@ class ARMPush(ARMOpcode):
         return cast("ARMRegListOp", self.opargs[1].opkind).count
 
     def memory_accesses(self, xdata: InstrXData) -> Sequence[MemoryAccess]:
+        xd = ARMPushXData(xdata)
         spills = self.register_spills(xdata)
         regcount = self.register_count
         if len(spills) > 0:
             result: List[RegisterSpill] = []
             for (i, spill) in enumerate(spills):
-                result.append(RegisterSpill(xdata.xprs[regcount+3+i], spill))
+                result.append(RegisterSpill(xd.rrhsexprs[i], spill))
             return result
         else:
             return [MemoryAccess(xdata.xprs[2], "W", size=4)]
 
     def register_spills(self, xdata: InstrXData) -> List[str]:
-        swaddr = xdata.xprs[2]
+        xd = ARMPushXData(xdata)
         result: List[str] = []
         regcount = self.register_count
         # rhs = xdata.xprs[3]
-        for rhs in xdata.xprs[3:3+regcount]:
+        for rhs in xd.rrhsexprs:
             if rhs.is_initial_register_value:
                 r = cast("ARMRegister", rhs.initial_register_value_register())
                 if r.is_arm_callee_saved_register:
@@ -127,17 +174,11 @@ class ARMPush(ARMOpcode):
         return result
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:v...x...
-
-        vars[0..n]: stack locations
-        xprs[0..n]: register values
-        """
-
-        vars = xdata.vars
-        xprs = xdata.xprs
-        assigns = '; '.join(
-            str(v) + " := " + str(x) for (v, x) in zip(vars, xprs[2:]))
-        return assigns
+        xd = ARMPushXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
     def ast_prov(
             self,
@@ -147,12 +188,17 @@ class ARMPush(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        splhs = xdata.vars[0]
-        memlhss = xdata.vars[1:]
-        sprrhs = xdata.xprs[0]
-        spresult = xdata.xprs[1]
-        sprresult = xdata.xprs[2]
-        regrhss = xdata.xprs[3:]
+        xd = ARMPushXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+
+        splhs = xd.splhs
+        memlhss = xd.lhsvars
+        sprrhs = xd.spresult
+        sprresult = xd.rspresult
+        regrhss = xd.rrhsexprs
+
         sprdef = xdata.reachingdefs[0]
         regrdefs = xdata.reachingdefs[1:]
         spuses = xdata.defuses[0]
