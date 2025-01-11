@@ -56,7 +56,7 @@ class ARMPopXData(ARMOpcodeXData):
 
     @property
     def regcount(self) -> int:
-        return len(self._xdata.vars_r) - 1
+        return len(self.xdata.vars_r) - 1
 
     @property
     def splhs(self) -> "XVariable":
@@ -80,7 +80,7 @@ class ARMPopXData(ARMOpcodeXData):
 
     @property
     def rrhsexprs(self) -> List["XXpr"]:
-        return [self.xpr(i, "rhsvar") for i in range(3, self.regcount + 3)]
+        return [self.xpr(i, "rhsexpr") for i in range(3, self.regcount + 3)]
 
     @property
     def xaddrs(self) -> List["XXpr"]:

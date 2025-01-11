@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import cast, List, TYPE_CHECKING, Tuple
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -39,7 +39,6 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
 from chb.util.loggingutil import chklogger
 
@@ -47,7 +46,62 @@ from chb.util.loggingutil import chklogger
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.invariants.VAssemblyVariable import VRegisterVariable
-    from chb.invariants.XXpr import XprConstant, XprVariable
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr, XprConstant, XprVariable
+
+
+class ARMStoreMultipleIncrementAfterXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def is_ldmstm_aggregate(self) -> bool:
+        return "agg-ldmstm" in self.xdata.tags
+
+    def ldmstm_xpr(self, index: int, msg: str) -> "XXpr":
+        if self.is_ldmstm_aggregate:
+            return self.xpr(index, msg)
+        else:
+            raise UF.CHBError("Not an ldmstm aggregate: " + msg)
+
+    @property
+    def xdst(self) -> "XXpr":
+        return self.ldmstm_xpr(0, "xdst")
+
+    @property
+    def xsrc(self) -> "XXpr":
+        return self.ldmstm_xpr(1, "xsrc")
+
+    @property
+    def xxdst(self) -> "XXpr":
+        return self.ldmstm_xpr(2, "xxdst")
+
+    @property
+    def xxsrc(self) -> "XXpr":
+        return self.ldmstm_xpr(3, "xxsrc")
+
+    @property
+    def copysize(self) -> int:
+        if self.is_ldmstm_aggregate:
+            return self.xdata.ints[0]
+        else:
+            raise UF.CHBError("Not an ldmstm aggregate")
+
+    @property
+    def annotation(self) -> str:
+        if self.is_ldmstm_aggregate:
+            return (
+                "memcpy(" +
+                str(self.xxdst)
+                + ", "
+                + str(self.xxsrc)
+                + ", "
+                + str(self.copysize)
+                + ")")
+        else:
+            return "not yet supported"
+
 
 
 @armregistry.register_tag("STM", ARMOpcode)
@@ -78,10 +132,7 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
     useshigh[1..n]: use-high of memory variables
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "StoreMultipleIncrementAfter")
 
@@ -114,15 +165,11 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         return True
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
-
-        vars[0..n]: lhs variables
-        xprs[0..n]: rhs expressions
-        """
-
-        # TODO: Consider self.writeback like in the load case
-        return '; '.join(
-            str(lhs) + " := " + str(x) for (lhs, x) in zip(xdata.vars, xdata.xprs))
+        xd = ARMStoreMultipleIncrementAfterXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
     def ast_prov_ldmstmcopy(
             self,
@@ -183,11 +230,17 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
         # high-level call
 
-        xdst = xdata.xprs[0]
-        xsrc = xdata.xprs[1]
-        xxdst = xdata.xprs[2]
-        xxsrc = xdata.xprs[3]
-        xsize = xdata.ints[0]
+        xd = ARMStoreMultipleIncrementAfterXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+            return ([], [])
+
+        xdst = xd.xdst
+        xsrc = xd.xsrc
+        xxdst = xd.xxdst
+        xxsrc = xd.xxsrc
+        xsize = xd.copysize
 
         # low-level arguments
 

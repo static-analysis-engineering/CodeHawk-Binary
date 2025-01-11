@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -39,11 +39,51 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMLoadMultipleIncrementAfterXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def regcount(self) -> int:
+        return len(self.xdata.vars_r) - 1
+
+    @property
+    def baselhs(self) -> "XVariable":
+        return self.var(0, "baselhs")
+
+    @property
+    def lhsvars(self) -> List["XVariable"]:
+        return [self.var(i, "lhsvar") for i in range(1, self.regcount + 1)]
+
+    @property
+    def baserhs(self) -> "XXpr":
+        return self.xpr(0, "baserhs")
+
+    @property
+    def rhsexprs(self) -> List["XXpr"]:
+        return [self.xpr(i, "rhsexpr") for i in range(1, self.regcount + 1)]
+
+    @property
+    def xaddrs(self) -> List["XXpr"]:
+        return [self.xpr(i, "xaddr")
+                for i in range(self.regcount + 1, (2 * self.regcount) + 3)]
+
+    @property
+    def annotation(self) -> str:
+        pairs = zip(self.lhsvars, self.rhsexprs)
+        assigns = "; ".join(str(v) + " := " + str(x) for (x, v) in pairs)
+        wbu = self.writeback_update()
+        return self.add_instruction_condition(assigns + wbu)
 
 
 @armregistry.register_tag("LDM", ARMOpcode)
@@ -74,10 +114,7 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
     useshigh[1..n]: register lhss
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 4, "LoadMultipleIncrementAfter")
 
@@ -105,14 +142,11 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
         return True
 
     def annotation(self, xdata: InstrXData) -> str:
-        wb = ""
-        if self.writeback:
-            wb = "; " + str(xdata.vars[0]) + " := " + str(xdata.xprs[2])
-        return (
-            "; ".join(str(v)
-                      + " := "
-                      + str(x) for (v, x) in zip(xdata.vars[1:], xdata.xprs[3:]))
-            + wb)
+        xd = ARMLoadMultipleIncrementAfterXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
     # -------------------------------------------------------------------------
     # address = R[n];
@@ -133,13 +167,17 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        regcount = len(xdata.reachingdefs) - 1
-        baselhs = xdata.vars[0]
-        reglhss = xdata.vars[1:]
-        baserhs = xdata.xprs[0]
-        baseresult = xdata.xprs[1]
-        baseresultr = xdata.xprs[2]
-        memrhss = xdata.xprs[3:3 + regcount]
+        xd = ARMLoadMultipleIncrementAfterXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Error value encountered at address %s", iaddr)
+            return ([], [])
+
+        baselhs = xd.baselhs
+        lhsvars = xd.lhsvars
+        baserhs = xd.baserhs
+        rhsexprs = xd.rhsexprs
+
         baserdef = xdata.reachingdefs[0]
         memrdefs = xdata.reachingdefs[1:]
         baseuses = xdata.defuses[0]
@@ -178,8 +216,8 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
 
             # high-level assignments
 
-            lhs = reglhss[i]
-            rhs = memrhss[i]
+            lhs = lhsvars[i]
+            rhs = rhsexprs[i]
             hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
             hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
             hl_assign = astree.mk_assign(
@@ -204,7 +242,7 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
 
             # low-level base assignment
 
-            baseincr = 4 * regcount
+            baseincr = 4 * xd.regcount
             baseincr_c = astree.mk_integer_constant(baseincr)
 
             ll_base_lhs = baselval
@@ -219,9 +257,10 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
 
             # high-level base assignment
 
+            baseresult = xd.get_base_update_xpr()
             hl_base_lhs = XU.xvariable_to_ast_lval(baselhs, xdata, iaddr, astree)
             hl_base_rhs = XU.xxpr_to_ast_def_expr(
-                baseresultr, xdata, iaddr, astree)
+                baseresult, xdata, iaddr, astree)
             hl_base_assign = astree.mk_assign(
                 hl_base_lhs,
                 hl_base_rhs,

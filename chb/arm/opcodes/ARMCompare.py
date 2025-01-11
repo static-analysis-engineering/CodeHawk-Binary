@@ -132,7 +132,6 @@ class ARMCompare(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         """Creates assignments of the subtraction performed with lhs ignored."""
 
-        xd = ARMCompareXData(xdata)
         annotations: List[str] = [iaddr, "CMP"]
 
         # low-level assignment
@@ -150,6 +149,7 @@ class ARMCompare(ARMOpcode):
 
         # high-level assignment
 
+        xd = ARMCompareXData(xdata)
         if not xd.is_ok:
             chklogger.logger.error(
                 "Error value encountered at address %s", iaddr)

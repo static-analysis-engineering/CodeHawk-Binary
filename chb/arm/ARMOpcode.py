@@ -141,6 +141,7 @@ class ARMOpcodeXData:
         else:
             return s
 
+    @property
     def is_writeback(self) -> bool:
         return self.xdata.has_base_update()
 
