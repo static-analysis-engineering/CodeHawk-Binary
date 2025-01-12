@@ -56,22 +56,6 @@ class ARMLoadRegisterXData(ARMOpcodeXData):
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
-        self._varnames = ["vrt", "vmem"]
-        self._xprnames = ["xrn", "xrm", "xmem", "xrmem", "xaddr"]
-
-    @property
-    def error_value_indices(self) -> Tuple[List[int], List[int]]:
-        return self._xdata.error_values
-
-    @property
-    def error_value_names(self) -> List[str]:
-        result: List[str] = []
-        (vars_e, xprs_e) = self.error_value_indices
-        for i in vars_e:
-            result.append(self._varnames[i])
-        for i in xprs_e:
-            result.append(self._xprnames[i])
-        return result
 
     @property
     def vrt(self) -> "XVariable":
@@ -102,19 +86,19 @@ class ARMLoadRegisterXData(ARMOpcodeXData):
         return self.xpr(4, "xaddr")
 
     @property
-    def is_memval_unknown(self) -> bool:
-        return "xrmem" in self.error_value_names
+    def is_xrmem_unknown(self) -> bool:
+        return self.xdata.xprs_r[3] is None
 
     @property
     def is_address_known(self) -> bool:
-        return "xaddr" not in self.error_value_names
+        return self.xdata.xprs_r[4] is not None
 
     @property
     def annotation(self) -> str:
         wbu = self.writeback_update()
         if self.is_ok:
             assignment = str(self.vrt) + " := " + str(self.xrmem)
-        elif self.is_memval_unknown and self.is_address_known:
+        elif self.is_xrmem_unknown and self.is_address_known:
             assignment = str(self.vrt) + " := *(" + str(self.xaddr) + ")"
         else:
             assignment = "Error value"
@@ -230,7 +214,7 @@ class ARMLoadRegister(ARMOpcode):
             hl_rhs = XU.xxpr_to_ast_def_expr(
                 rhs, xdata, iaddr, astree, memaddr=xaddr)
 
-        elif xd.is_memval_unknown and xd.is_address_known:
+        elif xd.is_xrmem_unknown and xd.is_address_known:
             xaddr = xd.xaddr
             hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
             hl_rhs = XU.xmemory_dereference_lval_expr(

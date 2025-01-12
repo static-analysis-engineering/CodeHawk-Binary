@@ -75,17 +75,9 @@ class ARMSubtractXData(ARMOpcodeXData):
         return self.xpr(3, "rresult")
 
     @property
-    def tcond(self) -> "XXpr":
-        return self.xpr(4, "tcond")
-
-    @property
-    def fcond(self) -> "XXpr":
-        return self.xpr(5, "fcond")
-
-    @property
     def result_simplified(self) -> str:
         return simplify_result(
-            self._xdata.args[3], self._xdata.args[4], self.result, self.rresult)
+            self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
 
     @property
     def annotation(self) -> str:
@@ -167,7 +159,6 @@ class ARMSubtract(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        xd = ARMSubtractXData(xdata)
         annotations: List[str] = [iaddr, "SUB"]
 
         # low-level assignment
@@ -191,6 +182,7 @@ class ARMSubtract(ARMOpcode):
 
         # high-level assignment
 
+        xd = ARMSubtractXData(xdata)
         if not xd.is_ok:
             chklogger.logger.error("Error value encountered at %s", iaddr)
             return ([], [])

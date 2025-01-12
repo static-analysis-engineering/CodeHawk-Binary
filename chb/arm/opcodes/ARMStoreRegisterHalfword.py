@@ -60,6 +60,10 @@ class ARMStoreRegisterHalfwordXData(ARMOpcodeXData):
         return self.var(0, "vmem")
 
     @property
+    def is_vmem_unknown(self) -> bool:
+        return self.xdata.vars_r[0] is None
+
+    @property
     def xrn(self) -> "XXpr":
         return self.xpr(0, "xrn")
 
@@ -80,9 +84,18 @@ class ARMStoreRegisterHalfwordXData(ARMOpcodeXData):
         return self.xpr(4, "xaddr")
 
     @property
+    def is_address_known(self) -> bool:
+        return self.xdata.xprs_r[4] is not None
+
+    @property
     def annotation(self) -> str:
-        assignment = str(self.vmem) + " := " + str(self.xxrt)
         wbu = self.writeback_update()
+        if self.is_ok:
+            assignment = str(self.vmem) + " := " + str(self.xxrt)
+        elif self.is_vmem_unknown and self.is_address_known:
+            assignment = "*(" + str(self.xaddr) + ") := " + str(self.xxrt)
+        else:
+            assignment = "Error value"
         return self.add_instruction_condition(assignment + wbu)
 
 
@@ -147,11 +160,7 @@ class ARMStoreRegisterHalfword(ARMOpcode):
         return True
 
     def annotation(self, xdata: InstrXData) -> str:
-        xd = ARMStoreRegisterHalfwordXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return ARMStoreRegisterHalfwordXData(xdata).annotation
 
     def ast_prov(
             self,
@@ -177,21 +186,28 @@ class ARMStoreRegisterHalfword(ARMOpcode):
         # high-level assignment
 
         xd = ARMStoreRegisterHalfwordXData(xdata)
-        if not xd.is_ok:
+
+        if xd.is_ok:
+            lhs = xd.vmem
+            memaddr = xd.xaddr
+            hl_lhs = XU.xvariable_to_ast_lval(
+                lhs, xdata, iaddr, astree, memaddr=memaddr)
+
+        elif xd.is_vmem_unknown and xd.is_address_known:
+            memaddr = xd.xaddr
+            hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+
+        else:
             chklogger.logger.error(
                 "Encountered error value at address %s", iaddr)
             return ([], [])
 
-        lhs = xd.vmem
         rhs = xd.xxrt
-        memaddr = xd.xaddr
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
         hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
-        hl_lhs = XU.xvariable_to_ast_lval(
-            lhs, xdata, iaddr, astree, memaddr=memaddr, size=2)
 
         hl_assign = astree.mk_assign(
             hl_lhs,

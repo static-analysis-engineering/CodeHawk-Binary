@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import cast, List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -39,12 +39,65 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMOperandKind import ARMOffsetAddressOp
     from chb.invariants.VAssemblyVariable import VMemoryVariable
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMStoreRegisterByteXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vmem(self) -> "XVariable":
+        return self.var(0, "vmem")
+
+    @property
+    def is_vmem_unknown(self) -> bool:
+        return self.xdata.vars_r[0] is None
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def xrt(self) -> "XXpr":
+        return self.xpr(2, "xrt")
+
+    @property
+    def xxrt(self) -> "XXpr":
+        return self.xpr(3, "xxrt")
+
+    @property
+    def xaddr(self) -> "XXpr":
+        return self.xpr(4, "xaddr")
+
+    @property
+    def is_address_known(self) -> bool:
+        return self.xdata.xprs_r[4] is not None
+
+    @property
+    def annotation(self) -> str:
+        wbu = self.writeback_update()
+        if self.is_ok:
+            assignment = str(self.vmem) + " := " + str(self.xxrt)
+        elif self.is_vmem_unknown and self.is_address_known:
+            assignment = "*(" + str(self.xaddr) + ") := " + str(self.xxrt)
+        else:
+            assignment = "Error value"
+        return self.add_instruction_condition(assignment + wbu)
 
 
 @armregistry.register_tag("STRB", ARMOpcode)
@@ -78,10 +131,7 @@ class ARMStoreRegisterByte(ARMOpcode):
     useshigh[1]: vrn (base register, only if writeback)
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "StoreRegisterByte")
 
@@ -110,20 +160,7 @@ class ARMStoreRegisterByte(ARMOpcode):
         return True
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[3])
-        assign = lhs + " := " + rhs
-
-        xctr = 5
-        if xdata.has_instruction_condition():
-            pcond = "if " + str(xdata.xprs[xctr]) + " then "
-            xctr += 1
-        elif xdata.has_unknown_instruction_condition():
-            pcond = "if ? then "
-        else:
-            pcond = ""
-
-        return pcond + assign
+        return ARMStoreRegisterByteXData(xdata).annotation
 
     def ast_prov(
             self,
@@ -148,10 +185,25 @@ class ARMStoreRegisterByte(ARMOpcode):
 
         # high-level assignment
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[3]
-        rhs_basic = xdata.xprs[2]
-        memaddr = xdata.xprs[4]
+        xd = ARMStoreRegisterByteXData(xdata)
+
+        if xd.is_ok:
+            lhs = xd.vmem
+            memaddr = xd.xaddr
+            hl_lhs = XU.xvariable_to_ast_lval(
+                lhs, xdata, iaddr, astree, memaddr=memaddr)
+
+        elif xd.is_vmem_unknown and xd.is_address_known:
+            memaddr = xd.xaddr
+            hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+
+        else:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+            return ([], [])
+
+        rhs = xd.xxrt
+        rhs_basic = xd.xrt
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -163,9 +215,6 @@ class ARMStoreRegisterByte(ARMOpcode):
         else:
             hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
-        hl_lhs = XU.xvariable_to_ast_lval(
-            lhs, xdata, iaddr, astree, memaddr=memaddr)
-
         hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
@@ -175,7 +224,7 @@ class ARMStoreRegisterByte(ARMOpcode):
 
         # to highlight missing info, expose in the lifting store instructions
         # that are unresolved
-        if lhs.is_tmp:
+        if xd.is_vmem_unknown:
             astree.add_expose_instruction(hl_assign.instrid)
 
         astree.add_instr_mapping(hl_assign, ll_assign)
@@ -185,6 +234,45 @@ class ARMStoreRegisterByte(ARMOpcode):
         astree.add_expr_reachingdefs(ll_rhs, [rdefs[2]])
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        # add optional write-back
+
+        if self.opargs[3].is_indirect_register and self.opargs[3].is_write_back:
+            addrop = cast("ARMOffsetAddressOp", self.opargs[3].opkind)
+            (ll_addr_lhs, _, _) = self.opargs[1].ast_lvalue(astree)
+            ll_addr_rhs = addrop.ast_addr_rvalue(astree)
+
+            ll_addr_assign = astree.mk_assign(
+                ll_addr_lhs,
+                ll_addr_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
+
+            basereg = xd.get_base_update_var()
+            newaddr = xd.get_base_update_xpr()
+            hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
+            hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
+
+            hl_addr_assign = astree.mk_assign(
+                hl_addr_lhs,
+                hl_addr_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_assigns: List[AST.ASTInstruction] = [hl_assign, hl_addr_assign]
+
+            astree.add_instr_mapping(hl_addr_assign, ll_addr_assign)
+            astree.add_instr_address(hl_addr_assign, [iaddr])
+            astree.add_expr_mapping(hl_addr_rhs, ll_addr_rhs)
+            astree.add_lval_mapping(hl_addr_lhs, ll_addr_lhs)
+            astree.add_expr_reachingdefs(ll_addr_rhs, [rdefs[0]])
+            astree.add_lval_defuses(ll_addr_lhs, defuses[1])
+            astree.add_lval_defuses_high(ll_addr_lhs, defuseshigh[1])
+        else:
+            ll_assigns = [ll_assign]
+            hl_assigns = [hl_assign]
 
         if ll_lhs.lhost.is_memref:
             memexp = cast(AST.ASTMemRef, ll_lhs.lhost).memexp

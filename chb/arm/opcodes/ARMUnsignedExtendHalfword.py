@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -39,11 +39,45 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMUnsignedExtendHalfwordXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(0, "xrm")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(1, "result")
+
+    @property
+    def rresult(self) -> "XXpr":
+        return self.xpr(2, "rresult")
+
+    @property
+    def result_simplified(self) -> str:
+        return simplify_result(
+            self.xdata.args[2], self.xdata.args[3], self.result, self.rresult)
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vrd) + " := " + self.result_simplified
+        return self.add_instruction_condition(assignment)
 
 
 @armregistry.register_tag("UXTH", ARMOpcode)
@@ -69,10 +103,7 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
     useshigh[0]: lhs
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
 
     @property
@@ -89,11 +120,11 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
         return self.operands
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[1]
-        rresult = xdata.xprs[2]
-        xresult = simplify_result(xdata.args[2], xdata.args[3], result, rresult)
-        return lhs + " := " + xresult
+        xd = ARMUnsignedExtendHalfwordXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
     def assembly_ast(
             self,
@@ -134,8 +165,15 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
 
         astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[2]
+        # high-level assignment
+
+        xd = ARMUnsignedExtendHalfwordXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+
+        lhs = xd.vrd
+        rhs = xd.rresult
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 

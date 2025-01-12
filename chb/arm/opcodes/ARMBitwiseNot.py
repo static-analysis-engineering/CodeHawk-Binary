@@ -73,7 +73,7 @@ class ARMBitwiseNotXData(ARMOpcodeXData):
     @property
     def result_simplified(self) -> str:
         return simplify_result(
-            self.xdata.args[1], self.xdata.args[2], self.result, self.rresult)
+            self.xdata.args[2], self.xdata.args[3], self.result, self.rresult)
 
     @property
     def annotation(self) -> str:
@@ -158,6 +158,7 @@ class ARMBitwiseNot(ARMOpcode):
             annotations=annotations)
 
         # high-level assignment
+
         xd = ARMBitwiseNotXData(xdata)
         if not xd.is_ok:
             chklogger.logger.error(

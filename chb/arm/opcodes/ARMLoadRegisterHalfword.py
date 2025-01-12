@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import cast, List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -41,12 +41,59 @@ from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMOperandKind import ARMOffsetAddressOp
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMLoadRegisterHalfwordXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrt(self) -> "XVariable":
+        return self.var(0, "vrt")
+
+    @property
+    def vmem(self) -> "XVariable":
+        return self.var(1, "vmem")
+
+    @property
+    def xmem(self) -> "XXpr":
+        return self.xpr(2, "xmem")
+
+    @property
+    def xrmem(self) -> "XXpr":
+        return self.xpr(3, "xrmem")
+
+    @property
+    def xaddr(self) -> "XXpr":
+        return self.xpr(4, "xaddr")
+
+    @property
+    def is_xrmem_unknown(self) -> bool:
+        return self.xdata.xprs_r[3] is None
+
+    @property
+    def is_address_known(self) -> bool:
+        return self.xdata.xprs_r[4] is not None
+
+    @property
+    def annotation(self) -> str:
+        wbu = self.writeback_update()
+        if self.is_ok:
+            assignment = str(self.vrt) + " := " + str(self.xrmem)
+        elif self.is_xrmem_unknown and self.is_address_known:
+            assignment = str(self.vrt) + " := *(" + str(self.xaddr) + ")"
+        else:
+            assignment = "Error value"
+        return self.add_instruction_condition(assignment) + wbu
 
 
 @armregistry.register_tag("LDRH", ARMOpcode)
@@ -85,10 +132,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
     xprs[.]: new address for base register
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
 
     def mnemonic_extension(self) -> str:
@@ -114,27 +158,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
         return [xdata.xprs[1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[3])
-
-        xctr = 4
-        if xdata.has_instruction_condition():
-            pcond = "if " + str(xdata.xprs[xctr]) + " then "
-            xctr += 1
-        elif xdata.has_unknown_instruction_condition():
-            pcond = "if ? then "
-        else:
-            pcond = ""
-
-        vctr = 2
-        if xdata.has_base_update():
-            blhs = str(xdata.vars[vctr])
-            brhs = str(xdata.xprs[xctr])
-            pbupd = "; " + blhs + " := " + brhs
-        else:
-            pbupd = ""
-
-        return pcond + lhs + " := " + rhs + pbupd
+        return ARMLoadRegisterHalfwordXData(xdata).annotation
 
     def ast_prov(
             self,
@@ -144,7 +168,8 @@ class ARMLoadRegisterHalfword(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        memaddr = xdata.xprs[4]
+        xd = ARMLoadRegisterHalfwordXData(xdata)
+        memaddr = xd.xaddr
 
         annotations: List[str] = [iaddr, "LDRH", "addr:" + str(memaddr)]
 
@@ -164,19 +189,29 @@ class ARMLoadRegisterHalfword(ARMOpcode):
 
         # high-level assignment
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[3]
+        if xd.is_ok:
+            lhs = xd.vrt
+            rhs = xd.xrmem
+            xaddr = xd.xaddr
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhs)
+            hl_rhs = XU.xxpr_to_ast_def_expr(
+                rhs, xdata, iaddr, astree, memaddr=xaddr, size=2)
+
+        elif xd.is_xrmem_unknown and xd.is_address_known:
+            xaddr = xd.xaddr
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+            hl_rhs = XU.xmemory_dereference_lval_expr(
+                xaddr, xdata, iaddr, astree, size=2)
+
+        else:
+            chklogger.logger.error(
+                "LDRH: both memory value and address values are error values "
+                + "at address %s: ", iaddr)
+            return ([], [])
+
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
-
-        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-
-        if rhs.is_tmp_variable or rhs.has_unknown_memory_base():
-            hl_rhs = XU.xmemory_dereference_to_ast_def_expr(
-                memaddr, xdata, iaddr, astree)
-        else:
-            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree, size=2)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -208,8 +243,8 @@ class ARMLoadRegisterHalfword(ARMOpcode):
                 annotations=annotations)
             ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
 
-            basereg = xdata.vars[1]
-            newaddr = xdata.xprs[4]
+            basereg = xd.get_base_update_var()
+            newaddr = xd.get_base_update_xpr()
             hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
             hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
 
