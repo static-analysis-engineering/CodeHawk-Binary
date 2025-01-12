@@ -66,6 +66,10 @@ class ARMStoreRegisterXData(ARMOpcodeXData):
         return self.var(0, "vmem")
 
     @property
+    def is_vmem_unknown(self) -> bool:
+        return self.xdata.vars_r[0] is None
+
+    @property
     def vrn(self) -> "XVariable":
         return self.var(1, "vrn")
 
@@ -90,13 +94,22 @@ class ARMStoreRegisterXData(ARMOpcodeXData):
         return self.xpr(4, "xaddr")
 
     @property
+    def is_address_known(self) -> bool:
+        return self.xdata.xprs_r[4] is not None
+
+    @property
     def xaddr_updated(self) -> "XXpr":
         return self.xpr(5, "xaddr_updated")
 
     @property
     def annotation(self) -> str:
-        assignment = str(self.vmem) + " := " + str(self.xxrt)
         wbu = self.writeback_update()
+        if self.is_ok:
+            assignment = str(self.vmem) + " := " + str(self.xxrt)
+        elif self.is_vmem_unknown and self.is_address_known:
+            assignment = "*(" + str(self.xaddr) + ") := " + str(self.xxrt)
+        else:
+            assignment = "Error value"
         return self.add_instruction_condition(assignment + wbu)
 
 
@@ -189,11 +202,7 @@ class ARMStoreRegister(ARMOpcode):
         return None
 
     def annotation(self, xdata: InstrXData) -> str:
-        xd = ARMStoreRegisterXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return ARMStoreRegisterXData(xdata).annotation
 
     def ast_prov(
             self,
@@ -219,13 +228,21 @@ class ARMStoreRegister(ARMOpcode):
 
         # high-level assignment
 
-        if not xd.is_ok:
+        if xd.is_ok:
+            lhs = xd.vmem
+            memaddr = xd.xaddr
+            hl_lhs = XU.xvariable_to_ast_lval(
+                lhs, xdata, iaddr, astree, memaddr=memaddr)
+
+        elif xd.is_vmem_unknown and xd.is_address_known:
+            memaddr = xd.xaddr
+            hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+
+        else:
             chklogger.logger.error("Error value encountered at %s", iaddr)
             return ([], [])
 
-        lhs = xd.vmem
         rhs = xd.xxrt
-        memaddr = xd.xaddr
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -238,9 +255,6 @@ class ARMStoreRegister(ARMOpcode):
             cstr = rhs.constant.string_reference()
             hl_rhs = astree.mk_string_constant(hl_rhs, cstr, saddr)
 
-        hl_lhs = XU.xvariable_to_ast_lval(
-            lhs, xdata, iaddr, astree, memaddr=memaddr)
-
         hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
@@ -252,7 +266,7 @@ class ARMStoreRegister(ARMOpcode):
         # to variables that are part of a struct or array variable, so these
         # assignments must be explicitly forced to appear in the lifting
         if (
-                lhs.is_tmp
+                xd.is_vmem_unknown
                 or hl_lhs.offset.is_index_offset
                 or hl_lhs.offset.is_field_offset):
             astree.add_expose_instruction(hl_assign.instrid)

@@ -309,17 +309,22 @@ class ARMInstruction(Instruction):
             jumptable = cast(
                 "ARMJumpTable", self.armfunction.get_jumptable(self.iaddr))
             indexop = jumptable.index_operand
-            condition = self.xdata.xprs[1]
-            (ll_cond, _, _) = indexop.ast_rvalue(astree)
-            hl_cond = XU.xxpr_to_ast_def_expr(
-                condition, self.xdata, self.iaddr, astree)
+            condition = self.xdata.xprs_r[1]
+            if condition is not None:
+                (ll_cond, _, _) = indexop.ast_rvalue(astree)
+                hl_cond = XU.xxpr_to_ast_def_expr(
+                    condition, self.xdata, self.iaddr, astree)
 
-            astree.add_expr_mapping(hl_cond, ll_cond)
-            astree.add_expr_reachingdefs(hl_cond, self.xdata.reachingdefs)
-            astree.add_condition_address(
-                ll_cond, (self.xdata.subsumes() + [self.iaddr]))
+                astree.add_expr_mapping(hl_cond, ll_cond)
+                astree.add_expr_reachingdefs(hl_cond, self.xdata.reachingdefs)
+                astree.add_condition_address(
+                    ll_cond, (self.xdata.subsumes() + [self.iaddr]))
 
-            return (hl_cond, ll_cond)
+                return (hl_cond, ll_cond)
+            else:
+                chklogger.logger.error(
+                    "Error value encountered at address %s", self.iaddr)
+                raise UF.CHBError("Jumptable without condition")
 
         else:
             return self.opcode.ast_switch_condition_prov(
