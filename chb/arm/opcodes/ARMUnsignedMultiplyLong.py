@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -39,11 +39,53 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMUnsignedMultiplyLongXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vlo(self) -> "XVariable":
+        return self.var(0, "vlo")
+
+    @property
+    def vhi(self) -> "XVariable":
+        return self.var(1, "vhi")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(2, "result")
+
+    @property
+    def rresult(self) -> "XXpr":
+        return self.xpr(3, "rresult")
+
+    @property
+    def result_simplified(self) -> str:
+        return simplify_result(
+            self.xdata.args[4], self.xdata.args[5], self.result, self.rresult)
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vlo) + " := " + self.result_simplified
+        return self.add_instruction_condition(assignment)
 
 
 @armregistry.register_tag("UMULL", ARMOpcode)
@@ -75,10 +117,7 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
     useshigh[1]: lhs2 (RdHi)
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "UnsignedMultiplyLong")
 
@@ -91,12 +130,11 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhslo = str(xdata.vars[0])
-        lhshi = str(xdata.vars[1])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
-        return "(" + lhslo + "," + lhshi + ")" + " := " + xresult
+        xd = ARMUnsignedMultiplyLongXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
     def assembly_ast(
             self,
@@ -173,11 +211,17 @@ class ARMUnsignedMultiplyLong(ARMOpcode):
 
         # high-level assignments
 
-        lhs1 = xdata.vars[0]
-        lhs2 = xdata.vars[1]
-        rhs1 = xdata.xprs[0]
-        rhs2 = xdata.xprs[1]
-        result = xdata.xprs[3]
+        xd = ARMUnsignedMultiplyLongXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+            return ([], [])
+
+        lhs1 = xd.vlo
+        lhs2 = xd.vhi
+        rhs1 = xd.xrn
+        rhs2 = xd.xrm
+        result = xd.rresult
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh

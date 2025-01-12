@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -48,10 +48,46 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMCompareBranchNonZeroXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def txpr(self) -> "XXpr":
+        return self.xpr(1, "txpr")
+
+    @property
+    def fxpr(self) -> "XXpr":
+        return self.xpr(2, "fxpr")
+
+    @property
+    def tcond(self) -> "XXpr":
+        return self.xpr(3, "tcond")
+
+    @property
+    def fcond(self) -> "XXpr":
+        return self.xpr(4, "fcond")
+
+    @property
+    def xtgt(self) -> "XXpr":
+        return self.xpr(5, "xtgt")
+
+    @property
+    def annotation(self) -> str:
+        return "if " + str(self.tcond) + " goto " + str(self.xtgt)
+
 
 
 @armregistry.register_tag("CBNZ", ARMOpcode)
-class ARMCompareBranchZero(ARMOpcode):
+class ARMCompareBranchNonZero(ARMOpcode):
     """Compares the value in a register with zero and conditionally branches forward.
 
     CBNZ <Rn>, <label>
@@ -69,10 +105,7 @@ class ARMCompareBranchZero(ARMOpcode):
     xprs[5]: target
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(1, 2, "CompareBranchNonzero")
 
@@ -86,14 +119,21 @@ class ARMCompareBranchZero(ARMOpcode):
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         if xdata.has_branch_conditions():
-            return [xdata.xprs[4], xdata.xprs[3]]
+            xd = ARMCompareBranchNonZeroXData(xdata)
+            if xd.is_ok:
+                return [xd.fcond, xd.tcond]
+            else:
+                chklogger.logger.warning("CBNZ: Encountered error condition")
+                return []
         else:
             return []
 
     def annotation(self, xdata: InstrXData) -> str:
-        xpr = str(xdata.xprs[3])
-        tgt = str(xdata.xprs[5])
-        return "if " + xpr + " != 0 goto " + tgt
+        xd = ARMCompareBranchNonZeroXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
     def ast_prov(
             self,
