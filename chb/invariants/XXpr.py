@@ -223,6 +223,10 @@ class XXpr(FnXprDictionaryRecord):
 
         return False
 
+    @property
+    def get_addressof_var(self) -> Optional[XVariable]:
+        return None
+
     def initial_register_value_register(self) -> Register:
         """Returns the register of which this expression represents the initial value."""
         raise UF.CHBError(
@@ -738,6 +742,14 @@ class XprCompound(XXpr):
     @property
     def is_addressof_var(self) -> bool:
         return self.operator == "xf_addressofvar"
+
+    @property
+    def get_addressof_var(self) -> Optional[XVariable]:
+        if self.is_addressof_var:
+            operand = self.operands[0]
+            if operand.is_var:
+                return cast(XprVariable, operand).variable
+        return None
 
     def has_global_variables(self) -> bool:
         return any([op.has_global_variables() for op in self.operands])

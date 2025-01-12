@@ -120,8 +120,7 @@ class ARMCompareBranchZero(ARMOpcode):
             if xd.is_ok:
                 return [xd.fcond, xd.tcond]
             else:
-                chklogger.logger.warning(
-                    "CBZ: Encountered error condition at address")
+                chklogger.logger.warning("CBZ: Encountered error condition")
                 return []
         else:
             return []

@@ -171,6 +171,7 @@ class ARMUnsignedExtendHalfword(ARMOpcode):
         if not xd.is_ok:
             chklogger.logger.error(
                 "Encountered error value at address %s", iaddr)
+            return ([], [])
 
         lhs = xd.vrd
         rhs = xd.rresult
