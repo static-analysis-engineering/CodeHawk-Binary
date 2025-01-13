@@ -125,6 +125,11 @@ class ARMMove(ARMOpcode):
         return xdata.is_nop
 
     def annotation(self, xdata: InstrXData) -> str:
+        if len(xdata.tags) == 0:
+            # This happens when this instruction is part of an aggregate
+            # conditional assignment, but the condition cannot be determined
+            return "insufficient information"
+
         if xdata.is_nop:
             return "NOP"
 

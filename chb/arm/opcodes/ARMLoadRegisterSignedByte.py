@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,22 +25,83 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMOperandKind import ARMOffsetAddressOp
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMLoadRegisterSignedByteXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrt(self) -> "XVariable":
+        return self.var(0, "vrt")
+
+    @property
+    def vmem(self) -> "XVariable":
+        return self.var(1, "vmem")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def xmem(self) -> "XXpr":
+        return self.xpr(2, "xmem")
+
+    @property
+    def xrmem(self) -> "XXpr":
+        return self.xpr(3, "xrmem")
+
+    @property
+    def is_xrmem_unknown(self) -> bool:
+        return self.xdata.xprs_r[3] is None
+
+    @property
+    def is_address_known(self) -> bool:
+        return self.xdata.xprs_r[4] is not None
+
+    @property
+    def xaddr(self) -> "XXpr":
+        return self.xpr(4, "xaddr")
+
+    @property
+    def annotation(self) -> str:
+        wbu = self.writeback_update()
+        if self.is_ok:
+            assignment = str(self.vrt) + " := " + str(self.xrmem)
+        elif self.is_xrmem_unknown and self.is_address_known:
+            assignment = str(self.vrt) + " := *(" + str(self.xaddr) + ")"
+        else:
+            assignment = "Error value"
+        return self.add_instruction_condition(assignment) + wbu
 
 
 @armregistry.register_tag("LDRSB", ARMOpcode)
@@ -57,10 +118,7 @@ class ARMLoadRegisterSignedByte(ARMOpcode):
     args[4]: is-wide (thumb)
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "LoadRegisterSignedByte")
 
@@ -75,13 +133,121 @@ class ARMLoadRegisterSignedByte(ARMOpcode):
         return [xdata.xprs[1]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
+        return ARMLoadRegisterSignedByteXData(xdata).annotation
 
-        vars[0]: lhs
-        xprs[0]: value in memory location
-        xprs[1]: value in memory location (simplified)
-        """
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[1])
-        return lhs + " := " + rhs
+        xd = ARMLoadRegisterSignedByteXData(xdata)
+
+        memaddr = xd.xaddr
+
+        annotations: List[str] = [iaddr, "LDRSB", "addr:" + str(memaddr)]
+
+        # low-level assignment
+
+        (ll_rhs, ll_pre, ll_post) = self.opargs[3].ast_rvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # high-level assignment
+
+        lhs = xd.vrt
+
+        if xd.is_ok:
+            rhs = xd.xrmem
+            xaddr = xd.xaddr
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhs)
+            hl_rhs = XU.xxpr_to_ast_def_expr(
+                rhs, xdata, iaddr, astree, size=1, memaddr=xaddr)
+
+        elif xd.is_xrmem_unknown and xd.is_address_known:
+            xaddr = xd.xaddr
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+            hl_rhs = XU.xmemory_dereference_lval_expr(
+                xaddr, xdata, iaddr, astree, size=1)
+
+        else:
+            chklogger.logger.error(
+                "LDRSB: both memory value and address values are error values "
+                + "at address %s: ", iaddr)
+            return ([], [])
+
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(
+            rhs, xdata, iaddr, astree, size=1, memaddr=xaddr)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_rhs, rdefs)
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        # write-back semantics
+
+        if self.opargs[3].is_indirect_register and self.opargs[3].is_write_back:
+            addrop = cast("ARMOffsetAddressOp", self.opargs[3].opkind)
+            (ll_addr_lhs, _, _) = self.opargs[1].ast_lvalue(astree)
+            ll_addr_rhs = addrop.ast_addr_rvalue(astree)
+
+            ll_addr_assign = astree.mk_assign(
+                ll_addr_lhs,
+                ll_addr_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
+
+            basereg = xdata.vars[1]
+            newaddr = xdata.xprs[4]
+            hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
+            hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
+
+            hl_addr_assign = astree.mk_assign(
+                hl_addr_lhs,
+                hl_addr_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_assigns: List[AST.ASTInstruction] = [hl_assign, hl_addr_assign]
+
+            # TODO: add writeback update
+
+            astree.add_instr_mapping(hl_addr_assign, ll_addr_assign)
+            astree.add_instr_address(hl_addr_assign, [iaddr])
+            astree.add_expr_mapping(hl_addr_rhs, ll_addr_rhs)
+            astree.add_lval_mapping(hl_addr_lhs, ll_addr_lhs)
+            astree.add_expr_reachingdefs(ll_addr_rhs, [rdefs[0]])
+            astree.add_lval_defuses(ll_addr_lhs, defuses[1])
+            astree.add_lval_defuses_high(ll_addr_lhs, defuseshigh[1])
+        else:
+            ll_assigns = [ll_assign]
+            hl_assigns = [hl_assign]
+
+        return (hl_assigns, (ll_pre + ll_assigns + ll_post))

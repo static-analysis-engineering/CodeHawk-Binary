@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,20 +25,50 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-import chb.util.fileutil as UF
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
+import chb.invariants.XXprUtil as XU
+
+import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMTestXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(0, "xrm")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(1, "xrn")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(2, "result")
+
+    @property
+    def annotation(self) -> str:
+        ann = "compare " + str(self.xrm) + " and " + str(self.xrn)
+        ann += " (" + str(self.result) + ")"
+        return self.add_instruction_condition(ann)
 
 
 @armregistry.register_tag("TST", ARMOpcode)
@@ -53,10 +83,7 @@ class ARMTest(ARMOpcode):
     args[2]: thumb-wide
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 3, "Test")
 
@@ -70,12 +97,61 @@ class ARMTest(ARMOpcode):
         return cc + wide
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:xx .
+        xd = ARMTestXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
-        xprs[0]: Rn
-        xprs[1]: Rm
-        """
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+        """Creates assignments of the bitwise and performed with lhs ignored."""
 
-        rhs1 = str(xdata.xprs[0])
-        rhs2 = str(xdata.xprs[1])
-        return "compare " + str(rhs1) + " and " + str(rhs2)
+        annotations: List[str] = [iaddr, "TST"]
+
+        # low-level assignment
+
+        (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_rhs = astree.mk_binary_op("band", ll_rhs1, ll_rhs2)
+
+        ll_assign = astree.mk_assign(
+            astree.ignoredlhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # high-level assignment
+
+        xd = ARMTestXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Error value encountered at address %s", iaddr)
+            return ([], [])
+
+        rhs = xd.result
+        rdefs = xdata.reachingdefs
+
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
+            astree.ignoredlhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+
+        return ([hl_assign], [ll_assign])
