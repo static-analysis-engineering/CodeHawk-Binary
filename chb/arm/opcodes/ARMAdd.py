@@ -207,7 +207,6 @@ class ARMAdd(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        xd = ARMAddXData(xdata)
         annotations: List[str] = [iaddr, "ADD"]
 
         # low-level assignment
@@ -231,6 +230,7 @@ class ARMAdd(ARMOpcode):
 
         # high-level assignment
 
+        xd = ARMAddXData(xdata)
         if not xdata.is_ok:
             chklogger.logger.error("Error value encountered at %s", iaddr)
             return ([], [])

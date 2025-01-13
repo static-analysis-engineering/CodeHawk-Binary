@@ -25,20 +25,80 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-import chb.util.fileutil as UF
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
+import chb.invariants.XXprUtil as XU
+
+import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMMultiplyAccumulateXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def xra(self) -> "XXpr":
+        return self.xpr(2, "xra")
+
+    @property
+    def xprd(self) -> "XXpr":
+        return self.xpr(3, "xprd")
+
+    @property
+    def xrprd(self) -> "XXpr":
+        return self.xpr(4, "xrprd")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(4, "result")
+
+    @property
+    def rresult(self) -> "XXpr":
+        return self.xpr(5, "rresult")
+
+    @property
+    def result_simplified_p(self) -> str:
+        return simplify_result(
+            self.xdata.args[4], self.xdata.args[5], self.xprd, self.xrprd)
+
+    @property
+    def result_simplified(self) -> str:
+        return simplify_result(
+            self.xdata.args[6], self.xdata.args[7], self.result, self.rresult)
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vrd) + " := " + self.result_simplified
+        return self.add_instruction_condition(assignment)
 
 
 @armregistry.register_tag("MLA", ARMOpcode)
@@ -55,10 +115,7 @@ class ARMMultiplyAccumulate(ARMOpcode):
     args[4]: index of Ra in armdictionary
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "MultiplyAccumulate")
 
@@ -67,23 +124,8 @@ class ARMMultiplyAccumulate(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args[1:]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxxxxx
-
-        vars[0]: lhs1 (Rd)
-        xprs[0]: rhs1 (Rn)
-        xprs[1]: rhs2 (Rm)
-        xprs[2]: rhsra (Ra)
-        xprs[3]: (rhs1 * rhs2)
-        xprs[4]: (rhs1 * rhs2) (simplified)
-        xprs[5]: (rhsra + (rhs1 * rhs2))
-        xprs[6]: (rhsra + (rhs1 * rhs2)) (simplified)
-        """
-
-        lhs = str(xdata.vars[0])
-        prod = xdata.xprs[3]
-        rprod = xdata.xprs[4]
-        xprod = simplify_result(xdata.args[4], xdata.args[5], prod, rprod)
-        xsum = xdata.xprs[5]
-        rxsum = xdata.xprs[6]
-        xxsum = simplify_result(xdata.args[6], xdata.args[7], xsum, rxsum)
-        return (lhs + " := " + xxsum)
+        xd = ARMMultiplyAccumulateXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"

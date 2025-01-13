@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,25 +25,65 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
-import chb.util.fileutil as UF
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
+import chb.invariants.XXprUtil as XU
+
+import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMSubtractCarryXData(ARMOpcodeXData):
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(2, "result")
+
+    @property
+    def rresult(self) -> "XXpr":
+        return self.xpr(3, "rresult")
+
+    @property
+    def result_simplified(self) -> str:
+        return simplify_result(
+            self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vrd) + " := " + self.result_simplified
+        return self.add_instruction_condition(assignment)
 
 
 @armregistry.register_tag("SBC", ARMOpcode)
 class ARMSubtractCarry(ARMOpcode):
-    """Subtracts an immediate or register value from a register and the value of NOT carry.
+    """Subtracts an imm. or register value from a register and the value of NOT carry.
 
     SBC{S}<c> <Rd>, <Rn>, <Rm>{, <shift>}
 
@@ -55,10 +95,7 @@ class ARMSubtractCarry(ARMOpcode):
     args[4]: is-wide (thumb)
     """
 
-    def __init__(
-            self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "SubtractCarry")
 
@@ -77,17 +114,74 @@ class ARMSubtractCarry(ARMOpcode):
         return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxxx .
+        xd = ARMSubtractCarryXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: rhs1 - rhs2 (syntactic)
-        xprs[3]: rhs1 - rhs2 (simplified)
-        """
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[3], xdata.args[4], result, rresult)
-        return lhs + " := " + xresult
+        annotations: List[str] = [iaddr, "SBC"]
+
+        # low-level assignment
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_rhs = astree.mk_binary_op("minus", ll_op1, ll_op2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        rdefs = xdata.reachingdefs
+
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+
+        # high-level assignment
+
+        xd = ARMSubtractCarryXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+            return ([], [])
+
+        lhs = xd.vrd
+        rhs1 = xd.xrn
+        rhs2 = xd.xrm
+        rhs3 = xd.rresult
+
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_expr_reachingdefs(ll_rhs, rdefs[:2])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

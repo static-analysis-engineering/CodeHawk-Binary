@@ -82,14 +82,27 @@ class ARMLoadRegisterByteXData(ARMOpcodeXData):
         return self.xpr(3, "xrmem")
 
     @property
+    def is_xrmem_unknown(self) -> bool:
+        return self.xdata.xprs_r[3] is None
+
+    @property
+    def is_address_known(self) -> bool:
+        return self.xdata.xprs_r[4] is not None
+
+    @property
     def xaddr(self) -> "XXpr":
         return self.xpr(4, "xaddr")
 
     @property
     def annotation(self) -> str:
         wbu = self.writeback_update()
-        assignment = str(self.vrt) + " := " + str(self.xrmem)
-        return self.add_instruction_condition(assignment)
+        if self.is_ok:
+            assignment = str(self.vrt) + " := " + str(self.xrmem)
+        elif self.is_xrmem_unknown and self.is_address_known:
+            assignment = str(self.vrt) + " := *(" + str(self.xaddr) + ")"
+        else:
+            assignment = "Error value"
+        return self.add_instruction_condition(assignment) + wbu
 
 
 @armregistry.register_tag("LDRB", ARMOpcode)
@@ -163,11 +176,7 @@ class ARMLoadRegisterByte(ARMOpcode):
     def annotation(self, xdata: InstrXData) -> str:
         """lhs, rhs, with optional instr condition and base update."""
 
-        xd = ARMLoadRegisterByteXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return ARMLoadRegisterByteXData(xdata).annotation
 
     def ast_prov(
             self,
@@ -178,10 +187,6 @@ class ARMLoadRegisterByte(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         xd = ARMLoadRegisterByteXData(xdata)
-        if not xd.is_ok:
-            chklogger.logger.error(
-                "Encountereed error value at address %s", iaddr)
-            return ([], [])
 
         memaddr = xd.xaddr
 
@@ -204,8 +209,26 @@ class ARMLoadRegisterByte(ARMOpcode):
         # high-level assignment
 
         lhs = xd.vrt
-        rhs = xd.xrmem
-        xaddr = xd.xaddr
+
+        if xd.is_ok:
+            rhs = xd.xrmem
+            xaddr = xd.xaddr
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhs)
+            hl_rhs = XU.xxpr_to_ast_def_expr(
+                rhs, xdata, iaddr, astree, size=1, memaddr=xaddr)
+
+        elif xd.is_xrmem_unknown and xd.is_address_known:
+            xaddr = xd.xaddr
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+            hl_rhs = XU.xmemory_dereference_lval_expr(
+                xaddr, xdata, iaddr, astree, size=1)
+
+        else:
+            chklogger.logger.error(
+                "LDRB: both memory value and address values are error values "
+                + "at address %s: ", iaddr)
+            return ([], [])
+
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh

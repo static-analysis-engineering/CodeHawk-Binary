@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,15 +30,62 @@ from typing import List, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMUnsignedMultiplyAccumulateLongXData(ARMOpcodeXData):
+
+    @property
+    def vlo(self) -> "XVariable":
+        return self.var(0, "vlo")
+
+    @property
+    def vhi(self) -> "XVariable":
+        return self.var(1, "vhi")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def xlo(self) -> "XXpr":
+        return self.xpr(2, "xlo")
+
+    @property
+    def xhi(self) -> "XXpr":
+        return self.xpr(3, "xhi")
+
+    @property
+    def result(self) -> "XXpr":
+        return self.xpr(4, "result")
+
+    @property
+    def rresult(self) -> "XXpr":
+        return self.xpr(5, "rresult")
+
+    @property
+    def result_simplified(self) -> str:
+        return simplify_result(
+            self.xdata.args[6], self.xdata.args[7], self.result, self.rresult)
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vlo) + " := " + self.result_simplified
+        return self.add_instruction_condition(assignment)
 
 
 @armregistry.register_tag("UMLAL", ARMOpcode)
@@ -55,10 +102,7 @@ class ARMUnsignedMultiplyAccumulateLong(ARMOpcode):
     args[4]: index of Rm in armdictionary
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 5, "UnsignedMultiplyAccumulateLong")
 
@@ -76,19 +120,8 @@ class ARMUnsignedMultiplyAccumulateLong(ARMOpcode):
         return self.args[0] == 1
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxxxx
-
-        vars[0]: lhslo
-        vars[1]: lhshi
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        xprs[2]: (rhs1 * rhs2)
-        xprs[3]: (rhs1 * rhs2)
-        """
-
-        lhslo = str(xdata.vars[0])
-        lhshi = str(xdata.vars[1])
-        result = xdata.xprs[2]
-        rresult = xdata.xprs[3]
-        xresult = simplify_result(xdata.args[4], xdata.args[5], result, rresult)
-        return "(" + lhslo + "," + lhshi + ")" + " := " + xresult
+        xd = ARMUnsignedMultiplyAccumulateLongXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"

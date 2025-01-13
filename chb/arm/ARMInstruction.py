@@ -418,7 +418,6 @@ class ARMInstruction(Instruction):
             pesp = str(self.stackpointer_offset) + "  " if sp else ""
             popcode = (
                 self.opcodetext.ljust(opcodewidth) if opcodetxt else "")
-            print("DEBUG: " + pesp + pbytes + popcode + self.annotation)
             return pesp + pbytes + popcode + self.annotation
         except Exception as e:
             print(
