@@ -2767,6 +2767,9 @@ class ASTCompInfo(ASTNode):
     def has_field_offsets(self) -> bool:
         return all(finfo.has_byteoffset() for finfo in self.fieldinfos)
 
+    def has_field_offset(self, offset: int) -> bool:
+        return offset in self.field_offsets
+
     @property
     def field_offsets(self) -> Dict[int, str]:
         result: Dict[int, str] = {}

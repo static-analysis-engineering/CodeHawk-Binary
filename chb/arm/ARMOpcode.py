@@ -119,6 +119,10 @@ class ARMOpcodeXData:
         return self.xdata.is_ok
 
     def var(self, index: int, name: str) -> "XVariable":
+        if index >= len(self.xdata.vars_r):
+            raise UF.CHBError(
+                self.__class__.__name__ + ":"
+                + name + " index out of bounds: " + str(index))
         v = self.xdata.vars_r[index]
         if v is None:
             raise UF.CHBError(
@@ -126,6 +130,10 @@ class ARMOpcodeXData:
         return v
 
     def xpr(self, index: int, name: str) -> "XXpr":
+        if index >= len(self.xdata.xprs_r):
+            raise UF.CHBError(
+                self.__class__.__name__ + ":"
+                + name + " index out of bounds: " + str(index))
         x = self.xdata.xprs_r[index]
         if x is None:
             raise UF.CHBError(
