@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -485,6 +485,13 @@ def global_variable_to_lval_expression(
                     globaladdress=gaddr,
                     anonymous=anonymous)
 
+        if offset.offset.is_array_index_offset and vinfo is not None:
+            arrayoffset = cast("VMemoryOffsetArrayIndexOffset", offset.offset)
+            astoffset = array_offset_to_ast_offset(
+                arrayoffset, xdata, iaddr, astree, anonymous=anonymous)
+            return astree.mk_vinfo_lval_expression(
+                vinfo, astoffset, anonymous=anonymous)
+
     chklogger.logger.error(
         "Conversion of global variable %s at address %s not yet supported",
         str(offset), iaddr)
@@ -694,6 +701,19 @@ def vinitmemory_value_to_ast_lval_expression(
                     return astree.mk_temp_lval_expression()
 
                 compinfo = astree.compinfo(compkey)
+                if not compinfo.has_field_offsets():
+                    chklogger.logger.error(
+                        "No fields are specified for compinfo %s (at address %s)",
+                        compinfo.compname, iaddr)
+                    return astree.mk_temp_lval_expression()
+
+                if not compinfo.has_field_offset(coff):
+                    chklogger.logger.error(
+                        "Compinfo %s does not have a field at offset %d "
+                        + "(at address %s)",
+                        compinfo.compname, coff, iaddr)
+                    return astree.mk_temp_lval_expression()
+
                 (field, restoffset) = compinfo.field_at_offset(coff)
                 if restoffset > 0:
                     chklogger.logger.error(
@@ -1049,7 +1069,7 @@ def xbinary_to_ast_def_expr(
         astxpr2 = xxpr_to_ast_def_expr(
             xpr2, xdata, iaddr, astree, anonymous=anonymous)
         if operator in [
-                "plus", "minus", "mult", "div",
+                "plus", "minus", "mult", "div", "mod",
                 "band", "land", "lor", "bor", "asr", "bxor",
                 "lsl", "lsr", "eq", "ne", "gt", "le", "lt", "ge"]:
             return astree.mk_binary_expression(operator, astxpr1, astxpr2)
@@ -1363,17 +1383,21 @@ def array_offset_to_ast_offset(
     if offset.has_no_offset():
         return astree.mk_expr_index_offset(indexxpr)
 
-    def to_ast_offset(suboffset: "VMemoryOffset") -> AST.ASTOffset:
-        if suboffset.is_constant_value_offset:
-            return astree.mk_scalar_index_offset(suboffset.offsetconstant)
-        elif suboffset.is_field_offset:
-            suboffset = cast ("VMemoryOffsetFieldOffset", suboffset)
-            return astree.mk_field_offset(suboffset.fieldname, suboffset.ckey)
-        else:
-            return nooffset
+    if offset.offset.is_field_offset:
+        fsuboffset = cast("VMemoryOffsetFieldOffset", offset.offset)
+        astoffset: AST.ASTOffset = field_offset_to_ast_offset(
+            fsuboffset, xdata, iaddr, astree)
+        return astree.mk_expr_index_offset(indexxpr, offset=astoffset)
 
-    return astree.mk_expr_index_offset(
-        indexxpr, offset=to_ast_offset(offset.offset))
+    if offset.offset.is_array_index_offset:
+        asuboffset = cast("VMemoryOffsetArrayIndexOffset", offset.offset)
+        astoffset = array_offset_to_ast_offset(
+            asuboffset, xdata, iaddr, astree)
+        return astree.mk_expr_index_offset(indexxpr, offset=astoffset)
+
+    chklogger.logger.error(
+        "Offset %s not recognized at address %s", str(offset), iaddr)
+    return astree.mk_expr_index_offset(indexxpr)
 
 
 def field_offset_to_ast_offset(
@@ -1400,7 +1424,6 @@ def field_offset_to_ast_offset(
 
     return astree.mk_field_offset(
         offset.fieldname, offset.ckey, offset=suboffset)
-
 
 
 def array_variable_to_ast_lval(
@@ -1524,7 +1547,7 @@ def global_variable_to_ast_lval(
             return astree.mk_vinfo_lval(vinfo, astoffset, anonymous=anonymous)
 
         if offset.offset.is_field_offset and vinfo is not None:
-            fieldoffset = cast ("VMemoryOffsetFieldOffset", offset.offset)
+            fieldoffset = cast("VMemoryOffsetFieldOffset", offset.offset)
             fieldname = fieldoffset.fieldname
             compkey = fieldoffset.ckey
             if fieldoffset.offset.is_no_offset:
@@ -1544,6 +1567,12 @@ def global_variable_to_ast_lval(
 
             astoffset = astree.mk_field_offset(
                 fieldname, compkey, offset=subfieldastoffset)
+            return astree.mk_vinfo_lval(vinfo, astoffset, anonymous=anonymous)
+
+        if offset.offset.is_array_index_offset and vinfo is not None:
+            aindexoffset = cast("VMemoryOffsetArrayIndexOffset", offset.offset)
+            astoffset = array_offset_to_ast_offset(
+                aindexoffset, xdata, iaddr, astree, anonymous=anonymous)
             return astree.mk_vinfo_lval(vinfo, astoffset, anonymous=anonymous)
 
     chklogger.logger.error(
