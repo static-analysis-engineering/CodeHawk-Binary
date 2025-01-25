@@ -25,13 +25,18 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
@@ -119,9 +124,105 @@ class ARMSignedMultiplyLong(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:]]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
+
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMSignedMultiplyLongXData(xdata)
         if xd.is_ok:
             return xd.annotation
         else:
             return "Error value"
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "SMULL"]
+
+        # low-level assignment
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_lhs2, _, _) = self.opargs[1].ast_lvalue(astree)
+        (ll_op1, _, _) = self.opargs[2].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[3].ast_rvalue(astree)
+        ll_rhs = astree.mk_binary_op("mult", ll_op1, ll_op2)
+        e32 = astree.mk_integer_constant(0x10000000)
+        ll_rhs = astree.mk_binary_op("div", ll_rhs, e32)
+        ll_rhs2 = astree.mk_binary_op("mod", ll_rhs, e32)
+
+        ll_assign1 = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+        ll_assign2 = astree.mk_assign(
+            ll_lhs2,
+            ll_rhs2,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        rdefs = xdata.reachingdefs
+
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+
+        # high-level assignment
+
+        xd = ARMSignedMultiplyLongXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Encountered error value at address %s", iaddr)
+            return ([], [])
+
+        lhs = xd.vlo
+        lhs2 = xd.vhi
+        rhs1 = xd.xrn
+        rhs2 = xd.xrm
+        rhslo = xd.loresult
+        rhshi = xd.hiresult
+
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_lhs2 = XU.xvariable_to_ast_lval(lhs2, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhslo, xdata, iaddr, astree)
+        hl_rhs2 = XU.xxpr_to_ast_def_expr(rhshi, xdata, iaddr, astree)
+
+        hl_assign1 = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+        hl_assign2 = astree.mk_assign(
+            hl_lhs2,
+            hl_rhs2,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign1, ll_assign1)
+        astree.add_instr_mapping(hl_assign2, ll_assign2)
+        astree.add_instr_address(hl_assign1, [iaddr])
+        astree.add_instr_address(hl_assign2, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_expr_mapping(hl_rhs2, ll_rhs2)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_lval_mapping(hl_lhs2, ll_lhs2)
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_expr_reachingdefs(ll_rhs, rdefs[:2])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses(hl_lhs2, defuses[1])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+        astree.add_lval_defuses_high(hl_lhs2, defuseshigh[1])
+
+        return ([hl_assign1, hl_assign2], [ll_assign1, ll_assign2])

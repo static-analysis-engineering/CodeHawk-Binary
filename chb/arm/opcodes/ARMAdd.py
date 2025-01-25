@@ -87,6 +87,11 @@ class ARMAddXData(ARMOpcodeXData):
         return self.xpr(1, "xrm")
 
     @property
+    def jt_xxrn(self) -> "XXpr":
+        """Part of jumptable."""
+        return self.xpr(1, "xxrn")
+
+    @property
     def result(self) -> "XXpr":
         return self.xpr(2, "result")
 
@@ -117,6 +122,8 @@ class ARMAddXData(ARMOpcodeXData):
 
     @property
     def annotation(self) -> str:
+        if self.xdata.is_aggregate_jumptable:
+            return "jump-table: " + str(self.jt_xxrn)
         assignment = str(self.vrd) + " := " + self.result_simplified
         return self.add_instruction_condition(assignment)
 
