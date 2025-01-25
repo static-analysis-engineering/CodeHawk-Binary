@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import cast, Dict, List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 from chb.ast.AbstractSyntaxTree import nooffset
@@ -48,6 +48,49 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.bctypes.BCTyp import BCTypComp, BCTypArray
     from chb.invariants.VAssemblyVariable import VMemoryVariable
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMStoreMultipleDecrementBeforeXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def regcount(self) -> int:
+        return len(self._xdata.vars_r) - 1
+
+    @property
+    def baselhs(self) -> "XVariable":
+        return self.var(0, "baselhs")
+
+    @property
+    def memlhss(self) -> List["XVariable"]:
+        return [self.var(i, "memlhs") for i in range(1, self.regcount + 1)]
+
+    @property
+    def baserhs(self) -> "XXpr":
+        return self.xpr(0, "baserhs")
+
+    @property
+    def baseresult(self) -> "XXpr":
+        return self.xpr(1, "baseresult")
+
+    @property
+    def rbaseresult(self) -> "XXpr":
+        return self.xpr(2, "rbaseresult")
+
+    @property
+    def rrhss(self) -> List["XXpr"]:
+        return [self.xpr(i, "rhs") for i in range(3, self.regcount + 3)]
+
+    @property
+    def annotation(self) -> str:
+        # TODO add writeback
+        pairs = zip(self.memlhss, self.rrhss)
+        assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
+        return self.add_instruction_condition(assigns)
 
 
 @armregistry.register_tag("STMDB", ARMOpcode)
@@ -79,10 +122,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
     defusehigh[1..n]: use-high of memory variables
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 4, "StoreMultipleDecrementBefore")
 
@@ -102,19 +142,11 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         return True
 
     def annotation(self, xdata: InstrXData) -> str:
-        # regcount = len(xdata.vars) - 1
-        regcount = len(xdata.reachingdefs) - 1
-
-        wb = ""
-        if self.writeback:
-            wb = "; " + str(xdata.vars[0]) + " := " + str(xdata.xprs[2])
-        return (
-            "; ".join(
-                str(v)
-                + " := "
-                + str(x) for (v, x) in
-                zip(xdata.vars[1:], xdata.xprs[regcount+3:(2 * regcount)+3]))
-            + wb)
+        xd = ARMStoreMultipleDecrementBeforeXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
 
     def assembly_ast(
             self,

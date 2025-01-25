@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,15 +30,35 @@ from typing import List, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMMoveToCoprocessorXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def xrt(self) -> "XXpr":
+        return self.xpr(0, "xrt")
+
+    @property
+    def xxrt(self) -> "XXpr":
+        return self.xpr(1, "xxrt")
+
+    @property
+    def annotation(self) -> str:
+        return "? := " + str(self.xxrt)
+
 
 
 @armregistry.register_tag("MCR", ARMOpcode)
@@ -56,10 +76,7 @@ class ARMMoveToCoprocessor(ARMOpcode):
     args[5]: opc2
     """
 
-    def __init__(
-            self,
-            d: "ARMDictionary",
-            ixval: IndexedTableValue) -> None:
+    def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 6, "MoveToCoprocessor")
 
@@ -88,11 +105,8 @@ class ARMMoveToCoprocessor(ARMOpcode):
             + opc2)
 
     def annotation(self, xdata: InstrXData) -> str:
-        """format a:v
-
-        xprs[0]: rhs: source register (Rt)
-        xprs[1]: rrhs: source register rewritten
-        """
-
-        rrhs = str(xdata.xprs[1])
-        return "? := " + str(rrhs)
+        xd = ARMMoveToCoprocessorXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"

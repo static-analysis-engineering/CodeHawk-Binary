@@ -77,6 +77,8 @@ class ARMBranchExchangeXData(ARMOpcodeXData):
 
     @property
     def annotation(self) -> str:
+        if self.xdata.is_bx_call:
+            return "bx-call"
         if self.has_return_xpr():
             return "return " + str(self.rreturnval())
         else:
