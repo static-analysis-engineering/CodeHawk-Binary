@@ -230,12 +230,25 @@ class ARMLoadRegister(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
+        def has_cast() -> bool:
+            return (
+                astree.has_register_variable_intro(iaddr)
+                and astree.get_register_variable_intro(iaddr).has_cast())
+
+        if has_cast():
+            lhstype = hl_lhs.ctype(astree.ctyper)
+            if lhstype is not None:
+                hl_rhs = astree.mk_cast_expr(lhstype, hl_rhs)
+
         hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
+
+        if has_cast():
+            astree.add_expose_instruction(hl_assign.instrid)
 
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
@@ -316,6 +329,10 @@ class ARMLoadRegister(ARMOpcode):
             astree.add_lval_defuses(ll_addr_lhs, defuses[1])
             astree.add_lval_defuses_high(ll_addr_lhs, defuseshigh[1])
         else:
+            if astree.has_register_variable_intro(iaddr):
+                rvintro = astree.get_register_variable_intro(iaddr)
+                if rvintro.has_cast():
+                    astree.add_expose_instruction(hl_assign.instrid)
             ll_assigns = [ll_assign]
             hl_assigns = [hl_assign]
 

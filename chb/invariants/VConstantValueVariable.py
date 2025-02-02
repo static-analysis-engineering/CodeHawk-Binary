@@ -39,6 +39,11 @@ and constant_value_variable_t =
       * ctxt_iaddress_t
       * ctxt_iaddress_t
   | FunctionReturnValue  of ctxt_iaddress_t        "fr"       2      0
+  | TypeCastValue of                               "tc"       3      2
+     ctxt_iaddress_t
+     * string
+     * btype_t
+     * register_t
   | SyscallErrorReturnValue of ctxt_iaddress_t     "ev"       2      0
   | AugmentedValue of                              "av"       4      2
      variable_t
@@ -129,6 +134,10 @@ class VConstantValueVariable(FnVarDictionaryRecord):
 
     @property
     def is_function_return_value(self) -> bool:
+        return False
+
+    @property
+    def is_typecast_value(self) -> bool:
         return False
 
     @property
@@ -547,6 +556,46 @@ class VFunctionReturnValue(VConstantValueVariable):
                 return "rtn_" + tgtval.name
         else:
             return "rtn_" + self.callsite
+
+
+@varregistry.register_tag("tc", VConstantValueVariable)
+class VTypeCastValue(VConstantValueVariable):
+    """Type cast of a register value.
+
+    tags[1]: address of cast
+    tags[2]: name of variable
+    args[0]: index of cast target type in bcdictionary
+    args[1]: index of register in bdictionary
+    """
+
+    def __init__(
+            self,
+            vd: "FnVarDictionary",
+            ixval: IndexedTableValue) -> None:
+        VConstantValueVariable.__init__(self, vd, ixval)
+
+    @property
+    def is_typecast_value(self) -> bool:
+        return True
+
+    @property
+    def iaddr(self) -> str:
+        return self.tags[1]
+
+    @property
+    def name(self) -> str:
+        return self.tags[2]
+
+    @property
+    def tgttype(self) -> "BCTyp":
+        return self.bcd.typ(self.args[0])
+
+    @property
+    def register(self) -> Register:
+        return self.bd.register(self.args[1])
+
+    def __str__(self) -> str:
+        return self.name
 
 
 @varregistry.register_tag("fp", VConstantValueVariable)

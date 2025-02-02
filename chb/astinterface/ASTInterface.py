@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -62,6 +62,8 @@ from chb.astinterface.ASTIFormalVarInfo import ASTIFormalVarInfo
 from chb.astinterface.ASTIProvenance import ASTIProvenance
 import chb.astinterface.ASTIUtil as AU
 
+from chb.userdata.UserHints import FunctionAnnotation, RegisterVarIntro
+
 import chb.util.fileutil as UF
 from chb.util.loggingutil import chklogger
 
@@ -98,6 +100,7 @@ class ASTInterface:
             appsignature: Optional["AppFunctionSignature"] = None,
             rdeflocs: Dict[str, List[List[str]]] = {},
             varintros: Dict[str, str] = {},
+            functionannotation: Optional[FunctionAnnotation] = None,
             stackvarintros: Dict[int, str] = {},
             patchevents: Dict[str, "PatchEvent"] = {},
             verbose: bool = False) -> None:
@@ -106,6 +109,7 @@ class ASTInterface:
         self._astprototype = astprototype
         self._appsignature = appsignature
         self._rdeflocs = rdeflocs
+        self._functionannotation = functionannotation
         self._varintros = varintros
         self._stackvarintros = stackvarintros
         self._patchevents = patchevents
@@ -153,9 +157,18 @@ class ASTInterface:
         return self._rdeflocs
 
     @property
+    def function_annotation(self) -> Optional[FunctionAnnotation]:
+        return self._functionannotation
+
+    def has_function_annotation(self) -> bool:
+        return self.function_annotation is not None
+
+    # deprecated
+    @property
     def varintros(self) -> Dict[str, str]:
         return self._varintros
 
+    # deprecated
     @property
     def stackvarintros(self) -> Dict[int, str]:
         return self._stackvarintros
@@ -265,14 +278,28 @@ class ASTInterface:
         self._localvardefinitions.setdefault(iaddr, {})
         self._localvardefinitions[iaddr][var] = expr
 
+    # deprecated
     def has_variable_intro(self, iaddr: str) -> bool:
         return iaddr in self.varintros
 
+    # deprecated
     def get_variable_intro(self, iaddr: str) -> str:
         if self.has_variable_intro(iaddr):
             return self.varintros[iaddr]
         else:
             raise UF.CHBError("No variable intro found for " + iaddr)
+
+    def has_register_variable_intro(self, iaddr: str) -> bool:
+        fnannotation = self.function_annotation
+        if fnannotation is not None:
+            return fnannotation.has_register_variable_introduction(iaddr)
+        return False
+
+    def get_register_variable_intro(self, iaddr: str) -> RegisterVarIntro:
+        fnannotation = self.function_annotation
+        if fnannotation is not None:
+            return fnannotation.get_register_variable_introduction(iaddr)
+        raise UF.CHBError("No function annotation found")
 
     def has_stack_variable_intro(self, offset: int) -> bool:
         return offset in self.stackvarintros
@@ -1014,8 +1041,8 @@ class ASTInterface:
             return vinfo
 
         # create a new ssa variable
-        if iaddr in self.varintros:
-            vname = self.varintros[iaddr]
+        if self.has_register_variable_intro(iaddr):
+            vname = self.get_register_variable_intro(iaddr).name
         elif prefix is not None:
             self._ssa_prefix_counters.setdefault(prefix, 0)
             ssaid = self._ssa_prefix_counters[prefix]

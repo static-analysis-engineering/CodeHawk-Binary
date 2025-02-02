@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny Sipma
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -115,6 +115,13 @@ class XVariable(FnXprDictionaryRecord):
             self.has_denotation()
             and self.denotation.is_auxiliary_variable
             and self.denotation.auxvar.is_function_return_value)
+
+    @property
+    def is_typecast_value(self) -> bool:
+        return (
+            self.has_denotation()
+            and self.denotation.is_auxiliary_variable
+            and self.denotation.auxvar.is_typecast_value)
 
     @property
     def is_memory_address_value(self) -> bool:
