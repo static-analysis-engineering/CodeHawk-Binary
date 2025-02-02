@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs, LLC
+# Copyright (c) 2021-2025  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -50,6 +50,9 @@ Currently provided:
 
 - DataBlocks
       pairs of addresses (start inclusive, end exclusive) that indicate data
+
+- FunctionAnnotations
+      register and stack variable introductions
 
 - FunctionEntryPoints
       addresses of function entry points
@@ -102,6 +105,7 @@ import chb.userdata.btypeutil as UT
 from chb.userdata.UserBType import UserStructBType
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
 import chb.util.xmlutil as UX
 
 
@@ -448,6 +452,245 @@ class DataBlocksHints(HintsEntry):
             else:
                 dbname = ""
             lines.append("  [" + db["r"][0] + ", " + db["r"][1] + dbname)
+        return "\n".join(lines)
+
+
+class RegisterVarIntro:
+
+    def __init__(self, d: Dict[str, Union[str, List[str]]]) -> None:
+        self._d = d
+
+    @property
+    def varintro(self) -> Dict[str, Union[str, List[str]]]:
+        return self._d
+
+    @property
+    def iaddr(self) -> str:
+        if not "iaddr" in self.varintro:
+            chklogger.logger.warning(
+                "Register variable intro without address; returning 0x0")
+        return cast(str, self.varintro.get("iaddr", "0x0"))
+
+    @property
+    def name(self) -> str:
+        if not "name" in self.varintro:
+            chklogger.logger.warning(
+                "Register variable intro without name; returning noname")
+        return cast(str, self.varintro.get("name", "noname"))
+
+    @property
+    def typename(self) -> Optional[str]:
+        return cast(str, self.varintro.get("typename", None))
+
+    @property
+    def ispointerto(self) -> bool:
+        return "ptrto" in self.mods
+
+    @property
+    def mods(self) -> List[str]:
+        return cast(List[str], self.varintro.get("mods", []))
+
+    def has_cast(self) -> bool:
+        return "cast" in self.mods
+
+    def to_xml(self, node: ET.Element) -> None:
+        xvintro = ET.Element("vintro")
+        node.append(xvintro)
+        xvintro.set("name", self.name)
+        xvintro.set("iaddr", self.iaddr)
+        if self.typename is not None:
+            xvintro.set("typename", self.typename)
+        if self.ispointerto:
+            xvintro.set("ptrto", "yes")
+        if self.has_cast():
+            xvintro.set("cast", "yes")
+
+    def __str__(self) -> str:
+        return (
+            "iaddr: " + self.iaddr
+            + "; name: " + self.name
+            + (("; typename: " + self.typename) if self.typename else ""))
+
+
+class StackVarIntro:
+
+    def __init__(self, d: Dict[str, str]) -> None:
+        self._d = d
+
+    @property
+    def varintro(self) -> Dict[str, str]:
+        return self._d
+
+    @property
+    def offset(self) -> int:
+        if not "offset" in self.varintro:
+            chklogger.logger.warning(
+                "Stack variable intro without offset; returning 0")
+        return int(self.varintro.get("offset", "0"))
+
+    @property
+    def name(self) -> str:
+        if not "name" in self.varintro:
+            chklogger.logger.warning(
+                "Stack variable intro without name; returning noname")
+        return self.varintro.get("name", "noname")
+
+    @property
+    def typename(self) -> Optional[str]:
+        return self.varintro.get("typename", None)
+
+    @property
+    def arraysize(self) -> Optional[int]:
+        if "array" in self.varintro:
+            return int(self.varintro.get("array", "0"))
+        else:
+            return None
+
+    @property
+    def ispointer(self) -> bool:
+        if "ptrto" in self.varintro:
+            return self.varintro.get("ptrto", "no") == "yes"
+        return False
+
+    def to_xml(self, node: ET.Element) -> None:
+        xvintro = ET.Element("vintro")
+        node.append(xvintro)
+        xvintro.set("name", self.name)
+        xvintro.set("offset", str(self.offset))
+        if self.typename is not None:
+            xvintro.set("typename", self.typename)
+            if self.arraysize is not None:
+                xvintro.set("arraysize", str(self.arraysize))
+            elif self.ispointer:
+                xvintro.set("ptrto", "yes")
+
+    def __str__(self) -> str:
+        return (
+            "offset: " + str(self.offset)
+            + "; name: " + self.name
+            + (("; typename: " + self.typename) if self.typename else ""))
+
+
+class FunctionAnnotation:
+
+    def __init__(self, fnannotation: Dict[str, Any]) -> None:
+        self._fnannotation = fnannotation
+
+    @property
+    def fnannotation(self) -> Dict[str, Any]:
+        return self._fnannotation
+
+    @property
+    def faddr(self) -> str:
+        if not "faddr" in self.fnannotation:
+            chklogger.logger.warning(
+                "Function annotation without faddr, returning 0x0")
+        return self.fnannotation.get("faddr", "0x0")
+
+    @property
+    def stack_variable_introductions(self) -> Dict[int, StackVarIntro]:
+        result: Dict[int, StackVarIntro] = {}
+        for d in self.fnannotation.get("stack-variable-introductions", []):
+            svi = StackVarIntro(d)
+            result[svi.offset] = svi
+        return result
+
+    @property
+    def register_variable_introductions(self) -> Dict[str, RegisterVarIntro]:
+        result: Dict[str, RegisterVarIntro] = {}
+        for d in self.fnannotation.get("register-variable-introductions", []):
+            rvi = RegisterVarIntro(d)
+            result[rvi.iaddr] = rvi
+        return result
+
+    def has_register_variable_introduction(self, iaddr: str) -> bool:
+        return iaddr in self.register_variable_introductions
+
+    def get_register_variable_introduction(self, iaddr: str) -> RegisterVarIntro:
+        rvintros = self.register_variable_introductions
+        if iaddr in rvintros:
+            return rvintros[iaddr]
+        raise UF.CHBError("No register variable introductions for " + iaddr)
+
+    def to_xml(self, node: ET.Element) -> None:
+        node.set("faddr", self.faddr)
+        if len(self.stack_variable_introductions) > 0:
+            xstackintros = ET.Element("stackvar-intros")
+            node.append(xstackintros)
+            for svintro in self.stack_variable_introductions.values():
+                svintro.to_xml(xstackintros)
+        if len(self.register_variable_introductions) > 0:
+            xregintros = ET.Element("regvar-intros")
+            node.append(xregintros)
+            for rvintro in self.register_variable_introductions.values():
+                rvintro.to_xml(xregintros)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Function: " + self.faddr)
+        if len(self.stack_variable_introductions) > 0:
+            lines.append("  Stack variable introductions:")
+            for svintro in self.stack_variable_introductions:
+                lines.append("  " + str(svintro))
+        if len(self.register_variable_introductions) > 0:
+            for rvintro in self.register_variable_introductions:
+                lines.append("  " + str(rvintro))
+        lines.append("")
+        return "\n".join(lines)
+
+
+class FunctionAnnotations(HintsEntry):
+    """List of functions with variable introductions.
+
+    Supersedes variable-introductions and stack-variable-introductions.
+    """
+
+    def __init__(self, fnannotations: List[Dict[str, Any]]) -> None:
+        HintsEntry.__init__(self, "function-annotations")
+        self._fnannotations = fnannotations
+
+    @property
+    def fnannotations(self) -> List[Dict[str, Any]]:
+        return self._fnannotations
+
+    def has_function(self, faddr: str) -> bool:
+        for a in self.fnannotations:
+            if faddr == a.get("faddr", "0x0"):
+                return True
+        else:
+            return False
+
+    def get_function(self, faddr: str) -> FunctionAnnotation:
+        for a in self.fnannotations:
+            if faddr == a.get("faddr", "0x0"):
+                return FunctionAnnotation(a)
+        raise UF.CHBError("No annotations found for function address " + faddr)
+
+    def update(self, l: List[Dict[str, Any]]) -> None:
+        for d in l:
+            faddr = d.get("faddr", "0x0")
+            if self.has_function(faddr):
+                chklogger.logger.warning(
+                    "Duplicate record for function annotations: %s. "
+                    + "New entry is ignored",
+                    faddr)
+            else:
+                self._fnannotations.append(d)
+
+    def to_xml(self, node: ET.Element) -> None:
+        xfnannotations = ET.Element(self.name)
+        node.append(xfnannotations)
+        for a in self.fnannotations:
+            xfa = ET.Element("function-annotation")
+            FunctionAnnotation(a).to_xml(xfa)
+            xfnannotations.append(xfa)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Function annotations")
+        lines.append("--------------------")
+        for a in self.fnannotations:
+            lines.append(str(FunctionAnnotation(a)))
         return "\n".join(lines)
 
 
@@ -1131,6 +1374,19 @@ class UserHints:
         else:
             return {}
 
+    def function_annotations(self) -> Optional[FunctionAnnotations]:
+        if "function-annotations" in self.astdata:
+            return cast(
+                FunctionAnnotations, self.astdata["function-annotations"])
+        return None
+
+    def function_annotation(self, faddr: str) -> Optional[FunctionAnnotation]:
+        fnannotations = self.function_annotations()
+        if fnannotations is not None:
+            if fnannotations.has_function(faddr):
+                return fnannotations.get_function(faddr)
+        return None
+
     def stack_variable_introductions(self) -> Dict[str, Dict[int, str]]:
         """Return map from function address to stack offset to variable name.
 
@@ -1241,6 +1497,20 @@ class UserHints:
                 self.userdata[tag].update(fepoints)
             else:
                 self.userdata[tag] = FunctionEntryPointsHints(fepoints)
+
+        if "function-annotations" in hints:
+            tag = "function-annotations"
+            fnannotations: List[Dict[str, Any]] = hints[tag]
+            if self._toxml:
+                if tag in self.userdata:
+                    self.userdata[tag].update(fnannotations)
+                else:
+                    self.userdata[tag] = FunctionAnnotations(fnannotations)
+            else:
+                if tag in self.astdata:
+                    self.astdata[tag].update(fnannotations)
+                else:
+                    self.astdata[tag] = FunctionAnnotations(fnannotations)
 
         if "function-names" in hints:
             tag = "function-names"
