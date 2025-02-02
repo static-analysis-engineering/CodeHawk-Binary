@@ -80,7 +80,9 @@ class ASTICodeTransformer(ASTIdentityTransformer):
         for instr in stmt.instructions:
             if instr.is_ast_assign:
                 instr = cast(AST.ASTAssign, instr)
-                if self.astinterface.has_ssa_value(str(instr.lhs)):
+                if (
+                        self.astinterface.has_ssa_value(str(instr.lhs))
+                        and not self.provenance.has_expose_instruction(instr.instrid)):
                     chklogger.logger.info(
                         "Remove [%s]: has ssa value", str(instr))
                     continue

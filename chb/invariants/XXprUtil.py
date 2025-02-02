@@ -55,7 +55,7 @@ if TYPE_CHECKING:
         VMemoryVariable, VAuxiliaryVariable, VRegisterVariable)
     from chb.invariants.VConstantValueVariable import (
         VInitialRegisterValue, VInitialMemoryValue, VFunctionReturnValue,
-        SymbolicValue, MemoryAddress)
+        VTypeCastValue, SymbolicValue, MemoryAddress)
     from chb.invariants.VMemoryBase import (
         VMemoryBase,
         VMemoryBaseBaseVar,
@@ -889,6 +889,14 @@ def xvariable_to_ast_def_lval_expression(
         vinfo = astree.globalsymboltable.get_symbol(name)
         return astree.mk_vinfo_lval_expression(vinfo, anonymous=anonymous)
 
+    if xvar.is_typecast_value:
+        tcvar = cast("VTypeCastValue", xvar.denotation)
+        chklogger.logger.error(
+            "AST def conversion of typecast value %s to lval at address %s "
+            + "not yet supported",
+            str(tcvar), iaddr)
+        return astree.mk_temp_lval_expression()
+
     chklogger.logger.error(
         "AST def conversion of variable %s to lval-expression at address "
         + "%s not yet supported",
@@ -1553,12 +1561,17 @@ def global_variable_to_ast_lval(
             if fieldoffset.offset.is_no_offset:
                 subfieldastoffset: AST.ASTOffset = nooffset
             elif fieldoffset.offset.is_field_offset:
-                subfieldoffset = cast(
+                subfieldfldoffset = cast(
                     "VMemoryOffsetFieldOffset", fieldoffset.offset)
-                subfieldname = subfieldoffset.fieldname
-                subfieldkey = subfieldoffset.ckey
+                subfieldname = subfieldfldoffset.fieldname
+                subfieldkey = subfieldfldoffset.ckey
                 subfieldastoffset = astree.mk_field_offset(
                     subfieldname, subfieldkey)
+            elif fieldoffset.offset.is_array_index_offset:
+                subfieldarrayoffset = cast(
+                    "VMemoryOffsetArrayIndexOffset", fieldoffset.offset)
+                subfieldastoffset = array_offset_to_ast_offset(
+                    subfieldarrayoffset, xdata, iaddr, astree, anonymous=anonymous)
             else:
                 chklogger.logger.error(
                     "Index sub offset of global offset %s not yet handled at %s",
@@ -1741,10 +1754,26 @@ def vargument_deref_value_to_ast_lval(
         astree: ASTInterface,
         anonymous: bool = False) -> AST.ASTLval:
 
+    if offset.is_no_offset:
+        asmvar = cast("VAuxiliaryVariable", basevar.denotation)
+        vinitvar = cast("VInitialRegisterValue", asmvar.auxvar)
+        xinitarg = vinitregister_value_to_ast_lval_expression(
+            vinitvar, xdata, iaddr, astree, anonymous=anonymous)
+        argtype = xinitarg.ctype(astree.ctyper)
+        if argtype is None:
+            chklogger.logger.error(
+                "Untyped dereferenced argument value %s not yet supported at "
+                + "address %s",
+                str(xinitarg), iaddr)
+            return astree.mk_temp_lval()
+        else:
+            return astree.mk_memref_lval(xinitarg, anonymous=anonymous)
+
     if not offset.is_constant_value_offset:
         chklogger.logger.error(
-            "Non-constant offset: %s not yet supported at address %s",
-            str(offset), iaddr)
+            "Non-constant offset: %s with variable %s not yet supported at "
+            + "address %s",
+            str(offset), str(basevar), iaddr)
         return astree.mk_temp_lval()
 
     coff = offset.offsetvalue()
@@ -1842,6 +1871,39 @@ def vargument_deref_value_to_ast_lval(
             "AST conversion of return value in argument deref value %s with "
             + "offset %s not yet handled at %s",
             str(basevar), str(offset), iaddr)
+        return astree.mk_temp_lval()
+
+    if basevar.is_typecast_value:
+        asmvar = cast("VAuxiliaryVariable", basevar.denotation)
+        vtcv = cast("VTypeCastValue", asmvar.auxvar)
+        bctype = vtcv.tgttype
+        vtype = bctype.convert(astree.typconverter)
+        if vtype is not None and vtype.is_pointer:
+            tgttype = cast(AST.ASTTypPtr, vtype).tgttyp
+            castaddr = vtcv.iaddr
+            if len(astree.ssa_intros[castaddr]) == 1:
+                vinfo = list(astree.ssa_intros[castaddr].values())[0]
+                vexpr = astree.mk_vinfo_lval_expression(
+                    vinfo, anonymous=anonymous)
+                if tgttype.is_compound:
+
+                    return field_pointer_to_ast_memref_lval(
+                        vexpr,
+                        tgttype,
+                        coff,
+                        iaddr,
+                        astree,
+                        anonymous=anonymous)
+
+            chklogger.logger.error(
+                "AST conversion of typecast value %s with type %s not yet handled "
+                + " at address %s",
+                str(basevar), str(tgttype), iaddr)
+            return astree.mk_temp_lval()
+
+        chklogger.logger.error(
+            "AST conversion of typecast value %s with type %s not yet handled at %s",
+            str(basevar), str(vtype), iaddr)
         return astree.mk_temp_lval()
 
     chklogger.logger.error(

@@ -215,8 +215,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     symbolicaddrs: Dict[str, str] = userhints.symbolic_addresses()
     revsymbolicaddrs = {v: k for (k, v) in symbolicaddrs.items()}
     revfunctionnames = userhints.rev_function_names()
-    varintros = userhints.variable_introductions()
-    stackvarintros = userhints.stack_variable_introductions()
+    varintros = userhints.variable_introductions()   # to be removed
+    stackvarintros = userhints.stack_variable_introductions()  # to be removed
 
     # library_targets = library_call_targets(app, functions)
 
@@ -324,6 +324,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             fstackvarintros = {
                 -off: name
                 for (off, name) in stackvarintros.get(faddr, {}).items()}
+            functionannotation = userhints.function_annotation(faddr)
 
             astinterface = ASTInterface(
                 astree,
@@ -333,6 +334,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 astprototype=astprototype,
                 appsignature=appsignature,
                 varintros=varintros,
+                functionannotation=functionannotation,
                 stackvarintros=fstackvarintros,
                 patchevents=patchevents,
                 verbose=verbose)
@@ -341,7 +343,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             # xdata records for all instructions in the function. Locations that
             # have a common user are merged. Types are provided by lhs_types.
             astinterface.introduce_ssa_variables(
-                f.rdef_locations(), f.lhs_types(), f.lhs_names)
+                f.rdef_locations(), f.register_lhs_types, f.lhs_names)
 
             # Introduce stack variables for all stack buffers with types
             astinterface.introduce_stack_variables(

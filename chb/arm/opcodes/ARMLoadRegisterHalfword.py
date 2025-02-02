@@ -199,6 +199,7 @@ class ARMLoadRegisterHalfword(ARMOpcode):
 
         elif xd.is_xrmem_unknown and xd.is_address_known:
             xaddr = xd.xaddr
+            lhs = xd.vrt
             hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
             hl_rhs = XU.xmemory_dereference_lval_expr(
                 xaddr, xdata, iaddr, astree, size=2)
