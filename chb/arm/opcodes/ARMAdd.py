@@ -353,8 +353,15 @@ class ARMAdd(ARMOpcode):
 
             chklogger.logger.error(
                 "Second operand pointer variable not yet supported for %s at "
-                + "address %s",
-                str(rhs3), iaddr)
+                + "address %s; rrhs1: %s; hl_rhs1: %s; hl_rhs2: %s; hl_rhs1_type: %s;"
+                + " hl_rhs2_type: %s",
+                str(rhs3),
+                iaddr,
+                str(rrhs1),
+                str(hl_rhs1),
+                str(hl_rhs2),
+                str(hl_rhs1_type),
+                str(hl_rhs2_type))
             return astree.mk_temp_lval_expression()
 
 
@@ -392,8 +399,14 @@ class ARMAdd(ARMOpcode):
 
         elif (hl_lhs_type is not None and hl_lhs_type.is_pointer):
             hl_rhs = pointer_arithmetic_expr()
-            if rhs3.is_constant_expression:
-                astree.set_ssa_value(str(hl_lhs), hl_rhs)
+            if str(hl_rhs).startswith("astmem_tmp"):
+                chklogger.logger.error(
+                    "Unable to compute pointer arithmetic expression for %s "
+                    "at address %s",
+                    str(rhs3), iaddr)
+            else:
+                if rhs3.is_constant_expression:
+                    astree.set_ssa_value(str(hl_lhs), hl_rhs)
 
         else:
             hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)

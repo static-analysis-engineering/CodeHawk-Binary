@@ -149,7 +149,7 @@ def xconstant_to_ast_expr(
             gvaddrtype = gvaddr.ctype(astree.ctyper)
             if gvaddrtype is not None and gvaddrtype.is_array:
                 # array already is an address
-                return astree.mk_lval_expr(lval)
+                return astree.mk_start_of(lval)
             else:
                 return astree.mk_address_of(lval)
         else:
@@ -259,7 +259,7 @@ def vreturn_deref_value_to_ast_lval_expression(
         astree: ASTInterface,
         anonymous: bool = False) -> AST.ASTExpr:
 
-    if not offset.is_constant_value_offset:
+    if not (offset.is_constant_value_offset or offset.is_no_offset):
         chklogger.logger.error(
             "Non-constant offset: %s not yet supported at address %s",
             str(offset), iaddr)
@@ -669,7 +669,7 @@ def vinitmemory_value_to_ast_lval_expression(
 
     if avar.is_memory_variable and avar.is_basevar_variable:
         avar = cast("VMemoryVariable", avar)
-        if not avar.offset.is_constant_value_offset:
+        if not (avar.offset.is_constant_value_offset or avar.offset.is_no_offset):
             chklogger.logger.error(
                 "Non-constant offset: %s not yet supported at address %s",
                 str(avar.offset), iaddr)
@@ -852,6 +852,8 @@ def xvariable_to_ast_def_lval_expression(
             return astree.mk_temp_lval_expression()
 
         else:
+            chklogger.logger.error(
+                "No rdefs found for %s at address %s", str(reg), iaddr)
             return astree.mk_temp_lval_expression()
 
     if xvar.is_global_variable:
@@ -890,7 +892,17 @@ def xvariable_to_ast_def_lval_expression(
         return astree.mk_vinfo_lval_expression(vinfo, anonymous=anonymous)
 
     if xvar.is_typecast_value:
-        tcvar = cast("VTypeCastValue", xvar.denotation)
+        tcvar = cast("VTypeCastValue", xvar.denotation.auxvar)
+        variaddr = tcvar.iaddr
+        varreg = tcvar.register
+        if variaddr in astree.ssa_intros and str(varreg) in astree.ssa_intros[variaddr]:
+            vinfo = astree.ssa_intros[variaddr][str(varreg)]
+            ssavalue = astree.get_ssa_value(vinfo.vname)
+            if ssavalue is not None:
+                return ssavalue
+            else:
+                return astree.mk_vinfo_lval_expression(
+                    vinfo, anonymous=anonymous)
         chklogger.logger.error(
             "AST def conversion of typecast value %s to lval at address %s "
             + "not yet supported",
@@ -1755,19 +1767,32 @@ def vargument_deref_value_to_ast_lval(
         anonymous: bool = False) -> AST.ASTLval:
 
     if offset.is_no_offset:
-        asmvar = cast("VAuxiliaryVariable", basevar.denotation)
-        vinitvar = cast("VInitialRegisterValue", asmvar.auxvar)
-        xinitarg = vinitregister_value_to_ast_lval_expression(
-            vinitvar, xdata, iaddr, astree, anonymous=anonymous)
-        argtype = xinitarg.ctype(astree.ctyper)
-        if argtype is None:
-            chklogger.logger.error(
-                "Untyped dereferenced argument value %s not yet supported at "
-                + "address %s",
-                str(xinitarg), iaddr)
-            return astree.mk_temp_lval()
-        else:
-            return astree.mk_memref_lval(xinitarg, anonymous=anonymous)
+        if basevar.is_initial_register_value:
+            asmvar = cast("VAuxiliaryVariable", basevar.denotation)
+            vinitvar = cast("VInitialRegisterValue", asmvar.auxvar)
+            xinitarg = vinitregister_value_to_ast_lval_expression(
+                vinitvar, xdata, iaddr, astree, anonymous=anonymous)
+            argtype = xinitarg.ctype(astree.ctyper)
+            if argtype is None:
+                chklogger.logger.error(
+                    "Untyped dereferenced argument value %s not yet supported at "
+                    + "address %s",
+                    str(xinitarg), iaddr)
+                return astree.mk_temp_lval()
+            else:
+                return astree.mk_memref_lval(xinitarg, anonymous=anonymous)
+
+        if basevar.is_function_return_value:
+            asmvar = cast("VAuxiliaryVariable", basevar.denotation)
+            frvinitrvar = cast("VFunctionReturnValue", asmvar.auxvar)
+            callsite = frvinitrvar.callsite
+            if callsite in astree.ssa_intros:
+                if len(astree.ssa_intros[callsite]) == 1:
+                    vinfo = list(astree.ssa_intros[callsite].values())[0]
+                    vtype = vinfo.vtype
+                    vexpr = astree.mk_vinfo_lval_expression(
+                        vinfo, anonymous=anonymous)
+                    return astree.mk_memref_lval(vexpr, anonymous=anonymous)
 
     if not offset.is_constant_value_offset:
         chklogger.logger.error(
@@ -1977,6 +2002,7 @@ def xmemory_dereference_lval(
         anonymous: bool = False) -> AST.ASTLval:
 
     xaddr = xxpr_to_ast_def_expr(address, xdata, iaddr, astree)
+
     if xaddr.is_ast_binary_op:
         xaddr = cast(AST.ASTBinaryOp, xaddr)
         if xaddr.exp1.is_ast_startof:

@@ -70,16 +70,32 @@ class ARMStoreMultipleIncrementAfterXData(ARMOpcodeXData):
         return self.ldmstm_xpr(0, "xdst")
 
     @property
+    def is_xdst_unknown(self) -> bool:
+        return self.xdata.xprs_r[0] is None
+
+    @property
     def xsrc(self) -> "XXpr":
         return self.ldmstm_xpr(1, "xsrc")
+
+    @property
+    def is_xsrc_unknowns(self) -> bool:
+        return self.xdata.xprs_r[1] is None
 
     @property
     def xxdst(self) -> "XXpr":
         return self.ldmstm_xpr(2, "xxdst")
 
     @property
+    def is_xxdst_unknown(self) -> bool:
+        return self.xdata.xprs_r[2] is None
+
+    @property
     def xxsrc(self) -> "XXpr":
         return self.ldmstm_xpr(3, "xxsrc")
+
+    @property
+    def is_xxsrc_unknown(self) -> bool:
+        return self.xdata.xprs_r[3] is None
 
     @property
     def copysize(self) -> int:
@@ -90,17 +106,39 @@ class ARMStoreMultipleIncrementAfterXData(ARMOpcodeXData):
 
     @property
     def annotation(self) -> str:
-        if self.is_ldmstm_aggregate:
-            return (
-                "memcpy(" +
-                str(self.xxdst)
-                + ", "
-                + str(self.xxsrc)
-                + ", "
-                + str(self.copysize)
-                + ")")
+        if self.is_ok:
+            if self.is_ldmstm_aggregate:
+                return (
+                    "memcpy(" +
+                    str(self.xxdst)
+                    + ", "
+                    + str(self.xxsrc)
+                    + ", "
+                    + str(self.copysize)
+                    + ")")
+            else:
+                return "not yet supported"
         else:
-            return "not yet supported"
+            if self.is_ldmstm_aggregate:
+                if self.is_xxdst_unknown and self.is_xxsrc_unknown:
+                    dst = str(self.xdst)
+                    src = str(self.xsrc)
+                elif self.is_xxdst_unknown:
+                    dst = str(self.xdst)
+                    src = str(self.xxsrc)
+                else:
+                    dst = str(self.xxdst)
+                    src = str(self.xsrc)
+                return (
+                        "memcpy("
+                        + dst
+                        + ", "
+                        + src
+                        + ", "
+                        + str(self.copysize)
+                        + ")")
+            else:
+                return "not yet supported"
 
 
 
@@ -166,10 +204,7 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMStoreMultipleIncrementAfterXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def ast_prov_ldmstmcopy(
             self,
@@ -232,8 +267,13 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
         xd = ARMStoreMultipleIncrementAfterXData(xdata)
         if not xd.is_ok:
-            chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
+            if xd.is_xxsrc_unknown and xd.is_xxdst_unknown:
+                chklogger.logger.error(
+                    "LDM-STM-memcpy: (%s): src and dst unknown", iaddr)
+            elif xd.is_xxsrc_unknown:
+                chklogger.logger.error("LDM-STM-memcpy: (%s): src unknown", iaddr)
+            else:
+                chklogger.logger.error("LDM-STM-memcpy: (%s): dst unknown", iaddr)
             return ([], [])
 
         xdst = xd.xdst

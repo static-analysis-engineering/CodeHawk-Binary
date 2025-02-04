@@ -330,6 +330,8 @@ class VMemoryVariable(VAssemblyVariable):
         elif self.is_realigned_stack_variable:
             offset = self.offset.offsetvalue()
             return 'varr.' + '{0:04d}'.format(offset)
+        elif self.offset.is_no_offset:
+            return "*" + str(self.base)
         return str(str(self.base)) + '[' + str(self.offset) + ']'
 
 
