@@ -239,7 +239,10 @@ class ARMStoreRegister(ARMOpcode):
             hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
 
         else:
-            chklogger.logger.error("Error value encountered at %s", iaddr)
+            chklogger.logger.error(
+                "STR: Lhs lval and address both have error values: skipping "
+                "store instruction at address %s",
+                iaddr)
             return ([], [])
 
         rhs = xd.xxrt
