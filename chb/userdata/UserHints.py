@@ -523,10 +523,21 @@ class StackVarIntro:
 
     @property
     def offset(self) -> int:
+        """The offset is negated to reflect the actual relationship between
+        the stack pointer address at function entry and the address of the
+        variable.
+        """
+
         if not "offset" in self.varintro:
             chklogger.logger.warning(
                 "Stack variable intro without offset; returning 0")
-        return int(self.varintro.get("offset", "0"))
+        index = int(self.varintro.get("offset", "0"))
+        if index > 0:
+            return -index
+        else:
+            raise UF.CHBError(
+                "Unexpected non-positive offset in stack-variable intro: "
+                + str(self.offset))
 
     @property
     def name(self) -> str:
@@ -540,17 +551,25 @@ class StackVarIntro:
         return self.varintro.get("typename", None)
 
     @property
+    def mods(self) -> List[str]:
+        return cast(List[str], self.varintro.get("mods", []))
+
+    @property
+    def is_array(self) -> bool:
+        return any(a for a in self.mods if a.startswith("array"))
+
+    @property
     def arraysize(self) -> Optional[int]:
-        if "array" in self.varintro:
-            return int(self.varintro.get("array", "0"))
-        else:
-            return None
+        if self.is_array:
+            entry = next(a for a in self.mods if a.startswith("array"))
+            eindex = entry.find(":")
+            if eindex > 0:
+                return int(entry[eindex+1:])
+        return None
 
     @property
     def ispointer(self) -> bool:
-        if "ptrto" in self.varintro:
-            return self.varintro.get("ptrto", "no") == "yes"
-        return False
+        return "ptrto" in self.mods
 
     def to_xml(self, node: ET.Element) -> None:
         xvintro = ET.Element("vintro")
@@ -611,6 +630,16 @@ class FunctionAnnotation:
         if iaddr in rvintros:
             return rvintros[iaddr]
         raise UF.CHBError("No register variable introductions for " + iaddr)
+
+    def has_stack_variable_introduction(self, offset: int) -> bool:
+        return offset in self.stack_variable_introductions
+
+    def get_stack_variable_introduction(self, offset: int) -> StackVarIntro:
+        svintros = self.stack_variable_introductions
+        if offset in svintros:
+            return svintros[offset]
+        raise UF.CHBError(
+            "No stack variable introduction for offset " + str(offset))
 
     def to_xml(self, node: ET.Element) -> None:
         node.set("faddr", self.faddr)
