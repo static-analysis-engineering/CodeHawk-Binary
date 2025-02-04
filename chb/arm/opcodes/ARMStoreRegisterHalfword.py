@@ -194,6 +194,7 @@ class ARMStoreRegisterHalfword(ARMOpcode):
                 lhs, xdata, iaddr, astree, memaddr=memaddr)
 
         elif xd.is_vmem_unknown and xd.is_address_known:
+            lhs = None
             memaddr = xd.xaddr
             hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
 
@@ -216,7 +217,7 @@ class ARMStoreRegisterHalfword(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        if lhs.is_tmp:
+        if lhs is not None and lhs.is_tmp:
             astree.add_expose_instruction(hl_assign.instrid)
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
@@ -265,4 +266,4 @@ class ARMStoreRegisterHalfword(ARMOpcode):
             ll_assigns = [ll_assign]
             hl_assigns = [hl_assign]
 
-        return ([hl_assign], [ll_assign])
+        return (hl_assigns, ll_assigns)
