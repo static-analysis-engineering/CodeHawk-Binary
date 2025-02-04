@@ -194,13 +194,14 @@ class ARMStoreRegisterHalfword(ARMOpcode):
                 lhs, xdata, iaddr, astree, memaddr=memaddr)
 
         elif xd.is_vmem_unknown and xd.is_address_known:
-            lhs = None
             memaddr = xd.xaddr
             hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
 
         else:
             chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
+                "STRH: Lhs lval and address both have error values: skipping "
+                + "store instruction at address %s",
+                iaddr)
             return ([], [])
 
         rhs = xd.xxrt
@@ -217,8 +218,15 @@ class ARMStoreRegisterHalfword(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        if lhs is not None and lhs.is_tmp:
+        # Currently def-use info does not properly account for assignments
+        # to variables that are part of a struct or array variable, so these
+        # assignments must be explicitly forced to appear in the lifting
+        if (
+                xd.is_vmem_unknown
+                or hl_lhs.offset.is_index_offset
+                or hl_lhs.offset.is_field_offset):
             astree.add_expose_instruction(hl_assign.instrid)
+
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)

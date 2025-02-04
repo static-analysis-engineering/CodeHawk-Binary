@@ -199,7 +199,9 @@ class ARMStoreRegisterByte(ARMOpcode):
 
         else:
             chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
+                "STRB: Lhs lval and address both have error values: skipping "
+                + "store instruction at address %s",
+                iaddr)
             return ([], [])
 
         rhs = xd.xxrt
@@ -222,9 +224,13 @@ class ARMStoreRegisterByte(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        # to highlight missing info, expose in the lifting store instructions
-        # that are unresolved
-        if xd.is_vmem_unknown:
+        # Currently def-use info does not properly account for assignments
+        # to variables that are part of a struct or array variable, so these
+        # assignments must be explicitly forced to appear in the lifting
+        if (
+                xd.is_vmem_unknown
+                or hl_lhs.offset.is_index_offset
+                or hl_lhs.offset.is_field_offset):
             astree.add_expose_instruction(hl_assign.instrid)
 
         astree.add_instr_mapping(hl_assign, ll_assign)
