@@ -529,15 +529,16 @@ class StackVarIntro:
         """
 
         if not "offset" in self.varintro:
-            chklogger.logger.warning(
-                "Stack variable intro without offset; returning 0")
-        index = int(self.varintro.get("offset", "0"))
+            raise UF.CHBError(
+                "Stack variable intro without offset")
+
+        index = int(self.varintro["offset"])
         if index > 0:
             return -index
         else:
             raise UF.CHBError(
                 "Unexpected non-positive offset in stack-variable intro: "
-                + str(self.offset))
+                + str(index))
 
     @property
     def name(self) -> str:
