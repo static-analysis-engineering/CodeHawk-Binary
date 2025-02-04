@@ -62,7 +62,8 @@ from chb.astinterface.ASTIFormalVarInfo import ASTIFormalVarInfo
 from chb.astinterface.ASTIProvenance import ASTIProvenance
 import chb.astinterface.ASTIUtil as AU
 
-from chb.userdata.UserHints import FunctionAnnotation, RegisterVarIntro
+from chb.userdata.UserHints import (
+    FunctionAnnotation, RegisterVarIntro, StackVarIntro)
 
 import chb.util.fileutil as UF
 from chb.util.loggingutil import chklogger
@@ -302,13 +303,16 @@ class ASTInterface:
         raise UF.CHBError("No function annotation found")
 
     def has_stack_variable_intro(self, offset: int) -> bool:
-        return offset in self.stackvarintros
+        fnannotation = self.function_annotation
+        if fnannotation is not None:
+            return fnannotation.has_stack_variable_introduction(offset)
+        return False
 
-    def get_stack_variable_intro(self, offset: int) -> str:
-        if self.has_stack_variable_intro(offset):
-            return self.stackvarintros[offset]
-        else:
-            raise UF.CHBError("No stack-variable intro found for " + str(offset))
+    def get_stack_variable_intro(self, offset: int) -> StackVarIntro:
+        fnannotation = self.function_annotation
+        if fnannotation is not None:
+            return fnannotation.get_stack_variable_introduction(offset)
+        raise UF.CHBError("No function annotation found")
 
     def set_available_expressions(
             self, aexprs: Dict[str, Dict[str, Tuple[int, int, str]]]) -> None:
@@ -1095,13 +1099,15 @@ class ASTInterface:
             return self.stack_variables[offset]
 
         # create a new stack variable
-        if offset in self.stackvarintros:
-            vname = self.stackvarintros[offset]
+        if self.has_stack_variable_intro(offset):
+            svintro = self.get_stack_variable_intro(offset)
+            vname = svintro.name
         else:
             if offset < 0:
                 vname = "localstackvar_" + str(-offset)
             else:
                 vname = "stack_" + str(offset)
+
         size: Optional[int] = None
         if vtype is not None:
             size = self.type_size_in_bytes(vtype)

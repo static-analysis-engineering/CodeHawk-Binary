@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -197,7 +197,10 @@ class VConstantValueVariable(FnVarDictionaryRecord):
 
     @property
     def register(self) -> "Register":
-        raise UF.CHBError("Constant value is not an initial register value")
+        raise UF.CHBError(
+            "Constant value is not an initial register value: "
+            + str(self)
+            + " (" + self.tags[0] + ")")
 
     def argument_deref_arg_offset(self, inbytes: bool = False) -> Tuple[int, int]:
         raise UF.CHBError("argument_deref_arg_offset not supported on "
@@ -372,7 +375,9 @@ class VInitialMemoryValue(VConstantValueVariable):
         if avar.is_memory_variable and avar.is_basevar_variable:
             xbasevar = avar.basevar
             offset = avar.offset
-            return xbasevar.is_function_return_value and offset.is_constant_offset
+            return (
+                xbasevar.is_function_return_value
+                and (offset.is_constant_offset or offset.is_no_offset))
         else:
             return False
 
@@ -595,7 +600,7 @@ class VTypeCastValue(VConstantValueVariable):
         return self.bd.register(self.args[1])
 
     def __str__(self) -> str:
-        return self.name
+        return self.name + "(" + self.iaddr + ", " + str(self.tgttype) + ")"
 
 
 @varregistry.register_tag("fp", VConstantValueVariable)

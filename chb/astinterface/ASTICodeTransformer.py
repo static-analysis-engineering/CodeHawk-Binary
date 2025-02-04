@@ -105,7 +105,7 @@ class ASTICodeTransformer(ASTIdentityTransformer):
                         "Transfor [%s]: global lhs", str(instr))
                     instrs.append(instr)
                 else:
-                    chklogger.logger.debug("Transform [%s]: remove", str(instr))
+                    chklogger.logger.info("Transform [%s]: remove", str(instr))
             else:
                 instrs.append(instr)
         return self.astinterface.mk_instr_sequence(
