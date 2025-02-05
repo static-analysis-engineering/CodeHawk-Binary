@@ -374,6 +374,34 @@ def memory_variable_to_lval_expression(
         size: int = 4,
         anonymous: bool = False) -> AST.ASTExpr:
 
+    if base.is_basevar:
+        base = cast("VMemoryBaseBaseVar", base)
+        if base.basevar.is_typecast_value:
+            tcval = cast("VTypeCastValue", base.basevar.denotation.auxvar)
+            asttgttype = tcval.tgttype.convert(astree.typconverter)
+            vinfo = astree.mk_vinfo(tcval.name, vtype=asttgttype)
+            astbase = astree.mk_vinfo_lval_expression(vinfo)
+            if offset.is_field_offset:
+                offset = cast("VMemoryOffsetFieldOffset", offset)
+                astoffset: AST.ASTOffset = field_offset_to_ast_offset(
+                    offset, xdata, iaddr, astree)
+            elif offset.is_array_index_offset:
+                offset = cast("VMemoryOffsetArrayIndexOffset", offset)
+                astoffset = array_offset_to_ast_offset(offset, xdata, iaddr, astree)
+            elif offset.is_constant_value_offset:
+                astoffset = astree.mk_scalar_index_offset(offset.offsetvalue())
+            else:
+                astoffset = nooffset
+            return astree.mk_memref_expr(
+                astbase, offset=astoffset, anonymous=anonymous)
+
+        else:
+            chklogger.logger.error(
+                "AST conversion of non-typecast basevar %s at address %s "
+                + "not yet supported",
+                str(base), iaddr)
+            return astree.mk_temp_lval_expression()
+
     name = str(base)
 
     if not astree.globalsymboltable.has_symbol(name):
@@ -690,6 +718,9 @@ def vinitmemory_value_to_ast_lval_expression(
 
         if astbasetype.is_pointer:
             tgttype = cast(AST.ASTTypPtr, astbasetype).tgttyp
+            if tgttype.is_scalar:
+                return astree.mk_memref_expr(astbase, anonymous=anonymous)
+
             if tgttype.is_compound:
 
                 compkey = cast(AST.ASTTypComp, tgttype).compkey
@@ -1050,12 +1081,13 @@ def mk_xpointer_expr(
                     return default()
                 subfoffset = astree.mk_field_offset(subfield.fieldname, fcompkey)
             else:
-                chklogger.logger.error(
-                    "Non-struct type %s for field %s in second-level rest "
-                    + "offset not yet "
-                    + "handled for %s with offset %s at %s: %d",
-                    str(field.fieldtype), field.fieldname,
-                    str(axpr1), str(axpr2), iaddr, restoffset)
+                if not anonymous:
+                    chklogger.logger.error(
+                        "Non-struct type %s for field %s in second-level rest "
+                        + "offset not yet "
+                        + "handled for %s with offset %s at %s: %d",
+                        str(field.fieldtype), field.fieldname,
+                        str(axpr1), str(axpr2), iaddr, restoffset)
                 return default()
         else:
             subfoffset = nooffset
@@ -1125,8 +1157,9 @@ def xbinary_to_ast_def_expr(
 
     if xpr1.is_compound and xpr2.is_constant:
         xc = cast(X.XprCompound, xpr1)
-        astxpr1 = xcompound_to_ast_def_expr(xc, xdata, iaddr, astree)
-        astxpr2 = xxpr_to_ast_expr(xpr2, xdata, iaddr, astree)
+        astxpr1 = xcompound_to_ast_def_expr(
+            xc, xdata, iaddr, astree, anonymous=anonymous)
+        astxpr2 = xxpr_to_ast_expr(xpr2, xdata, iaddr, astree, anonymous=anonymous)
         if operator in ["plus", "minus"]:
             return astree.mk_binary_expression(operator, astxpr1, astxpr2)
         else:
@@ -1656,6 +1689,7 @@ def xvariable_to_ast_lval(
                 rhs, xdata, iaddr, astree)
         else:
             astrhs = None
+
         return astree.mk_ssa_register_variable_lval(
             str(xv), iaddr, vtype=ctype, ssavalue=astrhs)
 
@@ -1795,10 +1829,11 @@ def vargument_deref_value_to_ast_lval(
                     return astree.mk_memref_lval(vexpr, anonymous=anonymous)
 
     if not offset.is_constant_value_offset:
-        chklogger.logger.error(
-            "Non-constant offset: %s with variable %s not yet supported at "
-            + "address %s",
-            str(offset), str(basevar), iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "Non-constant offset: %s with variable %s not yet supported at "
+                + "address %s",
+                str(offset), str(basevar), iaddr)
         return astree.mk_temp_lval()
 
     coff = offset.offsetvalue()

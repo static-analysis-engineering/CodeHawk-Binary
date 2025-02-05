@@ -205,12 +205,18 @@ class ARMLoadRegister(ARMOpcode):
 
         # high-level assignment
 
+        def has_cast() -> bool:
+            return (
+                astree.has_register_variable_intro(iaddr)
+                and astree.get_register_variable_intro(iaddr).has_cast())
+
         lhs = xd.vrt
 
         if xd.is_ok:
             rhs = xd.xrmem
+            rhsval = None if has_cast() else xd.xrmem
             xaddr = xd.xaddr
-            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhs)
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhsval)
             hl_rhs = XU.xxpr_to_ast_def_expr(
                 rhs, xdata, iaddr, astree, memaddr=xaddr)
 
@@ -229,11 +235,6 @@ class ARMLoadRegister(ARMOpcode):
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
-
-        def has_cast() -> bool:
-            return (
-                astree.has_register_variable_intro(iaddr)
-                and astree.get_register_variable_intro(iaddr).has_cast())
 
         if has_cast():
             lhstype = hl_lhs.ctype(astree.ctyper)
