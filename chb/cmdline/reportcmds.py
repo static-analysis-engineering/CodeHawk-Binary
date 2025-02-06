@@ -1127,6 +1127,40 @@ def report_buffer_bounds(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def collect_known_fn_addrs(app: "AppAccess", patchcallsites: list) -> dict:
+    function_addr: Dict[str, str] = {}
+    def consider_pair(faddr: str, fname: Optional[str]):
+        if fname and fname not in function_addr:
+            function_addr[fname] = faddr
+    def consider(faddr: str):
+        fname = (
+            app.function_name(faddr)
+            if app.has_function_name(faddr)
+            else None)
+        consider_pair(faddr, fname)
+
+    for (faddr, blocks) in app.call_instructions().items():
+        consider(faddr)
+        for (baddr, instrs) in blocks.items():
+            for instr in instrs:
+                calltgt = instr.call_target
+                # The main thing we're trying to capture here is any
+                # name->address mappings that CodeHawk recovered with
+                # heuristics, which (for now) means shared object stubs.
+                if calltgt.is_so_target:
+                    opcode = instr.opcode # type: ignore
+                    if "MIPS" in repr(opcode): # ugly but concise!
+                        # No support (or need?) for MIPS just yet
+                        continue
+                    optgt = opcode.opargs[0]
+                    tgtname = cast(StubTarget, calltgt).stub.name
+                    if optgt.is_absolute:
+                        tgtaddr = optgt.opkind.address.get_hex()
+                        consider_pair(tgtaddr, tgtname)
+
+    return function_addr
+
+
 def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -1194,6 +1228,8 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
 
     patchcallsites = libcalls.patch_callsites()
 
+    function_addr = collect_known_fn_addrs(app, patchcallsites)
+
     content: Dict[str, Any] = {}
     if xjson:
         xinfodata = xinfo.to_json_result()
@@ -1232,6 +1268,7 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
 
         patch_records.append(jresult.content)
 
+    content["function-addr"] = function_addr
     content["patch-records"] = patch_records
     chklogger.logger.debug("Number of patch callsites: %s", len(content['patch-records']))
 
