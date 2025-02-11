@@ -407,7 +407,6 @@ class ARMAdd(ARMOpcode):
             else:
                 if rhs3.is_constant_expression:
                     astree.set_ssa_value(str(hl_lhs), hl_rhs)
-
         else:
             hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
 

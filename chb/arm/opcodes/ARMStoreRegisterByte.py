@@ -65,6 +65,18 @@ class ARMStoreRegisterByteXData(ARMOpcodeXData):
         return self.xdata.vars_r[0] is None
 
     @property
+    def lhsvar(self) -> "XVariable":
+        return self.var(1, "lhsvar")
+
+    @property
+    def is_lhsvar_unknown(self) -> bool:
+        return self.xdata.vars_r[1] is None
+
+    @property
+    def is_lhsvar_known(self) -> bool:
+        return self.xdata.vars_r[1] is not None
+
+    @property
     def xrn(self) -> "XXpr":
         return self.xpr(0, "xrn")
 
@@ -188,10 +200,16 @@ class ARMStoreRegisterByte(ARMOpcode):
         xd = ARMStoreRegisterByteXData(xdata)
 
         if xd.is_ok:
-            lhs = xd.vmem
+            lhs = xd.lhsvar
             memaddr = xd.xaddr
             hl_lhs = XU.xvariable_to_ast_lval(
                 lhs, xdata, iaddr, astree, memaddr=memaddr)
+
+        elif xd.is_vmem_unknown and xd.is_lhsvar_known and xd.is_address_known:
+            memaddr = xd.xaddr
+            lhsvar = xd.lhsvar
+            hl_lhs = XU.xvariable_to_ast_lval(
+                lhsvar, xdata, iaddr, astree, memaddr=memaddr)
 
         elif xd.is_vmem_unknown and xd.is_address_known:
             memaddr = xd.xaddr

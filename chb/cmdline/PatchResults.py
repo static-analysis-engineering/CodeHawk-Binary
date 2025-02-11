@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024  Aarno Labs, LLC
+# Copyright (c) 2023-2025  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -409,6 +409,8 @@ class PatchResults:
         if self._events is None:
             self._events = []
             for de in self._d["events"]:
+                if de["category"] == "failure":
+                    continue
                 self._events.append(PatchEvent(de))
         return self._events
 

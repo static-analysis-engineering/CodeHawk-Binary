@@ -1035,7 +1035,7 @@ def mk_xpointer_expr(
 
     cst2 = cast(AST.ASTIntegerConstant, axpr2).cvalue
 
-    if not axpr1.is_ast_lval_expr:
+    if not (axpr1.is_ast_lval_expr or axpr1.is_ast_addressof):
         chklogger.logger.warning(
             "AST def conversion of pointer expression encountered unexpected "
             + " base expression %s at address %s",

@@ -70,6 +70,18 @@ class ARMStoreRegisterXData(ARMOpcodeXData):
         return self.xdata.vars_r[0] is None
 
     @property
+    def lhsvar(self) -> "XVariable":
+        return self.var(1, "lhsvar")
+
+    @property
+    def is_lhsvar_unknown(self) -> bool:
+        return self.xdata.vars_r[1] is None
+
+    @property
+    def is_lhsvar_known(self) -> bool:
+        return self.xdata.vars_r[1] is not None
+
+    @property
     def vrn(self) -> "XVariable":
         return self.var(1, "vrn")
 
@@ -234,6 +246,12 @@ class ARMStoreRegister(ARMOpcode):
             hl_lhs = XU.xvariable_to_ast_lval(
                 lhs, xdata, iaddr, astree, memaddr=memaddr)
 
+        elif xd.is_vmem_unknown and xd.is_lhsvar_known and xd.is_address_known:
+            memaddr = xd.xaddr
+            lhsvar = xd.lhsvar
+            hl_lhs = XU.xvariable_to_ast_lval(
+                lhsvar, xdata, iaddr, astree, memaddr=memaddr)
+
         elif xd.is_vmem_unknown and xd.is_address_known:
             memaddr = xd.xaddr
             hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
@@ -244,6 +262,11 @@ class ARMStoreRegister(ARMOpcode):
                 "store instruction at address %s",
                 iaddr)
             return ([], [])
+
+        if xd.is_vmem_unknown:
+            vmem = "unknown"
+        else:
+            vmem = str(xd.vmem)
 
         rhs = xd.xxrt
         rdefs = xdata.reachingdefs
