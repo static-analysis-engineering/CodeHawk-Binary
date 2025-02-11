@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020-2021 Henny B. Sipma
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -766,19 +766,28 @@ class XprCompound(XXpr):
         args = self.operands
         if len(args) == 2:
             return (args[0].is_stack_base_address and args[1].is_constant)
+        elif self.is_addressof_var:
+            xvar = self.get_addressof_var
+            return xvar is not None and xvar.is_local_stack_variable
         else:
             return False
 
     def stack_address_offset(self) -> int:
-        if self.is_stack_address:
+        if self.is_stack_address and len(self.operands) == 2:
+            # explicit stack address
             stackoffset = self.operands[1]
             if self.operator == 'minus':
                 return stackoffset.negated_value()
             else:
                 return stackoffset.intvalue
-        else:
-            raise UF.CHBError(
-                "Expression is not a stack address: " + str(self))
+
+        elif self.is_stack_address and self.is_addressof_var:
+            xvar = self.get_addressof_var
+            if xvar is not None:
+                return xvar.denotation.offset.offsetvalue()
+
+        raise UF.CHBError(
+            "Expression is not a stack address: " + str(self))
 
     @property
     def is_heap_address(self) -> bool:

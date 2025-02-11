@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2024  Aarno Labs LLC
+# Copyright (c) 2022-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -463,7 +463,7 @@ class ASTCPrettyPrinter(ASTVisitor):
     def visit_lval(self, lval: AST.ASTLval) -> None:
         if lval.lhost.is_memref:
             memexp = cast(AST.ASTMemRef, lval.lhost).memexp
-            if lval.offset.is_field_offset:
+            if lval.offset.is_field_offset and not memexp.is_ast_addressof:
                 fieldname = cast(AST.ASTFieldOffset, lval.offset).fieldname
                 suboffset = cast(AST.ASTFieldOffset, lval.offset).offset
                 memexp.accept(self)
@@ -488,9 +488,13 @@ class ASTCPrettyPrinter(ASTVisitor):
         self.ccode.write(var.vname)
 
     def visit_memref(self, memref: AST.ASTMemRef) -> None:
-        self.ccode.write("(*(")
-        memref.memexp.accept(self)
-        self.ccode.write("))")
+        if memref.memexp.is_ast_addressof:
+            memexp = cast(AST.ASTAddressOf, memref.memexp)
+            memexp.lval.accept(self)
+        else:
+            self.ccode.write("(*(")
+            memref.memexp.accept(self)
+            self.ccode.write("))")
 
     def visit_no_offset(self, offset: AST.ASTNoOffset) -> None:
         pass
