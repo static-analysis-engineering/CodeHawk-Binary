@@ -432,4 +432,9 @@ class ARMAdd(ARMOpcode):
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
+        if astree.has_register_variable_intro(iaddr):
+            rvintro = astree.get_register_variable_intro(iaddr)
+            if rvintro.has_cast():
+                astree.add_expose_instruction(hl_assign.instrid)
+
         return ([hl_assign], [ll_assign])

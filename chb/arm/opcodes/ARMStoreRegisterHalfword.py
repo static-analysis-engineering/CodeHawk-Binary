@@ -223,6 +223,8 @@ class ARMStoreRegisterHalfword(ARMOpcode):
         # assignments must be explicitly forced to appear in the lifting
         if (
                 xd.is_vmem_unknown
+                or lhs.is_memory_variable and cast("VMemoryVariable",
+                                                   lhs.denotation).base.is_basevar
                 or hl_lhs.offset.is_index_offset
                 or hl_lhs.offset.is_field_offset):
             astree.add_expose_instruction(hl_assign.instrid)
