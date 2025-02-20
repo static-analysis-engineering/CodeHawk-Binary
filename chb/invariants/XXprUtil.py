@@ -397,10 +397,11 @@ def memory_variable_to_lval_expression(
                 astbase, offset=astoffset, anonymous=anonymous)
 
         else:
-            chklogger.logger.error(
-                "AST conversion of non-typecast basevar %s at address %s "
-                + "not yet supported",
-                str(base), iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    "AST conversion of non-typecast basevar %s at address %s "
+                    + "not yet supported",
+                    str(base), iaddr)
             return astree.mk_temp_lval_expression()
 
     name = str(base)
@@ -699,71 +700,14 @@ def vinitmemory_value_to_ast_lval_expression(
 
     if avar.is_memory_variable and avar.is_basevar_variable:
         avar = cast("VMemoryVariable", avar)
-        if not (avar.offset.is_constant_value_offset or avar.offset.is_no_offset):
-            chklogger.logger.error(
-                "Non-constant offset: %s not yet supported at address %s",
-                str(avar.offset), iaddr)
-            return astree.mk_temp_lval_expression()
-
-        coff = avar.offset.offsetvalue()
-        astbase = xvariable_to_ast_def_lval_expression(
-            avar.basevar, xdata, iaddr, astree, size=size, anonymous=anonymous)
-        astbasetype = astbase.ctype(astree.ctyper)
-
-        if astbasetype is None:
-            chklogger.logger.error(
-                "AST conversion of vinitmemory value %s with basevar %s and "
-                + "offset %s at address %s unsuccessful because of lack of type "
-                + "of basevar",
-                str(vconstvar), str(astbase), str(coff), iaddr)
-            return astree.mk_temp_lval_expression()
-
-        if astbasetype.is_pointer:
-            tgttype = cast(AST.ASTTypPtr, astbasetype).tgttyp
-            if tgttype.is_scalar:
-                return astree.mk_memref_expr(astbase, anonymous=anonymous)
-
-            if tgttype.is_compound:
-
-                compkey = cast(AST.ASTTypComp, tgttype).compkey
-                if not astree.has_compinfo(compkey):
-                    chklogger.logger.error(
-                        "Encountered compinfo key without definition in"
-                        + "symbol table: %d",
-                        compkey)
-                    return astree.mk_temp_lval_expression()
-
-                compinfo = astree.compinfo(compkey)
-                if not compinfo.has_field_offsets():
-                    chklogger.logger.error(
-                        "No fields are specified for compinfo %s (at address %s)",
-                        compinfo.compname, iaddr)
-                    return astree.mk_temp_lval_expression()
-
-                if not compinfo.has_field_offset(coff):
-                    chklogger.logger.error(
-                        "Compinfo %s does not have a field at offset %d "
-                        + "(at address %s)",
-                        compinfo.compname, coff, iaddr)
-                    return astree.mk_temp_lval_expression()
-
-                (field, restoffset) = compinfo.field_at_offset(coff)
-                if restoffset > 0:
-                    chklogger.logger.error(
-                        "Rest offset in memory dereference not yet handled at "
-                        + "%s: %s",
-                        iaddr, str(restoffset))
-                    return astree.mk_temp_lval_expression()
-                foffset = astree.mk_field_offset(field.fieldname, compkey)
-                return astree.mk_memref_expr(
-                    astbase, offset=foffset, anonymous=anonymous)
-
-        chklogger.logger.error(
-            "AST conversion of vinitmemory value %s with astbase %s (type: "
-            + "%s) and offset %s at address %s",
-            str(vconstvar), str(astbase), str(astbasetype), str(avar.offset),
-            iaddr)
-        return astree.mk_temp_lval_expression()
+        return memory_variable_to_lval_expression(
+            avar.base,
+            avar.offset,
+            xdata,
+            iaddr,
+            astree,
+            size=size,
+            anonymous=anonymous)
 
     if avar.is_memory_variable and avar.is_stack_argument:
         return stack_argument_to_ast_lval_expression(
@@ -1056,6 +1000,21 @@ def mk_xpointer_expr(
 
         subfoffset: AST.ASTOffset
         compinfo = astree.globalsymboltable.compinfo(compkey)
+        if not compinfo.has_field_offsets():
+            if not anonymous:
+                chklogger.logger.error(
+                    "No fields are specified for compinfo %s (at address %s)",
+                    compinfo.compname, iaddr)
+            return astree.mk_temp_lval_expression()
+
+        if not compinfo.has_field_offset(cst2):
+            if not anonymous:
+                chklogger.logger.error(
+                    "Compinfo %s does not have a field at offset %d "
+                    + "(at address %s)",
+                    compinfo.compname, cst2, iaddr)
+            return astree.mk_temp_lval_expression()
+
         (field, restoffset) = compinfo.field_at_offset(cst2)
 
         if restoffset > 0:
@@ -1845,6 +1804,18 @@ def vargument_deref_value_to_ast_lval(
                     vexpr = astree.mk_vinfo_lval_expression(
                         vinfo, anonymous=anonymous)
                     return astree.mk_memref_lval(vexpr, anonymous=anonymous)
+
+    if offset.is_field_offset:
+        if basevar.is_typecast_value:
+            tcval = cast("VTypeCastValue", basevar.denotation.auxvar)
+            asttgttype = tcval.tgttype.convert(astree.typconverter)
+            vinfo = astree.mk_vinfo(tcval.name, vtype=asttgttype)
+            astbase = astree.mk_vinfo_lval_expression(vinfo)
+            offset = cast("VMemoryOffsetFieldOffset", offset)
+            astoffset: AST.ASTOffset = field_offset_to_ast_offset(
+                offset, xdata, iaddr, astree, anonymous=anonymous)
+            return astree.mk_memref_lval(
+                astbase, offset=astoffset, anonymous=anonymous)
 
     if not offset.is_constant_value_offset:
         if not anonymous:
