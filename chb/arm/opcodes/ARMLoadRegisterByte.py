@@ -233,12 +233,6 @@ class ARMLoadRegisterByte(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        '''
-        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-        hl_rhs = XU.xxpr_to_ast_def_expr(
-            rhs, xdata, iaddr, astree, size=1, memaddr=xaddr)
-        '''
-
         hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
@@ -269,8 +263,8 @@ class ARMLoadRegisterByte(ARMOpcode):
                 annotations=annotations)
             ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
 
-            basereg = xdata.vars[1]
-            newaddr = xdata.xprs[4]
+            basereg = xd.get_base_update_var()
+            newaddr = xd.get_base_update_xpr()
             hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
             hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
 

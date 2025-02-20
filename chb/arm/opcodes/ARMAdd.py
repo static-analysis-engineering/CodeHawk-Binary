@@ -237,6 +237,11 @@ class ARMAdd(ARMOpcode):
 
         # high-level assignment
 
+        def has_cast() -> bool:
+            return (
+                astree.has_register_variable_intro(iaddr)
+                and astree.get_register_variable_intro(iaddr).has_cast())
+
         xd = ARMAddXData(xdata)
         if not xdata.is_ok:
             chklogger.logger.error("Error value encountered at %s", iaddr)
@@ -252,16 +257,10 @@ class ARMAdd(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        if rhs3.is_string_reference:
-            ctype = astree.astree.mk_pointer_type(astree.astree.char_type)
-            hl_lhs = XU.xvariable_to_ast_lvals(
-                lhs,
-                xdata,
-                astree,
-                ispointer=True,
-                ctype=ctype)[0]
-        else:
-            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+
+        def hl_rhs_default () -> AST.ASTExpr:
+            return XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
 
         if str(lhs) == "PC":
             chklogger.logger.info(
@@ -276,11 +275,11 @@ class ARMAdd(ARMOpcode):
             hl_rhs2_type = hl_rhs2.ctype(astree.ctyper)
 
             if hl_rhs1_type is None and hl_rhs2_type is None:
-                chklogger.logger.error(
+                chklogger.logger.info(
                     "Unable to lift pointer arithmetic without type for "
                     + "%s at address %s",
                     str(rhs3), iaddr)
-                return astree.mk_temp_lval_expression()
+                return hl_rhs_default()
 
             if hl_rhs2_type is not None and hl_rhs2_type.is_pointer:
                 rhs2tgttyp = cast(AST.ASTTypPtr, hl_rhs2_type).tgttyp
@@ -290,7 +289,6 @@ class ARMAdd(ARMOpcode):
                         "Unable to lift pointer arithmetic without size for "
                         + "%s at address %s; set type size to 1",
                         str(hl_rhs2_type), iaddr)
-                    # return astree.mk_temp_lval_expression()
                     tgttypsize = 1
 
                 if tgttypsize == 1:
@@ -311,11 +309,11 @@ class ARMAdd(ARMOpcode):
                 rhs1tgttyp = cast(AST.ASTTypPtr, hl_rhs1_type).tgttyp
                 tgttypsize = astree.type_size_in_bytes(rhs1tgttyp)
                 if tgttypsize is None:
-                    chklogger.logger.error(
+                    chklogger.logger.info(
                         "Unable to lift pointer arithmetic without size for "
                         + "%s at address %s",
                         str(hl_rhs1_type), iaddr)
-                    return astree.mk_temp_lval_expression()
+                    return hl_rhs_default()
 
                 if hl_rhs1.is_ast_startof:
                     arraylval = cast(AST.ASTStartOf, hl_rhs1).lval
@@ -345,13 +343,13 @@ class ARMAdd(ARMOpcode):
                 return astree.mk_binary_op("plus", hl_rhs1, scaled)
 
             if hl_rhs2_type is None:
-                chklogger.logger.error(
+                chklogger.logger.info(
                     "Unable to lift pointer arithmetic without type for "
                     + "%s at address %s",
                     str(rhs2), iaddr)
-                return astree.mk_temp_lval_expression()
+                return hl_rhs_default()
 
-            chklogger.logger.error(
+            chklogger.logger.info(
                 "Second operand pointer variable not yet supported for %s at "
                 + "address %s; rrhs1: %s; hl_rhs1: %s; hl_rhs2: %s; hl_rhs1_type: %s;"
                 + " hl_rhs2_type: %s",
@@ -362,8 +360,7 @@ class ARMAdd(ARMOpcode):
                 str(hl_rhs2),
                 str(hl_rhs1_type),
                 str(hl_rhs2_type))
-            return astree.mk_temp_lval_expression()
-
+            return hl_rhs_default()
 
         # resulting expression is a stack address
         if (
@@ -408,7 +405,7 @@ class ARMAdd(ARMOpcode):
                 if rhs3.is_constant_expression:
                     astree.set_ssa_value(str(hl_lhs), hl_rhs)
         else:
-            hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+            hl_rhs = hl_rhs_default ()
 
         hl_assign = astree.mk_assign(
             hl_lhs,

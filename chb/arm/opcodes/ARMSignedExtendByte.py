@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.util.fileutil as UF
@@ -39,6 +39,27 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMSignedExtendByteXData(ARMOpcodeXData):
+    """SXTB <rd>, <rm>"""
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xxrn(self) -> "XXpr":
+        return self.xpr(1, "xxrn")
 
 
 @armregistry.register_tag("SXTB", ARMOpcode)
@@ -77,6 +98,10 @@ class ARMSignedExtendByte(ARMOpcode):
         xprs[1]: rhs (simplified)
         """
 
-        lhs = str(xdata.vars[0])
-        result = str(xdata.xprs[1])
-        return lhs + " := " + result
+        xd = ARMSignedExtendByteXData(xdata)
+        if xd.is_ok:
+            lhs = str(xd.vrd)
+            result = str(xd.xxrn)
+            return lhs + " := " + result
+        else:
+            return "Error value"
