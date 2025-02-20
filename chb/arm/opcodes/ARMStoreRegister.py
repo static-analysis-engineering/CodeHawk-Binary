@@ -66,6 +66,10 @@ class ARMStoreRegisterXData(ARMOpcodeXData):
         return self.var(0, "vmem")
 
     @property
+    def is_vmem_known(self) -> bool:
+        return self.xdata.vars_r[0] is not None
+
+    @property
     def is_vmem_unknown(self) -> bool:
         return self.xdata.vars_r[0] is None
 
@@ -116,7 +120,7 @@ class ARMStoreRegisterXData(ARMOpcodeXData):
     @property
     def annotation(self) -> str:
         wbu = self.writeback_update()
-        if self.is_ok:
+        if self.is_ok or self.is_vmem_known:
             assignment = str(self.vmem) + " := " + str(self.xxrt)
         elif self.is_vmem_unknown and self.is_address_known:
             assignment = "*(" + str(self.xaddr) + ") := " + str(self.xxrt)
@@ -240,7 +244,7 @@ class ARMStoreRegister(ARMOpcode):
 
         # high-level assignment
 
-        if xd.is_ok:
+        if xd.is_ok or xd.is_vmem_known:
             lhs = xd.vmem
             memaddr = xd.xaddr
             hl_lhs = XU.xvariable_to_ast_lval(
@@ -293,6 +297,8 @@ class ARMStoreRegister(ARMOpcode):
         # assignments must be explicitly forced to appear in the lifting
         if (
                 xd.is_vmem_unknown
+                or lhs.is_memory_variable and cast("VMemoryVariable",
+                                                   lhs.denotation).base.is_basevar
                 or hl_lhs.offset.is_index_offset
                 or hl_lhs.offset.is_field_offset):
             astree.add_expose_instruction(hl_assign.instrid)

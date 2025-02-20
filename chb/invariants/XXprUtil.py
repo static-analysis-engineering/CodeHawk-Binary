@@ -384,10 +384,11 @@ def memory_variable_to_lval_expression(
             if offset.is_field_offset:
                 offset = cast("VMemoryOffsetFieldOffset", offset)
                 astoffset: AST.ASTOffset = field_offset_to_ast_offset(
-                    offset, xdata, iaddr, astree)
+                    offset, xdata, iaddr, astree, anonymous=anonymous)
             elif offset.is_array_index_offset:
                 offset = cast("VMemoryOffsetArrayIndexOffset", offset)
-                astoffset = array_offset_to_ast_offset(offset, xdata, iaddr, astree)
+                astoffset = array_offset_to_ast_offset(
+                    offset, xdata, iaddr, astree, anonymous=anonymous)
             elif offset.is_constant_value_offset:
                 astoffset = astree.mk_scalar_index_offset(offset.offsetvalue())
             else:
@@ -414,7 +415,8 @@ def memory_variable_to_lval_expression(
     vinfo = astree.globalsymboltable.get_symbol(name)
     if offset.is_field_offset:
         offset = cast("VMemoryOffsetFieldOffset", offset)
-        astoffset = field_offset_to_ast_offset(offset, xdata, iaddr, astree)
+        astoffset = field_offset_to_ast_offset(
+            offset, xdata, iaddr, astree, anonymous=anonymous)
         return astree.mk_vinfo_lval_expression(
             vinfo, astoffset, anonymous=anonymous)
 
@@ -433,7 +435,7 @@ def memory_variable_to_lval_expression(
         if suboffset.is_field_offset:
             suboffset = cast("VMemoryOffsetFieldOffset", suboffset)
             astsuboffset = field_offset_to_ast_offset(
-                suboffset, xdata, iaddr, astree)
+                suboffset, xdata, iaddr, astree, anonymous=anonymous)
             astindexoffset = astree.mk_expr_index_offset(
                 astindex, offset = astsuboffset)
             return astree.mk_vinfo_lval_expression(
@@ -1082,7 +1084,19 @@ def mk_xpointer_expr(
                 subfoffset = astree.mk_field_offset(subfield.fieldname, fcompkey)
             else:
                 if not anonymous:
-                    chklogger.logger.error(
+                    # an INFO message is issued rather than a WARNING or ERROR
+                    # message, because this may be an intermediate offset that
+                    # is part of a larger offset, where the intermediate offset
+                    # by itself is not meaningful.
+                    #
+                    # Example:
+                    # ADD R0, R0, #0x200   R0 := (R0_in[92]_in + 0x200))
+                    # LDRH R0, [R0,#0x28]  R0 := R0_in[92]_in[552]_in
+                    #
+                    # Here the offset 0x200 is an intermediate to 0x228, which
+                    # denotes a proper offset in the struct, but 0x200 does not
+                    # denote any legal offset.
+                    chklogger.logger.info(
                         "Non-struct type %s for field %s in second-level rest "
                         + "offset not yet "
                         + "handled for %s with offset %s at %s: %d",
@@ -1136,7 +1150,7 @@ def xbinary_to_ast_def_expr(
         xvar = cast(X.XprVariable, xpr1).variable
         astxpr1 = xvariable_to_ast_def_lval_expression(
             xvar, xdata, iaddr, astree, anonymous=anonymous)
-        astxpr2 = xxpr_to_ast_expr(xpr2, xdata, iaddr, astree)
+        astxpr2 = xxpr_to_ast_expr(xpr2, xdata, iaddr, astree, anonymous=anonymous)
         if operator in ["plus", "minus"]:
             ty1 = astxpr1.ctype(astree.ctyper)
             if ty1 is not None:
@@ -1439,13 +1453,13 @@ def array_offset_to_ast_offset(
     if offset.offset.is_field_offset:
         fsuboffset = cast("VMemoryOffsetFieldOffset", offset.offset)
         astoffset: AST.ASTOffset = field_offset_to_ast_offset(
-            fsuboffset, xdata, iaddr, astree)
+            fsuboffset, xdata, iaddr, astree, anonymous=anonymous)
         return astree.mk_expr_index_offset(indexxpr, offset=astoffset)
 
     if offset.offset.is_array_index_offset:
         asuboffset = cast("VMemoryOffsetArrayIndexOffset", offset.offset)
         astoffset = array_offset_to_ast_offset(
-            asuboffset, xdata, iaddr, astree)
+            asuboffset, xdata, iaddr, astree, anonymous=anonymous)
         return astree.mk_expr_index_offset(indexxpr, offset=astoffset)
 
     chklogger.logger.error(
@@ -1457,7 +1471,8 @@ def field_offset_to_ast_offset(
         offset: "VMemoryOffsetFieldOffset",
         xdata: "InstrXData",
         iaddr: str,
-        astree: ASTInterface) -> AST.ASTOffset:
+        astree: ASTInterface,
+        anonymous: bool = False) -> AST.ASTOffset:
 
     if offset.has_no_offset():
         return astree.mk_field_offset(offset.fieldname, offset.ckey)
@@ -1465,11 +1480,11 @@ def field_offset_to_ast_offset(
     if offset.offset.is_field_offset:
         fieldoffset = cast("VMemoryOffsetFieldOffset", offset.offset)
         suboffset = field_offset_to_ast_offset(
-            fieldoffset, xdata, iaddr, astree)
+            fieldoffset, xdata, iaddr, astree, anonymous=anonymous)
     elif offset.offset.is_array_index_offset:
         arrayindexoffset = cast("VMemoryOffsetArrayIndexOffset", offset.offset)
         suboffset = array_offset_to_ast_offset(
-            arrayindexoffset, xdata, iaddr, astree)
+            arrayindexoffset, xdata, iaddr, astree, anonymous=anonymous)
     elif offset.offset.is_constant_value_offset:
         suboffset = astree.mk_scalar_index_offset(offset.offset.offsetvalue())
     else:
@@ -1515,7 +1530,8 @@ def array_variable_to_ast_lval(
         cast("VMemoryOffsetArrayIndexOffset", offset),
         xdata,
         iaddr,
-        astree)
+        astree,
+        anonymous=anonymous)
 
     return astree.mk_vinfo_lval(vinfo, offset=astoffset, anonymous=anonymous)
 
@@ -1561,7 +1577,8 @@ def struct_variable_to_ast_lval(
         cast("VMemoryOffsetFieldOffset", offset),
         xdata,
         iaddr,
-        astree)
+        astree,
+        anonymous=anonymous)
 
     return astree.mk_vinfo_lval(vinfo, offset=astoffset, anonymous=anonymous)
 
@@ -1686,7 +1703,7 @@ def xvariable_to_ast_lval(
                      or (rhs.is_constant_value_variable
                          and not rhs.is_function_return_value))):
             astrhs: Optional[AST.ASTExpr] = xxpr_to_ast_def_expr(
-                rhs, xdata, iaddr, astree)
+                rhs, xdata, iaddr, astree, anonymous=anonymous)
         else:
             astrhs = None
 
@@ -1706,7 +1723,8 @@ def xvariable_to_ast_lval(
             astree,
             size=size,
             ctype=ctype,
-            memaddr=memaddr)
+            memaddr=memaddr,
+            anonymous=anonymous)
 
     elif (
             xv.is_memory_variable
@@ -2036,7 +2054,8 @@ def xmemory_dereference_lval(
         astree: ASTInterface,
         anonymous: bool = False) -> AST.ASTLval:
 
-    xaddr = xxpr_to_ast_def_expr(address, xdata, iaddr, astree)
+    xaddr = xxpr_to_ast_def_expr(
+        address, xdata, iaddr, astree, anonymous=anonymous)
 
     if xaddr.is_ast_binary_op:
         xaddr = cast(AST.ASTBinaryOp, xaddr)
@@ -2069,7 +2088,8 @@ def xmemory_dereference_to_ast_def_expr(
         astree: ASTInterface,
         anonymous: bool = False) -> AST.ASTExpr:
 
-    hl_addr = xxpr_to_ast_def_expr(address, xdata, iaddr, astree)
+    hl_addr = xxpr_to_ast_def_expr(
+        address, xdata, iaddr, astree, anonymous=anonymous)
     hl_addr_type = hl_addr.ctype(astree.ctyper)
     if hl_addr_type is None:
         return astree.mk_memref_expr(hl_addr, anonymous=anonymous)

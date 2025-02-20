@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.arm.ARMPseudoCode as APC
@@ -46,6 +46,27 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMBitFieldInsertXData(ARMOpcodeXData):
+    """BFI <rd> <rn>"""
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def xrd(self) -> "XXpr":
+        return self.xpr(0, "xrd")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(1, "xrn")
 
 
 @armregistry.register_tag("BFI", ARMOpcode)
@@ -102,26 +123,30 @@ class ARMBitFieldInsert(ARMOpcode):
         return self.args[2]
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        rhs1 = str(xdata.xprs[0])
-        rhs2 = str(xdata.xprs[1])
-        assignment = (
-            lhs
-            + " := bit-field-insert("
-            + rhs1
-            + ", "
-            + rhs2
-            + ", lsb:"
-            + str(self.lsb)
-            + ", width:"
-            + str(self.width))
-        if xdata.has_unknown_instruction_condition():
-            return "if ? then " + assignment
-        elif xdata.has_instruction_condition():
-            c = str(xdata.xprs[1])
-            return "if " + c + " then " + assignment
+        xd = ARMBitFieldInsertXData(xdata)
+        if xd.is_ok:
+            lhs = str(xd.vrd)
+            rhs1 = str(xd.xrd)
+            rhs2 = str(xd.xrn)
+            assignment = (
+                lhs
+                + " := bit-field-insert("
+                + rhs1
+                + ", "
+                + rhs2
+                + ", lsb:"
+                + str(self.lsb)
+                + ", width:"
+                + str(self.width))
+            if xdata.has_unknown_instruction_condition():
+                return "if ? then " + assignment
+            elif xdata.has_instruction_condition():
+                c = str(xdata.xprs[1])
+                return "if " + c + " then " + assignment
+            else:
+                return assignment
         else:
-            return assignment
+            return "Error value"
 
     def ast_prov(
             self,

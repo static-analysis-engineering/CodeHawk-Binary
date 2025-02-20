@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.util.fileutil as UF
@@ -39,6 +39,47 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMMultiplySubtractXData(ARMOpcodeXData):
+    """MLS <rd>, <rn>, <rm>, <ra>"""
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def xra(self) -> "XXpr":
+        return self.xpr(2, "xra")
+
+    @property
+    def xprod(self) -> "XXpr":
+        return self.xpr(3, "xprod")
+
+    @property
+    def xxprod(self) -> "XXpr":
+        return self.xpr(4, "xxprod")
+
+    @property
+    def xdiff(self) -> "XXpr":
+        return self.xpr(5, "xdiff")
+
+    @property
+    def xxdiff(self) -> "XXpr":
+        return self.xpr(6, "xxdiff")
 
 
 @armregistry.register_tag("MLS", ARMOpcode)
@@ -78,11 +119,15 @@ class ARMMultiplySubtract(ARMOpcode):
         xprs[6]: (rhsra - (rhs1 * rhs2)) (simplified)
         """
 
-        lhs = str(xdata.vars[0])
-        prod = xdata.xprs[3]
-        rprod = xdata.xprs[4]
-        xprod = simplify_result(xdata.args[4], xdata.args[5], prod, rprod)
-        diff = xdata.xprs[5]
-        rdiff = xdata.xprs[6]
-        xdiff = simplify_result(xdata.args[6], xdata.args[7], diff, rdiff)
-        return (lhs + " := " + xdiff)
+        xd = ARMMultiplySubtractXData(xdata)
+        if xd.is_ok:
+            lhs = str(xd.vrd)
+            xprod = xd.xprod
+            xxprod = xd.xxprod
+            rprod = simplify_result(xdata.args[4], xdata.args[5], xprod, xxprod)
+            xdiff = xd.xdiff
+            xxdiff = xd.xxdiff
+            rdiff = simplify_result(xdata.args[6], xdata.args[7], xdiff, xxdiff)
+            return (lhs + " := " + rdiff)
+        else:
+            return "Error value"
