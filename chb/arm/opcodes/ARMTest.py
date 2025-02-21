@@ -88,6 +88,10 @@ class ARMTest(ARMOpcode):
         self.check_key(2, 3, "Test")
 
     @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
+
+    @property
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1]]
 

@@ -61,8 +61,6 @@ and constant_value_variable_t =
       ctxt_iaddress_t
       * string
       * bool
-  | MemoryAddress of
-        int * memory_offset_t * string option      "ma"       1      2
   | BridgeVariable of ctxt_iaddress_t * int        "bv"       2      1
   | FieldValue of string * int * string            "fv"       1      3
   | SymbolicValue of xpr_t                         "sv"       1      1
@@ -122,10 +120,6 @@ class VConstantValueVariable(FnVarDictionaryRecord):
 
     @property
     def is_bridge_variable(self) -> bool:
-        return False
-
-    @property
-    def is_memory_address(self) -> bool:
         return False
 
     @property
@@ -737,58 +731,6 @@ class SSARegisterValue(VConstantValueVariable):
 
     def __str__(self) -> str:
         return self.name
-
-
-@varregistry.register_tag("ma", VConstantValueVariable)
-class MemoryAddress(VConstantValueVariable):
-    """Address of memory variable.
-
-    args[0]: index of memory base in vardictionary
-    args[1]: index of memory offset in vardictionary
-    args[2]: index of optional name or -1
-    """
-
-    def __init__(
-            self,
-            vd: "FnVarDictionary",
-            ixval: IndexedTableValue) -> None:
-        VConstantValueVariable.__init__(self, vd, ixval)
-
-    @property
-    def is_memory_address(self) -> bool:
-        return True
-
-    @property
-    def base(self) -> VMemoryBase:
-        return self.vd.memory_base(self.args[0])
-
-    @property
-    def offset(self) -> VMemoryOffset:
-        return self.vd.memory_offset(self.args[1])
-
-    @property
-    def name(self) -> Optional[str]:
-        if self.args[2] == -1:
-            return None
-        else:
-            return self.bd.string(self.args[2])
-
-    def to_json_result(self) -> JSONResult:
-        jbase = self.base.to_json_result()
-        if not jbase.is_ok:
-            return JSONResult("auxvariable", {}, "fail", jbase.reason)
-        joffset = self.offset.to_json_result()
-        if not joffset.is_ok:
-            return JSONResult("auxvariable", {}, "fail", joffset.reason)
-        content: Dict[str, Any] = {}
-        content["kind"] = "ma"
-        content["base"] = jbase.content
-        content["offset"] = joffset.content
-        content["txtrep"] = str(self)
-        return JSONResult("auxvariable", content, "ok")
-
-    def __str__(self) -> str:
-        return str(self.base) + " + " + str(self.offset)
 
 
 @varregistry.register_tag("fv", VConstantValueVariable)
