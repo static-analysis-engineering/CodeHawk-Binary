@@ -28,7 +28,9 @@
 
 Note: the boolean argument 'anonymous' is used for lvals: when true no new
   lvalid is generated for that lval. The argument is primarily used in the
-  conversion of invariants to available expressions.
+  conversion of invariants to available expressions. Also, errors are not
+  generated if anonymous is true.
+
 """
 
 from codecs import decode
@@ -55,7 +57,7 @@ if TYPE_CHECKING:
         VMemoryVariable, VAuxiliaryVariable, VRegisterVariable)
     from chb.invariants.VConstantValueVariable import (
         VInitialRegisterValue, VInitialMemoryValue, VFunctionReturnValue,
-        VTypeCastValue, SymbolicValue, MemoryAddress)
+        VTypeCastValue, SymbolicValue)
     from chb.invariants.VMemoryBase import (
         VMemoryBase,
         VMemoryBaseBaseVar,
@@ -179,44 +181,6 @@ def xxpr_to_ast_expr(
             "AST conversion of expression %s not yet supported at address %s",
             str(xpr), iaddr)
         return astree.mk_temp_lval_expression()
-
-
-def xxpr_memory_address_value_to_ast_expr(
-        xpr: X.XXpr,
-        xdata: "InstrXData",
-        iaddr: str,
-        astree: ASTInterface,
-        anonymous: bool = False) -> AST.ASTExpr:
-
-    if not xpr.is_memory_address_value:
-        chklogger.logger.error(
-            "Encountered expression that is not a memory address value: %s "
-            + "at address %s",
-            str(xpr), iaddr)
-
-    xvar = cast(X.XprVariable, xpr).variable
-    addr = cast("MemoryAddress", xvar.denotation.auxvar)
-    name = addr.name
-    if name is None:
-        chklogger.logger.error(
-            "AST conversion of unnamed memory address value %s not yet "
-            + "supported at address %s",
-            str(xvar), iaddr)
-        return astree.mk_temp_lval_expression()
-
-    if not astree.globalsymboltable.has_symbol(name):
-        chklogger.logger.error(
-            "AST conversion of memory address value %s not in global symbol "
-            + "table not yet supported at address %s",
-            str(xvar), iaddr)
-        return astree.mk_temp_lval_expression()
-
-    vinfo = astree.globalsymboltable.get_symbol(name)
-    lval = astree.mk_vinfo_lval(vinfo)
-    if vinfo.vtype is not None and vinfo.vtype.is_array:
-        return astree.mk_start_of(lval)
-    else:
-        return astree.mk_address_of(lval)
 
 
 def vinitregister_value_to_ast_lval_expression(
@@ -849,25 +813,6 @@ def xvariable_to_ast_def_lval_expression(
         return memory_variable_to_lval_expression(
             memvar.base, memvar.offset, xdata, iaddr, astree, anonymous=anonymous)
 
-    if xvar.is_memory_address_value:
-        addr = cast("MemoryAddress", xvar.denotation.auxvar)
-        name = addr.name
-        if name is None:
-            chklogger.logger.error(
-                "AST def conversion of unnamed memory address variable %s to "
-                + "lval at address %s not yet supported",
-                str(xvar), iaddr)
-            return astree.mk_temp_lval_expression()
-
-        if not astree.globalsymboltable.has_symbol(name):
-            chklogger.logger.error(
-                "AST def conversion of memory address % to lval at address %s "
-                + "not yet supported",
-                name, iaddr)
-
-        vinfo = astree.globalsymboltable.get_symbol(name)
-        return astree.mk_vinfo_lval_expression(vinfo, anonymous=anonymous)
-
     if xvar.is_typecast_value:
         tcvar = cast("VTypeCastValue", xvar.denotation.auxvar)
         variaddr = tcvar.iaddr
@@ -1326,10 +1271,6 @@ def xxpr_to_ast_def_expr(
     if xpr.is_constant:
         return xxpr_to_ast_expr(xpr, xdata, iaddr, astree, anonymous=anonymous)
 
-    if xpr.is_memory_address_value:
-        return xxpr_memory_address_value_to_ast_expr(
-            xpr, xdata, iaddr, astree, anonymous=anonymous)
-
     if xpr.is_stack_address:
         return stack_address_to_ast_expr(
             xpr, xdata, iaddr, astree, anonymous=anonymous)
@@ -1451,95 +1392,6 @@ def field_offset_to_ast_offset(
 
     return astree.mk_field_offset(
         offset.fieldname, offset.ckey, offset=suboffset)
-
-
-def array_variable_to_ast_lval(
-        base: "MemoryAddress",
-        elementtyp: AST.ASTTyp,
-        offset: "VMemoryOffset",
-        xdata: "InstrXData",
-        iaddr: str,
-        astree: ASTInterface,
-        anonymous: bool = False) -> AST.ASTLval:
-
-    name = base.name
-    if name is None:
-        chklogger.logger.error(
-            "AST conversion of array variable at %s encountered nameless "
-            + "base %s",
-            str(iaddr), str(base))
-        return astree.mk_temp_lval()
-
-    if not astree.globalsymboltable.has_symbol(name):
-        chklogger.logger.error(
-            "AST conversion of memory address value %s not in global symbol "
-            + " table not yet supported at address %s",
-            str(name), iaddr)
-        return astree.mk_temp_lval()
-
-    vinfo = astree.globalsymboltable.get_symbol(name)
-    if not offset.is_array_index_offset:
-        chklogger.logger.error(
-            "AST conversion of array variable expected to find array index "
-            + "offset, but found %s at address %s",
-            str(offset), iaddr)
-        return astree.mk_temp_lval()
-
-    astoffset = array_offset_to_ast_offset(
-        cast("VMemoryOffsetArrayIndexOffset", offset),
-        xdata,
-        iaddr,
-        astree,
-        anonymous=anonymous)
-
-    return astree.mk_vinfo_lval(vinfo, offset=astoffset, anonymous=anonymous)
-
-    chklogger.logger.error(
-        "Array variable to astlval still in progress at %s for %s with offset %s",
-        iaddr, str(base), str(offset))
-    return astree.mk_temp_lval()
-
-
-def struct_variable_to_ast_lval(
-        base: "MemoryAddress",
-        structtyp: AST.ASTTypComp,
-        offset: "VMemoryOffset",
-        xdata: "InstrXData",
-        iaddr: str,
-        astree: ASTInterface,
-        anonymous: bool = False) -> AST.ASTLval:
-
-    name = base.name
-    if name is None:
-        chklogger.logger.error(
-            "AST conversion of struct variable at %s encountered nameless "
-            + "base %s",
-            str(iaddr), str(base))
-        return astree.mk_temp_lval()
-
-    if not astree.globalsymboltable.has_symbol(name):
-        chklogger.logger.error(
-            "AST conversion of memory address value %s not in global symbol "
-            + " table not yet supported at address %s",
-            str(name), iaddr)
-        return astree.mk_temp_lval()
-
-    vinfo = astree.globalsymboltable.get_symbol(name)
-    if not offset.is_field_offset:
-        chklogger.logger.error(
-            "AST conversion of struct variable expected to find field offset "
-            + "but found %s at address %s",
-            str(offset), iaddr)
-        return astree.mk_temp_lval()
-
-    astoffset = field_offset_to_ast_offset(
-        cast("VMemoryOffsetFieldOffset", offset),
-        xdata,
-        iaddr,
-        astree,
-        anonymous=anonymous)
-
-    return astree.mk_vinfo_lval(vinfo, offset=astoffset, anonymous=anonymous)
 
 
 def global_variable_to_ast_lval(
@@ -1698,54 +1550,6 @@ def xvariable_to_ast_lval(
             size=size,
             ctype=ctype,
             memaddr=memaddr,
-            anonymous=anonymous)
-
-    elif (
-            xv.is_memory_variable
-            and cast("VMemoryVariable",
-                     xv.denotation).base.is_basearray):
-        xvmem = cast("VMemoryVariable", xv.denotation)
-        base = cast("VMemoryBaseBaseArray", xvmem.base).basearray
-        if not base.is_memory_address_value:
-            chklogger.logger.error(
-                "AST conversion of lval %s encountered invalid BaseArray at %s",
-                str(xv), iaddr)
-            return astree.mk_temp_lval()
-        basevar = cast("MemoryAddress", base.denotation.auxvar)
-        basetyp = cast(
-            "VMemoryBaseBaseArray",
-            xvmem.base).basetyp.convert(astree.typconverter)
-        return array_variable_to_ast_lval(
-            basevar,
-            cast(AST.ASTTypArray, basetyp).tgttyp,
-            xvmem.offset,
-            xdata,
-            iaddr,
-            astree,
-            anonymous=anonymous)
-
-    elif (
-            xv.is_memory_variable
-            and cast("VMemoryVariable",
-                     xv.denotation).base.is_basestruct):
-        xvmem = cast("VMemoryVariable", xv.denotation)
-        base = cast("VMemoryBaseBaseStruct", xvmem.base).basestruct
-        if not base.is_memory_address_value:
-            chklogger.logger.error(
-                "AST conversion of lval %s encountered invalie BaseStruct at %s",
-                str(xv), iaddr)
-            return astree.mk_temp_lval()
-        basevar = cast("MemoryAddress", base.denotation.auxvar)
-        basetyp = cast(
-            "VMemoryBaseBaseStruct",
-            xvmem.base).basetyp.convert(astree.typconverter)
-        return struct_variable_to_ast_lval(
-            basevar,
-            cast(AST.ASTTypComp, basetyp),
-            xvmem.offset,
-            xdata,
-            iaddr,
-            astree,
             anonymous=anonymous)
 
     elif (
