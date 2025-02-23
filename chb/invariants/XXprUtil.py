@@ -31,6 +31,60 @@ Note: the boolean argument 'anonymous' is used for lvals: when true no new
   conversion of invariants to available expressions. Also, errors are not
   generated if anonymous is true.
 
+Organization:
+
+Expressions:
+- xxpr_to_ast_def_expr: XXpr ==> ASTExpr
+
+  * xxpr_to_ast_expr: XXpr ==> ASTExpr  (for constants)
+    = xconstant_to_ast_expr: XprConstant ==> ASTExpr
+
+  * stack_address_to_ast_expr: XXpr ==> ASTExpr
+
+  * xvariable_to_ast_def_lval_expression: XVariable ==> ASTLvalExpr
+    = vinitregister_value_to_ast_lval_expression: VInitialRegisterValue ==>
+    = vinitmemory_value_to_ast_lval_expression: VInitialMemoryValue ==>
+      + vglobal_variable_value_to_ast_lval_expression: XVariable * VMemoryOffset
+      + vargument_deref_value_to_ast_lval_expression: XVariable * VMemoryOffset
+        -> vinitregister_value_to_ast_lval_expression
+        -> field_pointer_to_ast_memref_expr: ASTExpr * ASTTyp ==> ASTExpr
+           -> rationalize offset handling?
+
+      + vreturn_deref_value_to_ast_lval_expression: XVariable * VMemoryOffset
+
+      + stack_argument_to_ast_lval_expression: int ==>
+
+    = global_variable_to_lval_expression: VMemoryOffset ==>
+      ~> rationalize offset handling?
+
+    = memory_variable_to_lval_expression: VMemoryBase * VMemoryOffset ==>
+
+  * xcompound_to_ast_def_expr: XXpr ==> ASTExpr
+    = xunary_to_ast_def_expr: operator * XXpr ==> ASTExpr
+    = xbinary_to_ast_def_expr: operator * XXpr * XXpr ==> ASTExpr
+      + mk_xpointer_expr: operator * ASTExpr * ASTTyp * ASTExpr ==> ASTExpr
+
+- xmemory_dereference_lval_expr: XXpr ==> ASTExpr
+  -- conversion of an address dereferenced into an expression
+     (used primarily for LDR instructions with unresolved memory access as rhs)
+
+
+Variables (left-hand sides, aka lval's)
+- xvariable_to_ast_lval: XVariable ==> ASTLval
+  * stack_variable_to_ast_lval: int ==> ASTLval
+  * global_variable_to_ast_lval: VMemoryOffset ==> ASTLval
+  * basevar_variable_to_ast_lval: VMemoryBaseVar * VMemoryOffset ==> ASTLval
+  * field_pointer_to_ast_memref_lval: ASTExpr * ASTType * int
+    ~> rationalize offset handling?
+
+- xmemory_dereference_lval  (go via address): XXpr ==> ASTLval
+  -- conversion of the address of a lhs into an lval
+     (used primarily for STR instructions with unresolved memory access as lhs)
+
+Offsets:
+- array_offset_to_ast_offset: VMemoryOffsetArrayIndexOffset ==> ASTOffset
+- field_offset_to_ast_offset: VMemoryOffsetFieldOffset ==> ASTOffset
+
 """
 
 from codecs import decode
@@ -361,12 +415,22 @@ def memory_variable_to_lval_expression(
                 astbase, offset=astoffset, anonymous=anonymous)
 
         else:
-            if not anonymous:
-                chklogger.logger.error(
-                    "AST conversion of non-typecast basevar %s at address %s "
-                    + "not yet supported",
-                    str(base), iaddr)
-            return astree.mk_temp_lval_expression()
+            astlval = xvariable_to_ast_def_lval_expression(
+                base.basevar, xdata, iaddr, astree, anonymous=anonymous)
+            if offset.is_field_offset:
+                offset = cast("VMemoryOffsetFieldOffset", offset)
+                astoffset = field_offset_to_ast_offset(
+                    offset, xdata, iaddr, astree, anonymous=anonymous)
+            elif offset.is_array_index_offset:
+                offset = cast("VMemoryOffsetArrayIndexOffset", offset)
+                astoffset = array_offset_to_ast_offset(
+                    offset, xdata, iaddr, astree, anonymous=anonymous)
+            elif offset.is_constant_value_offset:
+                astoffset = astree.mk_scalar_index_offset(offset.offsetvalue())
+            else:
+                astoffset = nooffset
+            return astree.mk_memref_expr(
+                astlval, offset=astoffset, anonymous=anonymous)
 
     name = str(base)
 
@@ -954,11 +1018,11 @@ def mk_xpointer_expr(
 
         if not compinfo.has_field_offset(cst2):
             if not anonymous:
-                chklogger.logger.error(
+                chklogger.logger.info(
                     "Compinfo %s does not have a field at offset %d "
                     + "(at address %s)",
                     compinfo.compname, cst2, iaddr)
-            return astree.mk_temp_lval_expression()
+            return default()
 
         (field, restoffset) = compinfo.field_at_offset(cst2)
 
@@ -1552,13 +1616,14 @@ def xvariable_to_ast_lval(
             memaddr=memaddr,
             anonymous=anonymous)
 
+    # basevar variable
     elif (
             xv.is_memory_variable
             and cast("VMemoryVariable",
                      xv.denotation).base.is_basevar):
         xvmem = cast("VMemoryVariable", xv.denotation)
         membasevar = cast("VMemoryBaseBaseVar", xvmem.base).basevar
-        return vargument_deref_value_to_ast_lval(
+        return basevar_variable_to_ast_lval(
             membasevar,
             xvmem.offset,
             xdata,
@@ -1573,7 +1638,7 @@ def xvariable_to_ast_lval(
         return astree.mk_temp_lval()
 
 
-def vargument_deref_value_to_ast_lval(
+def basevar_variable_to_ast_lval(
         basevar: "XVariable",
         offset: "VMemoryOffset",
         xdata: "InstrXData",
@@ -1581,245 +1646,21 @@ def vargument_deref_value_to_ast_lval(
         astree: ASTInterface,
         anonymous: bool = False) -> AST.ASTLval:
 
-    if offset.is_no_offset:
-        if basevar.is_initial_register_value:
-            asmvar = cast("VAuxiliaryVariable", basevar.denotation)
-            vinitvar = cast("VInitialRegisterValue", asmvar.auxvar)
-            xinitarg = vinitregister_value_to_ast_lval_expression(
-                vinitvar, xdata, iaddr, astree, anonymous=anonymous)
-            argtype = xinitarg.ctype(astree.ctyper)
-            if argtype is None:
-                chklogger.logger.error(
-                    "Untyped dereferenced argument value %s not yet supported at "
-                    + "address %s",
-                    str(xinitarg), iaddr)
-                return astree.mk_temp_lval()
-            else:
-                return astree.mk_memref_lval(xinitarg, anonymous=anonymous)
-
-        if basevar.is_function_return_value:
-            asmvar = cast("VAuxiliaryVariable", basevar.denotation)
-            frvinitrvar = cast("VFunctionReturnValue", asmvar.auxvar)
-            callsite = frvinitrvar.callsite
-            if callsite in astree.ssa_intros:
-                if len(astree.ssa_intros[callsite]) == 1:
-                    vinfo = list(astree.ssa_intros[callsite].values())[0]
-                    vtype = vinfo.vtype
-                    vexpr = astree.mk_vinfo_lval_expression(
-                        vinfo, anonymous=anonymous)
-                    return astree.mk_memref_lval(vexpr, anonymous=anonymous)
-
+    astbase = xvariable_to_ast_def_lval_expression(
+        basevar, xdata, iaddr, astree, anonymous=anonymous)
     if offset.is_field_offset:
-        if basevar.is_typecast_value:
-            tcval = cast("VTypeCastValue", basevar.denotation.auxvar)
-            asttgttype = tcval.tgttype.convert(astree.typconverter)
-            vinfo = astree.mk_vinfo(tcval.name, vtype=asttgttype)
-            astbase = astree.mk_vinfo_lval_expression(vinfo)
-            offset = cast("VMemoryOffsetFieldOffset", offset)
-            astoffset: AST.ASTOffset = field_offset_to_ast_offset(
-                offset, xdata, iaddr, astree, anonymous=anonymous)
-            return astree.mk_memref_lval(
-                astbase, offset=astoffset, anonymous=anonymous)
-
-    if not offset.is_constant_value_offset:
-        if not anonymous:
-            chklogger.logger.error(
-                "Non-constant offset: %s with variable %s not yet supported at "
-                + "address %s",
-                str(offset), str(basevar), iaddr)
-        return astree.mk_temp_lval()
-
-    coff = offset.offsetvalue()
-    if basevar.is_initial_register_value:
-        asmvar = cast("VAuxiliaryVariable", basevar.denotation)
-        vinitvar = cast("VInitialRegisterValue", asmvar.auxvar)
-        xinitarg = vinitregister_value_to_ast_lval_expression(
-            vinitvar, xdata, iaddr, astree, anonymous=anonymous)
-        argtype = xinitarg.ctype(astree.ctyper)
-        if argtype is None:
-            chklogger.logger.error(
-                "Untyped dereferenced argument value %s not yet supported at "
-                + "address %s",
-                str(xinitarg), iaddr)
-            return astree.mk_temp_lval()
-
-        if argtype.is_pointer:
-            tgttype = cast(AST.ASTTypPtr, argtype).tgttyp
-            if tgttype.is_compound:
-
-                return field_pointer_to_ast_memref_lval(
-                    xinitarg,
-                    tgttype,
-                    coff,
-                    iaddr,
-                    astree,
-                    anonymous=anonymous)
-
-            elif coff == 0:
-                return astree.mk_memref_lval(xinitarg, anonymous=anonymous)
-
-        chklogger.logger.error(
-            "AST conversion of initial-register value in argument deref value "
-            + "%s with offset %s and type %s not yet handled at %s",
-            str(basevar), str(offset), str(argtype), iaddr)
-        return astree.mk_temp_lval()
-
-    if basevar.is_initial_memory_value:
-        asmvar = cast("VAuxiliaryVariable", basevar.denotation)
-        vinitmemvar = cast("VInitialMemoryValue", asmvar.auxvar)
-
-        if anonymous:
-            # Silently skip variables from invariants
-            chklogger.logger.info(
-                "AST conversion of initial-memory value in argument deref "
-                + "value %s with offset %s not yet handled at %s",
-                str(basevar), str(offset), iaddr)
-            return astree.mk_temp_lval()
-        else:
-            chklogger.logger.error(
-                "AST conversion of initial-memory value in argument deref "
-                + "value %s with offset %s not yet handled at %s",
-                str(basevar), str(offset), iaddr)
-            return astree.mk_temp_lval()
-
-    if basevar.is_function_return_value:
-        asmvar = cast("VAuxiliaryVariable", basevar.denotation)
-        vinitrvar = cast("VFunctionReturnValue", asmvar.auxvar)
-        callsite = vinitrvar.callsite
-        if callsite in astree.ssa_intros:
-            if len(astree.ssa_intros[callsite]) == 1:
-                vinfo = list(astree.ssa_intros[callsite].values())[0]
-                vtype = vinfo.vtype
-                vexpr = astree.mk_vinfo_lval_expression(
-                    vinfo, anonymous=anonymous)
-                if vtype is not None and vtype.is_pointer:
-                    tgttype = cast(AST.ASTTypPtr, vtype).tgttyp
-                    if tgttype.is_compound:
-
-                        return field_pointer_to_ast_memref_lval(
-                            vexpr,
-                            tgttype,
-                            coff,
-                            iaddr,
-                            astree,
-                            anonymous=anonymous)
-
-                    if coff == 0:
-                        return astree.mk_memref_lval(vexpr, anonymous=anonymous)
-
-                    else:
-                        chklogger.logger.error(
-                            "Non-struct pointer type %s not yet handled at %s",
-                            str(vtype), iaddr)
-                        return astree.mk_temp_lval()
-                else:
-                    chklogger.logger.error(
-                        "AST conversion of return value in argument deref "
-                        + "value %s with offset %s and type %s at address "
-                        + "%s not yet handled",
-                        str(basevar), str(offset), str(vtype), iaddr)
-                    return astree.mk_temp_lval()
-
-        chklogger.logger.error(
-            "AST conversion of return value in argument deref value %s with "
-            + "offset %s not yet handled at %s",
-            str(basevar), str(offset), iaddr)
-        return astree.mk_temp_lval()
-
-    if basevar.is_typecast_value:
-        asmvar = cast("VAuxiliaryVariable", basevar.denotation)
-        vtcv = cast("VTypeCastValue", asmvar.auxvar)
-        bctype = vtcv.tgttype
-        vtype = bctype.convert(astree.typconverter)
-        if vtype is not None and vtype.is_pointer:
-            tgttype = cast(AST.ASTTypPtr, vtype).tgttyp
-            castaddr = vtcv.iaddr
-            if len(astree.ssa_intros[castaddr]) == 1:
-                vinfo = list(astree.ssa_intros[castaddr].values())[0]
-                vexpr = astree.mk_vinfo_lval_expression(
-                    vinfo, anonymous=anonymous)
-                if tgttype.is_compound:
-
-                    return field_pointer_to_ast_memref_lval(
-                        vexpr,
-                        tgttype,
-                        coff,
-                        iaddr,
-                        astree,
-                        anonymous=anonymous)
-
-            chklogger.logger.error(
-                "AST conversion of typecast value %s with type %s not yet handled "
-                + " at address %s",
-                str(basevar), str(tgttype), iaddr)
-            return astree.mk_temp_lval()
-
-        chklogger.logger.error(
-            "AST conversion of typecast value %s with type %s not yet handled at %s",
-            str(basevar), str(vtype), iaddr)
-        return astree.mk_temp_lval()
-
-    chklogger.logger.error(
-        "AST conversion of argument deref lvalue: %s with offset %s not yet "
-        + "handled at %s (variable denotation type: %s)",
-        str(basevar), str(offset), iaddr, basevar.denotation.tags[0])
-    return astree.mk_temp_lval()
-
-
-def field_pointer_to_ast_memref_lval(
-        astexpr: AST.ASTExpr,
-        asttype: AST.ASTTyp,
-        offset: int,
-        iaddr: str,
-        astree: ASTInterface,
-        size: int = 4,
-        anonymous: bool = False) -> AST.ASTLval:
-
-    if not asttype.is_compound:
-        chklogger.logger.error(
-            "Expected to see a struct type but received %s at %s",
-            str(asttype), iaddr)
-        return astree.mk_temp_lval()
-
-    compkey = cast(AST.ASTTypComp, asttype).compkey
-    if not astree.has_compinfo(compkey):
-        chklogger.logger.error(
-            "Encountered compinfo key without definition in symbol table: %d",
-            compkey)
-        return astree.mk_temp_lval()
-
-    subfoffset: AST.ASTOffset = nooffset
-    compinfo = astree.compinfo(compkey)
-    (field, restoffset) = compinfo.field_at_offset(offset)
-    if restoffset > 0:
-        if field.fieldtype.is_compound:
-            fcompkey = cast(AST.ASTTypComp, field.fieldtype).compkey
-            if not astree.has_compinfo(fcompkey):
-                chklogger.logger.error(
-                    "Encountered field compinfo key without definition in "
-                    + "symbol table: %d",
-                    compkey)
-                return astree.mk_temp_lval()
-            fcompinfo = astree.compinfo(fcompkey)
-            (subfield, subrestoffset) = fcompinfo.field_at_offset(restoffset)
-            if subrestoffset > 0:
-                chklogger.logger.error(
-                    "Second-level rest offset in field-pointer memref not yet "
-                    + "handled for %s at %s: %s",
-                    str(astexpr), iaddr, str(subrestoffset))
-                return astree.mk_temp_lval()
-            subfoffset = astree.mk_field_offset(subfield.fieldname, fcompkey)
-        else:
-            chklogger.logger.error(
-                "Non-struct type for second-level rest offset not yet handled "
-                + " for %s with offset %d at %s",
-                str(astexpr), offset, iaddr)
-            return astree.mk_temp_lval()
+        offset = cast("VMemoryOffsetFieldOffset", offset)
+        astoffset: AST.ASTOffset = field_offset_to_ast_offset(
+            offset, xdata, iaddr, astree, anonymous=anonymous)
+    elif offset.is_array_index_offset:
+        offset = cast("VMemoryOffsetArrayIndexOffset", offset)
+        astoffset = array_offset_to_ast_offset(
+            offset, xdata, iaddr, astree, anonymous=anonymous)
+    elif offset.is_constant_value_offset:
+        astoffset = astree.mk_scalar_index_offset(offset.offsetvalue())
     else:
-        subfoffset = nooffset
-
-    foffset = astree.mk_field_offset(field.fieldname, compkey, offset=subfoffset)
-    return astree.mk_memref_lval(astexpr, offset=foffset, anonymous=anonymous)
+        astoffset = nooffset
+    return astree.mk_memref_lval(astbase, offset=astoffset, anonymous=anonymous)
 
 
 def xmemory_dereference_lval(
@@ -1856,73 +1697,12 @@ def xmemory_dereference_lval(
         return astree.mk_memref_lval(xaddr)
 
 
-def xmemory_dereference_to_ast_def_expr(
-        address: X.XXpr,
-        xdata: "InstrXData",
-        iaddr: str,
-        astree: ASTInterface,
-        anonymous: bool = False) -> AST.ASTExpr:
-
-    hl_addr = xxpr_to_ast_def_expr(
-        address, xdata, iaddr, astree, anonymous=anonymous)
-    hl_addr_type = hl_addr.ctype(astree.ctyper)
-    if hl_addr_type is None:
-        return astree.mk_memref_expr(hl_addr, anonymous=anonymous)
-
-    if hl_addr_type.is_pointer:
-        tgttype = cast(AST.ASTTypPtr, hl_addr_type).tgttyp
-        if tgttype.is_compound:
-
-            # Identify field offsets
-            compkey = cast(AST.ASTTypComp, tgttype).compkey
-            if not astree.has_compinfo(compkey):
-                chklogger.logger.error(
-                    ("Encountered compinfo key without definition in symbol "
-                     + " table: %d at address %s"),
-                    compkey, iaddr)
-                return astree.mk_memref_expr(hl_addr, anonymous=anonymous)
-
-            compinfo = astree.compinfo(compkey)
-            fieldoffset = 0
-            baseaddr = hl_addr
-            if hl_addr.is_ast_binary_op:
-                hl_addr = cast(AST.ASTBinaryOp, hl_addr)
-                if not hl_addr.op == "plus":
-                    chklogger.logger.error(
-                        "Encountered address expression with op %s at address %s",
-                        hl_addr.op, iaddr)
-                    return astree.mk_memref_expr(hl_addr, anonymous=anonymous)
-
-                if not hl_addr.exp2.is_integer_constant:
-                    chklogger.logger.warning(
-                        "Non-constant field offset not yet supported: %s "
-                        + "at address %s",
-                        str(hl_addr.exp2), iaddr)
-                    return astree.mk_memref_expr(hl_addr, anonymous=anonymous)
-
-                fieldoffset = cast(AST.ASTIntegerConstant, hl_addr.exp2).cvalue
-                baseaddr = hl_addr.exp1
-
-            (field, restoffset) = compinfo.field_at_offset(fieldoffset)
-            if restoffset > 0:
-                chklogger.logger.warning(
-                    "Rest offset in memory dereference not yet handled at %s: %s",
-                    iaddr, str(hl_addr))
-            foffset = astree.mk_field_offset(field.fieldname, compkey)
-            return astree.mk_memref_expr(
-                baseaddr, offset=foffset, anonymous=anonymous)
-
-    chklogger.logger.warning(
-        "Unexpected type for address in memory dereference: %s at address %s",
-        str(hl_addr_type), iaddr)
-    return astree.mk_memref_expr(hl_addr)
-
-
 def vfunctionreturn_value_to_ast_lvals(
         vconstvar: "VFunctionReturnValue",
         xdata: "InstrXData",
         astree: ASTInterface,
         anonymous: bool = False) -> List[AST.ASTLval]:
+    """Deprecated. Currently only used in Power32."""
 
     chklogger.logger.error(
         "AST conversion of vfunctionreturn_value %s deprecated",
