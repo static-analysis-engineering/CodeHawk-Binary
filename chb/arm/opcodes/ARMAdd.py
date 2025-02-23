@@ -394,7 +394,7 @@ class ARMAdd(ARMOpcode):
             if rhs3.is_constant_expression:
                 astree.set_ssa_value(str(hl_lhs), hl_rhs)
 
-        elif (hl_lhs_type is not None and hl_lhs_type.is_pointer):
+        elif (hl_lhs_type is not None and hl_lhs_type.is_pointer and not has_cast()):
             hl_rhs = pointer_arithmetic_expr()
             if str(hl_rhs).startswith("astmem_tmp"):
                 chklogger.logger.error(
