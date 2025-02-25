@@ -1550,6 +1550,10 @@ class UserHints:
                     self.userdata[tag].update(fnames)
                 else:
                     self.userdata[tag] = FunctionNamesHints(fnames)
+                if tag in self.astdata:
+                    self.astdata[tag].update(fnames)
+                else:
+                    self.astdata[tag] = FunctionNamesHints(fnames)
             else:
                 if tag in self.astdata:
                     self.astdata[tag].update(fnames)
