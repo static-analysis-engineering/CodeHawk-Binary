@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs, LLC
+# Copyright (c) 2021-2025  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -411,6 +411,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     fns_no_lineq: List[str] = args.fns_no_lineq  # function hex addresses
     fns_exclude: List[str] = args.fns_exclude  # function hex addresses
     fns_include: List[str] = args.fns_include  # function hex addresses
+    analyze_all_named: bool = args.analyze_all_named
     gc_compact: int = args.gc_compact
     construct_all_functions: bool = args.construct_all_functions
     show_function_timing: bool = args.show_function_timing
@@ -447,7 +448,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         exit(0)
 
     try:
-        prepare_executable(
+        userhints = prepare_executable(
             path,
             xfile,
             doreset,
@@ -487,6 +488,11 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
             else:
                 print_error("Header file " + f + " not found")
                 exit(1)
+
+    if analyze_all_named:
+        fnnamed_addrs = userhints.rev_function_names().values()
+        fns_include = fns_include + list(fnnamed_addrs)
+        chklogger.logger.warning("Include %d functions", len(fns_include))
 
     am = AnalysisManager(
         path,
