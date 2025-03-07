@@ -1457,6 +1457,14 @@ class UserHints:
         else:
             return {}
 
+    def function_entry_points(self) -> List[str]:
+        if "function-entry-points" in self.astdata:
+            entry = cast(FunctionEntryPointsHints,
+                         self.astdata["function-entry-points"])
+            return entry.entrypoints
+        else:
+            return []
+
     def add_hints(self, hints: Dict[str, Any]) -> None:
         """Process a user provided dictionary with user hint dictionaries.
 
@@ -1527,6 +1535,11 @@ class UserHints:
                 self.userdata[tag].update(fepoints)
             else:
                 self.userdata[tag] = FunctionEntryPointsHints(fepoints)
+            if tag in self.astdata:
+                self.astdata[tag].update(fepoints)
+            else:
+                self.astdata[tag] = FunctionEntryPointsHints(fepoints)
+
 
         if "function-annotations" in hints:
             tag = "function-annotations"
