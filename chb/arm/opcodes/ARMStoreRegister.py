@@ -86,6 +86,10 @@ class ARMStoreRegisterXData(ARMOpcodeXData):
         return self.xdata.vars_r[1] is not None
 
     @property
+    def is_xxrtc_known(self) -> bool:
+        return self.xdata.xprs_r[4] is not None
+
+    @property
     def vrn(self) -> "XVariable":
         return self.var(1, "vrn")
 
@@ -106,24 +110,29 @@ class ARMStoreRegisterXData(ARMOpcodeXData):
         return self.xpr(3, "xxrt")
 
     @property
+    def xxrtc(self) -> "XXpr":
+        return self.xpr(4, "xxrtc")
+
+    @property
     def xaddr(self) -> "XXpr":
-        return self.xpr(4, "xaddr")
+        return self.xpr(5, "xaddr")
 
     @property
     def is_address_known(self) -> bool:
-        return self.xdata.xprs_r[4] is not None
+        return self.xdata.xprs_r[5] is not None
 
     @property
     def xaddr_updated(self) -> "XXpr":
-        return self.xpr(5, "xaddr_updated")
+        return self.xpr(6, "xaddr_updated")
 
     @property
     def annotation(self) -> str:
         wbu = self.writeback_update()
+        rhs = self.xxrtc if self.is_xxrtc_known else self.xxrt
         if self.is_ok or self.is_vmem_known:
-            assignment = str(self.vmem) + " := " + str(self.xxrt)
+            assignment = str(self.vmem) + " := " + str(rhs)
         elif self.is_vmem_unknown and self.is_address_known:
-            assignment = "*(" + str(self.xaddr) + ") := " + str(self.xxrt)
+            assignment = "*(" + str(self.xaddr) + ") := " + str(rhs)
         else:
             assignment = "Error value"
         return self.add_instruction_condition(assignment + wbu)

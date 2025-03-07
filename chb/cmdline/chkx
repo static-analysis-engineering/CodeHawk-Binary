@@ -474,6 +474,12 @@ def parse() -> argparse.Namespace:
         help="include all functions named in userdata in the analysis",
         action="store_true")
     analyzecmd.add_argument(
+        "--analyze_range_entry_points",
+        help=("include all functions whose address is in the given range and "
+              + "listed in the userdata function entry points"),
+        nargs="*",
+        default=[])
+    analyzecmd.add_argument(
         "--gc_compact",
         type=int,
         default=0,
@@ -573,6 +579,11 @@ def parse() -> argparse.Namespace:
     ddatagvars = ddataparsers.add_parser("globalvars")
     ddatagvars.add_argument("xname", help="name of executable")
     ddatagvars.set_defaults(func=UCC.ddata_gvars)
+
+    # -- ddata md5s --
+    ddatamd5s = ddataparsers.add_parser("md5s")
+    ddatamd5s.add_argument("xname", help="name of executable")
+    ddatamd5s.set_defaults(func=UCC.ddata_md5s)
 
     # ----------------------------------------------------------------- results --
     resultscmd = subparsers.add_parser('results')

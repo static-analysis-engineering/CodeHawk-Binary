@@ -80,6 +80,10 @@ class ARMStoreRegisterHalfwordXData(ARMOpcodeXData):
         return self.xpr(3, "xxrt")
 
     @property
+    def is_xxrt_known(self) -> bool:
+        return self.xdata.xprs_r[3] is not None
+
+    @property
     def xaddr(self) -> "XXpr":
         return self.xpr(4, "xaddr")
 
@@ -92,6 +96,8 @@ class ARMStoreRegisterHalfwordXData(ARMOpcodeXData):
         wbu = self.writeback_update()
         if self.is_ok:
             assignment = str(self.vmem) + " := " + str(self.xxrt)
+        elif not self.is_xxrt_known:
+            assignment = "(*" + str(self.xaddr) + ") := Error value"
         elif self.is_vmem_unknown and self.is_address_known:
             assignment = "*(" + str(self.xaddr) + ") := " + str(self.xxrt)
         else:

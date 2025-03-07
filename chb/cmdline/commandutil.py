@@ -412,6 +412,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     fns_exclude: List[str] = args.fns_exclude  # function hex addresses
     fns_include: List[str] = args.fns_include  # function hex addresses
     analyze_all_named: bool = args.analyze_all_named
+    analyze_range_entry_points: List[str] = args.analyze_range_entry_points
     gc_compact: int = args.gc_compact
     construct_all_functions: bool = args.construct_all_functions
     show_function_timing: bool = args.show_function_timing
@@ -492,7 +493,21 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     if analyze_all_named:
         fnnamed_addrs = userhints.rev_function_names().values()
         fns_include = fns_include + list(fnnamed_addrs)
-        chklogger.logger.warning("Include %d functions", len(fns_include))
+        chklogger.logger.info("Include %d functions", len(fns_include))
+
+    if len(analyze_range_entry_points) == 2:
+        festart = int(analyze_range_entry_points[0], 16)
+        fefin = int(analyze_range_entry_points[1], 16)
+        fentrypoints = userhints.function_entry_points()
+        feincludes: List[str] = []
+        for fe in fentrypoints:
+            eint = int(fe, 16)
+            if eint >= festart and eint <= fefin:
+                feincludes.append(fe)
+        fns_include = fns_include + feincludes
+        chklogger.logger.info(
+            "Include %d entry point functions in range %s - %s",
+            len(feincludes), hex(festart), hex(fefin))
 
     am = AnalysisManager(
         path,
@@ -2446,5 +2461,38 @@ def ddata_gvars(args: argparse.Namespace) -> NoReturn:
 
     print("\nNumber of locations: " + str(len(glocs)))
     print("Coverage: " + str(coverage) + " (typed: " + str(count) + ")")
+
+    exit(0)
+
+
+def ddata_md5s(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = str(args.xname)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+    md5s = app.function_md5s
+
+    result: Dict[str, int] = {}
+
+    for md5 in md5s.values():
+        result.setdefault(md5, 0)
+        result[md5] += 1
+
+    print("Number of functions: " + str(len(md5s)))
+    print("Distinct md5s      : " + str(len(result)))
+
+    for (md5, count) in result.items():
+        if count > 10:
+            print(md5 + ": " + str(count))
 
     exit(0)
