@@ -240,7 +240,12 @@ class ARMCallOpcode(ARMOpcode):
             ctinfo = finfo.call_target_info(iaddr)
             ftype = ctinfo.target_interface.bctype
             if ftype is not None:
-                astfntype = ftype.convert(astree.typconverter)
+                try:
+                    astfntype = ftype.convert(astree.typconverter)
+                except UF.CHBError as e:
+                    chklogger.logger.warning(
+                        "Type conversion of function type was unsuccessful: %s",
+                        str(e))
 
             if xdata.is_bx_call:
                 # indirect call
