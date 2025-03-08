@@ -156,7 +156,7 @@ class ARMPush(ARMOpcode):
         if len(spills) > 0:
             result: List[RegisterSpill] = []
             for (i, spill) in enumerate(spills):
-                result.append(RegisterSpill(xd.rrhsexprs[i], spill))
+                result.append(RegisterSpill(xd.xaddrs[i], spill))
             return result
         else:
             return [MemoryAccess(xdata.xprs[2], "W", size=4)]
