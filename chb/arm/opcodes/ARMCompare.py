@@ -78,7 +78,8 @@ class ARMCompareXData(ARMOpcodeXData):
     @property
     def annotation(self) -> str:
         ann = "compare " + str(self.xrn) + " and " + str(self.xrm)
-        ann += " (" + str(self.result) + ")"
+        if self.is_ok:
+            ann += " (" + str(self.result) + ")"
         return self.add_instruction_condition(ann)
 
 
@@ -118,10 +119,7 @@ class ARMCompare(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMCompareXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def ast_prov(
             self,
@@ -149,16 +147,17 @@ class ARMCompare(ARMOpcode):
 
         # high-level assignment
 
-        xd = ARMCompareXData(xdata)
-        if not xd.is_ok:
-            chklogger.logger.error(
-                "Error value encountered at address %s", iaddr)
-            return ([], [])
-
-        rhs = xd.result
         rdefs = xdata.reachingdefs
-
-        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+        xd = ARMCompareXData(xdata)
+        if xd.is_ok:
+            rhs = xd.result
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+        else:
+            rhs1 = xd.xrn
+            rhs2 = xd.xrm
+            hl_rhs1 = XU.xxpr_to_ast_def_expr(rhs1, xdata, iaddr, astree)
+            hl_rhs2 = XU.xxpr_to_ast_def_expr(rhs2, xdata, iaddr, astree)
+            hl_rhs = astree.mk_binary_op("minus", hl_rhs1, hl_rhs2)
 
         hl_assign = astree.mk_assign(
             astree.ignoredlhs,

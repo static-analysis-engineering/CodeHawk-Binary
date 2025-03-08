@@ -105,6 +105,26 @@ class ARMStoreMultipleIncrementAfterXData(ARMOpcodeXData):
             raise UF.CHBError("Not an ldmstm aggregate")
 
     @property
+    def regcount(self) -> int:
+        return len(self.xdata.vars_r) - 1
+
+    @property
+    def baselhs(self) -> "XVariable":
+        return self.var(0, "baselhs")
+
+    @property
+    def is_baselhs_known(self) -> bool:
+        return self.xdata.vars_r[0] is not None
+
+    @property
+    def memlhss(self) -> List["XVariable"]:
+        return [self.var(i, "memlhs-" + str(i)) for i in range(1, self.regcount + 1)]
+
+    @property
+    def rhss(self) -> List["XXpr"]:
+        return [self.xpr(i, "rhs-" + str(i)) for i in range(3, self.regcount + 3)]
+
+    @property
     def annotation(self) -> str:
         if self.is_ok:
             if self.is_ldmstm_aggregate:
@@ -117,7 +137,10 @@ class ARMStoreMultipleIncrementAfterXData(ARMOpcodeXData):
                     + str(self.copysize)
                     + ")")
             else:
-                return "not yet supported"
+                assigns = []
+                for (memlhs, rhs) in zip(self.memlhss, self.rhss):
+                    assigns.append(str(memlhs) + " := " + str(rhs))
+                return "; ".join(assigns)
         else:
             if self.is_ldmstm_aggregate:
                 if self.is_xxdst_unknown and self.is_xxsrc_unknown:

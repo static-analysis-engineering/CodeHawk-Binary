@@ -91,13 +91,28 @@ class ARMBranchXData(ARMOpcodeXData):
         return self.xpr(index, "xtgt")
 
     @property
+    def is_xtgt_known(self) -> bool:
+        index = 1 if self.is_unconditional else 4
+        return self.xdata.xprs_r[index] is not None
+
+    @property
     def annotation(self) -> str:
-        if self._xdata.has_branch_conditions():
-            return "if " + str(self.tcond) + " then goto " + str(self.xtgt)
-        elif self.is_unconditional:
-            return "goto " + str(self.xtgt)
+        if self.is_ok:
+            if self._xdata.has_branch_conditions():
+                return "if " + str(self.tcond) + " then goto " + str(self.xtgt)
+            elif self.is_unconditional:
+                return "goto " + str(self.xtgt)
+            else:
+                return "?"
+        elif self.is_xtgt_known:
+            if self._xdata.has_branch_conditions():
+                return "if " + str(self.txpr) + " then goto " + str(self.xtgt)
+            elif self.is_unconditional:
+                return "goto " + str(self.xtgt)
+            else:
+                return "?"
         else:
-            return "?"
+            return "Error value"
 
 
 @armregistry.register_tag("B", ARMOpcode)
@@ -151,7 +166,10 @@ class ARMBranch(ARMCallOpcode):
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         xd = ARMBranchXData(xdata)
         if xdata.has_branch_conditions():
-            return [xd.fcond, xd.tcond]
+            if xd.is_ok:
+                return [xd.fcond, xd.tcond]
+            else:
+                return [xd.fxpr, xd.txpr]
         else:
             return []
 
@@ -191,7 +209,7 @@ class ARMBranch(ARMCallOpcode):
             else:
                 return xd.annotation
         else:
-            return "Error value"
+            return xd.annotation
 
     def target_expr_ast(
             self,
@@ -263,6 +281,8 @@ class ARMBranch(ARMCallOpcode):
         # rewritten conditions will emerge through the reaching definitions, in
         # case there are no rewritten variables, but this still has to be
         # validated with more instances.
+
+        xd = ARMBranchXData(xdata)
 
         ftconds_basic = self.ft_conditions(xdata)
         ftconds = self.ft_conditions(xdata)

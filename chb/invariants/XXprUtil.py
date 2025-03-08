@@ -659,10 +659,11 @@ def vargument_deref_value_to_ast_lval_expression(
             elif tgttype.is_scalar and coff == 0:
                 return astree.mk_memref_expr(xinitarg, anonymous=anonymous)
 
-    chklogger.logger.error(
-        "AST conversion of argument deref value: %s with offset %s and type %s "
-        + "not yet handled at %s",
-        str(basevar), str(offset), str(argtype), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "AST conversion of argument deref value: %s with offset %s and type %s "
+            + "not yet handled at %s",
+            str(basevar), str(offset), str(argtype), iaddr)
 
     return astree.mk_temp_lval_expression()
 

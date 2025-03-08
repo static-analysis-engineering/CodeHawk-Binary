@@ -97,7 +97,7 @@ class ARMStoreRegisterHalfwordXData(ARMOpcodeXData):
         if self.is_ok:
             assignment = str(self.vmem) + " := " + str(self.xxrt)
         elif not self.is_xxrt_known:
-            assignment = "(*" + str(self.xaddr) + ") := Error value"
+            assignment = "(*" + str(self.xaddr) + ") := " + str(self.xrt)
         elif self.is_vmem_unknown and self.is_address_known:
             assignment = "*(" + str(self.xaddr) + ") := " + str(self.xxrt)
         else:
