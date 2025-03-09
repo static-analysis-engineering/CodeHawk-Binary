@@ -31,17 +31,22 @@ import os
 import subprocess
 import sys
 
+import xml.etree.ElementTree as ET
+
 from typing import Any, Dict, List, NoReturn, Optional
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
+from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
 from chb.ast.ASTDeserializer import ASTDeserializer
 import chb.ast.ASTNode as AST
 from chb.ast.ASTViewer import ASTViewer
 import chb.ast.astdotutil as DU
 
+from chb.astparser.ASTCParseManager import ASTCParseManager
+
 
 def print_pirinfo(pirjson: Dict[str, Any]) -> None:
-    print("PIR-version: " + pirjson["pir-version"])    
+    print("PIR-version: " + pirjson["pir-version"])
     if "created-by" in pirjson:
         cb = pirjson["created-by"]
         print(
@@ -146,7 +151,7 @@ def get_function_addr(pirjson: Dict[str, Any], function: Optional[str]) -> str:
                 + "\n".join(
                     ("    " + va.ljust(8) + name) for (va, name) in functions.items()))
             exit(1)
-    
+
 
 def view_ast_function(
         faddr: str,
@@ -166,7 +171,7 @@ def view_ast_function(
             else:
                 g = viewer.to_graph(dfn.high_unreduced_ast)
     return g
-            
+
 
 def viewastcmd(args: argparse.Namespace) -> NoReturn:
 
@@ -178,7 +183,7 @@ def viewastcmd(args: argparse.Namespace) -> NoReturn:
     cutoff: Optional[str] = args.cutoff
 
     with open(pirfile, "r") as fp:
-        pirjson = json.load(fp)    
+        pirjson = json.load(fp)
 
     faddr = get_function_addr(pirjson, function)
     g = view_ast_function(faddr, level, pirjson, cutoff)
@@ -196,7 +201,7 @@ def viewinstrcmd(args: argparse.Namespace) -> NoReturn:
     outputfilename: str = args.output
 
     with open(pirfile, "r") as fp:
-        pirjson = json.load(fp)    
+        pirjson = json.load(fp)
 
     faddr = get_function_addr(pirjson, function)
     deserializer = ASTDeserializer(pirjson)
@@ -231,7 +236,7 @@ def viewexprcmd(args: argparse.Namespace) -> NoReturn:
     outputfilename: str = args.output
 
     with open(pirfile, "r") as fp:
-        pirjson = json.load(fp)    
+        pirjson = json.load(fp)
 
     faddr = get_function_addr(pirjson, function)
     deserializer = ASTDeserializer(pirjson)
@@ -293,4 +298,89 @@ def showaexprscmd(args: argparse.Namespace) -> NoReturn:
                                 + ", "
                                 + str(exprec[1])
                                 + ")")
+    exit(0)
+
+
+def printsrccmd(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    pirfile: str = args.pirfile
+    function: str = args.function
+
+    with open(pirfile, "r") as fp:
+        pirjson = json.load(fp)
+
+    faddr = get_function_addr(pirjson, function)
+    deserializer = ASTDeserializer(pirjson)
+    (symtable, astnode) = deserializer.lifted_functions[faddr]
+    pp = ASTCPrettyPrinter(symtable, annotations=deserializer.annotations)
+    print(pp.to_c(astnode, include_globals=True))
+
+    exit(0)
+
+
+def parsecmd(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    pirfile: str = args.pirfile
+    cname: str = args.cname
+
+    if not ASTCParseManager().check_cparser():
+        print("*" * 80)
+        print("CodeHawk CIL parser not found.")
+        print("~" * 80)
+        print("Copy CHC/cchcil/parseFile from the (compiled) codehawk ")
+        print("repository to the chb/bin/binaries/linux directory in this ")
+        print("repository, or ")
+        print("set up ConfigLocal.py with another location for parseFile")
+        print("*" * 80)
+        exit(1)
+
+    cfilename = cname + ".c"
+    with open(pirfile, "r") as fp:
+        pirjson = json.load(fp)
+
+    lines: List[str] = []
+    functions: Dict[str, AST.ASTStmt] = {}
+    deserializer = ASTDeserializer(pirjson)
+    printglobals = True
+    for (faddr, (symtable, dfn)) in deserializer.lifted_functions.items():
+        pp = ASTCPrettyPrinter(symtable, annotations=deserializer.annotations)
+        lines.append(pp.to_c(dfn, include_globals=printglobals))
+        functions[faddr] = dfn
+        printglobals = False
+
+    with open(cfilename, "w") as fp:
+        fp.write("\n".join(lines))
+
+    parsemanager = ASTCParseManager()
+    ifile = parsemanager.preprocess_file_with_gcc(cfilename)
+    parsemanager.parse_ifile(ifile)
+
+    for (faddr, dfn) in functions.items():
+        fname = faddr.replace("0x", "sub_")
+        xpath = os.path.join(cname, "functions")
+        xpath = os.path.join(xpath, fname)
+        xfile = os.path.join(xpath, cname + "_" + fname + "_cfun.xml")
+
+        if os.path.isfile(xfile):
+            try:
+                tree = ET.parse(xfile)
+                root = tree.getroot()
+                rootnode = root.find("function")
+            except ET.ParseError as e:
+                raise Exception("Error in parsing " + xfile + ": "
+                                + str(e.code) + ", " + str(e.position))
+        else:
+            print("Error: file " + xfile + " not found")
+            exit(1)
+
+        if rootnode is None:
+            print("Error: No function node found for " + fname)
+            exit(1)
+
+        xsbody = rootnode.find("sbody")
+
+
+
     exit(0)

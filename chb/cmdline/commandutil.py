@@ -425,6 +425,16 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     logfilename: Optional[str] = args.logfilename
     logfilemode: str = args.logfilemode
 
+    if not os.path.isfile(Config().chx86_analyze):
+        print_error(
+            "CodeHawk analyzer executable not found.\n"
+            + ("~" * 80) + "\n"
+            + "Copy CHB/bchcmdline/chx86_analyze from the (compiled) "
+            + "codehawk repository to the\nchb/bin/binaries/linux directory "
+            + "in this directory, or\n"
+            + "set up ConfigLocal.py with another location for chx86_analyze")
+        exit(1)
+
     try:
         (path, xfile) = get_path_filename(xname)
     except UF.CHBError as e:
