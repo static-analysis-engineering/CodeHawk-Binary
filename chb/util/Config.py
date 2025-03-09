@@ -65,6 +65,7 @@ class Config():
         if self.platform == 'linux':
             self.linuxdir = os.path.join(self.binariesdir, "linux")
             self.chx86_analyze = os.path.join(self.linuxdir, "chx86_analyze")
+            self.cparser = os.path.join(self.linuxdir, "parseFile")
 
         elif self.platform == "macOS":
             self.macOSdir = os.path.join(self.binariesdir, "macOS")

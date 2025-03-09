@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs, LLC
+# Copyright (c) 2023-2025  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -155,6 +155,26 @@ def parse() -> argparse.Namespace:
         default=[],
     )
     showaexprs.set_defaults(func=AU.showaexprscmd)
+
+    # ---------------------------------------------------------------- print ---
+    printcmd = subparsers.add_parser("print")
+    printparsers = printcmd.add_subparsers(title="show options")
+
+    # --- print sourcecode
+    printsrc = printparsers.add_parser("src")
+    printsrc.add_argument(
+        "pirfile", help="name of json file with ast information")
+    printsrc.add_argument(
+        "function", help="name or address of funnction to print")
+    printsrc.set_defaults(func=AU.printsrccmd)
+
+    # ---------------------------------------------------------------- parse ---
+    parsecmd = subparsers.add_parser("parse")
+    parsecmd.add_argument(
+        "pirfile", help="name of json file with ast information")
+    parsecmd.add_argument(
+        "cname", help="name of c file to be created (without extension)")
+    parsecmd.set_defaults(func=AU.parsecmd)
 
     # -- parse
     args = parser.parse_args()
