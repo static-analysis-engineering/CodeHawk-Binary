@@ -333,17 +333,19 @@ class ASTSerializer(ASTIndexer):
                 return False
             return len(cast(AST.ASTInstrSequence, s).instructions) == 0
 
-        # Make sure we don't drop labels from empty instr sequences.
-        for s in stmt.stmts:
-            if is_empty_instr_sequence(s):
-                labels.extend(s.labels)
-
         if len(labels) > 0:
             node["labelcount"] = len(labels)
             for label in labels:
                 args.append(label.index(self))
-        args.extend(s.index(self) for s in stmt.stmts
-                    if not is_empty_instr_sequence(s))
+
+        for s in stmt.stmts:
+            if is_empty_instr_sequence(s):
+                # Make sure we don't drop labels from empty instr sequences.
+                for label in s.labels:
+                    args.append(label.index(self))
+            else:
+                args.append(s.index(self))
+
         return self.add(tags, args, node)
 
     def index_loop_stmt(self, stmt: AST.ASTLoop) -> int:
