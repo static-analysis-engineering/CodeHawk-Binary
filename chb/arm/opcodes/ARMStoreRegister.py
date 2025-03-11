@@ -265,7 +265,7 @@ class ARMStoreRegister(ARMOpcode):
             hl_lhs = XU.xvariable_to_ast_lval(
                 lhsvar, xdata, iaddr, astree, memaddr=memaddr)
 
-        elif xd.is_vmem_unknown and xd.is_address_known:
+        elif xd.is_address_known:
             memaddr = xd.xaddr
             hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
 
