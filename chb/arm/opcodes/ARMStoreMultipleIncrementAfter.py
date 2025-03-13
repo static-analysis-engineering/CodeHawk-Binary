@@ -417,6 +417,12 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         if xdata.instruction_subsumes():
             return self.ast_prov_ldmstmcopy(astree, iaddr, bytestring, xdata)
 
+        else:
+            chklogger.logger.error(
+                "AST conversion of STM not yet supported at address %s",
+                iaddr)
+            return ([], [])
+
         regcount = len(xdata.reachingdefs) - 1
         baselhs = xdata.vars[0]
         memlhss = xdata.vars[1:]
