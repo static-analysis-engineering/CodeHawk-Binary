@@ -2243,6 +2243,10 @@ class ASTTyp(ASTNode):
         return False
 
     @property
+    def is_function_pointer(self) -> bool:
+        return False
+
+    @property
     def is_scalar(self) -> bool:
         return (
             self.is_integer
@@ -2393,6 +2397,10 @@ class ASTTypPtr(ASTTyp):
     @property
     def is_void_pointer(self) -> bool:
         return self.tgttyp.is_void
+
+    @property
+    def is_function_pointer(self) -> bool:
+        return self.tgttyp.is_function
 
     def accept(self, visitor: "ASTVisitor") -> None:
         return visitor.visit_pointer_typ(self)

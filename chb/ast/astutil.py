@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -358,7 +358,7 @@ def parsecmd(args: argparse.Namespace) -> NoReturn:
     parsemanager.parse_ifile(ifile)
 
     for (faddr, dfn) in functions.items():
-        fname = faddr.replace("0x", "sub_")
+        fname = faddr
         xpath = os.path.join(cname, "functions")
         xpath = os.path.join(xpath, fname)
         xfile = os.path.join(xpath, cname + "_" + fname + "_cfun.xml")
@@ -380,7 +380,5 @@ def parsecmd(args: argparse.Namespace) -> NoReturn:
             exit(1)
 
         xsbody = rootnode.find("sbody")
-
-
 
     exit(0)

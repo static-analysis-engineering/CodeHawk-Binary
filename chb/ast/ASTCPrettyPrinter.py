@@ -151,7 +151,7 @@ class ASTCPrettyPrinter(ASTVisitor):
                     and not self.localsymboltable.is_formal(vinfo.vname)):
                 self.ccode.newline(indent=self.indent)
                 if vinfo.vtype is None:
-                    self.ccode.write("? " + vinfo.vname)
+                    self.ccode.write("? " + vinfo.vname + ";")
                     continue
 
                 if vinfo.vtype.is_array:
@@ -185,14 +185,19 @@ class ASTCPrettyPrinter(ASTVisitor):
                 continue
             self.ccode.newline(indent=self.indent)
             if vinfo.vtype is None:
-                self.ccode.write("? " + vinfo.vname)
+                self.ccode.write("? " + vinfo.vname + ";")
                 continue
 
             if vinfo.vtype.is_function:
                 ftype = cast(AST.ASTTypFun, vinfo.vtype)
-                ftype.returntyp.accept(self)
-                self.ccode.write(" ")
-                self.ccode.write(vinfo.vname)
+                if ftype.returntyp.is_function_pointer:
+                    returntyp = cast(AST.ASTTypPtr, ftype.returntyp)
+                    fnptr = cast(AST.ASTTypFun, returntyp.tgttyp)
+                    self.funtypptr_with_name(fnptr, vinfo.vname)
+                else:
+                    ftype.returntyp.accept(self)
+                    self.ccode.write(" ")
+                    self.ccode.write(vinfo.vname)
                 self.ccode.write("(")
                 if ftype.argtypes is not None:
                     ftype.argtypes.accept(self)
@@ -608,10 +613,28 @@ class ASTCPrettyPrinter(ASTVisitor):
             t.argtypes.accept(self)
         self.ccode.write(")")
 
+    def funtypptr_with_name(self, t: AST.ASTTypFun, name: str) -> None:
+        if t.returntyp.is_function_pointer:
+            returntyp = cast(AST.ASTTypPtr, t.returntyp)
+            retty = cast(AST.ASTTypFun, returntyp.tgttyp)
+            self.funtypptr_with_name(retty, name)
+            self.ccode.write("(")
+            if t.argtypes is not None:
+                t.argtypes.accept(self)
+            self.ccode.write(")")
+        else:
+            t.returntyp.accept(self)
+            self.ccode.write(" (*")
+            self.ccode.write(name)
+            self.ccode.write(")(")
+            if t.argtypes is not None:
+                t.argtypes.accept(self)
+                self.ccode.write(")")
+
     def visit_funargs(self, funargs: AST.ASTFunArgs) -> None:
         args = funargs.funargs
         if len(args) == 0:
-            pass
+            self.ccode.write("void")
         else:
             for arg in args[:-1]:
                 arg.accept(self)
@@ -619,9 +642,14 @@ class ASTCPrettyPrinter(ASTVisitor):
             args[-1].accept(self)
 
     def visit_funarg(self, funarg: AST.ASTFunArg) -> None:
-        funarg.argtyp.accept(self)
-        self.ccode.write(" ")
-        self.ccode.write(funarg.argname)
+        if funarg.argtyp.is_function_pointer:
+            argtyp = cast(AST.ASTTypPtr, funarg.argtyp)
+            fnptr = cast(AST.ASTTypFun, argtyp.tgttyp)
+            self.funtypptr_with_name(fnptr, funarg.argname)
+        else:
+            funarg.argtyp.accept(self)
+            self.ccode.write(" ")
+            self.ccode.write(funarg.argname)
 
     def visit_named_typ(self, t: AST.ASTTypNamed) -> None:
         self.ccode.write("typedef ")
@@ -649,6 +677,11 @@ class ASTCPrettyPrinter(ASTVisitor):
                 if atype.size_expr is not None:
                     atype.size_expr.accept(self)
                 self.ccode.write("];")
+            elif finfo.fieldtype.is_function_pointer:
+                fieldtyp = cast(AST.ASTTypPtr, finfo.fieldtype)
+                funtyp = cast(AST.ASTTypFun, fieldtyp.tgttyp)
+                self.funtypptr_with_name(funtyp, finfo.fieldname)
+                self.ccode.write(";")
             else:
                 finfo.fieldtype.accept(self)
                 self.ccode.write(" ")
