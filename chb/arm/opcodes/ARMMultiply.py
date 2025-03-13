@@ -25,13 +25,18 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
@@ -67,7 +72,7 @@ class ARMMultiplyXData(ARMOpcodeXData):
 
     @property
     def rresult(self) -> "XXpr":
-        return self.xpr(3, "result")
+        return self.xpr(3, "rresult")
 
     @property
     def result_simplified(self) -> str:
@@ -101,9 +106,78 @@ class ARMMultiply(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:]]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args[1:]]
+
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMMultiplyXData(xdata)
         if xd.is_ok:
             return xd.annotation
         else:
             return "Error value"
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "MUL"]
+
+        # low-level assignment
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_rhs = astree.mk_binary_op("mult", ll_op1, ll_op2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        rdefs = xdata.reachingdefs
+
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_op2, [rdefs[1]])
+
+        # high-level assignment
+
+        xd = ARMMultiplyXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error("Error value encountered at %s", iaddr)
+            return ([], [])
+
+        lhs = xd.vrd
+        rhs1 = xd.xrn
+        rhs2 = xd.xrm
+        rhs3 = xd.rresult
+
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_expr_reachingdefs(ll_rhs, rdefs[:2])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])
