@@ -656,8 +656,24 @@ def vargument_deref_value_to_ast_lval_expression(
                     astree,
                     anonymous=anonymous)
 
-            elif tgttype.is_scalar and coff == 0:
+            if tgttype.is_pointer:
+                ioff = coff // 4
+                aoff = astree.mk_scalar_index_offset(ioff)
+                if xinitarg.is_ast_lval_expr:
+                    xinitarg = cast(AST.ASTLvalExpr, xinitarg)
+                    lhost = xinitarg.lval.lhost
+                    lval = astree.mk_lval(lhost, offset=aoff, anonymous=anonymous)
+                    return astree.mk_lval_expression(lval, anonymous=anonymous)
+
+            if tgttype.is_scalar and coff == 0:
                 return astree.mk_memref_expr(xinitarg, anonymous=anonymous)
+
+        if not anonymous:
+            chklogger.logger.error(
+                "AST conversion of initial register deref value: %s with offset %s "
+                + "and type %s not yet handled at %s",
+                str(xinitarg), str(coff), str(argtype), iaddr)
+        return astree.mk_temp_lval_expression()
 
     if not anonymous:
         chklogger.logger.error(
@@ -1122,17 +1138,15 @@ def xbinary_to_ast_def_expr(
         astxpr2 = xxpr_to_ast_expr(xpr2, xdata, iaddr, astree, anonymous=anonymous)
         if operator in ["plus", "minus"]:
             ty1 = astxpr1.ctype(astree.ctyper)
-            if ty1 is not None:
-                if ty1.is_pointer:
-                    return mk_xpointer_expr(
-                        operator,
-                        astxpr1,
-                        cast(AST.ASTTypPtr, ty1),
-                        astxpr2,
-                        iaddr,
-                        astree,
-                        anonymous=anonymous)
-                return astree.mk_binary_expression(operator, astxpr1, astxpr2)
+            if ty1 is not None and ty1.is_pointer:
+                return mk_xpointer_expr(
+                    operator,
+                    astxpr1,
+                    cast(AST.ASTTypPtr, ty1),
+                    astxpr2,
+                    iaddr,
+                    astree,
+                    anonymous=anonymous)
             else:
                 return default()
         else:
