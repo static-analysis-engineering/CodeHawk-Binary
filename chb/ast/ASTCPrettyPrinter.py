@@ -185,7 +185,8 @@ class ASTCPrettyPrinter(ASTVisitor):
                 continue
             self.ccode.newline(indent=self.indent)
             if vinfo.vtype is None:
-                self.ccode.write("? " + vinfo.vname + ";")
+                self.ccode.write("int " + vinfo.vname + ";")
+                self.ccode.write("  // no type available; int inserted here")
                 continue
 
             if vinfo.vtype.is_function:
