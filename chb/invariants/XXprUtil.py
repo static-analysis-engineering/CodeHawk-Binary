@@ -212,9 +212,10 @@ def xconstant_to_ast_expr(
             return astree.mk_integer_constant(xc.intvalue)
 
     else:
-        chklogger.logger.error(
-            "AST conversion of constant %s not yet supported at address %s",
-            str(xc), iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "AST conversion of constant %s not yet supported at address %s",
+                str(xc), iaddr)
         return astree.mk_temp_lval_expression()
 
 
@@ -231,9 +232,10 @@ def xxpr_to_ast_expr(
             cast(X.XprConstant, xpr), xdata, iaddr, astree, anonymous=anonymous)
 
     else:
-        chklogger.logger.error(
-            "AST conversion of expression %s not yet supported at address %s",
-            str(xpr), iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "AST conversion of expression %s not yet supported at address %s",
+                str(xpr), iaddr)
         return astree.mk_temp_lval_expression()
 
 
@@ -278,9 +280,10 @@ def vreturn_deref_value_to_ast_lval_expression(
         anonymous: bool = False) -> AST.ASTExpr:
 
     if not (offset.is_constant_value_offset or offset.is_no_offset):
-        chklogger.logger.error(
-            "Non-constant offset: %s not yet supported at address %s",
-            str(offset), iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "Non-constant offset: %s not yet supported at address %s",
+                str(offset), iaddr)
         return astree.mk_temp_lval_expression()
 
     coff = offset.offsetvalue()
@@ -307,22 +310,24 @@ def vreturn_deref_value_to_ast_lval_expression(
                     elif coff == 0:
                         return astree.mk_memref_expr(vexpr, anonymous=anonymous)
                     else:
-                        chklogger.logger.error(
-                            "Non-struct pointer type %s not yet handled at %s",
-                            str(vtype), iaddr)
+                        if not anonymous:
+                            chklogger.logger.error(
+                                "Non-struct pointer type %s not yet handled at %s",
+                                str(vtype), iaddr)
                         return astree.mk_temp_lval_expression()
 
                 else:
-                    chklogger.logger.error(
-                        "Non-pointer type %s encountered for %s with offset %d "
-                        + "at %s",
-                        str(vtype), str(basevar), coff, iaddr)
+                    if not anonymous:
+                        chklogger.logger.error(
+                            "Non-pointer type %s encountered for %s with offset %d "
+                            + "at %s",
+                            str(vtype), str(basevar), coff, iaddr)
                     return astree.mk_temp_lval_expression()
-
-    chklogger.logger.error(
-        "AST conversion of dereferenced return value %s not yet supported at "
-        + "address %s",
-        str(basevar), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "AST conversion of dereferenced return value %s not yet supported at "
+            + "address %s",
+            str(basevar), iaddr)
 
     return astree.mk_temp_lval_expression()
 
@@ -337,16 +342,18 @@ def field_pointer_to_ast_memref_expr(
         anonymous: bool = False) -> AST.ASTExpr:
 
     if not asttype.is_compound:
-        chklogger.logger.error(
-            "Expected to see a struct type but received %s at %s",
-            str(asttype), iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "Expected to see a struct type but received %s at %s",
+                str(asttype), iaddr)
         return astree.mk_temp_lval_expression()
 
     compkey = cast(AST.ASTTypComp, asttype).compkey
     if not astree.has_compinfo(compkey):
-        chklogger.logger.error(
-            "Encountered compinfo key without definition in symbol table: %d",
-            compkey)
+        if not anonymous:
+            chklogger.logger.error(
+                "Encountered compinfo key without definition in symbol table: %d",
+                compkey)
         return astree.mk_temp_lval_expression()
 
     subfoffset: AST.ASTOffset = nooffset
@@ -371,10 +378,11 @@ def field_pointer_to_ast_memref_expr(
                 return astree.mk_temp_lval_expression()
             subfoffset = astree.mk_field_offset(subfield.fieldname, fcompkey)
         else:
-            chklogger.logger.error(
-                "Non-struct type for second-level rest offset not yet handled "
-                + " for %s with offset %d at %s",
-                str(astexpr), offset, iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    "Non-struct type for second-level rest offset not yet handled "
+                    + " for %s with offset %d at %s",
+                    str(astexpr), offset, iaddr)
             return astree.mk_temp_lval_expression()
     else:
         subfoffset = nooffset
@@ -435,10 +443,11 @@ def memory_variable_to_lval_expression(
     name = str(base)
 
     if not astree.globalsymboltable.has_symbol(name):
-        chklogger.logger.error(
-            "AST conversion of memory variable %s not in global symbol "
-            + "table not yet supported at address %s",
-            name, iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "AST conversion of memory variable %s not in global symbol "
+                + "table not yet supported at address %s",
+                name, iaddr)
         return astree.mk_temp_lval_expression()
 
     vinfo = astree.globalsymboltable.get_symbol(name)
@@ -482,10 +491,11 @@ def memory_variable_to_lval_expression(
             return astree.mk_vinfo_lval_expression(
                 vinfo, astindexoffset, anonymous=anonymous)
 
-    chklogger.logger.error(
-        "AST conversion of memory variable %s with other offset: %s not yet "
-        + "supported at address %s",
-        name, str(offset), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "AST conversion of memory variable %s with other offset: %s not yet "
+            + "supported at address %s",
+            name, str(offset), iaddr)
 
     return astree.mk_temp_lval_expression()
 
@@ -551,9 +561,10 @@ def global_variable_to_lval_expression(
             return astree.mk_vinfo_lval_expression(
                 vinfo, astoffset, anonymous=anonymous)
 
-    chklogger.logger.error(
-        "Conversion of global variable %s at address %s not yet supported",
-        str(offset), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "Conversion of global variable %s at address %s not yet supported",
+            str(offset), iaddr)
     return astree.mk_temp_lval_expression()
 
 
@@ -582,17 +593,19 @@ def vglobal_variable_value_to_ast_lval_expression(
         vinfo = astree.global_addresses.get(hexgaddr, None)
 
         if vinfo is None:
-            chklogger.logger.error(
-                "Conversion of global value %s at address %s not yet supported",
-                str(offset), iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    "Conversion of global value %s at address %s not yet supported",
+                    str(offset), iaddr)
             return astree.mk_temp_lval_expression()
 
         vtype = vinfo.vtype
         if vtype is None:
-            chklogger.logger.error(
-                ("Conversion of global value %s without type at address %s not "
-                 + " yet supported"),
-                str(offset), iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    ("Conversion of global value %s without type at address %s not "
+                     + " yet supported"),
+                    str(offset), iaddr)
             return astree.mk_temp_lval_expression()
 
         if vtype.is_array:
@@ -611,9 +624,10 @@ def vglobal_variable_value_to_ast_lval_expression(
                 return astree.mk_vinfo_lval_expression(
                     vinfo, indexoffset, anonymous=anonymous)
 
-    chklogger.logger.error(
-        "Conversion of global value %s at address %s not yet supported",
-        str(offset), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "Conversion of global value %s at address %s not yet supported",
+            str(offset), iaddr)
     return astree.mk_temp_lval_expression()
 
 
@@ -626,9 +640,10 @@ def vargument_deref_value_to_ast_lval_expression(
         anonymous: bool = False) -> AST.ASTExpr:
 
     if not offset.is_constant_value_offset:
-        chklogger.logger.error(
-            "Non-constant offset: %s not yet supported at address %s",
-            str(offset), iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "Non-constant offset: %s not yet supported at address %s",
+                str(offset), iaddr)
         return astree.mk_temp_lval_expression()
 
     coff = offset.offsetvalue()
@@ -639,10 +654,11 @@ def vargument_deref_value_to_ast_lval_expression(
             vinitvar, xdata, iaddr, astree, anonymous=anonymous)
         argtype = xinitarg.ctype(astree.ctyper)
         if argtype is None:
-            chklogger.logger.error(
-                "Untyped dereferenced argument value %s not yet supported at "
-                + "address %s",
-                str(xinitarg), iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    "Untyped dereferenced argument value %s not yet supported at "
+                    + "address %s",
+                    str(xinitarg), iaddr)
             return astree.mk_temp_lval_expression()
 
         if argtype.is_pointer:
@@ -693,28 +709,31 @@ def stack_argument_to_ast_lval_expression(
 
     fsig = astree.appsignature
     if fsig is None:
-        chklogger.logger.error(
-            "Unable to judge stack argument with offset %d without app "
-            + "at address %s",
-            offset, iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "Unable to judge stack argument with offset %d without app "
+                + "at address %s",
+                offset, iaddr)
         return astree.mk_temp_lval_expression()
 
     optindex = fsig.index_of_stack_parameter_location(offset)
     if optindex is not None:
         arglvals = astree.function_argument(optindex - 1)
         if len(arglvals) != 1:
-            chklogger.logger.error(
-                "Encountered multiple arg values for initial stack argument "
-                + "%s at address %s",
-                str(offset), iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    "Encountered multiple arg values for initial stack argument "
+                    + "%s at address %s",
+                    str(offset), iaddr)
             return astree.mk_temp_lval_expression()
         else:
             return astree.mk_lval_expression(arglvals[0], anonymous=anonymous)
     else:
-        chklogger.logger.error(
-            "Cannot determine argument index for initial stack argument %s "
-            + "at address %s",
-            str(offset), iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "Cannot determine argument index for initial stack argument %s "
+                + "at address %s",
+                str(offset), iaddr)
         return astree.mk_temp_lval_expression()
 
 
@@ -758,10 +777,11 @@ def vinitmemory_value_to_ast_lval_expression(
         return stack_argument_to_ast_lval_expression(
             avar.offset.offsetvalue(), xdata, iaddr, astree, anonymous=anonymous)
 
-    chklogger.logger.error(
-        "AST conversion of vinitmemory value %s of %s not yet supported at "
-        + "address %s",
-        str(vconstvar), str(avar), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "AST conversion of vinitmemory value %s of %s not yet supported at "
+            + "address %s",
+            str(vconstvar), str(avar), iaddr)
 
     return astree.mk_temp_lval_expression()
 
@@ -822,16 +842,18 @@ def xvariable_to_ast_def_lval_expression(
                 return astree.mk_vinfo_lval_expression(vinfo, anonymous=anonymous)
             else:
                 intros = list(astree.ssa_intros[callsite].keys())
-                chklogger.logger.error(
-                    "Call site with multiple ssa variables at address %s "
-                    + "for callsite %s not yet supported: %s",
-                    iaddr, callsite, ", ".join(intros))
+                if not anonymous:
+                    chklogger.logger.error(
+                        "Call site with multiple ssa variables at address %s "
+                        + "for callsite %s not yet supported: %s",
+                        iaddr, callsite, ", ".join(intros))
                 return astree.mk_temp_lval_expression()
         else:
-            chklogger.logger.error(
-                "AST def conversion of function return value %s at address %s "
-                + "unsuccessfull: no ssa_intro found at callsite %s",
-                str(xvar), iaddr, callsite)
+            if not anonymous:
+                chklogger.logger.error(
+                    "AST def conversion of function return value %s at address %s "
+                    + "unsuccessfull: no ssa_intro found at callsite %s",
+                    str(xvar), iaddr, callsite)
             return astree.mk_temp_lval_expression()
 
     if xvar.is_symbolic_expr_value:
@@ -863,19 +885,22 @@ def xvariable_to_ast_def_lval_expression(
                     return astree.mk_vinfo_lval_expression(
                         vinfo, anonymous=anonymous)
             else:
-                chklogger.logger.error(
-                    "Rdef: %s has not yet been introduced at address %s",
-                    regrdefs[0], iaddr)
+                if not anonymous:
+                    chklogger.logger.error(
+                        "Rdef: %s has not yet been introduced at address %s",
+                        regrdefs[0], iaddr)
                 return astree.mk_temp_lval_expression()
 
         if len(regrdefs) == 0:
-            chklogger.logger.error(
-                "No rdefs found for %s at address %s", str(reg), iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    "No rdefs found for %s at address %s", str(reg), iaddr)
             return astree.mk_temp_lval_expression()
 
         else:
-            chklogger.logger.error(
-                "No rdefs found for %s at address %s", str(reg), iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    "No rdefs found for %s at address %s", str(reg), iaddr)
             return astree.mk_temp_lval_expression()
 
     if xvar.is_global_variable:
@@ -906,16 +931,18 @@ def xvariable_to_ast_def_lval_expression(
             else:
                 return astree.mk_vinfo_lval_expression(
                     vinfo, anonymous=anonymous)
-        chklogger.logger.error(
-            "AST def conversion of typecast value %s to lval at address %s "
-            + "not yet supported",
-            str(tcvar), iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "AST def conversion of typecast value %s to lval at address %s "
+                + "not yet supported",
+                str(tcvar), iaddr)
         return astree.mk_temp_lval_expression()
 
-    chklogger.logger.error(
-        "AST def conversion of variable %s to lval-expression at address "
-        + "%s not yet supported",
-        str(xvar), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "AST def conversion of variable %s to lval-expression at address "
+            + "%s not yet supported",
+            str(xvar), iaddr)
     return astree.mk_temp_lval_expression()
 
 
@@ -966,9 +993,10 @@ def xunary_to_ast_def_expr(
             astxvar = xvariable_to_ast_def_lval_expression(
                 xvar, xdata, iaddr, astree, anonymous=anonymous)
             if not astxvar.is_ast_lval_expr:
-                chklogger.logger.error(
-                    "Expected to receive an lval expression for %s at %s",
-                    str(xvar), iaddr)
+                if not anonymous:
+                    chklogger.logger.error(
+                        "Expected to receive an lval expression for %s at %s",
+                        str(xvar), iaddr)
                 return astree.mk_temp_lval_expression()
             astvar = cast(AST.ASTLvalExpr, astxvar).lval
             vtype = astvar.ctype(astree.ctyper)
@@ -977,10 +1005,11 @@ def xunary_to_ast_def_expr(
             else:
                 return astree.mk_address_of(astvar)
 
-    chklogger.logger.error(
-        "AST def conversion of unary expression %s at address %s not yet "
-        + "supported",
-        f"{operator} {xpr}", iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "AST def conversion of unary expression %s at address %s not yet "
+            + "supported",
+            f"{operator} {xpr}", iaddr)
     return astree.mk_temp_lval_expression()
 
 
@@ -999,29 +1028,32 @@ def mk_xpointer_expr(
     tgttyp = aptrty1.tgttyp
 
     if not axpr2.is_integer_constant:
-        chklogger.logger.warning(
-            "AST def conversion of pointer expression encountered non-constant "
-            + " addend: %s at address %s",
-            str(axpr2), iaddr)
+        if not anonymous:
+            chklogger.logger.warning(
+                "AST def conversion of pointer expression encountered non-constant "
+                + " addend: %s at address %s",
+                str(axpr2), iaddr)
         return default()
 
     cst2 = cast(AST.ASTIntegerConstant, axpr2).cvalue
 
     if not (axpr1.is_ast_lval_expr or axpr1.is_ast_addressof):
-        chklogger.logger.warning(
-            "AST def conversion of pointer expression encountered unexpected "
-            + " base expression %s at address %s",
-            str(axpr1), iaddr)
+        if not anonymous:
+            chklogger.logger.warning(
+                "AST def conversion of pointer expression encountered unexpected "
+                + " base expression %s at address %s",
+                str(axpr1), iaddr)
         return default()
 
     if tgttyp.is_compound:
         tgttyp = cast(AST.ASTTypComp, tgttyp)
         compkey = tgttyp.compkey
         if not astree.globalsymboltable.has_compinfo(compkey):
-            chklogger.logger.warning(
-                "AST def conversion of pointer expression encountered unknown "
-                + " compinfo key %d (%s) at address %s",
-                compkey, tgttyp.compname, iaddr)
+            if not anonymous:
+                chklogger.logger.warning(
+                    "AST def conversion of pointer expression encountered unknown "
+                    + " compinfo key %d (%s) at address %s",
+                    compkey, tgttyp.compname, iaddr)
             return astree.mk_temp_lval_expression()
 
         subfoffset: AST.ASTOffset
@@ -1047,24 +1079,26 @@ def mk_xpointer_expr(
             if field.fieldtype.is_compound:
                 fcompkey = cast(AST.ASTTypComp, field.fieldtype).compkey
                 if not astree.has_compinfo(fcompkey):
-                    chklogger.logger.error(
-                        "Encountered field compinfo key without definition in "
-                        + "symbol table: %d",
-                        compkey)
+                    if not anonymous:
+                        chklogger.logger.error(
+                            "Encountered field compinfo key without definition in "
+                            + "symbol table: %d",
+                            compkey)
                     return default()
                 fcompinfo = astree.compinfo(fcompkey)
                 (subfield, subrestoffset) = fcompinfo.field_at_offset(restoffset)
                 if subrestoffset > 0:
-                    chklogger.logger.error(
-                        "Second-level rest offset in field-pointer memref "
-                        + "address not yet handled for %s at %s with fields: "
-                        + "%s and %s and original offset %s: %d",
-                        str(axpr1),
-                        iaddr,
-                        field.fieldname,
-                        subfield.fieldname,
-                        str(cst2),
-                        subrestoffset)
+                    if not anonymous:
+                        chklogger.logger.error(
+                            "Second-level rest offset in field-pointer memref "
+                            + "address not yet handled for %s at %s with fields: "
+                            + "%s and %s and original offset %s: %d",
+                            str(axpr1),
+                            iaddr,
+                            field.fieldname,
+                            subfield.fieldname,
+                            str(cst2),
+                            subrestoffset)
                     return default()
                 subfoffset = astree.mk_field_offset(subfield.fieldname, fcompkey)
             else:
@@ -1125,10 +1159,11 @@ def xbinary_to_ast_def_expr(
                 "lsl", "lsr", "eq", "ne", "gt", "le", "lt", "ge"]:
             return astree.mk_binary_expression(operator, astxpr1, astxpr2)
         else:
-            chklogger.logger.error(
-                "AST def conversion of binary expression %s, %s with operator %s "
-                + "at address %s not yet supported",
-                str(xpr1), str(xpr2), operator, iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    "AST def conversion of binary expression %s, %s with operator %s "
+                    + "at address %s not yet supported",
+                    str(xpr1), str(xpr2), operator, iaddr)
             return astree.mk_temp_lval_expression()
 
     if xpr1.is_var and xpr2.is_constant:
@@ -1193,10 +1228,11 @@ def xcompound_to_ast_def_expr(
             astree,
             anonymous=anonymous)
 
-    chklogger.logger.error(
-        "AST def conversion of compound expression %s at address %s not yet "
-        + "supported",
-        str(xc), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "AST def conversion of compound expression %s at address %s not yet "
+            + "supported",
+            str(xc), iaddr)
     return astree.mk_temp_lval_expression()
 
 
@@ -1270,9 +1306,10 @@ def xmemory_dereference_lval_expr(
         hl_addr = cast(AST.ASTBinaryOp, hl_addr)
 
         if not hl_addr.op == "plus":
-            chklogger.logger.error(
-                "Address expression %s with operator %s not yet supported at %s",
-                str(xaddr), hl_addr.op, iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    "Address expression %s with operator %s not yet supported at %s",
+                    str(xaddr), hl_addr.op, iaddr)
             return default()
 
         exp1 = hl_addr.exp1
@@ -1297,9 +1334,10 @@ def xmemory_dereference_lval_expr(
             scalaroffset = cast(AST.ASTIntegerConstant, exp2).cvalue
             (field, rem) = compinfo.field_at_offset(scalaroffset)
             if rem > 0:
-                chklogger.logger.warning(
-                    "Positive remaining offset not yet supported in %s at %s",
-                    str(xaddr), iaddr)
+                if not anonymous:
+                    chklogger.logger.warning(
+                        "Positive remaining offset not yet supported in %s at %s",
+                        str(xaddr), iaddr)
                 return default()
 
             fieldoffset = astree.mk_field_offset(field.fieldname, compkey)
@@ -1365,10 +1403,11 @@ def xxpr_to_ast_def_expr(
             xpr, xdata, iaddr, astree, size=size, anonymous=anonymous)
 
     else:
-        chklogger.logger.error(
-            "AST def-conversion of expression %s not yet supported "
-            + "at address %s",
-            str(xpr), iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "AST def-conversion of expression %s not yet supported "
+                + "at address %s",
+                str(xpr), iaddr)
         return astree.mk_temp_lval_expression()
 
 
@@ -1404,15 +1443,17 @@ def stack_variable_to_ast_lval(
             return astree.mk_stack_variable_lval(
                 offset.offsetvalue(), vtype=ctype)
 
-        chklogger.logger.error(
-            "Stack variable with size %d not yet supported at addresss %s",
-            size, iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "Stack variable with size %d not yet supported at addresss %s",
+                size, iaddr)
         return astree.mk_temp_lval()
 
-    chklogger.logger.error(
-        "Stack variable with non-constant offset %s not yet supported at "
-        + "address %s",
-        str(offset), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "Stack variable with non-constant offset %s not yet supported at "
+            + "address %s",
+            str(offset), iaddr)
     return astree.mk_temp_lval()
 
 
@@ -1441,8 +1482,9 @@ def array_offset_to_ast_offset(
             asuboffset, xdata, iaddr, astree, anonymous=anonymous)
         return astree.mk_expr_index_offset(indexxpr, offset=astoffset)
 
-    chklogger.logger.error(
-        "Offset %s not recognized at address %s", str(offset), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            "Offset %s not recognized at address %s", str(offset), iaddr)
     return astree.mk_expr_index_offset(indexxpr)
 
 
@@ -1540,10 +1582,11 @@ def global_variable_to_ast_lval(
                 aindexoffset, xdata, iaddr, astree, anonymous=anonymous)
             return astree.mk_vinfo_lval(vinfo, astoffset, anonymous=anonymous)
 
-    chklogger.logger.error(
-        ("Conversion of global ast lval for address %s at address %s "
-         + "not yet supported"),
-        str(offset), iaddr)
+    if not anonymous:
+        chklogger.logger.error(
+            ("Conversion of global ast lval for address %s at address %s "
+             + "not yet supported"),
+            str(offset), iaddr)
     return astree.mk_temp_lval()
 
 
@@ -1647,9 +1690,10 @@ def xvariable_to_ast_lval(
             anonymous=anonymous)
 
     else:
-        chklogger.logger.error(
-            "AST conversion of lval %s at address %s not yet supported",
-            str(xv), iaddr)
+        if not anonymous:
+            chklogger.logger.error(
+                "AST conversion of lval %s at address %s not yet supported",
+                str(xv), iaddr)
         return astree.mk_temp_lval()
 
 
@@ -1719,7 +1763,8 @@ def vfunctionreturn_value_to_ast_lvals(
         anonymous: bool = False) -> List[AST.ASTLval]:
     """Deprecated. Currently only used in Power32."""
 
-    chklogger.logger.error(
-        "AST conversion of vfunctionreturn_value %s deprecated",
-        str(vconstvar))
+    if not anonymous:
+        chklogger.logger.error(
+            "AST conversion of vfunctionreturn_value %s deprecated",
+            str(vconstvar))
     return [astree.mk_temp_lval()]
