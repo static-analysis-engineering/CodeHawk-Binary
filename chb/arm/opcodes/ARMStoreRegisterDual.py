@@ -48,6 +48,7 @@ from chb.util.loggingutil import chklogger
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.invariants.VarInvariantFact import ReachingDefFact
+    from chb.invariants.VAssemblyVariable import VMemoryVariable
     from chb.invariants.XVariable import XVariable
     from chb.invariants.XXpr import XXpr
 
@@ -62,12 +63,12 @@ class ARMStoreRegisterDualXData(ARMOpcodeXData):
         return self.var(0, "vmem1")
 
     @property
-    def vmem2(self) -> "XVariable":
-        return self.var(1, "vmem2")
+    def is_vmem_known(self) -> bool:
+        return self.xdata.vars_r[0] is not None
 
     @property
-    def vrn(self) -> "XVariable":
-        return self.var(2, "vrn")
+    def vmem2(self) -> "XVariable":
+        return self.var(1, "vmem2")
 
     @property
     def xrn(self) -> "XXpr":
@@ -102,16 +103,29 @@ class ARMStoreRegisterDualXData(ARMOpcodeXData):
         return self.xpr(7, "xaddr2")
 
     @property
+    def is_xaddr_known(self) -> bool:
+        return self.xdata.xprs_r[6] is not None
+
+    @property
     def xaddr_updated(self) -> "XXpr":
         return self.xpr(8, "xaddr_updated")
 
     @property
     def annotation(self) -> str:
-        assignment = (
-            str(self.vmem1) + " := " + str(self.xxrt) + "; "
-                + str(self.vmem2) + " := " + str(self.xxrt2))
         wbu = self.writeback_update()
-        return self.add_instruction_condition(assignment + wbu)
+        rhs1 = self.xxrt
+        rhs2 = self.xxrt2
+        if self.is_ok or self.is_vmem_known:
+            assign1 = str(self.vmem1) + " := " + str(rhs1)
+            assign2 = str(self.vmem2) + " := " + str(rhs2)
+            assigns = assign1 + "; " + assign2
+        elif self.is_xaddr_known:
+            assign1 = "*(" + str(self.xaddr1) + ") := " + str(rhs1)
+            assign2 = "*(" + str(self.xaddr2) + ") := " + str(rhs2)
+            assigns = assign1 + "; " + assign2
+        else:
+            assigns = "Error in vmem and xaddr"
+        return self.add_instruction_condition(assigns + wbu)
 
 
 @armregistry.register_tag("STRD", ARMOpcode)
@@ -194,10 +208,7 @@ class ARMStoreRegisterDual(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMStoreRegisterDualXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def assembly_ast(
             self,
@@ -250,26 +261,38 @@ class ARMStoreRegisterDual(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        if not xd.is_ok:
+        # high-level assignments
+
+        if xd.is_ok or xd.is_vmem_known:
+            lhs1 = xd.vmem1
+            lhs2 = xd.vmem2
+            memaddr1 = xd.xaddr1
+            memaddr2 = xd.xaddr2
+            hl_lhs1 = XU.xvariable_to_ast_lval(lhs1, xdata, iaddr, astree)
+            hl_lhs2 = XU.xvariable_to_ast_lval(lhs2, xdata, iaddr, astree)
+
+        elif xd.is_xaddr_known:
+            memaddr1 = xd.xaddr1
+            memaddr2 = xd.xaddr2
+            hl_lhs1 = XU.xmemory_dereference_lval(memaddr1, xdata, iaddr, astree)
+            hl_lhs2 = XU.xmemory_dereference_lval(memaddr2, xdata, iaddr, astree)
+
+        else:
             chklogger.logger.error(
-                "Error value encountered at address %s", iaddr)
+                "STRD: LHS lval and address both have error values: skipping "
+                + "store-dual instruction at address %s",
+                iaddr)
             return ([], [])
 
-        # high-level assignments
         rdefs = xdata.reachingdefs
         deful = xdata.defuses
         defuh = xdata.defuseshigh
 
-        lhs1 = xd.vmem1
-        lhs2 = xd.vmem2
         rhs1 = xd.xxrt
         rhs2 = xd.xxrt2
 
         hl_rhs1 = XU.xxpr_to_ast_def_expr(rhs1, xdata, iaddr, astree)
         hl_rhs2 = XU.xxpr_to_ast_def_expr(rhs2, xdata, iaddr, astree)
-
-        hl_lhs1 = XU.xvariable_to_ast_lval(lhs1, xdata, iaddr, astree)
-        hl_lhs2 = XU.xvariable_to_ast_lval(lhs2, xdata, iaddr, astree)
 
         hl_assign1 = astree.mk_assign(
             hl_lhs1,
@@ -283,6 +306,15 @@ class ARMStoreRegisterDual(ARMOpcode):
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
+
+        if (
+                (not xd.is_vmem_known)
+                or (lhs1.is_memory_variable
+                    and cast("VMemoryVariable", lhs1.denotation).base.is_basevar)
+                or hl_lhs1.offset.is_index_offset
+                or hl_lhs1.offset.is_field_offset):
+            astree.add_expose_instruction(hl_assign1.instrid)
+            astree.add_expose_instruction(hl_assign2.instrid)
 
         # TODO: add writeback update
 
