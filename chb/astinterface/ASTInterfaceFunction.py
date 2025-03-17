@@ -250,6 +250,8 @@ class ASTInterfaceFunction(ASTFunction):
             if loc.startswith("F:"):
                 # skip invariants on addresses inlined by the analysis
                 continue
+            if loc == "exit":
+                continue
             for fact in invariants[loc]:
                 instr = self.function.instruction(loc)
                 if fact.is_nonrelational:
