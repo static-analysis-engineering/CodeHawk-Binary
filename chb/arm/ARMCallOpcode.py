@@ -278,7 +278,10 @@ class ARMCallOpcode(ARMOpcode):
             hl_lhs = XU.xvariable_to_ast_lval(
                 lhs, xdata, iaddr, astree, ctype=asttype)
 
-            if rtype.is_void or defuses[0] is None:
+            # Note that defuses[0] may be None even when defuseshigh[0] is not
+            # None. This happens when the return value's only use is as a
+            # return value of the caller's function itself.
+            if rtype.is_void or ((defuses[0] is None) and (defuseshigh[0] is None)):
                 chklogger.logger.info(
                     "Unused: introduced ssa-variable: %s for return value of %s "
                     + "at address %s",
