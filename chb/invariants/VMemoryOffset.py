@@ -146,6 +146,10 @@ class VMemoryOffsetNoOffset(VMemoryOffset):
     def is_no_offset(self) -> bool:
         return True
 
+    @property
+    def is_constant_value_offset(self) -> bool:
+        return True
+
     def offsetvalue(self) -> int:
         return 0
 
