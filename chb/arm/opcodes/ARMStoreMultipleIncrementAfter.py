@@ -45,7 +45,8 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
-    from chb.invariants.VAssemblyVariable import VRegisterVariable
+    from chb.invariants.VAssemblyVariable import (
+        VRegisterVariable, VMemoryVariable)
     from chb.invariants.XVariable import XVariable
     from chb.invariants.XXpr import XXpr, XprConstant, XprVariable
 
@@ -417,28 +418,23 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         if xdata.instruction_subsumes():
             return self.ast_prov_ldmstmcopy(astree, iaddr, bytestring, xdata)
 
-        else:
+        xd = ARMStoreMultipleIncrementAfterXData(xdata)
+        if not xd.is_ok:
             chklogger.logger.error(
-                "AST conversion of STM not yet supported at address %s",
-                iaddr)
+                "STM: Error value encountered at address %s", iaddr)
             return ([], [])
 
-        regcount = len(xdata.reachingdefs) - 1
+        annotations: List[str] = [iaddr, "STM"]
+
+        '''
         baselhs = xdata.vars[0]
-        memlhss = xdata.vars[1:]
         baserhs = xdata.xprs[0]
         baseresult = xdata.xprs[1]
         baseresultr = xdata.xprs[2]
-        regrhss = xdata.xprs[3:3 + regcount]
-        #rregrhss = xdata.xprs[3 + regcount:3 + (2 * regcount)]
         baserdef = xdata.reachingdefs[0]
-        regrdefs = xdata.reachingdefs[1:]
         baseuses = xdata.defuses[0]
-        memuses = xdata.defuses[1:]
         baseuseshigh = xdata.defuseshigh[0]
-        memuseshigh = xdata.defuseshigh[1:]
-
-        annotations: List[str] = [iaddr, "STMIA"]
+        '''
 
         # low-level assignments
 
@@ -447,6 +443,12 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
         (baselval, _, _) = self.opargs[0].ast_lvalue(astree)
         (baserval, _, _) = self.opargs[0].ast_rvalue(astree)
+
+        memlhss = xd.memlhss
+        regrhss = xd.rhss
+        regrdefs = xdata.reachingdefs[1:]
+        memuses = xdata.defuses[1:]
+        memuseshigh = xdata.defuseshigh[1:]
 
         regsop = self.opargs[1]
         registers = regsop.registers
@@ -469,10 +471,11 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
             # high-level assignments
 
-            lhs = memlhss[i]
-            rhs = regrhss[i]
-            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+            memlhs = memlhss[i]
+            regrhs = regrhss[i]
+
+            hl_lhs = XU.xvariable_to_ast_lval(memlhs, xdata, iaddr, astree)
+            hl_rhs = XU.xxpr_to_ast_def_expr(regrhs, xdata, iaddr, astree)
             hl_assign = astree.mk_assign(
                 hl_lhs,
                 hl_rhs,
@@ -491,6 +494,13 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
             base_offset += 4
 
+            if (
+                    (memlhs.is_memory_variable
+                     and cast("VMemoryVariable",
+                              memlhs.denotation).base.is_basevar)):
+                astree.add_expose_instruction(hl_assign.instrid)
+
+        '''
         if self.writeback:
 
             # low-level base assignment
@@ -528,5 +538,6 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
             astree.add_expr_reachingdefs(ll_base_rhs, [baserdef])
             astree.add_lval_defuses(hl_base_lhs, baseuses)
             astree.add_lval_defuses_high(hl_base_lhs, baseuseshigh)
+        '''
 
         return (hl_instrs, ll_instrs)
