@@ -76,10 +76,10 @@ def summaries_dlls_cmd(args: argparse.Namespace) -> NoReturn:
     models = ModelsAccess()
 
     modeldlls = models.dlls()
-    for jar in modeldlls:
-        print(jar)
+    for zip_f in modeldlls:
+        print(zip_f)
         print("-" * 80)
-        for dll in sorted(modeldlls[jar]):
+        for dll in sorted(modeldlls[zip_f]):
             print("  " + dll)
         print("-" * 80)
     exit(0)
@@ -132,18 +132,18 @@ def summaries_so_functions_cmd(args: argparse.Namespace) -> NoReturn:
 
     models = ModelsAccess()
 
-    # returns a dictionary with so-functions for different jars
+    # returns a dictionary with so-functions for different zips
     sofunctions = models.all_so_function_summaries()
-    for jar in sorted(sofunctions):
+    for zip_f in sorted(sofunctions):
         print("\nShared object functions from "
-              + jar
+              + zip_f
               + " ("
-              + str(len(sofunctions[jar]))
+              + str(len(sofunctions[zip_f]))
               + ")")
         print("=" * 80)
         pdrcounter = 0
         pdwcounter = 0
-        for f in sorted(sofunctions[jar], key=lambda f: f.name):
+        for f in sorted(sofunctions[zip_f], key=lambda f: f.name):
             summary = models.so_function_summary(f.name)
             prec = summary.semantics.preconditions
             pdread = len([p for p in prec if p.is_deref_read])
@@ -155,7 +155,7 @@ def summaries_so_functions_cmd(args: argparse.Namespace) -> NoReturn:
                 pdwcounter += 1
         print("=" * 80)
 
-    total = sum(len(sofunctions[jar]) for jar in sofunctions)
+    total = sum(len(sofunctions[zip_f]) for zip_f in sofunctions)
     print(
         "\nTotal: "
         + str(total)

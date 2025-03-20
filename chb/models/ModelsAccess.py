@@ -45,56 +45,56 @@ class ModelsAccess(object):
     """Main entry point for library function summaries.
 
     The main summary collection is obtained from the configured
-    bchummaries.jar. Other summary collections may be added via
-    additional jarfiles, specified with depjars.
+    bchummaries.zip. Other summary collections may be added via
+    additional zipfiles, specified with depzips.
     """
 
     def __init__(self,
-                 depjars: Sequence[str] = []) -> None:
-        """Initialize library models access with jarfile."""
-        self._bchsummariesjarfilename = Config().summaries
-        self._depjars = depjars
+                 depzips: Sequence[str] = []) -> None:
+        """Initialize library models access with zipfile."""
+        self._bchsummarieszipfilename = Config().summaries
+        self._depzips = depzips
         self._bchsummaries: Optional[SummaryCollection] = None
         self._dependencies: Sequence[SummaryCollection] = []
         self._dlls: Dict[str, Sequence[str]] = {}
         self._sofunctionsummaries: Dict[str, Sequence[FunctionSummary]] = {}
 
     @property
-    def depjars(self) -> Sequence[str]:
-        return self._depjars
+    def depzips(self) -> Sequence[str]:
+        return self._depzips
 
     @property
-    def bchsummariesjarfilename(self) -> str:
-        return self._bchsummariesjarfilename
+    def bchsummarieszipfilename(self) -> str:
+        return self._bchsummarieszipfilename
 
     @property
     def bchsummaries(self) -> SummaryCollection:
         if self._bchsummaries is None:
             self._bchsummaries = SummaryCollection(
-                self, self.bchsummariesjarfilename)
+                self, self.bchsummarieszipfilename)
         return self._bchsummaries
 
     @property
     def dependencies(self) -> Sequence[SummaryCollection]:
         if len(self._dependencies) == 0:
-            self._dependencies = [SummaryCollection(self, j) for j in self.depjars]
+            self._dependencies = [SummaryCollection(self, j) for j in self.depzips]
         return self._dependencies
 
     @property
     def stats(self) -> str:
         lines: List[str] = []
         dlls = self.dlls()
-        for jar in dlls:
-            lines.append(jar.ljust(20) + str(len(dlls[jar])) + " dlls")
+        for zip_f in dlls:
+            lines.append(zip_f.ljust(20) + str(len(dlls[zip_f])) + " dlls")
         return "\n".join(lines)
 
     def dlls(self) -> Mapping[str, Sequence[str]]:
-        """Return a mapping from jarfilename to list of function names."""
+        """Return a mapping from zipfilename to list of function names."""
 
         if len(self._dlls) == 0:
             self._dlls["bchsummaries"] = self.bchsummaries.dlls
             for d in self.dependencies:
-                self._dlls[d.jarfilename] = d.dlls
+                self._dlls[d.zipfilename] = d.dlls
         return self._dlls
 
     def has_dll_function_summary(self, dll: str, fname: str) -> bool:
@@ -140,7 +140,7 @@ class ModelsAccess(object):
         return self.bchsummaries.so_function_summary(fname)
 
     def all_so_function_summaries(self) -> Mapping[str, Sequence[FunctionSummary]]:
-        """Return a mapping from jarfilename to list of function summaries."""
+        """Return a mapping from zipfilename to list of function summaries."""
 
         if len(self._sofunctionsummaries) == 0:
             sosummaries = self.bchsummaries.all_so_function_summaries()
@@ -148,7 +148,7 @@ class ModelsAccess(object):
             for d in self.dependencies:
                 if d.has_so_functions():
                     self._sofunctionsummaries[
-                        d.jarfilename] = d.all_so_function_summaries()
+                        d.zipfilename] = d.all_so_function_summaries()
         return self._sofunctionsummaries
 
     def enum_definitions(self) -> Mapping[str, DllEnumDefinitions]:

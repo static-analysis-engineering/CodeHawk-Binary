@@ -50,7 +50,7 @@ analysis:
     x_global_state.xml
     x_global_locations.xml
     x_system_info.xml
-    x_functions.jar
+    x_functions.zip
     x_asm.log
     x_orphan.log
     x_bdict.log
@@ -637,8 +637,9 @@ def get_interface_dictionary_xnode(path: str, xfile: str) -> ET.Element:
     return get_chb_xnode(filename, "interface-dictionary")
 
 
-def get_functionsjar_filename(path: str, xfile: str) -> str:
+def get_functionszip_filename(path: str, xfile: str) -> str:
     fdir = get_analysis_dir(path, xfile)
+    # For now we keep the .jar extension until we update the ocaml analyzer
     return get_chb_filename(fdir, xfile, "functions.jar")
 
 

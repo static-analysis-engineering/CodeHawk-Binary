@@ -103,7 +103,7 @@ class AppAccess(ABC, Generic[HeaderTy]):
         """Initializes access to analysis results."""
         self._path = path
         self._filename = filename
-        self._deps = deps  # list of summary jars registered as dependencies
+        self._deps = deps  # list of summary zips registered as dependencies
         self._header_ty: Type[HeaderTy] = fileformat  # currently supported: elf, pe
 
         self._userdata: Optional[UserData] = None

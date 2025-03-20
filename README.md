@@ -20,8 +20,7 @@ development and thus somewhat experimental.
 
 ### Requirements
 
-The command-line interface requires python3.5 or higher. The analyzer
-requires a Java development kit (to provide the `jar` tool).
+The command-line interface requires python3.5 or higher.
 
 Build instructions for the CodeHawk Binary Analyzer are available
 [here](https://github.com/static-analysis-engineering/codehawk/tree/master/CodeHawk).
