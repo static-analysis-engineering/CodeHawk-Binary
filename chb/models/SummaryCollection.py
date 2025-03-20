@@ -51,15 +51,15 @@ if TYPE_CHECKING:
 
 
 class SummaryCollection:
-    """Represents all summary entities in a single jar file."""
+    """Represents all summary entities in a single zip file."""
 
     def __init__(
             self,
             models: "ModelsAccess",
-            jarfilename: str) -> None:
+            zipfilename: str) -> None:
         self._models = models
-        self._jarfilename = jarfilename
-        self._jarfile = zipfile.ZipFile(self.jarfilename, "r")
+        self._zipfilename = zipfilename
+        self._zipfile = zipfile.ZipFile(self.zipfilename, "r")
         self._filenames: List[str] = []
         self._directorynames: List[str] = []
         self._dlls: List[str] = []
@@ -73,17 +73,17 @@ class SummaryCollection:
         return self._models
 
     @property
-    def jarfile(self) -> zipfile.ZipFile:
-        return self._jarfile
+    def zipfile(self) -> zipfile.ZipFile:
+        return self._zipfile
 
     @property
-    def jarfilename(self) -> str:
-        return self._jarfilename
+    def zipfilename(self) -> str:
+        return self._zipfilename
 
     @property
     def filenames(self) -> List[str]:
         if len(self._filenames) == 0:
-            for info in self.jarfile.infolist():
+            for info in self.zipfile.infolist():
                 self._filenames.append(info.filename)
         return self._filenames
 
@@ -336,7 +336,7 @@ class SummaryCollection:
         raise UF.CHBError("Retrieval of jni references not implemented yet")
 
     def _get_summary_xnode(self, filename: str, tag: str) -> ET.Element:
-        zfile = self.jarfile.read(filename).decode('utf-8')
+        zfile = self.zipfile.read(filename).decode('utf-8')
         try:
             xnode = ET.fromstring(str(zfile)).find(tag)
         except ET.ParseError as e:

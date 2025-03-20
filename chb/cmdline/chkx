@@ -245,7 +245,7 @@ def summariescommand(args: argparse.Namespace) -> NoReturn:
 def summarieslistcommand(args: argparse.Namespace) -> NoReturn:
     print("The summaries list command provides access to function summaries.")
     print("It can be followed by the following subcommands:")
-    print("  dlls          output a list of dlls provided (per jarfile)")
+    print("  dlls          output a list of dlls provided (per zipfile)")
     print("  dll-functions <dll-1> ... <dll-n> output a list of functions for each dll listed")
     print("  so-functions  output a list of shared-object functions (ELF)")
     exit(0)
@@ -433,7 +433,7 @@ def parse() -> argparse.Namespace:
         '--thirdpartysummaries',
         nargs="*",
         default=[],
-        help='summary jars for third party libraries')
+        help='summary zips for third party libraries')
     analyzecmd.add_argument(
         "--so_libraries",
         nargs="*",

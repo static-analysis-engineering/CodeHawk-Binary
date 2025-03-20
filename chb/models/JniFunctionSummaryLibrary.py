@@ -40,7 +40,7 @@ class JniFunctionSummaryLibrary(L.FunctionSummaryLibrary):
 
     Native methods are indexed by numbers, roughly through 231. Many of these
     methods are similar, differring only in the type to which they are
-    applicable. The summaries in bchsummaries.jar make use of templates that
+    applicable. The summaries in the bchsummaries archive make use of templates that
     can be instantiated for these different types.
 
     For example, for jni_190.xml:
