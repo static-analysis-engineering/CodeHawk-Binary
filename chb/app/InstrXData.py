@@ -71,7 +71,6 @@ class InstrXData(IndexedTableValue):
         IndexedTableValue.__init__(self, ixval.index, ixval.tags, ixval.args)
         self._fnd = fnd
         self.expanded = False
-        self._ssavals: List[XVariable] = []
         self._vars: List[XVariable] = []
         self._vars_r: List[Optional[XVariable]] = []
         self._types: List["BCTyp"] = []
@@ -134,29 +133,6 @@ class InstrXData(IndexedTableValue):
         if not self.expanded:
             self._expand()
         return self._types
-
-    @property
-    def ssavals(self) -> List[XVariable]:
-        if not self.expanded:
-            self._expand()
-        return self._ssavals
-
-    def has_ssaval(self, register: str) -> bool:
-        for v in self._ssavals:
-            if v.is_ssa_register_value:
-                ssaval = v.ssa_register_value()
-                if str(ssaval.register) == register:
-                    return True
-        return False
-
-    def get_ssaval(self, register: str) -> "SSARegisterValue":
-        for v in self._ssavals:
-            if v.is_ssa_register_value:
-                ssaval = v.ssa_register_value()
-                if str(ssaval.register) == register:
-                    return ssaval
-        raise UF.CHBError(
-            "No ssa value found for register " + register)
 
     def get_var(self, index: int) -> XVariable:
         if index < len(self.vars):
@@ -353,8 +329,6 @@ class InstrXData(IndexedTableValue):
                 flagrdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
                 flagrdef = cast(Optional[FlagReachingDefFact], flagrdef)
                 self._flagreachingdefs.append(flagrdef)
-            elif c == "c":
-                self._ssavals.append(xd.variable(arg))
             else:
                 raise UF.CHBError("Key letter not recognized: " + c)
 
@@ -577,9 +551,4 @@ class InstrXData(IndexedTableValue):
             lines.append("defuses[" + str(i) + "] = " + str(d))
         for (i, du) in enumerate(self.defuseshigh):
             lines.append("defuseshigh[" + str(i) + "] = " + str(du))
-        for (i, s) in enumerate(self.ssavals):
-            line = "ssa[" + str(i) + "] = " + str(s)
-            if s.is_ssa_register_value:
-                line += " -> register " + str(s.ssa_register_value().register)
-            lines.append(line)
         return "\n".join(lines)
