@@ -685,12 +685,14 @@ class Cfg:
             if astblock.has_return:
                 instr = astblock.last_instruction
                 rv = instr.return_value()
+                astexpr: Optional[AST.ASTExpr] = None
                 if rv is not None and not astree.returns_void():
-                    astexpr: Optional[AST.ASTExpr] = XU.xxpr_to_ast_def_expr(
+                    astexpr = XU.xxpr_to_ast_def_expr(
                         rv, instr.xdata, instr.iaddr, astree)
-                else:
-                    astexpr = None
-                # astexpr = astexprs[0] if len(astexprs) == 1 else None
+                    if rv.is_string_reference:
+                        cstr = rv.constant.string_reference()
+                        straddr = hex(rv.constant.value)
+                        astexpr = astree.mk_string_constant(astexpr, cstr, straddr)
                 rtnstmt = astree.mk_return_stmt(astexpr, instr.iaddr, instr.bytestring)
                 blockstmts[n] = [blocknode, rtnstmt]
             else:
