@@ -119,7 +119,7 @@ class ARMOpcodeXData:
         return self.xdata.is_ok
 
     def var(self, index: int, name: str) -> "XVariable":
-        if index >= len(self.xdata.vars_r):
+        if not self.has_var(index):
             raise UF.CHBError(
                 self.__class__.__name__ + ":"
                 + name + " index out of bounds: " + str(index))
@@ -129,8 +129,31 @@ class ARMOpcodeXData:
                 self.__class__.__name__ + ":" + name + " has an error value")
         return v
 
+    def has_var(self, index: int) -> bool:
+        return self.xdata.has_var_r(index)
+
+    def is_var_ok(self, index: int) -> bool:
+        return self.xdata.is_var_ok(index)
+
+    def cvar(self, index: int, name: str) -> "XVariable":
+        if not self.has_cvar(index):
+            raise UF.CHBError(
+                self.__class__.__name__ + ":"
+                + name + " index out of bounds: " + str(index))
+        cv = self.xdata.cvars_r[index]
+        if cv is None:
+            raise UF.CHBError(
+                self.__class__.__name__ + ":" + name + " has an error value")
+        return cv
+
+    def has_cvar(self, index: int) -> bool:
+        return self.xdata.has_cxpr_r(index)
+
+    def is_cvar_ok(self, index: int) -> bool:
+        return self.xdata.is_cvar_ok(index)
+
     def xpr(self, index: int, name: str) -> "XXpr":
-        if index >= len(self.xdata.xprs_r):
+        if not self.has_xpr(index):
             raise UF.CHBError(
                 self.__class__.__name__ + ":"
                 + name + " index out of bounds: " + str(index))
@@ -139,6 +162,29 @@ class ARMOpcodeXData:
             raise UF.CHBError(
                 self.__class__.__name__ + ":" + name + " has an error value")
         return x
+
+    def has_xpr(self, index: int) -> bool:
+        return self.xdata.has_xpr_r(index)
+
+    def is_xpr_ok(self, index: int) -> bool:
+        return self.xdata.is_xpr_ok(index)
+
+    def cxpr(self, index: int, name: str) -> "XXpr":
+        if index >= len(self.xdata.cxprs_r):
+            raise UF.CHBError(
+                self.__class__.__name__ + ":"
+                + name + " cxpr index out of bounds: " + str(index))
+        cx = self.xdata.cxprs_r[index]
+        if cx is None:
+            raise UF.CHBError(
+                self.__class__.__name__ + ":" + name + " has an error value")
+        return cx
+
+    def has_cxpr(self, index: int) -> bool:
+        return self.xdata.has_cxpr_r(index)
+
+    def is_cxpr_ok(self, index: int) -> bool:
+        return self.xdata.is_cxpr_ok(index)
 
     def add_instruction_condition(self, s: str) -> str:
         if self.xdata.has_unknown_instruction_condition():

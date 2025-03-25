@@ -358,6 +358,21 @@ def field_pointer_to_ast_memref_expr(
 
     subfoffset: AST.ASTOffset = nooffset
     compinfo = astree.compinfo(compkey)
+
+    if not compinfo.has_fields():
+        if not anonymous:
+            chklogger.logger.error(
+                "Struct definition is missing for %s at address %s (no fields found)",
+                compinfo.compname, iaddr)
+        return astree.mk_temp_lval_expression()
+
+    if not compinfo.has_field_offsets():
+        if not anonymous:
+            chklogger.logger.error(
+                "Struct definition for %s does not have field offsets at address %s",
+                compinfo.compname, iaddr)
+        return astree.mk_temp_lval_expression()
+
     (field, restoffset) = compinfo.field_at_offset(offset)
     if restoffset > 0:
         if field.fieldtype.is_compound:
@@ -749,11 +764,6 @@ def vinitmemory_value_to_ast_lval_expression(
         avar = vconstvar.variable.denotation
         return vglobal_variable_value_to_ast_lval_expression(
             avar.offset, xdata, iaddr, astree, size=size, anonymous=anonymous)
-
-    if vconstvar.is_argument_deref_value:
-        avar = vconstvar.variable.denotation
-        return vargument_deref_value_to_ast_lval_expression(
-            avar.basevar, avar.offset, xdata, iaddr, astree, anonymous=anonymous)
 
     if vconstvar.is_function_return_deref_value:
         avar = vconstvar.variable.denotation

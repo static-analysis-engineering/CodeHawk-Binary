@@ -2772,6 +2772,9 @@ class ASTCompInfo(ASTNode):
     def is_compinfo(self) -> bool:
         return True
 
+    def has_fields(self) -> bool:
+        return len(self.fieldinfos) > 0
+
     def has_field_offsets(self) -> bool:
         return all(finfo.has_byteoffset() for finfo in self.fieldinfos)
 
