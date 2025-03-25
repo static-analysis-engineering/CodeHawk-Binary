@@ -53,22 +53,34 @@ if TYPE_CHECKING:
 class ARMAddXData(ARMOpcodeXData):
     """Add <rd> <rn> <rm>  ==> result
 
-    xdata format: a:vxxxxxxrrdh
-    -------------------------
-    vars[0]: vrd (Rd)
-    xprs[0]: xrn (Rn)
-    xprs[1]: xrm (Rm)
-    xprs[2]: result: xrn + xrm
-    xprs[3]: rresult: xrn + xrm (rewritten)
-    xprs[4]: xxrn (xrn rewritten)
-    xprs[5]: xxrm (xrm rewritten)
-    xprs[6]: tcond (optional)
-    xprs[7]: fcond (optional)
+    Data format (regular)
+    - variables:
+    0: vrd
+
+    - expressions:
+    0: xrn
+    1: xrm
+    2: result
+    3: rresult (result, rewritten)
+    4: xxrn (xrn, rewritten)
+    5: xxrm (xrm, rewritten)
+
+    - c expressions:
+    0: cresult
+
     rdefs[0]: xrn
     rdefs[1]: xrm
     rdefs[2:..]: reaching definitions for simplified result expression
     uses[0]: vrd
     useshigh[0]: vrd
+
+    Data format (as part of jump table)
+    - expressions:
+    0: xrn
+    1: xxrn (xrn, rewritten)
+
+    rdefs[0]: xrn
+    rdefs[1:]: reaching definitions for xxrn
     """
 
     def __init__(self, xdata: InstrXData) -> None:
@@ -92,25 +104,56 @@ class ARMAddXData(ARMOpcodeXData):
         return self.xpr(1, "xxrn")
 
     @property
+    def is_jt_xxrn_ok(self) -> bool:
+        return self.is_xpr_ok(1)
+
+    @property
     def result(self) -> "XXpr":
         return self.xpr(2, "result")
+
+    @property
+    def is_result_ok(self) -> bool:
+        return self.is_xpr_ok(2)
 
     @property
     def rresult(self) -> "XXpr":
         return self.xpr(3, "rresult")
 
     @property
+    def is_rresult_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def cresult(self) -> "XXpr":
+        return self.cxpr(0, "cresult")
+
+    @property
+    def is_cresult_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def result_simplified(self) -> str:
-        return simplify_result(
-            self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+        if self.is_result_ok and self.is_rresult_ok:
+            return simplify_result(
+                self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+        else:
+            return str(self.xrn) + " + " + str(self.xrm)
 
     @property
     def xxrn(self) -> "XXpr":
         return self.xpr(4, "xxrn")
 
     @property
+    def is_xxrn_ok(self) -> bool:
+        return self.is_xpr_ok(4)
+
+    @property
     def xxrm(self) -> "XXpr":
         return self.xpr(5, "xxrm")
+
+    @property
+    def is_xxrm_ok(self) -> bool:
+        return self.is_xpr_ok(5)
 
     @property
     def rn_rdef(self) -> Optional["ReachingDefFact"]:
@@ -123,7 +166,10 @@ class ARMAddXData(ARMOpcodeXData):
     @property
     def annotation(self) -> str:
         if self.xdata.is_aggregate_jumptable:
-            return "jump-table: " + str(self.jt_xxrn)
+            if self.is_jt_xxrn_ok:
+                return "jump-table: " + str(self.jt_xxrn)
+            else:
+                return "jump-table: " + str(self.xrn)
         assignment = str(self.vrd) + " := " + self.result_simplified
         return self.add_instruction_condition(assignment)
 
@@ -175,10 +221,7 @@ class ARMAdd(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMAddXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error Value"
+        return xd.annotation
 
     # --------------------------------------------------------------------------
     # AddWithCarry()
@@ -243,24 +286,34 @@ class ARMAdd(ARMOpcode):
                 and astree.get_register_variable_intro(iaddr).has_cast())
 
         xd = ARMAddXData(xdata)
-        if not xdata.is_ok:
-            chklogger.logger.error("Error value encountered at %s", iaddr)
-            return ([], [])
+
+        if xd.is_cresult_ok and xd.is_rresult_ok:
+            rhs = xd.cresult
+            xrhs = xd.rresult
+
+        elif xd.is_rresult_ok:
+            rhs = xd.rresult
+            xrhs = xd.rresult
+
+        elif xd.is_result_ok:
+            rhs = xd.result
+            xrhs = xd.result
+
+        else:
+            chklogger.logger.error(
+                "ADD: Encountered error value for rhs at address %s", iaddr)
+            return ([], [ll_assign])
 
         lhs = xd.vrd
         rhs1 = xd.xrn
         rhs2 = xd.xrm
-        rhs3 = xd.rresult
-        rrhs1 = xd.xxrn
-        rrhs2 = xd.xxrm
+        rrhs1 = xd.xxrn if xd.is_xxrn_ok else xd.xrn
+        rrhs2 = xd.xxrm if xd.is_xxrm_ok else xd.xrm
 
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
         hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-
-        def hl_rhs_default () -> AST.ASTExpr:
-            return XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
 
         if str(lhs) == "PC":
             chklogger.logger.info(
@@ -268,144 +321,40 @@ class ARMAdd(ARMOpcode):
 
         hl_lhs_type = hl_lhs.ctype(astree.ctyper)
 
-        def pointer_arithmetic_expr() -> AST.ASTExpr:
-            hl_rhs1 = XU.xxpr_to_ast_def_expr(rrhs1, xdata, iaddr, astree)
-            hl_rhs2 = XU.xxpr_to_ast_def_expr(rrhs2, xdata, iaddr, astree)
-            hl_rhs1_type = hl_rhs1.ctype(astree.ctyper)
-            hl_rhs2_type = hl_rhs2.ctype(astree.ctyper)
-
-            if hl_rhs1_type is None and hl_rhs2_type is None:
-                chklogger.logger.info(
-                    "Unable to lift pointer arithmetic without type for "
-                    + "%s at address %s",
-                    str(rhs3), iaddr)
-                return hl_rhs_default()
-
-            if hl_rhs2_type is not None and hl_rhs2_type.is_pointer:
-                rhs2tgttyp = cast(AST.ASTTypPtr, hl_rhs2_type).tgttyp
-                tgttypsize = astree.type_size_in_bytes(rhs2tgttyp)
-                if tgttypsize is None:
-                    chklogger.logger.warning(
-                        "Unable to lift pointer arithmetic without size for "
-                        + "%s at address %s; set type size to 1",
-                        str(hl_rhs2_type), iaddr)
-                    tgttypsize = 1
-
-                if tgttypsize == 1:
-                    return XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
-
-                if hl_rhs1.is_integer_constant:
-                    addend = cast(AST.ASTIntegerConstant, hl_rhs1).cvalue
-                    addend = addend // tgttypsize
-                    astaddend: AST.ASTExpr = astree.mk_integer_constant(addend)
-                    annotations.append("scaled by " + str(tgttypsize))
-                    return astree.mk_binary_op("plus", hl_rhs2, astaddend)
-
-                scale = astree.mk_integer_constant(tgttypsize)
-                scaled = astree.mk_binary_op("div", hl_rhs1, scale)
-                return astree.mk_binary_op("plus", hl_rhs2, scaled)
-
-            if hl_rhs1_type is not None and hl_rhs1_type.is_pointer:
-                rhs1tgttyp = cast(AST.ASTTypPtr, hl_rhs1_type).tgttyp
-                tgttypsize = astree.type_size_in_bytes(rhs1tgttyp)
-                if tgttypsize is None:
-                    chklogger.logger.info(
-                        "Unable to lift pointer arithmetic without size for "
-                        + "%s at address %s",
-                        str(hl_rhs1_type), iaddr)
-                    return hl_rhs_default()
-
-                if hl_rhs1.is_ast_startof:
-                    arraylval = cast(AST.ASTStartOf, hl_rhs1).lval
-                    arrayvinfo = cast(AST.ASTVariable, arraylval.lhost).varinfo
-                    if tgttypsize == 1:
-                        scaled = hl_rhs2
-                    else:
-                        scale = astree.mk_integer_constant(tgttypsize)
-                        scaled = astree.mk_binary_op("div", hl_rhs2, scale)
-
-                    offset = astree.mk_expr_index_offset(scaled)
-                    offsetlval = astree.mk_vinfo_lval(arrayvinfo, offset)
-                    return astree.mk_address_of(offsetlval)
-
-                if tgttypsize == 1:
-                    return XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
-
-                if hl_rhs2.is_integer_constant:
-                    addend = cast(AST.ASTIntegerConstant, hl_rhs2).cvalue
-                    addend = addend // tgttypsize
-                    astaddend = astree.mk_integer_constant(addend)
-                    annotations.append("scaled by " + str(tgttypsize))
-                    return astree.mk_binary_op("plus", hl_rhs1, astaddend)
-
-                scale = astree.mk_integer_constant(tgttypsize)
-                scaled = astree.mk_binary_op("div", hl_rhs2, scale)
-                return astree.mk_binary_op("plus", hl_rhs1, scaled)
-
-            if hl_rhs2_type is None:
-                chklogger.logger.info(
-                    "Unable to lift pointer arithmetic without type for "
-                    + "%s at address %s",
-                    str(rhs2), iaddr)
-                return hl_rhs_default()
-
-            chklogger.logger.info(
-                "Second operand pointer variable not yet supported for %s at "
-                + "address %s; rrhs1: %s; hl_rhs1: %s; hl_rhs2: %s; hl_rhs1_type: %s;"
-                + " hl_rhs2_type: %s",
-                str(rhs3),
-                iaddr,
-                str(rrhs1),
-                str(hl_rhs1),
-                str(hl_rhs2),
-                str(hl_rhs1_type),
-                str(hl_rhs2_type))
-            return hl_rhs_default()
-
         # resulting expression is a stack address
         if (
                 (str(rrhs1) == "SP" or rrhs1.is_stack_address)
-                and rhs3.is_stack_address):
+                and xrhs.is_stack_address):
             annotations.append("stack address")
-            rhs3 = cast("XprCompound", rhs3)
-            stackoffset = rhs3.stack_address_offset()
+            xrhs = cast("XprCompound", xrhs)
+            stackoffset = xrhs.stack_address_offset()
             rhslval = astree.mk_stack_variable_lval(stackoffset)
             hl_rhs: AST.ASTExpr = astree.mk_address_of(rhslval)
 
         # resulting expression is a pc-relative address
         elif str(rrhs1) == "PC" or str(rhs2) == "PC":
             annotations.append("PC-relative")
-            if rhs3.is_int_constant:
-                rhsexpr = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
-                rhsval = cast("XprConstant", rhs3).intvalue
-                if rhs3.is_string_reference:
+            if xrhs.is_int_constant:
+                rhsexpr = XU.xxpr_to_ast_def_expr(xrhs, xdata, iaddr, astree)
+                rhsval = cast("XprConstant", xrhs).intvalue
+                if xrhs.is_string_reference:
                     saddr = hex(rhsval)
-                    cstr = rhs3.constant.string_reference()
+                    cstr = xrhs.constant.string_reference()
                     hl_rhs = astree.mk_string_constant(
                         rhsexpr, cstr, saddr)
                 else:
                     hl_rhs = astree.mk_global_address_constant(
                         rhsval, rhsexpr)
             else:
-                hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+                hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
-        elif rhs3.is_addressof_var:
-            hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
-            if rhs3.is_constant_expression:
+        elif rhs.is_addressof_var:
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+            if rhs.is_constant_expression:
                 astree.set_ssa_value(str(hl_lhs), hl_rhs)
 
-        elif (hl_lhs_type is not None and hl_lhs_type.is_pointer and not has_cast()):
-            hl_rhs = pointer_arithmetic_expr()
-            if str(hl_rhs).startswith("astmem_tmp"):
-                chklogger.logger.error(
-                    "Unable to compute pointer arithmetic expression for %s "
-                    "at address %s",
-                    str(rhs3), iaddr)
-            else:
-                if rhs3.is_constant_expression:
-                    astree.set_ssa_value(str(hl_lhs), hl_rhs)
         else:
-            hl_rhs = hl_rhs_default ()
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
