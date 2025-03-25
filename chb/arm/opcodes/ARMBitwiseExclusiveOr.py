@@ -49,6 +49,19 @@ if TYPE_CHECKING:
 
 
 class ARMBitwiseExclusiveOrXData(ARMOpcodeXData):
+    """Data format:
+    - variables:
+    0: vrd
+
+    - expressions:
+    0: xrn
+    1: xrm
+    2: result
+    3: rresult (result, simplified)
+
+    - c expressions:
+    0: cresult
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -74,13 +87,30 @@ class ARMBitwiseExclusiveOrXData(ARMOpcodeXData):
         return self.xpr(3, "rresult")
 
     @property
+    def is_rresult_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def cresult(self) -> "XXpr":
+        return self.cxpr(0, "cresult")
+
+    @property
+    def is_cresult_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def result_simplified(self) -> str:
-        return simplify_result(
-            self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+        if self.is_rresult_ok:
+            return simplify_result(
+                self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+        else:
+            return str(self.result)
 
     @property
     def annotation(self) -> str:
-        assignment = str(self.vrd) + " := " + self.result_simplified
+        cr = str(self.cresult) if self.is_cresult_ok else ""
+        cr = " (C: " + cr + ")"
+        assignment = str(self.vrd) + " := " + self.result_simplified + cr
         return self.add_instruction_condition(assignment)
 
 
@@ -98,13 +128,8 @@ class ARMBitwiseExclusiveOr(ARMOpcode):
     args[3]: index of op3 in armdictionary
     args[4]: is-wide (thumb)
 
-    xdata format: a:vxxxxrr..dh
-    ---------------------------
-    vars[0]: lhs
-    xprs[0]: rhs1
-    xprs[1]: rhs2
-    xprs[2]: (rhs1 xor rhs2)
-    xprs[3]: (rhs1 xor rhs2)
+    xdata format:
+    -------------
     rdefs[0]: rhs1
     rdefs[1]: rhs2
     rdefs[2:.]: result
@@ -131,10 +156,7 @@ class ARMBitwiseExclusiveOr(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMBitwiseExclusiveOrXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def ast_prov(
             self,
@@ -166,13 +188,15 @@ class ARMBitwiseExclusiveOr(ARMOpcode):
         # high-level assignment
 
         xd = ARMBitwiseExclusiveOrXData(xdata)
-        if not xd.is_ok:
-            chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
-            return ([], [])
+
+        if xd.is_cresult_ok:
+            rhs = xd.cresult
+        elif xd.is_rresult_ok:
+            rhs = xd.rresult
+        else:
+            rhs = xd.result
 
         lhs = xd.vrd
-        rhs = xd.rresult
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
