@@ -75,12 +75,24 @@ class ARMBranchExchangeXData(ARMOpcodeXData):
     def rreturnval(self) -> "XXpr":
         return self.xdata.get_return_xxpr()
 
+    def has_creturnval(self) -> bool:
+        return self.xdata.has_return_cxpr()
+
+    def creturnval(self) -> "XXpr":
+        return self.xdata.get_return_cxpr()
+
     @property
     def annotation(self) -> str:
         if self.xdata.is_bx_call:
             return "bx-call"
         if self.has_return_xpr():
-            return "return " + str(self.rreturnval())
+            cx = (" (C: "
+                  + (str(self.creturnval()) if self.has_creturnval() else "None")
+                  + ")")
+            if self.is_ok:
+                return "return " + str(self.rreturnval()) + cx
+            else:
+                return "Error value"
         else:
             return "Not supported yet"
 
@@ -116,17 +128,21 @@ class ARMBranchExchange(ARMCallOpcode):
 
     def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
         xd = ARMBranchExchangeXData(xdata)
-        if xd.has_return_xpr():
-            return xd.rreturnval()
+        if xd.has_creturnval():
+            if xd.is_ok:
+                return xd.creturnval()
+            else:
+                chklogger.logger.warning(
+                    "Return value is an error value")
+                return None
         else:
             return None
 
     def is_call(self, xdata: InstrXData) -> bool:
-        return len(xdata.tags) >= 2 and xdata.tags[1] == "call"
+        return xdata.has_call_target()
 
     def is_call_instruction(self, xdata: InstrXData) -> bool:
-        # return xdata.has_call_target()
-        return False
+        return xdata.has_call_target()
 
     def call_target(self, xdata: InstrXData) -> "CallTarget":
         if self.is_call_instruction(xdata):
@@ -145,26 +161,9 @@ class ARMBranchExchange(ARMCallOpcode):
         else:
             raise UF.CHBError("Instruction is not a call: " + str(self))
 
-    def arguments(self, xdata: InstrXData) -> Sequence[XXpr]:
-        return xdata.xprs[:self.argument_count(xdata)]
-
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:x .
-
-        xprs[0]: target operand
-        """
-        if self.is_call_instruction(xdata):
-            tgt = xdata.call_target(self.ixd)
-            args = ", ".join(str(x) for x in self.arguments(xdata))
-            return "call " + str(tgt) + "(" + args + ")"
-
         xd = ARMBranchExchangeXData(xdata)
-        if xd.has_return_xpr and xd.is_ok:
-            return xd.annotation
-        elif xd.is_ok:
-            return "goto " + str(xd.xxtgt)
-        else:
-            return "Error value"
+        return xd.annotation
 
     def assembly_ast(
             self,
