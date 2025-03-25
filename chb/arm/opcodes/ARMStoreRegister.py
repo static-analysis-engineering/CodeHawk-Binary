@@ -57,6 +57,25 @@ if TYPE_CHECKING:
 
 
 class ARMStoreRegisterXData(ARMOpcodeXData):
+    """Data format:
+    - variables:
+    0: vmem_r (lhs)
+
+    - c variables:
+    0: cvmem_r (lhs)
+
+    - expressions:
+    0: xrn
+    1: xrm
+    2: xrt (rhs)
+    3: xxrt (rhs, rewritten)
+    4: xaddr (lhs address)
+    5: xxaddr (lhs address, rewritten)
+
+    - c expressions:
+    0: cxrt (rhs)
+    1: cxaddr (lhs address)
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -66,32 +85,16 @@ class ARMStoreRegisterXData(ARMOpcodeXData):
         return self.var(0, "vmem")
 
     @property
-    def is_vmem_known(self) -> bool:
-        return self.xdata.vars_r[0] is not None
+    def is_vmem_ok(self) -> bool:
+        return self.is_var_ok(0)
 
     @property
-    def is_vmem_unknown(self) -> bool:
-        return self.xdata.vars_r[0] is None
+    def cvmem(self) -> "XVariable":
+        return self.cvar(0, "cvmem")
 
     @property
-    def lhsvar(self) -> "XVariable":
-        return self.var(1, "lhsvar")
-
-    @property
-    def is_lhsvar_unknown(self) -> bool:
-        return self.xdata.vars_r[1] is None
-
-    @property
-    def is_lhsvar_known(self) -> bool:
-        return self.xdata.vars_r[1] is not None
-
-    @property
-    def is_xxrtc_known(self) -> bool:
-        return self.xdata.xprs_r[4] is not None
-
-    @property
-    def vrn(self) -> "XVariable":
-        return self.var(1, "vrn")
+    def is_cvmem_ok(self) -> bool:
+        return self.is_cvar_ok(0)
 
     @property
     def xrn(self) -> "XXpr":
@@ -110,31 +113,61 @@ class ARMStoreRegisterXData(ARMOpcodeXData):
         return self.xpr(3, "xxrt")
 
     @property
-    def xxrtc(self) -> "XXpr":
-        return self.xpr(4, "xxrtc")
+    def is_xxrt_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def cxrt(self) -> "XXpr":
+        return self.cxpr(0, "cxrt")
+
+    @property
+    def is_cxrt_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
 
     @property
     def xaddr(self) -> "XXpr":
-        return self.xpr(5, "xaddr")
+        return self.xpr(4, "xaddr")
 
     @property
-    def is_address_known(self) -> bool:
-        return self.xdata.xprs_r[5] is not None
+    def is_xaddr_ok(self) -> "bool":
+        return self.is_xpr_ok(4)
 
     @property
-    def xaddr_updated(self) -> "XXpr":
-        return self.xpr(6, "xaddr_updated")
+    def xxaddr(self) -> "XXpr":
+        return self.xpr(5, "xxaddr")
+
+    @property
+    def is_xxaddr_ok(self) -> bool:
+        return self.is_xpr_ok(5)
+
+    @property
+    def cxaddr(self) -> "XXpr":
+        return self.cxpr(1, "cxaddr")
+
+    @property
+    def is_cxaddr_ok(self) -> bool:
+        return self.is_cxpr_ok(1)
 
     @property
     def annotation(self) -> str:
         wbu = self.writeback_update()
-        rhs = self.xxrtc if self.is_xxrtc_known else self.xxrt
-        if self.is_ok or self.is_vmem_known:
-            assignment = str(self.vmem) + " := " + str(rhs)
-        elif self.is_vmem_unknown and self.is_address_known:
-            assignment = "*(" + str(self.xaddr) + ") := " + str(rhs)
+        clhs = str(self.cvmem) if self.is_cvmem_ok else "None"
+        crhs = str(self.cxrt) if self.is_cxrt_ok else "None"
+        assignc = "(C: " + clhs + " := " + crhs + ")"
+        if self.is_vmem_ok:
+            lhs = str(self.vmem)
+        elif self.is_xxaddr_ok:
+            lhs = "*(" + str(self.xxaddr) + ")"
+        elif self.is_xaddr_ok:
+            lhs = "*(" + str(self.xaddr) + ")"
         else:
-            assignment = "Error value"
+            lhs = "Error addr"
+        if self.is_xxrt_ok:
+            rhs = str(self.xxrt)
+        else:
+            rhs = "Error value"
+        assign = lhs + " := " + rhs
+        assignment = assign + " " + assignc
         return self.add_instruction_condition(assignment + wbu)
 
 
@@ -153,14 +186,6 @@ class ARMStoreRegister(ARMOpcode):
 
     xdata format
     ------------
-    vars[0]: lhs
-    vars[1]: vrn (base register, only if writeback)
-    xprs[0]: xrn (base register)
-    xprs[1]: xrm (index)
-    xprs[2]: xrt (rhs, source register)
-    xprs[3]: xrt (rhs, simplified)
-    xprs[4]: address of memory location
-    xprs[5]: condition (if TC is set)
     rdefs[0]: rn
     rdefs[1]: rm
     rdefs[2]: rt
@@ -237,7 +262,6 @@ class ARMStoreRegister(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        xd = ARMStoreRegisterXData(xdata)
         annotations: List[str] = [iaddr, "STR"]
 
         # low-level assignment
@@ -253,40 +277,45 @@ class ARMStoreRegister(ARMOpcode):
 
         # high-level assignment
 
-        if xd.is_ok or xd.is_vmem_known:
+        xd = ARMStoreRegisterXData(xdata)
+
+        if xd.is_cvmem_ok:
+            lhs = xd.cvmem
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+
+        elif xd.is_vmem_ok:
             lhs = xd.vmem
-            memaddr = xd.xaddr
-            hl_lhs = XU.xvariable_to_ast_lval(
-                lhs, xdata, iaddr, astree, memaddr=memaddr)
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
 
-        elif xd.is_vmem_unknown and xd.is_lhsvar_known and xd.is_address_known:
-            memaddr = xd.xaddr
-            lhsvar = xd.lhsvar
-            hl_lhs = XU.xvariable_to_ast_lval(
-                lhsvar, xdata, iaddr, astree, memaddr=memaddr)
+        elif xd.is_cxaddr_ok:
+            memaddr = xd.cxaddr
+            hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
 
-        elif xd.is_address_known:
+        elif xd.is_xxaddr_ok:
+            memaddr = xd.xxaddr
+            hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+
+        elif xd.is_xaddr_ok:
             memaddr = xd.xaddr
             hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
 
         else:
             chklogger.logger.error(
                 "STR: Lhs lval and address both have error values: skipping "
-                "store instruction at address %s",
-                iaddr)
-            return ([], [])
+                "store instruction at address %s", iaddr)
+            return ([], (ll_preinstrs + [ll_assign] + ll_postinstrs))
 
-        if xd.is_vmem_unknown:
-            vmem = "unknown"
+        if xd.is_cxrt_ok:
+            rhs = xd.cxrt
+        elif xd.is_xxrt_ok:
+            rhs = xd.xxrt
         else:
-            vmem = str(xd.vmem)
+            rhs = xd.xrt
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
-        rhs = xd.xxrt
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
-
-        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         if rhs.is_string_reference:
             rhsval = cast(XprConstant, rhs).intvalue
@@ -305,7 +334,7 @@ class ARMStoreRegister(ARMOpcode):
         # to variables that are part of a struct or array variable, so these
         # assignments must be explicitly forced to appear in the lifting
         if (
-                xd.is_vmem_unknown
+                (not xd.is_vmem_ok)
                 or lhs.is_memory_variable and cast("VMemoryVariable",
                                                    lhs.denotation).base.is_basevar
                 or hl_lhs.offset.is_index_offset
