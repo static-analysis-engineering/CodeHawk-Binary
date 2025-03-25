@@ -53,6 +53,21 @@ if TYPE_CHECKING:
 
 
 class ARMLoadRegisterXData(ARMOpcodeXData):
+    """Data format:
+    - variables:
+    0: vrt (lhs)
+
+    - expressions:
+    0: xrn
+    1: xrm
+    2: xmem (rhs)
+    3: xrmem (rhs, rewritten)
+    4: xaddr (address of rhs)
+
+    - c expressions:
+    0: cxrmem (rhs)
+    1: cxaddr (address of rhs)
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -60,10 +75,6 @@ class ARMLoadRegisterXData(ARMOpcodeXData):
     @property
     def vrt(self) -> "XVariable":
         return self.var(0, "vrt")
-
-    @property
-    def vmem(self) -> "XVariable":
-        return self.var(1, "vmem")
 
     @property
     def xrn(self) -> "XXpr":
@@ -78,28 +89,67 @@ class ARMLoadRegisterXData(ARMOpcodeXData):
         return self.xpr(2, "xmem")
 
     @property
+    def is_xmem_ok(self) -> bool:
+        return self.is_xpr_ok(2)
+
+    @property
     def xrmem(self) -> "XXpr":
         return self.xpr(3, "xrmem")
+
+    @property
+    def is_xrmem_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def cxrmem(self) -> "XXpr":
+        return self.cxpr(0, "cxrmem")
+
+    @property
+    def is_cxrmem_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
 
     @property
     def xaddr(self) -> "XXpr":
         return self.xpr(4, "xaddr")
 
     @property
-    def is_xrmem_unknown(self) -> bool:
-        return self.xdata.xprs_r[3] is None
+    def is_xaddr_ok(self) -> bool:
+        return self.is_xpr_ok(4)
 
     @property
-    def is_address_known(self) -> bool:
-        return self.xdata.xprs_r[4] is not None
+    def xxaddr(self) -> "XXpr":
+        return self.xpr(5, "xxaddr")
+
+    @property
+    def is_xxaddr_ok(self) -> bool:
+        return self.is_xpr_ok(5)
+
+    @property
+    def cxaddr(self) -> "XXpr":
+        return self.cxpr(1, "cxaddr")
+
+    @property
+    def is_cxaddr_ok(self) -> bool:
+        return self.is_cxpr_ok(1)
 
     @property
     def annotation(self) -> str:
         wbu = self.writeback_update()
-        if self.is_ok:
-            assignment = str(self.vrt) + " := " + str(self.xrmem)
-        elif self.is_xrmem_unknown and self.is_address_known:
-            assignment = str(self.vrt) + " := *(" + str(self.xaddr) + ")"
+        if self.is_cxrmem_ok:
+            crhs = str(self.cxrmem)
+        elif self.is_cxaddr_ok:
+            crhs = "*(" + str(self.cxaddr) + ")"
+        else:
+            crhs = "None"
+        cx = " (C: " + crhs + ")"
+        addr = str(self.xxaddr if self.is_xxaddr_ok else self.xaddr)
+        caddr = str(self.cxaddr if self.is_cxaddr_ok else "None")
+        caddr = " (addr: " + addr + "; C: " + caddr + ")"
+        if self.is_ok or self.is_xrmem_ok:
+            assignment = str(self.vrt) + " := " + str(self.xrmem) + cx + caddr
+        elif self.is_xaddr_ok:
+            assignment = (
+                str(self.vrt) + " := *(" + str(self.xaddr) + ")" + cx + caddr)
         else:
             assignment = "Error value"
         return self.add_instruction_condition(assignment) + wbu
@@ -120,28 +170,12 @@ class ARMLoadRegister(ARMOpcode):
 
     xdata format:
     -------------
-    vars[0]: lhs
-    vars[1]: memory location expressed as a variable
-    xprs[0]: value in rn
-    xprs[1]: value in rm
-    xprs[2]: value in memory location
-    xprs[3]: value in memory location (simplified)
-    xprs[4]: address of memory location
     rdefs[0]: reaching definitions rn
     rdefs[1]: reaching definitions rm
     rdefs[2]: reaching definitions memory location
     rdefs[3..]: reaching definitions for memory value
     uses[0]: use of lhs
     useshigh[0]: use of lhs at high level
-
-    optional:
-    vars[2]: lhs base register (if base update), add "bu" to tags
-
-    xprs[.]: instruction condition (if has condition)
-    xprs[.]: new address for base register
-
-    uses[1]: use of updated base register
-    useshigh[1]: use of updated base register
     """
 
     def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
@@ -162,13 +196,20 @@ class ARMLoadRegister(ARMOpcode):
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2, 3]]
 
     def lhs(self, xdata: InstrXData) -> List[XVariable]:
-        return [xdata.vars[0]]
+        xd = ARMLoadRegisterXData(xdata)
+        return [xd.vrt]
 
     def is_load_instruction(self, xdata: InstrXData) -> bool:
         return True
 
     def rhs(self, xdata: InstrXData) -> List[XXpr]:
-        return [xdata.xprs[1]]
+        xd = ARMLoadRegisterXData(xdata)
+        if xd.is_xrmem_ok:
+            return [xd.xrmem]
+        elif xd.is_xmem_ok:
+            return [xd.xmem]
+        else:
+            return []
 
     def annotation(self, xdata: InstrXData) -> str:
         """lhs, rhs, with optional instr condition and base update."""
@@ -185,9 +226,7 @@ class ARMLoadRegister(ARMOpcode):
 
         xd = ARMLoadRegisterXData(xdata)
 
-        memaddr = xd.xaddr
-
-        annotations: List[str] = [iaddr, "LDR", "addr: " + str(memaddr)]
+        annotations: List[str] = [iaddr, "LDR"]
 
         # low-level assignment
 
@@ -213,24 +252,34 @@ class ARMLoadRegister(ARMOpcode):
         lhs = xd.vrt
 
         if xd.is_ok:
-            rhs = xd.xrmem
-            rhsval = None if has_cast() else xd.xrmem
-            xaddr = xd.xaddr
-            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhsval)
-            hl_rhs = XU.xxpr_to_ast_def_expr(
-                rhs, xdata, iaddr, astree, memaddr=xaddr)
+            rhs = xd.cxrmem
+            rhsval = None if has_cast() else xd.cxrmem
+            hl_lhs = XU.xvariable_to_ast_lval(
+                lhs, xdata, iaddr, astree, rhs=rhsval)
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
-        elif xd.is_xrmem_unknown and xd.is_address_known:
+        elif xd.is_cxaddr_ok:
+            cxaddr = xd.cxaddr
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+            hl_rhs = XU.xmemory_dereference_lval_expr(
+                cxaddr, xdata, iaddr, astree)
+
+        elif xd.is_xaddr_ok:
             xaddr = xd.xaddr
             hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
             hl_rhs = XU.xmemory_dereference_lval_expr(
                 xaddr, xdata, iaddr, astree)
 
+            chklogger.logger.warning(
+                "LDR: Unable to use a C expression for rhs. Fall back to "
+                + "native byte-based address: %s to form rhs %s at address %s",
+                str(xaddr), str(hl_rhs), iaddr)
+
         else:
             chklogger.logger.error(
                 "LDR: both memory value and address values are error values "
                 + "at address %s: ", iaddr)
-            return ([], [])
+            return ([], (ll_pre + [ll_assign] + ll_post))
 
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
