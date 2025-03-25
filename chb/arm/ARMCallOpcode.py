@@ -68,7 +68,9 @@ class ARMCallOpcodeXData(ARMOpcodeXData):
     """
     xdata format: a:x[2n]xr[n]dh, call   (n arguments)
     -------------------------------------------------
-    xprs[0..2n-1]: (arg location expr, arg value expr) * n
+    xprs_r[0..n-1]: arg values
+    xprs_r[n..2n-1]: register arg values
+    cxprs_r[0..n-1]: arg value (C representation)
     xprs[2n]: call target expression
     rdefs[0..n-1]: arg location reaching definitions
     uses[0]: lhs
@@ -111,10 +113,57 @@ class ARMCallOpcodeXData(ARMOpcodeXData):
         return arguments
 
     @property
+    def c_arguments(self) -> List[Optional["XXpr"]]:
+        argcount = self.argument_count
+        c_args: List[Optional["XXpr"]] = []
+        for i in range(argcount):
+            x = self._xdata.cxprs_r[i]
+            c_args.append(x)
+        return c_args
+
+    @property
+    def cx_arguments(self) -> List["XXpr"]:
+        argcount = self.argument_count
+        result: List["XXpr"] = []
+        for i in range(argcount):
+            x = self.c_arguments[i]
+            if x is None:
+                x = self.arguments[i]
+            result.append(x)
+        return result
+
+    @property
     def argumentxvars(self) -> List["XXpr"]:
         argcount = self.argument_count
-        return [x for x in self._xdata.xprs_r[argcount:2 * argcount]
-                if x is not None]
+        argvars: List["XXpr"] = []
+        for i in range(argcount):
+            x = self._xdata.xprs_r[i + argcount]
+            if x is None:
+                raise UF.CHBError(
+                    "Unexpected None-value call argument at index "
+                    + str(i))
+            argvars.append(x)
+        return argvars
+
+    def argument(self, index: int) -> Tuple[Optional["XXpr"], Optional[str]]:
+        """Returns argument for (1-based) index."""
+
+        if index > self.argument_count:
+            msg = (
+                "argument index " + str(index) + " exceeds argument count "
+                + str(self.argument_count))
+            return (None, msg)
+        if index <= 0:
+            msg = (
+                "argument index " + str(index) + " is invalid. A positive "
+                + "value is expected")
+            return (None, msg)
+        c_arg = self.c_arguments[index-1]
+        if c_arg is None:
+            x_arg = self.arguments[index-1]
+            return (x_arg, "fall-back to x-expression")
+        else:
+            return (c_arg, None)
 
     @property
     def calltarget(self) -> "CallTarget":
@@ -124,7 +173,8 @@ class ARMCallOpcodeXData(ARMOpcodeXData):
     def annotation(self) -> str:
         tgt = str(self.calltarget)
         args = ", ".join(str(x) for x in self.arguments)
-        call = "call " + str(tgt) + "(" + args + ")"
+        cargs = " (C: (" + ", ".join(str(x) for x in self.c_arguments) + "))"
+        call = "call " + str(tgt) + "(" + args + ")" + cargs
         return self.add_instruction_condition(call)
 
 
@@ -310,7 +360,7 @@ class ARMCallOpcode(ARMOpcode):
                 if len(astargtypes) < argcount:
                     astargtypes += ([None] * (argcount - len(astargtypes)))
 
-            xargs = xd.arguments
+            xargs = xd.cx_arguments
             xvarargs = xd.argumentxvars
             if len(rdefs) >= argcount:
                 llrdefs = rdefs[:argcount]
@@ -318,7 +368,7 @@ class ARMCallOpcode(ARMOpcode):
                 # xv represents the location of the argument, which can be
                 #  either a register, or a stack location, where the stack
                 #  location is represented by an expression of the form
-                #  (sp + n), with n is the offset from the current stackpointer
+                #  (sp + n), where n is the offset from the current stackpointer
                 #  in bytes (note: not the stackpointer at function entry).
                 # rdef represents the reaching definition for the argument
                 #  location.
