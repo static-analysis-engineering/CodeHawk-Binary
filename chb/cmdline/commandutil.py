@@ -647,7 +647,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     if sortby == "instrs":
         sortkey = lambda f: f.instruction_count
     elif sortby == "basicblocks":
-        sortkey = lambda f: f.block_count
+        sortkey = lambda f: (f.block_count, f.instruction_count, int(f.faddr, 16))
     elif sortby == "loopdepth":
         sortkey = lambda f: f.loop_depth
     elif sortby == "time":

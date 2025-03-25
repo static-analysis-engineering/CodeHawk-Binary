@@ -73,9 +73,11 @@ class InstrXData(IndexedTableValue):
         self.expanded = False
         self._vars: List[XVariable] = []
         self._vars_r: List[Optional[XVariable]] = []
+        self._cvars_r: List[Optional[XVariable]] = []
         self._types: List["BCTyp"] = []
         self._xprs: List[XXpr] = []
         self._xprs_r: List[Optional[XXpr]] = []
+        self._cxprs_r: List[Optional[XXpr]] = []
         self._intervals: List[XInterval] = []
         self._strs: List[str] = []
         self._ints: List[int] = []
@@ -129,6 +131,12 @@ class InstrXData(IndexedTableValue):
         return self._vars_r
 
     @property
+    def cvars_r(self) -> List[Optional[XVariable]]:
+        if not self.expanded:
+            self._expand()
+        return self._cvars_r
+
+    @property
     def types(self) -> List["BCTyp"]:
         if not self.expanded:
             self._expand()
@@ -156,6 +164,17 @@ class InstrXData(IndexedTableValue):
                 + str(len(self.vars))
                 + ")")
 
+    def get_cvar_r(self, index: int) -> Optional[XVariable]:
+        if index < len(self.cvars_r):
+            return self.cvars_r[index]
+        else:
+            raise UF.CHBError(
+                "xdata: cvar-index out-of-bound: "
+                + str(index)
+                + " (length is "
+                + str(len(self.cvars_r))
+                + ")")
+
     @property
     def xprs(self) -> List[XXpr]:
         if not self.expanded:
@@ -167,6 +186,12 @@ class InstrXData(IndexedTableValue):
         if not self.expanded:
             self._expand()
         return self._xprs_r
+
+    @property
+    def cxprs_r(self) -> List[Optional[XXpr]]:
+        if not self.expanded:
+            self._expand()
+        return self._cxprs_r
 
     @property
     def intervals(self) -> List[XInterval]:
@@ -232,12 +257,48 @@ class InstrXData(IndexedTableValue):
 
         key = self.tags[0]
         if key.startswith("ar:"):
-            return all(self.vars_r) and all(self.xprs_r)
+            return all(self.vars_r) and all(self.xprs_r) and all(self.cxprs_r)
         else:
             return True
 
+    def has_var_r(self, index: int) -> bool:
+        return index >= 0 and index < len(self.vars_r)
+
+    def is_var_ok(self, index: int) -> bool:
+        if self.has_var_r(index):
+            v = self.vars_r[index]
+            return v is not None
+        return False
+
+    def has_cvar_r(self, index: int) -> bool:
+        return index >= 0 and index < len(self.cvars_r)
+
+    def is_cvar_ok(self, index: int) -> bool:
+        if self.has_cvar_r(index):
+            v = self.cvars_r[index]
+            return v is not None
+        return False
+
+    def has_xpr_r(self, index: int) -> bool:
+        return index >= 0 and index < len(self.xprs_r)
+
+    def is_xpr_ok(self, index: int) -> bool:
+        if self.has_xpr_r(index):
+            x = self.xprs_r[index]
+            return x is not None
+        return False
+
+    def has_cxpr_r(self, index: int) -> bool:
+        return index >= 0 and index < len(self.cxprs_r)
+
+    def is_cxpr_ok(self, index: int) -> bool:
+        if self.has_cxpr_r(index):
+            cx = self.cxprs_r[index]
+            return cx is not None
+        return False
+
     @property
-    def error_values(self) -> Tuple[List[int], List[int]]:
+    def error_values(self) -> Tuple[List[int], List[int], List[int]]:
 
         key = self.tags[0]
         if key.startswith("ar:"):
@@ -245,9 +306,11 @@ class InstrXData(IndexedTableValue):
                 i for i in range(0, len(self.vars_r)) if self.vars_r[i] is None]
             xprs_e: List[int] = [
                 i for i in range(0, len(self.xprs_r)) if self.xprs_r[i] is None]
-            return (vars_e, xprs_e)
+            cxprs_e: List[int] = [
+                i for i in range(0, len(self.cxprs_r)) if self.cxprs_r[i] is None]
+            return (vars_e, xprs_e, cxprs_e)
         else:
-            return ([], [])
+            return ([], [], [])
 
 
     def _expand(self) -> None:
@@ -290,6 +353,12 @@ class InstrXData(IndexedTableValue):
                 else:
                     self._vars.append(xd.variable(arg))
 
+            elif c == "w":
+                if arg == -2:
+                    self._cvars_r.append(None)
+                else:
+                    self._cvars_r.append(xd.variable(arg))
+
             elif c == "x":
                 if use_result:
                     if arg == -2:
@@ -299,6 +368,11 @@ class InstrXData(IndexedTableValue):
                 else:
                     self._xprs.append(xd.xpr(arg))
 
+            elif c == "c":
+                if arg == -2:
+                    self._cxprs_r.append(None)
+                else:
+                    self._cxprs_r.append(xd.xpr(arg))
             elif c == "a":
                 self._xprs.append(xd.xpr(arg))
             elif c == "s":
@@ -338,6 +412,7 @@ class InstrXData(IndexedTableValue):
 
     @property
     def function_argument_callsite(self) -> AsmAddress:
+        # Currently only used in x86
         if self.is_function_argument:
             return self.bdictionary.address(self.args[2])
         else:
@@ -474,6 +549,15 @@ class InstrXData(IndexedTableValue):
     def has_return_xpr(self) -> bool:
         return any(s.startswith("return:") for s in self.tags)
 
+    def has_return_cxpr(self) -> bool:
+        if any(s.startswith("return:") for s in self.tags):
+            rvtag = next(t for t in self.tags if t.startswith("return:"))
+            rvix = int(rvtag[7:])
+            rval = self.args[rvix + 2]
+            return rval >= 0
+        else:
+            return False
+
     def get_return_xpr(self) -> XXpr:
         rvtag = next(t for t in self.tags if t.startswith("return:"))
         rvix = int(rvtag[7:])
@@ -488,6 +572,14 @@ class InstrXData(IndexedTableValue):
         rval = self.args[rvix + 1]
         if rval == -2:
             raise UF.CHBError("Unexpected error in rewritten return value")
+        return self.xprdictionary.xpr(rval)
+
+    def get_return_cxpr(self) -> XXpr:
+        rvtag = next(t for t in self.tags if t.startswith("return:"))
+        rvix = int(rvtag[7:])
+        rval = self.args[rvix + 2]
+        if rval == -2:
+            raise UF.CHBError("Unexpected error in C return value")
         return self.xprdictionary.xpr(rval)
 
     @property
