@@ -50,6 +50,19 @@ if TYPE_CHECKING:
 
 
 class ARMSubtractXData(ARMOpcodeXData):
+    """Data format:
+    - variables:
+    0: vrd
+
+    - expressions:
+    0: xrn
+    1: xrm
+    2: result
+    3: rresult (result rewritten)
+
+    - c expressions:
+    0: cresult
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -71,17 +84,40 @@ class ARMSubtractXData(ARMOpcodeXData):
         return self.xpr(2, "result")
 
     @property
+    def is_result_ok(self) -> bool:
+        return self.is_xpr_ok(2)
+
+    @property
     def rresult(self) -> "XXpr":
         return self.xpr(3, "rresult")
 
     @property
+    def is_rresult_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def cresult(self) -> "XXpr":
+        return self.cxpr(0, "cresult")
+
+    @property
+    def is_cresult_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def result_simplified(self) -> str:
-        return simplify_result(
-            self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+        if self.is_result_ok and self.is_rresult_ok:
+            return simplify_result(
+                self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+        else:
+            return str(self.xrn) + " - " + str(self.xrm)
 
     @property
     def annotation(self) -> str:
-        assignment = str(self.vrd) + " := " + self.result_simplified
+        cresult = (
+            " (C: "
+            + (str(self.cresult) if self.is_cresult_ok else "None")
+            + ")")
+        assignment = str(self.vrd) + " := " + self.result_simplified + cresult
         return self.add_instruction_condition(assignment)
 
 
@@ -100,13 +136,8 @@ class ARMSubtract(ARMOpcode):
     args[4]: is-wide (thumb)
     args[5]: wide
 
-    xdata format: a:vxxxxrrdh
-    -------------------------
-    vars[0]: lhs (Rd)
-    xprs[0]: rhs1 (Rn)
-    xprs[1]: rhs2 (Rm)
-    xprs[2]: rhs1 - rhs2
-    xprs[3]: rhs1 - rhs2 (simplified)
+    xdata format:
+    -------------
     rdefs[0]: rhs1
     rdefs[1]: rhs2
     rdefs[2..]: reaching definitions for simplified result
@@ -146,10 +177,7 @@ class ARMSubtract(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMSubtractXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def ast_prov(
             self,
@@ -183,14 +211,27 @@ class ARMSubtract(ARMOpcode):
         # high-level assignment
 
         xd = ARMSubtractXData(xdata)
-        if not xd.is_ok:
-            chklogger.logger.error("Error value encountered at %s", iaddr)
-            return ([], [])
+
+        if xd.is_cresult_ok and xd.is_rresult_ok:
+            rhs = xd.cresult
+            xrhs = xd.rresult
+
+        elif xd.is_rresult_ok:
+            rhs = xd.rresult
+            xrhs = xd.rresult
+
+        elif xd.is_result_ok:
+            rhs = xd.result
+            xrhs = xd.result
+
+        else:
+            chklogger.logger.error(
+                "SUB: Encountered error value for rhs at address %s", iaddr)
+            return ([], [ll_assign])
 
         lhs = xd.vrd
         rhs1 = xd.xrn
         rhs2 = xd.xrm
-        rhs3 = xd.rresult
 
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
@@ -198,22 +239,22 @@ class ARMSubtract(ARMOpcode):
         hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
 
         # resulting expression is a stack address
-        if str(rhs1) == "SP" and rhs3.is_stack_address:
+        if str(rhs1) == "SP" and xrhs.is_stack_address:
             annotations.append("stack address")
-            rhs3 = cast("XprCompound", rhs3)
-            stackoffset = rhs3.stack_address_offset()
+            xrhs = cast("XprCompound", xrhs)
+            stackoffset = xrhs.stack_address_offset()
             rhslval = astree.mk_stack_variable_lval(stackoffset)
             hl_rhs: AST.ASTExpr = astree.mk_address_of(rhslval)
 
         elif str(rhs1) == "PC" or str(rhs2) == "PC":
             annotations.append("PC-relative")
-            if rhs3.is_int_constant:
-                rhsval = cast("XprConstant", rhs3).intvalue
+            if xrhs.is_int_constant:
+                rhsval = cast("XprConstant", xrhs).intvalue
                 rhsast = astree.mk_integer_constant(rhsval)
             else:
-                hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+                hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
         else:
-            hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
