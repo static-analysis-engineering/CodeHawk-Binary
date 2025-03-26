@@ -51,6 +51,17 @@ if TYPE_CHECKING:
 
 
 class ARMMoveXData(ARMOpcodeXData):
+    """Data format:
+    - variables:
+    0: vrd
+
+    - expressions:
+    0: xrm
+    1: result
+
+    - c expressions:
+    0: cresult
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -68,8 +79,22 @@ class ARMMoveXData(ARMOpcodeXData):
         return self.xpr(1, "result")
 
     @property
+    def is_result_ok(self) -> bool:
+        return self.is_xpr_ok(1)
+
+    @property
+    def cresult(self) -> "XXpr":
+        return self.cxpr(0, "cresult")
+
+    @property
+    def is_cresult_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def annotation(self) -> str:
-        assignment = str(self.vrd) + " := " + str(self.result)
+        cx = " (C: " + (str(self.cresult) if self.is_cresult_ok else "None") + ")"
+        rhs = str(self.result) if self.is_result_ok else str(self.xrm)
+        assignment = str(self.vrd) + " := " + rhs + cx
         return self.add_instruction_condition(assignment)
 
 
@@ -87,11 +112,8 @@ class ARMMove(ARMOpcode):
     args[3]: is-wide (thumb)
     args[4]: wide
 
-    xdata format: a:vxxrdh
-    ----------------------
-    vars[0]: lhs
-    xprs[0]: rhs
-    xprs[1]: rhs (simplified)
+    xdata format
+    ------------
     rdefs[0]: rhs
     rdefs[1..]: rhs (simplified)
     uses[0]: lhs
@@ -134,10 +156,7 @@ class ARMMove(ARMOpcode):
             return "NOP"
 
         xd = ARMMoveXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def ast_prov_subsumed(
             self,
@@ -178,7 +197,6 @@ class ARMMove(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        xd = ARMMoveXData(xdata)
         annotations: List[str] = [iaddr, "MOV"]
 
         if xdata.is_nop:
@@ -208,12 +226,16 @@ class ARMMove(ARMOpcode):
 
         # high-level assignment
 
-        if not xd.is_ok:
-            chklogger.logger.error("Error value encountered at %s", iaddr)
-            return ([], [])
+        xd = ARMMoveXData(xdata)
+
+        if xd.is_cresult_ok:
+            rhs = xd.cresult
+        elif xd.is_result_ok:
+            rhs = xd.result
+        else:
+            rhs = xd.xrm
 
         lhs = xd.vrd
-        rhs = xd.result
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
