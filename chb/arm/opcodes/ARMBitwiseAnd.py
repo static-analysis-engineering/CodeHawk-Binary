@@ -50,6 +50,19 @@ if TYPE_CHECKING:
 
 
 class ARMBitwiseAndXData(ARMOpcodeXData):
+    """Data format:
+    - variables:
+    0: vrd
+
+    - expressions:
+    0: xrn
+    1: xrm
+    2: result
+    3: rresult (result rewritten)
+
+    - c expressions:
+    0: cresult
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -71,17 +84,40 @@ class ARMBitwiseAndXData(ARMOpcodeXData):
         return self.xpr(2, "result")
 
     @property
+    def is_result_ok(self) -> bool:
+        return self.is_xpr_ok(2)
+
+    @property
     def rresult(self) -> "XXpr":
         return self.xpr(3, "rresult")
 
     @property
+    def is_rresult_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def cresult(self) -> "XXpr":
+        return self.cxpr(0, "cresult")
+
+    @property
+    def is_cresult_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def result_simplified(self) -> str:
-        return simplify_result(
-            self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+        if self.is_result_ok and self.is_rresult_ok:
+            return simplify_result(
+                self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+        else:
+            return str(self.xrn) + " & " + str(self.xrm)
 
     @property
     def annotation(self) -> str:
-        assignment = str(self.vrd) + " := " + self.result_simplified
+        cresult = (
+            " (C: "
+            + (str(self.cresult) if self.is_cresult_ok else "None")
+            + ")")
+        assignment = str(self.vrd) + " := " + self.result_simplified + cresult
         return self.add_instruction_condition(assignment)
 
 
@@ -99,13 +135,8 @@ class ARMBitwiseAnd(ARMOpcode):
     args[3]: index of rm in armdictionary
     args[4]: is-wide (thumb)
 
-    xdata format: a:vxxxxrrdh
-    -------------------------
-    vars[0]: lhs
-    xprs[0]: xrn
-    xprs[1]: xrm
-    xprs[2]: xrn & xrm
-    xprs[3]: xrn & xrm (simplified)
+    xdata format:
+    -------------
     rdefs[0]: xrm
     rdefs[1]: xrn
     rdefs[2..]: xrn & xrm (simplified)
@@ -136,10 +167,7 @@ class ARMBitwiseAnd(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMBitwiseAndXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def ast_prov(
             self,
@@ -173,13 +201,22 @@ class ARMBitwiseAnd(ARMOpcode):
         # high-level assignment
 
         xd = ARMBitwiseAndXData(xdata)
-        if not xd.is_ok:
+
+        if xd.is_cresult_ok and xd.is_rresult_ok:
+            rhs = xd.cresult
+
+        elif xd.is_rresult_ok:
+            rhs = xd.rresult
+
+        elif xd.is_result_ok:
+            rhs = xd.result
+
+        else:
             chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
-            return ([], [])
+                "AND: Encountered error value for rhs at address %s", iaddr)
+            return ([], [ll_assign])
 
         lhs = xd.vrd
-        rhs = xd.rresult
 
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
