@@ -62,8 +62,17 @@ class ARMAdrXData(ARMOpcodeXData):
         return self.xpr(0, "ximm")
 
     @property
+    def caddr(self) -> "XXpr":
+        return self.cxpr(0, "caddr")
+
+    @property
+    def is_caddr_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def annotation(self) -> str:
-        assignment = str(self.vrd) + " := " + str(self.ximm)
+        cx = " (C: " + (str(self.caddr) if self.is_caddr_ok else "None") + ")"
+        assignment = str(self.vrd) + " := " + str(self.ximm) + cx
         return self.add_instruction_condition(assignment)
 
 
@@ -100,10 +109,7 @@ class ARMAdr(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMAdrXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def ast_prov(
             self,
@@ -130,13 +136,9 @@ class ARMAdr(ARMOpcode):
         # high-level assignment
 
         xd = ARMAdrXData(xdata)
-        if not xd.is_ok:
-            chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
-            return ([], [])
 
         lhs = xd.vrd
-        rhs = xd.ximm
+        rhs = xd.caddr if xd.is_caddr_ok else xd.ximm
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
