@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, List, TYPE_CHECKING, Tuple
+from typing import cast, Iterable, List, TYPE_CHECKING, Tuple
 
 from chb.app.InstrXData import InstrXData
 
@@ -52,6 +52,24 @@ if TYPE_CHECKING:
 
 
 class ARMStoreMultipleIncrementAfterXData(ARMOpcodeXData):
+    """Data format:
+    - variables:
+    0: baselhs
+    1..n: memlhss
+
+    - c variables:
+    1..n: cmemlhss
+
+    - expressions:
+    0: baserhs
+    1..n: rhss
+    n+1..2n: rrhss
+    2n+1..3n: xaddrs
+
+    - c expressions:
+    0..n-1: crhss
+    n..2n-1: cxaddrs
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -71,32 +89,48 @@ class ARMStoreMultipleIncrementAfterXData(ARMOpcodeXData):
         return self.ldmstm_xpr(0, "xdst")
 
     @property
-    def is_xdst_unknown(self) -> bool:
-        return self.xdata.xprs_r[0] is None
+    def is_xdst_ok(self) -> bool:
+        return self.is_xpr_ok(0)
 
     @property
     def xsrc(self) -> "XXpr":
         return self.ldmstm_xpr(1, "xsrc")
 
     @property
-    def is_xsrc_unknowns(self) -> bool:
-        return self.xdata.xprs_r[1] is None
+    def is_xsrc_ok(self) -> bool:
+        return self.is_xpr_ok(1)
 
     @property
     def xxdst(self) -> "XXpr":
         return self.ldmstm_xpr(2, "xxdst")
 
     @property
-    def is_xxdst_unknown(self) -> bool:
-        return self.xdata.xprs_r[2] is None
+    def is_xxdst_ok(self) -> bool:
+        return self.is_xpr_ok(2)
 
     @property
     def xxsrc(self) -> "XXpr":
         return self.ldmstm_xpr(3, "xxsrc")
 
     @property
-    def is_xxsrc_unknown(self) -> bool:
-        return self.xdata.xprs_r[3] is None
+    def is_xxsrc_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def cdst(self) -> "XXpr":
+        return self.cxpr(0, "cdst")
+
+    @property
+    def is_cdst_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
+    def csrc(self) -> "XXpr":
+        return self.cxpr(1, "csrc")
+
+    @property
+    def is_csrc_ok(self) -> bool:
+        return self.is_cxpr_ok(1)
 
     @property
     def copysize(self) -> int:
@@ -114,16 +148,64 @@ class ARMStoreMultipleIncrementAfterXData(ARMOpcodeXData):
         return self.var(0, "baselhs")
 
     @property
-    def is_baselhs_known(self) -> bool:
-        return self.xdata.vars_r[0] is not None
+    def memlhs_range(self) -> Iterable[int]:
+        return range(1, self.regcount + 1)
 
     @property
     def memlhss(self) -> List["XVariable"]:
-        return [self.var(i, "memlhs-" + str(i)) for i in range(1, self.regcount + 1)]
+        return [self.var(i, "memlhs") for i in self.memlhs_range]
+
+    @property
+    def are_memlhss_ok(self) -> bool:
+        return all(self.is_var_ok(i) for i in self.memlhs_range)
+
+    @property
+    def cmemlhs_range(self) -> Iterable[int]:
+        return range(0, self.regcount)
+
+    @property
+    def cmemlhss(self) -> List["XVariable"]:
+        return [self.cvar(i, "cmemlhs") for i in self.cmemlhs_range]
+
+    @property
+    def are_cmemlhss_ok(self) -> bool:
+        return all(self.is_cvar_ok(i) for i in self.cmemlhs_range)
+
+    @property
+    def rhs_range(self) -> Iterable[int]:
+        return range(1, self.regcount + 1)
 
     @property
     def rhss(self) -> List["XXpr"]:
-        return [self.xpr(i, "rhs-" + str(i)) for i in range(3, self.regcount + 3)]
+        return [self.xpr(i, "rhs") for i in self.rhs_range]
+
+    @property
+    def are_rhss_ok(self) -> bool:
+        return all(self.is_xpr_ok(i) for i in self.rhs_range)
+
+    @property
+    def rrhs_range(self) -> Iterable[int]:
+        return range(self.regcount + 1, (2 * self.regcount) + 1)
+
+    @property
+    def rrhss(self) -> List["XXpr"]:
+        return [self.xpr(i, "rrhs") for i in self.rrhs_range]
+
+    @property
+    def are_rrhss_ok(self) -> bool:
+        return all(self.is_xpr_ok(i) for i in self.rrhs_range)
+
+    @property
+    def crhs_range(self) -> Iterable[int]:
+        return range(0, self.regcount)
+
+    @property
+    def crhss(self) -> List["XXpr"]:
+        return [self.cxpr(i, "crhs") for i in self.crhs_range]
+
+    @property
+    def are_crhss_ok(self) -> bool:
+        return all(self.is_cxpr_ok(i) for i in self.crhs_range)
 
     @property
     def annotation(self) -> str:
@@ -144,23 +226,26 @@ class ARMStoreMultipleIncrementAfterXData(ARMOpcodeXData):
                 return "; ".join(assigns)
         else:
             if self.is_ldmstm_aggregate:
-                if self.is_xxdst_unknown and self.is_xxsrc_unknown:
-                    dst = str(self.xdst)
-                    src = str(self.xsrc)
-                elif self.is_xxdst_unknown:
-                    dst = str(self.xdst)
-                    src = str(self.xxsrc)
-                else:
+                if self.is_xxdst_ok:
                     dst = str(self.xxdst)
+                elif self.is_xdst_ok:
+                    dst = str(self.xdst)
+                else:
+                    dst = "dst:error value"
+                if self.is_xxsrc_ok:
+                    src = str(self.xxsrc)
+                elif self.is_xsrc_ok:
                     src = str(self.xsrc)
+                else:
+                    src = "src:error value"
                 return (
-                        "memcpy("
-                        + dst
-                        + ", "
-                        + src
-                        + ", "
-                        + str(self.copysize)
-                        + ")")
+                    "memcpy("
+                    + dst
+                    + ", "
+                    + src
+                    + ", "
+                    + str(self.copysize)
+                    + ")")
             else:
                 return "not yet supported"
 
@@ -180,12 +265,6 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
     xdata:
     ----------------------------------------
-    vars[0]: base
-    vars[1..n]: lhs memory locations where values are stored
-    xprs[0]: base
-    xprs[1]: updated base (may be unchanged in case of no writeback)
-    xprs[2]: updated base (simplified)
-    xprs[3..n+2]: values of registers being stored (simplified)
     rdefs[0]: reaching definition base register
     rdefs[1..n]: reaching definitions of registers being stored
     uses[0]: use of base register
@@ -290,20 +369,9 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         # high-level call
 
         xd = ARMStoreMultipleIncrementAfterXData(xdata)
-        if not xd.is_ok:
-            if xd.is_xxsrc_unknown and xd.is_xxdst_unknown:
-                chklogger.logger.error(
-                    "LDM-STM-memcpy: (%s): src and dst unknown", iaddr)
-            elif xd.is_xxsrc_unknown:
-                chklogger.logger.error("LDM-STM-memcpy: (%s): src unknown", iaddr)
-            else:
-                chklogger.logger.error("LDM-STM-memcpy: (%s): dst unknown", iaddr)
-            return ([], [])
 
         xdst = xd.xdst
         xsrc = xd.xsrc
-        xxdst = xd.xxdst
-        xxsrc = xd.xxsrc
         xsize = xd.copysize
 
         # low-level arguments
@@ -321,6 +389,16 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         ll_src_arg = astree.mk_lval_expression(ll_srclval)
 
         # high-level arguments
+
+        if xd.is_xxdst_ok:
+            xxdst = xd.xxdst
+        else:
+            xxdst = xdst
+
+        if xd.is_xxsrc_ok:
+            xxsrc = xd.xxsrc
+        else:
+            xxsrc = xsrc
 
         if xxdst.is_stack_address:
             offset = xxdst.stack_address_offset()
