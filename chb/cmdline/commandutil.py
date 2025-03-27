@@ -619,6 +619,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     sortby: str = args.sortby
     timeshare: int = args.timeshare
     opcodes: str = args.opcodes
+    annotationfile: str = str(args.annotationfile)
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
     logfilemode: str = args.logfilemode
@@ -636,6 +637,15 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
         logfilename=logfilename,
         mode=logfilemode,
         msg="results stats invoked")
+
+    annotations: Dict[str, List[str]] = {}
+    if annotationfile is not None:
+        with open(annotationfile, "r") as fp:
+            annotationdata = json.load(fp)
+        for (key, flist) in annotationdata["keys"].items():
+            for faddr in flist:
+                annotations.setdefault(faddr, [])
+                annotations[faddr].append(key)
 
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
@@ -655,7 +665,12 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     else:
         sortkey = lambda f: int(f.faddr, 16)
     for f in sorted(stats.get_function_results(), key=sortkey):
-        print(f.metrics_to_string(shownocallees=nocallees))
+        if f.faddr in annotations:
+            fn_annotations = annotations[f.faddr]
+        else:
+            fn_annotations = []
+        print(f.metrics_to_string(shownocallees=nocallees,
+                                  annotations=fn_annotations))
 
     print(stats.disassembly_to_string())
     print(stats.analysis_to_string())
