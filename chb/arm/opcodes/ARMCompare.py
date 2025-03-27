@@ -49,12 +49,17 @@ if TYPE_CHECKING:
 
 
 class ARMCompareXData(ARMOpcodeXData):
-    """
-    xdata format: a:xxxrr
-    ---------------------
-    xprs[0]: xrn
-    xprs[1]: xrm
-    xprs[2]: xrn - xrm (simplified)
+    """Data format:
+    ---------------
+    - expressions:
+    0: xrn
+    1: xrm:
+    2: xresult (xrn - xrm)
+    3: result (xresult rewritten)
+
+    - c expressions:
+    0: cresult
+
     rdefs[0]: rn
     rdefs[1]: rm
     rdefs[2..]: xrn - xrm (simplified)
@@ -72,14 +77,31 @@ class ARMCompareXData(ARMOpcodeXData):
         return self.xpr(1, "xrm")
 
     @property
+    def xresult(self) -> "XXpr":
+        return self.xpr(2, "xresult")
+
+    @property
     def result(self) -> "XXpr":
-        return self.xpr(2, "result")
+        return self.xpr(3, "result")
+
+    @property
+    def is_result_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def cresult(self) -> "XXpr":
+        return self.cxpr(0, "cresult")
+
+    @property
+    def is_cresult_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
 
     @property
     def annotation(self) -> str:
+        cx = " (C: " + (str(self.cresult) if self.is_cresult_ok else "None") + ")"
         ann = "compare " + str(self.xrn) + " and " + str(self.xrm)
         if self.is_ok:
-            ann += " (" + str(self.result) + ")"
+            ann += " (" + str(self.result) + ")" + cx
         return self.add_instruction_condition(ann)
 
 
@@ -149,15 +171,15 @@ class ARMCompare(ARMOpcode):
 
         rdefs = xdata.reachingdefs
         xd = ARMCompareXData(xdata)
-        if xd.is_ok:
+
+        if xd.is_cresult_ok:
+            rhs = xd.cresult
+        elif xd.is_result_ok:
             rhs = xd.result
-            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
         else:
-            rhs1 = xd.xrn
-            rhs2 = xd.xrm
-            hl_rhs1 = XU.xxpr_to_ast_def_expr(rhs1, xdata, iaddr, astree)
-            hl_rhs2 = XU.xxpr_to_ast_def_expr(rhs2, xdata, iaddr, astree)
-            hl_rhs = astree.mk_binary_op("minus", hl_rhs1, hl_rhs2)
+            rhs = xd.xresult
+
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             astree.ignoredlhs,
