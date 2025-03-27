@@ -172,6 +172,10 @@ class ARMStoreMultipleIncrementAfterXData(ARMOpcodeXData):
         return all(self.is_cvar_ok(i) for i in self.cmemlhs_range)
 
     @property
+    def baserhs(self) -> "XXpr":
+        return self.xpr(0, "baserhs")
+
+    @property
     def rhs_range(self) -> Iterable[int]:
         return range(1, self.regcount + 1)
 
@@ -497,22 +501,32 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
             return self.ast_prov_ldmstmcopy(astree, iaddr, bytestring, xdata)
 
         xd = ARMStoreMultipleIncrementAfterXData(xdata)
-        if not xd.is_ok:
+
+        if xd.are_cmemlhss_ok:
+            memlhss = xd.cmemlhss
+        elif xd.are_memlhss_ok:
+            memlhss = xd.memlhss
+        else:
             chklogger.logger.error(
-                "STM: Error value encountered at address %s", iaddr)
+                "STM: Error value encountered in LHSs at address %s", iaddr)
+            return ([], [])
+
+        if xd.are_crhss_ok:
+            regrhss = xd.crhss
+        elif xd.are_rrhss_ok:
+            regrhss = xd.rhss
+        else:
+            chklogger.logger.error(
+                "STM: Error value encountered in RHSs at address %s", iaddr)
             return ([], [])
 
         annotations: List[str] = [iaddr, "STM"]
 
-        '''
-        baselhs = xdata.vars[0]
-        baserhs = xdata.xprs[0]
-        baseresult = xdata.xprs[1]
-        baseresultr = xdata.xprs[2]
+        baselhs = xd.baselhs
+        baserhs = xd.baserhs
         baserdef = xdata.reachingdefs[0]
         baseuses = xdata.defuses[0]
         baseuseshigh = xdata.defuseshigh[0]
-        '''
 
         # low-level assignments
 
@@ -522,8 +536,6 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         (baselval, _, _) = self.opargs[0].ast_lvalue(astree)
         (baserval, _, _) = self.opargs[0].ast_rvalue(astree)
 
-        memlhss = xd.memlhss
-        regrhss = xd.rhss
         regrdefs = xdata.reachingdefs[1:]
         memuses = xdata.defuses[1:]
         memuseshigh = xdata.defuseshigh[1:]
@@ -578,12 +590,11 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
                               memlhs.denotation).base.is_basevar)):
                 astree.add_expose_instruction(hl_assign.instrid)
 
-        '''
         if self.writeback:
 
             # low-level base assignment
 
-            baseincr = 4 * regcount
+            baseincr = 4 * xd.regcount
             baseincr_c = astree.mk_integer_constant(baseincr)
 
             ll_base_lhs = baselval
@@ -598,9 +609,10 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
             # high-level base assignment
 
+            baseresult = xd.get_base_update_xpr()
             hl_base_lhs = XU.xvariable_to_ast_lval(baselhs, xdata, iaddr, astree)
             hl_base_rhs = XU.xxpr_to_ast_def_expr(
-                baseresultr, xdata, iaddr, astree)
+                baseresult, xdata, iaddr, astree)
             hl_base_assign = astree.mk_assign(
                 hl_base_lhs,
                 hl_base_rhs,
@@ -616,6 +628,5 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
             astree.add_expr_reachingdefs(ll_base_rhs, [baserdef])
             astree.add_lval_defuses(hl_base_lhs, baseuses)
             astree.add_lval_defuses_high(hl_base_lhs, baseuseshigh)
-        '''
 
         return (hl_instrs, ll_instrs)
