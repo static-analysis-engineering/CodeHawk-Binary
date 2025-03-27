@@ -137,13 +137,17 @@ class ARMBranchXData(ARMOpcodeXData):
 
     @property
     def xtgt(self) -> "XXpr":
-        index = 1 if self.is_unconditional else 4
-        return self.xpr(index, "xtgt")
+        if self.is_unconditional or (not self.has_branch_conditions()):
+            return self.xpr(1, "xtgt")
+        else:
+            return self.xpr(4, "xtgt")
 
     @property
     def is_xtgt_ok(self) -> bool:
-        index = 1 if self.is_unconditional else 4
-        return self.is_xpr_ok(index)
+        if self.is_unconditional or (not self.has_branch_conditions()):
+            return self.is_xpr_ok(1)
+        else:
+            return self.is_xpr_ok(4)
 
     @property
     def annotation(self) -> str:
@@ -338,7 +342,7 @@ class ARMBranch(ARMCallOpcode):
                         condition = xd.txpr
             else:
                 chklogger.logger.error(
-                    "Bxx: conditional branch without branch conditions "
+                    "Bcc: conditional branch without branch conditions "
                     + "at address %s", iaddr)
                 hl_astcond = astree.mk_temp_lval_expression()
                 return (hl_astcond, ll_astcond)

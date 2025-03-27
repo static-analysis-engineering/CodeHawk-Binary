@@ -549,6 +549,17 @@ class InstrXData(IndexedTableValue):
                 "Unexpected error value in base-update expression")
         return self.xprdictionary.xpr(xbuval)
 
+    def get_base_update_cxpr(self) -> XXpr:
+        cbutag = next(t for t in self.tags if t.startswith("cbu:"))
+        cix = int(cbutag[4:])
+        cbuval = self.args[cix]
+        if cbuval == -2:
+            chklogger.logger.info(
+                "Base update c expression unavailable, fall back to expression")
+            return self.get_base_update_xpr()
+        else:
+            return self.xprdictionary.xpr(cbuval)
+
     def has_return_xpr(self) -> bool:
         return any(s.startswith("return:") for s in self.tags)
 
