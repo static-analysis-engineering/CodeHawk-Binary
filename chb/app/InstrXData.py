@@ -483,6 +483,9 @@ class InstrXData(IndexedTableValue):
     def has_condition_setter(self) -> bool:
         return len(self.tags) == 4 and self.tags[1] == "TF"
 
+    def has_missing_branch_conditions(self) -> bool:
+        return len(self.tags) > 1 and self.tags[1] == "TF:no-x"
+
     def get_condition_setter(self) -> str:
         if len(self.tags) > 2:
             return self.tags[2]
