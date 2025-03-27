@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021      Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 import xml.etree.ElementTree as ET
 
-from typing import Dict, Optional, TYPE_CHECKING
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 import chb.util.fileutil as UF
 
@@ -236,10 +236,12 @@ class AppResultFunctionMetrics:
     def metrics_to_string(
             self,
             shownocallees: bool = False,
-            space: str = "   ") -> str:
+            space: str = "   ",
+            annotations: List[str] = []) -> str:
         callcount = ''
         name = ''
         unrc = ''
+        anns = ""
         if shownocallees and (not self.has_name()):
             if self.call_count == 0:
                 callcount = ' (no callees)'
@@ -247,6 +249,9 @@ class AppResultFunctionMetrics:
             name = ' (' + self.name + ')'
         if self.unresolved_call_count > 0:
             unrc = str(self.unresolved_call_count)
+        if len(annotations) > 0:
+            anns = " [" + ", ".join(annotations) + "]"
+
         return (str(self.faddr).ljust(10) + space
                 + '{:6.1f}'.format(self.espp) + space
                 + '{:6.1f}'.format(self.readsp) + space
@@ -254,4 +259,4 @@ class AppResultFunctionMetrics:
                 + unrc.rjust(6) + space
                 + str(self.block_count).rjust(6) + space
                 + str(self.instruction_count).rjust(6) + space
-                + '{:8.3f}'.format(self.time) + name + callcount)
+                + '{:8.3f}'.format(self.time) + name + callcount + anns)

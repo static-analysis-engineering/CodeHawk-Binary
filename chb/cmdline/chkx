@@ -613,6 +613,9 @@ def parse() -> argparse.Namespace:
         help=("json filename (without extension) to save opcode distribution "
               + "stats (for instructions within analyzed functions)"))
     resultsstats.add_argument(
+        "--annotationfile",
+        help="name of json file that has function annotations")
+    resultsstats.add_argument(
         "--loglevel", "-log",
         choices=UL.LogLevel.options(),
         default="NONE",
