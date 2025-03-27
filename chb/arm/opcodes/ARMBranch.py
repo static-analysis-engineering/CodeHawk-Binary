@@ -61,13 +61,39 @@ if TYPE_CHECKING:
 
 
 class ARMBranchXData(ARMOpcodeXData):
+    """Data format (conditional)
+    - expressions
+    0: txpr (true expression)
+    1: fxpr (false expression)
+    2: tcond (txpr, rewritten)
+    3: fcond (fxpr, rewritten)
+    4: xtgt  (if absolute target address)
+
+    - c expressions
+    0: ctcond
+    1: cfcond
+
+    Data format (unconditional, or missing branch conditions)
+    - expressions
+    0: xtgt
+    1: xxtgt (rewritten)
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
 
     @property
+    def is_conditional(self) -> bool:
+        return (
+            self._xdata.has_branch_conditions()
+            or self._xdata.has_missing_branch_conditions())
+
+    @property
     def is_unconditional(self) -> bool:
-        return len(self._xdata.xprs_r) == 2
+        return not self.is_conditional
+
+    def has_branch_conditions(self) -> bool:
+        return self._xdata.has_branch_conditions()
 
     @property
     def txpr(self) -> "XXpr":
@@ -82,8 +108,32 @@ class ARMBranchXData(ARMOpcodeXData):
         return self.xpr(2, "tcond")
 
     @property
+    def is_tcond_ok(self) -> bool:
+        return self.is_xpr_ok(2)
+
+    @property
     def fcond(self) -> "XXpr":
         return self.xpr(3, "fcond")
+
+    @property
+    def is_fcond_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def ctcond(self) -> "XXpr":
+        return self.cxpr(0, "ctcond")
+
+    @property
+    def is_ctcond_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
+    def cfcond(self) -> "XXpr":
+        return self.cxpr(1, "cfcond")
+
+    @property
+    def is_cfcond_ok(self) -> bool:
+        return self.is_cxpr_ok(1)
 
     @property
     def xtgt(self) -> "XXpr":
@@ -91,28 +141,28 @@ class ARMBranchXData(ARMOpcodeXData):
         return self.xpr(index, "xtgt")
 
     @property
-    def is_xtgt_known(self) -> bool:
+    def is_xtgt_ok(self) -> bool:
         index = 1 if self.is_unconditional else 4
-        return self.xdata.xprs_r[index] is not None
+        return self.is_xpr_ok(index)
 
     @property
     def annotation(self) -> str:
-        if self.is_ok:
-            if self._xdata.has_branch_conditions():
-                return "if " + str(self.tcond) + " then goto " + str(self.xtgt)
-            elif self.is_unconditional:
-                return "goto " + str(self.xtgt)
+        if self.is_conditional:
+            if self.has_branch_conditions():
+                if self.is_ctcond_ok:
+                    cond = str(self.ctcond)
+                elif self.is_tcond_ok:
+                    cond = str(self.tcond)
+                else:
+                    cond = str(self.txpr)
+                return "if " + cond + " then goto " + str(self.xtgt)
             else:
-                return "?"
-        elif self.is_xtgt_known:
-            if self._xdata.has_branch_conditions():
-                return "if " + str(self.txpr) + " then goto " + str(self.xtgt)
-            elif self.is_unconditional:
-                return "goto " + str(self.xtgt)
-            else:
-                return "?"
+                return (
+                    "if ? then goto "
+                    + str(self.xtgt)
+                    + " (no branch conditions found")
         else:
-            return "Error value"
+            return "goto " + str(self.xtgt)
 
 
 @armregistry.register_tag("B", ARMOpcode)
@@ -125,20 +175,7 @@ class ARMBranch(ARMCallOpcode):
     tags[1]: <c>
     args[0]: index of target operand in armdictionary
     args[1]: is-wide (thumb)
-
-    xdata format: a:xxxxxr..
-    ------------------------
-    xprs[0]: true condition
-    xprs[1]: false condition
-    xprs[2]: true condition (simplified)
-    xprs[3]: false condition (simplified)
-    xprs[4]: target address (absolute)
-
-    or, if no conditions
-
-    xdata format: a:x
-    xprs[0]: target address (absolute)
-    """
+   """
 
     def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
         ARMCallOpcode.__init__(self, d, ixval)
@@ -156,12 +193,6 @@ class ARMBranch(ARMCallOpcode):
     @property
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[0])]
-
-    def ft_conditions_basic(self, xdata: InstrXData) -> Sequence[XXpr]:
-        if xdata.has_branch_conditions():
-            return [xdata.xprs[1], xdata.xprs[0]]
-        else:
-            return []
 
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         xd = ARMBranchXData(xdata)
@@ -289,11 +320,28 @@ class ARMBranch(ARMCallOpcode):
 
         ll_astcond = self.ast_cc_expr(astree)
 
-        if len(ftconds_basic) == 2:
-            if reverse:
-                condition = ftconds_basic[0]
+        if xd.is_conditional:
+            if xd.has_branch_conditions():
+                if reverse:
+                    if xd.is_cfcond_ok:
+                        condition = xd.cfcond
+                    elif xd.is_fcond_ok:
+                        condition = xd.fcond
+                    else:
+                        condition = xd.fxpr
+                else:
+                    if xd.is_ctcond_ok:
+                        condition = xd.ctcond
+                    elif xd.is_tcond_ok:
+                        condition = xd.tcond
+                    else:
+                        condition = xd.txpr
             else:
-                condition = ftconds_basic[1]
+                chklogger.logger.error(
+                    "Bxx: conditional branch without branch conditions "
+                    + "at address %s", iaddr)
+                hl_astcond = astree.mk_temp_lval_expression()
+                return (hl_astcond, ll_astcond)
 
             csetter = xdata.tags[2]
             hl_astcond = XU.xxpr_to_ast_def_expr(
