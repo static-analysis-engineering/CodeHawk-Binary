@@ -1299,6 +1299,22 @@ def xmemory_dereference_lval_expr(
             compkey = cast(AST.ASTTypComp, hl_addr_tgttype).compkey
             compinfo = astree.compinfo(compkey)
 
+            if not compinfo.has_fields():
+                if not anonymous:
+                    chklogger.logger.error(
+                        "Struct definition is missing for %s at address %s "
+                        + "(no fields found)",
+                        compinfo.compname, iaddr)
+                return astree.mk_temp_lval_expression()
+
+            if not compinfo.has_field_offsets():
+                if not anonymous:
+                    chklogger.logger.error(
+                        "Struct definition for %s does not have field offsets "
+                        + "at address %s",
+                        compinfo.compname, iaddr)
+                return astree.mk_temp_lval_expression()
+
             (field, _) = compinfo.field_at_offset(0)
             fieldoffset = astree.mk_field_offset(field.fieldname, compkey)
             return astree.mk_memref_expr(
@@ -1340,6 +1356,22 @@ def xmemory_dereference_lval_expr(
 
             compkey = cast(AST.ASTTypComp, exp1tgttype).compkey
             compinfo = astree.compinfo(compkey)
+
+            if not compinfo.has_fields():
+                if not anonymous:
+                    chklogger.logger.error(
+                        "Struct definition is missing for %s at address %s "
+                        + "(no fields found)",
+                        compinfo.compname, iaddr)
+                return astree.mk_temp_lval_expression()
+
+            if not compinfo.has_field_offsets():
+                if not anonymous:
+                    chklogger.logger.error(
+                        "Struct definition for %s does not have field offsets "
+                        + "at address %s",
+                        compinfo.compname, iaddr)
+                return astree.mk_temp_lval_expression()
 
             scalaroffset = cast(AST.ASTIntegerConstant, exp2).cvalue
             (field, rem) = compinfo.field_at_offset(scalaroffset)
