@@ -322,43 +322,9 @@ class ARMLoadRegister(ARMOpcode):
             ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
 
             basereg = xd.get_base_update_var()
-            newaddr = xd.get_base_update_xpr()
+            newaddr = xd.get_base_update_cxpr()
             hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
-
-            hl_addr_lhs_type = hl_addr_lhs.ctype(astree.ctyper)
-            if hl_addr_lhs_type is not None and len(xdata.ints) > 0:
-                if hl_addr_lhs_type.is_pointer:
-                    addrtype = cast(AST.ASTTypPtr, hl_addr_lhs_type)
-                    tgttyp = addrtype.tgttyp
-                    tgttypsize = astree.type_size_in_bytes(tgttyp)
-                    if tgttypsize is not None:
-                        incr = xdata.ints[0]
-                        ptrincr = incr // tgttypsize
-                        hl_addr_rhs = astree.mk_binary_op(
-                            "plus",
-                            astree.mk_lval_expression(hl_addr_lhs),
-                            astree.mk_integer_constant(ptrincr))
-                    else:
-                        hl_addr_rhs = XU.xxpr_to_ast_def_expr(
-                            newaddr, xdata, iaddr, astree)
-                        chklogger.logger.warning(
-                            "LDR address adjustment not scaled due to missing "
-                            + "size of pointer target type %s at address %s",
-                            str(tgttyp), iaddr)
-                else:
-                    hl_addr_rhs = XU.xxpr_to_ast_def_expr(
-                        newaddr, xdata, iaddr, astree)
-                    chklogger.logger.warning(
-                        "LDR address adjustment not scaled due to unexpected "
-                        + "address type: %s at address %s",
-                        str(hl_addr_lhs_type), iaddr)
-            else:
-                hl_addr_rhs = XU.xxpr_to_ast_def_expr(
-                    newaddr, xdata, iaddr, astree)
-                chklogger.logger.warning(
-                    "LDR address adjustment not scaled due to lack of type "
-                    + "information at address %s",
-                    iaddr)
+            hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
 
             hl_addr_assign = astree.mk_assign(
                 hl_addr_lhs,
@@ -367,9 +333,6 @@ class ARMLoadRegister(ARMOpcode):
                 bytestring=bytestring,
                 annotations=annotations)
             hl_assigns: List[AST.ASTInstruction] = [hl_assign, hl_addr_assign]
-
-            # Note: work-around for deficiency in def-use propagation
-            astree.add_expose_instruction(hl_addr_assign.instrid)
 
             astree.add_instr_mapping(hl_addr_assign, ll_addr_assign)
             astree.add_instr_address(hl_addr_assign, [iaddr])
