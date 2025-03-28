@@ -394,12 +394,16 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
 
         # high-level arguments
 
-        if xd.is_xxdst_ok:
+        if xd.is_cdst_ok:
+            xxdst = xd.cdst
+        elif xd.is_xxdst_ok:
             xxdst = xd.xxdst
         else:
             xxdst = xdst
 
-        if xd.is_xxsrc_ok:
+        if xd.is_csrc_ok:
+            xxsrc = xd.csrc
+        elif xd.is_xxsrc_ok:
             xxsrc = xd.xxsrc
         else:
             xxsrc = xsrc

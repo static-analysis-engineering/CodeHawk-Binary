@@ -50,6 +50,23 @@ if TYPE_CHECKING:
 
 
 class ARMPopXData(ARMOpcodeXData):
+    """Data format:
+    - variables:
+    0: splhs
+    1..n: lhsvars
+
+    - expressions:
+    0: sprhs
+    1: spresult
+    2: rspresult (spresult, rewritten)
+    3..n+2: rrhsexprs
+    n+3 .. (2n+2): xaddrs
+
+    optional return values:
+    - returnval
+    - rreturnval
+    - creturnval
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -96,6 +113,12 @@ class ARMPopXData(ARMOpcodeXData):
     def rreturnval(self) -> "XXpr":
         return self.xdata.get_return_xxpr()
 
+    def has_creturnval(self) -> bool:
+        return self.xdata.has_return_cxpr()
+
+    def creturnval(self) -> "XXpr":
+        return self.xdata.get_return_cxpr()
+
     @property
     def r0(self) -> Optional["XXpr"]:
         if "return" in self._xdata.tags:
@@ -109,7 +132,11 @@ class ARMPopXData(ARMOpcodeXData):
         assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
         assigns = spassign + "; " + assigns
         if self.has_return_xpr():
-            rxpr = "; return " + str(self.rreturnval())
+            cxpr = (
+                " (C: "
+                + (str(self.creturnval()) if self.has_creturnval() else "None")
+                + ")")
+            rxpr = "; return " + str(self.rreturnval()) + cxpr
         else:
             rxpr = ""
         return self.add_instruction_condition(assigns + rxpr)
@@ -126,16 +153,8 @@ class ARMPop(ARMOpcode):
     args[1]: index of register list in armdictionary
     args[2]: is-wide (thumb)
 
-    xdata format: a:vv(n)xxxx(n)rr(n)dd(n)hh(n)   (SP + registers popped)
-    ---------------------------------------------------------------------
-    vars[0]: SP
-    vars[1..n]: v(r) for r: register popped
-    xprs[0]: SP
-    xprs[1]: SP updated
-    xprs[2]: SP updated, simplified
-    xprs[3..n+2]: x(m) for m: memory location value retrieved
-    xprs[n+3..2n+2]: memory address of memory location value retrieved
-    xprs[2n+3]: (optional) value of R0 if register list includes PC
+    xdata format
+    ------------
     rdefs[0]: SP
     rdefs[1..n]: rdef(m) for m: memory location variable
     rdefs[n+1]: (optional) rdef for R0 if register list includes PC
@@ -172,16 +191,16 @@ class ARMPop(ARMOpcode):
     def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
         xd = ARMPopXData(xdata)
         if xd.has_return_xpr():
-            return xd.rreturnval()
+            if xd.has_creturnval():
+                return xd.creturnval()
+            else:
+                return xd.rreturnval()
         else:
             return None
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMPopXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def ast_condition_prov(
             self,

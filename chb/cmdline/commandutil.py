@@ -619,7 +619,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     sortby: str = args.sortby
     timeshare: int = args.timeshare
     opcodes: str = args.opcodes
-    annotationfile: str = str(args.annotationfile)
+    annotationfile: Optional[str] = args.annotationfile
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
     logfilemode: str = args.logfilemode
