@@ -619,7 +619,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     sortby: str = args.sortby
     timeshare: int = args.timeshare
     opcodes: str = args.opcodes
-    annotationfile: Optional[str] = args.annotationfile
+    tagfile: Optional[str] = args.tagfile
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
     logfilemode: str = args.logfilemode
@@ -638,14 +638,21 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
         mode=logfilemode,
         msg="results stats invoked")
 
-    annotations: Dict[str, List[str]] = {}
-    if annotationfile is not None:
-        with open(annotationfile, "r") as fp:
-            annotationdata = json.load(fp)
-        for (key, flist) in annotationdata["keys"].items():
+    tags: Dict[str, List[str]] = {}
+    if tagfile is not None:
+        with open(tagfile, "r") as fp:
+            tagdata = json.load(fp)
+        for (key, flist) in tagdata["keys"].items():
             for faddr in flist:
-                annotations.setdefault(faddr, [])
-                annotations[faddr].append(key)
+                tags.setdefault(faddr, [])
+                if not key in tags[faddr]:
+                    tags[faddr].append(key)
+
+    maxlen = 0
+    for (faddr, keys) in tags.items():
+        taglen = 4 + len(",".join(keys))
+        if taglen > maxlen:
+            maxlen = taglen
 
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
@@ -665,12 +672,14 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     else:
         sortkey = lambda f: int(f.faddr, 16)
     for f in sorted(stats.get_function_results(), key=sortkey):
-        if f.faddr in annotations:
-            fn_annotations = annotations[f.faddr]
+        if f.faddr in tags:
+            fn_tags = tags[f.faddr]
         else:
-            fn_annotations = []
+            fn_tags = []
+        if "hide" in fn_tags:
+            continue
         print(f.metrics_to_string(shownocallees=nocallees,
-                                  annotations=fn_annotations))
+                                  tags=fn_tags, taglen=maxlen))
 
     print(stats.disassembly_to_string())
     print(stats.analysis_to_string())

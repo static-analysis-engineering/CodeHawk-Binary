@@ -237,11 +237,12 @@ class AppResultFunctionMetrics:
             self,
             shownocallees: bool = False,
             space: str = "   ",
-            annotations: List[str] = []) -> str:
+            tags: List[str] = [],
+            taglen: int = 0) -> str:
         callcount = ''
         name = ''
         unrc = ''
-        anns = ""
+        ftags = "".ljust(taglen)
         if shownocallees and (not self.has_name()):
             if self.call_count == 0:
                 callcount = ' (no callees)'
@@ -249,8 +250,8 @@ class AppResultFunctionMetrics:
             name = ' (' + self.name + ')'
         if self.unresolved_call_count > 0:
             unrc = str(self.unresolved_call_count)
-        if len(annotations) > 0:
-            anns = " [" + ", ".join(annotations) + "]"
+        if len(tags) > 0:
+            ftags = (" [" + ",".join(tags) + "]").ljust(taglen)
 
         return (str(self.faddr).ljust(10) + space
                 + '{:6.1f}'.format(self.espp) + space
@@ -259,4 +260,4 @@ class AppResultFunctionMetrics:
                 + unrc.rjust(6) + space
                 + str(self.block_count).rjust(6) + space
                 + str(self.instruction_count).rjust(6) + space
-                + '{:8.3f}'.format(self.time) + name + callcount + anns)
+                + '{:8.3f}'.format(self.time) + ftags + name + callcount)
