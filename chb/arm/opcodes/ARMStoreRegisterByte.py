@@ -278,6 +278,7 @@ class ARMStoreRegisterByte(ARMOpcode):
             rhs = xd.xxrt
         else:
             rhs = xd.xrt
+
         hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         rdefs = xdata.reachingdefs

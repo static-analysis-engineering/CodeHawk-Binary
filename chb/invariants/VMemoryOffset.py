@@ -36,6 +36,7 @@ type memory_offset_t =
   | FieldOffset of string * int * memory_offset_t        "f"      2      2
   | IndexOffset of variable_t * int * memory_offset_t    "i"      1      3
   | ArrayIndexOffset of xpr_t * memory_offset_t          "a"      1      2
+  | BasePtrArrayIndexOffset of xpr_t * memory_offset_t   "p"      1      2
   | UnknownOffset                                        "u"      1      0
 
 """
@@ -82,6 +83,10 @@ class VMemoryOffset(FnVarDictionaryRecord):
 
     @property
     def is_array_index_offset(self) -> bool:
+        return False
+
+    @property
+    def is_baseptr_array_index_offset(self) -> bool:
         return False
 
     @property
@@ -383,6 +388,39 @@ class VMemoryOffsetArrayIndexOffset(VMemoryOffset):
             content["suboffset"] = jmem.content
         content["txtrep"] = str(self)
         return JSONResult("memoryoffset", content, "ok")
+
+    def __str__(self) -> str:
+        return "[" + str(self.index_expression) + "]" + str(self.offset)
+
+
+@varregistry.register_tag("p", VMemoryOffset)
+class VMemoryOffsetBasePtrArrayIndexOffset(VMemoryOffset):
+    """Array index offset
+
+    args[0]: index of index expression in xprdictionary
+    args[1]: index of next-level offset in vardictionary
+    """
+
+    def __init__(
+            self,
+            vd: "FnVarDictionary",
+            ixval: IndexedTableValue) -> None:
+        VMemoryOffset.__init__(self, vd, ixval)
+
+    @property
+    def index_expression(self) -> "XXpr":
+        return self.xd.xpr(self.args[0])
+
+    @property
+    def offset(self) -> VMemoryOffset:
+        return self.vd.memory_offset(self.args[1])
+
+    @property
+    def is_baseptr_array_index_offset(self) -> bool:
+        return True
+
+    def has_no_offset(self) -> bool:
+        return self.offset.is_no_offset
 
     def __str__(self) -> str:
         return "[" + str(self.index_expression) + "]" + str(self.offset)
