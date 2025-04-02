@@ -122,6 +122,7 @@ if TYPE_CHECKING:
         VMemoryOffsetConstantOffset,
         VMemoryOffsetFieldOffset,
         VMemoryOffsetArrayIndexOffset,
+        VMemoryOffsetBasePtrArrayIndexOffset,
         VMemoryOffsetIndexOffset)
     from chb.mips.MIPSRegister import MIPSRegister
 
@@ -437,7 +438,10 @@ def memory_variable_to_lval_expression(
             return astree.mk_memref_expr(
                 astbase, offset=astoffset, anonymous=anonymous)
 
-        else:
+        elif (
+                offset.is_field_offset
+                or offset.is_array_index_offset
+                or offset.is_constant_value_offset):
             astlval = xvariable_to_ast_def_lval_expression(
                 base.basevar, xdata, iaddr, astree, anonymous=anonymous)
             if offset.is_field_offset:
@@ -451,9 +455,26 @@ def memory_variable_to_lval_expression(
             elif offset.is_constant_value_offset:
                 astoffset = astree.mk_scalar_index_offset(offset.offsetvalue())
             else:
+                chklogger.logger.warning(
+                    "Offset %s not yet handled at address %s",
+                    str(offset), iaddr)
                 astoffset = nooffset
             return astree.mk_memref_expr(
                 astlval, offset=astoffset, anonymous=anonymous)
+
+        elif offset.is_baseptr_array_index_offset:
+            astlval = xvariable_to_ast_def_lval_expression(
+                base.basevar, xdata, iaddr, astree, anonymous=anonymous)
+            offset = cast("VMemoryOffsetBasePtrArrayIndexOffset", offset)
+            (ptroffset, astoffset) = base_ptr_array_offset_to_ast_offset(
+                offset, xdata, iaddr, astree, anonymous=anonymous)
+            if ptroffset.is_integer_constant_zero:
+                return astree.mk_memref_expr(
+                    astlval, offset=astoffset, anonymous=anonymous)
+            else:
+                ptrexpr = astree.mk_binary_op("plus", ptroffset, astlval)
+                return astree.mk_memref_expr(
+                    ptrexpr, offset=astoffset, anonymous=anonymous)
 
     name = str(base)
 
@@ -1499,6 +1520,25 @@ def stack_variable_to_ast_lval(
     return astree.mk_temp_lval()
 
 
+def base_ptr_array_offset_to_ast_offset(
+        offset: "VMemoryOffsetBasePtrArrayIndexOffset",
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface,
+        anonymous: bool = False) -> Tuple[AST.ASTExpr, AST.ASTOffset]:
+
+    indexxpr = xxpr_to_ast_def_expr(
+        offset.index_expression, xdata, iaddr, astree, anonymous=anonymous)
+
+    if offset.has_no_offset() and indexxpr.is_integer_constant:
+        return (indexxpr, nooffset)
+
+    chklogger.logger.error(
+        "Base ptr array offset %s not yet handled at address %s",
+        str(offset), iaddr)
+    return (astree.mk_integer_constant(0), nooffset)
+
+
 def array_offset_to_ast_offset(
         offset: "VMemoryOffsetArrayIndexOffset",
         xdata: "InstrXData",
@@ -1675,8 +1715,7 @@ def xvariable_to_ast_lval(
         if (
                 rhs is not None
                 and (rhs.is_constant
-                     or (rhs.is_constant_value_variable
-                         and not rhs.is_function_return_value))):
+                     or (rhs.is_constant_value_variable))):
             astrhs: Optional[AST.ASTExpr] = xxpr_to_ast_def_expr(
                 rhs, xdata, iaddr, astree, anonymous=anonymous)
         else:

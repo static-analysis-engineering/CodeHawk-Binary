@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2024  Aarno Labs LLC
+# Copyright (c) 2022-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -85,15 +85,14 @@ class ASTICodeTransformer(ASTIdentityTransformer):
                         and not self.provenance.has_expose_instruction(instr.instrid)):
                     chklogger.logger.info(
                         "Remove [%s]: has ssa value", str(instr))
-                    continue
-                if self.provenance.has_active_lval_defuse_high(instr.lhs.lvalid):
-                    chklogger.logger.debug(
+                elif self.provenance.has_active_lval_defuse_high(instr.lhs.lvalid):
+                    chklogger.logger.info(
                         "Transform [%s]: active lval_defuse_high: %s",
                         str(instr),
                         self.provenance.active_lval_defuse_high(instr.lhs.lvalid))
                     instrs.append(instr)
                 elif self.provenance.has_lval_store(instr.lhs.lvalid):
-                    chklogger.logger.debug(
+                    chklogger.logger.info(
                         "Transform [%s]: lval_store", str(instr))
                     instrs.append(instr)
                 elif self.provenance.has_expose_instruction(instr.instrid):
@@ -101,12 +100,14 @@ class ASTICodeTransformer(ASTIdentityTransformer):
                         "Transform [%s]: expose instruction", str(instr))
                     instrs.append(instr)
                 elif instr.lhs.lhost.is_global:
-                    chklogger.logger.debug(
-                        "Transfor [%s]: global lhs", str(instr))
+                    chklogger.logger.info(
+                        "Transform [%s]: global lhs", str(instr))
                     instrs.append(instr)
                 else:
                     chklogger.logger.info("Transform [%s]: remove", str(instr))
             else:
+                chklogger.logger.info(
+                    "Transform [%s]: include by default", str(instr))
                 instrs.append(instr)
         return self.astinterface.mk_instr_sequence(
             instrs,

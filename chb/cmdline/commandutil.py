@@ -638,21 +638,22 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
         mode=logfilemode,
         msg="results stats invoked")
 
-    tags: Dict[str, List[str]] = {}
+    tagdata: Dict[str, Any] = {}
     if tagfile is not None:
         with open(tagfile, "r") as fp:
             tagdata = json.load(fp)
-        for (key, flist) in tagdata["keys"].items():
-            for faddr in flist:
-                tags.setdefault(faddr, [])
-                if not key in tags[faddr]:
-                    tags[faddr].append(key)
+
+    functiontags: Dict[str, List[str]] = {}
+
+    if "function-tags" in tagdata:
+        functiontags = tagdata["function-tags"]
 
     maxlen = 0
-    for (faddr, keys) in tags.items():
-        taglen = 4 + len(",".join(keys))
+    for (faddr, keys) in functiontags.items():
+        taglen = len(",".join(keys))
         if taglen > maxlen:
             maxlen = taglen
+    maxlen = maxlen + 4 if maxlen > 0 else 0
 
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
@@ -672,8 +673,8 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     else:
         sortkey = lambda f: int(f.faddr, 16)
     for f in sorted(stats.get_function_results(), key=sortkey):
-        if f.faddr in tags:
-            fn_tags = tags[f.faddr]
+        if f.faddr in functiontags:
+            fn_tags = functiontags[f.faddr]
         else:
             fn_tags = []
         if "hide" in fn_tags:
