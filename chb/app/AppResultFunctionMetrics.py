@@ -237,6 +237,7 @@ class AppResultFunctionMetrics:
             self,
             shownocallees: bool = False,
             space: str = "   ",
+            hide: List[str] = [],
             tags: List[str] = [],
             taglen: int = 0) -> str:
         callcount = ''
@@ -251,13 +252,25 @@ class AppResultFunctionMetrics:
         if self.unresolved_call_count > 0:
             unrc = str(self.unresolved_call_count)
         if len(tags) > 0:
-            ftags = (" [" + ",".join(tags) + "]").ljust(taglen)
-
-        return (str(self.faddr).ljust(10) + space
-                + '{:6.1f}'.format(self.espp) + space
-                + '{:6.1f}'.format(self.readsp) + space
-                + '{:6.1f}'.format(self.writesp) + space
-                + unrc.rjust(6) + space
-                + str(self.block_count).rjust(6) + space
-                + str(self.instruction_count).rjust(6) + space
-                + '{:8.3f}'.format(self.time) + ftags + name + callcount)
+            ftags = space + ("[" + ",".join(tags) + "]").ljust(taglen)
+        espp = "" if "esp" in hide else space + '{:6.1f}'.format(self.espp)
+        readsp = "" if "reads" in hide else space + '{:6.1f}'.format(self.readsp)
+        writesp = ("" if "writes" in hide
+                   else space + '{:6.1f}'.format(self.writesp))
+        unrcp = ("" if "unrc" in hide else space + unrc.rjust(6))
+        blocksp = ("" if "blocks" in hide
+                   else space + str(self.block_count).rjust(6))
+        instrsp = ("" if "instrs" in hide
+                   else space + str(self.instruction_count).rjust(6))
+        timep = "" if "time" in hide else space + '{:8.3f}'.format(self.time)
+        return (str(self.faddr).ljust(10)
+                + espp
+                + readsp
+                + writesp
+                + unrcp
+                + blocksp
+                + instrsp
+                + timep
+                + ftags
+                + name
+                + callcount)
