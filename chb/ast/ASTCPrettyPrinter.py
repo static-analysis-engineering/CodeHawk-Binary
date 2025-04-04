@@ -495,8 +495,21 @@ class ASTCPrettyPrinter(ASTVisitor):
 
     def visit_memref(self, memref: AST.ASTMemRef) -> None:
         if memref.memexp.is_ast_addressof:
-            memexp = cast(AST.ASTAddressOf, memref.memexp)
-            memexp.lval.accept(self)
+            memexpa = cast(AST.ASTAddressOf, memref.memexp)
+            memexpa.lval.accept(self)
+        elif memref.memexp.is_ast_binary_op:
+            memexpb = cast(AST.ASTBinaryOp, memref.memexp)
+            exp1 = memexpb.exp1
+            exp2 = memexpb.exp2
+            if exp1.is_ast_lval_expr:
+                exp1.accept(self)
+                self.ccode.write("[")
+                exp2.accept(self)
+                self.ccode.write("]")
+            else:
+                self.ccode.write("(*(")
+                memref.memexp.accept(self)
+                self.ccode.write("))")
         else:
             self.ccode.write("(*(")
             memref.memexp.accept(self)

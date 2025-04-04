@@ -468,13 +468,9 @@ def memory_variable_to_lval_expression(
             offset = cast("VMemoryOffsetBasePtrArrayIndexOffset", offset)
             (ptroffset, astoffset) = base_ptr_array_offset_to_ast_offset(
                 offset, xdata, iaddr, astree, anonymous=anonymous)
-            if ptroffset.is_integer_constant_zero:
-                return astree.mk_memref_expr(
-                    astlval, offset=astoffset, anonymous=anonymous)
-            else:
-                ptrexpr = astree.mk_binary_op("plus", ptroffset, astlval)
-                return astree.mk_memref_expr(
-                    ptrexpr, offset=astoffset, anonymous=anonymous)
+            ptrexpr = astree.mk_binary_op("plus", astlval, ptroffset)
+            return astree.mk_memref_expr(
+                ptrexpr, offset=astoffset, anonymous=anonymous)
 
     name = str(base)
 
