@@ -518,24 +518,24 @@ class AppResultMetrics:
         lines.append('-' * 80)
         return '\n'.join(lines)
 
-    def header_to_string(self, space: str = "   ") -> str:
+    def header_to_string(self, space: str = "   ", hide: List[str] = []) -> str:
         lines: List[str] = []
         lines.append('-' * 80)
+        h_esp = "" if "esp" in hide else space + "esp".center(6)
+        h_reads = "" if "reads" in hide else space + "reads".center(6)
+        h_writes = "" if "writes" in hide else space + "writes".center(6)
+        h_unrc = "" if "unrc" in hide else space + "unrc".center(6)
+        h_blocks = "" if "blocks" in hide else space + "blocks".center(6)
+        h_instrs = "" if "instrs" in hide else space + "instrs".center(6)
+        h_time = "" if "time" in hide else space + "time".center(8)
         lines.append(
-            'function   '
-            + space
-            + 'esp'.center(6)
-            + space
-            + 'reads'.center(6)
-            + space
-            + 'writes'.center(6)
-            + space
-            + 'unrc'.center(6)
-            + space
-            + 'blocks'.center(6)
-            + space
-            + 'instrs'.center(6)
-            + space
-            + 'time'.center(8))
+            "function   "
+            + h_esp
+            + h_reads
+            + h_writes
+            + h_unrc
+            + h_blocks
+            + h_instrs
+            + h_time)
         lines.append('-' * 80)
         return '\n'.join(lines)

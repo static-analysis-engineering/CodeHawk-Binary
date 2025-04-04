@@ -616,6 +616,12 @@ def parse() -> argparse.Namespace:
         "--tagfile",
         help="name of json file that has function tags")
     resultsstats.add_argument(
+        "--hide",
+        help="name(s) of columns to hide",
+        nargs="*",
+        choices=["time", "esp","reads","writes", "unrc"],
+        default=[])
+    resultsstats.add_argument(
         "--loglevel", "-log",
         choices=UL.LogLevel.options(),
         default="NONE",

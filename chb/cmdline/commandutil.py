@@ -619,6 +619,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     sortby: str = args.sortby
     timeshare: int = args.timeshare
     opcodes: str = args.opcodes
+    hide: List[str] = args.hide
     tagfile: Optional[str] = args.tagfile
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
@@ -661,7 +662,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     app = get_app(path, xfile, xinfo)
 
     stats = app.result_metrics
-    print(stats.header_to_string())
+    print(stats.header_to_string(hide=hide))
     if sortby == "instrs":
         sortkey = lambda f: f.instruction_count
     elif sortby == "basicblocks":
@@ -679,7 +680,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
             fn_tags = []
         if "hide" in fn_tags:
             continue
-        print(f.metrics_to_string(shownocallees=nocallees,
+        print(f.metrics_to_string(shownocallees=nocallees, hide=hide,
                                   tags=fn_tags, taglen=maxlen))
 
     print(stats.disassembly_to_string())
