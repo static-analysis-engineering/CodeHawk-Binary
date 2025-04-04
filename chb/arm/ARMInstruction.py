@@ -106,7 +106,7 @@ class ARMInstruction(Instruction):
 
     @property
     def mnemonic_stem(self) -> str:
-        return self.opcode.mnemonic
+        return self.opcode.mnemonic_stem
 
     @property
     def mnemonic(self) -> str:

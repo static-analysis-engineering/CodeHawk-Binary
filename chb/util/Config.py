@@ -71,6 +71,11 @@ class Config():
             self.macOSdir = os.path.join(self.binariesdir, "macOS")
             self.chx86_analyze = os.path.join(self.macOSdir, "chx86_analyze")
 
+        # instruction support
+        self.armdir = os.path.join(self.chbdir, "arm")
+        self.armopcdir = os.path.join(self.armdir, "opcodes")
+        self.armopcodes = os.path.join(self.armopcdir, "opcodes_covered.json")
+
         # registered command-line options
         self.commandline_options: Dict[str, str] = {}
 

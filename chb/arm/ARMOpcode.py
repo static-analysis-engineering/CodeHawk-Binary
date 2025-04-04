@@ -241,6 +241,10 @@ class ARMOpcode(ARMDictionaryRecord):
     def mnemonic(self) -> str:
         return self.tags[0]
 
+    @property
+    def mnemonic_stem(self) -> str:
+        return self.mnemonic
+
     def annotation(self, xdata: InstrXData) -> str:
         return self.__str__()
 

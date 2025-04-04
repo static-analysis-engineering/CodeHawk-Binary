@@ -125,6 +125,10 @@ class ARMMove(ARMOpcode):
         self.check_key(2, 5, "Move")
 
     @property
+    def mnemonic_stem(self) -> str:
+        return self.tags[0]
+
+    @property
     def mnemonic(self) -> str:
         return (
             self.tags[0]

@@ -698,10 +698,39 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
 
     if opcodes:
         filename = opcodes + ".json"
+        opcstats = app.mnemonic_stats()
+        if xinfo.is_arm:
+            opccovered = Config().armopcodes
+            with open(opccovered, "r") as fp:
+                opcsupport: Dict[str, Any] = json.load(fp)["instructions"]
+        else:
+            opcsupport = {}
+        result: Dict[str, Any] = {}
+        result["name"] = xname
+        result["md5"] = xinfo.md5
+        result["opcodes"] = {}
+        for (opc, count) in sorted(opcstats.items()):
+            opcrec: Dict[str, Any] = {}
+            opcrec["count"] = count
+            opcrec["support"] = []
+            if opc in opcsupport:
+                if "ASTC" in opcsupport[opc]:
+                    if opcsupport[opc]["ASTC"] == "Y":
+                        opcrec["support"].append("ASTC")
+            result["opcodes"][opc] = opcrec
         with open(filename, "w") as fp:
-            json.dump(app.mnemonic_stats(), fp, sort_keys=True, indent=2)
+            json.dump(result, fp, sort_keys=True, indent=2)
         chklogger.logger.info("opcodes saved to " + filename)
-
+        print("\nOpcode stats")
+        print("-" * 80)
+        for (opc, opcr) in sorted(result["opcodes"].items()):
+            p_opcsupport = ""
+            if len(opcr["support"]) > 0:
+                p_opcsupport = "(" + ", ".join(opcr["support"]) + ")"
+            print(opc.ljust(10) + ": "
+                  + str(opcr["count"]).rjust(6)
+                  + " " + p_opcsupport)
+        print("=" * 80)
     chklogger.logger.info("results stats completed")
 
     exit(0)
