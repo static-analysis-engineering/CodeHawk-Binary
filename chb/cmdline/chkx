@@ -619,7 +619,7 @@ def parse() -> argparse.Namespace:
         "--hide",
         help="name(s) of columns to hide",
         nargs="*",
-        choices=["time", "esp","reads","writes", "unrc"],
+        choices=["time", "esp","reads","writes", "unrc", "blocks", "instrs"],
         default=[])
     resultsstats.add_argument(
         "--loglevel", "-log",

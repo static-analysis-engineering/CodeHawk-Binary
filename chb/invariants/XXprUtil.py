@@ -1660,10 +1660,17 @@ def global_variable_to_ast_lval(
                 aindexoffset, xdata, iaddr, astree, anonymous=anonymous)
             return astree.mk_vinfo_lval(vinfo, astoffset, anonymous=anonymous)
 
+        if not anonymous:
+            chklogger.logger.error(
+                "Conversion of constant offset %s with suboffset %s at address "
+                + "%s not yet supported",
+                str(offset), str(offset.offset), iaddr)
+            return astree.mk_temp_lval()
+
     if not anonymous:
         chklogger.logger.error(
-            ("Conversion of global ast lval for address %s at address %s "
-             + "not yet supported"),
+            ("Conversion of global ast lval for address %s "
+             + "at address %s not yet supported"),
             str(offset), iaddr)
     return astree.mk_temp_lval()
 

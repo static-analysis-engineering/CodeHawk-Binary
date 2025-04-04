@@ -159,6 +159,10 @@ class ARMReverseSubtract(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args[1: -1]]
 
     @property
+    def mnemonic_stem(self) -> str:
+        return self.tags[0]
+
+    @property
     def mnemonic(self) -> str:
         mnem = self.tags[0]
         if self.is_writeback:
