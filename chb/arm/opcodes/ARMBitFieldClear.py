@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.arm.ARMPseudoCode as APC
@@ -41,11 +41,34 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMBitFieldClearXData(ARMOpcodeXData):
+    """Data format:
+    - variables:
+    0: vrd
+
+    - expressions:
+    0: xrd
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def xrd(self) -> "XXpr":
+        return self.xpr(0, "xrd")
 
 
 @armregistry.register_tag("BFC", ARMOpcode)
@@ -60,10 +83,8 @@ class ARMBitFieldClear(ARMOpcode):
     args[2]: width
     args[3]: msb position
 
-    xdata format: a:vxrdh
-    ---------------------
-    vars[0]: lhs (Rd)
-    xprs[0]: rhs (Rd)
+    xdata format
+    ------------
     rdefs[0]: rhs
     uses[0]: lhs
     useshigh[0]: lhs
@@ -102,8 +123,9 @@ class ARMBitFieldClear(ARMOpcode):
         return self.args[2]
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[0])
+        xd = ARMBitFieldClearXData(xdata)
+        lhs = str(xd.vrd)
+        rhs = str(xd.xrd)
         assignment = (
             lhs
             + " := bit-field-clear("
@@ -112,6 +134,8 @@ class ARMBitFieldClear(ARMOpcode):
             + str(self.lsb)
             + ", " + str(self.width)
             + ")")
+        return xd.add_instruction_condition(assignment)
+    '''
         if xdata.has_unknown_instruction_condition():
             return "if ? then " + assignment
         elif xdata.has_instruction_condition():
@@ -119,6 +143,7 @@ class ARMBitFieldClear(ARMOpcode):
             return "if " + c + " then " + assignment
         else:
             return assignment
+    '''
 
     def ast_prov(
             self,
@@ -149,6 +174,22 @@ class ARMBitFieldClear(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
+        rdefs = xdata.reachingdefs
+        astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
+
+        # high-level assignment
+
+        xd = ARMBitFieldClearXData(xdata)
+
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "BFC: Encountered error value for rhs at address %s", iaddr)
+            return ([], [ll_assign])
+
+        lhs = xd.vrd
+        rhsop = xd.xrd
+
+        '''
         lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
         if len(lhsasts) == 0:
             raise UF.CHBError("BitFieldClear (BFC): no lval found")
@@ -170,8 +211,11 @@ class ARMBitFieldClear(ARMOpcode):
                 + ", ".join(str(v) for v in rhsasts))
 
         hl_rhs1 = rhsasts[0]
+        '''
 
-        hl_rhs = astree.mk_binary_op("band", hl_rhs1, maskconst)
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhsop = XU.xxpr_to_ast_def_expr(rhsop, xdata, iaddr, astree)
+        hl_rhs = astree.mk_binary_op("band", hl_rhsop, maskconst)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -184,7 +228,7 @@ class ARMBitFieldClear(ARMOpcode):
         astree.add_instr_mapping(hl_assign, ll_assign)
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)
-        astree.add_expr_mapping(hl_rhs1, ll_op1)
+        astree.add_expr_mapping(hl_rhsop, ll_op1)
         astree.add_lval_mapping(hl_lhs, ll_lhs)
         astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
         astree.add_expr_reachingdefs(ll_op1, [rdefs[0]])
