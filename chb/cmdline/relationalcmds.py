@@ -153,6 +153,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     xpatchresults: Optional[str] = args.patch_results_file
     xprint: bool = not args.json
     xssa: bool = args.ssa
+    collectdiagnostics = args.collect_diagnostics
     xconstruct_all_functions: bool = args.construct_all_functions
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
@@ -241,6 +242,9 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
             lines.append(" - New code inserted in the following memory regions:")
             for (x, y) in xcomparison.newcode:
                 lines.append("    * From " + x + " to " + y)
+        if len(xcomparison.messages) > 0:
+            lines.append("\nMessages:")
+            lines.append("\n".join(xcomparison.messages))
         lines.append("=" * 80)
         lines.append(
             "||" + (str(datetime.datetime.now()) + "  ").rjust(76) + "||")
@@ -300,12 +304,13 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         fns_include=fns_include,
         fns_exclude=fns_exclude,
         use_ssa=xssa,
-        thumb=True)
+        thumb=xcomparison.is_thumb)
 
     try:
         am.analyze(
             iterations=10,
             save_asm=xsave_asm,
+            collectdiagnostics=collectdiagnostics,
             construct_all_functions=xconstruct_all_functions)
     except subprocess.CalledProcessError as e:
         print(e.output)
