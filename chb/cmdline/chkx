@@ -376,8 +376,7 @@ def parse() -> argparse.Namespace:
         help="output intermediate information")
     analyzecmd.add_argument(
         "--save_asm",
-        default="yes",
-        choices=["yes", "no"],
+        action="store_true",
         help='save asm listing in analysis directory')
     analyzecmd.add_argument(
         "--save_asm_cfg_info",
@@ -1362,6 +1361,10 @@ def parse() -> argparse.Namespace:
         "--save_asm",
         action="store_true",
         help="save the assembly file")
+    relationalprepare.add_argument(
+        "--collect_diagnostics",
+        action="store_true",
+        help="save diagnostic information in diagnostics log")
     relationalprepare.add_argument(
         "--hints",
         nargs="*",
