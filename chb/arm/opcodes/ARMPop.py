@@ -100,6 +100,10 @@ class ARMPopXData(ARMOpcodeXData):
         return [self.xpr(i, "rhsexpr") for i in range(3, self.regcount + 3)]
 
     @property
+    def are_rrhsexprs_ok(self) -> bool:
+        return all(self.is_xpr_ok(i) for i in range(3, self.regcount + 3))
+
+    @property
     def xaddrs(self) -> List["XXpr"]:
         return [self.xpr(i, "xaddr")
                 for i in range(self.regcount + 3, (2 * self.regcount) + 3)]
@@ -127,18 +131,22 @@ class ARMPopXData(ARMOpcodeXData):
 
     @property
     def annotation(self) -> str:
-        pairs = zip(self.lhsvars, self.rrhsexprs)
-        spassign = str(self.splhs) + " := " + str(self.rspresult)
-        assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
-        assigns = spassign + "; " + assigns
-        if self.has_return_xpr():
-            cxpr = (
-                " (C: "
-                + (str(self.creturnval()) if self.has_creturnval() else "None")
-                + ")")
-            rxpr = "; return " + str(self.rreturnval()) + cxpr
+        if self.are_rrhsexprs_ok:
+            pairs = zip(self.lhsvars, self.rrhsexprs)
+            spassign = str(self.splhs) + " := " + str(self.rspresult)
+            assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
+            assigns = spassign + "; " + assigns
+            if self.has_return_xpr():
+                cxpr = (
+                    " (C: "
+                    + (str(self.creturnval()) if self.has_creturnval() else "None")
+                    + ")")
+                rxpr = "; return " + str(self.rreturnval()) + cxpr
+            else:
+                rxpr = ""
         else:
-            rxpr = ""
+            assigns = "rhs error value"
+            rxpr = "?"
         return self.add_instruction_condition(assigns + rxpr)
 
 
