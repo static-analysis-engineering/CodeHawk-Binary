@@ -568,6 +568,12 @@ def global_variable_to_lval_expression(
                 subfieldkey = subfieldoffset.ckey
                 subfieldastoffset = astree.mk_field_offset(
                     subfieldname, subfieldkey)
+            elif fieldoffset.offset.is_array_index_offset:
+                asubfieldoffset = cast(
+                    "VMemoryOffsetArrayIndexOffset", fieldoffset.offset)
+                subfieldastoffset = array_offset_to_ast_offset(
+                    asubfieldoffset, xdata, iaddr, astree, anonymous=anonymous)
+
             else:
                 chklogger.logger.error(
                     "Index sub offset of global offset %s not yet handled at %s",
