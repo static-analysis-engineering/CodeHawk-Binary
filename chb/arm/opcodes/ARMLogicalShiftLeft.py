@@ -151,6 +151,9 @@ class ARMLogicalShiftLeft(ARMOpcode):
     def is_writeback(self) -> bool:
         return self.args[0] == 1
 
+    def lsl_xdata(self, xdata: InstrXData) -> ARMLogicalShiftLeftXData:
+        return ARMLogicalShiftLeftXData(xdata)
+
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMLogicalShiftLeftXData(xdata)
         if xd.is_ok:

@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -45,11 +45,43 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.VarInvariantFact import ReachingDefFact
     from chb.invariants.XVariable import XVariable
     from chb.invariants.XXpr import XXpr
 
 
 class ARMAddCarryXData(ARMOpcodeXData):
+    """Adc <rd> <rn> <rm>  ==> result
+
+    Data format (regular)
+    - variables:
+    0: vrd
+
+    - expressions:
+    0: xrn
+    1: xrm
+    2: result
+    3: rresult (result, rewritten)
+    4: xxrn (xrn, rewritten)
+    5: xxrm (xrm, rewritten)
+
+    - c expressions:
+    0: cresult
+
+    rdefs[0]: xrn
+    rdefs[1]: xrm
+    rdefs[2:..]: reaching definitions for simplified result expression
+    uses[0]: vrd
+    useshigh[0]: vrd
+
+    Data format (as part of jump table)
+    - expressions:
+    0: xrn
+    1: xxrn (xrn, rewritten)
+
+    rdefs[0]: xrn
+    rdefs[1:]: reaching definitions for xxrn
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -71,13 +103,56 @@ class ARMAddCarryXData(ARMOpcodeXData):
         return self.xpr(2, "result")
 
     @property
+    def is_result_ok(self) -> bool:
+        return self.is_xpr_ok(2)
+
+    @property
     def rresult(self) -> "XXpr":
         return self.xpr(3, "rresult")
 
     @property
+    def is_rresult_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def cresult(self) -> "XXpr":
+        return self.cxpr(0, "cresult")
+
+    @property
+    def is_cresult_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def result_simplified(self) -> str:
-        return simplify_result(
-            self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+        if self.is_result_ok and self.is_rresult_ok:
+            return simplify_result(
+                self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
+        else:
+            return str(self.xrn) + " + " + str(self.xrm)
+
+    @property
+    def xxrn(self) -> "XXpr":
+        return self.xpr(4, "xxrn")
+
+    @property
+    def is_xxrn_ok(self) -> bool:
+        return self.is_xpr_ok(4)
+
+    @property
+    def xxrm(self) -> "XXpr":
+        return self.xpr(5, "xxrm")
+
+    @property
+    def is_xxrm_ok(self) -> bool:
+        return self.is_xpr_ok(5)
+
+    @property
+    def rn_rdef(self) -> Optional["ReachingDefFact"]:
+        return self._xdata.reachingdefs[0]
+
+    @property
+    def rm_rdef(self) -> Optional["ReachingDefFact"]:
+        return self._xdata.reachingdefs[1]
 
     @property
     def annotation(self) -> str:
@@ -135,10 +210,7 @@ class ARMAddCarry(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMAddCarryXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def ast_prov(
             self,
@@ -149,15 +221,6 @@ class ARMAddCarry(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "ADC"]
-
-        lhs = xdata.vars[0]
-        rhs1 = xdata.xprs[0]
-        rhs2 = xdata.xprs[1]
-        rhssum = xdata.xprs[2]
-        rhs3 = xdata.xprs[3]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
 
         # low-level assignment
 
@@ -180,22 +243,41 @@ class ARMAddCarry(ARMOpcode):
 
         # high-level assignment
 
+        def has_cast() -> bool:
+            return (
+                astree.has_register_variable_intro(iaddr)
+                and astree.get_register_variable_intro(iaddr).has_cast())
+
         xd = ARMAddCarryXData(xdata)
-        if not xdata.is_ok:
+
+        if xd.is_cresult_ok and xd.is_rresult_ok:
+            rhs = xd.cresult
+            xrhs = xd.rresult
+
+        elif xd.is_rresult_ok:
+            rhs = xd.rresult
+            xrhs = xd.rresult
+
+        elif xd.is_result_ok:
+            rhs = xd.result
+            xrhs = xd.result
+
+        else:
             chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
-            return ([], [])
+                "ADC: Encountered error value for rhs at address %s", iaddr)
+            return ([], [ll_assign])
 
         lhs = xd.vrd
         rhs1 = xd.xrn
         rhs2 = xd.xrm
-        rhs3 = xd.rresult
+        rrhs1 = xd.xxrn if xd.is_xxrn_ok else xd.xrn
+        rrhs2 = xd.xxrm if xd.is_xxrm_ok else xd.xrm
 
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
         hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-        hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -212,5 +294,10 @@ class ARMAddCarry(ARMOpcode):
         astree.add_expr_reachingdefs(ll_rhs, rdefs[:2])
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if astree.has_register_variable_intro(iaddr):
+            rvintro = astree.get_register_variable_intro(iaddr)
+            if rvintro.has_cast():
+                astree.add_expose_instruction(hl_assign.instrid)
 
         return ([hl_assign], [ll_assign])
