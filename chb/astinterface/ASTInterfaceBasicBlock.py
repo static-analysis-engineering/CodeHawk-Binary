@@ -42,6 +42,8 @@ if TYPE_CHECKING:
     from chb.arm.ARMCfgBlock import ARMCfgBlock
     from chb.app.BasicBlock import BasicBlock
     from chb.arm.ARMInstruction import ARMInstruction
+    from chb.arm.opcodes.ARMLogicalShiftLeft import ARMLogicalShiftLeft
+    from chb.arm.opcodes.ARMReverseSubtract import ARMReverseSubtract
     from chb.astinterface.ASTInterface import ASTInterface
 
 
@@ -219,6 +221,18 @@ class ASTInterfaceBasicBlock:
         STRxx R1, <mem>
         MOVxx R1, #1
         MOV   R0
+
+        case 4: fallthrough / exit function (return) on !R0
+        LDR  RO, ...
+        RSBS R1, R0, #0
+        ADC  R0, R0, R1
+        BX   LR
+
+        case 5: fallthrough / goto_xxx
+        MOVxx R1, #1
+        LSL   R0, R1, #2
+        BX    LR
+
         """
         if not self.trampoline:
             raise UF.CHBError("Internal error")
@@ -242,7 +256,7 @@ class ASTInterfaceBasicBlock:
                 brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
                 return brstmt
 
-            elif payloadlen == 7:
+            elif payloadlen == 7 or payloadlen == 8:
                 (iaddr3, chkinstr3) = payloadinstrs[-3]
                 (iaddr4, chkinstr4) = payloadinstrs[-4]
                 chkinstr3 = cast("ARMInstruction", chkinstr3)
@@ -273,12 +287,23 @@ class ASTInterfaceBasicBlock:
             if chkinstr3.mnemonic_stem == "MOV":
                 if chkinstr3.has_instruction_condition():
                     condition = chkinstr3.get_instruction_condition()
-                    cstmt = astree.mk_continue_stmt()
-                    estmt = astree.mk_instr_sequence([])
-                    cc = XU.xxpr_to_ast_def_expr(
-                        condition, chkinstr3.xdata, chkinstr3.iaddr, astree)
-                    brstmt = astree.mk_branch(cc, cstmt, estmt, "0x0")
-                    return brstmt
+                    chkopc2 = chkinstr2.opcode
+                    chkopc2 = cast("ARMLogicalShiftLeft", chkopc2)
+                    lslxdata = chkopc2.lsl_xdata(chkinstr2.xdata)
+                    shift = lslxdata.xrm
+                    if str(shift) == "0x1":
+                        cstmt = astree.mk_continue_stmt()
+                        estmt = astree.mk_instr_sequence([])
+                        cc = XU.xxpr_to_ast_def_expr(
+                            condition, chkinstr3.xdata, chkinstr3.iaddr, astree)
+                        brstmt = astree.mk_branch(cc, cstmt, estmt, "0x0")
+                        return brstmt
+                    else:
+                        chklogger.logger.critical(
+                            "trampoline payload cannot be lifted: "
+                            "LSL case %s not yet supported. Contact "
+                            "system maintainer for support",
+                            str(shift))
                 else:
                     chklogger.logger.critical(
                         "trampoline payload cannot be lifted: "
@@ -290,6 +315,32 @@ class ASTInterfaceBasicBlock:
                     + "expected a MOV instruction and not a %s. "
                     + "Contact system maintainer for support.",
                     chkinstr3.mnemonic)
+
+        # case 4
+        elif payloadlen == 4 and chkinstr2.mnemonic_stem == "ADC":
+            (iaddr3, chkinstr3) = payloadinstrs[-3]
+            chkinstr3 = cast("ARMInstruction", chkinstr3)
+            if chkinstr3.mnemonic_stem == "RSB":
+                chkopc3 = chkinstr3.opcode
+                chkopc3 = cast("ARMReverseSubtract", chkopc3)
+                rsbxdata = chkopc3.rsb_xdata(chkinstr3.xdata)
+                cvalue = rsbxdata.xrn
+                if rsbxdata.is_xxrn_ok:
+                    cvalue = rsbxdata.xxrn
+                ccval = XU.xxpr_to_ast_def_expr(
+                    cvalue, chkinstr3.xdata, chkinstr3.iaddr, astree)
+                cc = astree.mk_unary_op("lnot", ccval)
+                rstmt = astree.mk_return_stmt(None)
+                estmt = astree.mk_instr_sequence([])
+                brstmt = astree.mk_branch(cc, rstmt, estmt, "0x0")
+                return brstmt
+            else:
+                chklogger.logger.critical(
+                    "trampoline payload cannot be lifted: "
+                    + "expected an RSB instruction and not a %s. "
+                    + "Contact system maintainer for support.",
+                    chkinstr3.mnemonic)
+
         else:
             chklogger.logger.critical(
                 "trampoline payload cannot be lifted: "

@@ -215,6 +215,13 @@ class ASTInterface:
     def srcformals(self) -> List[ASTIFormalVarInfo]:
         return self._srcformals
 
+    def has_function_prototype(self) -> bool:
+        return self.astree.has_function_prototype()
+
+    @property
+    def function_prototype(self) -> Optional[AST.ASTVarInfo]:
+        return self.astree.function_prototype
+
     @property
     def annotations(self) -> Dict[int, List[str]]:
         return self._annotations

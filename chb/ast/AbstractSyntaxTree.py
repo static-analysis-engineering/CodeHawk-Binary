@@ -185,6 +185,13 @@ class AbstractSyntaxTree:
     def set_function_prototype(self, p: AST.ASTVarInfo) -> None:
         self.symboltable.set_function_prototype(p)
 
+    def has_function_prototype(self) -> bool:
+        return self.symboltable.has_function_prototype()
+
+    @property
+    def function_prototype(self) -> Optional[AST.ASTVarInfo]:
+        return self.symboltable.function_prototype
+
     def has_symbol(self, name: str) -> bool:
         return self.symboltable.has_symbol(name)
 
