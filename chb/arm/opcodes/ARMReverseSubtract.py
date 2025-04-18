@@ -112,6 +112,22 @@ class ARMReverseSubtractXData(ARMOpcodeXData):
             return str(self.xrm) + " - " + str(self.xrn)
 
     @property
+    def xxrn(self) -> "XXpr":
+        return self.xpr(4, "xxrn")
+
+    @property
+    def is_xxrn_ok(self) -> bool:
+        return self.is_xpr_ok(4)
+
+    @property
+    def xxrm(self) -> "XXpr":
+        return self.xpr(5, "xxrm")
+
+    @property
+    def is_xxrm_ok(self) -> bool:
+        return self.is_xpr_ok(5)
+
+    @property
     def annotation(self) -> str:
         cresult = (
             " (C: "
@@ -173,6 +189,9 @@ class ARMReverseSubtract(ARMOpcode):
     @property
     def is_writeback(self) -> bool:
         return self.args[0] == 1
+
+    def rsb_xdata(self, xdata: InstrXData) -> ARMReverseSubtractXData:
+        return ARMReverseSubtractXData(xdata)
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMReverseSubtractXData(xdata)
