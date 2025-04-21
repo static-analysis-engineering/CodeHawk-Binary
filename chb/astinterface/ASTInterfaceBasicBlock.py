@@ -361,6 +361,47 @@ class ASTInterfaceBasicBlock:
             return astree.mk_branch(cond, tr_stmt, estmt, "0x0")
         return tr_stmt
 
+    def trampoline_payload_compound_ast(
+            self, astree: "ASTInterface") -> AST.ASTStmt:
+        """
+        compound condition: fallthrough / exit function (return):
+        B <condition 1>
+        B <condition 2>
+        B <return 0>  (fallthrough)
+        B set function return value
+          <return 1>
+        ===>  if (condition1 || condition2):
+                return (new return value)
+              fallthrough
+
+        Note: recognition of return value not yet implemented.
+        """
+
+        bl3 = self.trampoline["payload-2"]
+        bl3instrs = sorted(bl3.instructions.items())
+        if not len(bl3instrs) == 2:
+            return self.trampoline_payload_loop_ast(astree)
+        instr31 = bl3instrs[0][1]
+        if not instr31.mnemonic_stem == "MOV":
+            return self.trampoline_payload_loop_ast(astree)
+        instr32 = bl3instrs[1][1]
+        if not instr32.mnemonic_stem == "BX":
+            return self.trampoline_payload_loop_ast(astree)
+
+        cond1 = self.trampoline_ast_condition("payload-0", astree)
+        cond2 = self.trampoline_ast_condition("payload-1", astree)
+        if cond1 is not None and cond2 is not None:
+            cond = astree.mk_binary_op("lor", cond1, cond2)
+            rstmt = astree.mk_return_stmt(None)
+            estmt = astree.mk_instr_sequence([])
+            brstmt = astree.mk_branch(cond, rstmt, estmt, "0x0")
+            return brstmt
+        else:
+            chklogger.logger.error(
+                "Not all conditions resolved in compound trampoline condition: "
+                "cond1: %s; cond2: %s", str(cond1), str(cond2))
+            return self.trampoline_payload_loop_ast(astree)
+
     def trampoline_payload_loop_ast(
             self, astree: "ASTInterface") -> AST.ASTStmt:
         """Assumes a return via conditional POP."""
@@ -404,7 +445,7 @@ class ASTInterfaceBasicBlock:
             stmts.append(self.trampoline_setup_ast(astree))
         if "payload-0" in self.trampoline or "payload" in self.trampoline:
             if len(self.trampoline_payload_roles) == 4:
-                stmts.append(self.trampoline_payload_loop_ast(astree))
+                stmts.append(self.trampoline_payload_compound_ast(astree))
             elif len(self.trampoline_payload_roles) == 3:
                 stmts.append(self.trampoline_payload_sideeffect_ast(astree))
             elif len(self.trampoline_payload_roles) == 1:
