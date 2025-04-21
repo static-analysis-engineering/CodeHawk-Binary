@@ -31,6 +31,8 @@ from typing import Dict, List, Mapping, Optional, Set, Tuple, TYPE_CHECKING
 from chb.graphics.DotCfg import DotCfg
 
 import chb.util.fileutil as UF
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
@@ -290,7 +292,8 @@ class CfgMatcher:
                 if b1 not in self.blockmapping:
                     self._blockmapping[b1] = b2
                 elif self.blockmapping[b1] != b2:
-                    print("Conflicting mapping (strings): " + b1 + ", " + b2)
+                    chklogger.logger.warning(
+                        "Conflicting mapping (strings): %s, %s", b1, b2)
 
     def match_blockcalls(self) -> None:
         for (s, (b1s, b2s)) in self._blockcalls.items():
@@ -300,7 +303,8 @@ class CfgMatcher:
                 if b1 not in self.blockmapping:
                     self._blockmapping[b1] = b2
                 elif self.blockmapping[b1] != b2:
-                    print("Conflicting mapping (calls): " + b1 + ", " + b2)
+                    chklogger.logger.warning(
+                        "Conflicting mapping (calls): %s, %s", b1, b2)
 
     def match_branch_conditions(self) -> None:
         for (s, (b1s, b2s)) in self._blockbranches.items():
@@ -310,7 +314,8 @@ class CfgMatcher:
                 if b1 not in self.blockmapping:
                     self._blockmapping[b1] = b2
                 elif self.blockmapping[b1] != b2:
-                    print("Conflicting mapping (branches): " + b1 + ", " + b2)
+                    chklogger.logger.warning(
+                        "Conflicting mapping (branches): %s, %s", b1, b2)
 
     def match_edges(self) -> None:
 
