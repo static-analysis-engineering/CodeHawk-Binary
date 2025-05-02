@@ -21,19 +21,20 @@ development and thus somewhat experimental.
 ### Requirements
 
 The command-line interface requires python3.5 or higher. The analyzer
-requires a Java runtime environment.
+requires a Java development kit (to provide the `jar` tool).
 
 Build instructions for the CodeHawk Binary Analyzer are available
 [here](https://github.com/static-analysis-engineering/codehawk/tree/master/CodeHawk).
-Upon completion copy the analyzer, `chx86_analyze`, from the `CodeHawk/CHB/bchcmdline`
+Upon completion copy the analyzer, `chx86_analyze`, from the `CodeHawk/_build/install/default/bin/`
 directory to the appropriate directory in `chb/bin/binaries`, or point the Config.py
-(or ConfigLocal.py) in `chb/util/` to its location. You can check the configuration
-with
+(or ConfigLocal.py) in `chb/util/` to its location.
+
+You can check the configuration with
 ```
 > chkx info
 Analyzer configuration:
 -----------------------
-  analyzer : /home/myname/codehawk/CodeHawk/CHB/bchcmdline/chx86_analyze (found)
+  analyzer : /home/myname/codehawk/CodeHawk/_build/install/default/bin/chx86_analyze (found)
   summaries: /home/myname/codehawk/CodeHawk/CHB/bchsummaries/bchsummaries.jar (found)
 ```
 
