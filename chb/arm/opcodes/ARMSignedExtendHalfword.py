@@ -77,6 +77,9 @@ class ARMSignedExtendHalfword(ARMOpcode):
         xprs[1]: rhs (simplified)
         """
 
+        '''
         lhs = str(xdata.vars[0])
         result = str(xdata.xprs[1])
         return lhs + " := " + result
+        '''
+        return "pending"

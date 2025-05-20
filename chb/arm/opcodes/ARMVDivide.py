@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,7 @@ import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.invariants.XXprUtil as XU
@@ -45,6 +45,53 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMVfpDatatype import ARMVfpDatatype
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
+
+
+class ARMVDivideXData(ARMOpcodeXData):
+    """
+    Data format:
+    - variables:
+    0: vdst
+
+    - expressions:
+    0: xsrc1
+    1: xsrc2
+    2: rxsrc1
+    3: rxsrc2
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vdst(self) -> "XVariable":
+        return self.var(0, "vdst")
+
+    @property
+    def xsrc1(self) -> "XXpr":
+        return self.xpr(0, "xsrc1")
+
+    @property
+    def xsrc2(self) -> "XXpr":
+        return self.xpr(1, "xsrc2")
+
+    @property
+    def rxsrc1(self) -> "XXpr":
+        return self.xpr(2, "rxsrc1")
+
+    @property
+    def rxsrc2(self) -> "XXpr":
+        return self.xpr(3, "rxsrc2")
+
+    @property
+    def annotation(self) -> str:
+        lhs = str(self.vdst)
+        rhs1 = str(self.rxsrc1)
+        rhs2 = str(self.rxsrc2)
+        assign = lhs + " := " + rhs1 + " / " + rhs2
+        return self.add_instruction_condition(assign)
 
 
 @armregistry.register_tag("VDIV", ARMOpcode)
@@ -86,12 +133,8 @@ class ARMVDivide(ARMOpcode):
         return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        return (
-            str(xdata.vars[0])
-            + " := "
-            + str(xdata.xprs[2])
-            + " / "
-            + str(xdata.xprs[3]))
+        xd = ARMVDivideXData(xdata)
+        return xd.annotation
 
     def ast_prov(
             self,

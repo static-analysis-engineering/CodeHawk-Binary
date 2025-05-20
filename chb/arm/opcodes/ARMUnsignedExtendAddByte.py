@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.util.fileutil as UF
@@ -39,6 +39,43 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
+
+
+class ARMUnsignedExtendAddByteXData(ARMOpcodeXData):
+    """
+    Data format:
+    - variables:
+    0: vrd
+
+    - expressions:
+    0: xrn
+    1: xrm
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(1, "xrm")
+
+    @property
+    def annotation(self) -> str:
+        lhs = str(self.vrd)
+        rhs1 = str(self.xrn)
+        rhs2 = str(self.xrm)
+        assign = lhs + " := extend_add_byte(" + rhs1 + ", " + rhs2 + ")"
+        return self.add_instruction_condition(assign)
 
 
 @armregistry.register_tag("UXTAB", ARMOpcode)
@@ -65,14 +102,5 @@ class ARMUnsignedExtendAddByte(ARMOpcode):
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format a:vxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: rhs2
-        """
-
-        lhs = str(xdata.vars[0])
-        op1 = str(xdata.xprs[0])
-        op2 = str(xdata.xprs[1])
-        return lhs + ":= extend_add_byte(" + op1 + ", " + op2 + ")"
+        xd = ARMUnsignedExtendAddByteXData(xdata)
+        return xd.annotation

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -45,6 +45,52 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMVfpDatatype import ARMVfpDatatype
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMVCompareXData(ARMOpcodeXData):
+    """
+    Data format:
+    - variables
+    0: v_fpsrc
+
+    - expressions
+    0: xsrc1
+    1: xsrc2
+    2: rxsrc1
+    3: rxsrc2
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def v_fpsrc(self) -> "XVariable":
+        return self.var(0, "v_fpsrc")
+
+    @property
+    def xsrc1(self) -> "XXpr":
+        return self.xpr(0, "xsrc1")
+
+    @property
+    def xsrc2(self) -> "XXpr":
+        return self.xpr(1, "xsrc2")
+
+    @property
+    def rxsrc1(self) -> "XXpr":
+        return self.xpr(2, "rxsrc1")
+
+    @property
+    def rxsrc2(self) -> "XXpr":
+        return self.xpr(3, "rxsrc2")
+
+    @property
+    def annotation(self) -> str:
+        rhs1 = str(self.rxsrc1)
+        rhs2 = str(self.rxsrc2)
+        comparison = "compare " + rhs1 + " and " + rhs2
+        return self.add_instruction_condition(comparison)
 
 
 @armregistry.register_tag("VCMPE", ARMOpcode)
@@ -98,10 +144,8 @@ class ARMVCompare(ARMOpcode):
         return [self.armd.arm_operand(self.args[i]) for i in [2, 3, 4]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        rhs1 = str(xdata.xprs[2])
-        rhs2 = str(xdata.xprs[3])
-        comparison = "compare " + rhs1 + " and " + rhs2
-        return comparison
+        xd = ARMVCompareXData(xdata)
+        return xd.annotation
 
     def ast_prov(
             self,

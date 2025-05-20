@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import cast, List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -45,6 +45,61 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
+
+
+class ARMVStoreRegisterXData(ARMOpcodeXData):
+    """
+    Data format:
+    - variables
+    0: vmem
+
+    - expressions:
+    0: xsrc
+    1: rxsrc
+    2: xbase
+    3: rxbase
+    4: xaddr
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vmem(self) -> "XVariable":
+        return self.var(0, "vmem")
+
+    @property
+    def is_vmem_ok(self) -> bool:
+        return self.is_var_ok(0)
+
+    @property
+    def xsrc(self) -> "XXpr":
+        return self.xpr(0, "xsrc")
+
+    @property
+    def rxsrc(self) -> "XXpr":
+        return self.xpr(1, "rxsrc")
+
+    @property
+    def xbase(self) -> "XXpr":
+        return self.xpr(2, "xbase")
+
+    @property
+    def rxbase(self) -> "XXpr":
+        return self.xpr(3, "rxbase")
+
+    @property
+    def xaddr(self) -> "XXpr":
+        return self.xpr(4, "xaddr")
+
+    @property
+    def annotation(self) -> str:
+        lhs = str(self.vmem)
+        rhs = str(self.rxsrc)
+        assign = lhs + " := " + rhs
+        return self.add_instruction_condition(assign)
 
 
 @armregistry.register_tag("VSTR", ARMOpcode)
@@ -86,16 +141,8 @@ class ARMVStoreRegister(ARMOpcode):
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[1])
-        assignment = lhs + " := " + rhs
-        if xdata.has_unknown_instruction_condition():
-            return "if ? then " + assignment
-        elif xdata.has_instruction_condition():
-            c = str(xdata.xprs[1])
-            return "if " + c + " then " + assignment
-        else:
-            return assignment
+        xd = ARMVStoreRegisterXData(xdata)
+        return xd.annotation
 
     def ast_prov(
             self,

@@ -53,8 +53,18 @@ if TYPE_CHECKING:
 class ARMBitFieldInsertXData(ARMOpcodeXData):
     """BFI <rd> <rn>"""
 
-    def __init__(self, xdata: InstrXData) -> None:
+    def __init__(self, xdata: InstrXData, lsb: int, width: int) -> None:
         ARMOpcodeXData.__init__(self, xdata)
+        self._lsb = lsb
+        self._width = width
+
+    @property
+    def lsb(self) -> int:
+        return self._lsb
+
+    @property
+    def width(self) -> int:
+        return self._width
 
     @property
     def vrd(self) -> "XVariable":
@@ -67,6 +77,23 @@ class ARMBitFieldInsertXData(ARMOpcodeXData):
     @property
     def xrn(self) -> "XXpr":
         return self.xpr(1, "xrn")
+
+    @property
+    def annotation(self) -> str:
+        lhs = str(self.vrd)
+        rhs1 = str(self.xrd)
+        rhs2 = str(self.xrn)
+        assign = (
+            lhs
+            + " := bit-field-insert("
+            + rhs1
+            + ", "
+            + rhs2
+            + ", lsb:"
+            + str(self.lsb)
+            + ", width:"
+            + str(self.width))
+        return self.add_instruction_condition(assign)
 
 
 @armregistry.register_tag("BFI", ARMOpcode)
@@ -123,30 +150,8 @@ class ARMBitFieldInsert(ARMOpcode):
         return self.args[2]
 
     def annotation(self, xdata: InstrXData) -> str:
-        xd = ARMBitFieldInsertXData(xdata)
-        if xd.is_ok:
-            lhs = str(xd.vrd)
-            rhs1 = str(xd.xrd)
-            rhs2 = str(xd.xrn)
-            assignment = (
-                lhs
-                + " := bit-field-insert("
-                + rhs1
-                + ", "
-                + rhs2
-                + ", lsb:"
-                + str(self.lsb)
-                + ", width:"
-                + str(self.width))
-            if xdata.has_unknown_instruction_condition():
-                return "if ? then " + assignment
-            elif xdata.has_instruction_condition():
-                c = str(xdata.xprs[1])
-                return "if " + c + " then " + assignment
-            else:
-                return assignment
-        else:
-            return "Error value"
+        xd = ARMBitFieldInsertXData(xdata, self.lsb, self.width)
+        return xd.annotation
 
     def ast_prov(
             self,
@@ -168,9 +173,11 @@ class ARMBitFieldInsert(ARMOpcode):
 
             return ([], [nopinstr])
 
-        lhs = xdata.vars[0]
-        rhs1 = xdata.xprs[0]
-        rhs2 = xdata.xprs[1]
+        xd = ARMBitFieldInsertXData(xdata, self.lsb, self.width)
+
+        lhs = xd.vrd
+        rhs1 = xd.xrd
+        rhs2 = xd.xrn
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
