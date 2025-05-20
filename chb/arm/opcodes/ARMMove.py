@@ -92,6 +92,10 @@ class ARMMoveXData(ARMOpcodeXData):
 
     @property
     def annotation(self) -> str:
+        if self.xdata.instruction_is_subsumed():
+            return "subsumed by " + self.xdata.subsumed_by()
+        if self.xdata.instruction_subsumes():
+            return "subsumes " + ", ".join(self.xdata.subsumes())
         cx = " (C: " + (str(self.cresult) if self.is_cresult_ok else "None") + ")"
         rhs = str(self.result) if self.is_result_ok else str(self.xrm)
         assignment = str(self.vrd) + " := " + rhs + cx

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.util.fileutil as UF
@@ -40,6 +40,40 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMVfpDatatype import ARMVfpDatatype
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
+
+
+class ARMVectorDuplicateXData(ARMOpcodeXData):
+    """
+    Data format:
+    - variables
+    0: vdst
+
+    - expressions:
+    0: src
+    1: rsrc
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vdst(self) -> "XVariable":
+        return self.var(0, "vdst")
+
+    @property
+    def src(self) -> "XXpr":
+        return self.xpr(0, "src")
+
+    @property
+    def rsrc(self) -> "XXpr":
+        return self.xpr(1, "rsrc")
+
+    @property
+    def annotation(self) -> str:
+        assign = "duplicate(" + str(self.rsrc) + ")"
+        return self.add_instruction_condition(assign)
 
 
 @armregistry.register_tag("VDUP", ARMOpcode)
@@ -81,11 +115,5 @@ class ARMVectorDuplicate(ARMOpcode):
         return self.armd.arm_vfp_datatype(self.args[0])
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:xx .
-
-        xprs[0]: rhs
-        xprs[1]: rhs rewritten
-        """
-
-        rhs = str(xdata.xprs[1])
-        return "duplicate(" + rhs + ")"
+        xd = ARMVectorDuplicateXData(xdata)
+        return xd.annotation

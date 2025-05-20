@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,20 +25,50 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMSignedBitFieldExtractXData(ARMOpcodeXData):
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vrd(self) -> "XVariable":
+        return self.var(0, "vrd")
+
+    @property
+    def xrn(self) -> "XXpr":
+        return self.xpr(0, "xrn")
+
+    @property
+    def xxrn(self) -> "XXpr":
+        return self.xpr(1, "xxrn")
+
+    @property
+    def result_simplified(self) -> str:
+        return simplify_result(
+            self.xdata.args[1], self.xdata.args[2], self.xrn, self.xxrn)
+
+    @property
+    def annotation(self) -> str:
+        assignment = str(self.vrd) + " := " + self.result_simplified
+        return self.add_instruction_condition(assignment)
 
 
 @armregistry.register_tag("SBFX", ARMOpcode)
@@ -64,15 +94,8 @@ class ARMSignedExtractBitField(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        """xdata format: a:vxx .
-
-        vars[0]: lhs
-        xprs[0]: rhs1
-        xprs[1]: value to be stored (syntactic)
-        """
-
-        lhs = str(xdata.vars[0])
-        result = xdata.xprs[0]
-        rresult = xdata.xprs[1]
-        xresult = simplify_result(xdata.args[1], xdata.args[2], result, rresult)
-        return lhs + " := " + xresult
+        xd = ARMSignedBitFieldExtractXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"

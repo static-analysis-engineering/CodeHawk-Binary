@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +35,7 @@ import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 from chb.invariants.XXpr import XprConstant
@@ -47,7 +47,75 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
-    from chb.arm.ARMVfpDatatype import ARMVfpDatatype    
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
+
+
+class ARMVectorMoveDDSSXData(ARMOpcodeXData):
+    """
+    Data format:
+    - variables:
+    0: vdst1
+    1: vdst2
+    2: vddst
+
+    - expressions:
+    0: xsrc1
+    1: xsrc2
+    2: xssrc
+    3: rxsrc1
+    4: rxsrc2
+    5: rxssrc
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vdst1(self) -> "XVariable":
+        return self.var(0, "vdst1")
+
+    @property
+    def vdst2(self) -> "XVariable":
+        return self.var(1, "vdst2")
+
+    @property
+    def vdddst(self) -> "XVariable":
+        return self.var(2, "vddst")
+
+    @property
+    def xsrc1(self) -> "XXpr":
+        return self.xpr(0, "xsrc1")
+
+    @property
+    def xsrc2(self) -> "XXpr":
+        return self.xpr(1, "xsrc2")
+
+    @property
+    def xssrc(self) -> "XXpr":
+        return self.xpr(2, "xssrc")
+
+    @property
+    def rxsrc1(self) -> "XXpr":
+        return self.xpr(3, "rxsrc1")
+
+    @property
+    def rxsrc2(self) -> "XXpr":
+        return self.xpr(4, "rxsrc2")
+
+    @property
+    def rxssrc(self) -> "XXpr":
+        return self.xpr(5, "rxssrc")
+
+    @property
+    def annotation(self) -> str:
+        lhs1 = str(self.vdst1)
+        lhs2 = str(self.vdst2)
+        rhs1 = str(self.rxssrc)
+        rhs2 = str(self.rxsrc2)
+        assign = lhs1 + " := " + rhs1 + "; " + lhs2 + " := " + rhs2
+        return self.add_instruction_condition(assign)
 
 
 @armregistry.register_tag("VMOVDDSS", ARMOpcode)
@@ -97,7 +165,7 @@ class ARMVectorMoveDDSS(ARMOpcode):
 
     @property
     def vfp_datatype(self) -> "ARMVfpDatatype":
-        return self.armd.arm_vfp_datatype(self.args[0])    
+        return self.armd.arm_vfp_datatype(self.args[0])
 
     @property
     def operands(self) -> List[ARMOperand]:
@@ -108,11 +176,8 @@ class ARMVectorMoveDDSS(ARMOpcode):
         return [self.armd.arm_operand(i) for i in self.args]
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs1 = str(xdata.vars[0])
-        lhs2 = str(xdata.vars[1])
-        rhs1 = str(xdata.xprs[2])
-        rhs2 = str(xdata.xprs[3])
-        return (lhs1 + " := " + rhs1 + "; " + lhs2 + " := " + rhs2)
+        xd = ARMVectorMoveDDSSXData(xdata)
+        return xd.annotation
 
     def ast_prov(
             self,

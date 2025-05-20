@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +35,7 @@ import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 from chb.invariants.XXpr import XXpr, XprConstant
@@ -49,6 +49,35 @@ from chb.util.loggingutil import chklogger
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMVfpDatatype import ARMVfpDatatype
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
+
+
+class ARMVectorMoveDSXData(ARMOpcodeXData):
+    """
+    Data format:
+    - variables:
+    0: vdst
+
+    - expressions:
+    0: xsrc
+    1: rxsrc
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vdst(self) -> "XVariable":
+        return self.var(0, "vdst")
+
+    @property
+    def xsrc(self) -> "XXpr":
+        return self.xpr(0, "xsrc")
+
+    @property
+    def rxsrc(self) -> "XXpr":
+        return self.xpr(1, "rxsrc")
 
 
 @armregistry.register_tag("VMOVDS", ARMOpcode)
@@ -138,8 +167,9 @@ class ARMVectorMoveDS(ARMOpcode):
         return struct.unpack('d', b8)[0]
 
     def annotation(self, xdata: InstrXData) -> str:
-        rhs = xdata.xprs[1]
-        lhs = xdata.vars[0]
+        xd = ARMVectorMoveDSXData(xdata)
+        rhs = xd.rxsrc
+        lhs = xd.vdst
         if rhs.is_int_constant and str(lhs).startswith("S"):
             f = self._unpack_imm32(rhs)
             return str(lhs) + " := #" + str(f)
@@ -147,7 +177,7 @@ class ARMVectorMoveDS(ARMOpcode):
             d = self._unpack_imm64(rhs)
             return str(lhs) + " := #" + str(d)
         else:
-            return str(xdata.vars[0]) + " := " + str(xdata.xprs[1])
+            return str(lhs) + " := " + str(rhs)
 
     def ast_prov(
             self,
