@@ -2561,3 +2561,34 @@ def ddata_md5s(args: argparse.Namespace) -> NoReturn:
             print(md5 + ": " + str(count))
 
     exit(0)
+
+
+def ddata_srcmap(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = str(args.xname)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+    srcmap = app.bcfiles.srcmap
+
+    result: Dict[str, Dict[int, Tuple[str, str]]] = {}
+
+    for (fname, linenr, vname, binloc) in srcmap:
+        result.setdefault(fname, {})
+        result[fname][linenr] = (vname, binloc)
+
+    for fname in result:
+        print(fname)
+        for (linenr, (vname, binloc)) in sorted(result[fname].items()):
+            print(str(linenr).rjust(6) + ": " + binloc.rjust(10) + "  " + vname)
+
+    exit(0)
