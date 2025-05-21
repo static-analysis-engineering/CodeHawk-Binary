@@ -584,6 +584,11 @@ def parse() -> argparse.Namespace:
     ddatamd5s.add_argument("xname", help="name of executable")
     ddatamd5s.set_defaults(func=UCC.ddata_md5s)
 
+    # -- ddata srcmap --
+    ddatasrcmap = ddataparsers.add_parser("srcmap")
+    ddatasrcmap.add_argument("xname", help="name of executable")
+    ddatasrcmap.set_defaults(func=UCC.ddata_srcmap)
+
     # ----------------------------------------------------------------- results --
     resultscmd = subparsers.add_parser('results')
     resultscmd.set_defaults(func=resultscommand)

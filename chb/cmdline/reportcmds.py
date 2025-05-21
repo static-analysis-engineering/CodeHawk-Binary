@@ -1149,11 +1149,11 @@ def collect_known_fn_addrs(app: "AppAccess", patchcallsites: list) -> dict:
                 # heuristics, which (for now) means shared object stubs.
                 if calltgt.is_so_target:
                     opcode = instr.opcode # type: ignore
-                    if "MIPS" in repr(opcode): # ugly but concise!
+                    if app.is_mips:
                         # No support (or need?) for MIPS just yet
                         continue
                     optgt = opcode.opargs[0]
-                    tgtname = cast(StubTarget, calltgt).stub.name
+                    tgtname = cast("StubTarget", calltgt).stub.name
                     if optgt.is_absolute:
                         tgtaddr = optgt.opkind.address.get_hex()
                         consider_pair(tgtaddr, tgtname)

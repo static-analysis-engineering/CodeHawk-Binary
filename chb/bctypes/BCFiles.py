@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Contains all global types in a CIL file."""
 
-from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import xml.etree.ElementTree as ET
 
@@ -55,6 +55,7 @@ class BCFiles:
         self._gvardecls: List[BCVarInfo] = []
         self._gvardefs: List[BCVarInfo] = []
         self._functions: Dict[str, BCFunctionDefinition] = {}
+        self._srcmap: List[Tuple[str, int, str, str]] = []
         self.initialize(xnode)
 
     @property
@@ -103,6 +104,10 @@ class BCFiles:
         return self._gvardefs + self._gvardecls
 
     @property
+    def srcmap(self) -> List[Tuple[str, int, str, str]]:
+        return self._srcmap
+
+    @property
     def functions(self) -> Dict[str, BCFunctionDefinition]:
         return self._functions
 
@@ -149,6 +154,7 @@ class BCFiles:
         self.initialize_vardefs(xnode.find("varinfos"))
         self.initialize_vardecls(xnode.find("varinfodecls"))
         self.initialize_functions(xnode.find("ifuns"))
+        self.initialize_srcmap(xnode.find("srcmap"))
 
     def initialize_compinfos(self, tnode: Optional[ET.Element]) -> None:
         if tnode:
@@ -208,6 +214,18 @@ class BCFiles:
                         svinfo.vname)
                     self._functions[svinfo.vname] = BCFunctionDefinition(
                         self, svinfo.vname, xfundef)
+
+    def initialize_srcmap(self, tnode: Optional[ET.Element]) -> None:
+        if tnode is not None:
+            for x in tnode.findall("srcloc"):
+                vix = x.get("vix")
+                lnr = x.get("lnr")
+                ixfn = x.get("ixfn")
+                binloc = x.get("binloc")
+                if vix and lnr and ixfn and binloc:
+                    srcvinfo = self.bcd.varinfo(int(vix))
+                    srcfile = self.bcd.string(int(ixfn))
+                    self._srcmap.append((srcfile, int(lnr), srcvinfo.vname, binloc))
 
     def __str__(self) -> str:
         lines: List[str] = []
