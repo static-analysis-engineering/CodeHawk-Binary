@@ -1035,6 +1035,8 @@ class XprCompound(XXpr):
             if self.operator in xpr_operator_strings:
                 return (
                     "(" + xpr_operator_strings[self.operator] + str(args[0]) + ")")
+            elif self.operator == "xf_addressofvar":
+                return "&(" + str(args[0]) + ")"
             else:
                 return "(" + self.operator + " " + str(args[0]) + ")"
         elif len(args) == 2:
