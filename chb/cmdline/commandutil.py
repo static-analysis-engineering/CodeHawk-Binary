@@ -2530,6 +2530,52 @@ def ddata_gvars(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def ddata_userdata(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = str(args.xname)
+    xoutput: str = str(args.output)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    result: Dict[str, Dict[str, Dict[str, str]]] = {}
+    userdata = result["userdata"] = {}
+    fnnames = userdata["function-names"] = {}
+    symaddrs = userdata["symbolic-addresses"] = {}
+
+    functionsdata = app.systeminfo.functionsdata.functions
+    for (faddr, fdata) in sorted(functionsdata.items(), key=lambda t: int(t[0], 16)):
+        if fdata.has_name():
+            fnnames[faddr] = fdata.name
+
+    memmap = app.globalmemorymap
+    glocs = memmap.locations
+    for gaddr in sorted(glocs, key=lambda g: int(g, 16)):
+        gloc = glocs[gaddr]
+        if gloc.gtype is not None:
+            symaddrs[gaddr] = gloc.name
+
+    with open(xoutput, "w") as fp:
+        json.dump(result, fp, indent=4)
+
+    print("\nSaved userdata with "
+          + str(len(fnnames))
+          + " function names and "
+          + str(len(symaddrs))
+          + " symbolic addresses")
+
+    exit(0)
+
+
 def ddata_md5s(args: argparse.Namespace) -> NoReturn:
 
     # arguments

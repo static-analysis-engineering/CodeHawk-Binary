@@ -579,6 +579,13 @@ def parse() -> argparse.Namespace:
     ddatagvars.add_argument("xname", help="name of executable")
     ddatagvars.set_defaults(func=UCC.ddata_gvars)
 
+    # -- ddata userdata --
+    ddatauserdata = ddataparsers.add_parser("userdata")
+    ddatauserdata.add_argument("xname", help="name of executable")
+    ddatauserdata.add_argument(
+        "--output", "-o", required=True, help="name of file to save results")
+    ddatauserdata.set_defaults(func=UCC.ddata_userdata)
+
     # -- ddata md5s --
     ddatamd5s = ddataparsers.add_parser("md5s")
     ddatamd5s.add_argument("xname", help="name of executable")
