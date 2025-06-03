@@ -624,6 +624,10 @@ def parse() -> argparse.Namespace:
         help=("json filename (without extension) to save opcode distribution "
               + "stats (for instructions within analyzed functions)"))
     resultsstats.add_argument(
+        "--functionmetrics",
+        help=("json filename (without extension) to save function metrics in "
+              + "json format"))
+    resultsstats.add_argument(
         "--tagfile",
         help="name of json file that has function tags")
     resultsstats.add_argument(

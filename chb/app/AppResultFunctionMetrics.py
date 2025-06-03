@@ -28,7 +28,9 @@
 # ------------------------------------------------------------------------------
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+from chb.jsoninterface.JSONResult import JSONResult
 
 import chb.util.fileutil as UF
 
@@ -213,6 +215,20 @@ class AppResultFunctionMetrics:
 
     def has_name(self) -> bool:
         return "name" in self.xnode.attrib
+
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["faddr"] = self.faddr
+        if self.has_name():
+            content["name"] = self.name
+        content["instrs"] = self.instruction_count
+        content["blocks"] = self.block_count
+        content["time"] = self.time
+        if self.call_count > 0:
+            content["callcount"] = self.call_count
+        if self.unresolved_call_count > 0:
+            content["unrcalls"] = self.unresolved_call_count
+        return JSONResult("functionmetrics", content, "ok")
 
     def as_dictionary(self) -> Dict[str, str]:
         result: Dict[str, str] = {}

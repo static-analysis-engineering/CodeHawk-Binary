@@ -401,7 +401,7 @@ class AppResultMetrics:
         self.iter(f)
         return names
 
-    def to_json_result(self) -> JSONResult:
+    def to_json_result(self, includefns: bool = False) -> JSONResult:
         content: Dict[str, Any] = {}
         content["instructions"] = int(self.instruction_count)
         content["unknowninstrs"] = int(self.unknown_instructions)
@@ -420,6 +420,10 @@ class AppResultMetrics:
         content["iterations"] = self.run_count
         content["analysisdate"] = self.date_time
         content["fns-excluded"] = self.fns_excluded
+        if includefns:
+            content["functions"] = []
+            for f in self.get_function_results():
+                content["functions"].append(f.to_json_result().content)
         return JSONResult("analysisstats", content, "ok")
 
     def as_dictionary(self) -> Dict[str, Any]:
