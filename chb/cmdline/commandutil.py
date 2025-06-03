@@ -619,6 +619,7 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     sortby: str = args.sortby
     timeshare: int = args.timeshare
     opcodes: str = args.opcodes
+    functionmetrics: str = args.functionmetrics
     hide: List[str] = args.hide
     tagfile: Optional[str] = args.tagfile
     loglevel: str = args.loglevel
@@ -695,6 +696,17 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
             print(s.ljust(14) + "{:4.2f}".format(100.0 * t).rjust(6))
         print("-----------------------")
         print("Total".ljust(14) + "{:4.2f}".format(100.0 * toptotal).rjust(6))
+
+    if functionmetrics:
+        filename = functionmetrics + ".json"
+        content: Dict[str, Any] = {}
+        content["filename"] = xname
+        content["functions"] = []
+        for f in sorted(stats.get_function_results(), key=lambda f: f.faddr):
+            content["functions"].append(f.to_json_result().content)
+        jsonok = JU.jsonok("functionmetrics", content)
+        with open(filename, "w") as fp:
+            json.dump(jsonok, fp, indent=4)
 
     if opcodes:
         filename = opcodes + ".json"
