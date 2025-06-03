@@ -220,6 +220,12 @@ class ARMMove(ARMOpcode):
         if xdata.instruction_is_subsumed():
             return self.ast_prov_subsumed(astree, iaddr, bytestring, xdata)
 
+        if xdata.instruction_subsumes():
+            chklogger.logger.warning(
+                "MOV instruction at %s is part of an aggregate that is not yet supported",
+                iaddr)
+            return ([], [])
+
         # low-level assignment
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)

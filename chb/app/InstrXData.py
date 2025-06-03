@@ -327,6 +327,10 @@ class InstrXData(IndexedTableValue):
             return
         if self.tags[0] == "nop":
             return
+        if self.tags[0] == "subsumes":
+            chklogger.logger.error(
+                "InstrXData: subsumes tag not yet supported")
+            return
         key = self.tags[0]
         if key.startswith("a:"):
             keyletters = key[2:]
