@@ -259,6 +259,12 @@ class ARMAdd(ARMOpcode):
 
         annotations: List[str] = [iaddr, "ADD"]
 
+        if xdata.is_aggregate_jumptable:
+            chklogger.logger.warning(
+                "ADD: aggregate jumptable at address %s not yet handled",
+                iaddr)
+            return ([], [])
+
         # low-level assignment
 
         (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)

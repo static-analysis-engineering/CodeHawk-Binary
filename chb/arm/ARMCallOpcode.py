@@ -331,7 +331,11 @@ class ARMCallOpcode(ARMOpcode):
             # Note that defuses[0] may be None even when defuseshigh[0] is not
             # None. This happens when the return value's only use is as a
             # return value of the caller's function itself.
-            if rtype.is_void or ((defuses[0] is None) and (defuseshigh[0] is None)):
+            if (
+                    rtype.is_void
+                    or ((defuses[0] is None)
+                        and (defuseshigh[0] is None)
+                        and not self.return_value)):
                 chklogger.logger.info(
                     "Unused: introduced ssa-variable: %s for return value of %s "
                     + "at address %s",
