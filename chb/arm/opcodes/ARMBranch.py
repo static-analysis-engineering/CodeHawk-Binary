@@ -149,6 +149,21 @@ class ARMBranchXData(ARMOpcodeXData):
         else:
             return self.is_xpr_ok(4)
 
+    def has_return_xpr(self) -> bool:
+        return self.xdata.has_return_xpr()
+
+    def returnval(self) -> "XXpr":
+        return self.xdata.get_return_xpr()
+
+    def rreturnval(self) -> "XXpr":
+        return self.xdata.get_return_xxpr()
+
+    def has_creturnval(self) -> bool:
+        return self.xdata.has_return_cxpr()
+
+    def creturnval(self) -> "XXpr":
+        return self.xdata.get_return_cxpr()
+
     @property
     def annotation(self) -> str:
         if self.is_conditional:
@@ -233,6 +248,19 @@ class ARMBranch(ARMCallOpcode):
             return None
         else:
             return xdata.xprs[0]
+
+    def is_return_instruction(self, xdata: InstrXData) -> bool:
+        return ARMBranchXData(xdata).has_return_xpr()
+
+    def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
+        xd = ARMBranchXData(xdata)
+        if xd.has_return_xpr():
+            if xd.has_creturnval():
+                return xd.creturnval()
+            else:
+                return xd.rreturnval()
+        else:
+            return None
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMBranchXData(xdata)
