@@ -522,6 +522,9 @@ class ARMOpcode(ARMDictionaryRecord):
     def is_return_instruction(self, xdata: InstrXData) -> bool:
         return False
 
+    def is_conditional_return_instruction(self, xdata: InstrXData) -> bool:
+        return False
+
     def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
         return None
 

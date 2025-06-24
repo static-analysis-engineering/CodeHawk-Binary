@@ -183,6 +183,7 @@ class ARMLoadRegisterSignedHalfword(ARMOpcode):
                 rhs, xdata, iaddr, astree, memaddr=xaddr, size=2)
 
         elif xd.is_xrmem_unknown and xd.is_address_known:
+            lhs = xd.vrt
             xaddr = xd.xaddr
             hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
             hl_rhs = XU.xmemory_dereference_lval_expr(

@@ -172,6 +172,10 @@ class ARMInstruction(Instruction):
         return self.opcode.is_return_instruction(self.xdata)
 
     @property
+    def is_conditional_return_instruction(self) -> bool:
+        return self.opcode.is_conditional_return_instruction(self.xdata)
+
+    @property
     def is_nop_instruction(self) -> bool:
         return self.opcode.is_nop_instruction(self.xdata)
 
