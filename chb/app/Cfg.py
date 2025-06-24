@@ -682,10 +682,32 @@ class Cfg:
         for n in self.rpo_sorted_nodes:
             astblock = astfn.astblock(n)
             blocknode = astblock.ast(astree)
-            if astblock.has_return:
+
+            if astblock.has_conditional_return:
+                succ = self.successors(n)[0]
                 instr = astblock.last_instruction
                 rv = instr.return_value()
                 astexpr: Optional[AST.ASTExpr] = None
+                if rv is not None and not astree.returns_void():
+                    astexpr = XU.xxpr_to_ast_def_expr(
+                        rv, instr.xdata, instr.iaddr, astree)
+                    rtnstmt = astree.mk_return_stmt(
+                        astexpr, instr.iaddr, instr.bytestring)
+                    rvcondition = instr.ast_condition(astree)
+                    if rvcondition is not None:
+                        elsebr = astree.mk_instr_sequence([])
+                        brstmt = cast(AST.ASTBranch, astree.mk_branch(
+                            rvcondition, rtnstmt, elsebr, succ))
+                        blockstmts[n] = [blocknode, brstmt]
+                    else:
+                        blockstmts[n] = [blocknode, rtnstmt]
+                else:
+                    blockstmts[n] = [blocknode]
+
+            elif astblock.has_return:
+                instr = astblock.last_instruction
+                rv = instr.return_value()
+                astexpr = None
                 if rv is not None and not astree.returns_void():
                     astexpr = XU.xxpr_to_ast_def_expr(
                         rv, instr.xdata, instr.iaddr, astree)
