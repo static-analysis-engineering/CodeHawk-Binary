@@ -207,6 +207,10 @@ class Instruction(ABC):
         ...
 
     @property
+    def is_conditional_return_instruction(self) -> bool:
+        return False
+
+    @property
     def is_nop_instruction(self) -> bool:
         return False
 

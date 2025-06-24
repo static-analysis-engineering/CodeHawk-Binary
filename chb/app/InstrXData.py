@@ -526,6 +526,26 @@ class InstrXData(IndexedTableValue):
         else:
             raise UF.CHBError("No instruction condition index found")
 
+    def get_instruction_c_condition(self) -> XXpr:
+        for t in self.tags:
+            if t.startswith("icc:"):
+                index = int(t[4:])
+                argval = self.args[index]
+                if argval == -2:
+                    raise UF.CHBError(
+                        "Error value in instruction c condition")
+                return self.xprdictionary.xpr(argval)
+        else:
+            raise UF.CHBError("No instruction c_condition index found")
+
+    def has_valid_instruction_c_condition(self) -> bool:
+        for t in self.tags:
+            if t.startswith("icc:"):
+                index = int(t[4:])
+                argval = self.args[index]
+                return argval >= 0
+        return False
+
     def has_condition_block_condition(self) -> bool:
         return "TF" in self.tags
 
@@ -576,6 +596,17 @@ class InstrXData(IndexedTableValue):
         else:
             return False
 
+    @property
+    def is_return_xpr_ok(self) -> bool:
+        if not self.has_return_xpr():
+            return False
+        rvtag = next(t for t in self.tags if t.startswith("return:"))
+        rvix = int(rvtag[7:])
+        rval = self.args[rvix]
+        if rval == -2:
+            return False
+        return True
+
     def get_return_xpr(self) -> XXpr:
         rvtag = next(t for t in self.tags if t.startswith("return:"))
         rvix = int(rvtag[7:])
@@ -583,6 +614,17 @@ class InstrXData(IndexedTableValue):
         if rval == -2:
             raise UF.CHBError("Unexpected error in return value")
         return self.xprdictionary.xpr(rval)
+
+    @property
+    def is_return_xxpr_ok(self) -> bool:
+        if not self.has_return_xpr():
+            return False
+        rvtag = next(t for t in self.tags if t.startswith("return:"))
+        rvix = int(rvtag[7:])
+        rval = self.args[rvix + 1]
+        if rval == -2:
+            return False
+        return True
 
     def get_return_xxpr(self) -> XXpr:
         rvtag = next(t for t in self.tags if t.startswith("return:"))

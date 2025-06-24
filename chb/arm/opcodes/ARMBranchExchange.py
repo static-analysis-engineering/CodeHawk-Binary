@@ -38,7 +38,7 @@ import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.invariants.XXpr import XXpr
-
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.loggingutil import chklogger
@@ -69,6 +69,14 @@ class ARMBranchExchangeXData(ARMOpcodeXData):
     def has_return_xpr(self) -> bool:
         return self.xdata.has_return_xpr()
 
+    @property
+    def is_return_xpr_ok(self) -> bool:
+        return self.xdata.is_return_xpr_ok
+
+    @property
+    def is_return_xxpr_ok(self) -> bool:
+        return self.xdata.is_return_xxpr_ok
+
     def returnval(self) -> "XXpr":
         return self.xdata.get_return_xpr()
 
@@ -81,6 +89,18 @@ class ARMBranchExchangeXData(ARMOpcodeXData):
     def creturnval(self) -> "XXpr":
         return self.xdata.get_return_cxpr()
 
+    def has_instruction_condition(self) -> bool:
+        return self.xdata.has_instruction_condition()
+
+    def get_instruction_condition(self) -> "XXpr":
+        return self.xdata.get_instruction_condition()
+
+    def has_valid_instruction_c_condition(self) -> bool:
+        return self.xdata.has_valid_instruction_c_condition()
+
+    def get_instruction_c_condition(self) -> "XXpr":
+        return self.xdata.get_instruction_c_condition()
+
     @property
     def annotation(self) -> str:
         if self.xdata.is_bx_call:
@@ -89,8 +109,10 @@ class ARMBranchExchangeXData(ARMOpcodeXData):
             cx = (" (C: "
                   + (str(self.creturnval()) if self.has_creturnval() else "None")
                   + ")")
-            if self.is_ok:
+            if self.is_return_xxpr_ok:
                 return "return " + str(self.rreturnval()) + cx
+            elif self.is_return_xpr_ok:
+                return "return " + str(self.returnval()) + cx
             else:
                 return "Error value"
         else:
@@ -126,11 +148,20 @@ class ARMBranchExchange(ARMCallOpcode):
         else:
             return False
 
+    def is_conditional_return_instruction(self, xdata: InstrXData) -> bool:
+        if self.is_return_instruction(xdata):
+            return xdata.has_instruction_condition()
+        return False
+
     def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
         xd = ARMBranchExchangeXData(xdata)
-        if xd.has_creturnval():
-            if xd.is_ok:
+        if xd.has_return_xpr():
+            if xd.has_creturnval():
                 return xd.creturnval()
+            elif xd.is_return_xxpr_ok:
+                return xd.rreturnval()
+            elif xd.is_return_xpr_ok:
+                return xd.returnval()
             else:
                 chklogger.logger.warning(
                     "Return value is an error value")
@@ -173,6 +204,38 @@ class ARMBranchExchange(ARMCallOpcode):
             xdata: InstrXData) -> List[AST.ASTInstruction]:
         """Need check for branch on LR, which should emit a return statement."""
         return []
+
+    def ast_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData,
+            reverse: bool
+    ) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+
+        ll_astcond = self.ast_cc_expr(astree)
+
+        if xdata.has_instruction_condition():
+            xd = ARMBranchExchangeXData(xdata)
+            if xd.has_valid_instruction_c_condition():
+                pcond = xd.get_instruction_c_condition()
+            else:
+                pcond = xd.get_instruction_condition()
+            hl_astcond = XU.xxpr_to_ast_def_expr(pcond, xdata, iaddr, astree)
+
+            astree.add_expr_mapping(hl_astcond, ll_astcond)
+            astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+            astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
+            astree.add_condition_address(ll_astcond, [iaddr])
+
+            return (hl_astcond, ll_astcond)
+
+        else:
+            chklogger.logger.error(
+                "No condition found at address %s", iaddr)
+            hl_astcond = astree.mk_temp_lval_expression()
+            return (hl_astcond, ll_astcond)
 
     def ast_prov(
             self,

@@ -96,6 +96,10 @@ class BasicBlock(ABC):
         return self.last_instruction.is_return_instruction
 
     @property
+    def has_conditional_return(self) -> bool:
+        return self.last_instruction.is_conditional_return_instruction
+
+    @property
     @abstractmethod
     def instructions(self) -> Mapping[str, Instruction]:
         ...
