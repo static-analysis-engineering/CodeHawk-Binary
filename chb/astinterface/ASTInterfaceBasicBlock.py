@@ -120,6 +120,10 @@ class ASTInterfaceBasicBlock:
         return self.basicblock.has_return
 
     @property
+    def has_conditional_return(self) -> bool:
+        return self.basicblock.has_conditional_return
+
+    @property
     def last_instruction(self) -> ASTInterfaceInstruction:
         bb_lastinstr = self.basicblock.last_instruction
         iaddr = bb_lastinstr.iaddr

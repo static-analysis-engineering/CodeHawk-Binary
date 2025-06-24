@@ -126,6 +126,10 @@ class ARMLoadRegisterSignedByte(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 3]]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2, 3]]
+
     def is_load_instruction(self, xdata: InstrXData) -> bool:
         return True
 

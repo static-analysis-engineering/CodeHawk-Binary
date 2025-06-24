@@ -196,6 +196,11 @@ class ARMPop(ARMOpcode):
     def is_return_instruction(self, xdata: InstrXData) -> bool:
         return ARMPopXData(xdata).has_return_xpr()
 
+    def is_conditional_return_instruction(self, xdata: InstrXData) -> bool:
+        if self.is_return_instruction(xdata):
+            return xdata.has_instruction_condition()
+        return False
+
     def return_value(self, xdata: InstrXData) -> Optional[XXpr]:
         xd = ARMPopXData(xdata)
         if xd.has_return_xpr():
@@ -222,10 +227,13 @@ class ARMPop(ARMOpcode):
         ll_astcond = self.ast_cc_expr(astree)
 
         if xdata.has_instruction_condition():
+            pcond = xdata.get_instruction_condition()
+            '''
             if reverse:
                 pcond = xdata.xprs[(2 * len(xdata.vars)) + 3]
             else:
                 pcond = xdata.xprs[(2 * len(xdata.vars)) + 2]
+            '''
             hl_astcond = XU.xxpr_to_ast_def_expr(pcond, xdata, iaddr, astree)
 
             astree.add_expr_mapping(hl_astcond, ll_astcond)
