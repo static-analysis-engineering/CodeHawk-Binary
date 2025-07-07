@@ -643,6 +643,22 @@ class InstrXData(IndexedTableValue):
         return self.xprdictionary.xpr(rval)
 
     @property
+    def is_predicate_assignment(self) -> bool:
+        return "agg:predassign" in self.tags
+
+    @property
+    def is_nondet_predicate_assignment(self) -> bool:
+        return "agg:predassign:nd" in self.tags
+
+    @property
+    def is_ternary_assignment(self) -> bool:
+        return "agg:ternassign" in self.tags
+
+    @property
+    def is_nondet_ternary_assignment(self) -> bool:
+        return "agg:ternassign:nd" in self.tags
+
+    @property
     def is_aggregate_jumptable(self) -> bool:
         return "agg-jt" in self.tags
 

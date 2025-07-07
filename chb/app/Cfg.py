@@ -687,13 +687,14 @@ class Cfg:
                 succ = self.successors(n)[0]
                 instr = astblock.last_instruction
                 rv = instr.return_value()
+                rvcondition = instr.ast_condition(astree)
                 astexpr: Optional[AST.ASTExpr] = None
                 if rv is not None and not astree.returns_void():
                     astexpr = XU.xxpr_to_ast_def_expr(
                         rv, instr.xdata, instr.iaddr, astree)
                     rtnstmt = astree.mk_return_stmt(
                         astexpr, instr.iaddr, instr.bytestring)
-                    rvcondition = instr.ast_condition(astree)
+
                     if rvcondition is not None:
                         elsebr = astree.mk_instr_sequence([])
                         brstmt = cast(AST.ASTBranch, astree.mk_branch(
@@ -702,7 +703,15 @@ class Cfg:
                     else:
                         blockstmts[n] = [blocknode, rtnstmt]
                 else:
-                    blockstmts[n] = [blocknode]
+                    rtnstmt = astree.mk_return_stmt(
+                        None, instr.iaddr, instr.bytestring)
+                    if rvcondition is not None:
+                        elsebr = astree.mk_instr_sequence([])
+                        brstmt = cast(AST.ASTBranch, astree.mk_branch(
+                            rvcondition, rtnstmt, elsebr, succ))
+                        blockstmts[n] = [blocknode, brstmt]
+                    else:
+                        blockstmts[n] = [blocknode, rtnstmt]
 
             elif astblock.has_return:
                 instr = astblock.last_instruction

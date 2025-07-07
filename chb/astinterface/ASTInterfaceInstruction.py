@@ -48,6 +48,8 @@ class ASTInterfaceInstruction:
         self._ll_ast_instrs: List[AST.ASTInstruction] = []
         self._hl_ast_condition: Optional[AST.ASTExpr] = None
         self._ll_ast_condition: Optional[AST.ASTExpr] = None
+        self._hl_ast_cc_condition: Optional[AST.ASTExpr] = None
+        self._ll_ast_cc_condition: Optional[AST.ASTExpr] = None
         self._hl_ast_switch_condition: Optional[AST.ASTExpr] = None
         self._ll_ast_swtich_condition: Optional[AST.ASTExpr] = None
 
@@ -89,6 +91,14 @@ class ASTInterfaceInstruction:
     @property
     def ll_ast_condition(self) -> Optional[AST.ASTExpr]:
         return self._ll_ast_condition
+
+    @property
+    def hl_ast_cc_condition(self) -> Optional[AST.ASTExpr]:
+        return self._hl_ast_cc_condition
+
+    @property
+    def ll_ast_cc_condition(self) -> Optional[AST.ASTExpr]:
+        return self._ll_ast_cc_condition
 
     @property
     def hl_ast_switch_condition(self) -> Optional[AST.ASTExpr]:
@@ -136,6 +146,11 @@ class ASTInterfaceInstruction:
             self.ast_condition_prov(astree, reverse=reverse)
         return self.hl_ast_condition
 
+    def ast_cc_condition(self, astree: "ASTInterface") -> Optional[AST.ASTExpr]:
+        if self.hl_ast_cc_condition is None:
+            self.ast_cc_condition_prov(astree)
+        return self.hl_ast_cc_condition
+
     def ast_switch_condition(
             self,
             astree: "ASTInterface") -> Optional[AST.ASTExpr]:
@@ -151,6 +166,12 @@ class ASTInterfaceInstruction:
             (hl, ll) = self.instruction.ast_condition_prov(astree, reverse=reverse)
         self._hl_ast_condition = hl
         self._ll_ast_condition = ll
+
+    def ast_cc_condition_prov(self, astree: "ASTInterface") -> None:
+        if self.hl_ast_cc_condition is None:
+            (hl, ll) = self.instruction.ast_cc_condition_prov(astree)
+        self._hl_ast_cc_condition = hl
+        self._ll_ast_cc_condition = ll
 
     def ast_switch_condition_prov(
             self, astree: "ASTInterface") -> None:
