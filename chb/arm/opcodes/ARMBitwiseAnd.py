@@ -160,10 +160,15 @@ class ARMBitwiseAnd(ARMOpcode):
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:-1]]
 
+    @property
+    def writeback(self) -> bool:
+        return self.args[0] == 1
+
     def mnemonic_extension(self) -> str:
+        wb = "S" if self.writeback else ""
         cc = ARMOpcode.mnemonic_extension(self)
         wide = ".W" if self.args[4] == 1 else ""
-        return cc + wide
+        return wb + cc + wide
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMBitwiseAndXData(xdata)
