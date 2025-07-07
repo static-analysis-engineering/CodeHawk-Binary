@@ -286,6 +286,13 @@ class ARMCallOpcode(ARMOpcode):
 
         # construct high-level target
         finfo = xdata.function.finfo
+
+        if finfo.has_call_target(iaddr):
+            calltarget = finfo.call_target(iaddr)
+            if calltarget.is_unknown:
+                chklogger.logger.error(
+                    "BL: Indirect call not yet handled at address %s", iaddr)
+
         if finfo.has_call_target_info(iaddr):
             ctinfo = finfo.call_target_info(iaddr)
             ftype = ctinfo.target_interface.bctype
@@ -341,6 +348,10 @@ class ARMCallOpcode(ARMOpcode):
                     + "at address %s",
                     str(hl_lhs), str(hl_tgt), iaddr)
                 hl_lhs = None
+
+        else:
+            chklogger.logger.error(
+                "BL: Indirect call not yet handled at address %s", iaddr)
 
         # argument data
 
