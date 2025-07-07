@@ -228,12 +228,6 @@ class ARMPop(ARMOpcode):
 
         if xdata.has_instruction_condition():
             pcond = xdata.get_instruction_condition()
-            '''
-            if reverse:
-                pcond = xdata.xprs[(2 * len(xdata.vars)) + 3]
-            else:
-                pcond = xdata.xprs[(2 * len(xdata.vars)) + 2]
-            '''
             hl_astcond = XU.xxpr_to_ast_def_expr(pcond, xdata, iaddr, astree)
 
             astree.add_expr_mapping(hl_astcond, ll_astcond)

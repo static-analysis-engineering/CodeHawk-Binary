@@ -39,8 +39,9 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -157,11 +158,7 @@ class ARMByteReverseWord(ARMOpcode):
 
         annotations: List[str] = [iaddr, "REV"]
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[0]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+        # low-level assignment
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
@@ -173,27 +170,22 @@ class ARMByteReverseWord(ARMOpcode):
             iaddr=iaddr,
             bytestring=bytestring)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lhsasts) == 0:
-            raise UF.CHBError("ByteReverseWord (REV): no lval found")
+        # high-level assignment
 
-        if len(lhsasts) > 1:
-            raise UF.CHBError(
-                "ByteReverseWord (REV): multiple lvals in ast: "
-                + ", ".join(str(v) for v in lhsasts))
+        xd = ARMByteReverseWordXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "REV: Encountered error value at address %s", iaddr)
 
-        hl_lhs = lhsasts[0]
+        lhs = xd.vrd
+        rhs = xd.xxrn
 
-        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        if len(rhsasts) == 0:
-            raise UF.CHBError("ByteReverseWord (REV): no argument value found")
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-        if len(rhsasts) > 1:
-            raise UF.CHBError(
-                "ByteReverseWord (REV): multiple argument values in asts: "
-                + ", ".join(str(x) for x in rhsasts))
-
-        hl_rhs = rhsasts[0]
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         if astree.has_variable_intro(iaddr):
             vname = astree.get_variable_intro(iaddr)

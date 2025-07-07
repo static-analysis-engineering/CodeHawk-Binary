@@ -193,7 +193,7 @@ class ARMLoadMultipleIncrementAfterXData(ARMOpcodeXData):
         else:
             pairs = []
         if len(pairs) > 0:
-            assigns = "; ".join(str(v) + " := " + str(x) for (x, v) in pairs)
+            assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
         else:
             assigns = "unknown rhs memory"
         wbu = self.writeback_update()

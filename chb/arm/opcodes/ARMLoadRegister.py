@@ -152,6 +152,8 @@ class ARMLoadRegisterXData(ARMOpcodeXData):
                 str(self.vrt) + " := *(" + str(self.xaddr) + ")" + cx + caddr)
         else:
             assignment = "Error value"
+        pcwarning = "**indirect call** " if str(self.vrt) == "PC" else ""
+        assignment = pcwarning + assignment
         return self.add_instruction_condition(assignment) + wbu
 
 
@@ -250,6 +252,12 @@ class ARMLoadRegister(ARMOpcode):
                 and astree.get_register_variable_intro(iaddr).has_cast())
 
         lhs = xd.vrt
+
+        if str(lhs) == "PC":
+            chklogger.logger.error(
+                "LDR: Indirect call via Load to PC not yet handled at %s",
+                iaddr)
+            return ([], (ll_pre + [ll_assign] + ll_post))
 
         if xd.is_ok:
             rhs = xd.cxrmem
