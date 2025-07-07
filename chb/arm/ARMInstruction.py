@@ -98,6 +98,10 @@ class ARMInstruction(Instruction):
             self._opcode = self.armdictionary.read_xml_arm_opcode(self.xnode)
         return self._opcode
 
+    def has_control_flow(self) -> bool:
+        brcc = self.xnode.get("brcc")
+        return brcc is not None
+
     @property
     def xdata(self) -> InstrXData:
         if self._xdata is None:
@@ -304,6 +308,20 @@ class ARMInstruction(Instruction):
                 "Error in generating condition at address %s: %s. Returning 0.",
                 self.iaddr, str(e))
             expr = astree.mk_integer_constant(0)
+            return (expr, expr)
+
+    def ast_cc_condition_prov(
+            self, astree: ASTInterface
+    ) -> Tuple[Optional[ASTExpr], Optional[ASTExpr]]:
+
+        try:
+            return self.opcode.ast_cc_condition_prov(
+                astree, self.iaddr, self.bytestring, self.xdata)
+        except Exception as e:
+            chklogger.logger.warning(
+                "Error in generating cc-condition at address %s: %s.",
+                self.iaddr, str(e))
+            expr = astree.mk_temp_lval_expression()
             return (expr, expr)
 
     def ast_switch_condition_prov(self, astree: ASTInterface) -> Tuple[
