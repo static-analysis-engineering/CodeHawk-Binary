@@ -186,6 +186,18 @@ class ARMOpcodeXData:
     def is_cxpr_ok(self, index: int) -> bool:
         return self.xdata.is_cxpr_ok(index)
 
+    def has_instruction_condition(self) -> bool:
+        return self.xdata.has_instruction_condition()
+
+    def get_instruction_condition(self) -> "XXpr":
+        return self.xdata.get_instruction_condition()
+
+    def has_valid_instruction_c_condition(self) -> bool:
+        return self.xdata.has_valid_instruction_c_condition()
+
+    def get_instruction_c_condition(self) -> "XXpr":
+        return self.xdata.get_instruction_c_condition()
+
     def add_instruction_condition(self, s: str) -> str:
         if self.xdata.has_unknown_instruction_condition():
             return "if ? then " + s
@@ -329,6 +341,37 @@ class ARMOpcode(ARMDictionaryRecord):
 
         expr = self.ast_condition(astree, iaddr, bytestring, xdata, reverse)
         return (expr, expr)
+
+    def ast_cc_condition_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData
+    ) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+
+        ll_astcond = self.ast_cc_expr(astree)
+
+        if xdata.has_instruction_condition():
+            xd = ARMOpcodeXData(xdata)
+            if xd.has_valid_instruction_c_condition():
+                pcond = xd.get_instruction_c_condition()
+            else:
+                pcond = xd.get_instruction_condition()
+            hl_astcond = XU.xxpr_to_ast_def_expr(pcond, xdata, iaddr, astree)
+
+            astree.add_expr_mapping(hl_astcond, ll_astcond)
+            astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
+            astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
+            astree.add_condition_address(ll_astcond, [iaddr])
+
+            return (hl_astcond, ll_astcond)
+
+        else:
+            chklogger.logger.error(
+                "No condition found at address %s", iaddr)
+            hl_astcond = astree.mk_temp_lval_expression()
+            return (hl_astcond, ll_astcond)
 
     def ast_switch_condition_prov(
             self,
