@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -144,6 +144,18 @@ class Instruction(ABC):
         b = self.bytestring
         revb = "".join(i+j for i, j in zip(b[:-1][::-2], b[::-2]))
         return revb
+
+    def has_control_flow(self) -> bool:
+        """Returns true if this instruction is predicated and not covered
+        by an enclosing aggregate or other condition."""
+
+        return self.xnode.get("brcc") is not None
+
+    def get_instruction_cc(self) -> Optional[str]:
+        return self.xnode.get("brcc")
+
+    def get_instruction_condition_setter(self) -> Optional[str]:
+        return self.xnode.get("brsetter")
 
     def md5(self) -> str:
         m = hashlib.md5()
@@ -292,9 +304,15 @@ class Instruction(ABC):
     def is_condition_true(self) -> bool:
         return False
 
-    def ast_condition_prov(self, astree: ASTInterface, reverse: bool = False) -> Tuple[
-            Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+    def ast_condition_prov(
+            self, astree: ASTInterface, reverse: bool = False
+    ) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
         raise UF.CHBError("ast-condition-prov not defined")
+
+    def ast_cc_condition_prov(
+            self, astree: ASTInterface
+    ) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
+        raise UF.CHBError("ast-cc-codntiion-prov not defined")
 
     def assembly_ast_condition(
             self,

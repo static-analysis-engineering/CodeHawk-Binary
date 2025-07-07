@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2024  Aarno Labs LLC
+# Copyright (c) 2022-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Basic block in an abstract syntax tree."""
 
-from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING
+from typing import cast, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
 
@@ -40,7 +40,7 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMCfgBlock import ARMCfgBlock
-    from chb.app.BasicBlock import BasicBlock
+    from chb.app.BasicBlock import BasicBlock, BasicBlockFragment
     from chb.arm.ARMInstruction import ARMInstruction
     from chb.arm.opcodes.ARMLogicalShiftLeft import ARMLogicalShiftLeft
     from chb.arm.opcodes.ARMReverseSubtract import ARMReverseSubtract
@@ -168,12 +168,57 @@ class ASTInterfaceBasicBlock:
             instrs.extend(i.assembly_ast(astree))
         return astree.mk_instr_sequence(instrs)
 
+    def ast_fragment(
+            self, astree: "ASTInterface", frag: "BasicBlockFragment") -> AST.ASTStmt:
+        if frag.is_predicated:
+            theninstrs = [ASTInterfaceInstruction(i) for i in frag.thenbranch]
+            elseinstrs = [ASTInterfaceInstruction(i) for i in frag.elsebranch]
+            thenstmt = self.linear_ast(astree, theninstrs)
+            elsestmt = self.linear_ast(astree, elseinstrs)
+            cinstr = theninstrs[0]
+            brcond = cinstr.ast_cc_condition(astree)
+            if brcond is None:
+                chklogger.logger.warning(
+                    "No instruction predicate expression found at address %s",
+                    cinstr.iaddr)
+                brcond = astree.mk_temp_lval_expression()
+            return astree.mk_branch(brcond, thenstmt, elsestmt, "0x0")
+        else:
+            instrs = [ASTInterfaceInstruction(i) for i in frag.linear]
+            return self.linear_ast(astree, instrs)
+
+    def fragmented_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
+
+        if len(self.basicblock.partition) == 0:
+            raise UF.CHBError("Error in fragmented ast")
+
+        stmts: List[AST.ASTStmt] = []
+
+        for (a, bf) in sorted(self.basicblock.partition.items()):
+            stmt = self.ast_fragment(astree, bf)
+            stmts.append(stmt)
+
+        return astree.mk_block(stmts)
+
     def ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         if self.is_trampoline:
             return self.trampoline_ast(astree)
 
+        if self.basicblock.has_control_flow():
+            self.basicblock.partition_control_flow()
+            return self.fragmented_ast(astree)
+
+        else:
+
+            return self.linear_ast(
+                astree, sorted(self.instructions.values(), key = lambda p:p.iaddr))
+
+    def linear_ast(
+            self,
+            astree: "ASTInterface",
+            instritems: List[ASTInterfaceInstruction]) -> AST.ASTStmt:
         instrs: List[AST.ASTInstruction] = []
-        for (a, i) in sorted(self.instructions.items(), key=lambda p: p[0]):
+        for i in instritems:
             instrs.extend(i.ast(astree))
         return astree.mk_instr_sequence(instrs)
 
