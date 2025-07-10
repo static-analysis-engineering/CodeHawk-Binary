@@ -1535,10 +1535,11 @@ def base_ptr_array_offset_to_ast_offset(
     if offset.has_no_offset() and indexxpr.is_integer_constant:
         return (indexxpr, nooffset)
 
-    chklogger.logger.error(
-        "Base ptr array offset %s not yet handled at address %s",
-        str(offset), iaddr)
-    return (astree.mk_integer_constant(0), nooffset)
+    if not anonymous:
+        chklogger.logger.error(
+            "Base ptr array offset %s not yet handled at address %s",
+            str(offset), iaddr)
+    return (astree.mk_temp_lval(), nooffset)
 
 
 def array_offset_to_ast_offset(
