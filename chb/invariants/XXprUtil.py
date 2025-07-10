@@ -1539,7 +1539,7 @@ def base_ptr_array_offset_to_ast_offset(
         chklogger.logger.error(
             "Base ptr array offset %s not yet handled at address %s",
             str(offset), iaddr)
-    return (astree.mk_temp_lval(), nooffset)
+    return (astree.mk_temp_lval_expression(), nooffset)
 
 
 def array_offset_to_ast_offset(
