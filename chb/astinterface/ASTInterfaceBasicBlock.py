@@ -173,8 +173,8 @@ class ASTInterfaceBasicBlock:
         if frag.is_predicated:
             theninstrs = [ASTInterfaceInstruction(i) for i in frag.thenbranch]
             elseinstrs = [ASTInterfaceInstruction(i) for i in frag.elsebranch]
-            thenstmt = self.linear_ast(astree, theninstrs)
-            elsestmt = self.linear_ast(astree, elseinstrs)
+            thenstmt = self.linear_block_ast(astree, theninstrs)
+            elsestmt = self.linear_block_ast(astree, elseinstrs)
             cinstr = theninstrs[0]
             brcond = cinstr.ast_cc_condition(astree)
             if brcond is None:
@@ -182,6 +182,9 @@ class ASTInterfaceBasicBlock:
                     "No instruction predicate expression found at address %s",
                     cinstr.iaddr)
                 brcond = astree.mk_temp_lval_expression()
+            else:
+                astree.astree.add_expr_span(
+                    brcond.exprid, cinstr.iaddr, cinstr.bytestring)
             return astree.mk_branch(brcond, thenstmt, elsestmt, "0x0")
         else:
             instrs = [ASTInterfaceInstruction(i) for i in frag.linear]
@@ -212,6 +215,16 @@ class ASTInterfaceBasicBlock:
 
             return self.linear_ast(
                 astree, sorted(self.instructions.values(), key = lambda p:p.iaddr))
+
+    def linear_block_ast(
+            self,
+            astree: "ASTInterface",
+            instritems: List[ASTInterfaceInstruction]) -> AST.ASTStmt:
+        instrs: List[AST.ASTInstruction] = []
+        for i in instritems:
+            instrs.extend(i.ast(astree))
+        instrseq = astree.mk_instr_sequence(instrs)
+        return astree.mk_block([instrseq])
 
     def linear_ast(
             self,
