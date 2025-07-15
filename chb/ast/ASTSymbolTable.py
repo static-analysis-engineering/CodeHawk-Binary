@@ -117,7 +117,10 @@ class ASTSymbolTable:
         lines.append("Variables:")
         lines.append("-" * 80)
         for vinfo in self.table.values():
-            lines.append(" - " + str(vinfo.vtype) + " " + vinfo.vname)
+            gaddr = (
+                " (" + hex(vinfo.globaladdress) + ")"
+                if vinfo.globaladdress is not None else "")
+            lines.append(" - " + str(vinfo.vtype) + " " + vinfo.vname + gaddr)
         return "\n".join(lines)
 
 

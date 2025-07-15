@@ -255,6 +255,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 gaddr = int("0x" + vname[4:(index+4)], 16)
             else:
                 gaddr = int("0x" + vname[4:], 16)
+        elif app.functionsdata.is_unique_function_name(vname):
+            gaddr = int(app.functionsdata.function_address_from_name(vname), 16)
         elif vname.startswith("gv_"):
             if "_" in vname[3:]:
                 index = vname[3:].index("_")

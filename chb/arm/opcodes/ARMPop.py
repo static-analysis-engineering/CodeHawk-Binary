@@ -224,24 +224,7 @@ class ARMPop(ARMOpcode):
             reverse: bool
     ) -> Tuple[Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
 
-        ll_astcond = self.ast_cc_expr(astree)
-
-        if xdata.has_instruction_condition():
-            pcond = xdata.get_instruction_condition()
-            hl_astcond = XU.xxpr_to_ast_def_expr(pcond, xdata, iaddr, astree)
-
-            astree.add_expr_mapping(hl_astcond, ll_astcond)
-            astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
-            astree.add_flag_expr_reachingdefs(ll_astcond, xdata.flag_reachingdefs)
-            astree.add_condition_address(ll_astcond, [iaddr])
-
-            return (hl_astcond, ll_astcond)
-
-        else:
-            chklogger.logger.error(
-                "No condition found at address %s", iaddr)
-            hl_astcond = astree.mk_temp_lval_expression()
-            return (hl_astcond, ll_astcond)
+        return self.ast_cc_condition_prov(astree, iaddr, bytestring, xdata)
 
     def ast_prov(
             self,
