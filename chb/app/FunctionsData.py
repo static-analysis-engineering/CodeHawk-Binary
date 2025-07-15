@@ -196,9 +196,26 @@ class FunctionsData:
                 return False
         return False
 
+    def is_library_stub_name(self, name: str) -> bool:
+        if (name in self.functionnames
+            and len(self.functionnames[name]) == 1):
+            faddr = self.functionnames[name][0]
+            return faddr in self.library_stubs()
+        return False
+
+    def is_unique_function_name(self, name: str) -> bool:
+        return (
+            self.is_unique_app_function_name(name)
+            and len(self.functionnames[name]) == 1)
+
     def function_address_from_name(self, name: str) -> str:
-        if self.is_unique_app_function_name(name):
+        if name in self.functionnames and len(self.functionnames[name]) == 1:
             return self.functionnames[name][0]
+        elif name in self.functionnames:
+            raise UF.CHBError("Functionnames length: "
+                              + str(len(self.functionnames[name]))
+                              + ": "
+                              + ", ".join(self.functionnames[name]))
         else:
             raise UF.CHBError("No function found with name " + name)
 

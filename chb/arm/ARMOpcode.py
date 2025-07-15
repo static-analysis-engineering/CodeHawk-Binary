@@ -201,8 +201,12 @@ class ARMOpcodeXData:
     def add_instruction_condition(self, s: str) -> str:
         if self.xdata.has_unknown_instruction_condition():
             return "if ? then " + s
-        elif self.xdata.has_instruction_condition():
-            c = str(self.xdata.get_instruction_condition())
+        if self.has_valid_instruction_c_condition():
+            ccond = "(C: " + str(self.get_instruction_c_condition()) + ")"
+        else:
+            ccond = "(C: none)"
+        if self.xdata.has_instruction_condition():
+            c = str(self.xdata.get_instruction_condition()) + ccond
             return "if " + c + " then " + s
         else:
             return s
