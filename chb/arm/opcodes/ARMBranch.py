@@ -263,6 +263,9 @@ class ARMBranch(ARMCallOpcode):
             return None
 
     def annotation(self, xdata: InstrXData) -> str:
+        if self.is_call_instruction(xdata) and xdata.has_call_target():
+            return ARMCallOpcode.annotation(self, xdata)
+
         xd = ARMBranchXData(xdata)
         if xd.is_ok:
             if self.is_call_instruction(xdata):
