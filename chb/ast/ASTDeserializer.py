@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2024  Aarno Labs LLC
+# Copyright (c) 2022-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -289,7 +289,7 @@ class ASTDeserializer:
                 astree.set_function_prototype(fprototype)
             else:
                 raise Exception(
-                    "Index for prototype "
+                    "Deserializer: Index for prototype "
                     + str(index)
                     + " not found in nodes deserialized")
 
@@ -332,25 +332,23 @@ class ASTDeserializer:
         spans = fdata["spans"]
         rds = prov["reaching-definitions"]
 
-        def find_expr_by_id(nodes: Dict[int, AST.ASTNode], exprid: int) -> AST.ASTNode:
+        def find_expr_by_id(
+                nodes: Dict[int, AST.ASTNode], exprid: int) -> AST.ASTNode:
             for node in fdata["ast"]["nodes"]:
                 if "exprid" in node and int(node["exprid"]) == exprid:
                     return nodes[int(node["id"])]
             else:
                 raise Exception(
-                    "Exprid: "
-                    + str(exprid)
-                    + " not found")
+                    "Deserializer: Exprid: " + str(exprid) + " not found")
 
-        def find_instr_by_id(nodes: Dict[int, AST.ASTNode], instrid: int) -> AST.ASTNode:
+        def find_instr_by_id(
+                nodes: Dict[int, AST.ASTNode], instrid: int) -> AST.ASTNode:
             for node in fdata["ast"]["nodes"]:
                 if "instrid" in node and int(node["instrid"]) == instrid:
                     return nodes[int(node["id"])]
             else:
                 raise Exception(
-                    "Instrid: "
-                    + str(instrid)
-                    + " not found")
+                    "Deserializer: Instrid: " + str(instrid) + " not found")
 
         def find_instr_address_by_locationid(locationid: int) -> str:
             for node in fdata["spans"]:
@@ -366,21 +364,37 @@ class ASTDeserializer:
                     return node["spans"][0]["base_va"]
             else:
                 raise Exception(
-                    "No span found for exprid: " + str(exprid))
+                    "Deserializer: No span found for exprid: " + str(exprid))
 
         result: List[Tuple[str, List[str]]] = []
         for (exprid, instrids) in rds.items():
             exprnode = find_expr_by_id(nodes, int(exprid))
             p_instrs: List[str] = []
             for instrid in instrids:
-                instrnode = cast(AST.ASTInstruction, find_instr_by_id(nodes, instrid))
                 try:
-                    address = find_instr_address_by_locationid(instrnode.locationid)
+                    instrnode = cast(
+                        AST.ASTInstruction, find_instr_by_id(nodes, instrid))
+                except Exception as e:
+                    raise Exception(
+                        "Deserializer: instrnode for instrid "
+                        + str(instrid)
+                        + " and exprid "
+                        + str(exprid)
+                        + " not found")
+                try:
+                    address = find_instr_address_by_locationid(
+                        instrnode.locationid)
                 except Exception as e:
                     p_instrs.append(str(instrnode) + ": " + str(e))
                     address = "?"
                 p_instrs.append(
-                    "  <" + str(instrid) + "> " + str(instrnode) + " (" + address + ")")
+                    "  <"
+                    + str(instrid)
+                    + "> "
+                    + str(instrnode)
+                    + " ("
+                    + address
+                    + ")")
             result.append((str(exprnode), p_instrs))
         self._reachingdefinitions[faddr] = result
 
