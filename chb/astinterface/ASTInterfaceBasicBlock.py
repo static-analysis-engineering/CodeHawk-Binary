@@ -92,10 +92,39 @@ class ASTInterfaceBasicBlock:
 
     @property
     def instructions(self) -> Dict[str, ASTInterfaceInstruction]:
+        """Main access to ast representation of instructions.
+
+        The ASTInterfaceInstruction provides both the high-level and
+        low-level representation of an instruction. It is important
+        to have only one of these per instruction, because the high-level
+        and low-level representation are created together, and in the
+        process the relationship between the high-level and low-level
+        is recorded in the AbstractSyntaxTree/Provenance data structure.
+
+        If another instruction is created separately (e.g., to only
+        obtain the high-level or low-level representation), this
+        relationship may be corrupted.
+
+        Thus, this function should be the only one to create
+        ASTInterfaceInstruction's.
+        """
         if len(self._instructions) == 0:
             for (iaddr, instr) in self.basicblock.instructions.items():
                 self._instructions[iaddr] = ASTInterfaceInstruction(instr)
         return self._instructions
+
+    def has_instruction(self, iaddr: str) -> bool:
+        return iaddr in self.instructions
+
+    def get_instruction(self, iaddr: str) -> ASTInterfaceInstruction:
+        if self.has_instruction(iaddr):
+            return self.instructions[iaddr]
+        else:
+            raise UF.CHBError(
+                "No instruction found at address "
+                + iaddr +
+                " in basic block "
+                + self.basicblock.baddr)
 
     @property
     def trampoline_instructions(
@@ -171,8 +200,8 @@ class ASTInterfaceBasicBlock:
     def ast_fragment(
             self, astree: "ASTInterface", frag: "BasicBlockFragment") -> AST.ASTStmt:
         if frag.is_predicated:
-            theninstrs = [ASTInterfaceInstruction(i) for i in frag.thenbranch]
-            elseinstrs = [ASTInterfaceInstruction(i) for i in frag.elsebranch]
+            theninstrs = [self.get_instruction(i.iaddr) for i in frag.thenbranch]
+            elseinstrs = [self.get_instruction(i.iaddr) for i in frag.elsebranch]
             thenstmt = self.linear_block_ast(astree, theninstrs)
             elsestmt = self.linear_block_ast(astree, elseinstrs)
             cinstr = theninstrs[0]
@@ -187,7 +216,7 @@ class ASTInterfaceBasicBlock:
                     brcond.exprid, cinstr.iaddr, cinstr.bytestring)
             return astree.mk_branch(brcond, thenstmt, elsestmt, "0x0")
         else:
-            instrs = [ASTInterfaceInstruction(i) for i in frag.linear]
+            instrs = [self.get_instruction(i.iaddr) for i in frag.linear]
             return self.linear_ast(astree, instrs)
 
     def fragmented_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
