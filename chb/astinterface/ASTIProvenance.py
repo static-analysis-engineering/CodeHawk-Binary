@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2024  Aarno Labs LLC
+# Copyright (c) 2022-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -351,6 +351,8 @@ class ASTIProvenance:
         if lvalid in self.lval_defuses_high:
             defuseshigh = self.lval_defuses_high[lvalid]
             locations = [str(x) for x in defuseshigh.uselocations]
+            if "exit" in locations:
+                locations.remove("exit")
             inactivated = self.defuses_high_inactivated_for(lvalid)
             active = set(locations).difference(inactivated)
             return len(active) > 0
