@@ -184,6 +184,8 @@ class ARMOperandKind(ARMDictionaryRecord):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError(
@@ -196,6 +198,8 @@ class ARMOperandKind(ARMDictionaryRecord):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError(
@@ -230,6 +234,8 @@ class ARMRegisterOp(ARMOperandKind):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (
@@ -238,6 +244,8 @@ class ARMRegisterOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (
@@ -277,6 +285,8 @@ class ARMDoubleRegisterOp(ARMOperandKind):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (
@@ -285,6 +295,8 @@ class ARMDoubleRegisterOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (
@@ -318,6 +330,8 @@ class ARMSpecialRegisterOp(ARMOperandKind):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (
@@ -326,6 +340,8 @@ class ARMSpecialRegisterOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (
@@ -378,6 +394,8 @@ class ARMExtensionRegisterOp(ARMOperandKind):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (
@@ -388,6 +406,8 @@ class ARMExtensionRegisterOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (
@@ -456,6 +476,8 @@ class ARMDoubleExtensionRegisterOp(ARMOperandKind):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (
@@ -464,6 +486,8 @@ class ARMDoubleExtensionRegisterOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (
@@ -597,6 +621,8 @@ class ARMShiftedRegisterOp(ARMOperandKind):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError(
@@ -605,6 +631,8 @@ class ARMShiftedRegisterOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         srt = self.shift_rotate
@@ -688,6 +716,8 @@ class ARMRegBitSequenceOp(ARMOperandKind):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError(
@@ -696,6 +726,8 @@ class ARMRegBitSequenceOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         """
@@ -741,6 +773,8 @@ class ARMAbsoluteOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (astree.mk_integer_constant(self.address.get_int()), [], [])
@@ -765,6 +799,8 @@ class ARMLiteralAddressOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         gvname = "gv_" + self.address.get_hex()
@@ -854,6 +890,8 @@ class ARMOffsetAddressOp(ARMOperandKind):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         offset = self.memory_offset.ast_rvalue(astree)
@@ -864,7 +902,8 @@ class ARMOffsetAddressOp(ARMOperandKind):
 
         if self.is_write_back:
             reglv = astree.mk_variable_lval(self.register)
-            assign = astree.mk_assign(reglv, xindex)
+            assign = astree.mk_assign(
+                reglv, xindex, iaddr=iaddr, bytestring=bytestring)
             if self.is_index:
                 memexp = astree.mk_memref_lval(xindex)
                 return (memexp, [], [assign])
@@ -878,6 +917,8 @@ class ARMOffsetAddressOp(ARMOperandKind):
     def ast_addr_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> AST.ASTExpr:
         xreg = astree.mk_register_variable_expr(self.register, vtype=vtype)
         offset = self.memory_offset.ast_rvalue(astree)
@@ -889,9 +930,12 @@ class ARMOffsetAddressOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        (lval, preinstrs, postinstrs) = self.ast_lvalue(astree, vtype=vtype)
+        (lval, preinstrs, postinstrs) = self.ast_lvalue(
+            astree, iaddr=iaddr, bytestring=bytestring, vtype=vtype)
         rval = astree.mk_lval_expr(lval)
         return (rval, preinstrs, postinstrs)
 
@@ -940,6 +984,8 @@ class ARMImmediateOp(ARMOperandKind):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError("Immediate operand cannot be an lvalue")
@@ -947,6 +993,8 @@ class ARMImmediateOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (astree.mk_integer_constant(self.value), [], [])
@@ -978,6 +1026,8 @@ class ARMFPConstant(ARMOperandKind):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         raise UF.CHBError("Floating point constant cannot be an lvalue")
@@ -985,6 +1035,8 @@ class ARMFPConstant(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         return (astree.mk_float_constant(self.floatvalue), [], [])

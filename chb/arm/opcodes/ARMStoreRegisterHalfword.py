@@ -234,8 +234,10 @@ class ARMStoreRegisterHalfword(ARMOpcode):
 
         # low-level assignment
 
-        (ll_rhs, _, _) = self.opargs[0].ast_rvalue(astree)
-        (ll_lhs, ll_preinstrs, ll_postinstrs) = self.opargs[3].ast_lvalue(astree)
+        (ll_rhs, _, _) = self.opargs[0].ast_rvalue(
+            astree, iaddr=iaddr, bytestring=bytestring)
+        (ll_lhs, ll_preinstrs, ll_postinstrs) = self.opargs[3].ast_lvalue(
+            astree, iaddr=iaddr, bytestring=bytestring)
         ll_assign = astree.mk_assign(
             ll_lhs,
             ll_rhs,
@@ -317,8 +319,10 @@ class ARMStoreRegisterHalfword(ARMOpcode):
 
         if self.opargs[3].is_indirect_register and self.opargs[3].is_write_back:
             addrop = cast("ARMOffsetAddressOp", self.opargs[3].opkind)
-            (ll_addr_lhs, _, _) = self.opargs[1].ast_lvalue(astree)
-            ll_addr_rhs = addrop.ast_addr_rvalue(astree)
+            (ll_addr_lhs, _, _) = self.opargs[1].ast_lvalue(
+                astree, iaddr=iaddr, bytestring=bytestring)
+            ll_addr_rhs = addrop.ast_addr_rvalue(
+                astree, iaddr=iaddr, bytestring=bytestring)
 
             ll_addr_assign = astree.mk_assign(
                 ll_addr_lhs,

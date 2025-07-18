@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -109,16 +109,22 @@ class ARMOperand(ARMDictionaryRecord, Operand):
     def ast_lvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTLval, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        return self.opkind.ast_lvalue(astree)
+        return self.opkind.ast_lvalue(
+            astree, iaddr=iaddr, bytestring=bytestring, vtype=vtype)
 
     def ast_rvalue(
             self,
             astree: ASTInterface,
+            iaddr: Optional[str] = None,
+            bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        return self.opkind.ast_rvalue(astree)
+        return self.opkind.ast_rvalue(
+            astree, iaddr=iaddr, bytestring=bytestring, vtype=vtype)
 
     def __str__(self) -> str:
         return str(self.opkind)

@@ -243,10 +243,14 @@ class ARMStoreRegisterDual(ARMOpcode):
 
         # low-level assignments
 
-        (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(astree)
-        (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(astree)
-        (ll_lhs1, ll_pre1, ll_post1) = self.opargs[4].ast_lvalue(astree)
-        (ll_lhs2, ll_pre2, ll_post2) = self.opargs[5].ast_lvalue(astree)
+        (ll_rhs1, _, _) = self.opargs[0].ast_rvalue(
+            astree, iaddr=iaddr, bytestring=bytestring)
+        (ll_rhs2, _, _) = self.opargs[1].ast_rvalue(
+            astree, iaddr=iaddr, bytestring=bytestring)
+        (ll_lhs1, ll_pre1, ll_post1) = self.opargs[4].ast_lvalue(
+            astree, iaddr=iaddr, bytestring=bytestring)
+        (ll_lhs2, ll_pre2, ll_post2) = self.opargs[5].ast_lvalue(
+            astree, iaddr=iaddr, bytestring=bytestring)
 
         ll_assign1 = astree.mk_assign(
             ll_lhs1,

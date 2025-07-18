@@ -236,7 +236,8 @@ class ARMLoadRegisterDual(ARMOpcode):
 
         # low-level assignments
 
-        (ll_rhs1, ll_pre1, ll_post1) = self.opargs[4].ast_rvalue(astree)
+        (ll_rhs1, ll_pre1, ll_post1) = self.opargs[4].ast_rvalue(
+            astree, iaddr=iaddr, bytestring=bytestring)
         (ll_lhs1, _, _) = self.opargs[0].ast_lvalue(astree)
 
         ll_assign1 = astree.mk_assign(
@@ -246,7 +247,8 @@ class ARMLoadRegisterDual(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        (ll_rhs2, ll_pre2, ll_post2) = self.opargs[5].ast_rvalue(astree)
+        (ll_rhs2, ll_pre2, ll_post2) = self.opargs[5].ast_rvalue(
+            astree, iaddr=iaddr, bytestring=bytestring)
         (ll_lhs2, _, _) = self.opargs[1].ast_lvalue(astree)
 
         ll_assign2 = astree.mk_assign(
