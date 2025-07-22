@@ -336,6 +336,7 @@ class BasicBlock(ABC):
             bytes: bool = False,
             opcodetxt: bool = True,
             opcodewidth: int = 25,
+            typingrules: bool = False,
             sp: bool = True) -> str:
         ...
 

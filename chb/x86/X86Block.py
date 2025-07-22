@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyrigth (c) 2021-2023 Aarno Labs, LLC
+# Copyrigth (c) 2021-2025 Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -114,6 +114,7 @@ class X86Block(BasicBlock):
             bytes: bool = False,
             opcodetxt: bool = True,
             opcodewidth: int = 25,
+            typingrules: bool = False,
             sp: bool = True) -> str:
         lines: List[str] = []
         for (ia, instr) in sorted(
