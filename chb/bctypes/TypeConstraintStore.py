@@ -24,10 +24,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ------------------------------------------------------------------------------
+import xml.etree.ElementTree as ET
 
 from typing import cast, Dict, List, Optional, Set, TYPE_CHECKING
 
 import chb.bctypes.TypeConstraint as TC
+
+import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
@@ -231,17 +234,95 @@ class FunctionRegisterConstraints:
         return "\n".join(lines)
 
 
+class TypingRule:
+
+    def __init__(self, tcstore: "TypeConstraintStore", xr: ET.Element) -> None:
+        self._tcstore = tcstore
+        self._xr = xr
+
+    @property
+    def tcstore(self) -> "TypeConstraintStore":
+        return self._tcstore
+
+    @property
+    def app(self) -> "AppAccess":
+        return self.tcstore.app
+
+    @property
+    def iaddr(self) -> str:
+        return self._xr.get("loc", "0x0")
+
+    @property
+    def rulename(self) -> str:
+        return self._xr.get("rule", "?")
+
+    @property
+    def typeconstraint(self) -> TC.TypeConstraint:
+        ix = self._xr.get("tc-ix")
+        if ix is not None:
+            return self.app.tcdictionary.type_constraint(int(ix))
+        else:
+            raise UF.CHBError("Type constraint without tc index")
+
+    def __str__(self) -> str:
+        ix = self._xr.get("tc-ix")
+        return self.rulename + " " + str(ix) + ":" + str(self.typeconstraint)
+
+
 class TypeConstraintStore:
+    """Global store for type constraints.
+
+    Note: The use of this object is currently somewhat conflicted. It was
+    originally intended for global use, to recover function signatures for
+    an entire binary. More recently, however, it has been mainly used to
+    perform type construction for all local variables (registers and stack)
+    within individual functions to support lifting. This latest use in its
+    present form does not scale to an entire binary. For now the scaling
+    issue is solved by resetting the store after each function, which
+    essentially means that the store, when saved, only holds the constraints
+    for a single function (the latest processed).
+    """
 
     def __init__(self, app: "AppAccess") -> None:
         self._app = app
         self._constraints: Optional[List[TC.TypeConstraint]] = None
         self._functionconstraints: Dict[str, FunctionTypeConstraints] = {}
         self._functionregconstraints: Dict[str, FunctionRegisterConstraints] = {}
+        self._rules_applied: Optional[Dict[str, Dict[str, List[TypingRule]]]] = None
 
     @property
     def app(self) -> "AppAccess":
         return self._app
+
+    @property
+    def rules_applied(self) -> Dict[str, Dict[str, List[TypingRule]]]:
+        if self._rules_applied is None:
+            self._rules_applied = {}
+            tcstore = UF.get_typeconstraint_store_xnode(
+                self.app.path, self.app.filename)
+            if tcstore is not None:
+                rules = tcstore.find("rules-applied")
+                if rules is not None:
+                    for xf in rules.findall("function"):
+                        faddr = xf.get("faddr", "0x0")
+                        self._rules_applied[faddr] = {}
+                        for xr in xf.findall("rule"):
+                            rule = TypingRule(self, xr)
+                            self._rules_applied[faddr].setdefault(rule.iaddr, [])
+                            self._rules_applied[faddr][rule.iaddr].append(rule)
+
+        return self._rules_applied
+
+    def rules_applied_to_instruction(
+            self, faddr: str, iaddr: str) -> List[TypingRule]:
+        result: List[TypingRule] = []
+        if faddr in self.rules_applied:
+            if iaddr in self.rules_applied[faddr]:
+                for r in self.rules_applied[faddr][iaddr]:
+                    if r.typeconstraint.is_var_constraint:
+                        continue
+                    result.append(r)
+        return result
 
     @property
     def constraints(self) -> List[TC.TypeConstraint]:

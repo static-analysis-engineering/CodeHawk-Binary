@@ -954,6 +954,10 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="include proofobligations at the top of the function")
     resultsfunction.add_argument(
+        "--typingrules",
+        action="store_true",
+        help="include typing rules applied after each instruction")
+    resultsfunction.add_argument(
         "--loglevel", "-log",
         choices=UL.LogLevel.options(),
         default="NONE",

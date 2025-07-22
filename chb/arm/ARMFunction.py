@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -59,6 +59,7 @@ from chb.jsoninterface.JSONResult import JSONResult
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
+    from chb.app.AppAccess import AppAccess
     from chb.cmdline.PatchResults import PatchEvent
 
 
@@ -92,6 +93,10 @@ class ARMFunction(Function):
     @property
     def armdictionary(self) -> ARMDictionary:
         return self._armd
+
+    @property
+    def app(self) -> "AppAccess":
+        return self.armdictionary.app
 
     @property
     def armfunctiondictionary(self) -> FunctionDictionary:
@@ -289,6 +294,7 @@ class ARMFunction(Function):
             opcodewidth: int = 40,
             sp: bool = True,
             proofobligations: bool = False,
+            typingrules: bool = False,
             stacklayout: bool = False) -> str:
         lines: List[str] = []
         if stacklayout:
@@ -311,6 +317,7 @@ class ARMFunction(Function):
                     bytes=bytes,
                     opcodetxt=opcodetxt,
                     opcodewidth=opcodewidth,
+                    typingrules=typingrules,
                     sp=sp))
             lines.append("-" * 80)
             if self.has_jumptable(self.blocks[b].lastaddr):

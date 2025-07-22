@@ -1099,6 +1099,7 @@ def results_function(args: argparse.Namespace) -> NoReturn:
     txtoutput: bool = not xjson
     stacklayout: bool = args.stacklayout
     proofobligations: bool = args.proofobligations
+    typingrules: bool = args.typingrules
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
     logfilemode: str = args.logfilemode
@@ -1161,6 +1162,7 @@ def results_function(args: argparse.Namespace) -> NoReturn:
                 sp=True,
                 opcodetxt=True,
                 proofobligations=proofobligations,
+                typingrules=typingrules,
                 stacklayout=stacklayout,
                 opcodewidth=opcodewidth))
         except UF.CHBError as e:

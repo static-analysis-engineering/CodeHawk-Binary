@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -239,6 +239,7 @@ class PowerInstruction(Instruction):
             bytes: bool = False,
             opcodetxt: bool = True,
             opcodewidth: int = 40,
+            typingrules: bool = False,
             sp: bool = False) -> str:
         try:
             pbytes = self.bytestring.ljust(10) + "  " if bytes else ""

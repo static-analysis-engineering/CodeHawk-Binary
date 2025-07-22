@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -41,6 +41,7 @@ from chb.arm.ARMInstruction import ARMInstruction
 from chb.invariants.XXpr import XXpr
 
 if TYPE_CHECKING:
+    from chb.app.AppAccess import AppAccess
     from chb.arm.ARMFunction import ARMFunction
 
 
@@ -54,6 +55,10 @@ class ARMBlock(BasicBlock):
     @property
     def armfunction(self) -> "ARMFunction":
         return self._armf
+
+    @property
+    def app(self) -> "AppAccess":
+        return self.armfunction.app
 
     @property
     def armdictionary(self) -> ARMDictionary:
@@ -74,6 +79,7 @@ class ARMBlock(BasicBlock):
             bytes: bool = False,
             opcodetxt: bool = True,
             opcodewidth: int = 40,
+            typingrules: bool = False,
             sp: bool = True) -> str:
         lines: List[str] = []
         for (ia, instr) in sorted(self.instructions.items()):
@@ -81,6 +87,7 @@ class ARMBlock(BasicBlock):
                 bytes=bytes,
                 opcodetxt=opcodetxt,
                 opcodewidth=opcodewidth,
+                typingrules=typingrules,
                 sp=sp)
             lines.append(str(ia).rjust(10) + "  " + pinstr)
         return "\n".join(lines)

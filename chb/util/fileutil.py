@@ -5,7 +5,7 @@
 # The MIT License (MIT)
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -560,6 +560,24 @@ def has_tcdictionary_file(path: str, xfile: str) -> bool:
 def get_tcdictionary_xnode(path: str, xfile: str) -> ET.Element:
     filename = get_tcdictionary_filename(path, xfile)
     return get_chb_xnode(filename, "type-constraint-dictionary")
+
+
+def get_typeconstraint_store_filename(path: str, xfile: str) -> str:
+    fdir = get_results_dir(path, xfile)
+    return get_chb_filename(fdir, xfile, "tcstore.xml")
+
+
+def has_typeconstraint_store_file(path: str, xfile: str) -> bool:
+    filename = get_typeconstraint_store_filename(path, xfile)
+    return os.path.isfile(filename)
+
+
+def get_typeconstraint_store_xnode(path: str, xfile: str) -> Optional[ET.Element]:
+    if has_typeconstraint_store_file(path, xfile):
+        filename = get_typeconstraint_store_filename(path, xfile)
+        return get_chb_xnode(filename, "type-constraint-store")
+    else:
+        return None
 
 
 def get_bcdictionary_filename(path: str, xfile: str) -> str:

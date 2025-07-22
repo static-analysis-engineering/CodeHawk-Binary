@@ -61,6 +61,7 @@ from chb.util.loggingutil import chklogger
 
 
 if TYPE_CHECKING:
+    from chb.app.AppAccess import AppAccess
     from chb.arm.ARMBlock import ARMBlock
     from chb.arm.ARMFunction import ARMFunction
     from chb.arm.ARMJumpTable import ARMJumpTable
@@ -87,6 +88,10 @@ class ARMInstruction(Instruction):
     @property
     def armdictionary(self) -> ARMDictionary:
         return self.armblock.armdictionary
+
+    @property
+    def app(self) -> "AppAccess":
+        return self.armfunction.app
 
     @property
     def armfunctiondictionary(self) -> "FunctionDictionary":
@@ -434,13 +439,24 @@ class ARMInstruction(Instruction):
             bytes: bool = False,
             opcodetxt: bool = True,
             opcodewidth: int = 40,
+            typingrules: bool = False,
             sp: bool = False) -> str:
+        if typingrules:
+            lines: List[str] = []
+            rulesapplied = self.app.type_constraints.rules_applied_to_instruction(
+                self.armfunction.faddr, self.iaddr)
+            for r in sorted(str(r) for r in rulesapplied):
+                lines.append("   " + str(r))
         try:
             pbytes = self.bytestring.ljust(10) + "  " if bytes else ""
             pesp = str(self.stackpointer_offset) + "  " if sp else ""
             popcode = (
                 self.opcodetext.ljust(opcodewidth) if opcodetxt else "")
-            return pesp + pbytes + popcode + self.annotation
+            codeline = pesp + pbytes + popcode + self.annotation
+            if len(lines) > 0:
+                return codeline + "\n  " + "\n  ".join(lines)
+            else:
+                return codeline
         except Exception as e:
             print(
                 "Error in instruction: "
