@@ -591,6 +591,53 @@ class StackVarIntro:
             + (("; typename: " + self.typename) if self.typename else ""))
 
 
+class TypingRule:
+
+    def __init__(self, d: Dict[str, Any]) -> None:
+        self._d = d
+
+    @property
+    def typingrule(self) -> Dict[str, Any]:
+        return self._d
+
+    @property
+    def action(self) -> str:
+        a = self.typingrule.get("action", "?")
+        if a in ["enable", "disable"]:
+            return a
+        else:
+            raise UF.CHBError("Action in typing rule not recognized: " + a)
+
+    @property
+    def locs(self) -> List[str]:
+        locs = self.typingrule.get("locs", [])
+        if len(locs) == 0:
+            raise UF.CHBError("No locations specified in typing rule")
+        else:
+            return locs
+
+    @property
+    def name(self) -> str:
+        if "name" in self.typingrule:
+            return self.typingrule["name"]
+        else:
+            raise UF.CHBError("Name is missing in typing rule")
+
+    def to_xml(self, node: ET.Element) -> None:
+        xtyrule = ET.Element("typingrule")
+        node.append(xtyrule)
+        xtyrule.set("name", self.name)
+        xtyrule.set("action", self.action)
+        xtyrule.set("locs", ",".join(self.locs))
+
+    def __str__(self) -> str:
+        return (
+            "action: " + self.action
+            + "; locs: [" + ", ".join(self.locs) + "]"
+            + "; name: " + self.name)
+            
+
+
 class FunctionAnnotation:
 
     def __init__(self, fnannotation: Dict[str, Any]) -> None:
@@ -621,6 +668,14 @@ class FunctionAnnotation:
         for d in self.fnannotation.get("register-variable-introductions", []):
             rvi = RegisterVarIntro(d)
             result[rvi.iaddr] = rvi
+        return result
+
+    @property
+    def typingrules(self) -> List[TypingRule]:
+        result: List[TypingRule] = []
+        for d in self.fnannotation.get("typing-rules", []):
+            tr = TypingRule(d)
+            result.append(tr)
         return result
 
     def has_register_variable_introduction(self, iaddr: str) -> bool:
@@ -654,6 +709,11 @@ class FunctionAnnotation:
             node.append(xregintros)
             for rvintro in self.register_variable_introductions.values():
                 rvintro.to_xml(xregintros)
+        if len(self.typingrules) > 0:
+            xtypingrules = ET.Element("typing-rules")
+            node.append(xtypingrules)
+            for tr in self.typingrules:
+                tr.to_xml(xtypingrules)
 
     def __str__(self) -> str:
         lines: List[str] = []
