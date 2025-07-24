@@ -215,7 +215,9 @@ class ASTInterfaceBasicBlock:
             else:
                 astree.astree.add_expr_span(
                     brcond.exprid, cinstr.iaddr, cinstr.bytestring)
-            ifstmt = astree.mk_branch(brcond, thenstmt, elsestmt, cinstr.iaddr)
+            instrcount = len(theninstrs) + len(elseinstrs)
+            ifstmt = astree.mk_branch(
+                brcond, thenstmt, elsestmt, cinstr.iaddr, predicated=instrcount)
             astree.add_stmt_span(ifstmt.locationid, spans)
             return ifstmt
         else:

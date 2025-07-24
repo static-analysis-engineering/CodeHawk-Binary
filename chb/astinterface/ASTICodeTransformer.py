@@ -123,7 +123,8 @@ class ASTICodeTransformer(ASTIdentityTransformer):
             newelse,
             stmt.target_address,
             mergeaddr=stmt.merge_address,
-            optlocationid=stmt.locationid)
+            optlocationid=stmt.locationid,
+            predicated=stmt.predicated)
 
     def transform_switch_stmt(self, stmt: AST.ASTSwitchStmt) -> AST.ASTStmt:
         newcases = stmt.cases.transform(self)

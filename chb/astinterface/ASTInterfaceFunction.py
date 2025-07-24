@@ -274,7 +274,7 @@ class ASTInterfaceFunction(ASTFunction):
                         self.astinterface,
                         anonymous=True)
 
-                    if str(var).startswith("astmem_tmp"):
+                    if "astmem_tmp" in str(var):
                         chklogger.logger.info(
                             "Skipping invariant %s at %s",
                             str(fact), str(loc))
@@ -294,6 +294,11 @@ class ASTInterfaceFunction(ASTFunction):
                             instr.iaddr,
                             self.astinterface,
                             anonymous=True)
+                        if "astmem_tmp" in str(aexpr):
+                            chklogger.logger.info(
+                                "Skipping invariant %s at %s",
+                                str(aexpr), str(loc))
+                            continue
                         aexprindex = aexpr.index(self.astinterface.serializer)
                     else:
                         continue
@@ -328,7 +333,8 @@ class ASTInterfaceFunction(ASTFunction):
                         self.astinterface,
                         anonymous=True)
 
-                    if str(var).startswith("astmem_tmp"):
+                    if "astmem_tmp" in str(aexpr):
+                        # if str(var).startswith("astmem_tmp"):
                         chklogger.logger.info(
                             "Skipping invariant %s at %s",
                             str(fact), str(loc))

@@ -595,13 +595,15 @@ class ASTBranch(ASTStmt):
             elsestmt: "ASTStmt",
             tgtaddress: str,
             mergeaddress: Optional[str],
-            labels: List["ASTStmtLabel"] = []) -> None:
+            labels: List["ASTStmtLabel"] = [],
+            predicated: Optional[int] = None) -> None:
         ASTStmt.__init__(self, stmtid, locationid, labels, "if")
         self._cond = cond
         self._ifstmt = ifstmt
         self._elsestmt = elsestmt
         self._tgtaddress = tgtaddress
         self._mergeaddress = mergeaddress
+        self._predicated = predicated
 
     @property
     def is_ast_branch(self) -> bool:
@@ -626,6 +628,10 @@ class ASTBranch(ASTStmt):
     @property
     def merge_address(self) -> Optional[str]:
         return self._mergeaddress
+
+    @property
+    def predicated(self) -> Optional[int]:
+        return self._predicated
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_branch_stmt(self)
