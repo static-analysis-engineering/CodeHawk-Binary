@@ -93,6 +93,24 @@ def parse() -> argparse.Namespace:
     )
     viewastcmd.set_defaults(func=AU.viewastcmd)
 
+    # --- view selected stmt ast
+    viewstmtcmd = viewparsers.add_parser("stmt")
+    viewstmtcmd.add_argument("pirfile", help="name of json file with ast information")
+    viewstmtcmd.add_argument("--function", help="name or address of function to view")
+    viewstmtcmd.add_argument(
+        "--stmtid", help="stmt id of statement", type=int)
+    viewstmtcmd.add_argument(
+        "--provenance",
+        help="show associated low-level instructions",
+        action="store_true",
+    )
+    viewstmtcmd.add_argument(
+        "-o", "--output",
+        help="name of output graph file (without extension)",
+        required=True,
+    )
+    viewstmtcmd.set_defaults(func=AU.viewstmtcmd)
+
     # --- view single instruction ast
     viewinstrcmd = viewparsers.add_parser("instruction")
     viewinstrcmd.add_argument("pirfile", help="name of json file with ast information")

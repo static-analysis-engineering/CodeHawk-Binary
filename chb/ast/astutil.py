@@ -39,6 +39,7 @@ from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
 from chb.ast.ASTDeserializer import ASTDeserializer
 import chb.ast.ASTNode as AST
+from chb.ast.ASTProvenanceCollector import ASTProvenanceCollector
 from chb.ast.ASTViewer import ASTViewer
 import chb.ast.astdotutil as DU
 
@@ -188,6 +189,36 @@ def viewastcmd(args: argparse.Namespace) -> NoReturn:
     faddr = get_function_addr(pirjson, function)
     g = view_ast_function(faddr, level, pirjson, cutoff)
     DU.print_dot(outputfilename, g)
+    exit(0)
+
+
+def viewstmtcmd(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    pirfile: str = args.pirfile
+    function: Optional[str] = args.function
+    stmtid: int = args.stmtid
+    provenance: bool = args.provenance
+    outputfilename: str = args.output
+
+    with open(pirfile, "r") as fp:
+        pirjson = json.load(fp)
+
+    faddr = get_function_addr(pirjson, function)
+    deserializer = ASTDeserializer(pirjson)
+    (globaltable, dfns) = deserializer.deserialize()
+    for dfn in dfns:
+        if dfn.astree.faddr == faddr:
+            stmt = dfn.get_stmt(stmtid)
+            viewer = ASTViewer(faddr, dfn.astree)
+            if provenance:
+                provcollector = ASTProvenanceCollector(dfn)
+                provinstrs = provcollector.instruction_provenance(stmt)
+                g = viewer.stmt_to_graph(stmt, provinstrs)
+            else:
+                g = viewer.to_graph(stmt)
+
+        DU.print_dot(outputfilename, g)
     exit(0)
 
 

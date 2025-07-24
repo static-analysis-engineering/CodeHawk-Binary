@@ -204,6 +204,7 @@ class ASTInterfaceBasicBlock:
             elseinstrs = [self.get_instruction(i.iaddr) for i in frag.elsebranch]
             thenstmt = self.linear_block_ast(astree, theninstrs)
             elsestmt = self.linear_block_ast(astree, elseinstrs)
+            spans = [(i.iaddr, i.bytestring) for i in theninstrs + elseinstrs]
             cinstr = theninstrs[0]
             brcond = cinstr.ast_cc_condition(astree)
             if brcond is None:
@@ -214,7 +215,9 @@ class ASTInterfaceBasicBlock:
             else:
                 astree.astree.add_expr_span(
                     brcond.exprid, cinstr.iaddr, cinstr.bytestring)
-            return astree.mk_branch(brcond, thenstmt, elsestmt, "0x0")
+            ifstmt = astree.mk_branch(brcond, thenstmt, elsestmt, cinstr.iaddr)
+            astree.add_stmt_span(ifstmt.locationid, spans)
+            return ifstmt
         else:
             instrs = [self.get_instruction(i.iaddr) for i in frag.linear]
             return self.linear_ast(astree, instrs)

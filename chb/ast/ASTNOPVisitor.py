@@ -148,6 +148,9 @@ class ASTNOPVisitor(ASTVisitor):
     def visit_address_of_expression(self, expr: AST.ASTAddressOf) -> None:
         pass
 
+    def visit_start_of_expression(self, expr: AST.ASTStartOf) -> None:
+        pass
+
     def visit_void_typ(self, typ: AST.ASTTypVoid) -> None:
         pass
 

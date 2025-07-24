@@ -95,6 +95,16 @@ class ASTViewer(ASTNOPVisitor):
         stmt.accept(self)
         return self.dotgraph
 
+    def stmt_to_graph(
+            self,
+            stmt: AST.ASTStmt,
+            provinstrs: Dict[int, List[AST.ASTInstruction]] = {}) -> DU.ASTDotGraph:
+        stmt.accept(self)
+        for pl in provinstrs.values():
+            for p in pl:
+                p.accept(self)
+        return self.dotgraph
+
     def instr_to_graph(
             self,
             instr: AST.ASTInstruction,
@@ -124,6 +134,9 @@ class ASTViewer(ASTNOPVisitor):
         if self.astree.provenance.has_reaching_definitions(expr.exprid):
             ids = self.astree.provenance.reaching_definitions[expr.exprid]
             result += "\\nrdefs:[" + ",".join(str(id) for id in ids) + "]"
+        if expr.exprid in self.astree.expr_spanmap():
+            span = self.astree.expr_spanmap()[expr.exprid]
+            result += "\\ncc:" + span
         return result
 
     def stmt_name(self, stmt: AST.ASTStmt) -> str:
