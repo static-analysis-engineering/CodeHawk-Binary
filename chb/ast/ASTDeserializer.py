@@ -71,6 +71,15 @@ class ASTFunctionDeserialization:
     def high_unreduced_ast(self) -> AST.ASTStmt:
         return self.asts[1]
 
+    def get_stmt(self, stmtid: int) -> AST.ASTStmt:
+        for node in self.nodes.values():
+            if node.is_ast_stmt:
+                node = cast(AST.ASTStmt, node)
+                if node.stmtid == stmtid:
+                    return node
+        else:
+            raise Exception("No stmt found with id: " + str(stmtid))
+
     def get_instruction(self, instrid: int) -> AST.ASTInstruction:
         for node in self.nodes.values():
             if node.is_ast_instruction:

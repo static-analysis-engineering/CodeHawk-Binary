@@ -585,7 +585,10 @@ class ASTInterface:
         return nextindex
 
     def add_span(self, span: ASTSpanRecord) -> None:
-        self.astree.add_span
+        self.astree.add_span(span)
+
+    def add_stmt_span(self, id: int, spans: List[Tuple[str, str]]) -> None:
+        self.astree.add_stmt_span(id, spans)
 
     def add_instruction_span(self, id: int, base: str, bytestring: str) -> None:
         self.astree.add_instruction_span(id, base, bytestring)

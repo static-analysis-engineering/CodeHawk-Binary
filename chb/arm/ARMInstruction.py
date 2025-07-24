@@ -441,8 +441,9 @@ class ARMInstruction(Instruction):
             opcodewidth: int = 40,
             typingrules: bool = False,
             sp: bool = False) -> str:
+
+        lines: List[str] = []
         if typingrules:
-            lines: List[str] = []
             rulesapplied = self.app.type_constraints.rules_applied_to_instruction(
                 self.armfunction.faddr, self.iaddr)
             for r in sorted(str(r) for r in rulesapplied):

@@ -287,6 +287,25 @@ class AbstractSyntaxTree:
     def add_span(self, span: ASTSpanRecord) -> None:
         self._spans.append(span)
 
+    def add_stmt_span(
+            self, locationid: int, spans: List[Tuple[str, str]]) -> None:
+        """Add a span for the ast instructions contained in a stmt.
+
+        Note: this is currently done only for if statements originating from
+        predicated instructions.
+        """
+        spaninstances: List[Dict[str, Union[str, int]]] = []
+        for (iaddr, bytestring) in spans:
+            span: Dict[str, Union[str, int]] = {}
+            span["base_va"] = iaddr
+            span["size"] = len(bytestring) // 2
+            spaninstances.append(span)
+        spanrec: Dict[str, Any] = {}
+        spanrec["locationid"] = locationid
+        spanrec["spans"] = spaninstances
+        self.add_span(cast(ASTSpanRecord, spanrec))
+
+
     def add_instruction_span(
             self, locationid: int, base: str, bytestring: str) -> None:
         """Add a span for an ast instruction."""
@@ -1224,7 +1243,7 @@ class AbstractSyntaxTree:
         # CIL encodes signedness in the shift operator but C infers
         # the operator flavor from the type of the left operand, so
         # we may need to insert a cast to ensure that serialization
-        # through C code preserves the AST. 
+        # through C code preserves the AST.
 
         mb_t = e.ctype(ASTBasicCTyper(self.globalsymboltable))
         force_cast = mb_t is None
