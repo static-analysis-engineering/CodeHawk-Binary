@@ -170,8 +170,10 @@ class ASTViewer(ASTNOPVisitor):
 
     def visit_branch_stmt(self, stmt: AST.ASTBranch) -> None:
         name = self.stmt_name(stmt)
-        self.add_node(
-            name, labeltxt="if:" + str(stmt.stmtid), color=nodecolors["stmt"])
+        labeltxt = "if:" + str(stmt.stmtid)
+        if stmt.predicated is not None:
+            labeltxt += "\\npredicated:" + str(stmt.predicated)
+        self.add_node(name, labeltxt=labeltxt, color=nodecolors["stmt"])
         self.add_edge(name, self.stmt_name(stmt.ifstmt), labeltxt="then")
         self.add_edge(name, self.stmt_name(stmt.elsestmt), labeltxt="else")
         self.add_edge(name, self.expr_name(stmt.condition), labeltxt="condition")

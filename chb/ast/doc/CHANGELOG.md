@@ -6,6 +6,12 @@ The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 	and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### version 0.1.0-2025-07-24
+
+- Add property predicated to branch stmt to indicate its origin from a predicated instruction
+- Add option to pir inspector to view a single statement
+
+
 ### version 0.1.0-2024-07-03
 
 - Add printing of structs to ASTCPrettyPrinter

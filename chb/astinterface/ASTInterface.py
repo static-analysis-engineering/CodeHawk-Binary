@@ -699,14 +699,16 @@ class ASTInterface:
             elsebranch: AST.ASTStmt,
             targetaddr: str,
             mergeaddr: Optional[str] = None,
-            optlocationid: Optional[int] = None) -> AST.ASTStmt:
+            optlocationid: Optional[int] = None,
+            predicated: Optional[int] = None) -> AST.ASTStmt:
         return self.astree.mk_branch(
             condition,
             ifbranch,
             elsebranch,
             targetaddr,
             mergeaddr=mergeaddr,
-            optlocationid=optlocationid)
+            optlocationid=optlocationid,
+            predicated=predicated)
 
     def mk_instr_sequence(
             self,

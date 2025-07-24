@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2024  Aarno Labs LLC
+# Copyright (c) 2022-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -373,6 +373,8 @@ class ASTSerializer(ASTIndexer):
             stmt.elsestmt.index(self)])
         node["destination-addr"] = stmt.target_address
         node["merge-addr"] = stmt.merge_address
+        if stmt.predicated is not None:
+            node["predicated"] = stmt.predicated
         return self.add(tags, args, node)
 
     def index_instruction_sequence_stmt(self, stmt: AST.ASTInstrSequence) -> int:

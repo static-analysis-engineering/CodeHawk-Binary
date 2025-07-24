@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs, LLC
+# Copyright (c) 2022-2025  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,7 +42,7 @@ from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
 from chb.ast.CustomASTSupport import CustomASTSupport
 
 
-pirversion: str = "0.1.0-20240703"
+pirversion: str = "0.1.0-202507024"
 
 
 class ASTApplicationInterface:

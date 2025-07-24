@@ -421,7 +421,8 @@ class AbstractSyntaxTree:
             mergeaddr: Optional[str] = None,
             optstmtid: Optional[int] = None,
             optlocationid: Optional[int] = None,
-            labels: List[AST.ASTStmtLabel] = []) -> AST.ASTBranch:
+            labels: List[AST.ASTStmtLabel] = [],
+            predicated: Optional[int] = None) -> AST.ASTBranch:
         stmtid = self.get_stmtid(optstmtid)
         locationid = self.get_locationid(optlocationid)
         if condition is None:
@@ -429,7 +430,7 @@ class AbstractSyntaxTree:
             condition = self.mk_tmp_lval_expression()
         return AST.ASTBranch(
             stmtid, locationid, condition, ifbranch, elsebranch,
-            targetaddr, mergeaddr)
+            targetaddr, mergeaddr, predicated=predicated)
 
     def mk_goto_stmt(
             self,

@@ -751,13 +751,15 @@ class ASTDeserializer:
                 thenbranch = cast(AST.ASTStmt, mk_node(arg(1)))
                 elsebranch = cast(AST.ASTStmt, mk_node(arg(2)))
                 targetaddr = r["destination-addr"]
+                predicated = r.get("predicated", None)
                 nodes[id] = astree.mk_branch(
                     condition,
                     thenbranch,
                     elsebranch,
                     targetaddr,
                     optstmtid=stmtid,
-                    optlocationid=locationid)
+                    optlocationid=locationid,
+                    predicated=predicated)
 
             elif tag == "block":
                 stmtid = r["stmtid"]
