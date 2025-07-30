@@ -118,6 +118,24 @@ class ASTICPrettyPrinter(ASTCPrettyPrinter):
         self.reset_reachingdefs()
         ASTCPrettyPrinter.visit_branch_stmt(self, stmt)
 
+    def visit_return_stmt(self, stmt: AST.ASTReturn) -> None:
+        ## self.reset_reachingdefs()
+        ASTCPrettyPrinter.visit_return_stmt(self, stmt)
+        if stmt.has_return_value():
+            rval = stmt.expr
+            if self.provenance.has_reaching_defs(rval.exprid):
+                rdefs = self.provenance.get_reaching_defs(rval.exprid)
+            else:
+                self.ccode.write("no reachingdefs for return value")
+                rdefs = []
+            for rdef in rdefs:
+                self.ccode.newline(indent=self.indent + 4)
+                self.ccode.write("  // " + str(rdef))
+            self.reset_reachingdefs()
+        else:
+            self.ccode.write("no return value")
+
+
     def visit_assign_instr(self, instr: AST.ASTAssign) -> None:
         self.reset_reachingdefs()
         ASTCPrettyPrinter.visit_assign_instr(self, instr)
