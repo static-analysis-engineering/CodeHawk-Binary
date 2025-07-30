@@ -382,10 +382,13 @@ class ASTViewer(ASTNOPVisitor):
             name,
             labeltxt="binop:" + expr.op + ":" + str(expr.exprid) + connections,
             color=nodecolors["expr"])
-        self.add_edge(name, self.expr_name(expr.exp1), labeltxt="exp1")
-        self.add_edge(name, self.expr_name(expr.exp2), labeltxt="exp2")
-        expr.exp1.accept(self)
-        expr.exp2.accept(self)
+        if self.cutoff_at_stmt() or self.cutoff_at_instr():
+            return
+        else:
+            self.add_edge(name, self.expr_name(expr.exp1), labeltxt="exp1")
+            self.add_edge(name, self.expr_name(expr.exp2), labeltxt="exp2")
+            expr.exp1.accept(self)
+            expr.exp2.accept(self)
 
     def visit_address_of_expression(self, expr: AST.ASTAddressOf) -> None:
         name = self.expr_name(expr)

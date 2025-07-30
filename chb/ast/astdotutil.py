@@ -214,16 +214,17 @@ class ASTDotGraph:
 
 def print_dot(
         filename: str,
-        g: "ASTDotGraph") -> str:
+        g: "ASTDotGraph",
+        fileformat: str = "pdf") -> str:
     dotfilename = filename + ".dot"
-    pdffilename = filename + ".pdf"
+    pdffilename = filename + "." + fileformat
 
     # write graph to dot format
     with open(dotfilename, "w") as fp:
         fp.write(str(g))
 
     # convert dot file to pdf
-    cmd = ["dot", "-Tpdf", "-o", pdffilename, dotfilename]
+    cmd = ["dot", "-T%s" % fileformat, "-o", pdffilename, dotfilename]
     try:
         subprocess.call(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:

@@ -86,6 +86,12 @@ def parse() -> argparse.Namespace:
         choices=["stmt", "instr"],
     )
     viewastcmd.add_argument(
+        "--fileformat",
+        help="desired format for output file (default is pdf)",
+        choices=["pdf", "png"],
+        default=["pdf"]
+    )
+    viewastcmd.add_argument(
         "-o",
         "--outputfile",
         help="name of output graph file (without extension)",
@@ -105,6 +111,12 @@ def parse() -> argparse.Namespace:
         action="store_true",
     )
     viewstmtcmd.add_argument(
+        "--fileformat",
+        help="desired format for output file (default is pdf)",
+        choices=["pdf", "png"],
+        default=["pdf"]
+    )
+    viewstmtcmd.add_argument(
         "-o", "--output",
         help="name of output graph file (without extension)",
         required=True,
@@ -122,6 +134,12 @@ def parse() -> argparse.Namespace:
         "--provenance",
         help="show associated low-level instruction",
         action="store_true",
+    )
+    viewinstrcmd.add_argument(
+        "--fileformat",
+        help="desired format for output file (default is pdf)",
+        choices=["pdf", "png"],
+        default=["pdf"]
     )
     viewinstrcmd.add_argument(
         "-o",

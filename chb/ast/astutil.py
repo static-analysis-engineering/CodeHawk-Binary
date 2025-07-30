@@ -181,6 +181,7 @@ def viewastcmd(args: argparse.Namespace) -> NoReturn:
     function: Optional[str] = args.function
     level: str = args.level
     outputfilename: str = args.outputfile
+    fileformat: str = args.fileformat
     cutoff: Optional[str] = args.cutoff
 
     with open(pirfile, "r") as fp:
@@ -188,7 +189,7 @@ def viewastcmd(args: argparse.Namespace) -> NoReturn:
 
     faddr = get_function_addr(pirjson, function)
     g = view_ast_function(faddr, level, pirjson, cutoff)
-    DU.print_dot(outputfilename, g)
+    DU.print_dot(outputfilename, g, fileformat=fileformat)
     exit(0)
 
 
@@ -199,6 +200,7 @@ def viewstmtcmd(args: argparse.Namespace) -> NoReturn:
     function: Optional[str] = args.function
     stmtid: int = args.stmtid
     provenance: bool = args.provenance
+    fileformat: str = args.fileformat
     outputfilename: str = args.output
 
     with open(pirfile, "r") as fp:
@@ -218,7 +220,7 @@ def viewstmtcmd(args: argparse.Namespace) -> NoReturn:
             else:
                 g = viewer.to_graph(stmt)
 
-        DU.print_dot(outputfilename, g)
+        DU.print_dot(outputfilename, g, fileformat=fileformat)
     exit(0)
 
 
@@ -229,6 +231,7 @@ def viewinstrcmd(args: argparse.Namespace) -> NoReturn:
     function: Optional[str] = args.function
     instrid: int = args.instrid
     provenance: bool = args.provenance
+    fileformat: str = args.fileformat
     outputfilename: str = args.output
 
     with open(pirfile, "r") as fp:
@@ -251,7 +254,7 @@ def viewinstrcmd(args: argparse.Namespace) -> NoReturn:
             else:
                 g = viewer.instr_to_graph(instr)
 
-            DU.print_dot(outputfilename, g)
+            DU.print_dot(outputfilename, g, fileformat=fileformat)
 
     exit(0)
 
