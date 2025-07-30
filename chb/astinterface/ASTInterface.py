@@ -1034,7 +1034,7 @@ class ASTInterface:
                                 vtype = self.astree.mk_int_sized_array_type(
                                     tgttyp, arraysize)
                             else:
-                                chklogger.logger.info(
+                                chklogger.logger.warning(
                                     "Array size for stack variable at offset "
                                     + "%s does not fit in stack frame; "
                                     + "adjusting stack buffer to size %d",
