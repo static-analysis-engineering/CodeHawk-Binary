@@ -56,6 +56,7 @@ type type_constant_t =
  | TyAscii                                           "a"       1      0
  | TyExtendedAscii                                  "ac"       1      0
  | TyZero                                            "z"       1      0
+ | TyVoidPtr                                        "vp"       1      0
  | TyTInt of ikind_t                                "ti"       2      0
  | TyTFloat of fkind_t                              "tf"       2      0
  | TyTUnknown                                        "u"       1      0
@@ -624,6 +625,19 @@ class TypeConstantZero(TypeConstant):
 
     def __str__(self) -> str:
         return "t_zero"
+
+
+@tcdregistry.register_tag("vp", TypeConstant)
+class TypeConstantVoidPtr(TypeConstant):
+
+    def __init__(
+            self,
+            tcd: "TypeConstraintDictionary",
+            ixval: IndexedTableValue) -> None:
+        TypeConstant.__init__(self, tcd, ixval)
+
+    def __str__(self) -> str:
+        return "t_voidptr"
 
 
 @tcdregistry.register_tag("ti", TypeConstant)
