@@ -71,7 +71,7 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.api.AppFunctionSignature import AppFunctionSignature
-    from chb.app.FnStackFrame import FnStackFrame
+    from chb.app.FunctionStackframe import FunctionStackframe
     from chb.astinterface.BC2ASTConverter import BC2ASTConverter
     from chb.bctypes.BCConverter import BCConverter
     from chb.bctypes.BCFieldInfo import BCFieldInfo
@@ -1004,7 +1004,7 @@ class ASTInterface:
 
     def introduce_stack_variables(
             self,
-            stackframe: "FnStackFrame",
+            stackframe: "FunctionStackframe",
             stackvartypes: Dict[int, "BCTyp"]) -> None:
         """Creates stack variables/buffers for all stack offsets with types."""
 
@@ -1015,32 +1015,6 @@ class ASTInterface:
         for (offset, bctype) in sorted(stackvartypes.items(), reverse=True):
             offset = -offset
             vtype = bctype.convert(self.typconverter)
-
-            # if the type is an array, its size may have to be adjusted based
-            # on the stacklayout determined in FnStackFrame.
-            if vtype.is_array:
-                vtype = cast(AST.ASTTypArray, vtype)
-                if vtype.has_constant_size() and vtype.size_value() == 1:
-                    buffer = stackframe.get_stack_buffer(offset)
-                    if buffer is not None:
-                        size = buffer.size
-                        tgttyp = vtype.tgttyp
-                        tgttypsize = tgttyp.index(self.bytesize_calculator)
-                        if tgttypsize > 0:
-                            arraysize = size // tgttypsize
-                            if arraysize == 1:
-                                vtype = tgttyp
-                            if arraysize > 1:
-                                vtype = self.astree.mk_int_sized_array_type(
-                                    tgttyp, arraysize)
-                            else:
-                                chklogger.logger.warning(
-                                    "Array size for stack variable at offset "
-                                    + "%s does not fit in stack frame; "
-                                    + "adjusting stack buffer to size %d",
-                                    str(offset), tgttypsize)
-                                vtype = tgttyp
-
             self.mk_stack_variable_lval(offset, vtype=vtype)
 
     def mk_ssa_register_varinfo(

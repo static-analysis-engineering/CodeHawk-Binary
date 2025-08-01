@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs, LLC
+# Copyright (c) 2021-2025  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -1251,13 +1251,18 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
         dstoffset = dstarg.stack_address_offset()
         fn = app.function(pc.faddr)
         stackframe = fn.stackframe
-        stackbuffer = stackframe.get_stack_buffer(dstoffset)
-        if stackbuffer is None:
+        stackslot = stackframe.stackslot(dstoffset)
+        if stackslot is None:
             chklogger.logger.warning(
                 "No stackbuffer found for %s at offset %s",
                 str(instr), str(dstoffset))
             continue
-        buffersize = stackbuffer.size
+        buffersize = stackslot.size
+        if buffersize is None:
+            chklogger.logger.warning(
+                "Stackbuffer for %s at offset %s does not have a size",
+                str(instr), str(dstoffset))
+            continue
         basicblock = fn.block(pc.baddr)
         spare = find_spare_instruction(basicblock, instr.iaddr)
 

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2024  Aarno Labs, LLC
+# Copyright (c) 2022-2025  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -405,9 +405,11 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             json.dump(astdata, fp, indent=2)
 
     if functions_lifted > 1:
-        print("Successfully lifted " + str(functions_lifted) + " functions")
+        UC.print_status_update(
+            "Successfully lifted " + str(functions_lifted) + " functions")
     if functions_failed > 0:
-        print("Failures: " + str(functions_failed) + " functions")
+        UC.print_status_update(
+            "Failures: " + str(functions_failed) + " functions")
 
     chklogger.logger.info("results ast completed")
 
