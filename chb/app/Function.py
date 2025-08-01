@@ -63,7 +63,6 @@ from chb.app.GlobalMemoryMap import (
     GlobalLoad, GlobalStore, GlobalAddressArgument)
 from chb.app.Instruction import Instruction
 from chb.app.JumpTables import JumpTable
-from chb.app.StackLayout import StackLayout
 from chb.app.StringXRefs import StringsXRefs
 
 import chb.ast.ASTNode as AST
@@ -91,7 +90,7 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
-    from chb.app.FnStackFrame import FnStackFrame
+    from chb.app.FunctionStackframe import FunctionStackframe
     from chb.app.GlobalMemoryMap import (
         GlobalMemoryMap, GlobalLocation, GlobalReference)
     from chb.bctypes.BCTyp import BCTyp
@@ -125,7 +124,6 @@ class Function(ABC):
         self._varinvd: Optional[FnVarInvDictionary] = None
         self._invariants: Dict[str, List[InvariantFact]] = {}
         self._varinvariants: Dict[str, List[VarInvariantFact]] = {}
-        self._stacklayout: Optional[StackLayout] = None
         self._globalrefs: Optional[Dict[str, List["GlobalReference"]]] = None
         self._proofobligations: Optional[FnProofObligations] = None
 
@@ -393,7 +391,7 @@ class Function(ABC):
         raise UF.CHBError("Property cfg not implemented for Function")
 
     @property
-    def stackframe(self) -> "FnStackFrame":
+    def stackframe(self) -> "FunctionStackframe":
         raise UF.CHBError("Property stackframe not implemented for Function")
 
     @property
@@ -543,18 +541,6 @@ class Function(ABC):
                 result[iaddr][vname] = vtype
 
         return result
-
-    def stacklayout(self) -> StackLayout:
-        if self._stacklayout is None:
-            stacklayout = StackLayout()
-            for (iaddr, instr) in self.instructions.items():
-                memaccesses = instr.memory_accesses
-                if any(a.is_stack_address for a in memaccesses):
-                    stacklayout.add_access(instr)
-                if instr.is_call_instruction:
-                    stacklayout.add_access(instr)
-            self._stacklayout = stacklayout
-        return self._stacklayout
 
     def globalrefs(self) -> Dict[str, List["GlobalReference"]]:
         if self._globalrefs is None:

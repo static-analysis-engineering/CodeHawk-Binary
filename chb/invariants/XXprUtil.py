@@ -532,6 +532,40 @@ def memory_variable_to_lval_expression(
     return astree.mk_temp_lval_expression()
 
 
+def stack_variable_to_lval_expression(
+        offset: "VMemoryOffset",
+        xdata: "InstrXData",
+        iaddr: str,
+        astree: ASTInterface,
+        size: int = 4,
+        anonymous: bool = False) -> AST.ASTExpr:
+
+    if offset.is_constant_value_offset:
+        stackoffset = offset.offsetvalue()
+        stacklval = astree.mk_stack_variable_lval(stackoffset)
+        return astree.mk_lval_expr(stacklval, anonymous=anonymous)
+
+    if offset.is_constant_offset:
+        stackoffset = offset.offsetconstant
+        if not stackoffset in astree.stack_varinfos:
+            chklogger.logger.warning(
+                "No stack varinfo found at offset %s at address %s",
+                str(stackoffset), iaddr)
+            return astree.mk_temp_lval_expression()
+
+        vinfo = astree.stack_varinfos[stackoffset]
+        if offset.offset.is_array_index_offset:
+            arrayoffset = cast("VMemoryOffsetArrayIndexOffset", offset.offset)
+            astoffset = array_offset_to_ast_offset(
+                arrayoffset, xdata, iaddr, astree, anonymous=anonymous)
+            return astree.mk_vinfo_lval_expression(
+                vinfo, astoffset, anonymous=anonymous)
+
+    chklogger.logger.warning(
+        "Stack variable offset %s of %s not yet handled at address %s",
+        str(offset.offset), str(vinfo), iaddr)
+    return astree.mk_temp_lval_expression()
+
 def global_variable_to_lval_expression(
         offset: "VMemoryOffset",
         xdata: "InstrXData",
@@ -943,9 +977,8 @@ def xvariable_to_ast_def_lval_expression(
 
     if xvar.is_local_stack_variable:
         stackvar = cast("VMemoryVariable", xvar.denotation)
-        offset = stackvar.offset.offsetvalue()
-        stacklval = astree.mk_stack_variable_lval(offset)
-        return astree.mk_lval_expr(stacklval, anonymous=anonymous)
+        return stack_variable_to_lval_expression(
+            stackvar.offset, xdata, iaddr, astree, anonymous=anonymous)
 
     if xvar.is_memory_variable:
         memvar = cast("VMemoryVariable", xvar.denotation)

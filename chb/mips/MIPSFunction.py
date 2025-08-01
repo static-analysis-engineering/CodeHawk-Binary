@@ -37,10 +37,10 @@ from chb.api.InterfaceDictionary import InterfaceDictionary
 from chb.app.BasicBlock import BasicBlock
 from chb.app.BDictionary import BDictionary
 from chb.app.Cfg import Cfg
-from chb.app.FnStackFrame import FnStackFrame
 from chb.app.Function import Function
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.FunctionDictionary import FunctionDictionary
+from chb.app.FunctionStackframe import FunctionStackframe
 from chb.app.StringXRefs import StringsXRefs
 
 from chb.bctypes.BCDictionary import BCDictionary
@@ -88,7 +88,7 @@ class MIPSFunction(Function):
         self._cfg: Optional[MIPSCfg] = None
         self._mipsfnd: Optional[FunctionDictionary] = None
         self._addressreference: Dict[str, str] = {}
-        self._stackframe: Optional[FnStackFrame] = None
+        self._stackframe: Optional[FunctionStackframe] = None
 
     @property
     def models(self) -> ModelsAccess:
@@ -165,11 +165,11 @@ class MIPSFunction(Function):
         return self._cfg
 
     @property
-    def stackframe(self) -> FnStackFrame:
+    def stackframe(self) -> FunctionStackframe:
         if self._stackframe is None:
             snode = self.xnode.find("stackframe")
             if snode is not None:
-                self._stackframe = FnStackFrame(self, snode)
+                self._stackframe = FunctionStackframe(self, snode)
             else:
                 raise UF.CHBError(
                     "Element stackframe missing from function xml")
@@ -344,18 +344,9 @@ class MIPSFunction(Function):
             stacklayout: bool = False) -> str:
         lines: List[str] = []
         if stacklayout:
-            stackframelayout = self.stacklayout()
-            lines.append(".~" * 40)
-            lines.append(str(stackframelayout))
-            lines.append(".~" * 40)
             lines.append(".~" * 40)
             lines.append(str(self.stackframe))
             lines.append(".~" * 40)
-            lines.append("Offsets")
-            lines.append("\n".join("  " + str(b) + " (" + str(score) + ")" for (b, score) in self.stackframe.offset_layout()))
-            lines.append("=" * 80)
-            lines.append("Buffer score:")
-            lines.append("\n".join("  " + str(s) + ": " + str(c) for (s,c) in self.stackframe.buffer_partition().items()))
         if proofobligations:
             lines.append(str(self.proofobligations))
             lines.append(".~" * 40)

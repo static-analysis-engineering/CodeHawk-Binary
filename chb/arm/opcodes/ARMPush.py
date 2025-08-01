@@ -192,6 +192,7 @@ class ARMPush(ARMOpcode):
         if not xd.is_ok:
             chklogger.logger.error(
                 "Encountered error value at address %s", iaddr)
+            return ([], [])
 
         splhs = xd.splhs
         memlhss = xd.lhsvars

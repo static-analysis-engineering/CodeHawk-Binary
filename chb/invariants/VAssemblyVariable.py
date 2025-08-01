@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -257,7 +257,7 @@ class VMemoryVariable(VAssemblyVariable):
         return (
             self.base.is_local_stack_frame
             and self.offset.is_constant_offset
-            and self.offset.offsetvalue() < 0)
+            and self.offset.offsetconstant < 0)
 
     @property
     def is_return_address(self) -> bool:
