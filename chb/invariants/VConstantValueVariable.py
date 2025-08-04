@@ -58,9 +58,10 @@ and constant_value_variable_t =
       * ctxt_iaddress_t
   | CallTargetValue of call_target_t               "ct"       1      1
   | SideEffectValue of                             "se"       2      2
-      ctxt_iaddress_t
+      btype_t option
+      * ctxt_iaddress_t
       * string
-      * bool
+      * sideeffect_argument_location_t
   | BridgeVariable of ctxt_iaddress_t * int        "bv"       2      1
   | FieldValue of string * int * string            "fv"       1      3
   | SymbolicValue of xpr_t                         "sv"       1      1
@@ -77,6 +78,7 @@ from chb.api.CallTarget import CallTarget
 from chb.app.Register import Register
 
 from chb.invariants.FnDictionaryRecord import FnVarDictionaryRecord, varregistry
+from chb.invariants.SideeffectArgumentLocation import SideeffectArgumentLocation
 from chb.invariants.VMemoryBase import VMemoryBase
 from chb.invariants.VMemoryOffset import VMemoryOffset
 
@@ -791,7 +793,8 @@ class SideEffectValue(VConstantValueVariable):
 
     tags[1]: callsite
     args[0]: index of argument description in bdictionary
-    args[1]: 1 if global, 0 otherwise
+    args[1]: index of type of sideeffect value in bcdictionary or -1 if None
+    args[2]: index of sideeffect argument location in vardictionary
     """
 
     def __init__(
@@ -809,8 +812,14 @@ class SideEffectValue(VConstantValueVariable):
         return self.bd.string(self.args[0])
 
     @property
-    def is_global(self) -> bool:
-        return self.args[1] == 1
+    def value_type(self) -> Optional["BCTyp"]:
+        if self.args[1] == -1:
+            return None
+        return self.bcd.typ(self.args[1])
+
+    @property
+    def argument_location(self) -> SideeffectArgumentLocation:
+        return self.vd.sideeffect_argument_location(self.args[2])
 
     @property
     def is_side_effect_value(self) -> bool:

@@ -117,6 +117,13 @@ class XVariable(FnXprDictionaryRecord):
             and self.denotation.auxvar.is_function_return_value)
 
     @property
+    def is_sideeffect_value(self) -> bool:
+        return (
+            self.has_denotation()
+            and self.denotation.is_auxiliary_variable
+            and self.denotation.auxvar.is_side_effect_value)
+
+    @property
     def is_typecast_value(self) -> bool:
         return (
             self.has_denotation()

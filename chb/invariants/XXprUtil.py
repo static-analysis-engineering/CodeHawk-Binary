@@ -107,11 +107,13 @@ from chb.util.loggingutil import chklogger
 if TYPE_CHECKING:
     from chb.app.InstrXData import InstrXData
     from chb.invariants.InvariantFact import InvariantFact
+    from chb.invariants.SideeffectArgumentLocation import (
+        SideeffectArgumentLocation, SideeffectArgumentStackLocation)
     from chb.invariants.VAssemblyVariable import (
         VMemoryVariable, VAuxiliaryVariable, VRegisterVariable)
     from chb.invariants.VConstantValueVariable import (
         VInitialRegisterValue, VInitialMemoryValue, VFunctionReturnValue,
-        VTypeCastValue, SymbolicValue)
+        VTypeCastValue, SideEffectValue, SymbolicValue)
     from chb.invariants.VMemoryBase import (
         VMemoryBase,
         VMemoryBaseBaseVar,
@@ -1004,6 +1006,17 @@ def xvariable_to_ast_def_lval_expression(
                 str(tcvar), iaddr)
         return astree.mk_temp_lval_expression()
 
+    if xvar.is_sideeffect_value:
+        sevar = cast("SideEffectValue", xvar.denotation.auxvar)
+        argloc = sevar.argument_location
+        if argloc.is_stack_location:
+            argloc = cast("SideeffectArgumentStackLocation", argloc)
+            offset = argloc.offset
+            if offset in astree.stack_varinfos:
+                sevarinfo = astree.stack_varinfos[offset]
+                stacklval = astree.mk_stack_variable_lval(offset)
+                return astree.mk_lval_expr(stacklval)
+
     if not anonymous:
         chklogger.logger.error(
             "AST def conversion of variable %s to lval-expression at address "
@@ -1546,6 +1559,27 @@ def stack_variable_to_ast_lval(
                 "Stack variable with size %d not yet supported at addresss %s",
                 size, iaddr)
         return astree.mk_temp_lval()
+
+    if offset.is_constant_offset:
+        stackoffset = offset.offsetconstant
+        if not stackoffset in astree.stack_varinfos:
+            chklogger.logger.warning(
+                "No stack varinfo found at offset %s at address %s",
+                str(stackoffset), iaddr)
+            return astree.mk_temp_lval()
+
+        vinfo = astree.stack_varinfos[stackoffset]
+        if offset.offset.is_field_offset:
+            fldoffset = cast("VMemoryOffsetFieldOffset", offset.offset)
+            astoffset = field_offset_to_ast_offset(
+                fldoffset, xdata, iaddr, astree, anonymous=anonymous)
+            return astree.mk_vinfo_lval(vinfo, offset=astoffset, anonymous=anonymous)
+
+        if not anonymous:
+            chklogger.logger.warning(
+                "Stack variable with offset %s not yet supported at address %s",
+                str(stackoffset), iaddr)
+            return astree.mk_temp_lval()
 
     if not anonymous:
         chklogger.logger.error(

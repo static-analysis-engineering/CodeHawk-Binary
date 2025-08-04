@@ -147,6 +147,25 @@ class BTermIndexSize(BTerm):
         return "index-size(" + str(self.bterm) + ")"
 
 
+@apiregistry.register_tag("r", BTerm)
+class BTermReturnValue(BTerm):
+    """Return value
+
+    args[0]: index of bterm in interface dictionary
+    """
+
+    def __init__(
+            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
+        BTerm.__init__(self, ixd, ixval)
+
+    @property
+    def bterm(self) -> BTerm:
+        return self.id.bterm(self.args[0])
+
+    def __str__(self) -> str:
+        return "return-value(" + str(self.bterm) + ")"
+
+
 @apiregistry.register_tag("c", BTerm)
 class BTermNumConstant(BTerm):
     """Constant numerical term.
@@ -161,6 +180,25 @@ class BTermNumConstant(BTerm):
     @property
     def constant(self) -> int:
         return int(self.tags[1])
+
+    def __str__(self) -> str:
+        return str(self.constant)
+
+
+@apiregistry.register_tag("n", BTerm)
+class BTermNamedConstant(BTerm):
+    """String constant.
+
+    tags[1]: numerical value represented as a string
+    """
+
+    def __init__(
+            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
+        BTerm.__init__(self, ixd, ixval)
+
+    @property
+    def constant(self) -> str:
+        return self.bd.string(self.args[0])
 
     def __str__(self) -> str:
         return str(self.constant)
