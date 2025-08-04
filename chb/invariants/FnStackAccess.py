@@ -51,6 +51,7 @@ from chb.util.IndexedTable import IndexedTableValue
 if TYPE_CHECKING:
     from chb.bctypes.BCTyp import BCTyp
     from chb.invariants.FnVarDictionary import FnVarDictionary
+    from chb.invariants.VMemoryOffset import VMemoryOffset
     from chb.invariants.XVariable import XVariable
     from chb.invariants.XXpr import XXpr
 
@@ -173,8 +174,10 @@ class FnStackLoad(FnStackAccess):
         return self.xd.variable(self.args[0])
 
     @property
-    def offset(self) -> int:
-        return self.args[1]
+    def offset(self) -> "VMemoryOffset":
+        """Returns offset relative to the stack slot it is part of."""
+
+        return self.vd.memory_offset(self.args[1])
 
     @property
     def size(self) -> Optional[int]:
@@ -224,8 +227,10 @@ class FnStackStore(FnStackAccess):
         return self.xd.variable(self.args[0])
 
     @property
-    def offset(self) -> int:
-        return self.args[1]
+    def offset(self) -> "VMemoryOffset":
+        """Returns offset relative to the stack slot it is part of."""
+
+        return self.vd.memory_offset(self.args[1])
 
     @property
     def size(self) -> Optional[int]:

@@ -40,6 +40,8 @@ if TYPE_CHECKING:
     from chb.app.Register import Register
     from chb.bctypes.BCDictionary import BCDictionary
     from chb.bctypes.BCTyp import BCTyp
+    from chb.invariants.FnStackAccess import FnStackAccess
+    from chb.invariants.FnVarDictionary import FnVarDictionary
 
 
 class Stackslot:
@@ -87,8 +89,9 @@ class Stackslot:
         return self.spill is not None
 
     def __str__(self) -> str:
-        pty = " (" + str(self.btype) + "}" if self.btype is not None else ""
-        return str(self.offset) + ": " + self.name + pty
+        pty = " (" + str(self.btype) + ")" if self.btype is not None else ""
+        psi = " (size: " + str(self.size) + ")" if self.size is not None else ""
+        return self.name + pty + psi
 
 
 class FunctionStackframe:
@@ -97,6 +100,7 @@ class FunctionStackframe:
         self._fn = fn
         self._xnode = xnode
         self._stackslots: Optional[Dict[int, Stackslot]] = None
+        self._accesses: Optional[Dict[int, List[Tuple[str, "FnStackAccess"]]]] = None
 
     @property
     def function(self) -> "Function":
@@ -111,7 +115,11 @@ class FunctionStackframe:
         return self.function.bcd
 
     @property
-    def saved_registers(self) -> Dict[int, Register]:
+    def vardictionary(self) -> "FnVarDictionary":
+        return self.function.vardictionary
+
+    @property
+    def saved_registers(self) -> Dict[int, "Register"]:
         result: Dict[int, Register] = {}
         for (offset, stackslot) in self.stackslots.items():
             if stackslot.spill is not None:
@@ -124,7 +132,7 @@ class FunctionStackframe:
             self._stackslots = {}
             xsnode = self._xnode.find("stack-slots")
             if xsnode is not None:
-                xslots = xsnode.findall("slots")
+                xslots = xsnode.findall("slot")
                 for xslot in xslots:
                     stackslot = Stackslot(self, xslot)
                     self._stackslots[stackslot.offset] = stackslot
@@ -138,8 +146,30 @@ class FunctionStackframe:
 
         return self.stackslots.get(offset, None)
 
+    @property
+    def accesses(self) -> Dict[int, List[Tuple[str, "FnStackAccess"]]]:
+        if self._accesses is None:
+            self._accesses = {}
+            sanode = self._xnode.find("stack-accesses")
+            if sanode is not None:
+                for xoff in sanode.findall("offset"):
+                    offset = xoff.get("n")
+                    if offset is not None:
+                        stackoffset = int(offset)
+                        offsetacc: List[Tuple[str, FnStackAccess]] = []
+                        self._accesses[stackoffset] = offsetacc
+                        for xsa in xoff.findall("sa"):
+                            iaddr = xsa.get("addr", "0x0")
+                            sa = self.vardictionary.read_xml_stack_access(xsa)
+                            offsetacc.append((iaddr, sa))
+        return self._accesses
+
     def __str__(self) -> str:
         lines: List[str] = []
-        for (offset, stackslot) in self.stackslots.items():
+        for (offset, stackslot) in sorted(self.stackslots.items(), reverse=True):
             lines.append(str(offset).rjust(5) + "  " + str(stackslot))
+            if offset in self.accesses:
+                for (iaddr, acc) in self.accesses[offset]:
+                    lines.append(" ".rjust(10) + iaddr + ": " + str(acc))
+                lines.append("")
         return "\n".join(lines)

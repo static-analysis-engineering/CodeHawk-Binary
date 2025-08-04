@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ from typing import Callable, List, Optional, Tuple, TYPE_CHECKING
 from chb.invariants.FnDictionaryRecord import varregistry
 from chb.invariants.FnStackAccess import FnStackAccess
 from chb.invariants.FnXprDictionary import FnXprDictionary
+from chb.invariants.SideeffectArgumentLocation import SideeffectArgumentLocation
 from chb.invariants.VAssemblyVariable import VAssemblyVariable
 from chb.invariants.VConstantValueVariable import VConstantValueVariable
 from chb.invariants.VMemoryBase import VMemoryBase
@@ -63,6 +64,8 @@ class FnVarDictionary:
         self._xd: Optional[FnXprDictionary] = None
         self.memory_base_table = IT.IndexedTable('memory-base-table')
         self.memory_offset_table = IT.IndexedTable('memory-offset-table')
+        self.sideeffect_argument_location_table = IT.IndexedTable(
+            "sideeffect-argument-location-table")
         self.assembly_variable_denotation_table = IT.IndexedTable(
             "assembly-variable-denotation-table")
         self.constant_value_variable_table = IT.IndexedTable(
@@ -71,6 +74,7 @@ class FnVarDictionary:
         self.tables: List[IT.IndexedTable] = [
             self.memory_base_table,
             self.memory_offset_table,
+            self.sideeffect_argument_location_table,
             self.assembly_variable_denotation_table,
             self.constant_value_variable_table,
             self.stack_access_table
@@ -138,6 +142,16 @@ class FnVarDictionary:
                 self, self.memory_offset_table.retrieve(ix), VMemoryOffset)
         else:
             raise UF.CHBError("Illegal memory offset index value: " + str(ix))
+
+    def sideeffect_argument_location(
+            self, ix: int) -> SideeffectArgumentLocation:
+        if ix > 0:
+            return varregistry.mk_instance(
+                self,
+                self.sideeffect_argument_location_table.retrieve(ix),
+                SideeffectArgumentLocation)
+        else:
+            raise UF.CHBError("Illegal sideeffect argument location: " + str(ix))
 
     def assembly_variable_denotation(self, ix: int) -> VAssemblyVariable:
         if ix > 0:
