@@ -15,7 +15,7 @@
 		"0x1004": {
 		    "mn": "MOV",
 		    "invs": [ "SP == (SP_in - 0x4)",
-			      "var_0004 == R11_in" ]
+			      "R11_spill == R11_in" ]
 		},
 		"0x1008": {
 		    "mn": "MOV",
