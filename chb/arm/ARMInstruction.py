@@ -336,7 +336,10 @@ class ARMInstruction(Instruction):
             jumptable = cast(
                 "ARMJumpTable", self.armfunction.get_jumptable(self.iaddr))
             indexop = jumptable.index_operand
-            condition = self.xdata.xprs_r[1]
+            if self.xdata.is_cxpr_ok(0):
+                condition = self.xdata.cxprs_r[0]
+            else:
+                condition = self.xdata.xprs_r[1]
             if condition is not None:
                 (ll_cond, _, _) = indexop.ast_rvalue(astree)
                 hl_cond = XU.xxpr_to_ast_def_expr(
