@@ -731,18 +731,14 @@ def parse() -> argparse.Namespace:
         help="do not include annotations in printed C code",
         action="store_true")
     buildast.add_argument(
-        "--remove_edges",
-        nargs="*",
-        default=[],
-        help="list of edges to be removed (in the form faddr:src-addr:tgt-addr in hex)")
-    buildast.add_argument(
-        "--add_edges",
-        nargs="*",
-        default=[],
-        help="list of edges to be added (in the form faddr:src-addr:tgt-addr in hex)")
-    buildast.add_argument(
         "--verbose", "-v",
         action="store_true")
+    buildast.add_argument(
+        "--show_reachingdefs",
+        help="create a dot file for the reaching defs of <addr>:<reg>")
+    buildast.add_argument(
+        "--output_reachingdefs",
+        help="name of output file (without extension) to store dot/pdf file of reachingdefs")
     buildast.add_argument(
         "--loglevel", "-log",
         choices=UL.LogLevel.options(),

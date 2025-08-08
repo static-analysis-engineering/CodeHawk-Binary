@@ -291,6 +291,17 @@ class Instruction(ABC):
     def return_value(self) -> Optional[XXpr]:
         return None
 
+    def reaching_definitions(self, var: str) -> List[str]:
+        rdefs = self.xdata.reachingdefs
+        result: List[str] = []
+        for rdef in rdefs:
+            if rdef is not None:
+                if str(rdef.variable) == var:
+                    for loc in rdef.deflocations:
+                        if str(loc) not in result:
+                            result.append(str(loc))
+        return result
+
     def assembly_ast(self, astree: ASTInterface) -> List[AST.ASTInstruction]:
         raise UF.CHBError("assembly-ast not defined")
 

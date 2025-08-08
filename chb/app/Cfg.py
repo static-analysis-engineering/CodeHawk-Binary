@@ -815,6 +815,14 @@ class Cfg:
         else:
             return []
 
+    def exitblocks(self) -> Sequence[str]:
+        blocks = list(self.blocks.keys())
+        result: List[str] = []
+        for b in blocks:
+            if not b in self.edges or len(self.edges[b]) == 0:
+                result.append(b)
+        return result
+
     def __str__(self) -> str:
         lines: List[str] = []
         lines.append("Basic blocks: ")
