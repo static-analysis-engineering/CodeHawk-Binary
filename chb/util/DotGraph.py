@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2025 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -43,6 +43,17 @@ def sanitize(s: str) -> str:
                                 "}", "\\}")
 
 
+def sanitize_record_format(s: str) -> str:
+    """Don't escape curly braces to preserve record layout."""
+    if s is not None:
+        return s.replace(
+            '>', "\\>").replace(
+                '"', '\\"').replace(
+                    '%', "\\%").replace(
+                        "<", "\\<")
+
+
+
 class DotNode:
 
     def __init__(
@@ -50,11 +61,15 @@ class DotNode:
             name: str,
             labeltxt: Optional[str] = None,
             color: Optional[str] = None,
-            shaded: bool = False) -> None:
+            fillcolor: Optional[str] = None,
+            shaded: bool = False,
+            penwidth: int = 0) -> None:
         self.name = name
         self.labeltxt = labeltxt
         self.shaded = shaded
         self.color = color
+        self.fillcolor = fillcolor
+        self.penwidth = penwidth
         self.addquotes = True
 
     def set_label(self, s: str) -> None:
@@ -75,15 +90,24 @@ class DotNode:
             labeltxt = 'label="' + self.name + '\\n...."'
         else:
             labeltxt = 'label="' + self.labeltxt + '"'
-        if self.shaded:
-            shadetxt = 'style=filled,color=".7 .3 1.0"'
-        elif self.color is not None:
-            if self.color == "grey":
-                shadetxt = 'style=filled,fillcolor="grey",color="black",penwidth=5'
+        if not self.shaded:
+            if self.color is None:
+                styletxt = 'color="black",penwidth=2'
             else:
-                shadetxt = 'style=filled,color="' + self.color + '"'
+                styletxt = 'color="' + self.color + '",penwidth=2'
         else:
-            shadetxt = 'style=filled,color=".7 .3 1.0"'
+            if self.color is None and self.fillcolor is None:
+                styletxt = 'style=filled,fillcolor=".7 .3 1.0", color="black"'
+            elif self.color is not None and self.fillcolor is None:
+                styletxt = 'style=filled,fillcolor="' + self.color + '"'
+            elif self.fillcolor is not None and self.color is None:
+                styletxt = 'style=filled,fillcolor="' + self.fillcolor + '"'
+            elif self.fillcolor is not None:
+                styletxt = (
+                    'style=filled,fillcolor="' + self.fillcolor
+                    + '",color="' + '"')
+            else:
+                styletext = ('style=filled, fillcolor=".7 .3 1.0"')
         return (
             quote
             + self.name
@@ -91,7 +115,7 @@ class DotNode:
             + ' ['
             + labeltxt
             + ','
-            + shadetxt
+            + styletxt
             + '];')
 
 
@@ -188,14 +212,23 @@ class DotGraph:
             self,
             name: str,
             labeltxt: Optional[str] = None,
+            recordformat: bool = False,
             shaded: bool = False,
-            color: Optional[str] = None) -> None:
+            color: Optional[str] = None,
+            fillcolor: Optional[str] = None) -> None:
         if name not in self.nodes:
             if labeltxt is None:
                 labeltxt = name
-            labeltxt = sanitize(labeltxt)
+            if recordformat:
+                labeltxt = sanitize_record_format(labeltxt)
+            else:
+                labeltxt = sanitize(labeltxt)
             self.nodes[name] = DotNode(
-                name, labeltxt=labeltxt, shaded=shaded, color=color)
+                name,
+                labeltxt=labeltxt,
+                shaded=shaded,
+                fillcolor=fillcolor,
+                color=color)
 
     def add_edge(
             self,

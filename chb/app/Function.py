@@ -474,6 +474,12 @@ class Function(ABC):
         else:
             raise UF.CHBError("Block " + baddr + " not found in " + self.faddr)
 
+    def containing_block(self, iaddr: str) -> str:
+        for (baddr, b) in self.blocks.items():
+            if b.has_instruction(iaddr):
+                return baddr
+        raise UF.CHBError("Containing block not found for instruction address " + iaddr)
+
     def load_instructions(self) -> Mapping[str, Sequence[Instruction]]:
         """Return a mapping of block address to instructions that save to memory."""
 

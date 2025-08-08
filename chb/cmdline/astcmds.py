@@ -57,9 +57,13 @@ import chb.cmdline.commandutil as UC
 from chb.cmdline.PatchResults import PatchResults, PatchEvent
 import chb.cmdline.XInfo as XI
 
+from chb.graphics.DotRdefPath import DotRdefPath
+
 from chb.userdata.UserHints import UserHints
 
+import chb.util.dotutil as UD
 import chb.util.fileutil as UF
+import chb.util.graphutil as UG
 from chb.util.loggingutil import chklogger, LogLevel
 
 
@@ -144,8 +148,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     xpatchresultsfile = args.patch_results_file
     hide_globals: bool = args.hide_globals
     hide_annotations: bool = args.hide_annotations
-    remove_edges: List[str] = args.remove_edges
-    add_edges: List[str] = args.add_edges
+    show_reachingdefs: str = args.show_reachingdefs
+    output_reachingdefs: str = args.output_reachingdefs
     verbose: bool = args.verbose
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
@@ -385,6 +389,57 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 print("\nUnable to generate a lifting for " + faddr)
                 functions_failed += 1
                 continue
+
+            if show_reachingdefs is not None:
+                if output_reachingdefs is None:
+                    UC.print_error("\nSpecify a file to save the reaching defs")
+                    continue
+
+                rdefspec = show_reachingdefs.split(":")
+                if len(rdefspec) != 2:
+                    UC.print_error(
+                        "\nArgument to show_reachingdefs not recognized")
+                    continue
+
+                useloc = rdefspec[0]
+                register = rdefspec[1]
+
+                if not f.has_instruction(useloc):
+                    UC.print_status_update("Useloc: " + useloc + " not found")
+                    continue
+
+                tgtinstr = f.instruction(useloc)
+
+                if not register in f.rdef_locations():
+                    UC.print_status_update(
+                        "Register " + register + " not found in rdeflocations")
+                    continue
+
+                cblock = f.containing_block(useloc)
+                graph = UG.DirectedGraph(list(f.cfg.blocks.keys()), f.cfg.edges)
+                rdefs = tgtinstr.reaching_definitions(register)
+                dotpaths: List[DotRdefPath] = []
+                graph.find_paths(f.faddr, cblock)
+                for (i, p) in enumerate(
+                    sorted(graph.get_paths(), key=lambda p: len(p))):
+                    cfgpath = DotRdefPath(
+                        "path" + str(i),
+                        f,
+                        astinterface,
+                        p,
+                        subgraph=True,
+                        nodeprefix = str(i) +":",
+                        rdefinstrs = rdefs)
+                    dotpaths.append(cfgpath)
+
+                pdffilename = UD.print_dot_subgraphs(
+                    app.path,
+                    "paths",
+                    output_reachingdefs,
+                    "pdf",
+                    [dotcfg.build() for dotcfg in dotpaths])
+
+                UC.print_status_update("Printed " + pdffilename)
 
         else:
             UC.print_error("Unable to find function " + faddr)

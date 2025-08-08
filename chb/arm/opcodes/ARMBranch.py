@@ -216,7 +216,9 @@ class ARMBranch(ARMCallOpcode):
     def ft_conditions(self, xdata: InstrXData) -> Sequence[XXpr]:
         xd = ARMBranchXData(xdata)
         if xdata.has_branch_conditions():
-            if xd.is_ok:
+            if xd.is_ctcond_ok:
+                return [xd.cfcond, xd.ctcond]
+            elif xd.is_ok:
                 return [xd.fcond, xd.tcond]
             else:
                 return [xd.fxpr, xd.txpr]
