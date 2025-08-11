@@ -988,6 +988,7 @@ class ASTInterface:
         for (reg, locs) in rdeflocs.items():
             for lst in locs:
                 if len(lst) > 0:
+                    # print("DEBUG: " + str(reg) + ": [" + ", ".join(str(loc) for loc in lst) + "]")
                     loc1 = lst[0]
                     vtype = None
                     if loc1 in ftypes:
