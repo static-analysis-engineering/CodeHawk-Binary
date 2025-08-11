@@ -405,7 +405,7 @@ class ASTInterfaceFunction(ASTFunction):
                     else:
                         originalLR = False
                         for inv in instr.invariants:
-                            if str(inv.variable) == "LR" and inv.is_initial_var_equality:
+                            if inv.is_initial_var_equality and str(inv.variable) == "LR":
                                 originalLR = True
                                 break
 
