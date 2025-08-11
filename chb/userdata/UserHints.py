@@ -635,7 +635,41 @@ class TypingRule:
             "action: " + self.action
             + "; locs: [" + ", ".join(self.locs) + "]"
             + "; name: " + self.name)
-            
+
+
+class RemoveReachingDefinitions:
+
+    def __init__(self, rdefspec: Dict[str, Any]) -> None:
+        self._rdefspec = rdefspec
+
+    @property
+    def rdefspec(self) -> Dict[str, Any]:
+        return self._rdefspec
+
+    @property
+    def uselocs(self) -> List[str]:
+        return self.rdefspec.get("uselocs", [])
+
+    @property
+    def rdeflocs(self) -> List[str]:
+        return self.rdefspec.get("rdeflocs", [])
+
+    @property
+    def var(self) -> str:
+        return self.rdefspec.get("var", "__no_var__")
+
+    def to_xml(self, node: ET.Element) -> None:
+        xremrdef = ET.Element("remove-var-rdefs")
+        node.append(xremrdef)
+        xremrdef.set("var", self.var)
+        xremrdef.set("uselocs", ",".join(self.uselocs))
+        xremrdef.set("rdeflocs", ",".join(self.rdeflocs))
+
+    def __str__(self) -> str:
+        return (
+            "var: " + self.var
+            + "; uselocs: " + ", ".join(self.uselocs)
+            + "; rdeflocs: " + ", ".join(self.rdeflocs))
 
 
 class FunctionAnnotation:
@@ -678,6 +712,14 @@ class FunctionAnnotation:
             result.append(tr)
         return result
 
+    @property
+    def remove_reaching_definitions(self) -> List[RemoveReachingDefinitions]:
+        result: List[RemoveReachingDefinitions] = []
+        for d in self.fnannotation.get("remove-reaching-definitions", []):
+            rrd = RemoveReachingDefinitions(d)
+            result.append(rrd)
+        return result
+
     def has_register_variable_introduction(self, iaddr: str) -> bool:
         return iaddr in self.register_variable_introductions
 
@@ -714,6 +756,11 @@ class FunctionAnnotation:
             node.append(xtypingrules)
             for tr in self.typingrules:
                 tr.to_xml(xtypingrules)
+        if len(self.remove_reaching_definitions) > 0:
+            xrrds = ET.Element("remove-rdefs")
+            node.append(xrrds)
+            for rd in self.remove_reaching_definitions:
+                rd.to_xml(xrrds)
 
     def __str__(self) -> str:
         lines: List[str] = []
