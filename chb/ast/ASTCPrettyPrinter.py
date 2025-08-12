@@ -501,7 +501,7 @@ class ASTCPrettyPrinter(ASTVisitor):
             memexpb = cast(AST.ASTBinaryOp, memref.memexp)
             exp1 = memexpb.exp1
             exp2 = memexpb.exp2
-            if exp1.is_ast_lval_expr:
+            if exp1.is_ast_lval_expr and memexpb.op == "plus":
                 exp1.accept(self)
                 self.ccode.write("[")
                 exp2.accept(self)
