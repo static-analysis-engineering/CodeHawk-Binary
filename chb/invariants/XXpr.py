@@ -1040,12 +1040,25 @@ class XprCompound(XXpr):
             else:
                 return "(" + self.operator + " " + str(args[0]) + ")"
         elif len(args) == 2:
-            return (
-                '('
-                + str(args[0])
-                + xpr_operator_strings[self.operator]
-                + str(args[1])
-                + ')')
+            if self.operator in xpr_operator_strings:
+                return (
+                    '('
+                    + str(args[0])
+                    + xpr_operator_strings[self.operator]
+                    + str(args[1])
+                    + ')')
+            elif self.operator == "xf_ror":
+                return "(" + str(args[0]) + " rotate-right " + str(args[1]) + ")"
+            else:
+                return (
+                    "("
+                    + str(args[0])
+                    + " "
+                    + self.operator
+                    + " "
+                    + str(args[1])
+                    + ")")
+
         else:
             return (
                 '('
