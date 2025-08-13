@@ -154,6 +154,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     xprint: bool = not args.json
     xssa: bool = args.ssa
     collectdiagnostics = args.collect_diagnostics
+    failonfunctionfailure = args.fail_on_function_failure
     xconstruct_all_functions: bool = args.construct_all_functions
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
@@ -311,6 +312,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
             iterations=10,
             save_asm=xsave_asm,
             collectdiagnostics=collectdiagnostics,
+            failonfunctionfailure=failonfunctionfailure,
             construct_all_functions=xconstruct_all_functions)
     except subprocess.CalledProcessError as e:
         print(e.output)

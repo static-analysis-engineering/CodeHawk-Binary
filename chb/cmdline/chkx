@@ -391,6 +391,10 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="save diagnostics in a separate diagnostics log file")
     analyzecmd.add_argument(
+        "--fail_on_function_failure",
+        action="store_true",
+        help="fail immediately if the analysis of one function fails")
+    analyzecmd.add_argument(
         "--thumb",
         nargs="*",
         default=[],
@@ -1381,6 +1385,10 @@ def parse() -> argparse.Namespace:
         "--collect_diagnostics",
         action="store_true",
         help="save diagnostic information in diagnostics log")
+    relationalprepare.add_argument(
+        "--fail_on_function_failure",
+        action="store_true",
+        help="fail immediately if the analysis of one function fails")
     relationalprepare.add_argument(
         "--hints",
         nargs="*",
