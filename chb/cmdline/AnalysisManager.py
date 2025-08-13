@@ -289,6 +289,7 @@ class AnalysisManager(object):
             extract: bool = False,
             verbose: bool = False,
             collectdiagnostics: bool = False,
+            failonfunctionfailure: bool = False,
             ignore_stable: bool = False,
             save_asm: bool = False,
             construct_all_functions: bool = False,
@@ -307,6 +308,7 @@ class AnalysisManager(object):
             verbose=verbose,
             construct_all_functions=construct_all_functions,
             collectdiagnostics=collectdiagnostics,
+            failonfunctionfailure=failonfunctionfailure,
             preamble_cutoff=preamble_cutoff)
         return result
 
@@ -446,6 +448,7 @@ class AnalysisManager(object):
             verbose: bool = False,
             construct_all_functions: bool = False,
             collectdiagnostics: bool = False,
+            failonfunctionfailure: bool = False,
             preamble_cutoff: int = 12) -> int:
         cwd = os.getcwd()
         os.chdir(self.path)   # temporary change in directory
@@ -500,6 +503,8 @@ class AnalysisManager(object):
             cmd.extend(["-lineq_block_cutoff", str(self.lineq_block_cutoff)])
         if self.include_arm_extension_registers:
             cmd.append("-arm_extension_registers")
+        if failonfunctionfailure:
+            cmd.append("-fail_on_function_failure")
 
         cmd.extend(["-analyze", self.filename])
         jarcmd = ["jar", "cf",  functionsjarfile, "-C", analysisdir, "functions"]

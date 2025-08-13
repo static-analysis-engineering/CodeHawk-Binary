@@ -396,6 +396,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     doextract: bool = args.extract
     verbose: bool = args.verbose
     collectdiagnostics: bool = args.collect_diagnostics
+    failonfunctionfailure: bool = args.fail_on_function_failure
     save_asm: bool = args.save_asm
     save_asm_cfg_info: bool = args.save_asm_cfg_info
     thumb: List[str] = args.thumb
@@ -424,6 +425,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
     logfilemode: str = args.logfilemode
+
+    failonfunctionfailure = failonfunctionfailure or len(fns_include) == 1
 
     if not os.path.isfile(Config().chx86_analyze):
         print_error(
@@ -586,6 +589,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 save_asm=save_asm,
                 construct_all_functions=construct_all_functions,
                 collectdiagnostics=collectdiagnostics,
+                failonfunctionfailure=failonfunctionfailure,
                 preamble_cutoff=preamble_cutoff)
         except subprocess.CalledProcessError as e:
             print_error(
