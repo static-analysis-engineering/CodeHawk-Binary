@@ -29,6 +29,7 @@
 """Contains the locations of various components used by the analyzer."""
 
 import os
+import platform
 
 from typing import Any, Dict, List
 
@@ -44,10 +45,12 @@ class Config():
 
     def __init__(self) -> None:
         # platform settings
-        if os.uname()[0] == 'Linux':
+        if platform.uname()[0] == 'Linux':
             self.platform = 'linux'
-        elif os.uname()[0] == 'Darwin':
+        elif platform.uname()[0] == 'Darwin':
             self.platform = 'macOS'
+        else:
+            self.platform = "Unknown"
 
         # general settings
         self.utildir = os.path.dirname(os.path.abspath(__file__))
