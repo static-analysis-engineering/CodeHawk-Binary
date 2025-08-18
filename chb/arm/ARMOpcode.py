@@ -395,64 +395,6 @@ class ARMOpcode(ARMDictionaryRecord):
         else:
             return (None, None)
 
-    def ast_variable_intro(
-            self,
-            astree: ASTInterface,
-            ctype: Optional[AST.ASTTyp],
-            hl_lhs: AST.ASTLval,
-            hl_rhs: AST.ASTExpr,
-            ll_lhs: AST.ASTLval,
-            ll_rhs: AST.ASTExpr,
-            hl_rdefs: List[Optional[ReachingDefFact]],
-            ll_rdefs: List[Optional[ReachingDefFact]],
-            defuses: Optional[DefUse],
-            defuseshigh: Optional[DefUseHigh],
-            addregdef: bool,
-            iaddr: str,
-            annotations: List[str],
-            bytestring: str) -> Tuple[
-                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-
-        ll_assign = astree.mk_assign(
-            ll_lhs,
-            ll_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-
-        regdef_lhs = hl_lhs
-
-        hl_assigns: List[AST.ASTInstruction] = []
-
-        hl_assign = astree.mk_assign(
-            hl_lhs,
-            hl_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-
-        if addregdef:
-            chklogger.logger.debug(
-                "Add register definition at %s for %s: %s with %s",
-                iaddr,
-                str(ll_lhs),
-                str(regdef_lhs),
-                str(hl_rhs))
-            astree.add_reg_definition(iaddr, regdef_lhs, hl_rhs)
-
-        hl_assigns = [hl_assign]
-
-        astree.add_instr_mapping(hl_assign, ll_assign)
-        astree.add_instr_address(hl_assign, [iaddr])
-        astree.add_expr_mapping(hl_rhs, ll_rhs)
-        astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(hl_rhs, hl_rdefs)
-        astree.add_expr_reachingdefs(ll_rhs, ll_rdefs)
-        astree.add_lval_defuses(hl_lhs, defuses)
-        astree.add_lval_defuses_high(hl_lhs, defuseshigh)
-
-        return (hl_assigns, [ll_assign])
-
     def ast_cc_expr(self, astree: ASTInterface) -> AST.ASTExpr:
         cc = self.mnemonic_extension()
 

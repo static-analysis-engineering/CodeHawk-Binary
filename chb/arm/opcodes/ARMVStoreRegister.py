@@ -40,8 +40,9 @@ from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -55,12 +56,16 @@ class ARMVStoreRegisterXData(ARMOpcodeXData):
     - variables
     0: vmem
 
+    - c variables:
+    0: cvmem
+
     - expressions:
     0: xsrc
     1: rxsrc
     2: xbase
     3: rxbase
     4: xaddr
+    5: xxaddr
     """
 
     def __init__(self, xdata: InstrXData) -> None:
@@ -73,6 +78,14 @@ class ARMVStoreRegisterXData(ARMOpcodeXData):
     @property
     def is_vmem_ok(self) -> bool:
         return self.is_var_ok(0)
+
+    @property
+    def cvmem(self) -> "XVariable":
+        return self.cvar(0, "cvmem")
+
+    @property
+    def is_cvmem_ok(self) -> bool:
+        return self.is_cvar_ok(0)
 
     @property
     def xsrc(self) -> "XXpr":
@@ -95,10 +108,39 @@ class ARMVStoreRegisterXData(ARMOpcodeXData):
         return self.xpr(4, "xaddr")
 
     @property
+    def is_xaddr_ok(self) -> bool:
+        return self.is_xpr_ok(4)
+
+    @property
+    def xxaddr(self) -> "XXpr":
+        return self.xpr(5, "xxaddr")
+
+    @property
+    def cxaddr(self) -> "XXpr":
+        return self.cxpr(1, "cxaddr")
+
+    @property
+    def is_cxaddr_ok(self) -> bool:
+        return self.is_cxpr_ok(1)
+
+    @property
+    def is_xxaddr_ok(self) -> bool:
+        return self.is_xpr_ok(5)
+
+    @property
     def annotation(self) -> str:
-        lhs = str(self.vmem)
+        clhs = str(self.cvmem) if self.is_cvmem_ok else "None"
+        assignc = "(C: " + clhs + " := " + str(self.rxsrc) + ")"
+        if self.is_vmem_ok:
+            lhs = str(self.vmem)
+        elif self.is_xxaddr_ok:
+            lhs = "*(" + str(self.xxaddr) + ")"
+        elif self.is_xaddr_ok:
+            lhs = "*(" + str(self.xaddr) + ")"
+        else:
+            lhs = "Error addr"
         rhs = str(self.rxsrc)
-        assign = lhs + " := " + rhs
+        assign = lhs + " := " + rhs + " " + assignc
         return self.add_instruction_condition(assign)
 
 
@@ -114,14 +156,8 @@ class ARMVStoreRegister(ARMOpcode):
     args[1]: index of Rn in armdictionary
     args[2]: index of memory location in armdictionary
 
-    xdata format: a:vxxxrrdh
+    xdata:
     ------------------------
-    vars[0]: lhs (vmem)
-    xprs[0]: expression to be stored
-    xprs[1]: expression to be stored rewritten
-    xprs[2]: base register expression
-    xprs[3]: base register expression rewritten
-    xprs[4]: address expression
     rdefs[0]: reaching def of src expression
     rdefs[1]: reaching def of base expression
     uses[0]: lhs
@@ -154,8 +190,12 @@ class ARMVStoreRegister(ARMOpcode):
 
         annotations: List[str] = [iaddr, "VSTR"]
 
-        (ll_rhs, _, _) = self.opargs[0].ast_rvalue(astree)
-        (ll_lhs, ll_preinstrs, ll_postinstrs) = self.opargs[2].ast_lvalue(astree)
+        # low-level assignment
+
+        (ll_rhs, _, _) = self.opargs[0].ast_rvalue(
+            astree, iaddr=iaddr, bytestring=bytestring)
+        (ll_lhs, ll_preinstrs, ll_postinstrs) = self.opargs[2].ast_lvalue(
+            astree, iaddr=iaddr, bytestring=bytestring)
         ll_assign = astree.mk_assign(
             ll_lhs,
             ll_rhs,
@@ -163,47 +203,50 @@ class ARMVStoreRegister(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[1]
-        xaddr = xdata.xprs[2]
+        # high-level assignment
+
+        xd = ARMVStoreRegisterXData(xdata)
+
+        if xd.is_cvmem_ok:
+            lhs = xd.cvmem
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+
+        elif xd.is_vmem_ok:
+            lhs = xd.vmem
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+
+        elif xd.is_cxaddr_ok:
+            memaddr = xd.cxaddr
+            hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+
+        elif xd.is_xxaddr_ok:
+            memaddr = xd.xxaddr
+            hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+
+        elif xd.is_xaddr_ok:
+            memaddr = xd.xaddr
+            hl_lhs = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
+
+        else:
+            chklogger.logger.error(
+                "VSTR: Lhs lval and address both have error values: skipping "
+                "vstore instruction at address %s", iaddr)
+            return ([], (ll_preinstrs + [ll_assign] + ll_postinstrs))
+
+        rhs = xd.rxsrc
+        xaddr = xd.xaddr
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
         hl_preinstrs: List[AST.ASTInstruction] = []
         hl_postinstrs: List[AST.ASTInstruction] = []
 
-        rhsexprs = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-
-        if len(rhsexprs) == 0:
-            raise UF.CHBError(
-                "VStoreRegister (VSTR): no rhs found")
-
-        if len(rhsexprs) > 1:
-            raise UF.CHBError(
-                "VStoreRegister (VSTR): multiple rhs values: "
-                + ", ".join(str(x) for x in rhsexprs))
-
-        hl_rhs = rhsexprs[0]
         hl_rhs_type = hl_rhs.ctype(astree.ctyper)
 
-        if lhs.is_tmp or lhs.has_unknown_memory_base():
-            hl_lhs = XU.xmemory_dereference_lval(xaddr, xdata, iaddr, astree)
-            astree.add_lval_store(hl_lhs)
-
-        else:
-            lvals = XU.xvariable_to_ast_lvals(lhs, xdata, astree, ctype=hl_rhs_type)
-            if len(lvals) == 0:
-                raise UF.CHBError(
-                    "VStoreRegister (VSTR): no lhs found")
-
-            if len(lvals) > 1:
-                raise UF.CHBError(
-                    "VStoreRegister (VSTR): multiple lhs values found: "
-                    + ", ".join(str(v) for v in lvals))
-
-            hl_lhs = lvals[0]
-            astree.add_lval_store(hl_lhs)
+        astree.add_lval_store(hl_lhs)
 
         hl_assign = astree.mk_assign(
             hl_lhs,

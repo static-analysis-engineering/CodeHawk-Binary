@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ from typing import List, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 from chb.ast.ARMIntrinsics import ARMIntrinsics
@@ -43,9 +43,40 @@ import chb.invariants.XXprUtil as XU
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
+
+
+class ARMVectorAbsoluteXData(ARMOpcodeXData):
+    """
+    Data format:
+    - variables:
+    0: vdst
+
+    - expressions
+    0: xsrc
+    1: rxsrc
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vdst(self) -> "XVariable":
+        return self.var(0, "vdst")
+
+    @property
+    def xsrc(self) -> "XXpr":
+        return self.xpr(0, "xsrc")
+
+    @property
+    def rxsrc(self) -> "XXpr":
+        return self.xpr(1, "rxsrc")
 
 
 @armregistry.register_tag("VABS", ARMOpcode)
@@ -79,8 +110,9 @@ class ARMVectorAbsolute(ARMOpcode):
         return [self.armd.arm_operand(self.args[i]) for i in [1, 2]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        lhs = str(xdata.vars[0])
-        rhs = str(xdata.xprs[1])
+        xd = ARMVectorAbsoluteXData(xdata)
+        lhs = str(xd.vdst)
+        rhs = str(xd.rxsrc)
         assign = lhs + " := fabs(" + str(rhs) + ") builtin"
         return assign
 
@@ -97,11 +129,7 @@ class ARMVectorAbsolute(ARMOpcode):
         fabsfvinfo = ARMIntrinsics().fabsf
         fabsftgt = astree.mk_vinfo_lval_expression(fabsfvinfo)
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[1]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+        # low-level assignment
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
@@ -113,30 +141,18 @@ class ARMVectorAbsolute(ARMOpcode):
             iaddr=iaddr,
             bytestring=bytestring)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lhsasts) == 0:
-            raise UF.CHBError(
-                "VectorAbsolute (VABS): no lval found")
+        # high-level assignment
 
-        if len(lhsasts) > 1:
-            raise UF.CHBError(
-                "VectorAbsolute (VABS): multiple lvals in ast: "
-                + ", ".join(str(v) for v in lhsasts))
+        xd = ARMVectorAbsoluteXData(xdata)
 
-        hl_lhs = lhsasts[0]
+        lhs = xd.vdst
+        rhs = xd.rxsrc
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        if len(rhsasts) == 0:
-            raise UF.CHBError(
-                "VectorAbsolute (VABS): no argument value found")
-
-        if len(rhsasts) > 1:
-            raise UF.CHBError(
-                "VectorAbsolute (VABS): "
-                + "multiple argument values in asts: "
-                + ", ".join(str(x) for x in rhsasts))
-
-        hl_rhs = rhsasts[0]
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         if astree.has_variable_intro(iaddr):
             vname = astree.get_variable_intro(iaddr)

@@ -119,16 +119,6 @@ class ARMVectorSubtract(ARMOpcode):
     args[1]: index of qd in armdictionary
     args[2]: index of qn in armdictionary
     args[3]: index of qm in armdictionary
-
-    xdata format:
-    -------------
-    vars[0]: lhs
-    xprs[0]: first source value
-    xprs[1]: second source value
-    xprs[2]: destination register value
-    xprs[3]: first source value rewritten
-    xprs[4]: second source value rewritten
-    xprs[5]: destination register value rewritten
     """
 
     def __init__(self, d: "ARMDictionary", ixval: IndexedTableValue) -> None:
@@ -165,6 +155,23 @@ class ARMVectorSubtract(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "VSUB"]
+
+        # low-level assignment
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_rhs = astree.mk_binary_op("minus", ll_rhs1, ll_rhs2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # high-level assignment
+
         xd = ARMVectorSubtractXData(xdata)
 
         lhs = xd.vdst
@@ -174,39 +181,25 @@ class ARMVectorSubtract(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
-        (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
-        (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
-        ll_rhs = astree.mk_binary_op("minus", ll_rhs1, ll_rhs2)
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs1 = XU.xxpr_to_ast_def_expr(rhs1, xdata, iaddr, astree)
+        hl_rhs2 = XU.xxpr_to_ast_def_expr(rhs2, xdata, iaddr, astree)
+        hl_rhs = astree.mk_binary_op("minus", hl_rhs1, hl_rhs2)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lhsasts) != 1:
-            raise UF.CHBError("ARMSubtract: no or multiple lvals in ast")
-
-        hl_lhs = lhsasts[0]
-
-        rhs1asts = XU.xxpr_to_ast_def_exprs(rhs1, xdata, iaddr, astree)
-        rhs2asts = XU.xxpr_to_ast_def_exprs(rhs2, xdata, iaddr, astree)
-        if len(rhs1asts) == 1 and len(rhs2asts) == 1:
-            rhsast1 = rhs1asts[0]
-            rhsast2 = rhs2asts[0]
-        else:
-            raise UF.CHBError(
-                "ARMVectorSubtract: multiple expressions in ast rhs")
-
-        hl_rhs = astree.mk_binary_op("minus", rhsast1, rhsast2)
-        return self.ast_variable_intro(
-            astree,
-            astree.astree.int_type,
+        hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
-            ll_lhs,
-            ll_rhs,
-            rdefs[2:],
-            rdefs[:2],
-            defuses[0],
-            defuseshigh[0],
-            True,
-            iaddr,
-            annotations,
-            bytestring)
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_expr_reachingdefs(ll_rhs, rdefs[:2])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

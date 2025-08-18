@@ -40,8 +40,9 @@ from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -62,6 +63,11 @@ class ARMVLoadRegisterXData(ARMOpcodeXData):
     2: xbase
     3: rxbase
     4: xaddr
+    5: xxaddr
+
+    - c expressions
+    0: cxmem
+    1: cxaddr
     """
 
     def __init__(self, xdata: InstrXData) -> None:
@@ -100,6 +106,14 @@ class ARMVLoadRegisterXData(ARMOpcodeXData):
         return self.is_xpr_ok(1)
 
     @property
+    def cxmem(self) -> "XXpr":
+        return self.cxpr(0, "cxmem")
+
+    @property
+    def is_cxmem_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def xbase(self) -> "XXpr":
         return self.xpr(2, "xbase")
 
@@ -124,10 +138,38 @@ class ARMVLoadRegisterXData(ARMOpcodeXData):
         return self.is_xpr_ok(4)
 
     @property
+    def xxaddr(self) -> "XXpr":
+        return self.xpr(5, "xxaddr")
+
+    @property
+    def is_xxaddr_ok(self) -> bool:
+        return self.is_xpr_ok(5)
+
+    @property
+    def cxaddr(self) -> "XXpr":
+        return self.cxpr(1, "cxaddr")
+
+    @property
+    def is_cxaddr_ok(self) -> bool:
+        return self.is_cxpr_ok(1)
+
+    @property
     def annotation(self) -> str:
-        lhs = str(self.vvd) if self.is_vvd_ok else "?"
-        rhs = str(self.rxmem) if self.is_rxmem_ok else "?"
-        assign = lhs + " := " + rhs
+        if self.is_cxmem_ok:
+            crhs = str(self.cxmem)
+        elif self.is_cxaddr_ok:
+            crhs = "*(" + str(self.cxaddr) + ")"
+        elif self.is_xaddr_ok:
+            crhs = "*(" + str(self.xaddr) + ")"
+        else:
+            crhs = "None"
+        cx = " (C: " + crhs + ")"
+        if self.is_ok or self.is_rxmem_ok:
+            assign = str(self.vvd) + " := " + str(self.rxmem) + cx
+        elif self.is_xaddr_ok:
+            assign = str(self.vvd) + " := *(" + str(self.xaddr) + ")" + cx
+        else:
+            assign = "error value"
         return self.add_instruction_condition(assign)
 
 
@@ -143,15 +185,8 @@ class ARMVLoadRegister(ARMOpcode):
     args[1]: index of Rn in armdictionary
     args[2]: index of memory location in armdictionary
 
-    xdata format: a:vvxxxrrrdh
+    xdata:
     --------------------------
-    vars[0]: lhs
-    vars[1]: memory location expressed as a variable
-    xprs[0]: value in memory location
-    xprs[1]: value in memory location rewritten
-    xprs[2]: value in base register
-    xprs[3]: value in base register rewritten
-    xprs[4]: address of memory location
     rdefs[0]: reaching definition memory value
     rdefs[1]: reaching definition base register
     uses[0]: lhs
@@ -187,6 +222,8 @@ class ARMVLoadRegister(ARMOpcode):
 
         annotations: List[str] = [iaddr, "VLDR"]
 
+        # low-level assignment
+
         (ll_rhs, ll_preinstrs, ll_postinstrs) = self.opargs[2].ast_rvalue(astree)
         (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
@@ -197,33 +234,36 @@ class ARMVLoadRegister(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[1]
-        memaddr = xdata.xprs[2]
+        # high-level assignment
+
+        xd = ARMVLoadRegisterXData(xdata)
+
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_preinstrs: List[AST.ASTInstruction] = []
-        hl_postinstrs: List[AST.ASTInstruction] = []
+        lhs = xd.vvd
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
 
-        rhsexprs = XU.xxpr_to_ast_exprs(rhs, xdata, iaddr, astree)
-        if len(rhsexprs) == 0:
-            raise UF.CHBError(
-                "VLoadRegister (VLDR): no rhs value found")
+        if xd.is_cxmem_ok:
+            rhs = xd.cxmem
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+        elif xd.is_rxmem_ok:
+            rhs = xd.rxmem
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+        elif xd.is_cxaddr_ok:
+            cxaddr = xd.cxaddr
+            hl_rhs = XU.xmemory_dereference_lval_expr(cxaddr, xdata, iaddr, astree)
+        elif xd.is_xaddr_ok:
+            xaddr = xd.xaddr
+            hl_rhs = XU.xmemory_dereference_lval_expr(xaddr, xdata, iaddr, astree)
 
-        if len(rhsexprs) > 1:
-            raise UF.CHBError(
-                "VLoadRegister (VLDR): multiple rhs values: "
-                + ", ".join(str(x) for x in rhsexprs))
+        else:
+            chklogger.logger.error(
+                "VLDR: both memory value and address values are error values "
+                "at address %s", iaddr)
+            return([], (ll_preinstrs + [ll_assign] + ll_postinstrs))
 
-        hl_rhs = rhsexprs[0]
-        if str(hl_rhs).startswith("__asttmp"):
-            addrlval = XU.xmemory_dereference_lval(memaddr, xdata, iaddr, astree)
-            hl_rhs = astree.mk_lval_expression(addrlval)
-
-        # hl_lhs = astree.mk_register_variable_lval(str(lhs))
-        hl_lhs = XU.xvariable_to_ast_lvals(lhs, xdata, astree)[0]
         hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,

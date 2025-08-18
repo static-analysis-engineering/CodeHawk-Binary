@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,7 @@ import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.invariants.XXprUtil as XU
@@ -44,6 +44,34 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMVMoveRegisterStatusXData(ARMOpcodeXData):
+    """
+    Data format:
+    - variables
+    0: vdst_r
+
+    - expressions
+    0: xsrc_r
+    """
+
+    def __init__(self, xdata: InstrXData):
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def vdst(self) -> "XVariable":
+        return self.var(0, "vdst")
+
+    @property
+    def xsrc(self) -> "XXpr":
+        return self.xpr(0, "xsrc")
+
+    @property
+    def annotation(self) -> str:
+        return str(self.vdst) + " := " + str(self.xsrc)
 
 
 @armregistry.register_tag("VMRS", ARMOpcode)
@@ -85,8 +113,10 @@ class ARMVMoveRegisterStatus(ARMOpcode):
 
         annotations: List[str] = [iaddr, "VMRS"]
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[0]
+        xd = ARMVMoveRegisterStatusXData(xdata)
+
+        lhs = xd.vdst
+        rhs = xd.xsrc
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh

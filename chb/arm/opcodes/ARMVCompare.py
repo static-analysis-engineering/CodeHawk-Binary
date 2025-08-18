@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import cast, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.arm.ARMVfpDatatype import ARMVfpDatatype
     from chb.invariants.XVariable import XVariable
-    from chb.invariants.XXpr import XXpr
+    from chb.invariants.XXpr import XXpr, XprConstant
 
 
 class ARMVCompareXData(ARMOpcodeXData):
@@ -110,13 +110,6 @@ class ARMVCompare(ARMOpcode):
     args[2]: index of FPSCR in armdictionary
     args[3]: index of d in armdictionary
     args[4]: index of m in armdictionary
-
-    xdata format: axxxxrr
-    ---------------------
-    xprs[0]: xd
-    xprs[1]: xm
-    xprs[2]: xd (simplified)
-    xprs[3]: xm (simplified)
     """
 
     def __init__(
@@ -157,10 +150,7 @@ class ARMVCompare(ARMOpcode):
 
         annotations: List[str] = [iaddr, "VCMPE"]
 
-        rhs1 = xdata.xprs[2]
-        rhs2 = xdata.xprs[3]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
+        # low-level assignment
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
@@ -173,9 +163,18 @@ class ARMVCompare(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        hl_rhss1 = XU.xxpr_to_ast_def_exprs(rhs1, xdata, iaddr, astree)
-        hl_rhss2 = XU.xxpr_to_ast_def_exprs(rhs2, xdata, iaddr, astree)
-        hl_rhs = astree.mk_binary_op("minus", hl_rhss1[0], hl_rhss2[0])
+        # high-level assignment
+
+        xd = ARMVCompareXData(xdata)
+
+        rhs1 = xd.rxsrc1
+        rhs2 = xd.rxsrc2
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+
+        hl_rhs1 = XU.xxpr_to_ast_def_expr(rhs1, xdata, iaddr, astree)
+        hl_rhs2 = XU.xxpr_to_ast_def_expr(rhs2, xdata, iaddr, astree)
+        hl_rhs = astree.mk_binary_op("minus", hl_rhs1, hl_rhs2)
 
         hl_assign = astree.mk_assign(
             ll_lhs,

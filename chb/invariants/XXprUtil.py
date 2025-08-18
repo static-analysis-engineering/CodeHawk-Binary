@@ -262,10 +262,11 @@ def vinitregister_value_to_ast_lval_expression(
     if optindex is not None:
         arglvals = astree.function_argument(optindex - 1)
         if len(arglvals) != 1:
-            chklogger.logger.error(
-                "Encountered multiple arg values for initial register %s at "
-                + "address %s",
-                str(vconstvar), iaddr)
+            if not anonymous:
+                chklogger.logger.error(
+                    "Encountered multiple arg values for initial register %s at "
+                    + "address %s",
+                    str(vconstvar), iaddr)
             return astree.mk_temp_lval_expression()
         else:
             return astree.mk_lval_expression(arglvals[0], anonymous=anonymous)

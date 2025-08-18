@@ -726,7 +726,7 @@ class ARMRegBitSequenceOp(ARMOperandKind):
     def ast_rvalue(
             self,
             astree: ASTInterface,
-            iddr: Optional[str] = None,
+            iaddr: Optional[str] = None,
             bytestring: Optional[str] = None,
             vtype: Optional[AST.ASTTyp] = None) -> Tuple[
                 AST.ASTExpr, List[AST.ASTInstruction], List[AST.ASTInstruction]]:
