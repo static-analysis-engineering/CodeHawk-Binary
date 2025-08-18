@@ -146,51 +146,54 @@ class ARMVDivide(ARMOpcode):
 
         annotations: List[str] = [iaddr, "VDIV"]
 
-        lhs = xdata.vars[0]
-        rhs1 = xdata.xprs[2]
-        rhs2 = xdata.xprs[3]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+        # low-level assignment
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
         (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
         ll_rhs = astree.mk_binary_op("div", ll_rhs1, ll_rhs2)
-        '''
+
         ll_assign = astree.mk_assign(
             ll_lhs,
-            ll_result,
+            ll_rhs,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
-        '''
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        rdefs = xdata.reachingdefs
 
-        hl_rhss1 = XU.xxpr_to_ast_def_exprs(rhs1, xdata, iaddr, astree)
-        hl_rhss2 = XU.xxpr_to_ast_def_exprs(rhs2, xdata, iaddr, astree)
-        if len(hl_lhss) == 1 and len(hl_rhss1) == 1 and len(hl_rhss2) == 1:
-            hl_lhs = hl_lhss[0]
-            hl_rhs1 = hl_rhss1[0]
-            hl_rhs2 = hl_rhss2[0]
-            hl_rhs = astree.mk_binary_op("div", hl_rhs1, hl_rhs2)
-            return self.ast_variable_intro(
-                astree,
-                astree.astree.int_type,
-                hl_lhs,
-                hl_rhs,
-                ll_lhs,
-                ll_rhs,
-                rdefs[2:],
-                rdefs[:2],
-                defuses[0],
-                defuseshigh[0],
-                True,
-                iaddr,
-                annotations,
-                bytestring)
+        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
 
-        else:
-            raise UF.CHBError(
-                "VDivide (VDIV): multiple lval/expressions in ast")
+        # high-level assignment
+
+        xd = ARMVDivideXData(xdata)
+
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        lhs = xd.vdst
+        rhs1 = xd.rxsrc1
+        rhs2 = xd.rxsrc2
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs1 = XU.xxpr_to_ast_def_expr(rhs1, xdata, iaddr, astree)
+        hl_rhs2 = XU.xxpr_to_ast_def_expr(rhs2, xdata, iaddr, astree)
+        hl_rhs = astree.mk_binary_op("div", hl_rhs1, hl_rhs2)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign])

@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import cast, Dict, List, Tuple, TYPE_CHECKING
+from typing import cast, Dict, Iterable, List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -53,6 +53,24 @@ if TYPE_CHECKING:
 
 
 class ARMStoreMultipleDecrementBeforeXData(ARMOpcodeXData):
+    """Data format:
+    - variables:
+    0: baselhs
+    1..n: memlhss
+
+    - c variables:
+    1..n: cmemlhss
+
+    - expressions:
+    0: baserhs
+    1..n: rhss
+    n+1..2n: rrhss
+    2n+1..3n: xaddrs
+
+    - c expressions:
+    0..n-1: crhss
+    n..2n-1: cxaddrs
+    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -66,31 +84,78 @@ class ARMStoreMultipleDecrementBeforeXData(ARMOpcodeXData):
         return self.var(0, "baselhs")
 
     @property
+    def memlhs_range(self) -> Iterable[int]:
+        return range(1, self.regcount + 1)
+
+    @property
     def memlhss(self) -> List["XVariable"]:
-        return [self.var(i, "memlhs") for i in range(1, self.regcount + 1)]
+        return [self.var(i, "memlhs") for i in self.memlhs_range]
+
+    @property
+    def are_memlhss_ok(self) -> bool:
+        return all(self.is_var_ok(i) for i in self.memlhs_range)
+
+    @property
+    def cmemlhs_range(self) -> Iterable[int]:
+        return range(0, self.regcount)
+
+    @property
+    def cmemlhss(self) -> List["XVariable"]:
+        return [self.cvar(i, "cmemlhs") for i in self.cmemlhs_range]
+
+    @property
+    def are_cmemlhss_ok(self) -> bool:
+        return all(self.is_cvar_ok(i) for i in self.cmemlhs_range)
 
     @property
     def baserhs(self) -> "XXpr":
         return self.xpr(0, "baserhs")
 
     @property
-    def baseresult(self) -> "XXpr":
-        return self.xpr(1, "baseresult")
+    def rhs_range(self) -> Iterable[int]:
+        return range(1, self.regcount + 1)
 
     @property
-    def rbaseresult(self) -> "XXpr":
-        return self.xpr(2, "rbaseresult")
+    def rhss(self) -> List["XXpr"]:
+        return [self.xpr(i, "rhs") for i in self.rhs_range]
+
+    @property
+    def are_rhss_ok(self) -> bool:
+        return all(self.is_xpr_ok(i) for i in self.rhs_range)
+
+    @property
+    def rrhs_range(self) -> Iterable[int]:
+        return range(self.regcount + 1, (2 * self.regcount) + 1)
 
     @property
     def rrhss(self) -> List["XXpr"]:
-        return [self.xpr(i, "rhs") for i in range(3, self.regcount + 3)]
+        return [self.xpr(i, "rrhs") for i in self.rrhs_range]
+
+    @property
+    def are_rrhss_ok(self) -> bool:
+        return all(self.is_xpr_ok(i) for i in self.rrhs_range)
+
+    @property
+    def crhs_range(self) -> Iterable[int]:
+        return range(0, self.regcount)
+
+    @property
+    def crhss(self) -> List["XXpr"]:
+        return [self.cxpr(i, "crhs") for i in self.crhs_range]
+
+    @property
+    def are_crhss_ok(self) -> bool:
+        return all(self.is_cxpr_ok(i) for i in self.crhs_range)
 
     @property
     def annotation(self) -> str:
         # TODO add writeback
-        pairs = zip(self.memlhss, self.rrhss)
-        assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
-        return self.add_instruction_condition(assigns)
+        if self.is_ok:
+            pairs = zip(self.memlhss, self.rrhss)
+            assigns = "; ".join(str(v) + " := " + str(x) for (v, x) in pairs)
+            return self.add_instruction_condition(assigns)
+        else:
+            return "Error value in STMDB"
 
 
 @armregistry.register_tag("STMDB", ARMOpcode)
@@ -105,15 +170,8 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
     args[2]: index of registers in arm dictionary
     args[3]: index of base memory address
 
-    xdata format:vv[n]xxxx[2n]r[n+1]d[n+1][h[n+1]
+    xdata:
     ---------------------------------------------
-    vars[0]: base
-    vars[1..n]: lhs memory locations where values are stored
-    xprs[0]: base
-    xprs[1]: updated base (may be unchanged in case of no writeback)
-    xprs[2]: updated base (simplified)
-    xprs[3..n+2]: values of the registers being stored
-    xprs[n+3..2n+2]: values of the registers being stored (simplified)
     rdefs[0]: reaching def base register
     rdefs[1..n]: reaching defs registers being stored
     defuse[0]: use of base regster
@@ -133,6 +191,14 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
     @property
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
+
+    @property
+    def operandstring(self) -> str:
+        return (
+            str(self.armd.arm_operand(self.args[1]))
+            + ("!" if self.args[0] == 1 else "")
+            + ", "
+            + str(self.armd.arm_operand(self.args[2])))
 
     @property
     def writeback(self) -> bool:
@@ -215,6 +281,7 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
+        '''
         regcount = len(xdata.reachingdefs) - 1
         baselhs = xdata.vars[0]
         memlhss = xdata.vars[1:]
@@ -229,9 +296,139 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         memuses = xdata.defuses[1:]
         baseuseshigh = xdata.defuseshigh[0]
         memuseshigh = xdata.defuseshigh[1:]
+        '''
+
+        xd = ARMStoreMultipleDecrementBeforeXData(xdata)
+
+        if xd.are_cmemlhss_ok:
+            memlhss = xd.cmemlhss
+        elif xd.are_memlhss_ok:
+            memlhss = xd.memlhss
+        else:
+            chklogger.logger.error(
+                "STMDB: Error value encountered in LHSs at address %s", iaddr)
+            return ([], [])
+
+        if xd.are_crhss_ok:
+            regrhss = xd.crhss
+        elif xd.are_rrhss_ok:
+            regrhss = xd.rhss
+        else:
+            chklogger.logger.error(
+                "STMDB: Error value encountered in RHSs at address %s", iaddr)
+            return ([], [])
 
         annotations: List[str] = [iaddr, "STMDB"]
 
+        baselhs = xd.baselhs
+        baserhs = xd.baserhs
+        baserdef = xdata.reachingdefs[0]
+        baseuses = xdata.defuses[0]
+        baseuseshigh = xdata.defuseshigh[0]
+
+        # low-level assignments
+
+        ll_instrs: List[AST.ASTInstruction] = []
+        hl_instrs: List[AST.ASTInstruction] = []
+
+        (baselval, _, _) = self.opargs[0].ast_lvalue(astree)
+        (baserval, _, _) = self.opargs[0].ast_rvalue(astree)
+
+        regrdefs = xdata.reachingdefs[1:]
+        memuses = xdata.defuses[1:]
+        memuseshigh = xdata.defuseshigh[1:]
+
+        regsop = self.opargs[1]
+        registers = regsop.registers
+        base_offset = 4 * xd.regcount
+        for (i, r) in enumerate(registers):
+
+            # low-level assignments
+
+            base_offset_c = astree.mk_integer_constant(base_offset)
+            addr = astree.mk_binary_op("minus", baserval, base_offset_c)
+            ll_lhs = astree.mk_memref_lval(addr)
+            ll_rhs = astree.mk_register_variable_expr(r)
+            ll_assign = astree.mk_assign(
+                ll_lhs,
+                ll_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            ll_instrs.append(ll_assign)
+
+            # high-level assignments
+
+            memlhs = memlhss[i]
+            regrhs = regrhss[i]
+
+            hl_lhs = XU.xvariable_to_ast_lval(memlhs, xdata, iaddr, astree)
+            hl_rhs = XU.xxpr_to_ast_def_expr(regrhs, xdata, iaddr, astree)
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_instrs.append(hl_assign)
+
+            astree.add_instr_mapping(hl_assign, ll_assign)
+            astree.add_instr_address(hl_assign, [iaddr])
+            astree.add_expr_mapping(hl_rhs, ll_rhs)
+            astree.add_lval_mapping(hl_lhs, ll_lhs)
+            astree.add_expr_reachingdefs(ll_rhs, [regrdefs[i]])
+            astree.add_lval_defuses(hl_lhs, memuses[i])
+            astree.add_lval_defuses_high(hl_lhs, memuseshigh[i])
+
+            base_offset -= 4
+
+            if (
+                    (memlhs.is_memory_variable
+                     and cast("VMemoryVariable",
+                              memlhs.denotation).base.is_basevar)):
+                astree.add_expose_instruction(hl_assign.instrid)
+
+        if self.writeback:
+
+            # low-level base assignment
+
+            basedecr = 4 * xd.regcount
+            basedecr_c = astree.mk_integer_constant(basedecr)
+
+            ll_base_lhs = baselval
+            ll_base_rhs = astree.mk_binary_op("minus", baserval, basedecr_c)
+            ll_base_assign = astree.mk_assign(
+                ll_base_lhs,
+                ll_base_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            # high-level base assignment
+
+            baseresult = xd.get_base_update_xpr()
+            hl_base_lhs = XU.xvariable_to_ast_lval(baselhs, xdata, iaddr, astree)
+            hl_base_rhs = XU.xxpr_to_ast_def_expr(
+                baseresult, xdata, iaddr, astree)
+            hl_base_assign = astree.mk_assign(
+                hl_base_lhs,
+                hl_base_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+            hl_instrs.append(hl_base_assign)
+
+            astree.add_instr_mapping(hl_base_assign, ll_base_assign)
+            astree.add_instr_address(hl_base_assign, [iaddr])
+            astree.add_expr_mapping(hl_base_rhs, ll_base_rhs)
+            astree.add_lval_mapping(hl_base_lhs, ll_base_lhs)
+            astree.add_expr_reachingdefs(ll_base_rhs, [baserdef])
+            astree.add_lval_defuses(hl_base_lhs, baseuses)
+            astree.add_lval_defuses_high(hl_base_lhs, baseuseshigh)
+
+        return (hl_instrs, ll_instrs)
+
+    '''
         ll_wbackinstrs: List[AST.ASTInstruction] = []
         hl_wbackinstrs: List[AST.ASTInstruction] = []
 
@@ -473,3 +670,4 @@ class ARMStoreMultipleDecrementBefore(ARMOpcode):
         return (
             hl_instructions + hl_wbackinstrs,
             ll_instructions + ll_wbackinstrs)
+    '''

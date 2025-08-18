@@ -47,7 +47,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
-    from chb.arm.ARMVfpDatatype import ARMVfpDatatype    
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
     from chb.invariants.XVariable import XVariable
     from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
 
@@ -112,11 +112,6 @@ class ARMVectorMoveDDS(ARMOpcode):
 
     xdata format:
     -------------
-    vars[0]: first destination operand
-    vars[1]: second destination operand
-    vars[2]: combined destination operand
-    xprs[0]: source operand
-    xprs[1]: source operand rewritten
     rdefs[0]: reaching definitions for source operand
     uses[0]: uses of first destination operand
     uses[1]: uses of second destination operand
@@ -140,7 +135,7 @@ class ARMVectorMoveDDS(ARMOpcode):
 
     @property
     def vfp_datatype(self) -> "ARMVfpDatatype":
-        return self.armd.arm_vfp_datatype(self.args[0])    
+        return self.armd.arm_vfp_datatype(self.args[0])
 
     @property
     def operands(self) -> List[ARMOperand]:
@@ -153,7 +148,7 @@ class ARMVectorMoveDDS(ARMOpcode):
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMVectorMoveDDSXData(xdata)
         return xd.annotation
- 
+
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -162,19 +157,9 @@ class ARMVectorMoveDDS(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "VMOV"]
+        annotations: List[str] = [iaddr, "VMOV (DDS)"]
 
-        lhs1 = xdata.vars[0]
-        lhs2 = xdata.vars[1]
-        lhsc = xdata.vars[2]
-        rhs = xdata.xprs[1]
-        rdefs = xdata.reachingdefs[0]
-        defuses1 = xdata.defuses[0]
-        defuses2 = xdata.defuses[1]
-        defusesc = xdata.defuses[2]
-        defuseshigh1 = xdata.defuseshigh[0]
-        defuseshigh2 = xdata.defuseshigh[1]
-        defuseshighc = xdata.defuseshigh[2]
+        # low-level assignment
 
         (ll_lhs1, _, _) = self.opargs[1].ast_lvalue(astree)
         (ll_lhs2, _, _) = self.opargs[2].ast_lvalue(astree)
@@ -201,42 +186,51 @@ class ARMVectorMoveDDS(ARMOpcode):
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
-        
-        hl_lhss = XU.xvariable_to_ast_lvals(lhsc, xdata, astree)
-        hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
 
-        if len(hl_lhss) == 1 and len(hl_rhss) == 1:
-            hl_lhs = hl_lhss[0]
-            hl_rhs = hl_rhss[0]
+        # high-level assignment
 
-            if str(hl_lhs).startswith("S") and str(ll_rhs).startswith("R"):
-                hl_rhs = astree.mk_cast_expr(astree.astree.float_type, hl_rhs)
-            hl_assign = astree.mk_assign(
-                hl_lhs,
-                hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
+        xd = ARMVectorMoveDDSXData(xdata)
 
-            astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-            astree.add_instr_mapping(hl_assign, ll_assign1)
-            astree.add_instr_mapping(hl_assign, ll_assign2)
-            astree.add_instr_mapping(hl_assign, ll_assignc)            
-            astree.add_instr_address(hl_assign, [iaddr])
-            astree.add_expr_mapping(hl_rhs, ll_rhs)
-            astree.add_lval_mapping(hl_lhs, ll_lhs1)
-            astree.add_lval_mapping(hl_lhs, ll_lhs2)
-            astree.add_lval_mapping(hl_lhs, ll_lhsc)            
-            astree.add_expr_reachingdefs(ll_rhs, [rdefs])
-            astree.add_lval_defuses(hl_lhs, defuses1)
-            astree.add_lval_defuses(hl_lhs, defuses2)
-            astree.add_lval_defuses(hl_lhs, defusesc)            
-            astree.add_lval_defuses_high(hl_lhs, defuseshigh1)
-            astree.add_lval_defuses_high(hl_lhs, defuseshigh2)
-            astree.add_lval_defuses_high(hl_lhs, defuseshighc)
+        lhs1 = xd.vdst1
+        lhs2 = xd.vdst2
+        lhsc = xd.vddst
+        rhs = xd.rxsrc
 
-            return ([hl_assign], [ll_assign1, ll_assign2, ll_assignc])
+        rdefs = xdata.reachingdefs[0]
+        defuses1 = xdata.defuses[0]
+        defuses2 = xdata.defuses[1]
+        defusesc = xdata.defuses[2]
+        defuseshigh1 = xdata.defuseshigh[0]
+        defuseshigh2 = xdata.defuseshigh[1]
+        defuseshighc = xdata.defuseshigh[2]
 
-        else:
-            raise UF.CHBError(
-                "VectorMove (VMOV): multiple lval/expressions in ast")
+        hl_lhs = XU.xvariable_to_ast_lval(lhsc, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        if str(hl_lhs).startswith("S") and str(ll_rhs).startswith("R"):
+            hl_rhs = astree.mk_cast_expr(astree.astree.float_type, hl_rhs)
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign1)
+        astree.add_instr_mapping(hl_assign, ll_assign2)
+        astree.add_instr_mapping(hl_assign, ll_assignc)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs1)
+        astree.add_lval_mapping(hl_lhs, ll_lhs2)
+        astree.add_lval_mapping(hl_lhs, ll_lhsc)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs])
+        astree.add_lval_defuses(hl_lhs, defuses1)
+        astree.add_lval_defuses(hl_lhs, defuses2)
+        astree.add_lval_defuses(hl_lhs, defusesc)
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh1)
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh2)
+        astree.add_lval_defuses_high(hl_lhs, defuseshighc)
+
+        return ([hl_assign], [ll_assign1, ll_assign2, ll_assignc])

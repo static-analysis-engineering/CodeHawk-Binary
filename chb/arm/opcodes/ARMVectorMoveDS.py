@@ -117,9 +117,6 @@ class ARMVectorMoveDS(ARMOpcode):
 
     xdata format:
     -------------
-    vars[0]: destination operand
-    xprs[0]: source operand
-    xprs[1]: source operand rewritten
     rdefs[0]: reaching definitions for source operand
     uses[0]: uses of destination operand
     useshigh[0]: uses of destination operand in high-level expressions
@@ -187,13 +184,9 @@ class ARMVectorMoveDS(ARMOpcode):
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "VMOV"]
+        annotations: List[str] = [iaddr, "VMOV (DS)"]
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[1]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+        # low-level assignment
 
         (ll_lhs, _, _) = self.opargs[1].ast_lvalue(astree)
         (ll_rhs, _, _) = self.opargs[2].ast_rvalue(astree)
@@ -204,53 +197,55 @@ class ARMVectorMoveDS(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
+        # high-level assignment
+
+        xd = ARMVectorMoveDSXData(xdata)
+
+        lhs = xd.vdst
+        rhs = xd.rxsrc
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
 
         if rhs.is_int_constant and str(lhs).startswith("S"):
             # 32-bit floating-point constant
             f = self._unpack_imm32(rhs)
-            hl_rhss: List[AST.ASTExpr] = [astree.mk_float_constant(f)]
+            hl_rhs: AST.ASTExpr = astree.mk_float_constant(f)
 
         elif rhs.is_int_constant and str(lhs).startswith("D"):
             # 64-bit floating-point constant
             f = self._unpack_imm64(rhs)
-            hl_rhss = [astree.mk_float_constant(f, fkind="fdouble")]
+            hl_rhs = astree.mk_float_constant(f, fkind="fdouble")
 
         else:
-            hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
-        if len(hl_lhss) == 1 and len(hl_rhss) == 1:
-            hl_lhs = hl_lhss[0]
-            hl_rhs = hl_rhss[0]
+        if str(hl_lhs).startswith("S") and str(ll_rhs).startswith("R"):
+            hl_rhs = astree.mk_cast_expr(astree.astree.float_type, hl_rhs)
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
 
-            if str(hl_lhs).startswith("S") and str(ll_rhs).startswith("R"):
-                hl_rhs = astree.mk_cast_expr(astree.astree.float_type, hl_rhs)
-            hl_assign = astree.mk_assign(
-                hl_lhs,
-                hl_rhs,
-                iaddr=iaddr,
-                bytestring=bytestring,
-                annotations=annotations)
+        chklogger.logger.info(
+            "Register definition: %s at address %s: %s with %s",
+            str(ll_lhs),
+            iaddr,
+            str(hl_lhs),
+            str(hl_rhs))
 
-            chklogger.logger.info(
-                "Register definition: %s at address %s: %s with %s",
-                str(ll_lhs),
-                iaddr,
-                str(hl_lhs),
-                str(hl_rhs))
+        astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
-            astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-            astree.add_instr_mapping(hl_assign, ll_assign)
-            astree.add_instr_address(hl_assign, [iaddr])
-            astree.add_expr_mapping(hl_rhs, ll_rhs)
-            astree.add_lval_mapping(hl_lhs, ll_lhs)
-            astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
-            astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
-            astree.add_lval_defuses(hl_lhs, defuses[0])
-            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-
-            return ([hl_assign], [ll_assign])
-
-        else:
-            raise UF.CHBError(
-                "VectorMoveDS (VMOV): multiple lval/expressions in ast")
+        return ([hl_assign], [ll_assign])
