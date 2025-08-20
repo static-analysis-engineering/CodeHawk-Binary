@@ -342,7 +342,7 @@ class ARMCallOpcode(ARMOpcode):
                     rtype.is_void
                     or ((defuses[0] is None)
                         and (defuseshigh[0] is None)
-                        and not self.return_value)):
+                        and not self.return_value(xdata))):
                 chklogger.logger.info(
                     "Unused: introduced ssa-variable: %s for return value of %s "
                     + "at address %s",
