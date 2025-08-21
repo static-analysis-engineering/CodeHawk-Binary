@@ -264,6 +264,12 @@ class ARMInstruction(Instruction):
     def get_instruction_condition(self) -> XXpr:
         return self.xdata.get_instruction_condition()
 
+    def has_valid_instruction_c_condition(self) -> bool:
+        return self.xdata.has_valid_instruction_c_condition()
+
+    def get_instruction_c_condition(self) -> XXpr:
+        return self.xdata.get_instruction_c_condition()
+
     @property
     def memory_accesses(self) -> Sequence[MemoryAccess]:
         return self.opcode.memory_accesses(self.xdata)

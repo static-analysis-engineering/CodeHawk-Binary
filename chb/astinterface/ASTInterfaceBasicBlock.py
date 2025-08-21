@@ -341,8 +341,12 @@ class ASTInterfaceBasicBlock:
 
         # case 1
         if chkinstr2.mnemonic_stem == "MOV":
+            chkinstr2 = cast("ARMInstruction", chkinstr2)
             if chkinstr2.has_instruction_condition():
-                condition = chkinstr2.get_instruction_condition()
+                if chkinstr2.has_valid_instruction_c_condition():
+                    condition = chkinstr2.get_instruction_c_condition()
+                else:
+                    condition = chkinstr2.get_instruction_condition()
                 rstmt = astree.mk_return_stmt(None)
                 estmt = astree.mk_instr_sequence([])
                 cc = XU.xxpr_to_ast_def_expr(condition,
@@ -360,7 +364,10 @@ class ASTInterfaceBasicBlock:
                 if (
                         chkinstr3.has_instruction_condition()
                         and chkinstr4.has_instruction_condition()):
-                    condition = chkinstr3.get_instruction_condition()
+                    if chkinstr3.has_valid_instruction_c_condition():
+                        condition = chkinstr3.get_instruction_c_condition()
+                    else:
+                        condition = chkinstr3.get_instruction_condition()
                     rstmt = astree.mk_return_stmt(None)
                     estmt = astree.mk_instr_sequence([])
                     cc = XU.xxpr_to_ast_def_expr(condition,
@@ -382,7 +389,10 @@ class ASTInterfaceBasicBlock:
             chkinstr3 = cast("ARMInstruction", chkinstr3)
             if chkinstr3.mnemonic_stem == "MOV":
                 if chkinstr3.has_instruction_condition():
-                    condition = chkinstr3.get_instruction_condition()
+                    if chkinstr3.has_valid_instruction_c_condition():
+                        condition = chkinstr3.get_instruction_c_condition()
+                    else:
+                        condition = chkinstr3.get_instruction_condition()
                     chkopc2 = chkinstr2.opcode
                     chkopc2 = cast("ARMLogicalShiftLeft", chkopc2)
                     lslxdata = chkopc2.lsl_xdata(chkinstr2.xdata)
