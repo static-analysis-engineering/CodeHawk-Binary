@@ -158,7 +158,10 @@ class ASTViewer(ASTNOPVisitor):
             self.add_edge(name, self.label_name(label))
             label.accept(self)
         for s in stmt.stmts:
-            self.add_edge(name, self.stmt_name(s))
+            if s.is_stmt_label:
+                print("DEBUG: stmt-label in list of stmts at location: " + str(s.locationid))
+            else:
+                self.add_edge(name, self.stmt_name(s))
             s.accept(self)
 
     def visit_loop_stmt(self, stmt: AST.ASTLoop) -> None:
