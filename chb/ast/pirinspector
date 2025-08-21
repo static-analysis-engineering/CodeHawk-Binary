@@ -89,7 +89,7 @@ def parse() -> argparse.Namespace:
         "--fileformat",
         help="desired format for output file (default is pdf)",
         choices=["pdf", "png"],
-        default=["pdf"]
+        default="pdf"
     )
     viewastcmd.add_argument(
         "-o",
@@ -114,7 +114,7 @@ def parse() -> argparse.Namespace:
         "--fileformat",
         help="desired format for output file (default is pdf)",
         choices=["pdf", "png"],
-        default=["pdf"]
+        default="pdf"
     )
     viewstmtcmd.add_argument(
         "-o", "--output",
@@ -139,7 +139,7 @@ def parse() -> argparse.Namespace:
         "--fileformat",
         help="desired format for output file (default is pdf)",
         choices=["pdf", "png"],
-        default=["pdf"]
+        default="pdf"
     )
     viewinstrcmd.add_argument(
         "-o",
