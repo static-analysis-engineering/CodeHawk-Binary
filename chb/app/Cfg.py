@@ -477,8 +477,6 @@ class Cfg:
         fn = astfn.function
 
         def mk_block(stmts: List[AST.ASTStmt]) -> AST.ASTStmt:
-            if len(stmts) == 1 and not stmts[0].is_ast_instruction_sequence:
-                return stmts[0]
             return astree.mk_block(stmts)
 
         gotolabels: Set[str] = set() # this is both used and mutated by run_with_gotolabels()
