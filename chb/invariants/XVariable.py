@@ -28,7 +28,7 @@
 # ------------------------------------------------------------------------------
 """Symbolic value, identified by name and sequence number"""
 
-from typing import Any, cast, Dict, List, Tuple, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.Register import Register
 
@@ -200,6 +200,11 @@ class XVariable(FnXprDictionaryRecord):
     def is_global_variable(self) -> bool:
         return (self.has_denotation()
                 and (self.denotation.is_global_variable or self.is_global_value))
+
+    def get_global_variable_address(self) -> Optional[str]:
+        if self.is_global_variable:
+            return self.denotation.get_global_variable_address()
+        return None
 
     @property
     def is_structured_var(self) -> bool:

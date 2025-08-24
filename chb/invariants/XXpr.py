@@ -149,6 +149,9 @@ class XXpr(FnXprDictionaryRecord):
     def is_global_variable(self) -> bool:
         return False
 
+    def get_global_variable_address(self) -> Optional[str]:
+        return None
+
     def is_int_const_value(self, n: int) -> bool:
         return False
 
@@ -380,6 +383,9 @@ class XprVariable(XXpr):
     @property
     def is_global_variable(self) -> bool:
         return self.variable.is_global_variable
+
+    def get_global_variable_address(self) -> Optional[str]:
+        return self.variable.get_global_variable_address()
 
     @property
     def is_function_return_value(self) -> bool:

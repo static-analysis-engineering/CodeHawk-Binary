@@ -251,9 +251,8 @@ class ARMLoadRegisterHalfword(ARMOpcode):
 
         if xd.is_ok:
             rhs = xd.cxrmem
-            rhsval = None if has_cast() else xd.cxrmem
             hl_lhs = XU.xvariable_to_ast_lval(
-                lhs, xdata, iaddr, astree, rhs=rhsval)
+                lhs, xdata, iaddr, astree, rhs=xd.cxrmem)
             hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         elif xd.is_cxaddr_ok:

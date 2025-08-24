@@ -2534,11 +2534,16 @@ def ddata_gvars(args: argparse.Namespace) -> NoReturn:
             sgtype = str(gtype)
         else:
             sgtype = ""
+        if gloc.is_volatile:
+            vt = " (volatile)"
+        else:
+            vt = ""
         print(gloc.addr.rjust(8)
               + "  "
               + gloc.name.ljust(60)
               + "  "
-              + sgtype.ljust(20))
+              + sgtype.ljust(20)
+              + vt)
 
     (count, coverage) = memmap.coverage()
 

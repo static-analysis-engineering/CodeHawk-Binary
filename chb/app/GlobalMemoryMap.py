@@ -207,6 +207,10 @@ class GlobalLocation:
         return None
 
     @property
+    def is_volatile(self) -> bool:
+        return self.gtype is not None and self.gtype.is_volatile
+
+    @property
     def size(self) -> Optional[int]:
         s = self._xnode.get("size", None)
         if s is not None:
