@@ -39,7 +39,7 @@ type assembly_variable_denotation_t =
 
 """
 
-from typing import Any, Dict, List, Sequence, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.app.Register import Register
 
@@ -95,6 +95,9 @@ class VAssemblyVariable(FnVarDictionaryRecord):
     @property
     def is_global_variable(self) -> bool:
         return False
+
+    def get_global_variable_address(self) -> Optional[str]:
+        return None
 
     @property
     def is_global_value(self) -> bool:
@@ -297,6 +300,12 @@ class VMemoryVariable(VAssemblyVariable):
                 "Assembly variable is not a stack argument: "
                 + str(self))
 
+    def get_global_variable_address(self) -> Optional[str]:
+        if self.is_global_variable:
+            if self.offset.is_constant_value_offset:
+                return hex(self.offset.offsetvalue())
+        return None
+
     def has_unknown_base(self) -> bool:
         return self.base.is_unknown
 
@@ -416,6 +425,11 @@ class VAuxiliaryVariable(VAssemblyVariable):
     @property
     def is_global_value(self) -> bool:
         return self.auxvar.is_global_value
+
+    def get_global_variable_address(self) -> Optional[str]:
+        if self.is_global_value:
+            return self.auxvar.get_global_variable_address()
+        return None
 
     @property
     def is_stack_base_address(self) -> bool:

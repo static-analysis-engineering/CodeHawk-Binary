@@ -1768,7 +1768,26 @@ def xvariable_to_ast_lval(
     to an ssa value, while a high-level register that is part of some rhs
     should be delegated to its reaching definitions, and thus should stay
     confined to functions dealing with rhs values.
+
+    Note: another check should be added to this function as to whether the
+    rhs (if provided) is volatile. If so, it should not be used to propagate
+    that value.
     """
+
+    if (
+            astree.has_register_variable_intro(iaddr)
+            and astree.get_register_variable_intro(iaddr).has_cast()):
+        rhs = None
+
+    if (rhs is not None and rhs.is_global_variable):
+        gaddr = rhs.get_global_variable_address()
+        if gaddr is not None:
+            gmemmap = xdata.app.globalmemorymap
+            if gaddr in gmemmap.locations:
+                gloc = gmemmap.get_location(gaddr)
+                if gloc is not None and gloc.gtype is not None:
+                    if gloc.gtype.is_volatile:
+                        rhs = None
 
     # unknown memory value
     if xv.is_tmp or xv.has_unknown_memory_base():

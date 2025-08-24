@@ -53,6 +53,10 @@ class BCAttribute(BCDictionaryRecord):
     def params(self) -> List["BCAttrParam"]:
         return [self.bcd.attrparam(i) for i in self.args]
 
+    @property
+    def is_volatile(self) -> bool:
+        return self.name == "volatile"
+
     def __str__(self) -> str:
         return self.name + "(" + ", ".join(str(p) for p in self.params) + ")"
 

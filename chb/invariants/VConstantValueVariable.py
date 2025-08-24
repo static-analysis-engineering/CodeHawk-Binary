@@ -128,6 +128,9 @@ class VConstantValueVariable(FnVarDictionaryRecord):
     def is_global_value(self) -> bool:
         return False
 
+    def get_global_variable_address(self) -> Optional[str]:
+        return None
+
     @property
     def is_function_return_value(self) -> bool:
         return False
@@ -349,6 +352,11 @@ class VInitialMemoryValue(VConstantValueVariable):
     def is_global_value(self) -> bool:
         avar = self.variable.denotation
         return avar.is_memory_variable and avar.is_global_variable
+
+    def get_global_variable_address(self) -> Optional[str]:
+        if self.is_global_value:
+            return self.variable.denotation.get_global_variable_address()
+        return None
 
     @property
     def is_argument_value(self) -> bool:
