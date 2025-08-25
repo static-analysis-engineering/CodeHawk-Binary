@@ -182,9 +182,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     if patchresultsdata is not None:
         patchresults = PatchResults(patchresultsdata)
         for event in patchresults.events:
-            if (
-                    event.is_trampoline
-                    or event.is_trampoline_pair_minimal_2_and_3):
+            if event.is_trampoline:
                 if event.has_wrapper():
                     startaddr = event.wrapper.vahex
                     patchevents[startaddr] = event

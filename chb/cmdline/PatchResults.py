@@ -321,12 +321,8 @@ class PatchEvent:
         return self.patchkind == "Trampoline"
 
     @property
-    def is_trampoline_pair_minimal_2_and_3(self) -> bool:
-        return self.patchkind == "TrampolinePairMinimal2and3"
-
-    @property
     def is_supported(self) -> bool:
-        return (self.is_trampoline or self.is_trampoline_pair_minimal_2_and_3)
+        return self.is_trampoline
 
     def has_details(self) -> bool:
         return "details" in self._d
@@ -428,16 +424,6 @@ class PatchResults:
                 r["kind"] = "trampoline"
                 if e.has_payload():
                     r["payload"] = e.payload.vahex
-                if e.has_wrapper():
-                    r["wrapper"] = e.wrapper.vahex
-                if e.has_fallthrough_destination() and e.fallthrough_destination:
-                    r["fallthrough"] = e.fallthrough_destination
-                if e.case_fallthrough_jump is not None:
-                    r["fallthrough-jump"] = e.case_fallthrough_jump
-                result.append(r)
-            elif e.is_trampoline_pair_minimal_2_and_3:
-                r["logicalva"] = e.logicalva
-                r["kind"] = "trampoline-pair-minimal-2-and-3"
                 if e.has_wrapper():
                     r["wrapper"] = e.wrapper.vahex
                 if e.has_fallthrough_destination() and e.fallthrough_destination:
