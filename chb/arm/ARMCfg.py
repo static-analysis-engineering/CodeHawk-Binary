@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -200,12 +200,6 @@ class ARMCfg(Cfg):
                 continue
 
             trampolines[baddr] = trinfo = TrampolineInfo(patchevent)
-
-            if patchevent.is_trampoline_pair_minimal_2_and_3:
-                chklogger.logger.info("Trampoline pair minimal 2 and 3 %s", baddr)
-                trinfo.add_role("payload", baddr)
-                trampolineblocks[baddr] = baddr
-                continue
 
             trinfo.add_role("setupblock", baddr)
             trampolineblocks[baddr] = baddr

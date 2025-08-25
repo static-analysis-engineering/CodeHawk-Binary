@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs, LLC
+# Copyright (c) 2021-2025  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -372,9 +372,7 @@ def _relational_compare_generate_json(xname1: str,
     if patchresultsdata is not None:
         patchresults = PatchResults(patchresultsdata)
         for event in patchresults.events:
-            if (
-                    event.is_trampoline
-                    or event.is_trampoline_pair_minimal_2_and_3):
+            if event.is_trampoline:
                 if event.has_wrapper():
                     startaddr = event.wrapper.vahex
                     patchevents[startaddr] = event
@@ -600,9 +598,7 @@ def relational_compare_cfgs_cmd(args: argparse.Namespace) -> NoReturn:
     if patchresultsdata is not None:
         patchresults = PatchResults(patchresultsdata)
         for event in patchresults.events:
-            if (
-                    event.is_trampoline
-                    or event.is_trampoline_pair_minimal_2_and_3):
+            if event.is_trampoline:
                 if event.has_wrapper():
                     startaddr = event.wrapper.vahex
                     patchevents[startaddr] = event
