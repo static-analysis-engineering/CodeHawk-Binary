@@ -347,6 +347,36 @@ class XComparison:
                     seg["status"] = "new"
                     sectionheaders["segment_" + str(ph2.index)] = seg
             result["section-headers"] = sectionheaders
+        elif len(self.newsections) == 0 and len(self.newcode) == 1:
+            newaddr = self.newcode[0][0]
+            newsize = str(int(self.newcode[0][1], 16) - int(newaddr, 16))
+            sectionheaders = {}
+            for (name, (optsh1, optsh2)) in self.sectionheaderpairs.items():
+                if optsh1 is not None and optsh2 is not None:
+                    if (
+                            (optsh1.vaddr == optsh2.vaddr)
+                            and (optsh1.size != optsh2.size)):
+                        sec1offset = optsh1.get_default_attribute_value(
+                            "sh_offset", "0x0")
+                        offsetdiff = int(optsh1.vaddr, 16) - int(sec1offset, 16)
+
+                        sec1: Dict[str, str] = {}
+                        sec1["addr"] = optsh1.vaddr
+                        sec1["size"] = optsh1.size
+                        sec1["offset"] = optsh1.get_default_attribute_value(
+                            "sh_offset", "0x0")
+                        sectionheaders[name] = sec1
+
+                        sec2offset = str(int(newaddr, 16) - offsetdiff)
+                        sec2: Dict[str, str] = {}
+                        sec2["addr"] = newaddr
+                        sec2["size"] = newsize
+                        sec2["type"] = "0x1"
+                        sec2["flags"] = "0x6"
+                        sec2["status"] = "new"
+                        sec2["offset"] = sec2offset
+                        sectionheaders[".trampolinecode"] = sec2
+                        result["section-headers"] = sectionheaders
         return result
 
     def prepare_report(self) -> str:
