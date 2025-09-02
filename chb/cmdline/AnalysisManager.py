@@ -221,7 +221,8 @@ class AnalysisManager(object):
             collectdiagnostics: bool = True,
             preamble_cutoff: int = 12,
             save_asm: str = "yes",
-            save_asm_cfg_info: bool = False) -> None:
+            save_asm_cfg_info: bool = False,
+            print_datasections: List[str] = []) -> None:
         cwd = os.getcwd()
         chklogger.logger.debug("change directory to %s", self.path)
         os.chdir(self.path)     # temporary change in directory
@@ -258,6 +259,8 @@ class AnalysisManager(object):
             cmd.extend(["-so_library", s])
         for ifile in self.ifilenames:
             cmd.extend(["-ifile", ifile])
+        for ds in print_datasections:
+            cmd.extend(["-print_datasection", ds])
         if save_xml:
             cmd.append("-save_disassembly_status_in_xml")
         cmd.extend(["-disassemble", self.filename])
