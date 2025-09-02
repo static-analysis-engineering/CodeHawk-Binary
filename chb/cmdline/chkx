@@ -483,6 +483,11 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[])
     analyzecmd.add_argument(
+        "--print_datasections",
+        nargs="*",
+        default=[],
+        help="names or addresses of data sections to be included in assembly listing")
+    analyzecmd.add_argument(
         "--gc_compact",
         type=int,
         default=0,
