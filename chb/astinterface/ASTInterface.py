@@ -970,7 +970,7 @@ class ASTInterface:
             self,
             rdeflocs: Dict[str, List[List[str]]],
             ftypes: Dict[str, Dict[str, "BCTyp"]],
-            ssanames: Dict[str, str] = {}) -> None:
+            ssanames: Dict[str, str] = {}) -> Dict[str, Dict[str, List[str]]]:
         """Creates ssa variables based on reaching definition locations.
 
         Lists with multiple locations will give rise to a single variable
@@ -985,10 +985,10 @@ class ASTInterface:
         where <reg> is the name of the register being assigned.
         """
 
+        untyped: Dict[str, Dict[str, List[str]]] = {}
         for (reg, locs) in rdeflocs.items():
             for lst in locs:
                 if len(lst) > 0:
-                    # print("DEBUG: " + str(reg) + ": [" + ", ".join(str(loc) for loc in lst) + "]")
                     loc1 = lst[0]
                     vtype = None
                     if loc1 in ftypes:
@@ -997,11 +997,16 @@ class ASTInterface:
                             vtype = vbctype.convert(self.typconverter)
                     vinfo = self.mk_ssa_register_varinfo(
                         reg, loc1, vtype=vtype, prefix=ssanames.get(loc1))
+                    if vtype is None:
+                        untyped.setdefault(reg, {})
+                        untyped[reg].setdefault(vinfo.vname, [])
+                        untyped[reg][vinfo.vname].append(loc1)
                     self._ssa_addresses.setdefault(vinfo.vname, set([]))
                     for loc in lst:
                         self._ssa_intros.setdefault(loc, {})
                         self._ssa_intros[loc][reg] = vinfo
                         self._ssa_addresses[vinfo.vname].add(loc)
+        return untyped
 
     def introduce_stack_variables(
             self,

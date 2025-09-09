@@ -744,10 +744,16 @@ def parse() -> argparse.Namespace:
         action="store_true")
     buildast.add_argument(
         "--show_reachingdefs",
+        action="store_true",
         help="create a dot file for the reaching defs of <reg>")
     buildast.add_argument(
         "--output_reachingdefs",
         help="name of output file (without extension) to store dot/pdf file of reachingdefs")
+    buildast.add_argument(
+        "--reachingdefs_registers",
+        help="show reachingdefs for these registers only (default: generate automatically)",
+        nargs="*",
+        default=[])
     buildast.add_argument(
         "--format",
         choices=["pdf", "png"],

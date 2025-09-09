@@ -150,7 +150,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     xpatchresultsfile = args.patch_results_file
     hide_globals: bool = args.hide_globals
     hide_annotations: bool = args.hide_annotations
-    show_reachingdefs: str = args.show_reachingdefs
+    show_reachingdefs: bool = args.show_reachingdefs
+    reachingdefs_registers: List[str] = args.reachingdefs_registers
     output_reachingdefs: str = args.output_reachingdefs
     fileformat: str = args.format
     verbose: bool = args.verbose
@@ -349,12 +350,25 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             # Introduce ssa variables for all reaching definitions referenced in
             # xdata records for all instructions in the function. Locations that
             # have a common user are merged. Types are provided by lhs_types.
-            astinterface.introduce_ssa_variables(
+            untyped = astinterface.introduce_ssa_variables(
                 f.rdef_location_partition(), f.register_lhs_types, f.lhs_names)
 
             # Introduce stack variables for all stack buffers with types
             astinterface.introduce_stack_variables(
                 f.stackframe, f.stack_variable_types)
+
+            regsuntyped: List[str] = []
+            for (reg, varlocs) in untyped.items():
+                for (var, locs) in varlocs.items():
+                    if len(locs) == 1 and locs[0] == "init":
+                        continue
+                    if "_spill" in var:
+                        continue
+                    if reg == "SP":
+                        continue
+                    # print(" Untyped: " + reg + ": " + var + " [" + ",".join(locs) + "]")
+                    if not reg in regsuntyped:
+                        regsuntyped.append(reg)
 
             astfunction = ASTInterfaceFunction(
                 faddr, fname, f, astinterface, patchevents=patchevents)
@@ -396,14 +410,18 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                     UC.print_error("\nSpecify a file to save the reaching defs")
                     continue
 
-                register = show_reachingdefs
-                if not register in f.rdef_location_partition():
-                    UC.print_status_update(
-                        "Register " + register + " not found in rdeflocations")
-                    continue
+                if len(reachingdefs_registers) == 0:
+                    reachingdefs_registers = regsuntyped
 
-                print_reachingdefs(
-                    app, astinterface, output_reachingdefs, fileformat, f, register)
+                for register in reachingdefs_registers:
+                    if not register in f.rdef_location_partition():
+                        UC.print_status_update(
+                            "Register " + register + " not found in rdeflocations")
+                        continue
+
+                for reg in reachingdefs_registers:
+                    print_reachingdefs(
+                        app, astinterface, output_reachingdefs + "__" + reg, fileformat, f, reg)
 
         else:
             UC.print_error("Unable to find function " + faddr)
@@ -510,21 +528,23 @@ def print_reachingdefs(
         else:
             printgraphs.append(dg)
 
-    pdffilename = UD.print_dot_subgraphs(
-        app.path,
-        "paths",
-        filename,
-        fileformat,
-        printgraphs)
+    if len(printgraphs) > 0:
+        pdffilename = UD.print_dot_subgraphs(
+            app.path,
+            "paths",
+            filename,
+            fileformat,
+            printgraphs)
 
-    UC.print_status_update("Printed " + pdffilename)
-    if len(possibly_spurious_rdefs) > 0:
-        print("Possibly spurious reachingdefs to be removed: ")
-        print("~" * 80)
-        for (rdef, iaddr) in set(possibly_spurious_rdefs):
-            if not (rdef, iaddr) in legitimate_rdefs:
-                print("  rdefloc: " + rdef + "; useloc: " + iaddr)
-        print("~" * 80)
+        UC.print_status_update("Printed " + pdffilename)
+        if len(possibly_spurious_rdefs) > 0:
+            print("\nPossibly spurious reachingdefs to be removed for register "
+                  + register + ": ")
+            print("~" * 80)
+            for (rdef, iaddr) in set(possibly_spurious_rdefs):
+                if not (rdef, iaddr) in legitimate_rdefs:
+                    print("  rdefloc: " + rdef + "; useloc: " + iaddr)
+            print("~" * 80)
 
     # print("\nLegitimate reaching defs:")
     # for (rdef, iaddr) in set(legitimate_rdefs):
