@@ -46,7 +46,7 @@ import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
 import chb.util.StringIndexedTable as SI
 
-from typing import Callable, List, Tuple, TYPE_CHECKING
+from typing import Callable, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
@@ -124,6 +124,21 @@ class BDictionary:
     def register(self, ix: int) -> Register:
         return bdregistry.mk_instance(
             self, self.register_table.retrieve(ix), Register)
+
+    def register_index_by_name(self, name: str) -> Optional[int]:
+        ixvalues = self.register_table.values()
+        for ixvalue in ixvalues:
+            if len(ixvalue.tags) >= 2:
+                if ixvalue.tags[1] == name:
+                    return ixvalue.index
+        return None
+
+    def register_by_name(self, name: str) -> Optional[Register]:
+        ix = self.register_index_by_name(name)
+        if ix is not None:
+            return self.register(ix)
+        else:
+            return None
 
     # ----------------------- xml accessors ------------------------------------
 
