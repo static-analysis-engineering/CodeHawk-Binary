@@ -744,10 +744,15 @@ def parse() -> argparse.Namespace:
         action="store_true")
     buildast.add_argument(
         "--show_reachingdefs",
-        help="create a dot file for the reaching defs of <addr>:<reg>")
+        help="create a dot file for the reaching defs of <reg>")
     buildast.add_argument(
         "--output_reachingdefs",
         help="name of output file (without extension) to store dot/pdf file of reachingdefs")
+    buildast.add_argument(
+        "--format",
+        choices=["pdf", "png"],
+        default="pdf",
+        help="format for the graph file generated from dot")
     buildast.add_argument(
         "--loglevel", "-log",
         choices=UL.LogLevel.options(),

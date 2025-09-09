@@ -36,6 +36,7 @@ from typing import (
     Any, cast, Dict, List, NoReturn, Optional, Set, Tuple, TYPE_CHECKING)
 
 from chb.app.AppAccess import AppAccess
+from chb.app.Function import Function
 
 from chb.ast.AbstractSyntaxTree import AbstractSyntaxTree
 from chb.ast.ASTApplicationInterface import ASTApplicationInterface
@@ -62,6 +63,7 @@ from chb.graphics.DotRdefPath import DotRdefPath
 from chb.userdata.UserHints import UserHints
 
 import chb.util.dotutil as UD
+from chb.util.DotGraph import DotGraph
 import chb.util.fileutil as UF
 import chb.util.graphutil as UG
 from chb.util.loggingutil import chklogger, LogLevel
@@ -150,6 +152,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     hide_annotations: bool = args.hide_annotations
     show_reachingdefs: str = args.show_reachingdefs
     output_reachingdefs: str = args.output_reachingdefs
+    fileformat: str = args.format
     verbose: bool = args.verbose
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
@@ -347,7 +350,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             # xdata records for all instructions in the function. Locations that
             # have a common user are merged. Types are provided by lhs_types.
             astinterface.introduce_ssa_variables(
-                f.rdef_locations(), f.register_lhs_types, f.lhs_names)
+                f.rdef_location_partition(), f.register_lhs_types, f.lhs_names)
 
             # Introduce stack variables for all stack buffers with types
             astinterface.introduce_stack_variables(
@@ -393,51 +396,14 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                     UC.print_error("\nSpecify a file to save the reaching defs")
                     continue
 
-                rdefspec = show_reachingdefs.split(":")
-                if len(rdefspec) != 2:
-                    UC.print_error(
-                        "\nArgument to show_reachingdefs not recognized")
-                    continue
-
-                useloc = rdefspec[0]
-                register = rdefspec[1]
-
-                if not f.has_instruction(useloc):
-                    UC.print_status_update("Useloc: " + useloc + " not found")
-                    continue
-
-                tgtinstr = f.instruction(useloc)
-
-                if not register in f.rdef_locations():
+                register = show_reachingdefs
+                if not register in f.rdef_location_partition():
                     UC.print_status_update(
                         "Register " + register + " not found in rdeflocations")
                     continue
 
-                cblock = f.containing_block(useloc)
-                graph = UG.DirectedGraph(list(f.cfg.blocks.keys()), f.cfg.edges)
-                rdefs = tgtinstr.reaching_definitions(register)
-                dotpaths: List[DotRdefPath] = []
-                graph.find_paths(f.faddr, cblock)
-                for (i, p) in enumerate(
-                    sorted(graph.get_paths(), key=lambda p: len(p))):
-                    cfgpath = DotRdefPath(
-                        "path" + str(i),
-                        f,
-                        astinterface,
-                        p,
-                        subgraph=True,
-                        nodeprefix = str(i) +":",
-                        rdefinstrs = rdefs)
-                    dotpaths.append(cfgpath)
-
-                pdffilename = UD.print_dot_subgraphs(
-                    app.path,
-                    "paths",
-                    output_reachingdefs,
-                    "pdf",
-                    [dotcfg.build() for dotcfg in dotpaths])
-
-                UC.print_status_update("Printed " + pdffilename)
+                print_reachingdefs(
+                    app, astinterface, output_reachingdefs, fileformat, f, register)
 
         else:
             UC.print_error("Unable to find function " + faddr)
@@ -467,6 +433,102 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     chklogger.logger.info("results ast completed")
 
     exit(0)
+
+
+def print_reachingdefs(
+        app: AppAccess,
+        astinterface: ASTInterface,
+        filename: str,
+        fileformat: str,
+        f: Function,
+        register: str) -> None:
+    dotpaths: List[Tuple[DotRdefPath, str, str]] = []
+    regspill = register + "_spill"
+    for (iaddr, instr) in f.instructions.items():
+        if register in instr.rdef_locations():
+            register_o = app.bdictionary.register_by_name(register)
+            cblock = f.containing_block(iaddr)
+            rdefs = instr.reaching_definitions(register)
+            for rdef in rdefs:
+                if rdef == "init":
+                    if regspill in instr.annotation:
+                        continue
+                    rdblock = f.faddr
+                    graph = UG.DirectedGraph(list(f.cfg.blocks.keys()), f.cfg.edges)
+                    graph.find_paths(rdblock, cblock)
+                    for (i, p) in enumerate(
+                            sorted(graph.get_paths(), key=lambda p: len(p))):
+                        p = ["init"] + p
+                        cfgpath = DotRdefPath(
+                            "path_" + str(rdef) + "_" + str(iaddr) + "_" + str(i),
+                            f,
+                            astinterface,
+                            p,
+                            register_o,
+                            subgraph=True,
+                            nodeprefix = str(iaddr) + str(rdef) + str(i) + ":",
+                            rdefinstrs = rdefs,
+                            useinstrs=[iaddr])
+                        dotpaths.append((cfgpath, rdef, iaddr))
+                else:
+                    rdblock = f.containing_block(rdef)
+                    graph = UG.DirectedGraph(list(f.cfg.blocks.keys()), f.cfg.edges)
+                    graph.find_paths(rdblock, cblock)
+                    for (i, p) in enumerate(
+                            sorted(graph.get_paths(), key=lambda p: len(p))):
+                        cfgpath = DotRdefPath(
+                            "path_" + str(rdef) + "_" + str(iaddr) + "_" + str(i),
+                            f,
+                            astinterface,
+                            p,
+                            subgraph=True,
+                            nodeprefix = str(iaddr) + str(rdef) + str(i) + ":",
+                            rdefinstrs = rdefs,
+                            useinstrs=[iaddr])
+                        dotpaths.append((cfgpath, rdef, iaddr))
+
+    possibly_spurious_rdefs: List[Tuple[str, str]] = []
+    legitimate_rdefs: List[Tuple[str, str]] = []
+    dotgraphs: List[Tuple[DotRdefPath, DotGraph, str, str]] = []
+
+    for (dotcfg, rdef, iaddr) in dotpaths:
+        dotgr = dotcfg.build()
+        if dotgr is not None:
+            if dotcfg.is_potentially_spurious():
+                possibly_spurious_rdefs.append((rdef, iaddr))
+            else:
+                legitimate_rdefs.append((rdef, iaddr))
+            dotgraphs.append((dotcfg, dotgr, rdef, iaddr))
+
+    printgraphs: List[DotGraph] = []
+    for (dotcfg, dg, rdef, iaddr) in dotgraphs:
+        if dotcfg.is_potentially_spurious():
+            if (rdef, iaddr) in legitimate_rdefs:
+                pass
+            else:
+                printgraphs.append(dg)
+        else:
+            printgraphs.append(dg)
+
+    pdffilename = UD.print_dot_subgraphs(
+        app.path,
+        "paths",
+        filename,
+        fileformat,
+        printgraphs)
+
+    UC.print_status_update("Printed " + pdffilename)
+    if len(possibly_spurious_rdefs) > 0:
+        print("Possibly spurious reachingdefs to be removed: ")
+        print("~" * 80)
+        for (rdef, iaddr) in set(possibly_spurious_rdefs):
+            if not (rdef, iaddr) in legitimate_rdefs:
+                print("  rdefloc: " + rdef + "; useloc: " + iaddr)
+        print("~" * 80)
+
+    # print("\nLegitimate reaching defs:")
+    # for (rdef, iaddr) in set(legitimate_rdefs):
+    #      print("  rdefloc: " + rdef + "; useloc: " + iaddr)
 
 
 def showast(args: argparse.Namespace) -> NoReturn:

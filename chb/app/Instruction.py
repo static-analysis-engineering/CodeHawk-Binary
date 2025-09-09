@@ -340,8 +340,13 @@ class Instruction(ABC):
             Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
         raise UF.CHBError("ast-switch-condition-prov not defined")
 
-    def rdef_locations(self) -> Dict[str, List[List[str]]]:
+    def rdef_locations(self) -> Dict[str, List[str]]:
         """Returns for each register, which locations must be combined."""
+
+        return {}
+
+    def use_locations(self) -> Dict[str, List[str]]:
+        """Returns for each register defined, which locations use the definition."""
 
         return {}
 

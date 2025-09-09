@@ -57,10 +57,10 @@ class DirectedGraph:
             self,
             src: str,
             dst: Optional[str],
-            visited: Dict[str, bool],
+            visited: Dict[str, int],
             path: List[str],
             depth: int = 0) -> None:
-        visited[src] = True
+        visited[src] = visited[src] + 1
         path.append(src)
         if not dst and (src not in self.edges):
             self.paths.append(path[:])
@@ -68,7 +68,7 @@ class DirectedGraph:
             self.paths.append(path[:])
         elif src in self.edges:
             for d in self.edges[src]:
-                if not visited[d]:
+                if visited[d] < 2:
                     self.find_paths_aux(d, dst, visited, path, depth + 1)
         path.pop()
         visited[src] = False
@@ -86,7 +86,7 @@ class DirectedGraph:
         self.maxtime = maxtime
         visited = {}
         for n in self.nodes:
-            visited[n] = False
+            visited[n] = 0
         try:
             self.find_paths_aux(src, dst, visited, [])
         except SearchTimeoutException as e:

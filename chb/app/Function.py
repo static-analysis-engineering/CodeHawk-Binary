@@ -525,14 +525,36 @@ class Function(ABC):
         else:
             raise UF.CHBError("No instruction found at address " + iaddr)
 
-    def rdef_locations(self) -> Dict[str, List[List[str]]]:
+    def rdef_location_partition(self) -> Dict[str, List[List[str]]]:
+        """Return a map of registers to partitions of their reaching definitions."""
+
         result: Dict[str, List[List[str]]] = {}
 
         for (iaddr, instr) in self.instructions.items():
             irdefs = instr.rdef_locations()
-            for (reg, rdeflists) in irdefs.items():
+            for (reg, rdeflist) in irdefs.items():
                 result.setdefault(reg, [])
-                result[reg].extend(rdeflists)
+                for rrlist in result[reg]:
+                    if set(rrlist) == set(rdeflist):
+                        break
+                else:
+                    result[reg].append(rdeflist)
+        return result
+
+    def use_location_partition(self) -> Dict[str, List[List[str]]]:
+        """Return a map of registers to partitions of their use locations."""
+
+        result: Dict[str, List[List[str]]] = {}
+
+        for (iaddr, instr) in self.instructions.items():
+            iuses = instr.use_locations()
+            for (reg, uselist) in iuses.items():
+                result.setdefault(reg, [])
+                for rrlist in result[reg]:
+                    if set(rrlist) == set(uselist):
+                        break
+                else:
+                    result[reg].append(uselist)
         return result
 
     def lhs_types(self) -> Dict[str, Dict[str, "BCTyp"]]:
@@ -545,7 +567,6 @@ class Function(ABC):
             result[iaddr] = {}
             for (vname, vtype) in ilhs_types.items():
                 result[iaddr][vname] = vtype
-
         return result
 
     def globalrefs(self) -> Dict[str, List["GlobalReference"]]:
