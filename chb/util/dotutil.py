@@ -74,7 +74,7 @@ def print_dot_subgraphs(
     if len(subgraphs) == 0:
         print("No subgraphs supplied")
         return "error"
-    if len(subgraphs) > 20:
+    if len(subgraphs) > 30:
         print("Too many subgraphs: " + str(len(subgraphs)))
         return "error"
 

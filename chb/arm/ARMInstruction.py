@@ -411,20 +411,25 @@ class ARMInstruction(Instruction):
     def rhs_expressions(self, filter: Callable[[XXpr], bool]) -> List[XXpr]:
         return [x for x in self.opcode.rhs(self.xdata) if filter(x)]
 
-    def rdef_locations(self) -> Dict[str, List[List[str]]]:
-        result: Dict[str, Dict[str, List[str]]] = {}
+    def rdef_locations(self) -> Dict[str, List[str]]:
+        result: Dict[str, List[str]] = {}
 
         for rdef in self.xdata.reachingdefs:
             if rdef is not None:
-                rdefvar = str(rdef.vardefuse.variable)
-                rdeflocs = [str(s) for s in rdef.valid_deflocations]
-                result.setdefault(rdefvar, {})
-                for sx in rdeflocs:
-                    result[rdefvar].setdefault(sx, [])
-                    for sy in rdeflocs:
-                        if sy not in result[rdefvar][sx]:
-                            result[rdefvar][sx].append(sy)
-        return {x:list(r.values()) for (x, r) in result.items()}
+                rdefvar = str(rdef.variable)
+                rdeflocs = sorted([str(s) for s in rdef.valid_deflocations])
+                result[rdefvar] = rdeflocs
+        return result
+
+    def use_locations(self) -> Dict[str, List[str]]:
+        result: Dict[str, List[str]] = {}
+
+        for use in self.xdata.defuses:
+            if use is not None:
+                usevar = str(use.variable)
+                uselocs = sorted([str(s) for s in use.uselocations])
+                result[usevar] = uselocs
+        return result
 
     def lhs_types(self) -> Dict[str, "BCTyp"]:
         result: Dict[str, "BCTyp"] = {}
