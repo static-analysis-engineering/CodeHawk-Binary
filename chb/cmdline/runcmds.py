@@ -177,7 +177,7 @@ def run_commands(args: argparse.Namespace) -> NoReturn:
                 opcode_output["opcode-distribution"] = opcode_distribution
                 opcode_output["unknowns"] = unknowns
                 with open(outputfilename, "w") as fp:
-                    json.dump(opcode_output, fp, indent=2)
+                    json.dump(opcode_output, fp, indent=2, sort_keys=True)
             else:
                 print("\nOpcode distribution")
                 for (opc, c) in sorted(opcode_distribution.items()):

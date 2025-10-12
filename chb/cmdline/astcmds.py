@@ -405,7 +405,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 functions_failed += 1
                 continue
 
-            if show_reachingdefs is not None:
+            if show_reachingdefs:
                 if output_reachingdefs is None:
                     UC.print_error("\nSpecify a file to save the reaching defs")
                     continue
@@ -421,7 +421,12 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
                 for reg in reachingdefs_registers:
                     print_reachingdefs(
-                        app, astinterface, output_reachingdefs + "__" + reg, fileformat, f, reg)
+                        app,
+                        astinterface,
+                        output_reachingdefs + "__" + reg,
+                        fileformat,
+                        f,
+                        reg)
 
         else:
             UC.print_error("Unable to find function " + faddr)
@@ -488,6 +493,24 @@ def print_reachingdefs(
                             rdefinstrs = rdefs,
                             useinstrs=[iaddr])
                         dotpaths.append((cfgpath, rdef, iaddr))
+                elif rdef.endswith("_clobber"):
+                    rdefaddr = rdef[:-8]
+                    rdblock = f.containing_block(rdefaddr)
+                    graph = UG.DirectedGraph(list(f.cfg.blocks.keys()), f.cfg.edges)
+                    graph.find_paths(rdblock, cblock)
+                    for (i, p) in enumerate(
+                            sorted(graph.get_paths(), key=lambda p: len(p))):
+                        cfgpath = DotRdefPath(
+                            "path_" + str(rdef) + "_" + str(iaddr) + "_" + str(i),
+                            f,
+                            astinterface,
+                            p,
+                            subgraph=True,
+                            nodeprefix = str(iaddr) + str(rdef) + str(i) + ":",
+                            rdefinstrs = rdefs,
+                            useinstrs=[iaddr])
+                        dotpaths.append((cfgpath, rdef, iaddr))
+
                 else:
                     rdblock = f.containing_block(rdef)
                     graph = UG.DirectedGraph(list(f.cfg.blocks.keys()), f.cfg.edges)
