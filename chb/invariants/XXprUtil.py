@@ -211,6 +211,25 @@ def xconstant_to_ast_expr(
                 return astree.mk_start_of(lval)
             else:
                 return astree.mk_address_of(lval)
+
+        elif (
+                xdata.app.systeminfo.has_function_name(hex(xc.intvalue))):
+            fname = xdata.app.systeminfo.function_name(hex(xc.intvalue))
+            if xdata.app.bcfiles.has_vardecl(fname):
+                vardecl = xdata.app.bcfiles.vardecl(fname)
+                astree.globalsymboltable.add_symbol(
+                    vardecl.vname,
+                    vtype=vardecl.vtype.convert(astree.typconverter),
+                    globaladdress=xc.intvalue)
+                gvaddr = astree.globalsymboltable.global_variable_name(
+                    hex(xc.intvalue))
+                if gvaddr is not None:
+                    lval = astree.mk_vinfo_lval(gvaddr, anonymous=anonymous)
+                    return astree.mk_address_of(lval)
+                else:
+                    return astree.mk_integer_constant(xc.intvalue)
+            else:
+                return astree.mk_integer_constant(xc.intvalue)
         else:
             return astree.mk_integer_constant(xc.intvalue)
 
@@ -564,6 +583,13 @@ def stack_variable_to_lval_expression(
             return astree.mk_vinfo_lval_expression(
                 vinfo, astoffset, anonymous=anonymous)
 
+        if offset.offset.is_field_offset:
+            fieldoffset = cast("VMemoryOffsetFieldOffset", offset.offset)
+            astoffset = field_offset_to_ast_offset(
+                fieldoffset, xdata, iaddr, astree, anonymous=anonymous)
+            return astree.mk_vinfo_lval_expression(
+                vinfo, astoffset, anonymous=anonymous)
+
     chklogger.logger.warning(
         "Stack variable offset %s of %s not yet handled at address %s",
         str(offset.offset), str(vinfo), iaddr)
@@ -635,6 +661,19 @@ def global_variable_to_lval_expression(
                 arrayoffset, xdata, iaddr, astree, anonymous=anonymous)
             return astree.mk_vinfo_lval_expression(
                 vinfo, astoffset, anonymous=anonymous)
+
+        if not anonymous:
+            if vinfo is None:
+                chklogger.logger.error(
+                    "Conversion of global variable with address %s and offset "
+                    + "%s at address %s not yet supported",
+                    str(hexgaddr), str(offset.offset), iaddr)
+            else:
+                    chklogger.logger.error(
+                        "Conversion of global variable %s access with offset "
+                        + "%s at address %s not yet supported",
+                        str(vinfo), str(offset.offset), iaddr)
+        return astree.mk_temp_lval_expression()
 
     if not anonymous:
         chklogger.logger.error(
