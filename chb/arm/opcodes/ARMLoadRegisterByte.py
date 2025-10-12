@@ -198,6 +198,10 @@ class ARMLoadRegisterByte(ARMOpcode):
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2, 3]]
 
+    @property
+    def is_write_back(self) -> bool:
+        return self.opargs[3].is_write_back
+
     def lhs(self, xdata: InstrXData) -> List[XVariable]:
         xd = ARMLoadRegisterByteXData(xdata)
         return [xd.vrt]
@@ -323,6 +327,11 @@ class ARMLoadRegisterByte(ARMOpcode):
                 bytestring=bytestring,
                 annotations=annotations)
             ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
+
+            if not xd.is_base_update_xpr_ok():
+                chklogger.logger.error(
+                    "LDRB: Error encountered for writeback address at address %s", iaddr)
+                return ([], ll_assigns)
 
             basereg = xd.get_base_update_var()
             newaddr = xd.get_base_update_xpr()

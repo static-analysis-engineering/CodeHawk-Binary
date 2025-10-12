@@ -340,6 +340,7 @@ class ARMMove(ARMOpcode):
             chklogger.logger.warning(
                 "Predicate assignment without associated predicate at "
                 + "address %s", iaddr)
+            astree.add_instr_address(ll_assign, [iaddr])
             return ([], [ll_assign])
 
         rhs = xd.cpredicate if xd.is_cpredicate_ok else xd.xpredicate

@@ -41,6 +41,8 @@ if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
 
 
+@armregistry.register_tag("LDC2", ARMOpcode)
+@armregistry.register_tag("LDC2L", ARMOpcode)
 @armregistry.register_tag("LDCL", ARMOpcode)
 @armregistry.register_tag("LDC", ARMOpcode)
 class ARMLoadCoprocessor(ARMOpcode):

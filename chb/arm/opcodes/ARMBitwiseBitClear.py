@@ -156,6 +156,15 @@ class ARMBitwiseBitClear(ARMOpcode):
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1: -1]]
 
+    def mnemonic_extension(self) -> str:
+        cc = ARMOpcode.mnemonic_extension(self)
+        wb = "S" if self.is_writeback else ""
+        return wb + cc
+
+    @property
+    def is_writeback(self) -> bool:
+        return self.args[0] == 1
+
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMBitwiseBitClearXData(xdata)
         return xd.annotation

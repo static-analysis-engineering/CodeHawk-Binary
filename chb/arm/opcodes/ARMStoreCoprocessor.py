@@ -43,6 +43,8 @@ if TYPE_CHECKING:
 
 @armregistry.register_tag("STCL", ARMOpcode)
 @armregistry.register_tag("STC", ARMOpcode)
+@armregistry.register_tag("STC2", ARMOpcode)
+@armregistry.register_tag("STC2L", ARMOpcode)
 class ARMStoreCoprocessor(ARMOpcode):
     """Stores memory data from a coprocessor to a sequence of addresses.
 

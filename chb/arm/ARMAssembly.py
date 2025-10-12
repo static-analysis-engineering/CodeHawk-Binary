@@ -62,7 +62,7 @@ class ARMAssemblyInstruction(AssemblyInstruction):
 
     @property
     def mnemonic(self) -> str:
-        return self.opcode.mnemonic
+        return self.opcode.mnemonic_stem
 
     def mnemonic_extension(self) -> str:
         return self.opcode.mnemonic_extension()

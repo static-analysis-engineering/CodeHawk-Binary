@@ -68,7 +68,7 @@ class DirectedGraph:
             self.paths.append(path[:])
         elif src in self.edges:
             for d in self.edges[src]:
-                if visited[d] < 2:
+                if visited[d] < 2 and depth < 8:
                     self.find_paths_aux(d, dst, visited, path, depth + 1)
         path.pop()
         visited[src] = False
