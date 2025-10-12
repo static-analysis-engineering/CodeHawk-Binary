@@ -428,6 +428,8 @@ class ASTIProvenance:
                 v = str(rd.variable)
                 addrs = [str(d) for d in rd.deflocations]
                 for addr in addrs:
+                    if addr == "init":
+                        continue
                     if addr in self.address_instructions:
                         instrids = self.address_instructions[addr]
                         for instrid in instrids:
@@ -442,6 +444,26 @@ class ASTIProvenance:
                                     # Allow for change of name of return value
                                     if str(instr.lhs) == v or v == "R0" or v == "S0":
                                         self.add_reaching_definition(xid, instrid)
+                                    else:
+                                        chklogger.logger.warning(
+                                            "Variable names don't match: %s vs %s",
+                                            str(instr.lhs), v)
+                                else:
+                                    chklogger.logger.warning(
+                                        "Expression is defined by unknown instruction: "
+                                        + "var: %s defined by %s",
+                                        str(v), str(instr))
+                            else:
+                                chklogger.logger.warning(
+                                    "Instruction id in reaching definitions for %s "
+                                    + "not found",
+                                    str(v))
+                    else:
+                        chklogger.logger.warning(
+                            "Reaching definition address %s for variable %s "
+                            + " not found",
+                            str(addr), str(v))
+
 
     def resolve_flag_reaching_defs(self) -> None:
         for (xid, frds) in self.flag_expr_rdefs.items():

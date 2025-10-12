@@ -68,7 +68,15 @@ class ASTICodeTransformer(ASTIdentityTransformer):
             optlocationid=stmt.locationid)
 
     def transform_block_stmt(self, stmt: AST.ASTBlock) -> AST.ASTStmt:
-        newstmts = [s.transform(self) for s in stmt.stmts]
+        newstmts: List[AST.ASTStmt] = []
+        for s in stmt.stmts:
+            newstmt = s.transform(self)
+            # prune empty blocks that may have been created by the pruning
+            # of redundant if statements
+            if newstmt.is_ast_block and len((cast(AST.ASTBlock, newstmt)).stmts) == 0:
+                continue
+            newstmts.append(newstmt)
+
         return self.astinterface.mk_block(
             newstmts,
             labels=stmt.labels,
@@ -117,6 +125,9 @@ class ASTICodeTransformer(ASTIdentityTransformer):
     def transform_branch_stmt(self, stmt: AST.ASTBranch) -> AST.ASTStmt:
         newif = stmt.ifstmt.transform(self)
         newelse = stmt.elsestmt.transform(self)
+        if newif.is_empty() and newelse.is_empty():
+            return self.astinterface.mk_block([])
+
         return self.astinterface.mk_branch(
             stmt.condition,
             newif,

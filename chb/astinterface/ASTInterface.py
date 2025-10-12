@@ -1470,6 +1470,14 @@ class ASTInterface:
             shift += 8
         return result
 
+    def mk_doubleword_sum(
+            self, hiword: AST.ASTExpr, loword: AST.ASTExpr) -> AST.ASTExpr:
+        """Return concatenation 64 bit hiword:loword."""
+
+        shift = self.mk_integer_constant(32)
+        shifthi = self.mk_binary_op("lsl", hiword, shift)
+        return self.mk_binary_op("plus", shifthi, loword)
+
     def mk_binary_expression(
             self,
             op: str,
