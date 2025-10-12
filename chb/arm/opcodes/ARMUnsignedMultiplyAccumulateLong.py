@@ -25,13 +25,18 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
 from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
+
+import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
@@ -110,6 +115,10 @@ class ARMUnsignedMultiplyAccumulateLong(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3, 4]]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3, 4]]
+
     def mnemonic_extension(self) -> str:
         cc = ARMOpcode.mnemonic_extension(self)
         wb = "S" if self.is_writeback else ""
@@ -125,3 +134,82 @@ class ARMUnsignedMultiplyAccumulateLong(ARMOpcode):
             return xd.annotation
         else:
             return "Error value"
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "UMLAL"]
+
+        # low-level assignment
+
+        (ll_lhslo, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_lhshi, _, _) = self.opargs[1].ast_lvalue(astree)
+        (ll_lo, _, _) = self.opargs[0].ast_rvalue(astree)
+        (ll_hi, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_rn, _, _) = self.opargs[2].ast_rvalue(astree)
+        (ll_rm, _, _) = self.opargs[3].ast_rvalue(astree)
+
+        i32 = astree.mk_integer_constant(32)
+        ll_rhs1 = astree.mk_doubleword_sum(ll_hi, ll_lo)
+        ll_rhs2 = astree.mk_binary_op("mult", ll_rn, ll_rm)
+        ll_rhs = astree.mk_binary_op("plus", ll_rhs2, ll_rhs1)
+        ll_rhslo = astree.mk_binary_op("mod", ll_rhs, i32)
+        ll_rhshi = astree.mk_binary_op("div", ll_rhs, i32)
+
+        ll_assign_lo = astree.mk_assign(
+            ll_lhslo,
+            ll_rhslo,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        ll_assign_hi = astree.mk_assign(
+            ll_lhshi,
+            ll_rhshi,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        rdefs = xdata.reachingdefs
+
+        astree.add_expr_reachingdefs(ll_rn, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rm, [rdefs[1]])
+        astree.add_expr_reachingdefs(ll_lo, [rdefs[2]])
+        astree.add_expr_reachingdefs(ll_hi, [rdefs[3]])
+
+        # high-level assignment
+
+        xd = ARMUnsignedMultiplyAccumulateLongXData(xdata)
+        if not xd.is_ok:
+            chklogger.logger.error(
+                "Error value encountered for UMLAL at %s", iaddr)
+            return ([], [])
+
+        hl_lhs = XU.xvariable_to_ast_lval(xd.vlo, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(xd.rresult, xdata, iaddr, astree)
+
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign_lo)
+        astree.add_instr_mapping(hl_assign, ll_assign_hi)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhslo)
+        astree.add_lval_mapping(hl_lhs, ll_lhslo)
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[4:])
+        astree.add_lval_defuses(hl_lhs, defuses[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        return ([hl_assign], [ll_assign_lo, ll_assign_hi])
