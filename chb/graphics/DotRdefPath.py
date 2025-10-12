@@ -334,6 +334,8 @@ class DotRdefPath:
         for i in self._rdefinstrs:
             if i == "init":
                 continue
+            if i.endswith("_clobber"):
+                i = i[:-8]
             ix = int(i, 16)
             if ix >= baddr and ix <= xaddr:
                 instr = block.instructions[i]

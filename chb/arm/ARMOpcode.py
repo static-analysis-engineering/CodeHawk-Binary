@@ -229,6 +229,9 @@ class ARMOpcodeXData:
             raise UF.CHBError(
                 self.__class__.__name__ + " does not have writeback")
 
+    def is_base_update_xpr_ok(self) -> bool:
+        return self.xdata.is_base_update_xpr_ok()
+
     def get_base_update_cxpr(self) -> "XXpr":
         if self.is_writeback:
             return self.xdata.get_base_update_cxpr()
@@ -239,7 +242,10 @@ class ARMOpcodeXData:
     def writeback_update(self) -> str:
         if self.xdata.has_base_update():
             vbu = self.get_base_update_var()
-            xbu = self.get_base_update_cxpr()
+            if self.is_base_update_xpr_ok():
+                xbu = str(self.get_base_update_cxpr())
+            else:
+                xbu = "?"
             return "; wbu: " + str(vbu) + " := " + str(xbu)
         else:
             return ""

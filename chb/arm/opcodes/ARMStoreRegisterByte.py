@@ -328,6 +328,12 @@ class ARMStoreRegisterByte(ARMOpcode):
                 annotations=annotations)
             ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
 
+            if not xd.is_base_update_xpr_ok():
+                chklogger.logger.error(
+                    "STRB: Error encountered fro writeback address at address %s",
+                    iaddr)
+                return ([], ll_assigns)
+
             basereg = xd.get_base_update_var()
             newaddr = xd.get_base_update_xpr()
             hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)

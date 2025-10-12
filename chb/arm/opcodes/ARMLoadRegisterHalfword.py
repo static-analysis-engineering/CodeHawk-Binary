@@ -193,6 +193,10 @@ class ARMLoadRegisterHalfword(ARMOpcode):
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2, 3]]
 
+    @property
+    def is_write_back(self) -> bool:
+        return self.opargs[3].is_write_back
+
     def lhs(self, xdata: InstrXData) -> List[XVariable]:
         xd = ARMLoadRegisterHalfwordXData(xdata)
         return [xd.vrt]
