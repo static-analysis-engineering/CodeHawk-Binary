@@ -72,8 +72,13 @@ class ASTICodeTransformer(ASTIdentityTransformer):
         for s in stmt.stmts:
             newstmt = s.transform(self)
             # prune empty blocks that may have been created by the pruning
-            # of redundant if statements
-            if newstmt.is_ast_block and len((cast(AST.ASTBlock, newstmt)).stmts) == 0:
+            # of redundant if statements.
+            # StmtLabels may be intermixed with statements, hence the check
+            # for is_stmt_label.
+            if (
+                    not newstmt.is_stmt_label
+                    and newstmt.is_ast_block
+                    and len((cast(AST.ASTBlock, newstmt)).stmts) == 0):
                 continue
             newstmts.append(newstmt)
 
