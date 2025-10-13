@@ -461,10 +461,12 @@ class ASTIProvenance:
                                     + "not found",
                                     str(v))
                     else:
-                        chklogger.logger.warning(
-                            "Reaching definition address %s for variable %s "
-                            + " not found",
-                            str(addr), str(v))
+                        # temporarily silence warnings for payload addresses
+                        if not addr.startswith("F"):
+                            chklogger.logger.warning(
+                                "Reaching definition address %s for variable %s "
+                                + " not found",
+                                str(addr), str(v))
 
 
     def resolve_flag_reaching_defs(self) -> None:
