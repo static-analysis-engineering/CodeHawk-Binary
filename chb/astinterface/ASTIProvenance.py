@@ -426,6 +426,8 @@ class ASTIProvenance:
             for rd in rds:
                 rd = cast("ReachingDefFact", rd)
                 v = str(rd.variable)
+                if v == "PC":
+                    continue
                 addrs = [str(d) for d in rd.deflocations]
                 for addr in addrs:
                     if addr == "init":

@@ -542,6 +542,11 @@ class ASTInterfaceBasicBlock:
             raise UF.CHBError("Internal error")
         return self.trampoline_block_ast("fallthrough", astree)
 
+    def trampoline_continue_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
+        if not self.is_trampoline:
+            raise UF.CHBError("Internal error")
+        return self.trampoline_block_ast("continuepath", astree)
+
     def trampoline_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         stmts: List[AST.ASTStmt] = []
 
@@ -562,4 +567,6 @@ class ASTInterfaceBasicBlock:
                     str(len(self.trampoline_payload_roles)))
         if "fallthrough" in self.trampoline:
             stmts.append(self.trampoline_takedown_ast(astree))
+        if "continuepath" in self.trampoline:
+            stmts.append(self.trampoline_continue_ast(astree))
         return astree.mk_block(stmts)
