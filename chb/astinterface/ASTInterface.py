@@ -561,12 +561,14 @@ class ASTInterface:
             name: str,
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
-            globaladdress: Optional[int] = None) -> AST.ASTVarInfo:
+            globaladdress: Optional[int] = None,
+            ssa:bool = False) -> AST.ASTVarInfo:
         return self.astree.add_symbol(
             name,
             vtype=vtype,
             parameter=parameter,
-            globaladdress=globaladdress)
+            globaladdress=globaladdress,
+            ssa=ssa)
 
     def add_formal(
             self,
@@ -1050,7 +1052,7 @@ class ASTInterface:
             ssaid = self._ssa_prefix_counters[ssaprefix]
             self._ssa_prefix_counters[ssaprefix] += 1
             vname = ssaprefix + "_" + str(ssaid)
-        varinfo = self.add_symbol(vname, vtype=vtype)
+        varinfo = self.add_symbol(vname, vtype=vtype, ssa=True)
         self._ssa_intros.setdefault(iaddr, {})
         self._ssa_intros[iaddr][name] = varinfo
         if save_loc:

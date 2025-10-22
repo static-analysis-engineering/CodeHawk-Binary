@@ -222,7 +222,13 @@ class ASTInterfaceFunction(ASTFunction):
                 annotations=self.astinterface.annotations)
             print(iprettyprinter.to_c(ast))
 
-        codetransformer = ASTICodeTransformer(self.astinterface)
+        variablesused = ast.variables_used()
+
+        codetransformer = ASTICodeTransformer(self.astinterface, list(variablesused))
+        transformedcode = codetransformer.transform_stmt(ast)
+
+        variablesused = transformedcode.variables_used()
+        codetransformer = ASTICodeTransformer(self.astinterface, list(variablesused))
         transformedcode = codetransformer.transform_stmt(ast)
 
         if self.verbose:
