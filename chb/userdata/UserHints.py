@@ -572,6 +572,10 @@ class StackVarIntro:
     def ispointer(self) -> bool:
         return "ptrto" in self.mods
 
+    @property
+    def is_loopcounter(self) -> bool:
+        return "loopcounter" in self.mods
+
     def to_xml(self, node: ET.Element) -> None:
         xvintro = ET.Element("vintro")
         node.append(xvintro)
@@ -583,6 +587,8 @@ class StackVarIntro:
                 xvintro.set("arraysize", str(self.arraysize))
             elif self.ispointer:
                 xvintro.set("ptrto", "yes")
+        if self.is_loopcounter:
+            xvintro.set("loopcounter", "yes")
 
     def __str__(self) -> str:
         return (
@@ -720,6 +726,10 @@ class FunctionAnnotation:
             result.append(rrd)
         return result
 
+    @property
+    def const_global_variables(self) -> List[str]:
+        return self.fnannotation.get("const-global-variables", [])
+
     def has_register_variable_introduction(self, iaddr: str) -> bool:
         return iaddr in self.register_variable_introductions
 
@@ -761,6 +771,13 @@ class FunctionAnnotation:
             node.append(xrrds)
             for rd in self.remove_reaching_definitions:
                 rd.to_xml(xrrds)
+        if len(self.const_global_variables) > 0:
+            xcgvars = ET.Element("const-global-variables")
+            node.append(xcgvars)
+            for name in self.const_global_variables:
+                xcgvar = ET.Element("gvar")
+                xcgvar.set("name", name)
+                xcgvars.append(xcgvar)
 
     def __str__(self) -> str:
         lines: List[str] = []
