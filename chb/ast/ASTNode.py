@@ -494,24 +494,24 @@ class ASTBlock(ASTStmt):
         return ctyper.ctype_block_stmt(self)
 
     def is_empty(self) -> bool:
-        return all(s.is_empty() for s in self.stmts)
+        return self.is_stmt_label or all(s.is_empty() for s in self.stmts)
 
     def address_taken(self) -> Set[str]:
-        if self.is_empty():
+        if self.is_stmt_label or self.is_empty():
             return set([])
         else:
             return self.stmts[0].address_taken().union(
                 *(s.address_taken() for s in self.stmts[1:]))
 
     def variables_used(self) -> Set[str]:
-        if self.is_empty():
+        if self.is_stmt_label or self.is_empty():
             return set([])
         else:
             return self.stmts[0].variables_used().union(
                 *(s.variables_used() for s in self.stmts[1:]))
 
     def callees(self) -> Set[str]:
-        if self.is_empty():
+        if self.is_stmt_label or self.is_empty():
             return set([])
         else:
             return self.stmts[0].callees().union(
@@ -749,6 +749,9 @@ class ASTSwitchStmt(ASTStmt):
     def merge_address(self) -> Optional[str]:
         return self._mergeaddress
 
+    def variables_used(self) -> Set[str]:
+        return self.cases.variables_used().union(self.switchexpr.variables_used())
+
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_switch_stmt(self)
 
@@ -770,6 +773,9 @@ class ASTStmtLabel(ASTNode, ABC):
 
     @property
     def is_stmt_label(self) -> bool:
+        return True
+
+    def is_empty(self) -> bool:
         return True
 
     @property

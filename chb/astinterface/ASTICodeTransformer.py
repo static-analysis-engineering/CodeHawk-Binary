@@ -51,6 +51,9 @@ class ASTICodeTransformer(ASTIdentityTransformer):
             variablesused: List[str] = []) -> None:
         self._astinterface = astinterface
         self._variablesused = variablesused
+        chklogger.logger.info(
+            "ASTICodeTransformer: variables used: [%s]",
+            ", ".join(self._variablesused))
 
     @property
     def astinterface(self) -> "ASTInterface":
@@ -103,7 +106,8 @@ class ASTICodeTransformer(ASTIdentityTransformer):
                         self.astinterface.has_ssa_value(str(instr.lhs))
                         and not self.provenance.has_expose_instruction(instr.instrid)):
                     chklogger.logger.info(
-                        "Remove [%s]: has ssa value", str(instr))
+                        "Remove [%s]: has ssa value: %s",
+                        str(instr), str(self.astinterface.get_ssa_value(str(instr.lhs))))
                 elif self.provenance.has_lval_store(instr.lhs.lvalid):
                     chklogger.logger.info(
                         "Transform [%s]: lval_store", str(instr))
@@ -118,7 +122,7 @@ class ASTICodeTransformer(ASTIdentityTransformer):
                     instrs.append(instr)
                 elif str(instr.lhs) not in self.variables_used:
                     chklogger.logger.info(
-                        "Remove [%s]: lhs is not used")
+                        "Remove [%s]: lhs is not used: %s", str(instr), str(instr.lhs))
                 elif self.provenance.has_active_lval_defuse_high(instr.lhs.lvalid):
                     chklogger.logger.info(
                         "Transform [%s]: active lval_defuse_high: %s",
@@ -126,7 +130,7 @@ class ASTICodeTransformer(ASTIdentityTransformer):
                         self.provenance.active_lval_defuse_high(instr.lhs.lvalid))
                     instrs.append(instr)
                 else:
-                    chklogger.logger.info("Transform [%s]: remove", str(instr))
+                    chklogger.logger.info("Transform [%s]: remove (by default)", str(instr))
             else:
                 chklogger.logger.info(
                     "Transform [%s]: include by default", str(instr))
