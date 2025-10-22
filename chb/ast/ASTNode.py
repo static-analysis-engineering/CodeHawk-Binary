@@ -1003,7 +1003,8 @@ class ASTAssign(ASTInstruction):
         return self.lhs.address_taken().union(self.rhs.address_taken())
 
     def variables_used(self) -> Set[str]:
-        return self.lhs.variables_used().union(self.rhs.variables_used())
+        lhsvars = set([]) if self.lhs.is_variable else self.lhs.variables_used()
+        return self.rhs.variables_used().union(lhsvars)
 
     def callees(self) -> Set[str]:
         return set([])
@@ -1050,6 +1051,12 @@ class ASTCall(ASTInstruction):
     @property
     def arguments(self) -> List["ASTExpr"]:
         return self._args
+
+    def variables_used(self) -> Set[str]:
+        result: Set[str] = set([])
+        for arg in self.arguments:
+            result = result.union(arg.variables_used())
+        return result
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_call_instr(self)
@@ -1143,6 +1150,10 @@ class ASTLval(ASTNode):
         return self._lhost
 
     @property
+    def is_constant_value_expression(self) -> bool:
+        return self.lhost.is_constant_value_expression
+
+    @property
     def offset(self) -> "ASTOffset":
         return self._offset
 
@@ -1204,6 +1215,14 @@ class ASTLHost(ASTNode):
     def is_global(self) -> bool:
         return False
 
+    @property
+    def is_ssa(self) -> bool:
+        return False
+
+    @property
+    def is_constant_value_expression(self) -> bool:
+        return self.is_ssa
+
     @abstractmethod
     def transform(self, transformer: "ASTTransformer") -> "ASTLHost":
         ...
@@ -1226,12 +1245,14 @@ class ASTVarInfo(ASTNode):
             vtype: Optional["ASTTyp"],
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            ssa: bool = False,
             vdescr: Optional[str] = None) -> None:
         ASTNode.__init__(self, "varinfo")
         self._vname = vname
         self._vtype = vtype
         self._parameter = parameter
         self._globaladdress = globaladdress
+        self._ssa = ssa
         self._vdescr = vdescr  # describes what the variable holds
 
     @property
@@ -1257,6 +1278,10 @@ class ASTVarInfo(ASTNode):
     @property
     def is_global(self) -> bool:
         return self.globaladdress is not None
+
+    @property
+    def is_ssa(self) -> bool:
+        return self._ssa
 
     @property
     def vdescr(self) -> Optional[str]:
@@ -1303,6 +1328,10 @@ class ASTVariable(ASTLHost):
     @property
     def is_global(self) -> bool:
         return self.varinfo.is_global
+
+    @property
+    def is_ssa(self) -> bool:
+        return self.varinfo.is_ssa
 
     @property
     def vname(self) -> str:
@@ -1626,6 +1655,10 @@ class ASTExpr(ASTNode):
         return False
 
     @property
+    def is_constant_value_expression(self) -> bool:
+        return False
+
+    @property
     def is_global_address(self) -> bool:
         return False
 
@@ -1690,6 +1723,10 @@ class ASTConstant(ASTExpr):
 
     @property
     def is_ast_constant(self) -> bool:
+        return True
+
+    @property
+    def is_constant_value_expression(self) -> bool:
         return True
 
     def use(self) -> List[str]:
@@ -1886,6 +1923,10 @@ class ASTLvalExpr(ASTExpr):
     def lval(self) -> "ASTLval":
         return self._lval
 
+    @property
+    def is_constant_value_expression(self) -> bool:
+        return self.lval.is_constant_value_expression
+
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_lval_expression(self)
 
@@ -1921,6 +1962,10 @@ class ASTSizeOfExpr(ASTExpr):
     def tgt_type(self) -> "ASTTyp":
         return self._tgttyp
 
+    @property
+    def is_constant_value_expression(self) -> bool:
+        return True
+
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_sizeof_expression(self)
 
@@ -1955,6 +2000,10 @@ class ASTCastExpr(ASTExpr):
     @property
     def cast_expr(self) -> "ASTExpr":
         return self._exp
+
+    @property
+    def is_constant_value_expression(self) -> bool:
+        return self.cast_expr.is_constant_value_expression
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_cast_expression(self)
@@ -2001,6 +2050,10 @@ class ASTUnaryOp(ASTExpr):
     @property
     def exp1(self) -> "ASTExpr":
         return self._exp
+
+    @property
+    def is_constant_value_expression(self) -> bool:
+        return self.exp1.is_constant_value_expression
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_unary_expression(self)
@@ -2057,6 +2110,12 @@ class ASTBinaryOp(ASTExpr):
     @property
     def exp2(self) -> "ASTExpr":
         return self._exp2
+
+    @property
+    def is_constant_value_expression(self) -> bool:
+        return (
+            self.exp1.is_constant_value_expression
+            and self.exp2.is_constant_value_expression)
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_binary_expression(self)
@@ -2119,6 +2178,13 @@ class ASTQuestion(ASTExpr):
     def exp3(self) -> "ASTExpr":
         return self._exp3
 
+    @property
+    def is_constant_value_expression(self) -> bool:
+        return (
+            self.exp1.is_constant_value_expression
+            and self.exp2.is_constant_value_expression
+            and self.exp3.is_constant_value_expression)
+
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_question_expression(self)
 
@@ -2164,6 +2230,10 @@ class ASTAddressOf(ASTExpr):
     def lval(self) -> "ASTLval":
         return self._lval
 
+    @property
+    def is_constant_value_expression(self) -> bool:
+        return True
+
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_address_of_expression(self)
 
@@ -2202,6 +2272,10 @@ class ASTStartOf(ASTExpr):
     @property
     def lval(self) -> "ASTLval":
         return self._lval
+
+    @property
+    def is_constant_value_expression(self) -> bool:
+        return True
 
     def accept(self, visitor: "ASTVisitor") -> None:
         visitor.visit_start_of_expression(self)
