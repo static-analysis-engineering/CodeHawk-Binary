@@ -1848,12 +1848,26 @@ def xvariable_to_ast_lval(
             bctype = xdata.function.register_lhs_type(iaddr, str(xv))
             if bctype is not None:
                 ctype = bctype.convert(astree.typconverter)
+
+        # Note: Ideally the rhs parameter should be replaced with an astrhs
+        # parameter supplied by all of the instructions. The replacement would
+        # avoid having to compute the astrhs twice. Furthermore, for some
+        # instructions the rhs may be computed in a non-standard way, causing
+        # the assigned value to diverge from the value computed here.
         if (
                 rhs is not None
                 and (rhs.is_constant
-                     or (rhs.is_constant_value_variable))):
+                     or (rhs.is_constant_value_variable)
+                     or (rhs.is_loop_counter_expression))):
             astrhs: Optional[AST.ASTExpr] = xxpr_to_ast_def_expr(
                 rhs, xdata, iaddr, astree, anonymous=anonymous)
+
+        elif rhs is not None:
+            astrhs = xxpr_to_ast_def_expr(
+                rhs, xdata, iaddr, astree, anonymous=anonymous)
+            if not astrhs.is_constant_value_expression:
+                astrhs = None
+
         else:
             astrhs = None
 

@@ -294,6 +294,14 @@ class XXpr(FnXprDictionaryRecord):
             self, p: Callable[[XVariable], bool]) -> bool:
         return False
 
+    def all_variables_with_property(
+            self, p: Callable[[XVariable], bool]) -> bool:
+        return False
+
+    @property
+    def is_loop_counter_expression(self) -> bool:
+        return self.all_variables_with_property(lambda v: v.is_loop_counter)
+
     def negated_value(self) -> int:
         raise UF.CHBError("Get_negated_value not supported for " + str(self))
 
@@ -348,6 +356,10 @@ class XprVariable(XXpr):
     @property
     def variable(self) -> XVariable:
         return self.xd.variable(self.args[0])
+
+    @property
+    def is_loop_counter(self) -> bool:
+        return self.variable.is_loop_counter
 
     @property
     def is_constant_value_variable(self) -> bool:
@@ -444,6 +456,10 @@ class XprVariable(XXpr):
         return self.has_global_variables()
 
     def has_variables_with_property(
+            self, p: Callable[[XVariable], bool]) -> bool:
+        return p(self.variable)
+
+    def all_variables_with_property(
             self, p: Callable[[XVariable], bool]) -> bool:
         return p(self.variable)
 
@@ -576,6 +592,10 @@ class XprConstant(XXpr):
         else:
             raise UF.CHBError(
                 "Constant is not an integer constant: " + str(self))
+
+    def all_variables_with_property(
+            self, p: Callable[[XVariable], bool]) -> bool:
+        return True
 
     @property
     def is_constant(self) -> bool:
@@ -758,6 +778,10 @@ class XprCompound(XXpr):
     def has_variables_with_property(
             self, p: Callable[[XVariable], bool]) -> bool:
         return any([op.has_variables_with_property(p) for op in self.operands])
+
+    def all_variables_with_property(
+            self, p: Callable[[XVariable], bool]) -> bool:
+        return all([op.all_variables_with_property(p) for op in self.operands])
 
     @property
     def is_stack_address(self) -> bool:

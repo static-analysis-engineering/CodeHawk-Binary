@@ -63,6 +63,9 @@ class XSymbol(FnXprDictionaryRecord):
     def attrs(self) -> List[str]:
         return self.tags[1:]
 
+    def has_attribute(self, attr: str) -> bool:
+        return attr in self.attrs
+
     @property
     def seqnr(self) -> int:
         return self.args[0]
