@@ -90,6 +90,10 @@ class ARMTestEquivalence(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(i) for i in self.args]
+
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMTestEquivalenceXData(xdata)
         if xd.is_ok:
