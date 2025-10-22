@@ -204,12 +204,14 @@ class AbstractSyntaxTree:
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            ssa: bool = False,
             vdescr: Optional[str] = None) -> AST.ASTVarInfo:
         return self.symboltable.add_symbol(
             name,
             vtype=vtype,
             parameter=parameter,
             globaladdress=globaladdress,
+            ssa=ssa,
             vdescr=vdescr)
 
     def add_compinfo(self, cinfo: AST.ASTCompInfo) -> None:

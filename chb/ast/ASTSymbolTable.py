@@ -63,6 +63,7 @@ class ASTSymbolTable:
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            ssa: bool = False,
             llref: bool = False,
             vdescr: Optional[str] = None) -> AST.ASTVarInfo:
 
@@ -104,6 +105,7 @@ class ASTSymbolTable:
                 vtype=vtype,
                 parameter=parameter,
                 globaladdress=globaladdress,
+                ssa=ssa,
                 vdescr=vdescr)
             self._table[vname] = varinfo
             return varinfo
@@ -257,6 +259,7 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
             vtype: Optional[AST.ASTTyp] = None,
             parameter: Optional[int] = None,
             globaladdress: Optional[int] = None,
+            ssa: bool = False,
             llref: bool = False,
             vdescr: Optional[str] = None) -> AST.ASTVarInfo:
         if parameter is not None:
@@ -266,6 +269,7 @@ class ASTGlobalSymbolTable(ASTSymbolTable):
             vname,
             vtype=vtype,
             globaladdress=globaladdress,
+            ssa=ssa,
             vdescr=vdescr)
         if globaladdress is not None:
             self._symbolicnames[vinfo.vname] = vinfo
