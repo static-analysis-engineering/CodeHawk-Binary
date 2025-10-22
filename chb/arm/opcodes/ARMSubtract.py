@@ -236,7 +236,7 @@ class ARMSubtract(ARMOpcode):
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
-        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhs)
 
         # resulting expression is a stack address
         if str(rhs1) == "SP" and xrhs.is_stack_address:

@@ -145,7 +145,19 @@ class ARMStoreRegisterHalfwordXData(ARMOpcodeXData):
     @property
     def annotation(self) -> str:
         wbu = self.writeback_update()
-        clhs = str(self.cvmem) if self.is_cvmem_ok else "None"
+        if self.is_cvmem_ok:
+            clhs = str(self.cvmem)
+        elif self.is_cxaddr_ok:
+            if self.cxaddr.is_addressof_var:
+                lhsvar = self.cxaddr.get_addressof_var
+                if lhsvar is not None:
+                    clhs = str(lhsvar)
+                else:
+                    clhs = "*(" + str(self.cxaddr) + ")"
+            else:
+                clhs = "*(" + str(self.cxaddr) + ")"
+        else:
+            clhs = "None"
         crhs = str(self.cxrt) if self.is_cxrt_ok else "None"
         assignc = "(C: " + clhs + " := " + crhs + ")"
         if self.is_vmem_ok:
@@ -163,7 +175,6 @@ class ARMStoreRegisterHalfwordXData(ARMOpcodeXData):
         assign = lhs + " := " + rhs
         assignment = assign + " " + assignc
         return self.add_instruction_condition(assignment + wbu)
-
 
 
 @armregistry.register_tag("STRH", ARMOpcode)
