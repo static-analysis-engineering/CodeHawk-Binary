@@ -83,6 +83,10 @@ class XVariable(FnXprDictionaryRecord):
         return (self.seqnr == -1)
 
     @property
+    def is_loop_counter(self) -> bool:
+        return self.symbol.has_attribute("lc")
+
+    @property
     def is_constant_value_variable(self) -> bool:
         return self.has_denotation() and self.denotation.is_auxiliary_variable
 
