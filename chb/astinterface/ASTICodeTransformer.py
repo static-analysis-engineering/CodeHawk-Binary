@@ -47,8 +47,10 @@ class ASTICodeTransformer(ASTIdentityTransformer):
 
     def __init__(
             self,
-            astinterface: "ASTInterface") -> None:
+            astinterface: "ASTInterface",
+            variablesused: List[str] = []) -> None:
         self._astinterface = astinterface
+        self._variablesused = variablesused
 
     @property
     def astinterface(self) -> "ASTInterface":
@@ -57,6 +59,10 @@ class ASTICodeTransformer(ASTIdentityTransformer):
     @property
     def provenance(self) -> "ASTIProvenance":
         return self.astinterface.astiprovenance
+
+    @property
+    def variables_used(self) -> List[str]:
+        return self._variablesused
 
     def transform_stmt(self, stmt: AST.ASTStmt) -> AST.ASTStmt:
         return stmt.transform(self)
@@ -98,12 +104,6 @@ class ASTICodeTransformer(ASTIdentityTransformer):
                         and not self.provenance.has_expose_instruction(instr.instrid)):
                     chklogger.logger.info(
                         "Remove [%s]: has ssa value", str(instr))
-                elif self.provenance.has_active_lval_defuse_high(instr.lhs.lvalid):
-                    chklogger.logger.info(
-                        "Transform [%s]: active lval_defuse_high: %s",
-                        str(instr),
-                        self.provenance.active_lval_defuse_high(instr.lhs.lvalid))
-                    instrs.append(instr)
                 elif self.provenance.has_lval_store(instr.lhs.lvalid):
                     chklogger.logger.info(
                         "Transform [%s]: lval_store", str(instr))
@@ -115,6 +115,15 @@ class ASTICodeTransformer(ASTIdentityTransformer):
                 elif instr.lhs.lhost.is_global:
                     chklogger.logger.info(
                         "Transform [%s]: global lhs", str(instr))
+                    instrs.append(instr)
+                elif str(instr.lhs) not in self.variables_used:
+                    chklogger.logger.info(
+                        "Remove [%s]: lhs is not used")
+                elif self.provenance.has_active_lval_defuse_high(instr.lhs.lvalid):
+                    chklogger.logger.info(
+                        "Transform [%s]: active lval_defuse_high: %s",
+                        str(instr),
+                        self.provenance.active_lval_defuse_high(instr.lhs.lvalid))
                     instrs.append(instr)
                 else:
                     chklogger.logger.info("Transform [%s]: remove", str(instr))
