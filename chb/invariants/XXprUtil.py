@@ -1615,6 +1615,12 @@ def stack_variable_to_ast_lval(
                 fldoffset, xdata, iaddr, astree, anonymous=anonymous)
             return astree.mk_vinfo_lval(vinfo, offset=astoffset, anonymous=anonymous)
 
+        if offset.offset.is_array_index_offset:
+            idxoffset = cast("VMemoryOffsetArrayIndexOffset", offset.offset)
+            astoffset = array_offset_to_ast_offset(
+                idxoffset, xdata, iaddr, astree, anonymous=anonymous)
+            return astree.mk_vinfo_lval(vinfo, offset=astoffset, anonymous=anonymous)
+
         if not anonymous:
             chklogger.logger.warning(
                 "Stack variable with offset %s not yet supported at address %s",
