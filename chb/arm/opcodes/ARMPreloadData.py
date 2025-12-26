@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021 Aarno Labs LLC
+# Copyright (c) 2021-2025  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,8 +30,10 @@ from typing import List, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData, simplify_result
 from chb.arm.ARMOperand import ARMOperand
+
+from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
 
@@ -39,6 +41,29 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     import chb.arm.ARMDictionary
+
+
+class ARMPreloadDataXData(ARMOpcodeXData):
+    """Data format:
+    - expressions:
+    0: xbase
+    1: xmem
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def xbase(self) -> "XXpr":
+        return self.xpr(0, "xbase")
+
+    @property
+    def xmem(self) -> "XXpr":
+        return self.xpr(1, "xmem")
+
+    @property
+    def annotation(self) -> str:
+        return "Preload-data(" + str(self.xmem)
 
 
 @armregistry.register_tag("PLDW", ARMOpcode)
@@ -72,6 +97,5 @@ class ARMPreloadData(ARMOpcode):
         xprs[0]: value of base register
         xprs[1]: value of memory location
         """
-
-        rhs = str(xdata.xprs[1])
-        return "Preload-data(" + rhs + ")"
+        xd = ARMPreloadDataXData(xdata)
+        return xd.annotation
