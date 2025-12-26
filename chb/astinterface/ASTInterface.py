@@ -1016,12 +1016,7 @@ class ASTInterface:
             stackvartypes: Dict[int, "BCTyp"]) -> None:
         """Creates stack variables/buffers for all stack offsets with types."""
 
-        # local variable stack offsets from the type inference are positive,
-        # so they must be negated here. For the same reason, to capture the
-        # largest extent of every varinfo, offsets must be traversed in reverse
-        # order.
-        for (offset, bctype) in sorted(stackvartypes.items(), reverse=True):
-            offset = -offset
+        for (offset, bctype) in sorted(stackvartypes.items()):
             vtype = bctype.convert(self.typconverter)
             self.mk_stack_variable_lval(offset, vtype=vtype)
 
@@ -1115,6 +1110,7 @@ class ASTInterface:
         if varinfo.vtype is None:
             return lval
 
+        # create stack variables for all fields and array elements
         if varinfo.vtype.is_compound:
             structtyp = cast(AST.ASTTypComp, varinfo.vtype)
             ckey = structtyp.compkey
@@ -1159,6 +1155,13 @@ class ASTInterface:
                         self._stack_variables[elementoffset + cfoff] = fieldlval
                     elementoffset += elsize
 
+            else:
+                elementoffset = offset
+                for i in range(arraysize):
+                    indexoffset = self.mk_scalar_index_offset(i)
+                    elemlval = self.astree.mk_vinfo_lval(varinfo, offset=indexoffset)
+                    self._stack_variables[elementoffset] = elemlval
+                    elementoffset += elsize
         return lval
 
 

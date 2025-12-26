@@ -806,7 +806,7 @@ class XprCompound(XXpr):
         elif self.is_stack_address and self.is_addressof_var:
             xvar = self.get_addressof_var
             if xvar is not None:
-                return xvar.denotation.offset.offsetvalue()
+                return xvar.denotation.offset.offsetconstant
 
         raise UF.CHBError(
             "Expression is not a stack address: " + str(self))
