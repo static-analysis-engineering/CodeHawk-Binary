@@ -446,10 +446,17 @@ class ASTIProvenance:
                                     # Allow for change of name of return value
                                     if str(instr.lhs) == v or v == "R0" or v == "S0":
                                         self.add_reaching_definition(xid, instrid)
+                                    elif instr.lhs is None:
+                                        chklogger.logger.info(
+                                            "Lhs variable %s is suppressed in call to "
+                                            "%s for reaching def address %s",
+                                            v, str(instr.tgt), addr)
+                                        self.add_reaching_definition(xid, instrid)
                                     else:
                                         chklogger.logger.warning(
-                                            "Variable names don't match: %s vs %s",
-                                            str(instr.lhs), v)
+                                            "Lhs variable names don't match: %s vs %s"
+                                            + " to %s for reaching def address %s",
+                                            str(instr.lhs), v, str(instr.tgt), addr)
                                 else:
                                     chklogger.logger.warning(
                                         "Expression is defined by unknown instruction: "
