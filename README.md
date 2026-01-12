@@ -20,6 +20,8 @@ development and thus somewhat experimental.
 
 ### Requirements
 
+Ensure you have `zip` installed.
+
 The command-line interface requires python3.5 or higher.
 
 Build instructions for the CodeHawk Binary Analyzer are available
