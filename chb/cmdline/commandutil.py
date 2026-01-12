@@ -930,6 +930,8 @@ def results_classifyfunctions(args: argparse.Namespace) -> NoReturn:
 
     xname: str = str(args.xname)
     classificationfile: str = str(args.classification_file)
+    showapicalls: bool = args.showapicalls
+    outputfilename: str = args.output
 
     with open(classificationfile, "r") as fp:
         classifier = json.load(fp)
@@ -953,44 +955,76 @@ def results_classifyfunctions(args: argparse.Namespace) -> NoReturn:
     fns = app.appfunction_addrs
 
     classification: Dict[str, Dict[str, int]] = {}  # faddr -> libcat -> count
+    classificationapi: Dict[str, Dict[str, Dict[str, int]]] = {}
 
     for faddr in fns:
-        classification.setdefault(faddr, {})
+        if showapicalls:
+            classificationapi.setdefault(faddr, {})
+        else:
+            classification.setdefault(faddr, {})
         f = app.function(faddr)
         fcalls = f.call_instructions()
         for baddr in fcalls:
             for instr in fcalls[baddr]:
                 tgtname = instr.call_target.name
                 if tgtname in revclassifier:
-                    category = revclassifier[tgtname]
-                    classification[faddr].setdefault(category, 0)
-                    classification[faddr][category] += 1
+                    if showapicalls:
+                        category = revclassifier[tgtname]
+                        classificationapi[faddr].setdefault(category, {})
+                        classificationapi[faddr][category].setdefault(tgtname, 0)
+                        classificationapi[faddr][category][tgtname] += 1
+                    else:
+                        category = revclassifier[tgtname]
+                        classification[faddr].setdefault(category, 0)
+                        classification[faddr][category] += 1
 
     catfprevalence: Dict[str, int] = {}
     catcprevalence: Dict[str, int] = {}
     catstats: Dict[int, int] = {}
     singlecat: Dict[str, int] = {}
     doublecat: Dict[Tuple[str, str], int] = {}
-    for faddr in classification:
-        for cat in classification[faddr]:
-            catfprevalence.setdefault(cat, 0)
-            catcprevalence.setdefault(cat, 0)
-            catfprevalence[cat] += 1
-            catcprevalence[cat] += classification[faddr][cat]
 
-        numcats = len(classification[faddr])
-        catstats.setdefault(numcats, 0)
-        catstats[numcats] += 1
-        if numcats == 1:
-            cat = list(classification[faddr].keys())[0]
-            singlecat.setdefault(cat, 0)
-            singlecat[cat] += 1
+    if showapicalls:
+        for faddr in classificationapi:
+            for cat in classificationapi[faddr]:
+                catfprevalence.setdefault(cat, 0)
+                catcprevalence.setdefault(cat, 0)
+                catfprevalence[cat] += 1
+                catcprevalence[cat] += sum(classificationapi[faddr][cat].values())
+            numcats = len(classificationapi[faddr])
+            catstats.setdefault(numcats, 0)
+            catstats[numcats] += 1
+            if numcats == 1:
+                cat = list(classificationapi[faddr].keys())[0]
+                singlecat.setdefault(cat, 0)
+                singlecat[cat] = 1
 
-        if numcats == 2:
-            cats = sorted(list(classification[faddr].keys()))
-            cattuple = (cats[0], cats[1])
-            doublecat.setdefault(cattuple, 0)
-            doublecat[cattuple] += 1
+            if numcats == 2:
+                cats = sorted(list(classificationapi[faddr].keys()))
+                cattuple = (cats[0], cats[1])
+                doublecat.setdefault(cattuple, 0)
+                doublecat[cattuple] += 1
+    else:
+
+        for faddr in classification:
+            for cat in classification[faddr]:
+                catfprevalence.setdefault(cat, 0)
+                catcprevalence.setdefault(cat, 0)
+                catfprevalence[cat] += 1
+                catcprevalence[cat] += classification[faddr][cat]
+            numcats = len(classification[faddr])
+            catstats.setdefault(numcats, 0)
+            catstats[numcats] += 1
+            if numcats == 1:
+                cat = list(classification[faddr].keys())[0]
+                singlecat.setdefault(cat, 0)
+                singlecat[cat] += 1
+
+            if numcats == 2:
+                cats = sorted(list(classification[faddr].keys()))
+                cattuple = (cats[0], cats[1])
+                doublecat.setdefault(cattuple, 0)
+                doublecat[cattuple] += 1
 
     for (m, c) in sorted(catstats.items()):
         print(str(m).rjust(5) + ": " + str(c).rjust(5))
@@ -1006,9 +1040,12 @@ def results_classifyfunctions(args: argparse.Namespace) -> NoReturn:
     classificationresults: Dict[str, Any] = {}
     classificationresults["catfprevalence"] = catfprevalence
     classificationresults["catcprevalence"] = catcprevalence
-    classificationresults["functions"] = classification
+    if showapicalls:
+        classificationresults["functions"] = classificationapi
+    else:
+        classificationresults["functions"] = classification
 
-    with open("classification_results.json", "w") as fp:
+    with open(outputfilename, "w") as fp:
         json.dump(classificationresults, fp, indent=2)
 
     exit(0)

@@ -881,6 +881,14 @@ def parse() -> argparse.Namespace:
     resultsclassifyfunctions.add_argument(
         "classification_file",
         help="name of json classification file")
+    resultsclassifyfunctions.add_argument(
+        "--output", "-o",
+        required=True,
+        help="name of file to save results")
+    resultsclassifyfunctions.add_argument(
+        "--showapicalls",
+        action="store_true",
+        help="list classified functions individually in output file")
     resultsclassifyfunctions.set_defaults(func=UCC.results_classifyfunctions)
 
     # --- results functions ---
