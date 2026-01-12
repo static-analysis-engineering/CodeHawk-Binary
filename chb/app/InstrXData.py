@@ -432,7 +432,9 @@ class InstrXData(IndexedTableValue):
             key = self.tags[0]
             if key.startswith("a:"):
                 keyletters = key[2:]
-                return len(self.args) == len(keyletters) + 1
+                return (
+                    len(self.args) == len(keyletters) + 1
+                    and self.args[-1] > 0)
             else:
                 return False
         elif len(self.tags) >= 2 and self.tags[1] == "call":
@@ -470,9 +472,9 @@ class InstrXData(IndexedTableValue):
         return (len(self.tags) == 2 and self.tags[1] == "u" and len(self.args) > 1)
 
     def call_target(self, ixd: "InterfaceDictionary") -> "CallTarget":
-        if self.has_call_target() and self.is_bx_call:
+        if self.has_call_target() and self.is_bx_call and self.args[-5] > 0:
             return ixd.call_target(self.args[-5])
-        elif self.has_call_target():
+        elif self.has_call_target() and self.args[-1] > 0:
             return ixd.call_target(self.args[-1])
         else:
             raise UF.CHBError(
