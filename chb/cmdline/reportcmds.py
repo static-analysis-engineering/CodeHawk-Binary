@@ -72,6 +72,7 @@ if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
     from chb.app.BasicBlock import BasicBlock
     from chb.app.Instruction import Instruction
+    from chb.invariants.XConstant import XIntConst
     from chb.mips.MIPSInstruction import MIPSInstruction
     from chb.models.BTerm import BTerm, BTermArithmetic
     from chb.models.FunctionSummary import FunctionSummary
@@ -600,6 +601,59 @@ def report_calls_cmd(args: argparse.Namespace) -> NoReturn:
         exit(0)
     else:
         exit(1)
+
+
+def report_string_arguments(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+    outputfilename: str = args.output
+
+    try:
+        (path, xfile) = UC.get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = UC.get_app(path, xfile, xinfo)
+    fns = app.functions
+
+    argvals: Dict[str, Dict[str, Any]] = {}
+
+    for (faddr, f) in fns.items():
+        fcalls = f.call_instructions()
+        for baddr in fcalls:
+            for instr in fcalls[baddr]:
+                callee = instr.call_target.name
+                callargs = instr.call_arguments
+                for (index, callarg) in enumerate(callargs):
+                    if callarg.is_string_reference:
+                        constcallarg = cast("XprConstant", callarg).constant
+                        intcallarg = cast("XIntConst", constcallarg)
+                        argvals.setdefault(faddr, {})
+                        argvals[faddr].setdefault("call-string-args", [])
+                        argrec = {
+                            "iaddr": instr.iaddr,
+                            "callee": callee,
+                            "index": index + 1,
+                            "value": intcallarg.string_reference()
+                        }
+                        argvals[faddr]["call-string-args"].append(argrec)
+
+    result: Dict[str, Any] = {}
+    result["functions"] = argvals
+
+    jresult = JU.jsonok("none", result)
+    jresult["meta"]["app"] = JU.jsonappdata(xinfo, includepath=False)
+
+    with open(outputfilename, "w") as fp:
+        json.dump(jresult, fp, indent=2)
+
+    exit(0)
 
 
 def report_function_apis(args: argparse.Namespace) -> NoReturn:

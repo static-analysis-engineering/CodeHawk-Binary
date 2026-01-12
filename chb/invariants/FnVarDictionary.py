@@ -43,6 +43,7 @@ from chb.invariants.VMemoryOffset import VMemoryOffset
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
+from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.api.InterfaceDictionary import InterfaceDictionary
@@ -201,4 +202,4 @@ class FnVarDictionary:
                 t.reset()
                 t.read_xml(xtable, "n")
             else:
-                raise UF.CHBError("Var dictionary table " + t.name + " not found")
+                chklogger.logger.error("Var dictionary table %s not found", t.name)

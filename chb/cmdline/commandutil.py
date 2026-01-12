@@ -1045,8 +1045,11 @@ def results_classifyfunctions(args: argparse.Namespace) -> NoReturn:
     else:
         classificationresults["functions"] = classification
 
+    jresult = JU.jsonok("none", classificationresults)
+    jresult["meta"]["app"] = JU.jsonappdata(xinfo, includepath=False)
+
     with open(outputfilename, "w") as fp:
-        json.dump(classificationresults, fp, indent=2)
+        json.dump(jresult, fp, indent=2)
 
     exit(0)
 
