@@ -1210,6 +1210,13 @@ def parse() -> argparse.Namespace:
             + " source for callgraph path"))
     report_calls.set_defaults(func=REP.report_calls_cmd)
 
+    # -- report arguments
+    report_arguments = reportparsers.add_parser("string_arguments")
+    report_arguments.add_argument("xname", help="name of executable")
+    report_arguments.add_argument(
+        "--output", "-o", required=True, help="name of json output file")
+    report_arguments.set_defaults(func=REP.report_string_arguments)
+
     # -- report function api's
     report_functionapis = reportparsers.add_parser("function_apis")
     report_functionapis.add_argument("xname", help="name of executable")
