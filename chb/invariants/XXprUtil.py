@@ -449,6 +449,8 @@ def memory_variable_to_lval_expression(
                 offset = cast("VMemoryOffsetFieldOffset", offset)
                 astoffset: AST.ASTOffset = field_offset_to_ast_offset(
                     offset, xdata, iaddr, astree, anonymous=anonymous)
+            elif offset.is_no_offset:
+                astoffset = nooffset
             elif offset.is_array_index_offset:
                 offset = cast("VMemoryOffsetArrayIndexOffset", offset)
                 astoffset = array_offset_to_ast_offset(
@@ -459,6 +461,11 @@ def memory_variable_to_lval_expression(
                 astoffset = nooffset
             return astree.mk_memref_expr(
                 astbase, offset=astoffset, anonymous=anonymous)
+
+        elif offset.is_no_offset:
+            astlval = xvariable_to_ast_def_lval_expression(
+                base.basevar, xdata, iaddr, astree, anonymous=anonymous)
+            return astree.mk_memref_expr(astlval, anonymous=anonymous)
 
         elif (
                 offset.is_field_offset
@@ -1952,6 +1959,8 @@ def basevar_variable_to_ast_lval(
         offset = cast("VMemoryOffsetArrayIndexOffset", offset)
         astoffset = array_offset_to_ast_offset(
             offset, xdata, iaddr, astree, anonymous=anonymous)
+    elif offset.is_no_offset:
+        astoffset = nooffset
     elif offset.is_constant_value_offset:
         astoffset = astree.mk_scalar_index_offset(offset.offsetvalue())
     else:
