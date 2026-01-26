@@ -62,6 +62,8 @@ from chb.app.Assembly import Assembly
 
 from chb.app.Callgraph import CallgraphNode
 
+from chb.app.CHVersion import minimum_required_chb_version
+
 from chb.arm.ARMAccess import ARMAccess
 from chb.arm.ARMAssembly import ARMAssembly
 
@@ -458,9 +460,18 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         exit(0)
 
     if skip_if_metrics and UF.has_analysis_results(path, xfile):
-        # we have what we need
-        print_status_update("Skip analysis of " + xname)
-        exit(0)
+        chbversion = UF.get_resultmetrics_chb_version(path, xfile)
+        if chbversion >= minimum_required_chb_version:
+            # we have what we need
+            print_status_update("Skip analysis of " + xname + " (version: " + chbversion + ")")
+            exit(0)
+        else:
+            print_status_update(
+                "Analysis results found are out of date with current version. "
+                + "Minimum required version: "
+                + minimum_required_chb_version
+                + ". Version found: "
+                + chbversion)
 
     try:
         userhints = prepare_executable(
