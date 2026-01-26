@@ -627,6 +627,36 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         exit(0)
 
 
+def results_check(args: argparse.Namespace) -> NoReturn:
+    """Checks if results present are compatible with the current version."""
+
+    # arguments
+    xname: str = str(args.xname)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print_error(str(e.wrap()))
+        exit(1)
+
+    chbversion = UF.get_resultmetrics_chb_version(path, xfile)
+    if chbversion >= minimum_required_chb_version:
+        print_status_update(
+            "Analysis results version: "
+            + chbversion
+            + " is compatible with minimum required version: "
+            + minimum_required_chb_version)
+        exit(0)
+    else:
+        print_error(
+            "Analysis results version: "
+            + chbversion
+            + " is not compatible with minimum required version: "
+            + minimum_required_chb_version)
+        exit(1)
+
+
 def results_stats(args: argparse.Namespace) -> NoReturn:
     """Prints out a summary of the analysis results per function."""
 
@@ -649,6 +679,15 @@ def results_stats(args: argparse.Namespace) -> NoReturn:
     except UF.CHBError as e:
         print_error(str(e.wrap()))
         exit(1)
+
+    chbversion = UF.get_resultmetrics_chb_version(path, xfile)
+    if chbversion < minimum_required_chb_version:
+        print_status_update(
+            "Warning: analysis results may be out of date. "
+            + "The version of the analysis results: "
+            + chbversion
+            + " is not compatible with the minimum required version: "
+            + minimum_required_chb_version)
 
     set_logging(
         loglevel,

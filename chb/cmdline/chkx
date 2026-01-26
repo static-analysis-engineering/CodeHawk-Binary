@@ -610,6 +610,11 @@ def parse() -> argparse.Namespace:
     resultscmd.set_defaults(func=resultscommand)
     resultsparsers = resultscmd.add_subparsers(title='show options')
 
+    # -- results check --
+    resultscheck = resultsparsers.add_parser("check")
+    resultscheck.add_argument("xname", help="name of executable")
+    resultscheck.set_defaults(func=UCC.results_check)
+
     # -- results stats --
     resultsstats = resultsparsers.add_parser('stats')
     resultsstats.add_argument('xname', help='name of executable')
