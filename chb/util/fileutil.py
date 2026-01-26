@@ -843,6 +843,14 @@ def get_resultmetrics_xheader(path: str, xfile: str) -> ET.Element:
     return get_chb_xheader(filename)
 
 
+def get_resultmetrics_chb_version(path: str, xfile: str) -> str:
+    xheader = get_resultmetrics_xheader(path, xfile)
+    xversion = xheader.get("chb-version")
+    if xversion is None:
+        raise CHBError("chb-version attribute missing from metrics header")
+    return xversion
+
+
 def get_resultdata_filename(path: str, xfile: str) -> str:
     fdir = get_results_dir(path, xfile)
     return get_chb_filename(fdir, xfile, "data.xml")
