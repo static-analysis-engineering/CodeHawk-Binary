@@ -236,6 +236,7 @@ class LibraryCallSideeffect:
     def to_json_result(self,
                        dstoffset: int,
                        buffersize: int,
+                       sizeorigin: str,
                        spare: Optional[str],
                       ) -> JSONResult:
         if self.dstarg is None:
@@ -248,6 +249,7 @@ class LibraryCallSideeffect:
         content["faddr"] = self.faddr
         content["iaddr"] = self.instr.iaddr
         content["buffersize"] = buffersize
+        content["size-origin"] = sizeorigin
         content["target-function"] = self.summary.name
         content["stack-offset"] = dstoffset
         if self.lenarg is not None:
