@@ -1324,11 +1324,14 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                     "Stackbuffer for %s at offset %s does not have a size, but stackframe "
                     + " allows a buffer of %s",
                     str(instr), str(dstoffset), str(buffersize))
+                sizeorigin = "stackframe-layout"
+        else:
+            sizeorigin = "stackslot-access"
 
         basicblock = fn.block(pc.baddr)
         spare = find_spare_instruction(basicblock, instr.iaddr)
 
-        jresult = pc.to_json_result(dstoffset, buffersize, spare)
+        jresult = pc.to_json_result(dstoffset, buffersize, sizeorigin, spare)
         if not jresult.is_ok:
             chklogger.logger.warning("Couldn't process patch callsite %s", pc)
             continue
@@ -1352,6 +1355,7 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
         print("  - stack offset: %s" % patch_record['stack-offset'])
         print("  - length argument: %s" % patch_record['length-argument'])
         print("  - buffersize: %s" % patch_record['buffersize'])
+        print("  - size-origin: %s" % patch_record['size-origin'])
         print("  - spare: %s" % patch_record['spare'])
         print("")
 
