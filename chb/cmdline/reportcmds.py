@@ -1313,10 +1313,18 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
             continue
         buffersize = stackslot.size
         if buffersize is None:
-            chklogger.logger.warning(
-                "Stackbuffer for %s at offset %s does not have a size",
+            buffersize = stackframe.stackoffset_gap(dstoffset)
+            if buffersize is None:
+                chklogger.logger.warning(
+                    "Stackbuffer for %s at offset %s does not have a size and no upperbound either",
                 str(instr), str(dstoffset))
-            continue
+                continue
+            else:
+                chklogger.logger.warning(
+                    "Stackbuffer for %s at offset %s does not have a size, but stackframe "
+                    + " allows a buffer of %s",
+                    str(instr), str(dstoffset), str(buffersize))
+
         basicblock = fn.block(pc.baddr)
         spare = find_spare_instruction(basicblock, instr.iaddr)
 
