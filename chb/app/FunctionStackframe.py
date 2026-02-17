@@ -146,6 +146,14 @@ class FunctionStackframe:
 
         return self.stackslots.get(offset, None)
 
+    def stackoffset_gap(self, offset: int) -> Optional[int]:
+        stackslot_offsets = sorted(list(self.stackslots.keys()))
+        if offset in stackslot_offsets:
+            index = stackslot_offsets.index(offset)
+            return stackslot_offsets[index + 1] - offset
+        else:
+            return None
+
     @property
     def accesses(self) -> Dict[int, List[Tuple[str, "FnStackAccess"]]]:
         if self._accesses is None:
