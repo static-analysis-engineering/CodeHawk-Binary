@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs, LLC
+# Copyright (c) 2021-2026  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -1316,14 +1316,29 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
             buffersize = stackframe.stackoffset_gap(dstoffset)
             if buffersize is None:
                 chklogger.logger.warning(
-                    "Stackbuffer for %s at offset %s does not have a size and no upperbound either",
+                    "Stackbuffer for %s at offset %s does not have a size and "
+                    + "no upperbound either",
                 str(instr), str(dstoffset))
                 continue
             else:
                 chklogger.logger.warning(
-                    "Stackbuffer for %s at offset %s does not have a size, but stackframe "
-                    + " allows a buffer of %s",
+                    "Stackbuffer for %s at offset %s does not have a size, "
+                    + "but stackframe allows a buffer of %s",
                     str(instr), str(dstoffset), str(buffersize))
+                sizeorigin = "stackframe-layout"
+        elif buffersize == 1:
+            buffersize = stackframe.stackoffset_gap(dstoffset)
+            if buffersize is None:
+                chklogger.logger.warning(
+                    "Stackbuffer size for %s at offset %s is reported to be 1 "
+                    + " and no buffer size could be derived from the stacklayout",
+                    str(instr), str(dstoffset))
+                continue
+            else:
+                chklogger.logger.warning(
+                    "Stackbuffer size for %s at offset %s is reported to be 1 "
+                    + "; replacing it by the size derived from the stacklayout",
+                    str(instr), str(dstoffset))
                 sizeorigin = "stackframe-layout"
         else:
             sizeorigin = "stackslot-access"
