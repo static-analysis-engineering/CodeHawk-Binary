@@ -497,7 +497,6 @@ class ASTCPrettyPrinter(ASTVisitor):
         if memref.memexp.is_ast_addressof:
             memexpa = cast(AST.ASTAddressOf, memref.memexp)
             memexpa.lval.accept(self)
-            '''
         elif memref.memexp.is_ast_binary_op:
             memexpb = cast(AST.ASTBinaryOp, memref.memexp)
             exp1 = memexpb.exp1
@@ -511,7 +510,6 @@ class ASTCPrettyPrinter(ASTVisitor):
                 self.ccode.write("(*(")
                 memref.memexp.accept(self)
                 self.ccode.write("))")
-            '''
         else:
             self.ccode.write("(*(")
             memref.memexp.accept(self)
