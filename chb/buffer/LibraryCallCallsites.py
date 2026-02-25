@@ -358,7 +358,8 @@ class LibraryCallCallsite:
             fmtarg = self.instr.call_arguments[1]
             if fmtarg.is_string_reference:
                 fmtstr = (cast(XprConstant, fmtarg)).constant.string_reference()
-                if not "%s" in fmtstr:
+                # TODO: Smarter heuristics for problematic length fmt strings
+                if not "%" in fmtstr:
                     return "sprintf:max_length_fmt"
                 else:
                     return None
@@ -368,7 +369,8 @@ class LibraryCallCallsite:
             fmtarg = self.instr.call_arguments[2]
             if fmtarg.is_string_reference:
                 fmtstr = (cast(XprConstant, fmtarg)).constant.string_reference()
-                if not "%s" in fmtstr:
+                # TODO: Smarter heuristics for problematic length fmt strings
+                if not "%" in fmtstr:
                     return "snprintf:max_length_fmt"
                 else:
                     return None
