@@ -1321,7 +1321,7 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                 str(instr), str(dstoffset))
                 continue
             else:
-                chklogger.logger.warning(
+                chklogger.logger.info(
                     "Stackbuffer for %s at offset %s does not have a size, "
                     + "but stackframe allows a buffer of %s",
                     str(instr), str(dstoffset), str(buffersize))
@@ -1335,7 +1335,7 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                     str(instr), str(dstoffset))
                 continue
             else:
-                chklogger.logger.warning(
+                chklogger.logger.info(
                     "Stackbuffer size for %s at offset %s is reported to be 1 "
                     + "; replacing it by the size derived from the stacklayout",
                     str(instr), str(dstoffset))
