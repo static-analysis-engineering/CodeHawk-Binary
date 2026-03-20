@@ -210,14 +210,14 @@ class RelationalAnalysis:
                 result.append(faddr)
 
         for (faddr1, md51) in self.md5s1.items():
-            if faddr in self.md5s2:
-                if (md51 == self.md5s2[faddr1]) or (faddr in result):
+            if faddr1 in self.md5s2:
+                if (md51 == self.md5s2[faddr1]) or (faddr1 in result):
                     continue
                 else:
                     chklogger.logger.warning(
                         "Function not analyzed changed: %s. "
                         + "Original md5: %s; Patched md5: %s",
-                        faddr1, md51, self.md5s2[faddr])
+                        faddr1, md51, self.md5s2[faddr1])
                     result.append(faddr1)
         return result
 
