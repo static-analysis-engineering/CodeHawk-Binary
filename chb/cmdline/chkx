@@ -1752,6 +1752,11 @@ def parse() -> argparse.Namespace:
     table_type.add_argument("xname", help="name of executable")
     table_type.set_defaults(func=UCC.show_type_table)
 
+    # --- varinfo ---
+    table_type = tableparsers.add_parser("varinfo")
+    table_type.add_argument("xname", help="name of executable")
+    table_type.set_defaults(func=UCC.show_varinfo_table)
+
     # --- compinfo ---
     table_compinfo = tableparsers.add_parser("compinfo")
     table_compinfo.add_argument("xname", help="name of executable")
