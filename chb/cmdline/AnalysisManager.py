@@ -545,7 +545,7 @@ class AnalysisManager(object):
             if isfinished:
                 chklogger.logger.debug("execute zip command %s", " ".join(zipcmd))
                 subprocess.call(zipcmd, stderr=subprocess.STDOUT, cwd=analysisdir)
-                fincmd = cmd + ["-collectdata"]
+                fincmd = cmd + ["-collectdata", "-construct_signatures"]
                 if self.use_ssa:
                     fincmd = fincmd + ["-ssa"]
                 if self.no_varinvs:
