@@ -321,6 +321,10 @@ class PatchEvent:
         return self.patchkind == "Trampoline"
 
     @property
+    def is_new_function(self) -> bool:
+        return self.patchkind == "NewFunction"
+
+    @property
     def is_supported(self) -> bool:
         return self.is_trampoline
 
@@ -431,6 +435,7 @@ class PatchResults:
                 if e.case_fallthrough_jump is not None:
                     r["fallthrough-jump"] = e.case_fallthrough_jump
                 result.append(r)
+
         return result
 
 
