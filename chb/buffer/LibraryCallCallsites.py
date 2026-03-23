@@ -213,6 +213,25 @@ class LibraryCallSideeffect:
         return None
 
     @property
+    def lenaddr(self) -> Optional[str]:
+        if self.lenarg is None:
+            return None
+        regname = str(self.lenarg)
+        locs = self.instr.reaching_definitions(regname)
+        valid = [loc for loc in locs if loc != "init"]
+        if len(valid) == 1:
+            return valid[0]
+        elif len(valid) == 0:
+            chklogger.logger.warning(
+                "No valid reaching def for %s at %s", regname, self.instr.iaddr)
+            return None
+        else:
+            # Multiple reaching defs means a join point — ambiguous, can't patch
+            chklogger.logger.warning(
+                "Multiple reaching defs for %s at %s: %s", regname, self.instr.iaddr, valid)
+            return None
+
+    @property
     def lentype(self) -> str:
         lenarg = self.lenarg
         if lenarg is not None:
@@ -254,6 +273,7 @@ class LibraryCallSideeffect:
         content["stack-offset"] = dstoffset
         if self.lenarg is not None:
             content["length-argument"] = str(self.lenarg)
+            content["length-addr"] = self.lenaddr
         else:
             content["length-argument"] = None
         content["spare"] = spare
@@ -358,7 +378,8 @@ class LibraryCallCallsite:
             fmtarg = self.instr.call_arguments[1]
             if fmtarg.is_string_reference:
                 fmtstr = (cast(XprConstant, fmtarg)).constant.string_reference()
-                if not "%s" in fmtstr:
+                # TODO: Smarter heuristics for problematic length fmt strings
+                if not "%" in fmtstr:
                     return "sprintf:max_length_fmt"
                 else:
                     return None
@@ -368,7 +389,8 @@ class LibraryCallCallsite:
             fmtarg = self.instr.call_arguments[2]
             if fmtarg.is_string_reference:
                 fmtstr = (cast(XprConstant, fmtarg)).constant.string_reference()
-                if not "%s" in fmtstr:
+                # TODO: Smarter heuristics for problematic length fmt strings
+                if not "%" in fmtstr:
                     return "snprintf:max_length_fmt"
                 else:
                     return None
