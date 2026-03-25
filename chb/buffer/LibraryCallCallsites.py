@@ -257,6 +257,7 @@ class LibraryCallSideeffect:
                        buffersize: int,
                        sizeorigin: str,
                        spare: Optional[str],
+                       intermediateinstr: Optional[str],
                       ) -> JSONResult:
         if self.dstarg is None:
             chklogger.logger.warning(
@@ -277,6 +278,8 @@ class LibraryCallSideeffect:
         else:
             content["length-argument"] = None
         content["spare"] = spare
+        if intermediateinstr:
+            content['intermediate-iaddr'] = intermediateinstr
 
         return JSONResult("librarycallsideeffect", content, "ok")
 

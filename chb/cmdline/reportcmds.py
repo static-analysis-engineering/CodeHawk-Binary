@@ -50,7 +50,7 @@ from chb.app.Instruction import Instruction
 
 from chb.arm.ARMInstruction import ARMInstruction
 
-from chb.bctypes.BCAttrParam import BCAttrParamInt, BCAttrParamCons
+from chb.bctypes.BCAttrParam import BCAttrParamInt, BCAttrParamStr, BCAttrParamCons
 
 from chb.buffer.LibraryCallCallsites import LibraryCallCallsites
 
@@ -1358,12 +1358,16 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
         if pc.dsttype == "function-argument" and dstarg is not None and dstarg.is_argument_value:
             fname = app.function(pc.faddr).name.replace('0x', 'sub_')
             dstarg_index = dstarg.argument_index()
-            if not app.bcfiles.has_vardecl(fname):
-                chklogger.logger.warning("No vardecl found for: %s", fname)
+            varinfo_index = None
+            for index, v in app.bcdictionary.varinfo_table.items():
+                if v.tags[0] == fname:
+                    varinfo_index = index
+            if varinfo_index is None:
+                chklogger.logger.warning("No varinfo found for: %s", fname)
                 continue
             attrs = None
             try:
-                attrs = app.bcfiles.vardecl(fname).attributes
+                attrs = app.bcdictionary.varinfo(varinfo_index).attributes
             except:
                 chklogger.logger.warning("No attributes found for: %s", fname)
                 continue
@@ -1378,9 +1382,11 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                     callsite_iaddr = cast(BCAttrParamInt, attr.params[1]).intvalue
                     callsite_tgt = cast(BCAttrParamCons, attr.params[2]).name
                     callsite_param = cast(BCAttrParamInt, attr.params[3]).intvalue
+                    access_type = cast(BCAttrParamCons, attr.params[4]).name
                     if callsite_iaddr == int(instr.iaddr, 16) and \
                        callsite_tgt == pc.summary.name and \
-                       function_param == dstarg_index + 1:
+                       function_param == dstarg_index + 1 and \
+                       access_type in ['read_write', 'write_only']:
                         intermediate_attribute = (function_param, callsite_param)
 
             if not intermediate_attribute:
@@ -1403,7 +1409,7 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                 basicblock = fn.block(pc.baddr)
                 spare = find_spare_instruction(basicblock, instr.iaddr)
 
-                jresult = pc.to_json_result(dstoffset, buffersize, sizeorigin, spare)
+                jresult = pc.to_json_result(dstoffset, buffersize, sizeorigin, spare, inter_instr.iaddr)
                 if not jresult.is_ok:
                     chklogger.logger.warning("Couldn't process patch callsite %s", pc)
                     continue
@@ -1426,7 +1432,7 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
         basicblock = fn.block(pc.baddr)
         spare = find_spare_instruction(basicblock, instr.iaddr)
 
-        jresult = pc.to_json_result(dstoffset, buffersize, sizeorigin, spare)
+        jresult = pc.to_json_result(dstoffset, buffersize, sizeorigin, spare, None)
         if not jresult.is_ok:
             chklogger.logger.warning("Couldn't process patch callsite %s", pc)
             continue
