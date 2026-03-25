@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2025 Aarno Labs LLC
+# Copyright (c) 2021-2026 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -296,6 +296,7 @@ class AnalysisManager(object):
             ignore_stable: bool = False,
             save_asm: bool = False,
             construct_all_functions: bool = False,
+            construct_signatures: bool = False,
             mem: bool = False,
             timeout: Optional[int] = None,
             preamble_cutoff: int = 12) -> int:
@@ -310,6 +311,7 @@ class AnalysisManager(object):
             timeout=timeout,
             verbose=verbose,
             construct_all_functions=construct_all_functions,
+            construct_signatures=construct_signatures,
             collectdiagnostics=collectdiagnostics,
             failonfunctionfailure=failonfunctionfailure,
             preamble_cutoff=preamble_cutoff)
@@ -450,6 +452,7 @@ class AnalysisManager(object):
             timeout: Optional[int] = None,
             verbose: bool = False,
             construct_all_functions: bool = False,
+            construct_signatures: bool = False,
             collectdiagnostics: bool = False,
             failonfunctionfailure: bool = False,
             preamble_cutoff: int = 12) -> int:
@@ -545,7 +548,9 @@ class AnalysisManager(object):
             if isfinished:
                 chklogger.logger.debug("execute zip command %s", " ".join(zipcmd))
                 subprocess.call(zipcmd, stderr=subprocess.STDOUT, cwd=analysisdir)
-                fincmd = cmd + ["-collectdata", "-construct_signatures"]
+                fincmd = cmd + ["-collectdata"]
+                if construct_signatures:
+                    fincmd = fincmd + ["-construct_signatures"]
                 if self.use_ssa:
                     fincmd = fincmd + ["-ssa"]
                 if self.no_varinvs:

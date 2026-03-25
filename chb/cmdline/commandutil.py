@@ -419,6 +419,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     analyze_range_entry_points: List[str] = args.analyze_range_entry_points
     gc_compact: int = args.gc_compact
     construct_all_functions: bool = args.construct_all_functions
+    construct_signatures: bool = args.construct_signatures
     show_function_timing: bool = args.show_function_timing
     lineq_instr_cutoff: int = args.lineq_instr_cutoff
     lineq_block_cutoff: int = args.lineq_block_cutoff
@@ -601,6 +602,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 verbose=verbose,
                 save_asm=save_asm,
                 construct_all_functions=construct_all_functions,
+                construct_signatures=construct_signatures,
                 collectdiagnostics=collectdiagnostics,
                 failonfunctionfailure=failonfunctionfailure,
                 preamble_cutoff=preamble_cutoff)
@@ -2526,6 +2528,30 @@ def show_type_table(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def show_attributes_table(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = args.xname
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    bcdictionary = app.bcdictionary
+
+    print(bcdictionary.attributes_table_to_string())
+
+    exit(0)
+
+
 def show_varinfo_table(args: argparse.Namespace) -> NoReturn:
 
     # arguments
@@ -2545,7 +2571,7 @@ def show_varinfo_table(args: argparse.Namespace) -> NoReturn:
 
     bcdictionary = app.bcdictionary
 
-    print(bcdictionary.varinfo_table_to_string())
+    print(bcdictionary.varinfo_table_to_declarations())
 
     exit(0)
 

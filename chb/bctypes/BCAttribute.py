@@ -57,6 +57,10 @@ class BCAttribute(BCDictionaryRecord):
     def is_volatile(self) -> bool:
         return self.name == "volatile"
 
+    @property
+    def to_c_string(self) -> str:
+        return self.name + "(" + ", ".join(p.to_c_string for p in self.params) + ")"
+
     def __str__(self) -> str:
         return self.name + "(" + ", ".join(str(p) for p in self.params) + ")"
 
@@ -73,5 +77,19 @@ class BCAttributes(BCDictionaryRecord):
     def attrs(self) -> List[BCAttribute]:
         return [self.bcd.attribute(i) for i in self.args]
 
+    @property
+    def is_empty(self) -> bool:
+        return len(self.attrs) == 0
+
+    @property
+    def to_c_string(self) -> str:
+        return (
+            "__attribute__(("
+            + "\n               ".join(a.to_c_string for a in self.attrs)
+            + "\n             ))")
+
     def __str__(self) -> str:
-        return ", ".join(str(a) for a in self.attrs)
+        return (
+            "__attribute__(("
+            + ", ".join(str(a) for a in self.attrs)
+            + "))" )

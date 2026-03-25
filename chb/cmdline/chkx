@@ -387,6 +387,10 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="construct all functions even if not all functions are analyzed")
     analyzecmd.add_argument(
+        "--construct_signatures",
+        action="store_true",
+        help="infer and construct function signatures for functions without them")
+    analyzecmd.add_argument(
         "--collect_diagnostics",
         action="store_true",
         help="save diagnostics in a separate diagnostics log file")
@@ -1751,6 +1755,11 @@ def parse() -> argparse.Namespace:
     table_type = tableparsers.add_parser("type")
     table_type.add_argument("xname", help="name of executable")
     table_type.set_defaults(func=UCC.show_type_table)
+
+    # --- attributes ---
+    table_type = tableparsers.add_parser("attributes")
+    table_type.add_argument("xname", help="name of executable")
+    table_type.set_defaults(func=UCC.show_attributes_table)
 
     # --- varinfo ---
     table_type = tableparsers.add_parser("varinfo")

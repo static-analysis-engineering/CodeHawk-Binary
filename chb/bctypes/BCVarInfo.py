@@ -25,10 +25,11 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, cast, Dict, List, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
 
+from chb.bctypes.BCAttribute import BCAttributes
 from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
 from chb.bctypes.BCVisitor import BCVisitor
@@ -65,8 +66,43 @@ class BCVarInfo(BCDictionaryRecord):
     def vparam(self) -> int:
         return self.args[7]
 
+    @property
+    def attributes(self) -> Optional["BCAttributes"]:
+        return self.bcd.attributes(self.args[2])
+
     def convert(self, converter: "BCConverter") -> AST.ASTVarInfo:
         return converter.convert_varinfo(self)
+
+    @property
+    def to_c_string(self) -> str:
+        if self.vtype.is_array:
+            atype = cast("BCTypArray", self.vtype)
+            if atype.has_constant_size():
+                asize = atype.sizevalue
+                return (
+                    str(atype.tgttyp)
+                    + " "
+                    + self.vname
+                    + "["
+                    + str(asize)
+                    + "];")
+            else:
+                return str(self.vtype) + " " + self.vname
+        elif self.vtype.is_function:
+            ftype = cast("BCTypFun", self.vtype)
+            if ftype.argtypes is not None:
+                argtypes = str(ftype.argtypes)
+            else:
+                argtypes = "()"
+            fattrs = self.attributes
+            if fattrs is not None and not fattrs.is_empty:
+                pfattrs = "\n" + fattrs.to_c_string
+            else:
+                pfattrs = ""
+            return (str(ftype.returntype) + " " + self.vname + argtypes + pfattrs) + ";"
+        else:
+            return str(self.vtype) + " " + self.vname + ";"
+
 
     def __str__(self) -> str:
         if self.vtype.is_array:
@@ -88,6 +124,11 @@ class BCVarInfo(BCDictionaryRecord):
                 argtypes = str(ftype.argtypes)
             else:
                 argtypes = "()"
-            return (str(ftype.returntype) + " " + self.vname + argtypes)
+            fattrs = self.attributes
+            if fattrs is not None:
+                pfattrs = " " + str(fattrs)
+            else:
+                pfattrs = ""
+            return (str(ftype.returntype) + " " + self.vname + argtypes + pfattrs)
         else:
             return str(self.vtype) + " " + self.vname

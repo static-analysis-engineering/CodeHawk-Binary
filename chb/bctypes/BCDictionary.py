@@ -299,3 +299,21 @@ class BCDictionary:
 
         self.varinfo_table.iter(f)
         return "\n".join(lines)
+
+    def varinfo_table_to_declarations(self) -> str:
+        lines: List[str] = []
+
+        def f(ix: int, v: IT.IndexedTableValue) -> None:
+            lines.append(self.varinfo(ix).to_c_string)
+
+        self.varinfo_table.iter(f)
+        return "\n\n".join(lines)
+
+    def attributes_table_to_string(self) -> str:
+        lines: List[str] = []
+
+        def f(ix: int, v: IT.IndexedTableValue) -> None:
+            lines.append(str(ix) + ": " + str(self.attributes(ix)))
+
+        self.attributes_table.iter(f)
+        return "\n".join(lines)

@@ -74,6 +74,10 @@ class BCAttrParam(BCDictionaryRecord):
     def is_int(self) -> bool:
         return False
 
+    @property
+    def to_c_string(self) -> str:
+        return str(self)
+
     def __str__(self) -> str:
         return "bc-attrparam:" + self.tags[0]
 
@@ -96,6 +100,10 @@ class BCAttrParamInt(BCAttrParam):
     def is_int(self) -> bool:
         return True
 
+    @property
+    def to_c_string(self) -> str:
+        return str(self.intvalue)
+
     def __str__(self) -> str:
         return "aint(" + str(self.intvalue) + ")"
 
@@ -113,6 +121,10 @@ class BCAttrParamStr(BCAttrParam):
     @property
     def strvalue(self) -> str:
         return self.bcd.string(self.args[0])
+
+    @property
+    def to_c_string(self) -> str:
+        return self.strvalue
 
     def __str__(self) -> str:
         return "astr(" + self.strvalue + ")"
@@ -135,6 +147,16 @@ class BCAttrParamCons(BCAttrParam):
     @property
     def params(self) -> List["BCAttrParam"]:
         return [self.bcd.attrparam(i) for i in self.args]
+
+    @property
+    def to_c_string(self) -> str:
+        if len(self.params) == 0:
+            return self.name
+        else:
+            return (
+                self.name + "("
+                + ", ".join(p.to_c_string for p in self.params)
+                + ")")
 
     def __str__(self) -> str:
         return (
