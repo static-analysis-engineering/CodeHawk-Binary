@@ -50,6 +50,8 @@ from chb.app.Instruction import Instruction
 
 from chb.arm.ARMInstruction import ARMInstruction
 
+from chb.bctypes.BCAttrParam import BCAttrParamInt, BCAttrParamCons
+
 from chb.buffer.LibraryCallCallsites import LibraryCallCallsites
 
 import chb.cmdline.commandutil as UC
@@ -71,6 +73,8 @@ if TYPE_CHECKING:
     from chb.api.FunctionStub import SOFunction
     from chb.app.AppAccess import AppAccess
     from chb.app.BasicBlock import BasicBlock
+    from chb.app.Function import Function
+    from chb.app.FunctionStackframe import FunctionStackframe
     from chb.app.Instruction import Instruction
     from chb.invariants.XConstant import XIntConst
     from chb.mips.MIPSInstruction import MIPSInstruction
@@ -1214,6 +1218,51 @@ def collect_known_fn_addrs(app: "AppAccess", patchcallsites: list) -> dict:
 
     return function_addr
 
+def calculate_buffer_size(stackframe: "FunctionStackframe",
+                          stack_offset: int,
+                          instr: "Instruction") -> tuple[Optional[int], str]:
+    buffersize = None
+    sizeorigin = "unknown"
+
+    stackslot = stackframe.stackslot(stack_offset)
+    if stackslot is None:
+        chklogger.logger.warning(
+            "No stackbuffer found for %s at offset %s",
+            str(instr), str(stack_offset))
+        return (None, "unknown")
+
+    buffersize = stackslot.size
+    if buffersize is None:
+        buffersize = stackframe.stackoffset_gap(stack_offset)
+        if buffersize is None:
+            chklogger.logger.warning(
+                "Stackbuffer for %s at offset %s does not have a size and "
+                + "no upperbound either",
+                str(instr), str(stack_offset))
+        else:
+            chklogger.logger.info(
+                "Stackbuffer for %s at offset %s does not have a size, "
+                + "but stackframe allows a buffer of %s",
+                str(instr), str(stack_offset), str(buffersize))
+            sizeorigin = "stackframe-layout"
+    elif buffersize == 1:
+        buffersize = stackframe.stackoffset_gap(stack_offset)
+        if buffersize is None:
+            chklogger.logger.warning(
+                "Stackbuffer size for %s at offset %s is reported to be 1 "
+                + " and no buffer size could be derived from the stacklayout",
+                str(instr), str(stack_offset))
+        else:
+            chklogger.logger.info(
+                "Stackbuffer size for %s at offset %s is reported to be 1 "
+                + "; replacing it by the size derived from the stacklayout",
+                str(instr), str(stack_offset))
+            sizeorigin = "stackframe-layout"
+    else:
+        sizeorigin = "stackslot-access"
+
+    return (buffersize, sizeorigin)
+
 
 def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
 
@@ -1270,13 +1319,22 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
             return True
         return target.name in xtargets
 
+    intermediate_callgraph: Dict[str,List[tuple[str,"Function","Instruction"]]] = {}
+
     for (faddr, blocks) in app.call_instructions().items():
         for (baddr, instrs) in blocks.items():
             for instr in instrs:
                 n_calls += 1
                 calltgt = instr.call_target
-                if calltgt.is_so_target and include_target(calltgt):
-                    libcalls.add_library_callsite(faddr, baddr, instr)
+                if include_target(calltgt):
+                    if calltgt.is_so_target:
+                        libcalls.add_library_callsite(faddr, baddr, instr)
+                    elif calltgt.is_app_target:
+                        if calltgt.name not in intermediate_callgraph:
+                            intermediate_callgraph[calltgt.name] = []
+                        func = app.function(faddr)
+                        fname = func.name.replace('0x', 'sub_')
+                        intermediate_callgraph[calltgt.name].append((fname, func, instr))
 
     chklogger.logger.debug("Number of calls: %s", n_calls)
 
@@ -1297,6 +1355,61 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
     for pc in sorted(patchcallsites, key=lambda pc:pc.faddr):
         instr = pc.instr
         dstarg = pc.dstarg
+        if pc.dsttype == "function-argument" and dstarg is not None and dstarg.is_argument_value:
+            fname = app.function(pc.faddr).name.replace('0x', 'sub_')
+            dstarg_index = dstarg.argument_index()
+            if not app.bcfiles.has_vardecl(fname):
+                chklogger.logger.warning("No vardecl found for: %s", fname)
+                continue
+            attrs = None
+            try:
+                attrs = app.bcfiles.vardecl(fname).attributes
+            except:
+                chklogger.logger.warning("No attributes found for: %s", fname)
+                continue
+
+            if attrs is None:
+                continue
+
+            intermediate_attribute = None
+            for attr in attrs.attrs:
+                if attr.name == 'chk_flows_to_argument':
+                    function_param = cast(BCAttrParamInt, attr.params[0]).intvalue
+                    callsite_iaddr = cast(BCAttrParamInt, attr.params[1]).intvalue
+                    callsite_tgt = cast(BCAttrParamCons, attr.params[2]).name
+                    callsite_param = cast(BCAttrParamInt, attr.params[3]).intvalue
+                    if callsite_iaddr == int(instr.iaddr, 16) and \
+                       callsite_tgt == pc.summary.name and \
+                       function_param == dstarg_index + 1:
+                        intermediate_attribute = (function_param, callsite_param)
+
+            if not intermediate_attribute:
+                continue
+
+            if not fname in intermediate_callgraph:
+                continue
+            for inter in intermediate_callgraph[fname]:
+                inter_fname, inter_func, inter_instr = inter
+                argument = inter_instr.call_arguments[dstarg_index]
+                stackframe = inter_func.stackframe
+                stackslot = stackframe.stackslot(argument.stack_address_offset())
+                dstoffset = argument.stack_address_offset()
+                buffersize, sizeorigin = calculate_buffer_size(stackframe, dstoffset, instr)
+                if buffersize is None:
+                    continue
+                sizeorigin = "intermediate-" + sizeorigin
+
+                fn = app.function(pc.faddr)
+                basicblock = fn.block(pc.baddr)
+                spare = find_spare_instruction(basicblock, instr.iaddr)
+
+                jresult = pc.to_json_result(dstoffset, buffersize, sizeorigin, spare)
+                if not jresult.is_ok:
+                    chklogger.logger.warning("Couldn't process patch callsite %s", pc)
+                    continue
+
+                patch_records.append(jresult.content)
+            continue
         if dstarg is None:
             chklogger.logger.warning(
                 "No expression found for destination argument: %s",
@@ -1306,42 +1419,9 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
         fn = app.function(pc.faddr)
         stackframe = fn.stackframe
         stackslot = stackframe.stackslot(dstoffset)
-        if stackslot is None:
-            chklogger.logger.warning(
-                "No stackbuffer found for %s at offset %s",
-                str(instr), str(dstoffset))
-            continue
-        buffersize = stackslot.size
+        buffersize, sizeorigin = calculate_buffer_size(stackframe, dstoffset, instr)
         if buffersize is None:
-            buffersize = stackframe.stackoffset_gap(dstoffset)
-            if buffersize is None:
-                chklogger.logger.warning(
-                    "Stackbuffer for %s at offset %s does not have a size and "
-                    + "no upperbound either",
-                str(instr), str(dstoffset))
-                continue
-            else:
-                chklogger.logger.info(
-                    "Stackbuffer for %s at offset %s does not have a size, "
-                    + "but stackframe allows a buffer of %s",
-                    str(instr), str(dstoffset), str(buffersize))
-                sizeorigin = "stackframe-layout"
-        elif buffersize == 1:
-            buffersize = stackframe.stackoffset_gap(dstoffset)
-            if buffersize is None:
-                chklogger.logger.warning(
-                    "Stackbuffer size for %s at offset %s is reported to be 1 "
-                    + " and no buffer size could be derived from the stacklayout",
-                    str(instr), str(dstoffset))
-                continue
-            else:
-                chklogger.logger.info(
-                    "Stackbuffer size for %s at offset %s is reported to be 1 "
-                    + "; replacing it by the size derived from the stacklayout",
-                    str(instr), str(dstoffset))
-                sizeorigin = "stackframe-layout"
-        else:
-            sizeorigin = "stackslot-access"
+            continue
 
         basicblock = fn.block(pc.baddr)
         spare = find_spare_instruction(basicblock, instr.iaddr)

@@ -406,7 +406,7 @@ class LibraryCallCallsite:
             return result
 
         for dw in self.derefwrites:
-            if not dw.dsttype == "stack":
+            if not dw.dsttype == "stack" and not dw.dsttype == "function-argument":
                 continue
 
             if dw.lentype == "constant":
