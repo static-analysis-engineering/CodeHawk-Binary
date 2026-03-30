@@ -443,5 +443,3 @@ class BCHeaderPrettyPrinter(BCVisitor):
                 self.ccode.write(", ")
             param.params[-1].accept(self)
             self.ccode.write(")")
-        else:
-            self.ccode.write("()")
