@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,6 +49,7 @@ class BCFiles:
 
     def __init__(self, app: "AppAccess", xnode: ET.Element) -> None:
         self._app = app
+        self._typeinfos: List[BCTypeInfo] = []
         self._gtypes: List[BCTyp] = []
         self._gcomptags: List[BCCompInfo] = []
         self._genumtags: List[BCEnumInfo] = []
@@ -65,6 +66,10 @@ class BCFiles:
     @property
     def bcd(self) -> BCDictionary:
         return self.app.bcdictionary
+
+    @property
+    def typeinfos(self) -> List[BCTypeInfo]:
+        return self._typeinfos
 
     @property
     def gtypes(self) -> List[BCTyp]:

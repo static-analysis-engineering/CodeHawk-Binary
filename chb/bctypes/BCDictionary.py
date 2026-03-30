@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024 Aarno Labs LLC
+# Copyright (c) 2021-2026 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -262,6 +262,17 @@ class BCDictionary:
             for ix in self.compinfo_table.keys():
                 cinfo = self.compinfo(ix)
                 self.compinfo_keys[cinfo.ckey] = cinfo
+
+    # ------------------ Values ------------------------------------------------
+
+    def typeinfos(self) -> List["BCTypeInfo"]:
+        return [self.typeinfo(ix) for ix in self.typeinfo_table.keys()]
+
+    def varinfos(self) -> List["BCVarInfo"]:
+        return [self.varinfo(ix) for ix in self.varinfo_table.keys()]
+
+    def compinfos(self) -> List["BCCompInfo"]:
+        return [self.compinfo(ix) for ix in self.compinfo_table.keys()]
 
     # ------------------ Printing ----------------------------------------------
 

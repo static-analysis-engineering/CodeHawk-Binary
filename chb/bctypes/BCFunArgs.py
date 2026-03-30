@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2022 Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -60,6 +60,9 @@ class BCFunArg(BCDictionaryRecord):
     def is_leq(self, other: "BCFunArg") -> bool:
         return self.typ.is_leq(other.typ)
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_funarg(self)
+
     def convert(self, converter: "BCConverter") -> AST.ASTFunArg:
         return converter.convert_funarg(self)
 
@@ -114,6 +117,9 @@ class BCFunArgs(BCDictionaryRecord):
 
     def is_leq(self, other: "BCFunArgs") -> bool:
         return all(a.is_leq(o) for (a, o) in zip(self.funargs, other.funargs))
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_funargs(self)
 
     def convert(self, converter: "BCConverter") -> AST.ASTFunArgs:
         return converter.convert_funargs(self)

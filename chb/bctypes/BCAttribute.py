@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2023  Aarno Labs LLC
+# Copyright (c) 2022-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ import chb.util.IndexedTable as IT
 if TYPE_CHECKING:
     from chb.bctypes.BCDictionary import BCDictionary
     from chb.bctypes.BCAttrParam import BCAttrParam
+    from chb.bctypes.BCVisitor import BCVisitor
 
 
 class BCAttribute(BCDictionaryRecord):
@@ -61,6 +62,9 @@ class BCAttribute(BCDictionaryRecord):
     def to_c_string(self) -> str:
         return self.name + "(" + ", ".join(p.to_c_string for p in self.params) + ")"
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_attribute(self)
+
     def __str__(self) -> str:
         return self.name + "(" + ", ".join(str(p) for p in self.params) + ")"
 
@@ -80,6 +84,9 @@ class BCAttributes(BCDictionaryRecord):
     @property
     def is_empty(self) -> bool:
         return len(self.attrs) == 0
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_attributes(self)
 
     @property
     def to_c_string(self) -> str:

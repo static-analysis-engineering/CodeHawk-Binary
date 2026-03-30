@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,8 +30,12 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from chb.bctypes.BCAttribute import BCAttribute, BCAttributes
+    import chb.bctypes.BCAttrParam as AP
     from chb.bctypes.BCCompInfo import BCCompInfo
     import chb.bctypes.BCConstant as BCC
+    from chb.bctypes.BCEnumInfo import BCEnumInfo
+    from chb.bctypes.BCEnumItem import BCEnumItem
     import chb.bctypes.BCExp as BCE
     from chb.bctypes.BCFieldInfo import BCFieldInfo
     from chb.bctypes.BCFunArgs import BCFunArgs, BCFunArg
@@ -39,6 +43,7 @@ if TYPE_CHECKING:
     from chb.bctypes.BCLval import BCLval
     from chb.bctypes.BCOffset import BCNoOffset, BCFieldOffset, BCIndexOffset
     import chb.bctypes.BCTyp as BCT
+    from chb.bctypes.BCTypeInfo import BCTypeInfo
     from chb.bctypes.BCVarInfo import BCVarInfo
 
 
@@ -141,4 +146,52 @@ class BCVisitor(ABC):
 
     @abstractmethod
     def visit_named_typ(self, typ: "BCT.BCTypNamed") -> None:
+        ...
+
+    @abstractmethod
+    def visit_comp_typ(self, typ: "BCT.BCTypComp") -> None:
+        ...
+
+    @abstractmethod
+    def visit_compinfo(self, cinfo: "BCCompInfo") -> None:
+        ...
+
+    @abstractmethod
+    def visit_fieldinfo(self, finfo: "BCFieldInfo") -> None:
+        ...
+
+    @abstractmethod
+    def visit_enum_typ(self, typ: "BCT.BCTypEnum") -> None:
+        ...
+
+    @abstractmethod
+    def visit_enuminfo(self, einfo: "BCEnumInfo") -> None:
+        ...
+
+    @abstractmethod
+    def visit_enumitem(self, eitem: "BCEnumItem") -> None:
+        ...
+
+    @abstractmethod
+    def visit_typeinfo(self, tinfo: "BCTypeInfo") -> None:
+        ...
+
+    @abstractmethod
+    def visit_attributes(self, attrs: "BCAttributes") -> None:
+        ...
+
+    @abstractmethod
+    def visit_attribute(self, attr: "BCAttribute") -> None:
+        ...
+
+    @abstractmethod
+    def visit_attr_param_int(self, param: "AP.BCAttrParamInt") -> None:
+        ...
+
+    @abstractmethod
+    def visit_attr_param_str(self, param: "AP.BCAttrParamStr") -> None:
+        ...
+
+    @abstractmethod
+    def visit_attr_param_cons(self, param: "AP.BCAttrParamCons") -> None:
         ...

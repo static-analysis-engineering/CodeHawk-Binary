@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -244,6 +244,9 @@ class BCTyp(BCDictionaryRecord):
     def argtypes(self) -> Optional["BCFunArgs"]:
         raise UF.CHBError("Type is not a function: " + str(self))
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        raise NotImplementedError("BCTyp.visit: " + self.tags[0])
+
     def convert(self, converter: "BCConverter") -> AST.ASTTyp:
         raise NotImplementedError("BCTyp.convert: " + self.tags[0])
 
@@ -266,6 +269,9 @@ class BCTypVoid(BCTyp):
 
     def is_leq(self, other: "BCTyp") -> bool:
         return other.is_void
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_void_typ(self)
 
     def convert(self, converter: "BCConverter") -> AST.ASTTypVoid:
         return converter.convert_void_typ(self)
@@ -305,6 +311,9 @@ class BCTypInt(BCTyp):
     def byte_size(self) -> int:
         return size_of_integer_type(self.ikind)
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_integer_typ(self)
+
     def convert(self, converter: "BCConverter") -> AST.ASTTypInt:
         return converter.convert_integer_typ(self)
 
@@ -342,6 +351,9 @@ class BCTypFloat(BCTyp):
 
     def byte_size(self) -> int:
         return size_of_float_type(self.fkind)
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_float_typ(self)
 
     def convert(self, converter: "BCConverter") -> AST.ASTTypFloat:
         return converter.convert_float_typ(self)
@@ -383,6 +395,9 @@ class BCTypPtr(BCTyp):
         """We assume 32-bit systems."""
 
         return 4
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_pointer_typ(self)
 
     def convert(self, converter: "BCConverter") -> AST.ASTTypPtr:
         return converter.convert_pointer_typ(self)
@@ -516,6 +531,13 @@ class BCTypFun(BCTyp):
     def is_vararg(self) -> bool:
         return self.args[2] == 1
 
+    def has_arguments(self) -> bool:
+        argtypes = self.argtypes
+        if argtypes is not None:
+            return len(argtypes.funargs) > 0
+        else:
+            return False
+
     @property
     def is_function(self) -> bool:
         return True
@@ -534,6 +556,9 @@ class BCTypFun(BCTyp):
                 return False
         else:
             return False
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        return visitor.visit_fun_typ(self)
 
     def convert(self, converter: "BCConverter") -> AST.ASTTypFun:
         return converter.convert_fun_typ(self)
@@ -695,6 +720,9 @@ class BCTypNamed(BCTyp):
         else:
             raise UF.CHBError("No type definition for " + self.tname)
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_named_typ(self)
+
     def convert(self, converter: "BCConverter") -> AST.ASTTyp:
         return converter.convert_named_typ(self)
 
@@ -747,6 +775,9 @@ class BCTypComp(BCTyp):
     def alignment(self) -> int:
         return self.compinfo.alignment()
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_comp_typ(self)
+
     def convert(self, converter: "BCConverter") -> AST.ASTTypComp:
         return converter.convert_comp_typ(self)
 
@@ -777,6 +808,9 @@ class BCTypEnum(BCTyp):
 
     def byte_size(self) -> int:
         return 4
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_enum_typ(self)
 
     def convert(self, converter: "BCConverter") -> AST.ASTTypEnum:
         return converter.convert_enum_typ(self)

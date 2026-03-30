@@ -40,6 +40,7 @@ import chb.util.IndexedTable as IT
 if TYPE_CHECKING:
     from chb.bctypes.BCDictionary import BCDictionary
     from chb.bctypes.BCTyp import BCTyp, BCTypArray, BCTypFun
+    from chb.bctypes.BCVisitor import BCVisitor
 
 
 class BCVarInfo(BCDictionaryRecord):
@@ -70,6 +71,9 @@ class BCVarInfo(BCDictionaryRecord):
     def attributes(self) -> Optional["BCAttributes"]:
         return self.bcd.attributes(self.args[2])
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_varinfo(self)
+
     def convert(self, converter: "BCConverter") -> AST.ASTVarInfo:
         return converter.convert_varinfo(self)
 
@@ -99,7 +103,13 @@ class BCVarInfo(BCDictionaryRecord):
                 pfattrs = "\n" + fattrs.to_c_string
             else:
                 pfattrs = ""
-            return (str(ftype.returntype) + " " + self.vname + argtypes + pfattrs) + ";"
+            return (
+                str(ftype.returntype)
+                + " "
+                + self.vname
+                + argtypes
+                + pfattrs
+                + ";")
         else:
             return str(self.vtype) + " " + self.vname + ";"
 

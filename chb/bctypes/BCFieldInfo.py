@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +29,6 @@ from typing import Any, cast, Dict, List, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
 
-from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
 
 import chb.util.fileutil as UF
@@ -38,8 +37,10 @@ import chb.util.IndexedTable as IT
 if TYPE_CHECKING:
     from chb.bctypes.BCAttribute import BCAttribute
     from chb.bctypes.BCAttrParam import BCAttrParam, BCAttrParamInt
+    from chb.bctypes.BCConverter import BCConverter
     from chb.bctypes.BCDictionary import BCDictionary
     from chb.bctypes.BCTyp import BCTyp, BCTypArray, BCTypComp
+    from chb.bctypes.BCVisitor import BCVisitor
 
 
 class BCFieldInfo(BCDictionaryRecord):
@@ -90,7 +91,10 @@ class BCFieldInfo(BCDictionaryRecord):
 
         return self.fieldtype.alignment()
 
-    def convert(self, converter: BCConverter) -> AST.ASTFieldInfo:
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_fieldinfo(self)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTFieldInfo:
         return converter.convert_fieldinfo(self)
 
     def __str__(self) -> str:

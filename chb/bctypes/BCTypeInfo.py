@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ import chb.util.IndexedTable as IT
 if TYPE_CHECKING:
     from chb.bctypes.BCDictionary import BCDictionary
     from chb.bctypes.BCTyp import BCTyp
+    from chb.bctypes.BCVisitor import BCVisitor
 
 
 class BCTypeInfo(BCDictionaryRecord):
@@ -52,6 +53,9 @@ class BCTypeInfo(BCDictionaryRecord):
     @property
     def ttype(self) -> "BCTyp":
         return self.bcd.typ(self.args[0])
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_typeinfo(self)
 
     def __str__(self) -> str:
         return "typeinfo: " + self.tname + ": " + str(self.ttype)

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,16 +29,17 @@ from typing import Any, cast, Dict, List, TYPE_CHECKING
 
 import chb.ast.ASTNode as AST
 
-from chb.bctypes.BCConverter import BCConverter
 from chb.bctypes.BCDictionaryRecord import BCDictionaryRecord
 
 import chb.util.fileutil as UF
 import chb.util.IndexedTable as IT
 
 if TYPE_CHECKING:
+    from chb.bctypes.BCConverter import BCConverter
     from chb.bctypes.BCDictionary import BCDictionary
-    from chb.bctypes.BCTyp import BCTyp, BCTypArray, BCTypComp
     from chb.bctypes.BCExp import BCExp
+    from chb.bctypes.BCTyp import BCTyp, BCTypArray, BCTypComp
+    from chb.bctypes.BCVisitor import BCVisitor
 
 
 class BCEnumItem(BCDictionaryRecord):
@@ -57,7 +58,10 @@ class BCEnumItem(BCDictionaryRecord):
     def itemexpr(self) -> "BCExp":
         return self.bcd.exp(self.args[0])
 
-    def convert(self, converter: BCConverter) -> AST.ASTEnumItem:
+    def accept(self, visitor: "BCVisitor") -> None:
+        return visitor.visit_enumitem(self)
+
+    def convert(self, converter: "BCConverter") -> AST.ASTEnumItem:
         return converter.convert_enumitem(self)
 
     def __str__(self) -> str:

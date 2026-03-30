@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022 Aarno Labs LLC
+# Copyright (c) 2022-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -60,6 +60,7 @@ if TYPE_CHECKING:
     from chb.bctypes.BCDictionary import BCDictionary
     from chb.bctypes.BCTyp import BCTyp
     from chb.bctypes.BCTypSig import BCTypSig
+    from chb.bctypes.BCVisitor import BCVisitor
 
 
 class BCAttrParam(BCDictionaryRecord):
@@ -104,6 +105,9 @@ class BCAttrParamInt(BCAttrParam):
     def to_c_string(self) -> str:
         return str(self.intvalue)
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_attr_param_int(self)
+
     def __str__(self) -> str:
         return "aint(" + str(self.intvalue) + ")"
 
@@ -125,6 +129,9 @@ class BCAttrParamStr(BCAttrParam):
     @property
     def to_c_string(self) -> str:
         return self.strvalue
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_attr_param_str(self)
 
     def __str__(self) -> str:
         return "astr(" + self.strvalue + ")"
@@ -157,6 +164,9 @@ class BCAttrParamCons(BCAttrParam):
                 self.name + "("
                 + ", ".join(p.to_c_string for p in self.params)
                 + ")")
+
+    def accept(self, visitor: "BCVisitor") -> None:
+        visitor.visit_attr_param_cons(self)
 
     def __str__(self) -> str:
         return (
