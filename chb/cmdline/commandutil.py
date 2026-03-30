@@ -1332,7 +1332,7 @@ def results_cheader(args: argparse.Namespace) -> NoReturn:
     cheader = BCHeaderPrettyPrinter(
         app.bcdictionary.varinfos(),
         app.bcdictionary.typeinfos(),
-        app.bcfiles.gcomptags)
+        app.bcdictionary.compinfos())
     cheader_str = cheader.to_header_file(callers)
 
     if outputfilename is not None:
