@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs, LLC
+# Copyright (c) 2021-2026  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -68,6 +68,7 @@ from chb.arm.ARMAccess import ARMAccess
 from chb.arm.ARMAssembly import ARMAssembly
 
 from chb.bctypes.BCFiles import BCFiles
+from chb.bctypes.BCHeaderFile import BCHeaderPrettyPrinter
 
 from chb.cmdline.AnalysisManager import AnalysisManager
 
@@ -1297,6 +1298,50 @@ def results_function(args: argparse.Namespace) -> NoReturn:
             else:
                 print(json.dumps(jsonfresult))
             exit(1)
+
+
+def results_cheader(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = str(args.xname)
+    outputfilename: Optional[str] = args.output
+    include_callers: bool = args.include_callers
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print_error(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    callers: Dict[str, List["Instruction"]] = {}
+    if include_callers:
+        callinstrs = app.call_instructions()
+        for (faddr, fcalls) in callinstrs.items():
+            for (baddr, bcalls) in fcalls.items():
+                for c in bcalls:
+                    tgt = c.call_target.name
+                    callers.setdefault(tgt, [])
+                    callers[tgt].append(c)
+
+    cheader = BCHeaderPrettyPrinter(
+        app.bcdictionary.varinfos(),
+        app.bcdictionary.typeinfos(),
+        app.bcfiles.gcomptags)
+    cheader_str = cheader.to_header_file(callers)
+
+    if outputfilename is not None:
+        with open(outputfilename, "w") as fp:
+            fp.write(cheader_str)
+    else:
+        print(cheader_str)
+
+    exit(0)
 
 
 def results_callbacktables(args: argparse.Namespace) -> NoReturn:

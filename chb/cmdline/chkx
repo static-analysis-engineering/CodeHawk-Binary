@@ -1006,6 +1006,16 @@ def parse() -> argparse.Namespace:
 
     resultsfunction.set_defaults(func=UCC.results_function)
 
+    # --- results cheader ---
+    resultscheader = resultsparsers.add_parser("c_header")
+    resultscheader.add_argument("xname", help="name of executable")
+    resultscheader.add_argument("--output", "-o", help="name of output file")
+    resultscheader.add_argument(
+        "--include_callers",
+        action="store_true",
+        help="print the instructions calling a declared function")
+    resultscheader.set_defaults(func = UCC.results_cheader)
+
     # --- results callback tables ---
     resultscallbacktables = resultsparsers.add_parser("callbacktables")
     resultscallbacktables.add_argument("xname", help="name of executable")

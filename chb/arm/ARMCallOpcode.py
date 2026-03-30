@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2025  Aarno Labs LLC
+# Copyright (c) 2022-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -173,8 +173,8 @@ class ARMCallOpcodeXData(ARMOpcodeXData):
     def annotation(self) -> str:
         tgt = str(self.calltarget)
         args = ", ".join(str(x) for x in self.arguments)
-        cargs = " (C: (" + ", ".join(str(x) for x in self.c_arguments) + "))"
-        call = "call " + str(tgt) + "(" + args + ")" + cargs
+        # cargs = " (C: (" + ", ".join(str(x) for x in self.c_arguments) + "))"
+        call = "call " + str(tgt) + "(" + args + ")" # + cargs
         return self.add_instruction_condition(call)
 
 
