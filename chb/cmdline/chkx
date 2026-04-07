@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs, LLC
+# Copyright (c) 2021-2026  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -1016,6 +1016,13 @@ def parse() -> argparse.Namespace:
         help="print the instructions calling a declared function")
     resultscheader.set_defaults(func = UCC.results_cheader)
 
+    # --- results proofobligations ---
+    resultspos = resultsparsers.add_parser("proofobligations")
+    resultspos.add_argument("xname", help="name of executable")
+    resultspos.add_argument("faddr", help="hex address of the function")
+    resultspos.add_argument("--output", "-o", help="name of output file")
+    resultspos.set_defaults(func = UCC.results_proofobligations)
+
     # --- results callback tables ---
     resultscallbacktables = resultsparsers.add_parser("callbacktables")
     resultscallbacktables.add_argument("xname", help="name of executable")
@@ -1645,6 +1652,29 @@ def parse() -> argparse.Namespace:
         help="file mode for log file: append (a, default), or write (w)")
 
     relationalcompareinvs.set_defaults(func=R.relational_compare_invs_cmd)
+
+    # --- relational compare proofobligations --
+    relationalcomparepos = relationalcompareparsers.add_parser(
+        "proofobligations")
+    relationalcomparepos.add_argument(
+        "xname1", help="name of first (original) executable (assumed analyzed)")
+    relationalcomparepos.add_argument(
+        "xname2", help="name of second (patched) executable (assumed analyzed)")
+    relationalcomparepos.add_argument(
+        "--loglevel", "-log",
+        choices=UL.LogLevel.options(),
+        default="NONE",
+        help="activate logging with the given level (default to stderr)")
+    relationalcomparepos.add_argument(
+        "--logfilename",
+        help="name of file to write log messages")
+    relationalcomparepos.add_argument(
+        "--logfilemode",
+        choices=["a", "w"],
+        default="a",
+        help="file mode for log file: append (a, default), or write (w)")
+
+    relationalcomparepos.set_defaults(func=R.relational_compare_proofobligations)
 
     # --- relational_compare md5s
     relationalcomparemd5s = relationalcompareparsers.add_parser("md5s")

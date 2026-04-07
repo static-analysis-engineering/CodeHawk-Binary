@@ -42,6 +42,13 @@ if TYPE_CHECKING:
     from chb.invariants.FnVarDictionary import FnVarDictionary
 
 
+po_status_strings = {
+    "o": "open",
+    "dis": "safe",
+    "del": "delegated",
+    "v": "violation"
+}
+
 class POStatus:
 
     def __init__(self, tag: str) -> None:
@@ -51,16 +58,38 @@ class POStatus:
     def tag(self) -> str:
         return self._tag
 
+    @property
+    def is_open(self) -> bool:
+        return self.tag == "o"
+
+    @property
+    def is_discharged(self) -> bool:
+        return self.tag == "dis"
+
+    @property
+    def is_delegated(self) -> bool:
+        return self.tag == "del"
+
+    @property
+    def is_violated(self) -> bool:
+        return self.tag == "v"
+
     def __str__(self) -> str:
-        return self.tag
+        return po_status_strings.get(self.tag, "?")
 
 
 class ProofObligation:
 
-    def __init__(self, iaddr: str, xpo: "XPOPredicate", status: POStatus) -> None:
+    def __init__(
+            self,
+            iaddr: str,
+            xpo: "XPOPredicate",
+            status: POStatus,
+            msg: str) -> None:
         self._iaddr = iaddr
         self._xpo = xpo
         self._status = status
+        self._msg = msg
 
     @property
     def iaddr(self) -> str:
@@ -74,8 +103,40 @@ class ProofObligation:
     def status(self) -> POStatus:
         return self._status
 
+    @property
+    def msg(self) -> str:
+        return self._msg
+
+    @property
+    def is_open(self) -> bool:
+        return self.status.is_open
+
+    @property
+    def is_discharged(self) -> bool:
+        return self.status.is_discharged
+
+    @property
+    def is_delegated(self) -> bool:
+        return self.status.is_delegated
+
+    @property
+    def is_violated(self) -> bool:
+        return self.status.is_violated
+
+    @property
+    def is_xpo_block_write(self) -> bool:
+        return self.xpo.is_xpo_block_write
+
     def __str__(self) -> str:
-        return self.iaddr + ": " + str(self.xpo) + " (" + str(self.status) + ")"
+        m = ", " + self.msg if self.msg != "none" else ""
+        return (
+            self.iaddr
+            + ": "
+            + str(self.xpo)
+            + " ("
+            + str(self.status)
+            + m
+            + ")")
 
 
 class FnProofObligations:
@@ -93,6 +154,9 @@ class FnProofObligations:
     def xpod(self) -> "FnXPODictionary":
         return self.function.xpodictionary
 
+    def proof_obligation_count(self) -> int:
+        return sum(len(x) for x in self.proofobligations.values())
+
     @property
     def proofobligations(self) -> Dict[str, List[ProofObligation]]:
         if len(self._store) == 0:
@@ -104,9 +168,28 @@ class FnProofObligations:
                         xpo = self.xpod.read_xml_xpo_predicate(xxpo)
                         statustag = xxpo.get("s", "o")
                         status = POStatus(statustag)
-                        po = ProofObligation(iaddr, xpo, status)
+                        msg = xxpo.get("m", "none")
+                        po = ProofObligation(iaddr, xpo, status, msg)
                         self._store[iaddr].append(po)
         return self._store
+
+    def open_proofobligations(self) -> Dict[str, List[ProofObligation]]:
+        result: Dict[str, List[ProofObligation]] = {}
+        for (iaddr, pos) in self.proofobligations.items():
+            for po in pos:
+                if po.is_open:
+                    result.setdefault(iaddr, [])
+                    result[iaddr].append(po)
+        return result
+
+    def block_writes(self) -> Dict[str, List[ProofObligation]]:
+        result: Dict[str, List[ProofObligation]] = {}
+        for (iaddr, pos) in self.proofobligations.items():
+            for po in pos:
+                if po.is_xpo_block_write:
+                    result.setdefault(iaddr, [])
+                    result[iaddr].append(po)
+        return result
 
     def __str__(self) -> str:
         lines: List[str] = []

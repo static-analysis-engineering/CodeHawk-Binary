@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs, LLC
+# Copyright (c) 2021-2026  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from chb.app.BasicBlock import BasicBlock
     from chb.app.Cfg import Cfg
     from chb.app.CfgBlock import CfgBlock
+    from chb.app.FnProofObligations import ProofObligation
     from chb.app.Function import Function
     from chb.app.Instruction import Instruction
     from chb.arm.ARMCfgBlock import ARMCfgTrampolineBlock
@@ -273,6 +274,34 @@ class FunctionRelationalAnalysis:
             return self.fn1.md5 == self.fn2.md5
         else:
             return self.fn1.md5 == self.fn2.rev_md5
+
+    @property
+    def is_po_changed(self) -> bool:
+        f1pos = self.fn1.proofobligations.proofobligations
+        f2pos = self.fn2.proofobligations.proofobligations
+
+        comparison: Dict[
+            str,
+            Tuple[List["ProofObligation"], List["ProofObligation"]]] = {}
+        for (iaddr, i1pos) in f1pos.items():
+            if iaddr in f2pos:
+                i2pos = f2pos.get(iaddr, [])
+                is1pos = {str(po): po for po in i1pos}
+                is2pos = {str(po): po for po in i2pos}
+                for po1 in is1pos:
+                    if po1 not in is2pos:
+                        comparison.setdefault(iaddr, ([], []))
+                        comparison[iaddr][0].append(is1pos[po1])
+                    # else:
+                    #    unchanged += 1
+                for po2 in is2pos:
+                    if po2 not in is1pos:
+                        comparison.setdefault(iaddr, ([], []))
+                        comparison[iaddr][1].append(is2pos[po2])
+            else:
+                comparison.setdefault(iaddr, ([], []))
+                comparison[iaddr][0].extend(i1pos)
+        return (len(f1pos) != len(f2pos)) or (len(comparison) > 0)
 
     @property
     def is_automorphic(self) -> bool:

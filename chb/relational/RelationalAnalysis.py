@@ -206,7 +206,7 @@ class RelationalAnalysis:
 
         result: List[str] = []
         for (faddr, fra) in self.function_analyses.items():
-            if fra.moved or not fra.is_md5_equal:
+            if fra.moved or not fra.is_md5_equal or fra.is_po_changed:
                 result.append(faddr)
 
         for (faddr1, md51) in self.md5s1.items():

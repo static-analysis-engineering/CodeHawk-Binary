@@ -37,6 +37,8 @@ import subprocess
 
 from typing import Any, cast, Dict, List, NoReturn, Optional, Tuple
 
+from chb.app.FnProofObligations import ProofObligation
+
 from chb.cmdline.AnalysisManager import AnalysisManager
 import chb.cmdline.commandutil as UC
 import chb.cmdline.jsonresultutil as JU
@@ -950,6 +952,110 @@ def relational_compare_invs_cmd(args: argparse.Namespace) -> NoReturn:
 
     chklogger.logger.info("relational compare invariants completed")
 
+    exit(0)
+
+
+def relational_compare_proofobligations(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname1: str = args.xname1
+    xname2: str = args.xname2
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
+
+    print("Comparison of the proof obligations for " + xname1 + " and " + xname2)
+
+    try:
+        (path1, xfile1) = UC.get_path_filename(xname1)
+        UF.check_analysis_results(path1, xfile1)
+        (path2, xfile2) = UC.get_path_filename(xname2)
+        UF.check_analysis_results(path2, xfile2)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path1,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="relational compare proofobligations invoked")
+
+    xinfo1 = XI.XInfo()
+    xinfo2 = XI.XInfo()
+    xinfo1.load(path1, xfile1)
+    xinfo2.load(path2, xfile2)
+    app1 = UC.get_app(path1, xfile1, xinfo1)
+    app2 = UC.get_app(path2, xfile2, xinfo2)
+
+    relanalysis = RelationalAnalysis(app1, app2)
+
+    functionschanged = relanalysis.functions_changed()
+    if len(functionschanged) == 0:
+        UC.print_error("No functions changed")
+        exit(0)
+
+    functionschanged = relanalysis.functions_changed()
+
+    print(relational_header(
+        xname1, xname2, xinfo2.md5, "proof obligation comparison"))
+    counter: int = 0
+    print("\nProof obligations changed")
+
+    for fnchanged in functionschanged:
+
+        f1fn = app1.function(fnchanged)
+        f2fn = app2.function(fnchanged)
+
+        f1pos = f1fn.proofobligations.proofobligations
+        f2pos = f2fn.proofobligations.proofobligations
+
+        unchanged: int = 0
+
+        comparison: Dict[
+            str,
+            Tuple[List[ProofObligation], List[ProofObligation]]] = {}
+        for (iaddr, i1pos) in f1pos.items():
+            if iaddr in f2pos:
+                i2pos = f2pos.get(iaddr, [])
+                is1pos = {str(po): po for po in i1pos}
+                is2pos = {str(po): po for po in i2pos}
+                for po1 in is1pos:
+                    if po1 not in is2pos:
+                        comparison.setdefault(iaddr, ([], []))
+                        comparison[iaddr][0].append(is1pos[po1])
+                        counter += 1
+                    else:
+                        unchanged += 1
+                for po2 in is2pos:
+                    if po2 not in is1pos:
+                        comparison.setdefault(iaddr, ([], []))
+                        comparison[iaddr][1].append(is2pos[po2])
+            else:
+                comparison.setdefault(iaddr, ([], []))
+                comparison[iaddr][0].extend(i1pos)
+        for (iaddr, i2pos) in f2pos.items():
+            if iaddr not in f1pos:
+                comparison.setdefault(iaddr, ([], []))
+                comparison[iaddr][1].extend(i2pos)
+
+        print("~" * 80)
+        print("Function " + fnchanged)
+        for (iaddr, diffs) in comparison.items():
+            print(iaddr)
+            print("  original")
+            print("    " + str(f1fn.instructions[iaddr].annotation))
+            for po in diffs[0]:
+                print("      " + str(po.xpo).ljust(64) + str(po.status).rjust(10))
+                print("  patched")
+                print("    " + str(f2fn.instructions[iaddr].annotation))
+                for po in diffs[1]:
+                    print("      " + str(po.xpo).ljust(64) + str(po.status).rjust(10))
+        print("\nProof obligations unchanged: " + str(unchanged))
+        print("~" * 80)
+
+    print("\nTotal number of proof obligations changed: " + str(counter))
     exit(0)
 
 

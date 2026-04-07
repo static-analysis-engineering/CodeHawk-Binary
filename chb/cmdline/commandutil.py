@@ -1344,6 +1344,49 @@ def results_cheader(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def results_proofobligations(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = str(args.xname)
+    xfaddr: str = str(args.faddr)
+    outputfilename: Optional[str] = args.output
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print_error(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    if not app.has_function(xfaddr):
+        msg = "Function " + xfaddr + " not found"
+        print_error(msg)
+        exit(1)
+
+    f = app.function(xfaddr)
+    fpos = f.proofobligations
+    open_pos = fpos.open_proofobligations()
+    open_pos_count = sum(len(x) for x in open_pos.values())
+    blockwrites_count = sum(len(x) for x in fpos.block_writes())
+
+
+    print("Open proof obligations: "
+          + str(open_pos_count) + " / " + str(fpos.proof_obligation_count()))
+
+    for (loc, pos) in fpos.block_writes().items():
+        print(loc)
+        for po in pos:
+            print("  " + str(po))
+
+    exit(0)
+
+
+
 def results_callbacktables(args: argparse.Namespace) -> NoReturn:
     """Prints or saves information regarding callback tables."""
 
