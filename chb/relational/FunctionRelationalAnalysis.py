@@ -280,6 +280,9 @@ class FunctionRelationalAnalysis:
         f1pos = self.fn1.proofobligations.proofobligations
         f2pos = self.fn2.proofobligations.proofobligations
 
+        if len(f1pos) != len(f2pos):
+            return False
+
         comparison: Dict[
             str,
             Tuple[List["ProofObligation"], List["ProofObligation"]]] = {}
@@ -292,8 +295,6 @@ class FunctionRelationalAnalysis:
                     if po1 not in is2pos:
                         comparison.setdefault(iaddr, ([], []))
                         comparison[iaddr][0].append(is1pos[po1])
-                    # else:
-                    #    unchanged += 1
                 for po2 in is2pos:
                     if po2 not in is1pos:
                         comparison.setdefault(iaddr, ([], []))
@@ -301,7 +302,7 @@ class FunctionRelationalAnalysis:
             else:
                 comparison.setdefault(iaddr, ([], []))
                 comparison[iaddr][0].extend(i1pos)
-        return (len(f1pos) != len(f2pos)) or (len(comparison) > 0)
+        return (len(comparison) > 0)
 
     @property
     def is_automorphic(self) -> bool:

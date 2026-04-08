@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,10 +28,11 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, List, Mapping, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Mapping, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.Register import Register
 from chb.invariants.FnStackAccess import FnStackAccess
+from chb.jsoninterface.JSONResult import JSONResult
 
 if TYPE_CHECKING:
     from chb.app.BDictionary import BDictionary
@@ -127,6 +128,13 @@ class ProofObligation:
     def is_xpo_block_write(self) -> bool:
         return self.xpo.is_xpo_block_write
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["predicate"] = str(self.xpo)
+        content["status"] = str(self.status)
+        content["msg"] = self.msg
+        return JSONResult("proofobligation", content, "ok")
+
     def __str__(self) -> str:
         m = ", " + self.msg if self.msg != "none" else ""
         return (
@@ -135,7 +143,6 @@ class ProofObligation:
             + str(self.xpo)
             + " ("
             + str(self.status)
-            + m
             + ")")
 
 

@@ -1000,7 +1000,7 @@ def relational_compare_proofobligations(args: argparse.Namespace) -> NoReturn:
 
     print(relational_header(
         xname1, xname2, xinfo2.md5, "proof obligation comparison"))
-    counter: int = 0
+    count: int = 0
     print("\nProof obligations changed")
 
     for fnchanged in functionschanged:
@@ -1025,20 +1025,23 @@ def relational_compare_proofobligations(args: argparse.Namespace) -> NoReturn:
                     if po1 not in is2pos:
                         comparison.setdefault(iaddr, ([], []))
                         comparison[iaddr][0].append(is1pos[po1])
-                        counter += 1
+                        count += 1
                     else:
                         unchanged += 1
                 for po2 in is2pos:
                     if po2 not in is1pos:
                         comparison.setdefault(iaddr, ([], []))
                         comparison[iaddr][1].append(is2pos[po2])
+                        count += len(i2pos)
             else:
                 comparison.setdefault(iaddr, ([], []))
                 comparison[iaddr][0].extend(i1pos)
+                count += len(i1pos)
         for (iaddr, i2pos) in f2pos.items():
             if iaddr not in f1pos:
                 comparison.setdefault(iaddr, ([], []))
                 comparison[iaddr][1].extend(i2pos)
+                count += len(i2pos)
 
         print("~" * 80)
         print("Function " + fnchanged)
@@ -1048,14 +1051,14 @@ def relational_compare_proofobligations(args: argparse.Namespace) -> NoReturn:
             print("    " + str(f1fn.instructions[iaddr].annotation))
             for po in diffs[0]:
                 print("      " + str(po.xpo).ljust(64) + str(po.status).rjust(10))
-                print("  patched")
+            print("  patched")
+            for po in diffs[1]:
                 print("    " + str(f2fn.instructions[iaddr].annotation))
-                for po in diffs[1]:
-                    print("      " + str(po.xpo).ljust(64) + str(po.status).rjust(10))
+                print("      " + str(po.xpo).ljust(64) + str(po.status).rjust(10))
         print("\nProof obligations unchanged: " + str(unchanged))
         print("~" * 80)
 
-    print("\nTotal number of proof obligations changed: " + str(counter))
+    print("\nTotal number of proof obligations changed: " + str(count))
     exit(0)
 
 

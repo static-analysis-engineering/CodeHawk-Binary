@@ -62,6 +62,7 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
+    from chb.app.FnProofObligations import ProofObligation
     from chb.arm.ARMBlock import ARMBlock
     from chb.arm.ARMFunction import ARMFunction
     from chb.arm.ARMJumpTable import ARMJumpTable
@@ -448,6 +449,9 @@ class ARMInstruction(Instruction):
 
         return result
 
+    def proofobligations(self) -> List["ProofObligation"]:
+        return self.armfunction.proofobligations.proofobligations.get(self.iaddr, [])
+
     def to_string(
             self,
             bytes: bool = False,
@@ -490,6 +494,15 @@ class ARMInstruction(Instruction):
         if spresult.is_ok:
             content["stackpointer"] = spresult.content
         content["bytes"] = self.bytestring
+        content["proofobligations"] = pos = []
+        for po in self.proofobligations():
+            poresult = po.to_json_result()
+            if not poresult.is_ok:
+                reason = (
+                    "failure at " + self.iaddr + ": " + str(poresult.reason))
+                return JSONResult("assemblyinstruction", {}, "fail", reason)
+            else:
+                pos.append(poresult.content)
         if self.mnemonic.startswith("unknown"):
             reason = (
                 "Instruction opcode not recognized at address "
