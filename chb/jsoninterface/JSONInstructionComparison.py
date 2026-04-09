@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 
 from chb.jsoninterface.JSONObject import JSONObject
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
+from chb.jsoninterface.JSONProofObligationRecord import JSONProofObligationRecord
 
 if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
@@ -38,6 +39,8 @@ class JSONInstructionComparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
         JSONObject.__init__(self, d, "instruction-comparison")
+        self._pos_added: Optional[List[JSONProofObligationRecord]] = None
+        self._pos_removed: Optional[List[JSONProofObligationRecord]] = None
 
     @property
     def iaddr1(self) -> str:
@@ -62,6 +65,22 @@ class JSONInstructionComparison(JSONObject):
         if instr is None:
             return None
         return JSONAssemblyInstruction(instr)
+
+    @property
+    def pos_added(self) -> List[JSONProofObligationRecord]:
+        if self._pos_added is None:
+            self._pos_added = []
+            for po in self.d.get("pos-added", []):
+                self._pos_added.append(JSONProofObligationRecord(po))
+        return self._pos_added
+
+    @property
+    def pos_removed(self) -> List[JSONProofObligationRecord]:
+        if self._pos_removed is None:
+            self._pos_removed = []
+            for po in self.d.get("pos-removed", []):
+                self._pos_removed.append(JSONProofObligationRecord(po))
+        return self._pos_removed
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_instruction_comparison(self)

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -80,9 +80,9 @@ class JSONCfgBlockMappingItem(JSONObject):
             return None
 
         if self._blockcomparison is None:
-            self._block_comparison = JSONBlockComparison(
+            self._blockcomparison = JSONBlockComparison(
                 self.d.get('blockcomparison', self.property_missing('blockcomparison')))
-        return self._block_comparison
+        return self._blockcomparison
 
     def has_trampoline(self) -> bool:
         return 'blockcount' in self.changes
@@ -157,10 +157,7 @@ class JSONFunctionComparison(JSONObject):
 
     @property
     def blocks_changed(self) -> List[str]:
-        if self._blocks_changed is None:
-            self._blocks_changed = self.d["blocks-changed"]
-
-        return self._blocks_changed
+        return self.d.get("blocks-changed", [])
 
     @property
     def num_blocks_changed(self) -> int:
@@ -168,7 +165,7 @@ class JSONFunctionComparison(JSONObject):
 
     @property
     def changes(self) -> List[str]:
-        return self.d.get("changes", self.property_missing("changes"))
+        return self.d.get("changes", [self.property_missing("changes")])
 
     @property
     def cfg_block_mapping(self) -> List[JSONCfgBlockMappingItem]:

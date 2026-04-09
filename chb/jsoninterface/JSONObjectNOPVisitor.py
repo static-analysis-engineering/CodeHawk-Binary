@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024  Aarno Labs LLC
+# Copyright (c) 2023-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,11 +29,14 @@ import chb.jsoninterface.JSONAppComparison as AppC
 from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 import chb.jsoninterface.JSONBlockComparison as BlockC
+import chb.jsoninterface.JSONCallgraph as Cg
+import chb.jsoninterface.JSONCallsiteRecords as CR
 import chb.jsoninterface.JSONControlFlowGraph as Cfg
 import chb.jsoninterface.JSONFunctionComparison as FunC
 import chb.jsoninterface.JSONInstructionComparison as InstrC
 from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
 import chb.jsoninterface.JSONPatchComponent as PC
+from chb.jsoninterface.JSONProofObligationRecord import JSONProofObligationRecord
 
 
 class JSONObjectNOPVisitor(JSONObjectVisitor):
@@ -59,8 +62,38 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
     def visit_block_comparison(self, obj: BlockC.JSONBlockComparison) -> None:
         pass
 
+    def visit_callgraph(self, obj: Cg.JSONCallgraph) -> None:
+        pass
+
     def visit_callgraph_comparison(
             self, obj: AppC.JSONCallgraphComparison) -> None:
+        pass
+
+    def visit_callgraph_edge(self, obj: Cg.JSONCallgraphEdge) -> None:
+        pass
+
+    def visit_callgraph_node(self, obj: Cg.JSONCallgraphNode) -> None:
+        pass
+
+    def visit_callsite_argument(self, obj: CR.JSONCallsiteArgument) -> None:
+        pass
+
+    def visit_callsite_record(self, obj: CR.JSONCallsiteRecord) -> None:
+        pass
+
+    def visit_callsite_records(self, obj: CR.JSONCallsiteRecords) -> None:
+        pass
+
+    def visit_callsite_tgt_function(
+            self, obj: CR.JSONCallsiteTgtFunction) -> None:
+        pass
+
+    def visit_callsite_tgt_parameter(
+            self, obj: CR.JSONCallsiteTgtParameter) -> None:
+        pass
+
+    def visit_cfg_block_mapping_item(
+            self, obj: FunC.JSONCfgBlockMappingItem) -> None:
         pass
 
     def visit_cfg_edge(self, obj: Cfg.JSONCfgEdge) -> None:
@@ -98,4 +131,8 @@ class JSONObjectNOPVisitor(JSONObjectVisitor):
         pass
 
     def visit_patch_component(self, obj: PC.JSONPatchComponent) -> None:
+        pass
+
+    def visit_proofobligation_record(
+            self, obj: JSONProofObligationRecord) -> None:
         pass

@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     from chb.app.InstrXData import InstrXData
     from chb.app.MemoryAccess import MemoryAccess
     from chb.app.Operand import Operand
+    from chb.app.FnProofObligations import ProofObligation
     from chb.app.StackPointerOffset import StackPointerOffset
     from chb.bctypes.BCTyp import BCTyp
     from chb.invariants.XVariable import XVariable
@@ -354,6 +355,11 @@ class Instruction(ABC):
         """Returns a mapping from lhs assigned to its type."""
 
         return {}
+
+    def proofobligations(self) -> List["ProofObligation"]:
+        """Returns the proof obliations associated with this instruction."""
+
+        return []
 
     @abstractmethod
     def to_string(

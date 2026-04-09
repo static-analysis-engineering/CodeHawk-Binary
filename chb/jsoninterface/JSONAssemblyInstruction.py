@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +28,7 @@
 from typing import Any, Dict, List, Tuple, Optional, TYPE_CHECKING
 
 from chb.jsoninterface.JSONObject import JSONObject
+from chb.jsoninterface.JSONProofObligationRecord import JSONProofObligationRecord
 from chb.jsoninterface.JSONStackpointerOffset import (
     JSONStackpointerOffset, mk_stackpointer_offset)
 
@@ -35,11 +36,11 @@ if TYPE_CHECKING:
     from chb.jsoninterface.JSONObjectVisitor import JSONObjectVisitor
 
 
-
 class JSONAssemblyInstruction(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
         JSONObject.__init__(self, d, "assemblyinstruction")
+        self._proofobligations: Optional[List[JSONProofObligationRecord]] = None
 
     @property
     def addr(self) -> List[str]:
@@ -51,6 +52,15 @@ class JSONAssemblyInstruction(JSONObject):
             return JSONStackpointerOffset(self.d.get("stackpointer", {}))
         else:
             return None
+
+    @property
+    def proofobligations(self) -> List[JSONProofObligationRecord]:
+        if self._proofobligations is None:
+            result: List[JSONProofObligationRecord] = []
+            for porec in self.d.get("proofobligations", []):
+                result.append(JSONProofObligationRecord(porec))
+            self._proofobligations = result
+        return self._proofobligations
 
     @property
     def bytes(self) -> str:

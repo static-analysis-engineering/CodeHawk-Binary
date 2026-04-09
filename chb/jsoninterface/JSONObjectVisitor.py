@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024  Aarno Labs LLC
+# Copyright (c) 2023-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -37,6 +37,7 @@ import chb.jsoninterface.JSONControlFlowGraph as Cfg
 import chb.jsoninterface.JSONFunctionComparison as FunC
 import chb.jsoninterface.JSONInstructionComparison as InstrC
 import chb.jsoninterface.JSONPatchComponent as PC
+from chb.jsoninterface.JSONProofObligationRecord import JSONProofObligationRecord
 
 
 class JSONObjectVisitor(ABC):
@@ -130,4 +131,8 @@ class JSONObjectVisitor(ABC):
         ...
 
     def visit_patch_component(self, obj: PC.JSONPatchComponent) -> None:
+        ...
+
+    def visit_proofobligation_record(
+            self, obj: JSONProofObligationRecord) -> None:
         ...

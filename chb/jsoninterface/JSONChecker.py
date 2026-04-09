@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -37,6 +37,8 @@ import chb.jsoninterface.JSONFunctionComparison as FunC
 import chb.jsoninterface.JSONInstructionComparison as InstrC
 from chb.jsoninterface.JSONObject import JSONObject
 from chb.jsoninterface.JSONObjectNOPVisitor import JSONObjectNOPVisitor
+from chb.jsoninterface.JSONProofObligationRecord import (
+    JSONProofObligationRecord)
 
 
 class JSONChecker(JSONObjectNOPVisitor):
@@ -129,12 +131,27 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_txt(obj.objname)
         self.inc_indent()
         self.add_txt(obj.startaddr, tag="startaddr")
+        if len(obj.instructions) > 0:
+            self.add_txt("instructions")
+            self.inc_indent()
+            for instr in obj.instructions:
+                if len(instr.proofobligations) > 0:
+                    instr.accept(self)
+            self.dec_indent()
         self.dec_indent()
 
     def visit_assembly_instruction(self, obj: JSONAssemblyInstruction) -> None:
-        pass
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt_lst(obj.addr, tag="iaddr")
+        self.add_txt(obj.opcode[0] + " " + obj.opcode[1], tag="opcode")
+        self.add_txt(obj.annotation, tag="annotation")
+        for po in obj.proofobligations:
+            po.accept(self)
+        self.dec_indent()
 
-    def visit_binary_comparsion(self, obj: AppC.JSONBinaryComparison) -> None:
+    def visit_binary_comparison(self, obj: AppC.JSONBinaryComparison) -> None:
         pass
 
     def visit_block_comparison(
@@ -142,6 +159,12 @@ class JSONChecker(JSONObjectNOPVisitor):
         self.add_newline()
         self.add_txt(obj.objname)
         self.inc_indent()
+        if len(obj.summary_instructions_added) > 0:
+            self.add_txt_lst(obj.summary_instructions_added, tag="instrs added")
+        if len(obj.summary_instructions_removed) > 0:
+            self.add_txt_lst(obj.summary_instructions_removed, tag="instrs removed")
+        if len(obj.summary_instructions_changed) > 0:
+            self.add_txt_lst(obj.summary_instructions_changed, tag="instrs changed")
         for ia in obj.instructions_added:
             ia.accept(self)
         for ir in obj.instructions_removed:
@@ -150,7 +173,7 @@ class JSONChecker(JSONObjectNOPVisitor):
             ic.accept(self)
         self.dec_indent()
 
-    def visit_callgraph_comaprison(
+    def visit_callgraph_comparison(
             self, obj: AppC.JSONCallgraphComparison) -> None:
         self.add_newline()
         self.add_txt_lst(obj.changes, tag="changes")
@@ -191,6 +214,20 @@ class JSONChecker(JSONObjectNOPVisitor):
         for e in obj.edges:
             e.accept(self)
         self.dec_indent()
+        self.dec_indent()
+
+    def visit_cfg_block_mapping_item(
+            self, obj: FunC.JSONCfgBlockMappingItem) -> None:
+        if len(obj.changes) == 0:
+            return
+        self.add_newline()
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt(obj.cfg1_block_addr, tag="baddr1")
+        self.add_txt_lst(obj.changes, tag="changes")
+        self.add_txt_lst(obj.matches, tag="matches")
+        if obj.block_comparison is not None:
+            obj.block_comparison.accept(self)
         self.dec_indent()
 
     def visit_function_added(
@@ -241,4 +278,53 @@ class JSONChecker(JSONObjectNOPVisitor):
     def visit_instruction_comparison(
             self, obj: InstrC.JSONInstructionComparison) -> None:
         self.add_newline()
-        self.add_txt(obj.objname + " (tbd)")
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt(obj.iaddr1, tag="iaddr1")
+        if obj.iaddr2 and obj.iaddr1 != obj.iaddr2:
+            self.add_txt(obj.iaddr2, tag="iaddr2")
+        self.add_txt_lst(obj.changes, tag="changes")
+        if "bytes" in obj.changes:
+            self.add_txt("opcode")
+            self.inc_indent()
+            self.add_txt(
+                obj.instr1.opcode[0] + " " + obj.instr1.opcode[1], tag="instr1")
+            if obj.instr2 is not None:
+                self.add_txt(
+                    obj.instr2.opcode[0] + " " + obj.instr2.opcode[1], tag="instr2")
+            self.dec_indent()
+        if "semantics" in obj.changes:
+            self.add_txt("semantics")
+            self.inc_indent()
+            self.add_txt(obj.instr1.annotation, tag="instr1")
+            if obj.instr2 is not None:
+                self.add_txt(obj.instr2.annotation, tag="instr2")
+            self.dec_indent()
+        if "proofobligations" in obj.changes:
+            self.add_txt("proofobligations")
+            if len(obj.pos_added) > 0:
+                self.inc_indent()
+                self.add_txt("added")
+                self.inc_indent()
+                for po in obj.pos_added:
+                    po.accept(self)
+                self.dec_indent()
+                self.dec_indent()
+            if len(obj.pos_removed) > 0:
+                self.inc_indent()
+                self.add_txt("removed")
+                self.inc_indent()
+                for po in obj.pos_removed:
+                    po.accept(self)
+                self.dec_indent()
+                self.dec_indent()
+        self.dec_indent()
+
+    def visit_proofobligation_record(self, obj: JSONProofObligationRecord) -> None:
+        self.add_txt(obj.objname)
+        self.inc_indent()
+        self.add_txt(obj.predicate, tag="predicate")
+        self.add_txt(obj.status, tag="status")
+        if obj.msg != "none":
+            self.add_txt(obj.msg, tag="msg")
+        self.dec_indent()
