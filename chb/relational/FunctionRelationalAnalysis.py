@@ -130,6 +130,10 @@ class FunctionRelationalAnalysis:
                 self._matches.append("faddr")
             else:
                 self._changes.append("faddr")
+            if self.is_po_changed:
+                self._changes.append("proofobligations")
+            else:
+                self._matches.append("proofobligations")
             if self.is_md5_equal:
                 self._matches.append("md5")
             else:
@@ -281,7 +285,7 @@ class FunctionRelationalAnalysis:
         f2pos = self.fn2.proofobligations.proofobligations
 
         if len(f1pos) != len(f2pos):
-            return False
+            return True
 
         comparison: Dict[
             str,

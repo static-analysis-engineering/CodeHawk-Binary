@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs, LLC
+# Copyright (c) 2021-2026  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -160,6 +160,8 @@ class BlockRelationalAnalysis:
             result.append("moved")
         if len(self.b2map) > 1:
             result.append("blockcount")
+        if self.is_po_changed:
+            result.append("proofobligations")
         return result
 
     def matches(self) -> List[str]:
@@ -251,6 +253,22 @@ class BlockRelationalAnalysis:
             if iaddr1 not in self.instr_mapping:
                 result.append(iaddr1)
         return result
+
+    @property
+    def is_po_changed(self) -> bool:
+        for iaddr in self.instr_analyses:
+            ira = self.instr_analyses[iaddr]
+            if ira.is_po_changed:
+                return True
+        for iaddr in self.instrs_added():
+            instr = self.b2instructions[iaddr]
+            if len(instr.proofobligations()) > 0:
+                return True
+        for iaddr in self.instrs_deleted():
+            instr = self.b1.instructions[iaddr]
+            if len(instr.proofobligations()) > 0:
+                return True
+        return False
 
     def to_json_result(self, callees: List[str]) -> JSONResult:
         schema = "cfgblockmappingitem"

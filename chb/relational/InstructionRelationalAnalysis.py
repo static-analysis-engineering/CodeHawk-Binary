@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs, LLC
+# Copyright (c) 2021-2026  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,13 +26,14 @@
 # ------------------------------------------------------------------------------
 """Compares two instructions in two related functions in different binaries."""
 
-from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, cast, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from chb.jsoninterface.JSONResult import JSONResult
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.app.AppAccess import AppAccess
+    from chb.app.FnProofObligations import ProofObligation
     from chb.app.Instruction import Instruction
 
 
@@ -92,6 +93,50 @@ class InstructionRelationalAnalysis:
             return False
 
     @property
+    def is_po_changed(self) -> bool:
+        comparison: Tuple[
+            List["ProofObligation"], List["ProofObligation"]] = ([], [])
+        if self.is_mapped:
+            i1pos = self.instr1.proofobligations()
+            i2pos = self.instr2.proofobligations()
+            if len(i1pos) != len(i2pos):
+                return True
+
+            is1pos = {str(po): po for po in i1pos}
+            is2pos = {str(po): po for po in i2pos}
+            for po1 in is1pos:
+                if po1 not in is2pos:
+                    comparison[0].append(is1pos[po1])
+            for po2 in is2pos:
+                if po2 not in is1pos:
+                    comparison[1].append(is2pos[po2])
+        else:
+            return len(self.instr1.proofobligations()) > 0
+        return (len(comparison[0]) + len(comparison[1])) > 0
+
+    @property
+    def po_changes(self) -> Tuple[List["ProofObligation"],
+                                  List["ProofObligation"]]:
+        comparison: Tuple[
+            List["ProofObligation"], List["ProofObligation"]] = ([], [])
+        if self.is_mapped:
+            i1pos = self.instr1.proofobligations()
+            i2pos = self.instr2.proofobligations()
+
+            is1pos = {str(po): po for po in i1pos}
+            is2pos = {str(po): po for po in i2pos}
+            for po1 in is1pos:
+                if po1 not in is2pos:
+                    comparison[0].append(is1pos[po1])
+            for po2 in is2pos:
+                if po2 not in is1pos:
+                    comparison[1].append(is2pos[po2])
+        else:
+            comparison[0].extend(self.instr1.proofobligations())
+
+        return comparison
+
+    @property
     def is_changed(self) -> bool:
         return len(self.changes) > 0
 
@@ -104,6 +149,8 @@ class InstructionRelationalAnalysis:
             result.append("bytes")
         if self.has_different_annotation:
             result.append("semantics")
+        if self.is_po_changed:
+            result.append("proofobligations")
         return result
 
     @property
@@ -168,5 +215,21 @@ class InstructionRelationalAnalysis:
                     return JSONResult(
                         "instructioncomparison", {}, "fail", i2result.reason)
                 content["instr-2"] = i2result.content
+            if self.is_po_changed:
+                (pos1, pos2) = self.po_changes
+                content["pos-added"] = posadded = []
+                for po in pos1:
+                    ipo = po.to_json_result()
+                    if not ipo.is_ok:
+                        return JSONResult(
+                            "instructioncomparison", {}, "fail", ipo.reason)
+                    posadded.append(ipo.content)
+                content["pos-removed"] = posremoved = []
+                for po in pos2:
+                    ipo = po.to_json_result()
+                    if not ipo.is_ok:
+                        return JSONResult(
+                            "instructioncomparison", {}, "fail", ipo.reason)
+                    posremoved.append(ipo.content)
 
         return JSONResult("instructioncomparison", content, "ok")
