@@ -503,6 +503,9 @@ class BCTypArray(BCTyp):
     def convert(self, converter: "BCConverter") -> AST.ASTTypArray:
         return converter.convert_array_typ(self)
 
+    def accept(self, visitor: "BCVisitor") -> None:
+        return visitor.visit_array_typ(self)
+
     def __str__(self) -> str:
         return str(self.tgttyp) + "[" + str(self.size_expr) + "]"
 
