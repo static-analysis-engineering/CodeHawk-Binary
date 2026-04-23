@@ -50,5 +50,8 @@ class JSONProofObligationRecord(JSONObject):
     def msg(self) -> str:
         return self.d.get("msg", "none")
 
+    def __str__(self) -> str:
+        return "PO: %s -> status: %s, msg: %s" % (self.predicate, self.status, self.msg)
+
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_proofobligation_record(self)
