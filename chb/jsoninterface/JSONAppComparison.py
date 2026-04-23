@@ -121,14 +121,26 @@ class JSONAppMD5Comparison(JSONObject):
 
     def __init__(self, d: Dict[str, Any]) -> None:
         JSONObject.__init__(self, d, "functions-constructed")
+        self._file1: Optional[List[JSONFunctionMD5]] = None
+        self._file2: Optional[List[JSONFunctionMD5]] = None
+
+    def _get_function_md5s(self, property_name: str) -> List[JSONFunctionMD5]:
+        result: List[JSONFunctionMD5] = []
+        for f_md5 in self.d.get(property_name, self.property_missing(property_name)):
+            result.append(JSONFunctionMD5(f_md5))
+        return result
 
     @property
     def file1(self) -> List[JSONFunctionMD5]:
-        return self.d.get("file1", self.property_missing("file1"))
+        if self._file1 is None:
+            self._file1 = self._get_function_md5s("file1")
+        return self._file1
 
     @property
     def file2(self) -> List[JSONFunctionMD5]:
-        return self.d.get("file2", self.property_missing("file2"))
+        if self._file2 is None:
+            self._file2 = self._get_function_md5s("file2")
+        return self._file2
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_app_md5_comparison(self)
@@ -230,6 +242,12 @@ class JSONAppComparison(JSONObject):
         if self._binarycomparison is None:
             self._binarycomparison = JSONBinaryComparison(self.d.get("binary-comparison", {}))
         return self._binarycomparison
+
+    @property
+    def appmd5comparison(self) -> JSONAppMD5Comparison:
+        if self._appmd5comparison is None:
+            self._appmd5comparison = JSONAppMD5Comparison(self.d.get('app-md5-comparison', {}))
+        return self._appmd5comparison
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_app_comparison(self)
