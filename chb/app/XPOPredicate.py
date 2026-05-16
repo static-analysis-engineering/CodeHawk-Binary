@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Predicate over expressions in a function context."""
 
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from chb.app.FnXPODictionaryRecord import (
     FnXPODictionaryRecord, xporegistry)
@@ -37,7 +37,7 @@ from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
     from chb.api.BTerm import BTerm
-    from chb.app.FnXPODictionary import FnXPODictionary
+    from chb.app.FnXPODictionary import FnXPODictionary, XPOFormatArgument
     from chb.bctypes.BCTyp import BCTyp
     from chb.invariants.XXpr import XXpr
 
@@ -171,7 +171,7 @@ class XPOPredicate(FnXPODictionaryRecord):
     @property
     def is_xpo_disjunction(self) -> bool:
         return False
-        
+
 
 @xporegistry.register_tag("ab", XPOPredicate)
 class XPOAllocationBase(XPOPredicate):
@@ -380,7 +380,7 @@ class XPOFunctionPointer(XPOPredicate):
     def __init__(
             self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
         XPOPredicate.__init__(self, xpod, ixval)
-    
+
     @property
     def is_xpo_function_pointer(self) -> bool:
         return True
@@ -458,7 +458,7 @@ class XPOInitializedRange(XPOPredicate):
             + str(self.size)
             + ")")
 
-    
+
 @xporegistry.register_tag("ifs", XPOPredicate)
 class XPOInputFormatString(XPOPredicate):
     """Expression points to a format string for input (scanf).
@@ -531,8 +531,8 @@ class XPONewMemory(XPOPredicate):
 
     def __str__(self) -> str:
         return "new-memory(" + str(self.pointer) + ", " + str(self.size) + ")"
-    
-    
+
+
 @xporegistry.register_tag("sa", XPOPredicate)
 class XPOStackAddress(XPOPredicate):
     """Expression is a stack address.
@@ -542,7 +542,7 @@ class XPOStackAddress(XPOPredicate):
 
     def __init__(
             self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
-        XPOPredicate.__init__(self, xpod, ixval)    
+        XPOPredicate.__init__(self, xpod, ixval)
 
     @property
     def is_xpo_stack_address(self) -> bool:
@@ -565,7 +565,7 @@ class XPOHeapAddress(XPOPredicate):
 
     def __init__(
             self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
-        XPOPredicate.__init__(self, xpod, ixval)    
+        XPOPredicate.__init__(self, xpod, ixval)
 
     @property
     def is_xpo_heap_address(self) -> bool:
@@ -577,7 +577,7 @@ class XPOHeapAddress(XPOPredicate):
 
     def __str__(self) -> str:
         return "heap-address(" + str(self.expr) + ")"
-    
+
 
 @xporegistry.register_tag("ga", XPOPredicate)
 class XPOGlobalAddress(XPOPredicate):
@@ -588,7 +588,7 @@ class XPOGlobalAddress(XPOPredicate):
 
     def __init__(
             self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
-        XPOPredicate.__init__(self, xpod, ixval)    
+        XPOPredicate.__init__(self, xpod, ixval)
 
     @property
     def is_xpo_global_address(self) -> bool:
@@ -600,7 +600,7 @@ class XPOGlobalAddress(XPOPredicate):
 
     def __str__(self) -> str:
         return "global-address(" + str(self.expr) + ")"
-    
+
 
 @xporegistry.register_tag("no", XPOPredicate)
 class XPONoOverlap(XPOPredicate):
@@ -629,7 +629,7 @@ class XPONoOverlap(XPOPredicate):
     def __str__(self) -> str:
         return (
             "no-overlap(" + str(self.pointer1) + ", " + str(self.pointer2) + ")")
-    
+
 
 @xporegistry.register_tag("nn", XPOPredicate)
 class XPONotNull(XPOPredicate):
@@ -652,7 +652,7 @@ class XPONotNull(XPOPredicate):
 
     def __str__(self) -> str:
         return "not-null(" + str(self.pointer) + ")"
-    
+
 
 @xporegistry.register_tag("nu", XPOPredicate)
 class XPONull(XPOPredicate):
@@ -675,7 +675,7 @@ class XPONull(XPOPredicate):
 
     def __str__(self) -> str:
         return "null(" + str(self.pointer) + ")"
-    
+
 
 @xporegistry.register_tag("nz", XPOPredicate)
 class XPONotZero(XPOPredicate):
@@ -698,7 +698,7 @@ class XPONotZero(XPOPredicate):
 
     def __str__(self) -> str:
         return "not-zero(" + str(self.expr) + ")"
-    
+
 
 @xporegistry.register_tag("nng", XPOPredicate)
 class XPONonNegative(XPOPredicate):
@@ -721,8 +721,8 @@ class XPONonNegative(XPOPredicate):
 
     def __str__(self) -> str:
         return "non-negative(" + str(self.expr) + ")"
-    
-    
+
+
 @xporegistry.register_tag("nt", XPOPredicate)
 class XPONullTerminated(XPOPredicate):
     """Pointer points to null-terminated string.
@@ -767,7 +767,7 @@ class XPOOutputFormatString(XPOPredicate):
 
     def __str__(self) -> str:
         return "output-format-string(" + str(self.pointer) + ")"
-    
+
 
 @xporegistry.register_tag("pos", XPOPredicate)
 class XPOPositive(XPOPredicate):
@@ -901,6 +901,101 @@ class XPOTainted(XPOPredicate):
         return "tainted(" + str(self.expr) + ")"
 
 
+@xporegistry.register_tag("ts", XPOPredicate)
+class XPOTrustedString(XPOPredicate):
+    """Expression is trusted.
+
+    args[0]: index of expression in xprdictionary
+    """
+
+    def __init__(
+            self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
+        XPOPredicate.__init__(self, xpod, ixval)
+
+    @property
+    def is_xpo_trusted_string(self) -> bool:
+        return True
+
+    @property
+    def expr(self) -> "XXpr":
+        return self.xd.xpr(self.args[0])
+
+    def __str__(self) -> str:
+        return "trusted-string(" + str(self.expr) + ")"
+
+
+@xporegistry.register_tag("tc", XPOPredicate)
+class XPOTrustedOsCmdString(XPOPredicate):
+    """Expression is trusted os command string
+
+    args[0]: index of expression in xprdictionary
+    """
+
+    def __init__(
+            self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
+        XPOPredicate.__init__(self, xpod, ixval)
+
+    @property
+    def is_xpo_trusted_os_cmd_string(self) -> bool:
+        return True
+
+    @property
+    def expr(self) -> "XXpr":
+        return self.xd.xpr(self.args[0])
+
+    def __str__(self) -> str:
+        return "trusted-os-cmd-string(" + str(self.expr) + ")"
+
+
+@xporegistry.register_tag("tfs", XPOPredicate)
+class XPOTrustedOsCmdFmtString(XPOPredicate):
+    """Expression is trusted os command format string
+
+    args[0]: index of expression in xprdictionary
+    """
+
+    def __init__(
+            self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
+        XPOPredicate.__init__(self, xpod, ixval)
+
+    @property
+    def is_xpo_trusted_os_cmd_fmt_string(self) -> bool:
+        return True
+
+    @property
+    def expr(self) -> "XXpr":
+        return self.xd.xpr(self.args[0])
+
+    @property
+    def kind(self) -> str:
+        if self.tags[1] == "f":
+            return "FMT_ARGS"
+        else:
+            return "VA_LIST"
+
+    @property
+    def optlen(self) -> Optional["XXpr"]:
+        if self.args[1] == -1:
+            return None
+        return self.xd.xpr(self.args[1])
+
+    @property
+    def format_arguments(self) -> List["XPOFormatArgument"]:
+        return [self.xpod.format_arg(i) for i in self.args[2:]]
+
+    def __str__(self) -> str:
+        return (
+            "trusted-os-cmd-fmt-string("
+            + str(self.expr)
+            + ", "
+            + self.kind
+            + ", "
+            + (str(self.optlen) if self.optlen is not None else "_")
+            + ", "
+            + ", ".join(str(fmtarg) for fmtarg in self.format_arguments)
+            + ")")
+
+
 @xporegistry.register_tag("v", XPOPredicate)
 class XPOValidMem(XPOPredicate):
     """Expression points to valid memory.
@@ -922,5 +1017,3 @@ class XPOValidMem(XPOPredicate):
 
     def __str__(self) -> str:
         return "validmem(" + str(self.expr) + ")"
-
-    

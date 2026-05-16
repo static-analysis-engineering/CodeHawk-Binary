@@ -28,9 +28,9 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
-from chb.app.FnXPODictionaryRecord import xporegistry
+from chb.app.FnXPODictionaryRecord import xporegistry, FnXPODictionaryRecord
 from chb.app.XPOPredicate import XPOPredicate
 
 import chb.util.IndexedTable as IT
@@ -41,6 +41,28 @@ if TYPE_CHECKING:
     from chb.app.Function import Function
     from chb.bctypes.BCDictionary import BCDictionary
     from chb.invariants.FnXprDictionary import FnXprDictionary
+    from chb.invariants.XXpr import XXpr
+
+
+class XPOFormatArgument(FnXPODictionaryRecord):
+
+    def __init__(self, xpod: "FnXPODictionary", ixval: IT.IndexedTableValue) -> None:
+        FnXPODictionaryRecord.__init__(self, xpod, ixval)
+
+    @property
+    def argument(self) -> "XXpr":
+        return self.xd.xpr(self.args[0])
+
+    @property
+    def converter(self) -> str:
+        return self.tags[0]
+
+    @property
+    def fieldwidth(self) -> Optional[int]:
+        return None if self.tags[1] == "other" else int(self.tags[1])
+
+    def __str__(self) -> str:
+        return "(" + self.converter + ", " + str(self.argument) + ")"
 
 
 class FnXPODictionary:
@@ -50,8 +72,10 @@ class FnXPODictionary:
             fn: "Function",
             xnode: ET.Element) -> None:
         self._fn = fn
+        self.format_arg_table = IT.IndexedTable("format-arg-table")
         self.xpo_predicate_table = IT.IndexedTable("xpo-predicate-table")
         self.tables: List[IT.IndexedTable] = [
+            self.format_arg_table,
             self.xpo_predicate_table
         ]
         self.initialize(xnode)
@@ -81,6 +105,10 @@ class FnXPODictionary:
         else:
             raise UF.CHBError(
                 "Illegal xpo predicate index value: " + str(ix))
+
+    def format_arg(self, ix: int) -> XPOFormatArgument:
+        return XPOFormatArgument(self, self.format_arg_table.retrieve(ix))
+
 
     # ------------------------------------- initialize dictionary from file ---
 
