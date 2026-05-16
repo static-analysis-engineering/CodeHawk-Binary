@@ -47,13 +47,20 @@ po_status_strings = {
     "o": "open",
     "dis": "safe",
     "del": "delegated",
+    "local": "delegated-local",
     "v": "violation"
 }
 
 class POStatus:
 
-    def __init__(self, tag: str) -> None:
-        self._tag = tag
+    def __init__(self, xpod: "FnXPODictionary", node: ET.Element) -> None:
+        self.node = node
+        self._xpod = xpod
+        self._tag = self.node.get("s", "none")
+
+    @property
+    def xpod(self) -> "FnXPODictionary":
+        return self._xpod
 
     @property
     def tag(self) -> str:
@@ -72,10 +79,19 @@ class POStatus:
         return self.tag == "del"
 
     @property
+    def is_delegated_local(self) -> bool:
+        return self.tag == "local"
+
+    @property
     def is_violated(self) -> bool:
         return self.tag == "v"
 
+    def get_iaddr(self) -> str:
+        return self.node.get("iaddr", "?")
+
     def __str__(self) -> str:
+        if self.is_delegated_local:
+            return "delegated-local: " + self.get_iaddr()
         return po_status_strings.get(self.tag, "?")
 
 
@@ -173,11 +189,12 @@ class FnProofObligations:
                     self._store[iaddr] = []
                     for xxpo in xloc.findall("po"):
                         xpo = self.xpod.read_xml_xpo_predicate(xxpo)
-                        statustag = xxpo.get("s", "o")
-                        status = POStatus(statustag)
-                        msg = xxpo.get("m", "none")
-                        po = ProofObligation(iaddr, xpo, status, msg)
-                        self._store[iaddr].append(po)
+                        xstatus = xxpo.find("status")
+                        if xstatus is not None:
+                            status = POStatus(self.xpod, xstatus)
+                            msg = xxpo.get("m", "none")
+                            po = ProofObligation(iaddr, xpo, status, msg)
+                            self._store[iaddr].append(po)
         return self._store
 
     def open_proofobligations(self) -> Dict[str, List[ProofObligation]]:

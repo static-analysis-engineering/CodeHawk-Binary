@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 
 
-from typing import List, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from chb.api.InterfaceDictionaryRecord import (
     InterfaceDictionaryRecord, apiregistry)
@@ -923,6 +923,35 @@ class XXPTainted(XXPredicate):
 
     def __str__(self) -> str:
         return "tainted(" + str(self.term) + ")"
+
+
+@apiregistry.register_tag("tfs", XXPredicate)
+class XXPTrustedOsCmdFmtString(XXPredicate):
+
+    def __init__(
+            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
+        XXPredicate.__init__(self, ixd, ixval)
+
+    @property
+    def is_xp_trusted_os_cmd_string(self) -> bool:
+        return True
+
+    @property
+    def fmt(self) -> "BTerm":
+        return self.id.bterm(self.args[0])
+
+    @property
+    def fmtkind(self) -> str:
+        return self.tags[1]
+
+    @property
+    def optlen(self) -> Optional["BTerm"]:
+        if self.args[1] == -1:
+            return None
+        return self.id.bterm(self.args[1])
+
+    def __str__(self) -> str:
+        return "trusted-os-cmd-fmt-string(" + str(self.fmt) + ", " + self.fmtkind + ", " + str(self.optlen) + ")"
 
 
 @apiregistry.register_tag("v", XXPredicate)
