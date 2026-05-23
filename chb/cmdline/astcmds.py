@@ -468,7 +468,7 @@ def print_reachingdefs(
     dotpaths: List[Tuple[DotRdefPath, str, str]] = []
     regspill = register + "_spill"
     for (iaddr, instr) in f.instructions.items():
-        if register in instr.rdef_locations():
+        if register in instr.rdef_register_locations():
             register_o = app.bdictionary.register_by_name(register)
             cblock = f.containing_block(iaddr)
             rdefs = instr.reaching_definitions(register)
