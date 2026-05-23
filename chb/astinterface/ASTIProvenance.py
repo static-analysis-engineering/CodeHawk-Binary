@@ -453,7 +453,15 @@ class ASTIProvenance:
                                             v, str(instr.tgt), addr)
                                         self.add_reaching_definition(xid, instrid)
                                     else:
-                                        chklogger.logger.warning(
+                                        # Calls may have side effects, which will
+                                        # also produce reaching definitions. These
+                                        # are currently not included in the
+                                        # ASTCall data type, but probably should
+                                        # be added at some point. For now this
+                                        # warning is changed into an INFO msg until
+                                        # side effects are properly incorporated
+                                        # in the AST representation.
+                                        chklogger.logger.info(
                                             "Lhs variable names don't match: %s vs %s"
                                             + " to %s for reaching def address %s",
                                             str(instr.lhs), v, str(instr.tgt), addr)
