@@ -412,11 +412,11 @@ class ARMInstruction(Instruction):
     def rhs_expressions(self, filter: Callable[[XXpr], bool]) -> List[XXpr]:
         return [x for x in self.opcode.rhs(self.xdata) if filter(x)]
 
-    def rdef_locations(self) -> Dict[str, List[str]]:
+    def rdef_register_locations(self) -> Dict[str, List[str]]:
         result: Dict[str, List[str]] = {}
 
         for rdef in self.xdata.reachingdefs:
-            if rdef is not None:
+            if rdef is not None and rdef.variable.is_register_variable:
                 rdefvar = str(rdef.variable)
                 rdeflocs = sorted([str(s) for s in rdef.valid_deflocations])
                 result[rdefvar] = rdeflocs

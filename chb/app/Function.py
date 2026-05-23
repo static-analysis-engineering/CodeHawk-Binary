@@ -531,7 +531,7 @@ class Function(ABC):
         result: Dict[str, List[List[str]]] = {}
 
         for (iaddr, instr) in self.instructions.items():
-            irdefs = instr.rdef_locations()
+            irdefs = instr.rdef_register_locations()
             for (reg, rdeflist) in irdefs.items():
                 result.setdefault(reg, [])
                 for rrlist in result[reg]:

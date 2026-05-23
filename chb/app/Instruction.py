@@ -341,8 +341,15 @@ class Instruction(ABC):
             Optional[AST.ASTExpr], Optional[AST.ASTExpr]]:
         raise UF.CHBError("ast-switch-condition-prov not defined")
 
-    def rdef_locations(self) -> Dict[str, List[str]]:
-        """Returns for each register, which locations must be combined."""
+    def rdef_register_locations(self) -> Dict[str, List[str]]:
+        """Returns for each register, which locations must be combined.
+
+        Note that there may be rdefs (reaching definitions) for other
+        variables. In particular, stack variables that get initialized
+        as part of a function side effect create a definition for that
+        variable, which may be retrieved via a reaching definition later.
+        Those variables are not returned by this method.
+        """
 
         return {}
 
