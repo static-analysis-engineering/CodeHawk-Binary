@@ -475,6 +475,8 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 + ". Version found: "
                 + chbversion)
 
+    doreset = True
+
     try:
         userhints = prepare_executable(
             path,
