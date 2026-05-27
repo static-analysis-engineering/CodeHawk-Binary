@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -166,11 +166,35 @@ class XXPredicate(InterfaceDictionaryRecord):
         return False
 
     @property
+    def is_xp_trusted_string(self) -> bool:
+        return False
+
+    @property
+    def is_xp_trusted_os_cmd_string(self) -> bool:
+        return False
+
+    @property
+    def is_xp_trusted_os_cmd_fmt_string(self) -> bool:
+        return False
+
+    @property
+    def is_xp_trusted_os_cmd_fmt_arg_string(self) -> bool:
+        return False
+
+    @property
     def is_xp_validmem(self) -> bool:
         return False
 
     @property
+    def is_xp_writes_string_from_fmt_string(self) -> bool:
+        return False
+
+    @property
     def is_xp_disjunction(self) -> bool:
+        return False
+
+    @property
+    def is_xp_conditional(self) -> bool:
         return False
 
 
@@ -925,8 +949,28 @@ class XXPTainted(XXPredicate):
         return "tainted(" + str(self.term) + ")"
 
 
-@apiregistry.register_tag("tfs", XXPredicate)
-class XXPTrustedOsCmdFmtString(XXPredicate):
+@apiregistry.register_tag("ts", XXPredicate)
+class XXTrustedString(XXPredicate):
+
+    def __init__(
+            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
+        XXPredicate.__init__(self, ixd, ixval)
+
+    @property
+    def is_xp_trusted_string(self) -> bool:
+        return True
+
+    @property
+    def term(self) -> "BTerm":
+        return self.id.bterm(self.args[0])
+
+    def __str__(self) -> str:
+        return "trusted-string(" + str(self.term) + ")"
+
+
+@apiregistry.register_tag("tc", XXPredicate)
+class XXTrustedOsCmdString(XXPredicate):
+    """String is safe to pass as an argument to system or popen."""
 
     def __init__(
             self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
@@ -934,6 +978,30 @@ class XXPTrustedOsCmdFmtString(XXPredicate):
 
     @property
     def is_xp_trusted_os_cmd_string(self) -> bool:
+        return True
+
+    @property
+    def term(self) -> "BTerm":
+        return self.id.bterm(self.args[0])
+
+    def __str__(self) -> str:
+        return "trusted-os-cmd-string(" + str(self.term) + ")"
+
+
+@apiregistry.register_tag("tfs", XXPredicate)
+class XXPTrustedOsCmdFmtString(XXPredicate):
+    """The string constructed by the format string is safe to pass to system.
+
+    If a length is given, the string must evaluate to a value that has string
+    length less than the given length.
+    """
+
+    def __init__(
+            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
+        XXPredicate.__init__(self, ixd, ixval)
+
+    @property
+    def is_xp_trusted_os_cmd_fmt_string(self) -> bool:
         return True
 
     @property
@@ -951,7 +1019,104 @@ class XXPTrustedOsCmdFmtString(XXPredicate):
         return self.id.bterm(self.args[1])
 
     def __str__(self) -> str:
-        return "trusted-os-cmd-fmt-string(" + str(self.fmt) + ", " + self.fmtkind + ", " + str(self.optlen) + ")"
+        return (
+            "trusted-os-cmd-fmt-string("
+            + str(self.fmt)
+            + ", "
+            + self.fmtkind
+            + ", "
+            + str(self.optlen)
+            + ")")
+
+
+@apiregistry.register_tag("tfa", XXPredicate)
+class XXPTrustedOsCmdFmtArgString(XXPredicate):
+    """String is safe to pass as a format argument to a string passed to system.
+
+    It is safe if the format specifier associated with this argument is
+    enclosed in quotes according to the quotes property.
+
+    If a length is given the length of the argument string must be less than
+    or equal to the given length.
+    """
+
+    def __init__(
+            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
+        XXPredicate.__init__(self, ixd, ixval)
+
+    @property
+    def is_xp_trusted_os_cmd_fmt_arg_string(self) -> bool:
+        return True
+
+    @property
+    def fmt(self) -> "BTerm":
+        return self.id.bterm(self.args[0])
+
+    @property
+    def quotes(self) -> str:
+        return self.tags[1]
+
+    @property
+    def optlen(self) -> Optional["BTerm"]:
+        if self.args[1] == -1:
+            return None
+        return self.id.bterm(self.args[1])
+
+    def __str__(self) -> str:
+        return (
+            "trusted-os-cmd-fmt-string("
+            + str(self.fmt)
+            + ", "
+            + self.quotes
+            + ", "
+            + str(self.optlen)
+            + ")")
+
+
+@apiregistry.register_tag("wfs", XXPredicate)
+class XXPWritesStringFromFmtString(XXPredicate):
+    """Side effect that asserts that a string is constructed from the given format string.
+
+    An optional length imposes a maximum length on the string being written.
+    """
+
+    def __init__(
+            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
+        XXPredicate.__init__(self, ixd, ixval)
+
+    @property
+    def is_xp_writes_string_from_fmt_string(self) -> bool:
+        return True
+
+    @property
+    def destination(self) -> "BTerm":
+        return self.id.bterm(self.args[0])
+
+    @property
+    def fmt(self) -> "BTerm":
+        return self.id.bterm(self.args[1])
+
+    @property
+    def fmtkind(self) -> str:
+        return self.tags[1]
+
+    @property
+    def optlen(self) -> Optional["BTerm"]:
+        if self.args[2] == -1:
+            return None
+        return self.id.bterm(self.args[2])
+
+    def __str__(self) -> str:
+        return (
+            "writes-string-from-fmt-string("
+            + str(self.destination)
+            + ", "
+            + str(self.fmt)
+            + ", "
+            + self.fmtkind
+            + ", "
+            + str(self.optlen)
+            + ")")
 
 
 @apiregistry.register_tag("v", XXPredicate)
