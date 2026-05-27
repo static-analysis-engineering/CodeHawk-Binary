@@ -154,6 +154,27 @@ class FunctionStackframe:
         else:
             return None
 
+    def stackoffset_zero_write_extent(self, offset: int) -> int:
+        """Returns the span from offset upward through consecutive zero-write-only size-4 slots.
+
+        Walks upward (toward less negative offsets) from offset + 4, collecting
+        size-4 slots whose accesses are all zero writes. Stops at the first slot
+        that is absent, has size != 4, has no accesses, or has any non-zero-write
+        access. Returns the total span: (stopping offset) - offset.
+        """
+        current = offset + 4
+        while True:
+            slot = self.stackslot(current)
+            if slot is None or slot.size != 4:
+                break
+            accesses = self.accesses.get(current, [])
+            if not accesses:
+                break
+            if not all(acc.is_zero_write for (_, acc) in accesses):
+                break
+            current += 4
+        return current - offset
+
     @property
     def accesses(self) -> Dict[int, List[Tuple[str, "FnStackAccess"]]]:
         if self._accesses is None:
