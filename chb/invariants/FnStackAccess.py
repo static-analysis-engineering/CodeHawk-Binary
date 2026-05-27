@@ -90,6 +90,10 @@ class FnStackAccess(FnVarDictionaryRecord):
     def is_block_write(self) -> bool:
         return False
 
+    @property
+    def is_zero_write(self) -> bool:
+        return False
+
 
 @varregistry.register_tag("rs", FnStackAccess)
 class FnStackRegisterSpill(FnStackAccess):
@@ -250,6 +254,10 @@ class FnStackStore(FnStackAccess):
     @property
     def is_store(self) -> bool:
         return True
+
+    @property
+    def is_zero_write(self) -> bool:
+        return self.value.is_int_constant and self.value.is_zero
 
     def __str__(self) -> str:
         return (

@@ -77,6 +77,7 @@ if TYPE_CHECKING:
     from chb.app.Function import Function
     from chb.app.FunctionStackframe import FunctionStackframe
     from chb.app.Instruction import Instruction
+    from chb.invariants.FnStackAccess import FnStackAccess
     from chb.invariants.XConstant import XIntConst
     from chb.mips.MIPSInstruction import MIPSInstruction
     from chb.models.BTerm import BTerm, BTermArithmetic
@@ -1262,6 +1263,20 @@ def find_function_attribute(app: "AppAccess", dstarg_index: int, fname: str, ins
 
     return intermediate_attribute
 
+def _has_blockwrite_and_zero_stores_only(
+        accesses: List[Tuple[str, "FnStackAccess"]]) -> bool:
+    """True if accesses contain a block-write and only zero-value stores otherwise."""
+    has_blockwrite = False
+    for (_, acc) in accesses:
+        if acc.is_block_write:
+            has_blockwrite = True
+        elif acc.is_zero_write:
+            pass
+        else:
+            return False
+    return has_blockwrite
+
+
 def calculate_buffer_size(stackframe: "FunctionStackframe",
                           stack_offset: int,
                           instr: "Instruction") -> tuple[Optional[int], str]:
@@ -1302,6 +1317,20 @@ def calculate_buffer_size(stackframe: "FunctionStackframe",
                 + "; replacing it by the size derived from the stacklayout",
                 str(instr), str(stack_offset))
             sizeorigin = "stackframe-layout"
+    elif buffersize == 4:
+        slot_accesses = stackframe.accesses.get(stack_offset, [])
+        if _has_blockwrite_and_zero_stores_only(slot_accesses):
+            buffersize = stackframe.stackoffset_zero_write_extent(stack_offset)
+            if buffersize > 4:
+                chklogger.logger.info(
+                    "Stackbuffer size for %s at offset %s: inferred %s "
+                    + "from zero-initialized slot sequence",
+                    str(instr), str(stack_offset), str(buffersize))
+                sizeorigin = "zero-init-sequence"
+            else:
+                sizeorigin = "stackslot-access"
+        else:
+            sizeorigin = "stackslot-access"
     else:
         sizeorigin = "stackslot-access"
 
