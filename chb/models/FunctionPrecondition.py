@@ -41,7 +41,7 @@ from typing import (
 
 from chb.models.BTerm import BTerm, btermregistry
 from chb.models.ModelsType import ModelsType, mk_type
-    
+
 
 import chb.util.fileutil as UF
 
@@ -346,4 +346,30 @@ class PreRelationalCondition(FunctionPrecondition):
             + str(self.arg1)
             + ", "
             + str(self.arg2)
+            + ")")
+
+
+@preconditionregistry.register_tag("trusted-os-cmd-string", FunctionPrecondition)
+class PreTrustedOsCmdString(FunctionPrecondition):
+
+    def __init__(
+            self,
+            fsem: "FunctionSemantics",
+            tag: str,
+            xnode: Optional[ET.Element] = None) -> None:
+        FunctionPrecondition.__init__(self, fsem, tag, xnode)
+        self._arg1: Optional[BTerm] = None
+
+    @property
+    def arg1(self) -> BTerm:
+        if self._arg1 is None:
+            self._arg1 = (
+                btermregistry.mk_instance(self.semantics, self.xterm(0), BTerm))
+        return self._arg1
+
+    def __str__(self) -> str:
+        return (
+            self.tag
+            + "("
+            + str(self.arg1)
             + ")")
