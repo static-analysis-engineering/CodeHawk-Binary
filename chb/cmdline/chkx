@@ -477,6 +477,10 @@ def parse() -> argparse.Namespace:
         default=[],
         help="addresses of function to include in the analysis")
     analyzecmd.add_argument(
+        "--fns_include_callees",
+        help="include callees of all fns_included",
+        action="store_true")
+    analyzecmd.add_argument(
         "--analyze_all_named",
         help="include all functions named in userdata in the analysis",
         action="store_true")

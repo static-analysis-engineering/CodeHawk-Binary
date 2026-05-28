@@ -75,6 +75,7 @@ class AnalysisManager(object):
             fns_no_lineq: List[str] = [],
             fns_exclude: List[str] = [],
             fns_include: List[str] = [],
+            fns_include_callees: bool = False,
             show_function_timing: bool = False,
             gc_compact: int = 0,
             lineq_instr_cutoff: int = 0,
@@ -114,6 +115,7 @@ class AnalysisManager(object):
         self.fns_no_lineq = fns_no_lineq
         self.fns_exclude = fns_exclude
         self.fns_include = fns_include
+        self.fns_include_callees = fns_include_callees
         self.show_function_timing = show_function_timing
         self.gc_compact = gc_compact
         self.lineq_instr_cutoff = lineq_instr_cutoff
@@ -483,6 +485,8 @@ class AnalysisManager(object):
             cmd.extend(["-fn_exclude", s])
         for s in self.fns_include:
             cmd.extend(["-fn_include", s])
+        if self.fns_include_callees:
+            cmd.append("-fn_include_callees")
         for s in self.specializations:
             cmd.extend(["-specialization", s])
         if analysisrepeats > 1:

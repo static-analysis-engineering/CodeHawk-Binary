@@ -416,6 +416,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     fns_no_lineq: List[str] = args.fns_no_lineq  # function hex addresses
     fns_exclude: List[str] = args.fns_exclude  # function hex addresses
     fns_include: List[str] = args.fns_include  # function hex addresses
+    fns_include_callees: bool = args.fns_include_callees
     analyze_all_named: bool = args.analyze_all_named
     analyze_range_entry_points: List[str] = args.analyze_range_entry_points
     gc_compact: int = args.gc_compact
@@ -553,6 +554,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         fns_no_lineq=fns_no_lineq,
         fns_exclude=fns_exclude,
         fns_include=fns_include,
+        fns_include_callees=fns_include_callees,
         gc_compact=gc_compact,
         show_function_timing=show_function_timing,
         lineq_instr_cutoff=lineq_instr_cutoff,
