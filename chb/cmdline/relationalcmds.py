@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs, LLC
+# Copyright (c) 2021-2026  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -275,17 +275,25 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     # Determine functions analyzed in original binary
     fns_include: List[str] = []
     fns_exclude: List[str] = []
+    include_callees: bool = False
     app1 = UC.get_app(path1, xfile1, xinfo1)
     stats1 = app1.result_metrics
     fncount1 = stats1.function_count
     if len(stats1.fns_included) > 0:
         fns_include = stats1.fns_included
-        UC.print_status_update(
-            "Only analyzing "
-            + str(len(fns_include))
-            + " out of "
-            + str(fncount1)
-            + " functions")
+        include_callees = stats1.include_callees
+        if include_callees:
+            UC.print_status_update(
+                "Analyzing "
+                + str(len(fns_include))
+                + " functions and their callees")
+        else:
+            UC.print_status_update(
+                "Only analyzing "
+                + str(len(fns_include))
+                + " out of "
+                + str(fncount1)
+                + " functions")
     elif len(stats1.fns_excluded) > 0:
         fns_exclude = stats1.fns_excluded
         UC.print_status_update(
@@ -306,6 +314,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         ifilenames=ifilenames,
         fns_include=fns_include,
         fns_exclude=fns_exclude,
+        fns_include_callees=include_callees,
         use_ssa=xssa,
         thumb=xcomparison.is_thumb)
 
