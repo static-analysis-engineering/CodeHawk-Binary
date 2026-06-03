@@ -1458,6 +1458,8 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                 # and add it to the patch records.
                 inter_fname, inter_func, inter_instr = inter
                 argument = inter_instr.call_arguments[dstarg_index]
+                if not argument.is_stack_address:
+                    continue
                 stackframe = inter_func.stackframe
                 dstoffset = argument.stack_address_offset()
                 buffersize, sizeorigin = calculate_buffer_size(stackframe, dstoffset, instr)
