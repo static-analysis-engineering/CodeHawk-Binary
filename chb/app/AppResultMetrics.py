@@ -96,6 +96,13 @@ class AppResultMetrics:
             return addrs.split(",")
 
     @property
+    def include_callees(self) -> bool:
+        incnode = self.xnode.find("fns-included")
+        if incnode is None:
+            return False
+        return (incnode.get("include-callees", "no") == "yes")
+
+    @property
     def fns_excluded(self) -> List[str]:
         excnode = self.xnode.find("fns-excluded")
         if excnode is None:
