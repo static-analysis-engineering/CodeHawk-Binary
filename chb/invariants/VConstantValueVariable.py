@@ -842,6 +842,18 @@ class SideEffectValue(VConstantValueVariable):
         else:
             raise UF.CHBError("Side-effect value does not have a call target.")
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["kind"] = "se"
+        content["callsite"] = self.callsite
+        if self.has_call_target():
+            content["calltarget"] = str(self.call_target())
+        else:
+            content["calltarget"] = "none"
+        content["description"] = self.argument_desc
+        content["txtrep"] = self.__str__()
+        return JSONResult("auxvariable", content, "ok")
+
     def __str__(self) -> str:
         if self.has_call_target():
             return 'se_' + str(self.call_target()) + '_' + self.argument_desc
