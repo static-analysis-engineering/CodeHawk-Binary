@@ -243,6 +243,13 @@ class XBoolConst(XConstant):
         index = xd.index_xcst(["bc"], [1 if value else 0])
         return xd.xcst(index)
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["value"] = self.args[0] == 1
+        content["kind"] = "bcst"
+        content["txtrep"] = str(self)
+        return JSONResult("xconstant", content, "ok")
+
     def __str__(self) -> str:
         return "true" if self.is_true else 'false'
 
