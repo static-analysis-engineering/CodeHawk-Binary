@@ -1461,6 +1461,9 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
                 if not argument.is_stack_address:
                     continue
                 stackframe = inter_func.stackframe
+                # Only analyze calls that involve stack arguments.
+                if not argument.is_stack_address:
+                    continue
                 dstoffset = argument.stack_address_offset()
                 buffersize, sizeorigin = calculate_buffer_size(stackframe, dstoffset, instr)
                 if buffersize is None:
