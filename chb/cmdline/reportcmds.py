@@ -49,6 +49,8 @@ from chb.api.AppFunctionSignature import AppFunctionSignature
 from chb.app.Callgraph import Callgraph
 from chb.app.Instruction import Instruction
 
+from chb.app.XPOPredicate import XPOTrustedOsCmdString
+
 from chb.arm.ARMInstruction import ARMInstruction
 
 from chb.bctypes.BCAttrParam import BCAttrParamInt, BCAttrParamStr, BCAttrParamCons
@@ -1452,7 +1454,6 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
             intermediate_attribute = find_function_attribute(app, dstarg_index, fname, instr, pc)
             if intermediate_attribute is None:
                 continue
-
             for inter in intermediate_callgraph[fname]:
                 # For each caller to the intermediate function, lookup the corresponding buffer
                 # and add it to the patch records.
@@ -1514,6 +1515,130 @@ def report_patch_candidates(args: argparse.Namespace) -> NoReturn:
         print("  - buffersize: %s" % patch_record['buffersize'])
         print("  - size-origin: %s" % patch_record['size-origin'])
         print("  - spare: %s" % patch_record['spare'])
+        print("")
+
+    print("Generated %d patch records from %d library calls" %
+          (len(content['patch-records']), n_calls))
+
+    exit(0)
+
+def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname = args.xname
+    xoutput: Optional[str] = args.output
+    xjson: bool = args.json
+    xverbose: bool = args.verbose
+    xtargets: List[str] = args.targets
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
+
+    try:
+        (path, xfile) = UC.get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="report_os_cmd_patch_candidates invoked")
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = UC.get_app(path, xfile, xinfo)
+
+    n_calls: int = 0
+    libcalls = LibraryCallCallsites()
+
+    include_all = xtargets == ['all']
+
+    def include_target(target: 'CallTarget') -> bool:
+        if include_all:
+            return True
+        return target.name in xtargets
+
+    os_cmd_instruction_delegation = {}
+    os_cmd_construction = {}
+
+    for (faddr, blocks) in app.call_instructions().items():
+        for (baddr, instrs) in blocks.items():
+            for instr in instrs:
+                n_calls += 1
+                calltgt = instr.call_target
+                if include_target(calltgt):
+                    if calltgt.is_so_target:
+                        for po in instr.proofobligations():
+                            if type(po.xpo) == XPOTrustedOsCmdString and po.status.is_delegated_local:
+                                if po.status.get_iaddr() == instr.iaddr:
+                                    os_cmd_construction[instr.iaddr] = (faddr, baddr, instr, instr.iaddr, calltgt)
+                                else:
+                                    os_cmd_instruction_delegation[instr.iaddr] = po.status.get_iaddr()
+                        libcalls.add_library_callsite(faddr, baddr, instr)
+
+    chklogger.logger.debug("Number of calls: %s", n_calls)
+
+    patchcallsites = libcalls.patch_callsites()
+
+    function_addr = collect_known_fn_addrs(app, patchcallsites)
+
+    content: Dict[str, Any] = {}
+    if xjson:
+        xinfodata = xinfo.to_json_result()
+        if xinfodata.is_ok:
+            content["identification"] = xinfodata.content
+        else:
+            write_json_result(xoutput, xinfodata, "patchcandidates")
+
+    patch_records = []
+
+    for os_cmd_iaddr, construction_iaddr in os_cmd_instruction_delegation.items():
+        if construction_iaddr not in os_cmd_construction:
+            continue
+        faddr, baddr, instr, iiaddr, calltgt = os_cmd_construction[construction_iaddr]
+        print(os_cmd_iaddr)
+        pc_content: Dict[str, Any] = {}
+        pc_content["annotation"] = instr.annotation
+        pc_content["faddr"] = faddr
+        pc_content["iaddr"] = instr.iaddr
+        pc_content["os-iaddr"] = os_cmd_iaddr
+        pc_content["target-function"] = calltgt.stub.summary().name
+        args: List[Dict[str, Any]] = []
+        for arg in instr.call_arguments:
+            if arg.is_constant:
+                args.append({"type": "constant", "rep": str(arg.constant)})
+            elif arg.is_stack_address:
+                fn = app.function(faddr)
+                stackframe = fn.stackframe
+                argoffset = arg.stack_address_offset()
+                buffersize, sizeorigin = calculate_buffer_size(stackframe, argoffset, instr)
+                args.append({"type": "pointer", "max-length": buffersize, "size-origin": sizeorigin})
+            else:
+                args.append({"type": "unknown"})
+
+        pc_content["args"] = args
+        patch_records.append(pc_content)
+
+    content["function-addr"] = function_addr
+    content["patch-records"] = patch_records
+    chklogger.logger.debug("Number of patch callsites: %s", len(content['patch-records']))
+
+    if xjson:
+        jcontent = JSONResult("patchcandidates", content, "ok")
+        write_json_result(xoutput, jcontent, "patchcandidates")
+        exit(0)
+
+    for patch_record in content["patch-records"]:
+        print("  " + patch_record['iaddr'] + "  " + patch_record['annotation'])
+        print("  - faddr: %s" % patch_record['faddr'])
+        print("  - os-iaddr: %s" % patch_record['os-iaddr'])
+        print("  - iaddr: %s" % patch_record['iaddr'])
+        print("  - target function: %s" % patch_record['target-function'])
         print("")
 
     print("Generated %d patch records from %d library calls" %
