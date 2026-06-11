@@ -66,10 +66,6 @@ class XXPredicate(InterfaceDictionaryRecord):
         return False
 
     @property
-    def is_xp_constant_false(self) -> bool:
-        return False
-
-    @property
     def is_xp_freed(self) -> bool:
         return False
 
@@ -155,10 +151,6 @@ class XXPredicate(InterfaceDictionaryRecord):
 
     @property
     def is_xp_sets_errno(self) -> bool:
-        return False
-
-    @property
-    def is_xp_starts_thread(self) -> bool:
         return False
 
     @property
@@ -341,22 +333,6 @@ class XXPEnum(XXPredicate):
             + ")")
 
 
-@apiregistry.register_tag("f", XXPredicate)
-class XXPFalse(XXPredicate):
-    """Constant false predicate."""
-
-    def __init__(
-            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
-        XXPredicate.__init__(self, ixd, ixval)
-
-    @property
-    def is_xp_constant_false(self) -> bool:
-        return True
-
-    def __str__(self) -> str:
-        return "false"
-
-
 @apiregistry.register_tag("fr", XXPredicate)
 class XXPFreed(XXPredicate):
     """Pointer to memory region has been freed.
@@ -378,22 +354,6 @@ class XXPFreed(XXPredicate):
 
     def __str__(self) -> str:
         return "freed(" + str(self.pointer) + ")"
-
-
-@apiregistry.register_tag("fn", XXPredicate)
-class XXPFunctional(XXPredicate):
-    """Function has no side effects."""
-
-    def __init__(
-            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
-        XXPredicate.__init__(self, ixd, ixval)
-
-    @property
-    def is_xp_functional(self) -> bool:
-        return True
-
-    def __str__(self) -> str:
-        return "functional"
 
 
 @apiregistry.register_tag("fp", XXPredicate)
@@ -876,22 +836,6 @@ class XXPRelationalExpr(XXPredicate):
             + self.relational_operator
             + " "
             + str(self.term2))
-
-
-@apiregistry.register_tag("errno", XXPredicate)
-class XXPSetsErrno(XXPredicate):
-    """Function sets errno."""
-
-    def __init__(
-            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
-        XXPredicate.__init__(self, ixd, ixval)
-
-    @property
-    def is_xp_sets_errno(self) -> bool:
-        return True
-
-    def __str__(self) -> str:
-        return "sets-errno"
 
 
 @apiregistry.register_tag("st", XXPredicate)

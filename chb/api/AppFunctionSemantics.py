@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
+    from chb.api.FunctionQualifiers import FunctionQualifiers
     from chb.api.InterfaceDictionary import InterfaceDictionary
     from chb.api.XXPredicate import XXPredicate
 
@@ -46,6 +47,8 @@ class AppFunctionSemantics(InterfaceDictionaryRecord):
     args[1]: index of postcondition list in interfacedictionary
     args[2]: index of error-postcondition list in interfacedictionary
     args[3]: index of side-effect list in interfacedictionary
+    args[4]: index of post requests in interfacedictionary
+    args[5]: index of function-qualifiers in interfacedictionary
     """
 
     def __init__(
@@ -68,6 +71,14 @@ class AppFunctionSemantics(InterfaceDictionaryRecord):
     def sideeffect_list(self) -> List["XXPredicate"]:
         return self.id.xpredicate_list(self.args[3])
 
+    @property
+    def postrequest_list(self) -> List["XXPredicate"]:
+        return self.id.xpredicate_list(self.args[4])
+
+    @property
+    def qualifiers(self) -> "FunctionQualifiers":
+        return self.id.function_qualifiers(self.args[5])
+
     def __str__(self) -> str:
         lines: List[str] = []
         if len(self.precondition_list) > 0:
@@ -86,4 +97,5 @@ class AppFunctionSemantics(InterfaceDictionaryRecord):
             lines.append("Side-effects")
             for p in self.sideeffect_list:
                 lines.append("  " + str(p))
+        lines.append("Qualifiers: " + str(self.qualifiers))
         return "\n".join(lines)

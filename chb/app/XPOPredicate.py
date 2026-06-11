@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023  Aarno Labs LLC
+# Copyright (c) 2023-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -65,15 +65,7 @@ class XPOPredicate(FnXPODictionaryRecord):
         return False
 
     @property
-    def is_xpo_constant_false(self) -> bool:
-        return False
-
-    @property
     def is_xpo_freed(self) -> bool:
-        return False
-
-    @property
-    def is_xpo_functional(self) -> bool:
         return False
 
     @property
@@ -150,10 +142,6 @@ class XPOPredicate(FnXPODictionaryRecord):
 
     @property
     def is_xpo_relational_expr(self) -> bool:
-        return False
-
-    @property
-    def is_xpo_sets_errno(self) -> bool:
         return False
 
     @property
@@ -316,22 +304,6 @@ class XPOEnum(XPOPredicate):
             + ")")
 
 
-@xporegistry.register_tag("f", XPOPredicate)
-class XPOPFalse(XPOPredicate):
-    """Constant false predicate."""
-
-    def __init__(
-            self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
-        XPOPredicate.__init__(self, xpod, ixval)
-
-    @property
-    def is_xpo_constant_false(self) -> bool:
-        return True
-
-    def __str__(self) -> str:
-        return "false"
-
-
 @xporegistry.register_tag("fr", XPOPredicate)
 class XPOFreed(XPOPredicate):
     """Pointer to memory region has been freed.
@@ -353,21 +325,6 @@ class XPOFreed(XPOPredicate):
 
     def __str__(self) -> str:
         return "freed(" + str(self.pointer) + ")"
-
-
-@xporegistry.register_tag("fn", XPOPredicate)
-class XPOFunctional(XPOPredicate):
-
-    def __init__(
-            self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
-        XPOPredicate.__init__(self, xpod, ixval)
-
-    @property
-    def is_xpo_functional(self) -> bool:
-        return True
-
-    def __str__(self) -> str:
-        return "functional"
 
 
 @xporegistry.register_tag("fp", XPOPredicate)
