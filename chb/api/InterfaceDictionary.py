@@ -40,6 +40,7 @@ from chb.api.AppFunctionSemantics import AppFunctionSemantics
 from chb.api.AppFunctionSignature import AppFunctionSignature
 from chb.api.CallTarget import CallTarget
 from chb.api.FunctionStub import FunctionStub
+from chb.api.FunctionQualifiers import FunctionQualifiers
 from chb.api.XXPredicate import XXPredicate
 
 from chb.api.InterfaceDictionaryRecord import apiregistry
@@ -67,6 +68,7 @@ class InterfaceDictionary:
             IT.IndexedTable("parameter-location-list-table"))
         self.fts_parameter_list_table = IT.IndexedTable("fts-parameter-list-table")
         self.fts_parameter_table = IT.IndexedTable("fts-parameter-table")
+        self.function_qualifiers_table = IT.IndexedTable("function-qualifiers-table")
         self.function_interface_table = IT.IndexedTable("function-interface-table")
         self.function_semantics_table = IT.IndexedTable("function-semantics-table")
         self.function_signature_table = IT.IndexedTable("function-signature-table")
@@ -78,6 +80,7 @@ class InterfaceDictionary:
             self.parameter_location_list_table,
             self.function_stub_table,
             self.call_target_table,
+            self.function_qualifiers_table,
             self.function_interface_table,
             self.function_semantics_table,
             self.function_signature_table,
@@ -118,6 +121,10 @@ class InterfaceDictionary:
     def call_target(self, ix: int) -> CallTarget:
         return apiregistry.mk_instance(
             self, self.call_target_table.retrieve(ix), CallTarget)
+
+    def function_qualifiers(self, ix: int) -> FunctionQualifiers:
+        return FunctionQualifiers(
+            self, self.function_qualifiers_table.retrieve(ix))
 
     def function_interface(self, ix: int) -> AppFunctionInterface:
         return AppFunctionInterface(

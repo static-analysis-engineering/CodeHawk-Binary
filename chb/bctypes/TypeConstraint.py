@@ -389,6 +389,39 @@ class TypeCapLabelDeref(TypeCapLabel):
         return "deref"
 
 
+@tcdregistry.register_tag("fofs", TypeCapLabel)
+class TypeCapLabelFOutputFormatString(TypeCapLabel):
+
+    def __init__(
+            self,
+            tcd: "TypeConstraintDictionary",
+            ixval: IndexedTableValue) -> None:
+        TypeCapLabel.__init__(self, tcd, ixval)
+
+    @property
+    def is_output_format_string(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return "output-format-string"
+
+
+@tcdregistry.register_tag("fifs", TypeCapLabel)
+class TypeCapLabelFInputFormatString(TypeCapLabel):
+
+    def __init__(
+            self,
+            tcd: "TypeConstraintDictionary",
+            ixval: IndexedTableValue) -> None:
+        TypeCapLabel.__init__(self, tcd, ixval)
+
+    @property
+    def is_input_format_string(self) -> bool:
+        return True
+
+    def __str__(self) -> str:
+        return "input-format-string"
+
 
 @tcdregistry.register_tag("a", TypeCapLabel)
 class TypeCapLabelOffsetAccess(TypeCapLabel):
@@ -461,7 +494,6 @@ class TypeCapLabelStackAddress(TypeCapLabel):
 
     def __str__(self) -> str:
         return "stackaddr_" + str(self.offset)
-
 
 
 class TypeVariable(TypeConstraintDictionaryRecord):
