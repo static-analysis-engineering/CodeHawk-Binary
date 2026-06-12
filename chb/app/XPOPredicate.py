@@ -953,6 +953,37 @@ class XPOTrustedOsCmdFmtString(XPOPredicate):
             + ")")
 
 
+@xporegistry.register_tag("tfa", XPOPredicate)
+class XPOTrustedOsCmdFmtArgString(XPOPredicate):
+    """Expression is trusted as argument for a format string-constructed command.
+
+    args[0]: index of expression in xprdictionary
+    """
+
+    def __init__(
+            self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
+        XPOPredicate.__init__(self, xpod, ixval)
+
+    @property
+    def is_xpo_trusted_os_cmd_fmt_arg_string(self) -> bool:
+        return True
+
+    @property
+    def expr(self) -> "XXpr":
+        return self.xd.xpr(self.args[0])
+
+    @property
+    def optlen(self) -> Optional["XXpr"]:
+        if self.args[1] == -1:
+            return None
+        return self.xd.xpr(self.args[1])
+
+    def __str__(self) -> str:
+        return (
+            "trusted-os-cmd-fmt-arg-string("
+            + str(self.expr))
+
+
 @xporegistry.register_tag("v", XPOPredicate)
 class XPOValidMem(XPOPredicate):
     """Expression points to valid memory.

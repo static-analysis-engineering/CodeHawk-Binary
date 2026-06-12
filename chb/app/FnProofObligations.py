@@ -159,6 +159,7 @@ class ProofObligation:
             + str(self.xpo)
             + " ("
             + str(self.status)
+            + m
             + ")")
 
 
@@ -192,7 +193,7 @@ class FnProofObligations:
                         xstatus = xxpo.find("status")
                         if xstatus is not None:
                             status = POStatus(self.xpod, xstatus)
-                            msg = xxpo.get("m", "none")
+                            msg = xstatus.get("m", "none")
                             po = ProofObligation(iaddr, xpo, status, msg)
                             self._store[iaddr].append(po)
         return self._store
