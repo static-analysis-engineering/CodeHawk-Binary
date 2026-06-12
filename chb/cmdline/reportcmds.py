@@ -1573,10 +1573,12 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
                 calltgt = instr.call_target
                 if include_target(calltgt):
                     if calltgt.is_so_target:
+                        so_function = cast("SOFunction", cast("StubTarget", calltgt).stub)
+
                         for po in instr.proofobligations():
                             if type(po.xpo) == XPOTrustedOsCmdString and po.status.is_delegated_local:
                                 if po.status.get_iaddr() == instr.iaddr:
-                                    os_cmd_construction[instr.iaddr] = (faddr, baddr, instr, instr.iaddr, calltgt)
+                                    os_cmd_construction[instr.iaddr] = (faddr, baddr, instr, instr.iaddr, so_function)
                                 else:
                                     os_cmd_instruction_delegation[instr.iaddr] = po.status.get_iaddr()
                         libcalls.add_library_callsite(faddr, baddr, instr)
@@ -1600,33 +1602,33 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
     for os_cmd_iaddr, construction_iaddr in os_cmd_instruction_delegation.items():
         if construction_iaddr not in os_cmd_construction:
             continue
-        faddr, baddr, instr, iiaddr, calltgt = os_cmd_construction[construction_iaddr]
+        faddr, baddr, instr, iiaddr, so_function = os_cmd_construction[construction_iaddr]
         print(os_cmd_iaddr)
         pc_content: Dict[str, Any] = {}
         pc_content["annotation"] = instr.annotation
         pc_content["faddr"] = faddr
         pc_content["iaddr"] = instr.iaddr
         pc_content["os-iaddr"] = os_cmd_iaddr
-        pc_content["target-function"] = calltgt.stub.summary().name
-        args: List[Dict[str, Any]] = []
+        pc_content["target-function"] = so_function.summary().name
+        fn_args: List[Dict[str, Any]] = []
         for arg in instr.call_arguments:
             if arg.is_constant:
                 if arg.is_string_reference:
-                    args.append({"type": "string", "rep": str(arg.constant)})
+                    fn_args.append({"type": "string", "rep": str(arg.constant)})
                 elif arg.is_int_constant:
-                    args.append({"type": "int", "rep": str(arg.constant)})
+                    fn_args.append({"type": "int", "rep": str(arg.constant)})
                 else:
-                    args.append({"type": "constant", "rep": str(arg.constant)})
+                    fn_args.append({"type": "constant", "rep": str(arg.constant)})
             elif arg.is_stack_address:
                 fn = app.function(faddr)
                 stackframe = fn.stackframe
                 argoffset = arg.stack_address_offset()
                 buffersize, sizeorigin = calculate_buffer_size(stackframe, argoffset, instr)
-                args.append({"type": "pointer", "max-length": buffersize, "size-origin": sizeorigin})
+                fn_args.append({"type": "pointer", "max-length": buffersize, "size-origin": sizeorigin})
             else:
-                args.append({"type": "unknown"})
+                fn_args.append({"type": "unknown"})
 
-        pc_content["args"] = args
+        pc_content["fn_args"] = fn_args
         patch_records.append(pc_content)
 
     content["function-addr"] = function_addr
