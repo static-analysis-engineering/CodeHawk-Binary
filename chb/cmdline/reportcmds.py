@@ -1611,7 +1611,12 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
         args: List[Dict[str, Any]] = []
         for arg in instr.call_arguments:
             if arg.is_constant:
-                args.append({"type": "constant", "rep": str(arg.constant)})
+                if arg.is_string_reference:
+                    args.append({"type": "string", "rep": str(arg.constant)})
+                elif arg.is_int_constant:
+                    args.append({"type": "int", "rep": str(arg.constant)})
+                else:
+                    args.append({"type": "constant", "rep": str(arg.constant)})
             elif arg.is_stack_address:
                 fn = app.function(faddr)
                 stackframe = fn.stackframe
