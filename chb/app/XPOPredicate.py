@@ -726,6 +726,38 @@ class XPOOutputFormatString(XPOPredicate):
         return "output-format-string(" + str(self.pointer) + ")"
 
 
+@xporegistry.register_tag("rofs", XPOPredicate)
+class XPORestrictedOutputFormatString(XPOPredicate):
+    """Pointer points to a format string for output (printf)
+
+    args[0]: index of pointer in xprdictionary
+    args[1:]: indices of specifier strings in bcdictionary
+    """
+
+    def __init__(
+            self, xpod: "FnXPODictionary", ixval: IndexedTableValue) -> None:
+        XPOPredicate.__init__(self, xpod, ixval)
+
+    @property
+    def is_xpo_restricted_output_format_string(self) -> bool:
+        return True
+
+    @property
+    def specifiers(self) -> List[str]:
+        return [self.bd.string(index) for index in self.args[1:]]
+
+    @property
+    def pointer(self) -> "XXpr":
+        return self.xd.xpr(self.args[0])
+
+    def __str__(self) -> str:
+        return ("restricted-output-format-string("
+                + str(self.pointer)
+                + ", "
+                + ", ".join(self.specifiers)
+                + ")")
+
+
 @xporegistry.register_tag("pos", XPOPredicate)
 class XPOPositive(XPOPredicate):
     """Expression is positive.
