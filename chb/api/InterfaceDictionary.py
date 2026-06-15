@@ -33,6 +33,7 @@ import xml.etree.ElementTree as ET
 from typing import List, TYPE_CHECKING
 
 from chb.api.BTerm import BTerm
+from chb.api.FormatStringType import FormatStringType
 from chb.api.FtsParameter import FtsParameter
 from chb.api.FtsParameterLocation import FtsParameterLocation
 from chb.api.AppFunctionInterface import AppFunctionInterface
@@ -63,6 +64,7 @@ class InterfaceDictionary:
         self._app = app
         self.function_stub_table = IT.IndexedTable("function-stub-table")
         self.call_target_table = IT.IndexedTable("call-target-table")
+        self.formatstring_type_table = IT.IndexedTable("formatstring-type-table")
         self.parameter_location_table = IT.IndexedTable("parameter-location-table")
         self.parameter_location_list_table = (
             IT.IndexedTable("parameter-location-list-table"))
@@ -76,6 +78,7 @@ class InterfaceDictionary:
         self.xxpredicate_table = IT.IndexedTable("xxpredicate-table")
         self.bterm_table = IT.IndexedTable("bterm-table")
         self.tables: List[IT.IndexedTable] = [
+            self.formatstring_type_table,
             self.parameter_location_table,
             self.parameter_location_list_table,
             self.function_stub_table,
@@ -105,6 +108,10 @@ class InterfaceDictionary:
         return self.app.bcdictionary
 
     # -------------- Retrieve items from dictionary tables ---------------------
+
+    def formatstring_type(self, ix: int) -> FormatStringType:
+        return apiregistry.mk_instance(
+            self, self.formatstring_type_table.retrieve(ix), FormatStringType)
 
     def parameter_location(self, ix: int) -> FtsParameterLocation:
         return apiregistry.mk_instance(
