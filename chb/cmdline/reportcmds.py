@@ -76,6 +76,7 @@ if TYPE_CHECKING:
     from chb.api.FunctionStub import SOFunction
     from chb.app.AppAccess import AppAccess
     from chb.app.BasicBlock import BasicBlock
+    from chb.app.FnProofObligations import ProofObligation
     from chb.app.Function import Function
     from chb.app.FunctionStackframe import FunctionStackframe
     from chb.app.Instruction import Instruction
@@ -1563,12 +1564,21 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
             return True
         return target.name in xtargets
 
+    def is_cmd_delegation(po: 'ProofObligation') -> bool:
+        if type(po.xpo) == XPOTrustedOsCmdString:
+            return po.status.is_delegated_local and po.status.get_iaddr() != instr.iaddr
+        return False
+
+    def is_cmd_construction(po: 'ProofObligation') -> bool:
+        if type(po.xpo) == XPOTrustedOsCmdFmtString:
+            return po.status.is_delegated_local and po.status.get_iaddr() == instr.iaddr
+        return False
 
     # Track every call with a trusted-os-cmd-fmt-string proofobligation as potential
     # patch sites for command injection vulnerabilities. We additionally track all
     # the trusted-os-cmd-string delegations as potential sites where the system
     # (or equivalent) function is called to allow for filtering on those addresses.
-    os_cmd_construction: Dict[str, tuple[str, "Instruction", "SOFunction"]]  = {}
+    os_cmd_construction: List[tuple[str, "Instruction", "SOFunction"]]  = []
     os_cmd_delegations: Dict[str,List[str]] = defaultdict(list)
 
     for (faddr, blocks) in app.call_instructions().items():
@@ -1580,12 +1590,10 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
                     if calltgt.is_so_target:
                         so_function = cast("SOFunction", cast("StubTarget", calltgt).stub)
                         for po in instr.proofobligations():
-                            if type(po.xpo) == XPOTrustedOsCmdString:
-                                if po.status.is_delegated_local and po.status.get_iaddr() != instr.iaddr:
-                                    os_cmd_delegations[po.status.get_iaddr()].append(instr.iaddr)
-                            if type(po.xpo) == XPOTrustedOsCmdFmtString:
-                                if po.status.is_delegated_local and po.status.get_iaddr() == instr.iaddr:
-                                    os_cmd_construction[instr.iaddr] = (faddr, instr, so_function)
+                            if is_cmd_delegation(po):
+                                os_cmd_delegations[po.status.get_iaddr()].append(instr.iaddr)
+                            if is_cmd_construction(po):
+                                os_cmd_construction.append((faddr, instr, so_function))
                         libcalls.add_library_callsite(faddr, baddr, instr)
 
     chklogger.logger.debug("Number of calls: %s", n_calls)
@@ -1604,14 +1612,18 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
 
     patch_records = []
 
-    for construction_iaddr in os_cmd_construction.keys():
-        faddr, instr, so_function = os_cmd_construction[construction_iaddr]
+    for faddr, instr, so_function in os_cmd_construction:
         pc_content: Dict[str, Any] = {}
         pc_content["annotation"] = instr.annotation
         pc_content["faddr"] = faddr
         pc_content["iaddr"] = instr.iaddr
+        # If the command execution and construction are separate patch sites,
+        # we add them as exec-iaddrs to allow for filtering, otherwise we add
+        # the current site as the exec-iaddrs.
         if instr.iaddr in os_cmd_delegations:
-            pc_content["os-iaddrs"] = os_cmd_delegations[instr.iaddr]
+            pc_content["exec-iaddrs"] = os_cmd_delegations[instr.iaddr]
+        else:
+            pc_content["exec-iaddrs"] = [instr.iaddr]
         pc_content["target-function"] = so_function.name
         fn_args: List[Dict[str, Any]] = []
         for arg in instr.call_arguments:
@@ -1629,6 +1641,8 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
                 buffersize, sizeorigin = calculate_buffer_size(stackframe, argoffset, instr)
                 fn_args.append({"type": "pointer", "max-length": buffersize, "size-origin": sizeorigin})
             else:
+                # Unable to derive the type of the argument, additional analysis may
+                # be able to derive it based on the format string.
                 fn_args.append({"type": "unknown"})
 
         pc_content["fn_args"] = fn_args
@@ -1646,8 +1660,7 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
     for patch_record in content["patch-records"]:
         print("  " + patch_record['iaddr'] + "  " + patch_record['annotation'])
         print("  - faddr: %s" % patch_record['faddr'])
-        if 'os-iaddrs' in patch_record:
-            print("  - os-iaddrs: %s" % ' '.join([str(i) for i in patch_record['os-iaddrs']]))
+        print("  - exec-iaddrs: %s" % ' '.join([str(i) for i in patch_record['exec-iaddrs']]))
         print("  - iaddr: %s" % patch_record['iaddr'])
         print("  - target function: %s" % patch_record['target-function'])
         print("")
