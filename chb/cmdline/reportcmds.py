@@ -1570,13 +1570,14 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
         return False
 
     # Track every call with a trusted-os-cmd-fmt-string proofobligation as potential
-    # patch sites for command injection vulnerabilities. We additionally track all
-    # the trusted-os-cmd-string delegations as potential sites where the system
-    # (or equivalent) function is called to allow for filtering on those addresses.
+    # patch sites for command injection vulnerabilities. These correspond to the site
+    # where the format string is constructed. We additionally track all the
+    # trusted-os-cmd-string delegations as potential sites where the actual command
+    # execution occurs, and allows consumers to filter based on those instruction
+    # addresses.
     os_cmd_construction: List[tuple[str, "Instruction", str]]  = []
     os_cmd_delegations: Dict[str,List[str]] = defaultdict(list)
     app_functions: Dict[str, str] = {}
-
 
     for (faddr, blocks) in app.call_instructions().items():
         for (baddr, instrs) in blocks.items():
