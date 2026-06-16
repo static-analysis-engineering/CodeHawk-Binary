@@ -1569,17 +1569,14 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
             return po.status.is_delegated_local and po.status.get_iaddr() != instr.iaddr
         return False
 
-    def is_cmd_construction(po: 'ProofObligation') -> bool:
-        if type(po.xpo) == XPOTrustedOsCmdFmtString:
-            return po.status.is_delegated_local and po.status.get_iaddr() == instr.iaddr
-        return False
-
     # Track every call with a trusted-os-cmd-fmt-string proofobligation as potential
     # patch sites for command injection vulnerabilities. We additionally track all
     # the trusted-os-cmd-string delegations as potential sites where the system
     # (or equivalent) function is called to allow for filtering on those addresses.
-    os_cmd_construction: List[tuple[str, "Instruction", "SOFunction"]]  = []
+    os_cmd_construction: List[tuple[str, "Instruction", str]]  = []
     os_cmd_delegations: Dict[str,List[str]] = defaultdict(list)
+    app_functions: Dict[str, str] = {}
+
 
     for (faddr, blocks) in app.call_instructions().items():
         for (baddr, instrs) in blocks.items():
@@ -1587,20 +1584,23 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
                 n_calls += 1
                 calltgt = instr.call_target
                 if include_target(calltgt):
-                    if calltgt.is_so_target:
-                        so_function = cast("SOFunction", cast("StubTarget", calltgt).stub)
-                        for po in instr.proofobligations():
-                            if is_cmd_delegation(po):
-                                os_cmd_delegations[po.status.get_iaddr()].append(instr.iaddr)
-                            if is_cmd_construction(po):
-                                os_cmd_construction.append((faddr, instr, so_function))
-                        libcalls.add_library_callsite(faddr, baddr, instr)
+                    for po in instr.proofobligations():
+                        if is_cmd_delegation(po):
+                            os_cmd_delegations[po.status.get_iaddr()].append(instr.iaddr)
+                        if type(po.xpo) == XPOTrustedOsCmdFmtString:
+                            os_cmd_construction.append((faddr, instr, calltgt.name))
+                            if calltgt.is_app_target and calltgt.name not in app_functions:
+                                app_functions[calltgt.name] = str(calltgt.address)
+                if calltgt.is_so_target:
+                    libcalls.add_library_callsite(faddr, baddr, instr)
 
     chklogger.logger.debug("Number of calls: %s", n_calls)
 
     patchcallsites = libcalls.patch_callsites()
 
     function_addr = collect_known_fn_addrs(app, patchcallsites)
+    for name, addr in app_functions.items():
+        function_addr[name] = addr
 
     content: Dict[str, Any] = {}
     if xjson:
@@ -1612,7 +1612,7 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
 
     patch_records = []
 
-    for faddr, instr, so_function in os_cmd_construction:
+    for faddr, instr, target_function in os_cmd_construction:
         pc_content: Dict[str, Any] = {}
         pc_content["annotation"] = instr.annotation
         pc_content["faddr"] = faddr
@@ -1624,7 +1624,7 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
             pc_content["exec-iaddrs"] = os_cmd_delegations[instr.iaddr]
         else:
             pc_content["exec-iaddrs"] = [instr.iaddr]
-        pc_content["target-function"] = so_function.name
+        pc_content["target-function"] = target_function
         fn_args: List[Dict[str, Any]] = []
         for arg in instr.call_arguments:
             if arg.is_constant:
