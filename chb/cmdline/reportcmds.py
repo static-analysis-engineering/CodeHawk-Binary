@@ -72,7 +72,7 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.api.CallTarget import (
-        StubTarget, CallTarget)
+        StubTarget, AppTarget, CallTarget)
     from chb.api.FunctionStub import SOFunction
     from chb.app.AppAccess import AppAccess
     from chb.app.BasicBlock import BasicBlock
@@ -1590,7 +1590,7 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
                         if type(po.xpo) == XPOTrustedOsCmdFmtString:
                             os_cmd_construction.append((faddr, instr, calltgt.name))
                             if calltgt.is_app_target and calltgt.name not in app_functions:
-                                app_functions[calltgt.name] = str(calltgt.address)
+                                app_functions[calltgt.name] = str(cast('AppTarget', calltgt).address)
                 if calltgt.is_so_target:
                     libcalls.add_library_callsite(faddr, baddr, instr)
 
