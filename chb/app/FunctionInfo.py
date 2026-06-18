@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2026 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@
 
 import xml.etree.ElementTree as ET
 
-from typing import Dict, Mapping, Optional, TYPE_CHECKING
+from typing import Dict, Mapping, Optional, Tuple, TYPE_CHECKING
 
 from chb.api.AppSummary import AppSummary
 from chb.api.CallTarget import CallTarget
@@ -38,26 +38,35 @@ from chb.api.CallTargetInfo import CallTargetInfo
 import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
+    from chb.api.FormatStringSpec import FormatStringSpec
     from chb.api.InterfaceDictionary import InterfaceDictionary
+    from chb.app.BDictionary import BDictionary
 
 
 class FunctionInfo:
 
     def __init__(
             self,
+            bd: "BDictionary",
             ixd: "InterfaceDictionary",
             faddr: str,
             xnode: ET.Element) -> None:
+        self._bd = bd
         self._ixd = ixd
         self._faddr = faddr
         self.xnode = xnode
         self._calltargets: Dict[str, CallTarget] = {}
         self._variablenames: Dict[int, str] = {}
         self._calltargetinfos: Dict[str, CallTargetInfo] = {}
+        self._formatstringspecs: Optional[Dict[str, Tuple[str,FormatStringSpec]]] = None
 
     @property
     def faddr(self) -> str:
         return self._faddr
+
+    @property
+    def bd(self) -> "BDictionary":
+        return self._bd
 
     @property
     def ixd(self) -> "InterfaceDictionary":
@@ -114,6 +123,23 @@ class FunctionInfo:
                         self._calltargetinfos[xaddr] = CallTargetInfo(
                             ctgt, fintf, fsem)
         return self._calltargetinfos
+
+    @property
+    def formatstrings(self) -> Mapping[str, Tuple[str, "FormatStringSpec"]]:
+        if self._formatstringspecs is None:
+            self._formatstringspecs = {}
+            fsnode = self.xnode.find("format-strings")
+            if fsnode is not None:
+                for fs in fsnode.findall("fs"):
+                    xaddr = fs.get("a")
+                    ixs = int(fs.get("ixs", "-1"))
+                    ixc = int(fs.get("ixc", "-1"))
+                    kind = fs.get("kind", "printf")
+                    if xaddr is not None and ixs > 0 and ixc > 0:
+                        formatstring = self.bd.string(ixs)
+                        formatspec = self.ixd.formatstring_spec(ixc)
+                        self._formatstringspecs[xaddr] = (formatstring, formatspec)
+        return self._formatstringspecs
 
     @property
     def lhs_names(self) -> Dict[str, str]:
