@@ -89,6 +89,7 @@ from chb.util.loggingutil import chklogger
 
 
 if TYPE_CHECKING:
+    from chb.api.FormatStringSpec import FormatStringSpec
     from chb.app.AppAccess import AppAccess
     from chb.app.FunctionStackframe import FunctionStackframe
     from chb.app.GlobalMemoryMap import (
@@ -408,6 +409,10 @@ class Function(ABC):
         """Return the type of the register reg assigned at address iaddr."""
 
         return None
+
+    @property
+    def formatstrings(self) -> Mapping[str, Tuple[str, "FormatStringSpec"]]:
+        return self.finfo.formatstrings
 
     @property
     def lhs_names(self) -> Dict[str, str]:

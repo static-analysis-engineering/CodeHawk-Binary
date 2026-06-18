@@ -343,7 +343,7 @@ class AppAccess(ABC, Generic[HeaderTy]):
         if faddr not in self._functioninfos:
             xnode = UF.get_function_info_xnode(self.path, self.filename, faddr)
             self._functioninfos[faddr] = FunctionInfo(
-                self.interfacedictionary, faddr, xnode)
+                self.bdictionary, self.interfacedictionary, faddr, xnode)
         return self._functioninfos[faddr]
 
     # Instructions -----------------------------------------------------------

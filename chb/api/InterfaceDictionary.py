@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2023 Aarno Labs LLC
+# Copyright (c) 2021-2026 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +33,7 @@ import xml.etree.ElementTree as ET
 from typing import List, TYPE_CHECKING
 
 from chb.api.BTerm import BTerm
+from chb.api.FormatStringSpec import FormatStringSpec, FormatArgSpec
 from chb.api.FormatStringType import FormatStringType
 from chb.api.FtsParameter import FtsParameter
 from chb.api.FtsParameterLocation import FtsParameterLocation
@@ -62,6 +63,8 @@ class InterfaceDictionary:
             app: "AppAccess",
             xnode: ET.Element) -> None:
         self._app = app
+        self.formatarg_spec_table = IT.IndexedTable("formatarg-spec-table")
+        self.formatstring_spec_table = IT.IndexedTable("formatstring-spec-table")
         self.function_stub_table = IT.IndexedTable("function-stub-table")
         self.call_target_table = IT.IndexedTable("call-target-table")
         self.formatstring_type_table = IT.IndexedTable("formatstring-type-table")
@@ -79,6 +82,8 @@ class InterfaceDictionary:
         self.bterm_table = IT.IndexedTable("bterm-table")
         self.tables: List[IT.IndexedTable] = [
             self.formatstring_type_table,
+            self.formatarg_spec_table,
+            self.formatstring_spec_table,
             self.parameter_location_table,
             self.parameter_location_list_table,
             self.function_stub_table,
@@ -112,6 +117,12 @@ class InterfaceDictionary:
     def formatstring_type(self, ix: int) -> FormatStringType:
         return apiregistry.mk_instance(
             self, self.formatstring_type_table.retrieve(ix), FormatStringType)
+
+    def formatarg_spec(self, ix: int) -> FormatArgSpec:
+        return FormatArgSpec(self, self.formatarg_spec_table.retrieve(ix))
+
+    def formatstring_spec(self, ix: int) -> FormatStringSpec:
+        return FormatStringSpec(self, self.formatstring_spec_table.retrieve(ix))
 
     def parameter_location(self, ix: int) -> FtsParameterLocation:
         return apiregistry.mk_instance(
