@@ -111,6 +111,16 @@ class FormatArgSpec(InterfaceDictionaryRecord):
         return self.tags[3]
 
     @property
+    def arg_type(self) -> str:
+        if self.conversion == 's':
+            return 'string'
+        elif self.conversion == 'd':
+            return 'int'
+        elif self.conversion == 'f':
+            return 'float'
+        return 'unknown'
+
+    @property
     def flags(self) -> str:
         return "".join(chr(i) for i in self.args)
 
