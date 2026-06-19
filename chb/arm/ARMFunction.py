@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -294,6 +294,7 @@ class ARMFunction(Function):
             opcodewidth: int = 40,
             sp: bool = True,
             proofobligations: bool = False,
+            formatstrings: bool = False,
             typingrules: bool = False,
             stacklayout: bool = False) -> str:
         lines: List[str] = []
@@ -304,6 +305,20 @@ class ARMFunction(Function):
         if proofobligations:
             lines.append(str(self.proofobligations))
             lines.append(".~" * 40)
+        if formatstrings:
+            fmtstrings = self.formatstrings.items()
+            if len(fmtstrings) > 0:
+                lines.append("Format strings:")
+                for (iaddr, (s, fmtspec)) in fmtstrings:
+                    lines.append(
+                        "  "
+                        + iaddr
+                        + ": fmtstring: "
+                        + s
+                        + " (spec: "
+                        + str(fmtspec)
+                        + ")")
+                lines.append(".~" * 40)
         for b in sorted(self.blocks):
             lines.append(
                 self.blocks[b].to_string(

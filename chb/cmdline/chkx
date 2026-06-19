@@ -938,6 +938,10 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="include proofobligations at the top of the function")
     resultsfunctions.add_argument(
+        "--formatstrings",
+        action="store_true",
+        help="include format strings at the top of the function")
+    resultsfunctions.add_argument(
         "--loglevel", "-log",
         choices=UL.LogLevel.options(),
         default="NONE",
@@ -990,6 +994,10 @@ def parse() -> argparse.Namespace:
         "--proofobligations",
         action="store_true",
         help="include proofobligations at the top of the function")
+    resultsfunction.add_argument(
+        "--formatstrings",
+        action="store_true",
+        help="include format strings at the top of the function")
     resultsfunction.add_argument(
         "--typingrules",
         action="store_true",
