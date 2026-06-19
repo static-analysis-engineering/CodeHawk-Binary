@@ -1632,9 +1632,8 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
         found_fmt_arg = False
         fmt_arg_count = 0
         for arg in instr.call_arguments:
-            fn_arg: Dict[str, Any] = {"type": "unknown", "role": "unknown"}
+            fn_arg: Dict[str, Any] = {"type": "unknown", "role": "unknown", "rep": str(arg)}
             if arg.is_constant:
-                fn_arg["rep"] = str(arg.constant)
                 if arg.is_int_constant:
                     fn_arg["type"] = "int"
                 elif arg.is_string_reference:
