@@ -1627,24 +1627,43 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
             pc_content["exec-iaddrs"] = [instr.iaddr]
         pc_content["target-function"] = target_function
         fn_args: List[Dict[str, Any]] = []
+        fmt_string, fmt_string_specs = app.function(faddr).formatstrings[instr.iaddr]
+        pc_content["format-string"] = fmt_string
+        found_fmt_arg = False
+        fmt_arg_count = 0
         for arg in instr.call_arguments:
+            fn_arg: Dict[str, Any] = {"type": "unknown", "role": "unknown"}
             if arg.is_constant:
-                if arg.is_string_reference:
-                    fn_args.append({"type": "string", "rep": str(arg.constant)})
-                elif arg.is_int_constant:
-                    fn_args.append({"type": "int", "rep": str(arg.constant)})
+                fn_arg["rep"] = str(arg.constant)
+                if arg.is_int_constant:
+                    fn_arg["type"] = "int"
+                elif arg.is_string_reference:
+                    fn_arg["type"] = "string"
                 else:
-                    fn_args.append({"type": "constant", "rep": str(arg.constant)})
+                    fn_arg["type"] = "constant"
             elif arg.is_stack_address:
                 fn = app.function(faddr)
                 stackframe = fn.stackframe
                 argoffset = arg.stack_address_offset()
                 buffersize, sizeorigin = calculate_buffer_size(stackframe, argoffset, instr)
-                fn_args.append({"type": "pointer", "max-length": buffersize, "size-origin": sizeorigin})
+                fn_arg["type"] = "pointer"
+                fn_arg["max-length"] = buffersize
+                fn_arg["size-origin"] = sizeorigin
+
+            # If we've already found the format string input, treat the remaining arguments
+            # up to the number of format string specifiers as inputs.
+            if found_fmt_arg:
+                fn_arg["role"] = "input"
+                if fmt_arg_count < len(fmt_string_specs.argspecs):
+                    fn_arg["type"] = fmt_string_specs.argspecs[fmt_arg_count].arg_type
+                fmt_arg_count += 1
             else:
-                # Unable to derive the type of the argument, additional analysis may
-                # be able to derive it based on the format string.
-                fn_args.append({"type": "unknown"})
+                fn_arg["role"] = "passthrough"
+                if arg.is_constant and arg.is_string_reference:
+                    fn_arg["type"] = "string"
+                    fn_arg["role"] = "format"
+                    found_fmt_arg = True
+            fn_args.append(fn_arg)
 
         pc_content["fn_args"] = fn_args
         patch_records.append(pc_content)
@@ -1664,6 +1683,8 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
         print("  - exec-iaddrs: %s" % ' '.join([str(i) for i in patch_record['exec-iaddrs']]))
         print("  - iaddr: %s" % patch_record['iaddr'])
         print("  - target function: %s" % patch_record['target-function'])
+        print("  - format string: %s" % patch_record['format-string'])
+        print("  - args: %s" % (",".join(['%s(%s)' % (a['role'], a['type']) for a in patch_record['fn_args']])))
         print("")
 
     print("Generated %d patch records from %d library calls" %
