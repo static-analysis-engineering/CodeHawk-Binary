@@ -1575,7 +1575,7 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
     # trusted-os-cmd-string delegations as potential sites where the actual command
     # execution occurs, and allows consumers to filter based on those instruction
     # addresses.
-    os_cmd_construction: List[tuple[str, "Instruction", str]]  = []
+    os_cmd_construction: List[tuple[str, "Instruction", str, "XPOTrustedOsCmdFmtString"]]  = []
     os_cmd_delegations: Dict[str,List[str]] = defaultdict(list)
     app_functions: Dict[str, str] = {}
 
@@ -1589,7 +1589,8 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
                         if is_cmd_delegation(po):
                             os_cmd_delegations[po.status.get_iaddr()].append(instr.iaddr)
                         if type(po.xpo) == XPOTrustedOsCmdFmtString:
-                            os_cmd_construction.append((faddr, instr, calltgt.name))
+                            trusted_po = cast('XPOTrustedOsCmdFmtString', po.xpo)
+                            os_cmd_construction.append((faddr, instr, calltgt.name, trusted_po))
                             if calltgt.is_app_target and calltgt.name not in app_functions:
                                 app_functions[calltgt.name] = str(cast('AppTarget', calltgt).address)
                 if calltgt.is_so_target:
@@ -1613,7 +1614,7 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
 
     patch_records = []
 
-    for faddr, instr, target_function in os_cmd_construction:
+    for faddr, instr, target_function, trusted_po in os_cmd_construction:
         pc_content: Dict[str, Any] = {}
         pc_content["annotation"] = instr.annotation
         pc_content["faddr"] = faddr
@@ -1626,7 +1627,13 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
         else:
             pc_content["exec-iaddrs"] = [instr.iaddr]
         pc_content["target-function"] = target_function
+        pc_content["buffersize"] = 0
+        if trusted_po.optlen is not None and trusted_po.optlen.is_int_constant:
+            pc_content["buffersize"] = trusted_po.optlen.intvalue
         fn_args: List[Dict[str, Any]] = []
+        # If there is no constant format string for this patch site, we ignore it.
+        if instr.iaddr not in app.function(faddr).formatstrings:
+            continue
         fmt_string, fmt_string_specs = app.function(faddr).formatstrings[instr.iaddr]
         pc_content["format-string"] = fmt_string
         found_fmt_arg = False
@@ -1682,6 +1689,7 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
         print("  - exec-iaddrs: %s" % ' '.join([str(i) for i in patch_record['exec-iaddrs']]))
         print("  - iaddr: %s" % patch_record['iaddr'])
         print("  - target function: %s" % patch_record['target-function'])
+        print("  - buffer size: %d" % patch_record['buffersize'])
         print("  - format string: %s" % patch_record['format-string'])
         print("  - args: %s" % (",".join(['%s(%s)' % (a['role'], a['type']) for a in patch_record['fn_args']])))
         print("")
