@@ -6,7 +6,7 @@
 #
 # Copyright (c) 2016-2020 Kestrel Technology LLC
 # Copyright (c) 2020      Henny Sipma
-# Copyright (c) 2021-2025 Aarno Labs LLC
+# Copyright (c) 2021-2026 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -137,6 +137,10 @@ class VConstantValueVariable(FnVarDictionaryRecord):
 
     @property
     def is_typecast_value(self) -> bool:
+        return False
+
+    @property
+    def is_frozen_value(self) -> bool:
         return False
 
     @property
@@ -477,6 +481,37 @@ class VFrozenTestValue(VConstantValueVariable):
         return (str(self.variable)
                 + '_@val_' + str(self.test_addr)
                 + '_@_' + str(self.jump_addr))
+
+
+@varregistry.register_tag("frv", VConstantValueVariable)
+class VFrozenValue(VConstantValueVariable):
+    """Value of a test at an earlier instruction.
+
+    tags[1]: address of test instruction
+    tags[2]: address of conditional jump instruction
+    args[0]: index of variable in xprdictionary
+    """
+
+    def __init__(
+            self,
+            vd: "FnVarDictionary",
+            ixval: IndexedTableValue) -> None:
+        VConstantValueVariable.__init__(self, vd, ixval)
+
+    @property
+    def is_frozen_value(self) -> bool:
+        return True
+
+    @property
+    def variable(self) -> "XVariable":
+        return self.xd.variable(self.args[0])
+
+    @property
+    def iaddr(self) -> str:
+        return self.tags[1]
+
+    def __str__(self) -> str:
+        return (str(self.variable) + '_@val_' + str(self.iaddr))
 
 
 @varregistry.register_tag("bv", VConstantValueVariable)

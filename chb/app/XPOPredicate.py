@@ -1005,6 +1005,10 @@ class XPOTrustedOsCmdFmtArgString(XPOPredicate):
         return self.xd.xpr(self.args[0])
 
     @property
+    def quotes(self) -> str:
+        return self.tags[1]
+
+    @property
     def optlen(self) -> Optional["XXpr"]:
         if self.args[1] == -1:
             return None
@@ -1013,7 +1017,12 @@ class XPOTrustedOsCmdFmtArgString(XPOPredicate):
     def __str__(self) -> str:
         return (
             "trusted-os-cmd-fmt-arg-string("
-            + str(self.expr))
+            + str(self.expr)
+            + ", "
+            + str(self.quotes)
+            + ", "
+            + str(self.optlen)
+            + ")")
 
 
 @xporegistry.register_tag("v", XPOPredicate)

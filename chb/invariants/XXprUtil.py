@@ -113,7 +113,7 @@ if TYPE_CHECKING:
         VMemoryVariable, VAuxiliaryVariable, VRegisterVariable)
     from chb.invariants.VConstantValueVariable import (
         VInitialRegisterValue, VInitialMemoryValue, VFunctionReturnValue,
-        VTypeCastValue, SideEffectValue, SymbolicValue)
+        VFrozenValue, VTypeCastValue, SideEffectValue, SymbolicValue)
     from chb.invariants.VMemoryBase import (
         VMemoryBase,
         VMemoryBaseBaseVar,
@@ -1051,6 +1051,25 @@ def xvariable_to_ast_def_lval_expression(
                 "AST def conversion of typecast value %s to lval at address %s "
                 + "not yet supported",
                 str(tcvar), iaddr)
+        return astree.mk_temp_lval_expression()
+
+    if xvar.is_frozen_value:
+        frvar = cast("VFrozenValue", xvar.denotation.auxvar)
+        variaddr = frvar.iaddr
+        frvarreg = frvar.variable
+        if variaddr in astree.ssa_intros and str(frvarreg) in astree.ssa_intros[variaddr]:
+            vinfo = astree.ssa_intros[variaddr][str(frvarreg)]
+            ssavalue = astree.get_ssa_value(vinfo.vname)
+            if ssavalue is not None:
+                return ssavalue
+            else:
+                return astree.mk_vinfo_lval_expression(
+                    vinfo, anonymous=anonymous)
+        if not anonymous:
+            chklogger.logger.error(
+                "AST def conversion of frozen value %s to lval at address %s "
+                + "not yet supported",
+                str(frvar), iaddr)
         return astree.mk_temp_lval_expression()
 
     if xvar.is_sideeffect_value:
