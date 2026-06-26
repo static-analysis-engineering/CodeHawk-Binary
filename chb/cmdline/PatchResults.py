@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025  Aarno Labs, LLC
+# Copyright (c) 2023-2026  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -325,6 +325,13 @@ class PatchEvent:
         return self.patchkind == "NewFunction"
 
     @property
+    def get_new_function_address(self) -> Optional[str]:
+        if self.is_new_function:
+            return self.details.payload.vahex
+        else:
+            return None
+
+    @property
     def is_supported(self) -> bool:
         return self.is_trampoline
 
@@ -417,6 +424,18 @@ class PatchResults:
     @property
     def trampoline_payload_addresses(self) -> List[str]:
         return [str(e.payload.vahex) for e in self.events if e.has_payload()]
+
+    @property
+    def new_functions(self) -> List[str]:
+        result: List[str] = []
+        for ev in self.events:
+            if ev.is_new_function:
+                faddr = ev.get_new_function_address
+                if faddr is not None:
+                    result.append(faddr)
+                else:
+                    chklogger.logger.warning("NewFunction event in patch-results without address")
+        return result
 
     @property
     def trampoline_addresses(self) -> List[Dict[str, str]]:

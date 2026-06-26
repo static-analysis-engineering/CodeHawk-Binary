@@ -185,6 +185,11 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
         with open(xpatchresults, "r") as fp:
             patchresultsdata = json.load(fp)
 
+    newfunctions: List[str] = []
+    if patchresultsdata is not None:
+        patchresults = PatchResults(patchresultsdata)
+        newfunctions = patchresults.new_functions
+
     xcomparison = compare_executable_content(
         path1, xfile1, path2, xfile2, is_thumb, patchresultsdata)
 
@@ -281,6 +286,7 @@ def relational_prepare_command(args: argparse.Namespace) -> NoReturn:
     fncount1 = stats1.function_count
     if len(stats1.fns_included) > 0:
         fns_include = stats1.fns_included
+        fns_include.extend(newfunctions)
         include_callees = stats1.include_callees
         if include_callees:
             UC.print_status_update(
