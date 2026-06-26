@@ -1662,6 +1662,7 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
                 fn_arg["role"] = "input"
                 if fmt_arg_count < len(fmt_string_specs.argspecs):
                     fn_arg["type"] = fmt_string_specs.argspecs[fmt_arg_count].arg_type
+                    fn_arg["format-specifier"] = str(fmt_string_specs.argspecs[fmt_arg_count])
                 fmt_arg_count += 1
             else:
                 fn_arg["role"] = "passthrough"
