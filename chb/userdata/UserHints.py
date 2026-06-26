@@ -487,6 +487,10 @@ class RegisterVarIntro:
         return "ptrto" in self.mods
 
     @property
+    def isfreeze(self) -> bool:
+        return "freeze" in self.mods
+
+    @property
     def mods(self) -> List[str]:
         return cast(List[str], self.varintro.get("mods", []))
 
@@ -504,6 +508,8 @@ class RegisterVarIntro:
             xvintro.set("ptrto", "yes")
         if self.has_cast():
             xvintro.set("cast", "yes")
+        if self.isfreeze:
+            xvintro.set("freeze", "yes")
 
     def __str__(self) -> str:
         return (

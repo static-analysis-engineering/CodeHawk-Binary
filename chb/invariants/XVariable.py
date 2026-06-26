@@ -135,6 +135,13 @@ class XVariable(FnXprDictionaryRecord):
             and self.denotation.auxvar.is_typecast_value)
 
     @property
+    def is_frozen_value(self) -> bool:
+        return (
+            self.has_denotation()
+            and self.denotation.is_auxiliary_variable
+            and self.denotation.auxvar.is_frozen_value)
+
+    @property
     def is_symbolic_expr_value(self) -> bool:
         return (
             self.has_denotation()

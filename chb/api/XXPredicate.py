@@ -142,6 +142,10 @@ class XXPredicate(InterfaceDictionaryRecord):
         return False
 
     @property
+    def is_xp_restricted_output_formatstring(self) -> bool:
+        return False
+
+    @property
     def is_xp_positive(self) -> bool:
         return False
 
@@ -777,6 +781,42 @@ class XXPOutFormatString(XXPredicate):
         return "output-formatstring(" + str(self.pointer) + ")"
 
 
+@apiregistry.register_tag("rofs", XXPredicate)
+class XXPRestrictedOutFormatString(XXPredicate):
+    """Term points to a restricted format string for output (printf)
+
+    A restricted output format string is a format string with a specific sequence of
+    format specifiers.
+
+    args[0]: index of pointer in interfacedictionary
+    """
+
+    def __init__(
+            self, ixd: "InterfaceDictionary", ixval: IndexedTableValue) -> None:
+        XXPredicate.__init__(self, ixd, ixval)
+
+    @property
+    def is_xp_restricted_output_formatstring(self) -> bool:
+        return True
+
+    @property
+    def pointer(self) -> "BTerm":
+        return self.id.bterm(self.args[0])
+
+    @property
+    def specifiers(self) -> List[str]:
+        return [self.bd.string(i) for i in self.args[1:]]
+
+    def __str__(self) -> str:
+        return (
+            "restricted-output-formatstring("
+            + str(self.pointer)
+            + ", "
+            + ", ".join(self.specifiers)
+            + ")"
+        )
+
+
 @apiregistry.register_tag("pos", XXPredicate)
 class XXPPositive(XXPredicate):
     """Term is positive.
@@ -1008,7 +1048,7 @@ class XXPTrustedOsCmdFmtArgString(XXPredicate):
 
     def __str__(self) -> str:
         return (
-            "trusted-os-cmd-fmt-string("
+            "trusted-os-cmd-fmt-arg-string("
             + str(self.fmt)
             + ", "
             + self.quotes
