@@ -1267,6 +1267,30 @@ def parse() -> argparse.Namespace:
     # -- report proof obligations
     report_proofobligations = reportparsers.add_parser("proofobligations")
     report_proofobligations.add_argument("xname", help="name of executable")
+    report_proofobligations.add_argument(
+        "--functions",
+        action="store_true",
+        default=False,
+        help="add per-function breakdown sorted by open count")
+    report_proofobligations.add_argument(
+        "--open",
+        action="store_true",
+        default=False,
+        help="show open proof obligations per function with predicate detail")
+    report_proofobligations.add_argument(
+        "--details",
+        action="store_true",
+        default=False,
+        help="include status message for each open proof obligation (implies --open)")
+    report_proofobligations.add_argument(
+        "--json",
+        action="store_true",
+        default=False,
+        help="output all proof obligations as a flat JSON record to stdout")
+    report_proofobligations.add_argument(
+        "-o", "--output",
+        metavar="FILE",
+        help="save JSON output to FILE (implies --json)")
     report_proofobligations.set_defaults(func=REP.report_proofobligations)
 
     # --- report unresolved
@@ -1708,6 +1732,9 @@ def parse() -> argparse.Namespace:
         "xname1", help="name of first (original) executable (assumed analyzed)")
     relationalcomparepos.add_argument(
         "xname2", help="name of second (patched) executable (assumed analyzed)")
+    relationalcomparepos.add_argument(
+        "--patch_results_file",
+        help="name of patch results (required if there are new functions")
     relationalcomparepos.add_argument(
         "--loglevel", "-log",
         choices=UL.LogLevel.options(),
