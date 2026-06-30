@@ -975,6 +975,7 @@ def relational_compare_proofobligations(args: argparse.Namespace) -> NoReturn:
     # arguments
     xname1: str = args.xname1
     xname2: str = args.xname2
+    xpatchresults: Optional[str] = args.patch_results_file
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
     logfilemode: str = args.logfilemode
@@ -1003,6 +1004,16 @@ def relational_compare_proofobligations(args: argparse.Namespace) -> NoReturn:
     xinfo2.load(path2, xfile2)
     app1 = UC.get_app(path1, xfile1, xinfo1)
     app2 = UC.get_app(path2, xfile2, xinfo2)
+
+    patchresultsdata: Optional[Dict[str, Any]] = None
+    if xpatchresults is not None:
+        with open(xpatchresults, "r") as fp:
+            patchresultsdata = json.load(fp)
+
+    newfunctions: List[str] = []
+    if patchresultsdata is not None:
+        patchresults = PatchResults(patchresultsdata)
+        newfunctions = patchresults.new_functions
 
     relanalysis = RelationalAnalysis(app1, app2)
 
@@ -1067,11 +1078,29 @@ def relational_compare_proofobligations(args: argparse.Namespace) -> NoReturn:
             for po in diffs[0]:
                 print("      " + str(po.xpo).ljust(64) + str(po.status).rjust(10))
             print("  patched")
+            print("    " + str(f2fn.instructions[iaddr].annotation))
             for po in diffs[1]:
-                print("    " + str(f2fn.instructions[iaddr].annotation))
                 print("      " + str(po.xpo).ljust(64) + str(po.status).rjust(10))
         print("\nProof obligations unchanged: " + str(unchanged))
         print("~" * 80)
+
+    if len(newfunctions) > 0:
+        print("\n\nNew functions introduced:")
+        for faddr in newfunctions:
+            print("-" * 80)
+            print("Function " + faddr)
+            fn = app2.function(faddr)
+            fpos = fn.proofobligations.proofobligations
+            if len(fpos) == 0:
+                print("   no proof obligations")
+                print("-" * 80)
+                continue
+            for (iaddr, ipos) in fpos.items():
+                print("  " + iaddr)
+                print("    " + str(fn.instructions[iaddr].annotation))
+                for po in ipos:
+                    print("      " + str(po.xpo).ljust(64) + str(po.status).rjust(10))
+                print("-" * 80)
 
     print("\nTotal number of proof obligations changed: " + str(count))
     exit(0)
