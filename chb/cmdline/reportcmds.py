@@ -49,6 +49,7 @@ from chb.api.AppFunctionSignature import AppFunctionSignature
 from chb.app.Callgraph import Callgraph
 from chb.app.Instruction import Instruction
 
+from chb.app.FnProofObligations import po_status_strings, xpo_tag_names
 from chb.app.XPOPredicate import XPOTrustedOsCmdFmtString, XPOTrustedOsCmdString
 
 from chb.arm.ARMInstruction import ARMInstruction
@@ -729,7 +730,11 @@ def report_proofobligations(args: argparse.Namespace) -> NoReturn:
 
     # arguments
     xname: str = args.xname
-
+    xfunctions: bool = args.functions
+    xopen: bool = args.open
+    xdetails: bool = args.details
+    xoutput: Optional[str] = args.output
+    xjson: bool = args.json or (xoutput is not None)
     try:
         (path, xfile) = UC.get_path_filename(xname)
         UF.check_analysis_results(path, xfile)
@@ -739,32 +744,245 @@ def report_proofobligations(args: argparse.Namespace) -> NoReturn:
 
     xinfo = XI.XInfo()
     xinfo.load(path, xfile)
-
     app = UC.get_app(path, xfile, xinfo)
 
-    proofobligations: Dict[str, Dict[str, int]] = {} #  type -> status -> count
+    status_order = ["dis", "local", "del", "glob", "req", "v", "o"]
+    # two-line column headers: status_line1 is the upper row, status_line2 the lower
+    status_line1 = {
+        "dis": "safe",
+        "del": "delegated",
+        "glob": "global",
+        "req": "request",
+        "o": "open",
+        "local": "delegated",
+        "v": "violated",
+    }
+    status_line2 = {
+        "local": "local",
+    }
+
+    # global_counts: xpo_tag -> status_tag -> count
+    global_counts: Dict[str, Dict[str, int]] = {}
+    # fn_counts: faddr -> status_tag -> count
+    fn_counts: Dict[str, Dict[str, int]] = {}
+    # fn_open_pos: faddr -> iaddr -> list of open ProofObligations
+    fn_open_pos: Dict[str, Dict[str, List]] = {}
+    # fn_detail_pos: faddr -> iaddr -> list of safe/delegated ProofObligations
+    fn_detail_pos: Dict[str, Dict[str, List]] = {}
+    # fn_labels: faddr -> display string
+    fn_labels: Dict[str, str] = {}
+
+    detail_statuses = {"dis", "local", "del"}
+
+    # flat list of records for --json export
+    po_records: List[Dict] = []
 
     for fn in app.functions.values():
-        polist = fn.proofobligations.proofobligations.values()
-        for pos in polist:
+        faddr = fn.faddr
+        fn_counts[faddr] = {}
+        fn_open_pos[faddr] = {}
+        fn_detail_pos[faddr] = {}
+        fn_labels[faddr] = (
+            faddr + "  (" + fn.name + ")" if fn.has_name() else faddr)
+        fn_instrs = fn.instructions if xjson else {}
+        for pos in fn.proofobligations.proofobligations.values():
             for po in pos:
-                proofobligations.setdefault(po.xpo.tags[0], {})
-                proofobligations[po.xpo.tags[0]].setdefault(po.status.tag, 0)
-                proofobligations[po.xpo.tags[0]][po.status.tag] += 1
+                tag = po.xpo.tags[0]
+                status = po.status.tag
+                global_counts.setdefault(tag, {})
+                global_counts[tag].setdefault(status, 0)
+                global_counts[tag][status] += 1
+                fn_counts[faddr].setdefault(status, 0)
+                fn_counts[faddr][status] += 1
+                if po.is_open:
+                    fn_open_pos[faddr].setdefault(po.iaddr, [])
+                    fn_open_pos[faddr][po.iaddr].append(po)
+                if xdetails and status in detail_statuses:
+                    fn_detail_pos[faddr].setdefault(po.iaddr, [])
+                    fn_detail_pos[faddr][po.iaddr].append(po)
+                if xjson:
+                    instr = fn_instrs.get(po.iaddr)
+                    status_name = po_status_strings.get(status, status)
+                    if po.msg != "none":
+                        msg: Optional[str] = po.msg
+                    elif po.status.is_delegated_local:
+                        msg = "delegated to " + po.status.get_iaddr()
+                    else:
+                        msg = None
+                    po_records.append({
+                        "faddr": faddr,
+                        "fname": fn.name if fn.has_name() else None,
+                        "iaddr": po.iaddr,
+                        "instruction": instr.annotation if instr else None,
+                        "predicate": str(po.xpo),
+                        "predicate_type": xpo_tag_names.get(tag, tag),
+                        "status": status_name,
+                        "msg": msg,
+                    })
 
-    print("Proof obligation counts")
-    print("type".ljust(8) + "discharged".rjust(10) + "delegated".rjust(10) +
-          "global".rjust(10) + "request".rjust(10) + "open".rjust(10))
-    print("-" * 58)
-    for (xpotag, xpodata) in sorted(proofobligations.items()):
-        line: List[str] = []
-        line.append(xpotag.ljust(8))
-        for x in ["dis", "del", "glob", "req", "o"]:
-            if x in xpodata:
-                line.append(str(xpodata[x]).rjust(10))
-            else:
-                line.append(" ".rjust(10))
-        print("".join(line))
+    active_statuses = [
+        s for s in status_order
+        if any(s in v for v in global_counts.values())]
+
+    total_fns = len(fn_counts)
+    total_pos = sum(cnt for sd in global_counts.values() for cnt in sd.values())
+
+    # --- JSON export ---
+    if xjson:
+        result = json.dumps({
+            "binary": xname,
+            "functions": total_fns,
+            "total": total_pos,
+            "proof_obligations": po_records,
+        }, indent=2)
+        if xoutput is not None:
+            with open(xoutput, "w") as f:
+                f.write(result)
+        else:
+            print(result)
+        exit(0)
+
+    col_w = 12
+    tag_col_w = max(
+        (len(xpo_tag_names.get(t, t)) for t in global_counts),
+        default=20) + 2
+
+    # --- global summary ---
+    print(f"\nProof obligations: {xname}  ({total_fns} functions, {total_pos} total)")
+
+    def build_header(label: str, label_w: int) -> Tuple[str, str]:
+        """Return (line1, line2) for a two-line column header block."""
+        h1 = label.ljust(label_w)
+        h2 = " " * label_w
+        for s in active_statuses:
+            h1 += status_line1[s].rjust(col_w)
+            h2 += status_line2.get(s, "").rjust(col_w)
+        h1 += "total".rjust(col_w)
+        h2 += " " * col_w
+        return h1, h2
+
+    header, header2 = build_header("Type", tag_col_w)
+    sep = "-" * len(header)
+
+    print("\n" + header)
+    if "local" in active_statuses:
+        print(header2)
+    print(sep)
+
+    totals: Dict[str, int] = {s: 0 for s in active_statuses}
+    for xpotag in sorted(global_counts, key=lambda t: xpo_tag_names.get(t, t)):
+        sdata = global_counts[xpotag]
+        fullname = xpo_tag_names.get(xpotag, xpotag)
+        line = fullname.ljust(tag_col_w)
+        row_total = 0
+        for s in active_statuses:
+            cnt = sdata.get(s, 0)
+            row_total += cnt
+            totals[s] += cnt
+            line += (str(cnt) if cnt > 0 else "").rjust(col_w)
+        line += str(row_total).rjust(col_w)
+        print(line)
+
+    print(sep)
+    total_line = "Total".ljust(tag_col_w)
+    grand_total = 0
+    for s in active_statuses:
+        grand_total += totals[s]
+        total_line += str(totals[s]).rjust(col_w)
+    total_line += str(grand_total).rjust(col_w)
+    print(total_line)
+
+    # --- per-function breakdown ---
+    if xfunctions:
+        fn_label_w = max(
+            (len(lbl) for lbl in fn_labels.values()), default=20) + 2
+
+        fn_header, fn_header2 = build_header("Function", fn_label_w)
+        fn_sep = "-" * len(fn_header)
+
+        print("\n\nPer-function breakdown  (sorted by open count, descending):\n")
+        print(fn_header)
+        if "local" in active_statuses:
+            print(fn_header2)
+        print(fn_sep)
+
+        for faddr in sorted(
+                fn_counts,
+                key=lambda a: (-fn_counts[a].get("o", 0), a)):
+            sdata = fn_counts[faddr]
+            row_total = sum(sdata.values())
+            if row_total == 0:
+                continue
+            line = fn_labels[faddr].ljust(fn_label_w)
+            for s in active_statuses:
+                cnt = sdata.get(s, 0)
+                line += (str(cnt) if cnt > 0 else "").rjust(col_w)
+            line += str(row_total).rjust(col_w)
+            print(line)
+
+    # --- open proof obligation detail ---
+    if xopen:
+        fns_with_open = [
+            faddr for faddr in fn_open_pos if fn_open_pos[faddr]]
+        if not fns_with_open:
+            print("\n\nNo open proof obligations.")
+        else:
+            print("\n\nOpen proof obligations:\n")
+            for faddr in sorted(
+                    fns_with_open,
+                    key=lambda a: (-fn_counts[a].get("o", 0), a)):
+                open_pos = fn_open_pos[faddr]
+                fn_instrs = app.functions[faddr].instructions
+                print("  " + fn_labels[faddr] + ":")
+                for iaddr in sorted(open_pos):
+                    instr = fn_instrs.get(iaddr)
+                    instr_text = instr.annotation if instr else "?"
+                    print("    " + iaddr + "  " + instr_text)
+                    for po in open_pos[iaddr]:
+                        line = "      " + str(po.xpo)
+                        if xdetails and po.msg != "none":
+                            line += "  [" + po.msg + "]"
+                        print(line)
+                print()
+
+    # --- safe / delegated proof obligation detail ---
+    if xdetails:
+        fns_with_detail = [
+            faddr for faddr in fn_detail_pos if fn_detail_pos[faddr]]
+        if not fns_with_detail:
+            print("\n\nNo discharged or delegated proof obligations.")
+        else:
+            print("\n\nDischarged and delegated proof obligations:\n")
+            for faddr in sorted(fns_with_detail):
+                detail_pos = fn_detail_pos[faddr]
+                fn_instrs = app.functions[faddr].instructions
+                print("  " + fn_labels[faddr] + ":")
+                for status_tag in ["dis", "local", "del"]:
+                    status_name = po_status_strings.get(status_tag, status_tag)
+                    group = [
+                        (iaddr, po)
+                        for iaddr, pos in sorted(detail_pos.items())
+                        for po in pos
+                        if po.status.tag == status_tag]
+                    if not group:
+                        continue
+                    print("    " + status_name + ":")
+                    current_iaddr = None
+                    for iaddr, po in group:
+                        if iaddr != current_iaddr:
+                            current_iaddr = iaddr
+                            instr = fn_instrs.get(iaddr)
+                            instr_text = instr.annotation if instr else "?"
+                            print("      " + iaddr + "  " + instr_text)
+                        if po.msg != "none":
+                            msg = po.msg
+                        elif po.status.is_delegated_local:
+                            msg = "delegated to " + po.status.get_iaddr()
+                        else:
+                            msg = ""
+                        suffix = "  [" + msg + "]" if msg else ""
+                        print("        " + str(po.xpo) + suffix)
+                print()
 
     exit(0)
 
