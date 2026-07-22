@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs, LLC
+# Copyright (c) 2021-2026  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -36,6 +36,9 @@ This module contains the classes for simple user hints that usually involve only
 a few data items.
 
 Currently provided:
+- Aggregates
+      sequences of instructions that represent compiler idioms
+
 - ArgumentConstraints:
       function arguments and global variables
 
@@ -65,6 +68,9 @@ Currently provided:
 
 - InlinedFunctions
       addresses of functions to be inlined
+
+- InstructionAnnotations
+      external information on individual instructions (e.g., wide-op)
 
 - NonReturningCalls
       list of function/instr addresses with calls that do not return
@@ -136,6 +142,51 @@ class HintsEntry(ABC):
 
     def __str__(self) -> str:
         return self.name
+
+
+class AggregatesHints(HintsEntry):
+    """List of records specifying an instruction sequence aggregate."""
+
+    def __init__(self, aggregates: List[Dict[str, str]]) -> None:
+        """Format: {anchor:<.>, name:<.>}."""
+
+        HintsEntry.__init__(self, "aggregates")
+        self._aggregates = aggregates
+        self._anchors = [x["anchor"] for x in aggregates]
+
+    @property
+    def aggregates(self) -> List[Dict[str, str]]:
+        return self._aggregates
+
+    def has_anchor(self, addr: str) -> bool:
+        return addr in self._anchors
+
+    def update(self, d: List[Dict[str, str]]) -> None:
+        for agg in d:
+            addr = agg.get("anchor", "?")
+            if not self.has_anchor(addr):
+                self._aggregates.append(agg)
+                self._anchors.append(addr)
+
+    def to_xml(self, node: ET.Element) -> None:
+        xaggregates = ET.Element(self.name)
+        node.append(xaggregates)
+        for agg in sorted(self.aggregates, key=lambda r: r["anchor"]):
+            xagg = ET.Element("agg")
+            xagg.set("anchor", agg["anchor"])
+            xagg.set("name", agg.get("name", "?"))
+            xaggregates.append(xagg)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Aggregates")
+        lines.append("----------")
+        for agg in self.aggregates:
+            lines.append(
+                "  ["
+                + agg.get("anchor", "?") + ": " + agg.get("name", "?")
+                + "]")
+        return "\n".join(lines)
 
 
 class ARMArgumentConstraints(HintsEntry):
@@ -1093,6 +1144,46 @@ class TrampolinesHints(HintsEntry):
         return "\n".join(lines)
 
 
+class InstructionAnnotationsHints(HintsEntry):
+    """External information on individual instructions
+
+    Format:
+       {iaddr:<.>, kind:<.>}
+    """
+
+    def __init__(self, instranns: List[Dict[str, str]]) -> None:
+        HintsEntry.__init__(self, "instruction-annotations")
+        self._instranns = instranns
+        self._iaddrs = [x["iaddr"] for x in instranns]
+
+    @property
+    def instranns(self) -> List[Dict[str, str]]:
+        return self._instranns
+
+    def update(self, d: List[Dict[str, str]]) -> None:
+        for iann in d:
+            if not iann["iaddr"] in self._iaddrs:
+                self._instranns.append(iann)
+                self._iaddrs.append(iann["iaddr"])
+
+    def to_xml(self, node: ET.Element) -> None:
+        xinstrannotations = ET.Element(self.name)
+        node.append(xinstrannotations)
+        for iann in sorted(self.instranns, key=lambda r: r["iaddr"]):
+            xiann = ET.Element("iann")
+            xiann.set("iaddr", iann["iaddr"])
+            xiann.set("kind", iann.get("kind", "?"))
+            xinstrannotations.append(xiann)
+
+    def __str__(self) -> str:
+        lines: List[str] = []
+        lines.append("Instruction annotations")
+        lines.append("-----------------------")
+        for iann in self.instranns:
+            lines.append("  [" + iann["iaddr"] + ": " + iann.get("kind", "?") + "]")
+        return "\n".join(lines)
+
+
 class NonReturningCallsHints(HintsEntry):
     """Call sites where the call does not return.
 
@@ -1618,6 +1709,14 @@ class UserHints:
 
         self._hints.update(hints)
 
+        if "aggregates" in hints:
+            tag = "aggregates"
+            aggregates: List[Dict[str, str]] = hints[tag]
+            if tag in self.userdata:
+                self.userdata[tag].update(aggregates)
+            else:
+                self.userdata[tag] = AggregatesHints(aggregates)
+
         if "arg-constraints" in hints:
             tag = "arg-constraints"
             argconstraints: Dict[str, Dict[str, Dict[str, int]]] = hints[tag]
@@ -1726,6 +1825,14 @@ class UserHints:
                 self.userdata[tag].update(entries)
             else:
                 self.userdata[tag] = TrampolinesHints(entries)
+
+        if "instruction-annotations" in hints:
+            tag = "instruction-annotations"
+            instranns: List[Dict[str, str]] = hints[tag]
+            if tag in self.userdata:
+                self.userdata[tag].update(instranns)
+            else:
+                self.userdata[tag] = InstructionAnnotationsHints(instranns)
 
         if "non-returning-calls" in hints:
             tag = "non-returning-calls"
