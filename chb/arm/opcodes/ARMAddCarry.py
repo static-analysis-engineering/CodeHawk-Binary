@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -81,10 +81,47 @@ class ARMAddCarryXData(ARMOpcodeXData):
 
     rdefs[0]: xrn
     rdefs[1:]: reaching definitions for xxrn
+
+    Aggregate: ARMWideAdd
+
+    - variables
+    0: vrdlo
+    1: vrdhi
+
+    - expressions
+    0: xrnlo
+    1: xrnhi
+    2: xrmlo
+    3: xrmhi
+    4: rresult
+    5: rresultlo
+    6: rresulthi
+    7: xxrnlo
+    8: xxrnhi
+    9: xxrmlo
+    10: xxrmhi
+    11: xxrn_w
+    12: xxrm_w
+
+    - c exressions
+    0: cresult_w
+    1: cresultlo
+    2: cresulthi
+
+    rdefs:
+    0: xrnlo
+    1: xrnhi
+    2: xrmlo
+    3: xrmhi
+
     """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def is_wide_add(self) -> bool:
+        return self.xdata.is_wide_add
 
     @property
     def vrd(self) -> "XVariable":
@@ -154,9 +191,94 @@ class ARMAddCarryXData(ARMOpcodeXData):
     def rm_rdef(self) -> Optional["ReachingDefFact"]:
         return self._xdata.reachingdefs[1]
 
+    # Wide add aggregate
+
+    @property
+    def vrdlo(self) -> "XVariable":
+        return self.var(0, "vrdlo")
+
+    @property
+    def vrdhi(self) -> "XVariable":
+        return self.var(1, "vrdhi")
+
+    @property
+    def xrnlo(self) -> "XXpr":
+        return self.xpr(0, "xrnlo")
+
+    @property
+    def xrnhi(self) -> "XXpr":
+        return self.xpr(1, "xrnhi")
+
+    @property
+    def xrmlo(self) -> "XXpr":
+        return self.xpr(2, "xrmlo")
+
+    @property
+    def xrmhi(self) -> "XXpr":
+        return self.xpr(3, "xrmhi")
+
+    @property
+    def rresult_w(self) -> "XXpr":
+        return self.xpr(4, "rresult")
+
+    @property
+    def rresultlo(self) -> "XXpr":
+        return self.xpr(5, "rresultlo")
+
+    @property
+    def rresulthi(self) -> "XXpr":
+        return self.xpr(6, "rresulthi")
+
+    @property
+    def xxrnlo(self) -> "XXpr":
+        return self.xpr(7, "xxrnlo")
+
+    @property
+    def xxrnhi(self) -> "XXpr":
+        return self.xpr(8, "xxrnhi")
+
+    @property
+    def xxrmlo(self) -> "XXpr":
+        return self.xpr(9, "xxrmlo")
+
+    @property
+    def xxrmhi(self) -> "XXpr":
+        return self.xpr(10, "xxrmhi")
+
+    @property
+    def xxrn_w(self) -> "XXpr":
+        return self.xpr(11, "xxrn_w")
+
+    @property
+    def xxrm_w(self) -> "XXpr":
+        return self.xpr(12, "xxrm_w")
+
+    @property
+    def cresult_w(self) -> "XXpr":
+        return self.cxpr(0, "cresult")
+
+    @property
+    def is_cresult_w_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
+    def cresultlo(self) -> "XXpr":
+        return self.cxpr(1, "cresultlo")
+
+    @property
+    def cresulthi(self) -> "XXpr":
+        return self.cxpr(2, "cresulthi")
+
     @property
     def annotation(self) -> str:
-        assignment = str(self.vrd) + " := " + self.result_simplified
+        if self.is_wide_add:
+            lhs = "(" + str(self.vrdhi) + ", " + str(self.vrdlo) + ")"
+            rhs1 = "(" + str(self.xxrnhi) + ", " + str(self.xxrnlo) + ")"
+            rhs2 = "(" + str(self.xxrmhi) + ", " + str(self.xxrmlo) + ")"
+            cx = " (C: " + (str(self.cresult_w) if self.is_cresult_w_ok else "None") + ")"
+            assignment = lhs + " := " + rhs1 + " + " + rhs2 + cx
+        else:
+            assignment = str(self.vrd) + " := " + self.result_simplified
         return self.add_instruction_condition(assignment)
 
 

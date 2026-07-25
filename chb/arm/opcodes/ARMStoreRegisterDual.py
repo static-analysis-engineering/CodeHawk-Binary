@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -59,6 +59,10 @@ class ARMStoreRegisterDualXData(ARMOpcodeXData):
         ARMOpcodeXData.__init__(self, xdata)
 
     @property
+    def is_wide_op_instruction(self) -> bool:
+        return self.xdata.is_wide_op_instruction
+
+    @property
     def vmem1(self) -> "XVariable":
         return self.var(0, "vmem1")
 
@@ -111,10 +115,15 @@ class ARMStoreRegisterDualXData(ARMOpcodeXData):
         return self.xpr(8, "xaddr_updated")
 
     @property
+    def cxcombined(self) -> "XXpr":
+        return self.cxpr(0, "cxcombined")
+
+    @property
     def annotation(self) -> str:
         wbu = self.writeback_update()
         rhs1 = self.xxrt
         rhs2 = self.xxrt2
+        cxpr = (str(self.cxcombined) if self.is_wide_op_instruction else "")
         if self.is_ok or self.is_vmem_known:
             assign1 = str(self.vmem1) + " := " + str(rhs1)
             assign2 = str(self.vmem2) + " := " + str(rhs2)
@@ -125,7 +134,7 @@ class ARMStoreRegisterDualXData(ARMOpcodeXData):
             assigns = assign1 + "; " + assign2
         else:
             assigns = "Error in vmem and xaddr"
-        return self.add_instruction_condition(assigns + wbu)
+        return self.add_instruction_condition(assigns + wbu + " (C: " + cxpr + ")")
 
 
 @armregistry.register_tag("STRD", ARMOpcode)
