@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -88,6 +88,24 @@ class ARMMoveXData(ARMOpcodeXData):
 
     - predicate/ternary:
       0: p
+
+    Aggregate: WideMove:
+
+    - variables:
+      0: vrdlo
+      1: vrdhi
+
+    - expressions
+    0: xrnlo
+    1: xrnhi
+    2: xxrnlo
+    3: xxrnhi
+    4: xxrn
+
+    - c expressions
+    0: cresult
+    1: cresultlo
+    2: cresulthi
     """
 
     def __init__(self, xdata: InstrXData) -> None:
@@ -96,6 +114,14 @@ class ARMMoveXData(ARMOpcodeXData):
     @property
     def vrd(self) -> "XVariable":
         return self.var(0, "vrd")
+
+    @property
+    def vrdlo(self) -> "XVariable":    # agg:widemove
+        return self.var(0, "vrdlo")
+
+    @property
+    def vrdhi(self) -> "XVariable":    # agg:widemove
+        return self.var(1, "vrdhi")
 
     @property
     def is_predicate_assign(self) -> bool:
@@ -114,6 +140,10 @@ class ARMMoveXData(ARMOpcodeXData):
         return self.xdata.is_nondet_ternary_assignment
 
     @property
+    def is_wide_move(self) -> bool:
+        return self.xdata.is_wide_move
+
+    @property
     def xrm(self) -> "XXpr":
         return self.xpr(0, "xrm")
 
@@ -126,12 +156,40 @@ class ARMMoveXData(ARMOpcodeXData):
         return self.is_xpr_ok(1)
 
     @property
+    def xrnlo(self) -> "XXpr":               # agg:widemove
+        return self.xpr(0, "xrnlo")
+
+    @property
+    def xrnhi(self) -> "XXpr":               # agg:widemove
+        return self.xpr(1, "xrnhi")
+
+    @property
+    def xxrnlo(self) -> "XXpr":              # agg:widemove
+        return self.xpr(2, "xxrnlo")
+
+    @property
+    def xxrnhi(self) -> "XXpr":              # agg:widemove
+        return self.xpr(3, "xxrnhi")
+
+    @property
+    def xxrn(self) -> "XXpr":                # agg:widemove
+        return self.xpr(4, "xxrn")
+
+    @property
     def cresult(self) -> "XXpr":
         return self.cxpr(0, "cresult")
 
     @property
     def is_cresult_ok(self) -> bool:
         return self.is_cxpr_ok(0)
+
+    @property
+    def cresultlo(self) -> "XXpr":            # agg:widemove
+        return self.cxpr(1, "cresultlo")
+
+    @property
+    def cresulthi(self) -> "XXpr":            # agg:widemove
+        return self.cxpr(2, "cresulthi")
 
     @property
     def predicate(self) -> "XXpr":
@@ -200,6 +258,13 @@ class ARMMoveXData(ARMOpcodeXData):
         return str(self.vrd) + " := " + rhs + cpred
 
     @property
+    def wide_move_ann(self) -> str:
+        lhs = "(" + str(self.vrdlo) + ", " + str(self.vrdhi) + ")"
+        rhs = "(" + str(self.xxrnlo) + ", " + str(self.xxrnhi) + ") = " + str(self.xxrn)
+        cx = str(self.cresult)
+        return lhs + " = " + rhs + " (C: " + cx + ")"
+
+    @property
     def annotation(self) -> str:
         if self.xdata.instruction_is_subsumed():
             return "subsumed by " + self.xdata.subsumed_by()
@@ -207,6 +272,8 @@ class ARMMoveXData(ARMOpcodeXData):
             return self.ternary_assignment_ann()
         if self.is_predicate_assign or self.is_nondet_predicate_assign:
             return self.predicate_assignment_ann()
+        if self.is_wide_move:
+            return self.wide_move_ann
         if self.xdata.instruction_subsumes():
             return "subsumes " + ", ".join(self.xdata.subsumes())
         cx = " (C: " + (str(self.cresult) if self.is_cresult_ok else "None") + ")"

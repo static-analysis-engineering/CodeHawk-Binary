@@ -251,7 +251,7 @@ class ARMInstruction(Instruction):
             return f"subsumed by {aggaddr}"
         elif self.subsumes:
             ann = self.opcode.annotation(self.xdata)
-            dependents = self.xdata.subsumes()
+            dependents = [str(s) for s in self.xdata.subsumes()]
             return ann + " (subsumes [" + ", ".join(dependents) + "])"
         else:
             return self.opcode.annotation(self.xdata)

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -670,6 +670,26 @@ class InstrXData(IndexedTableValue):
     @property
     def is_nondet_ternary_assignment(self) -> bool:
         return "agg:ternassign:nd" in self.tags
+
+    @property
+    def is_wide_move(self) -> bool:
+        return "agg:widemove" in self.tags
+
+    @property
+    def is_wide_add(self) -> bool:
+        return "agg:wideadd" in self.tags
+
+    @property
+    def is_wide_subtract(self) -> bool:
+        return "agg:widesubtract" in self.tags
+
+    @property
+    def is_wide_reversesubtract(self) -> bool:
+        return "agg:widereversesubtract" in self.tags
+
+    @property
+    def is_wide_op_instruction(self) -> bool:
+        return "wop" in self.tags
 
     @property
     def is_aggregate_jumptable(self) -> bool:
