@@ -108,6 +108,7 @@ from chb.app.Instruction import Instruction
 from chb.x86.X86Access import X86Access
 
 if TYPE_CHECKING:
+    from chb.app.BasicBlock import BasicBlock
     import chb.app.Instruction
     import chb.arm.ARMInstruction
     from chb.bctypes.BCCompInfo import BCCompInfo
@@ -1673,6 +1674,40 @@ def results_branchconditions(args: argparse.Namespace) -> NoReturn:
                 + bci.iaddr.ljust(12)
                 + bci.opcodetext.ljust(32)
                 + bci.annotation)
+
+    exit(0)
+
+
+def results_predicated_instructions(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = str(args.xname)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print_error(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    blocks: Dict[str, List["BasicBlock"]] = {}
+
+    for (faddr, fn) in app.functions.items():
+        for b in fn.blocks.values():
+            if b.has_control_flow():
+                blocks.setdefault(faddr, [])
+                blocks[faddr].append(b)
+    for (faddr, blist) in sorted(blocks.items()):
+        print(faddr)
+        for b in blist:
+            print(str(b))
+            print("")
+        print("\n\n")
 
     exit(0)
 
