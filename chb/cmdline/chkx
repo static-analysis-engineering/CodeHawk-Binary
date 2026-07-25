@@ -1109,6 +1109,11 @@ def parse() -> argparse.Namespace:
         "function", help="hex address of function")
     resultsbranchconditions.set_defaults(func=UCC.results_branchconditions)
 
+    # --results predicated instructions ---
+    resultspredinstrs = resultsparsers.add_parser("predicated_instructions")
+    resultspredinstrs.add_argument("xname", help="name of executable")
+    resultspredinstrs.set_defaults(func=UCC.results_predicated_instructions)
+
     # --- results structures ---
     resultsstructs = resultsparsers.add_parser("structs")
     resultsstructs.add_argument("xname", help="name of executable")
