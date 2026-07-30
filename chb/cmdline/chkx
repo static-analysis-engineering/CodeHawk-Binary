@@ -404,6 +404,10 @@ def parse() -> argparse.Namespace:
         default=[],
         help="arm-thumb switch points (format <hex-addr>:T or <hex-addr>:A)")
     analyzecmd.add_argument(
+        "--float-abi",
+        choices=["hardfloat", "softfloat"],
+        help="switch to indicate the presence of VFP/NEON extension (default=hardfloat)")
+    analyzecmd.add_argument(
         "--iterations",
         type=int,
         default=11,

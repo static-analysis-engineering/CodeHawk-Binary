@@ -405,6 +405,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     save_asm_cfg_info: bool = args.save_asm_cfg_info
     print_datasections: List[str] = args.print_datasections
     thumb: List[str] = args.thumb
+    floatabi: Optional[str] = args.float_abi
     preamble_cutoff: int = args.preamble_cutoff
     iterations: int = args.iterations
     analysisrepeats: int = args.analysisrepeats
@@ -563,6 +564,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
         use_ssa=xssa,
         no_varinvs=xnovarinvs,
         include_arm_extension_registers=xarmextensionregisters,
+        float_abi=floatabi,
         thumb=(len(thumb) > 0))
 
     if dodisassemble:

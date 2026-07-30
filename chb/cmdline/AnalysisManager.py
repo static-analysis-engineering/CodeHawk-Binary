@@ -70,6 +70,7 @@ class AnalysisManager(object):
             arm: bool = False,
             power: bool = False,
             thumb: bool = False,
+            float_abi: Optional[str] = None,
             savedatablocks: bool = False,
             ifilenames: List[str] = [],
             fns_no_lineq: List[str] = [],
@@ -104,6 +105,7 @@ class AnalysisManager(object):
         self.arm = arm
         self.power = power
         self.thumb = thumb
+        self.float_abi = float_abi
         self.exclude_debug = exclude_debug
         self.savedatablocks = savedatablocks
         self.hints = hints
@@ -162,6 +164,8 @@ class AnalysisManager(object):
             cmd.append("-elf")
         if self.exclude_debug:
             cmd.append("-exclude_debug")
+        if self.float_abi:
+            cmd.extend(["-float-abi", self.float_abi])
         if verbose:
             cmd.append("-verbose")
         for d in self.deps:
@@ -253,6 +257,8 @@ class AnalysisManager(object):
             cmd.append("-verbose")
         if self.thumb:
             cmd.append("-thumb")
+        if self.float_abi:
+            cmd.extend(["-float-abi", self.float_abi])
         if self.savedatablocks:
             cmd.append("-set_datablocks")
         for d in self.deps:
@@ -475,6 +481,8 @@ class AnalysisManager(object):
             cmd.append("-thumb")
         if self.power:
             cmd.append("-power")
+        if self.float_abi:
+            cmd.extend(["-float-abi", self.float_abi])
         for d in self.deps:
             cmd.extend(["-summaries", d])
         for s in self.so_libraries:
