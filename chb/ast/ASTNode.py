@@ -211,7 +211,7 @@ class ASTNode:
         return set([])
 
     def __str__(self) -> str:
-        return self.tag
+        return "tag:" + self.tag
 
 
 class ASTStmt(ASTNode):
@@ -2457,7 +2457,7 @@ class ASTTypFloat(ASTTyp):
     def ctype(self, ctyper: "ASTCTyper") -> Optional["ASTTyp"]:
         return ctyper.ctype_float_typ(self)
 
-    def __str_(self) -> str:
+    def __str__(self) -> str:
         return floattypes[self.fkind]
 
     def __eq__(self, other: Any) -> bool:
