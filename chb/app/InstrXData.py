@@ -83,7 +83,9 @@ class InstrXData(IndexedTableValue):
         self._strs: List[str] = []
         self._ints: List[int] = []
         self._reachingdefs: List[Optional[ReachingDefFact]] = []
+        self._reachingdefdoubles: List[Optional[ReachingDefFact]] = []
         self._defuses: List[Optional[DefUse]] = []
+        self._defusedoubles: List[Optional[DefUse]] = []
         self._defuseshigh: List[Optional[DefUseHigh]] = []
         self._flagreachingdefs: List[Optional[FlagReachingDefFact]] = []
 
@@ -223,6 +225,12 @@ class InstrXData(IndexedTableValue):
         return self._reachingdefs
 
     @property
+    def reachingdefdoubles(self) -> List[Optional[ReachingDefFact]]:
+        if not self.expanded:
+            self._expand()
+        return self._reachingdefdoubles
+
+    @property
     def flag_reachingdefs(self) -> List[Optional[FlagReachingDefFact]]:
         if not self.expanded:
             self._expand()
@@ -233,6 +241,12 @@ class InstrXData(IndexedTableValue):
         if not self.expanded:
             self._expand()
         return self._defuses
+
+    @property
+    def defusedoubles(self) -> List[Optional[DefUse]]:
+        if not self.expanded:
+            self._expand()
+        return self._defusedoubles
 
     @property
     def defuseshigh(self) -> List[Optional[DefUseHigh]]:
@@ -397,11 +411,21 @@ class InstrXData(IndexedTableValue):
                 rdef = varinvd.var_invariant_fact(arg) if arg >= 0 else None
                 rdef = cast(Optional[ReachingDefFact], rdef)
                 self._reachingdefs.append(rdef)
+            elif c == "m":
+                varinvd = self.varinvdictionary
+                rdefdouble = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                rdefdouble = cast(Optional[ReachingDefFact], rdefdouble)
+                self._reachingdefdoubles.append(rdefdouble)
             elif c == "d":
                 varinvd = self.varinvdictionary
                 use = varinvd.var_invariant_fact(arg) if arg >= 0 else None
                 use = cast(Optional[DefUse], use)
                 self._defuses.append(use)
+            elif c == "n":
+                varinvd = self.varinvdictionary
+                usedouble = varinvd.var_invariant_fact(arg) if arg >= 0 else None
+                usedouble = cast(Optional[DefUse], usedouble)
+                self._defusedoubles.append(usedouble)
             elif c == "h":
                 varinvd = self.varinvdictionary
                 usehigh = varinvd.var_invariant_fact(arg) if arg > 0 else None
@@ -676,6 +700,10 @@ class InstrXData(IndexedTableValue):
         return "agg:widemove" in self.tags
 
     @property
+    def is_wide_move_not(self) -> bool:
+        return "agg:widemovenot" in self.tags
+
+    @property
     def is_wide_add(self) -> bool:
         return "agg:wideadd" in self.tags
 
@@ -686,6 +714,18 @@ class InstrXData(IndexedTableValue):
     @property
     def is_wide_reversesubtract(self) -> bool:
         return "agg:widereversesubtract" in self.tags
+
+    @property
+    def is_wide_and(self) -> bool:
+        return "agg:wideand" in self.tags
+
+    @property
+    def is_wide_or(self) -> bool:
+        return "agg:wideor" in self.tags
+
+    @property
+    def is_wide_xor(self) -> bool:
+        return "agg:widexor" in self.tags
 
     @property
     def is_wide_op_instruction(self) -> bool:
