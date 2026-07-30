@@ -1150,6 +1150,9 @@ def xunary_to_ast_def_expr(
             else:
                 return astree.mk_address_of(astvar)
 
+    if operator == "xf_signextend64":
+        return xxpr_to_ast_def_expr(xpr, xdata, iaddr, astree, anonymous=anonymous)
+
     if not anonymous:
         chklogger.logger.error(
             "AST def conversion of unary expression %s at address %s not yet "
