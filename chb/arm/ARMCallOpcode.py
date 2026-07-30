@@ -135,14 +135,21 @@ class ARMCallOpcodeXData(ARMOpcodeXData):
     @property
     def argumentxvars(self) -> List["XXpr"]:
         argcount = self.argument_count
+        xprcount = len(self._xdata.xprs_r)
         argvars: List["XXpr"] = []
         for i in range(argcount):
-            x = self._xdata.xprs_r[i + argcount]
-            if x is None:
+            if i + argcount < xprcount:
+                x = self._xdata.xprs_r[i + argcount]
+                if x is None:
+                    raise UF.CHBError(
+                        "Unexpected None-value call argument at index "
+                        + str(i))
+                argvars.append(x)
+            else:
                 raise UF.CHBError(
-                    "Unexpected None-value call argument at index "
-                    + str(i))
-            argvars.append(x)
+                    "argumentxvars: out of range in " + str(self.calltarget)
+                    + "; argcount: " + str(argcount)
+                    + "; xprcount: " + str(xprcount))
         return argvars
 
     def argument(self, index: int) -> Tuple[Optional["XXpr"], Optional[str]]:

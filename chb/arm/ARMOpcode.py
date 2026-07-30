@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -98,6 +98,59 @@ extensions = {
     }
 
 
+unary_wopvar_indices = {
+    "vrdlohi": 0,
+    "vrdlo": 1,
+    "vrdhi": 2
+}
+
+unary_wopxpr_indices = {
+    "xrnlo": 0,
+    "xrnhi": 1,
+    "rresultw": 2,
+    "rresultlo": 3,
+    "rresulthi": 4,
+    "xxrnlo": 5,
+    "xxrnhi": 6,
+    "xxrnw": 7
+}
+
+unary_wopcxpr_indices = {
+    "cresultw": 0,
+    "cresultlo": 1,
+    "cresulthi": 2
+}
+
+
+binary_wopvar_indices = {
+    "vrdlohi": 0,
+    "vrdlo": 1,
+    "vrdhi": 2
+}
+
+binary_wopxpr_indices = {
+    "xrnlo": 0,
+    "xrnhi": 1,
+    "xrmlo": 2,
+    "xrmhi": 3,
+    "rresultw": 4,
+    "rresultlo": 5,
+    "rresulthi": 6,
+    "xxrnlo": 7,
+    "xxrnhi": 8,
+    "xxrmlo": 9,
+    "xxrmhi": 10,
+    "xxrnw": 11,
+    "xxrmw": 12
+}
+
+binary_wopcxpr_indices = {
+    "cresultw": 0,
+    "cresultlo": 1,
+    "cresulthi": 2
+}
+
+
 def get_extension(e: str) -> str:
     if e in extensions:
         return extensions[e]
@@ -128,6 +181,20 @@ class ARMOpcodeXData:
             raise UF.CHBError(
                 self.__class__.__name__ + ":" + name + " has an error value")
         return v
+
+    def unary_wopvar(self, name: str) -> "XVariable":
+        if name in unary_wopvar_indices:
+            return self.var(unary_wopvar_indices[name], name)
+        else:
+            raise UF.CHBError(
+                self.__class__.__name__ + ":" + name + " not recognized")
+
+    def binary_wopvar(self, name: str) -> "XVariable":
+        if name in binary_wopvar_indices:
+            return self.var(binary_wopvar_indices[name], name)
+        else:
+            raise UF.CHBError(
+                self.__class__.__name__ + ":" + name + " not recognized")
 
     def has_var(self, index: int) -> bool:
         return self.xdata.has_var_r(index)
@@ -163,11 +230,37 @@ class ARMOpcodeXData:
                 self.__class__.__name__ + ":" + name + " has an error value")
         return x
 
+    def unary_wopxpr(self, name: str) -> "XXpr":
+        if name in unary_wopxpr_indices:
+            return self.xpr(unary_wopxpr_indices[name], name)
+        else:
+            raise UF.CHBError(
+                self.__class__.__name__ + ":" + name + " not recognized")
+
+    def binary_wopxpr(self, name: str) -> "XXpr":
+        if name in binary_wopxpr_indices:
+            return self.xpr(binary_wopxpr_indices[name], name)
+        else:
+            raise UF.CHBError(
+                self.__class__.__name__ + ":" + name + " not recognized")
+
     def has_xpr(self, index: int) -> bool:
         return self.xdata.has_xpr_r(index)
 
     def is_xpr_ok(self, index: int) -> bool:
         return self.xdata.is_xpr_ok(index)
+
+    def is_unary_wopxpr_ok(self, name: str) -> bool:
+        if name in unary_wopxpr_indices:
+            return self.is_xpr_ok(unary_wopxpr_indices[name])
+        else:
+            return False
+
+    def is_binary_wopxpr_ok(self, name: str) -> bool:
+        if name in binary_wopxpr_indices:
+            return self.is_xpr_ok(binary_wopxpr_indices[name])
+        else:
+            return False
 
     def cxpr(self, index: int, name: str) -> "XXpr":
         if index >= len(self.xdata.cxprs_r):
@@ -180,11 +273,37 @@ class ARMOpcodeXData:
                 self.__class__.__name__ + ":" + name + " has an error value")
         return cx
 
+    def unary_wopcxpr(self, name: str) -> "XXpr":
+        if name in unary_wopcxpr_indices:
+            return self.cxpr(unary_wopcxpr_indices[name], name)
+        else:
+            raise UF.CHBError(
+                self.__class__.__name__ + ":" + name + " not recognize")
+
+    def binary_wopcxpr(self, name: str) -> "XXpr":
+        if name in binary_wopcxpr_indices:
+            return self.cxpr(binary_wopcxpr_indices[name], name)
+        else:
+            raise UF.CHBError(
+                self.__class__.__name__ + ":" + name + " not recognized")
+
     def has_cxpr(self, index: int) -> bool:
         return self.xdata.has_cxpr_r(index)
 
     def is_cxpr_ok(self, index: int) -> bool:
         return self.xdata.is_cxpr_ok(index)
+
+    def is_unary_wopcxpr_ok(self, name: str) -> bool:
+        if name in unary_wopcxpr_indices:
+            return self.is_cxpr_ok(unary_wopcxpr_indices[name])
+        else:
+            return False
+
+    def is_binary_wopcxpr_ok(self, name: str) -> bool:
+        if name in binary_wopcxpr_indices:
+            return self.is_cxpr_ok(binary_wopcxpr_indices[name])
+        else:
+            return False
 
     def has_instruction_condition(self) -> bool:
         return self.xdata.has_instruction_condition()
