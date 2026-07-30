@@ -37,7 +37,10 @@ arm32_register_sizes["LR"] = 32   # link register
 arm32_register_sizes["PC"] = 32   # program counter
 
 # ARM32 double registers
+arm32_register_sizes["R0_R1"] = 64
 arm32_register_sizes["R2_R3"] = 64
+arm32_register_sizes["R4_R5"] = 64
+arm32_register_sizes["R6_R7"] = 64
 
 # ARM32 floating point / adv simd registers
 arm_fp_sp_register_sizes: Dict[str, int] = {
