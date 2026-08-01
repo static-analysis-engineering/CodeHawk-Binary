@@ -164,6 +164,7 @@ class ASTInterfaceFunction(ASTFunction):
         # transfer provenance data to the AST abstract syntaxtree
         self.astinterface.set_ast_provenance()
         self.set_flag_liveness()
+        self.set_register_liveness(support)
         self.set_invariants()
         self.set_return_sequences()
 
@@ -261,6 +262,19 @@ class ASTInterfaceFunction(ASTFunction):
         except Exception as e:
             chklogger.logger.warning(
                 "flag-liveness computation failed for %s: %s",
+                self.function.faddr, str(e))
+
+    def set_register_liveness(self, support: CustomASTSupport) -> None:
+        # Derive address-keyed GP-register liveness from the reaching-def facts
+        # and attach it to the provenance. This is auxiliary, so a failure here
+        # must not abort AST generation.
+        try:
+            liveness = ASTILiveness(self.function).register_liveness(
+                set(support.register_sizes.keys()))
+            self.astinterface.astree.provenance.set_register_liveness(liveness)
+        except Exception as e:
+            chklogger.logger.warning(
+                "register-liveness computation failed for %s: %s",
                 self.function.faddr, str(e))
 
     def set_invariants(self) -> None:
