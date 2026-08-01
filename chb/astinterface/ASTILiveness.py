@@ -26,15 +26,16 @@
 # ------------------------------------------------------------------------------
 """Address-keyed liveness derived from per-instruction reaching-def facts.
 
-The flag-reaching-definition facts that CodeHawk attaches to each instruction
-record, at each USE site, the addresses that DEFINE the flag value used there.
-From those facts this class builds per-address use/kill sets and runs a standard
-backward live-variable fixpoint over the function CFG, producing live-in/live-out
-sets keyed by instruction address.
+The reaching-definition facts that CodeHawk attaches to each instruction record,
+at each USE site, the addresses that DEFINE the value used there (for GP
+registers via the reaching-def facts, for NZCV flags via the flag-reaching-def
+facts). From those facts this class builds per-address use/kill sets and runs a
+standard backward live-variable fixpoint over the function CFG, producing
+live-in/live-out sets keyed by instruction address.
 
 This is intentionally sound-by-over-approximation: every use recorded in the
 facts is honored (never dropped), while a def that reaches no use may be absent
-from the kill set, which can only make a flag appear live longer -- never
+from the kill set, which can only make a variable appear live longer -- never
 shorter. Consumers that use liveness to gate a transformation therefore never
 get a false "dead".
 """
@@ -64,6 +65,18 @@ class ASTILiveness:
         """NZCV flag live-in/live-out per instruction address."""
         (use, kill) = self._use_kill(
             lambda instr: instr.xdata.flag_reachingdefs)
+        return self._liveness(use, kill)
+
+    def register_liveness(
+            self, registers: Set[str]) -> Dict[str, Dict[str, List[str]]]:
+        """GP-register live-in/live-out per instruction address.
+
+        registers is the set of architecture register names (e.g. the keys of
+        the register-size map), used to exclude spill slots and stack
+        temporaries.
+        """
+        (use, kill) = self._use_kill(
+            lambda instr: instr.xdata.reachingdefs, set(registers))
         return self._liveness(use, kill)
 
     def _use_kill(
