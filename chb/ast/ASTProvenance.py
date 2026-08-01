@@ -38,9 +38,10 @@ class ASTProvenance:
         self._reaching_definitions: Dict[int, List[int]] = {}
         self._flag_reaching_definitions: Dict[int, List[int]] = {}
         self._definitions_used: Dict[int, List[int]] = {}
-        # NZCV flag liveness, keyed by instruction address:
+        # Liveness, keyed by instruction address:
         #   {"0xNNNN": {"live-in": [...], "live-out": [...]}}
         self._flag_liveness: Dict[str, Dict[str, List[str]]] = {}
+        self._register_liveness: Dict[str, Dict[str, List[str]]] = {}
 
     @property
     def instruction_mapping(self) -> Mapping[int, List[int]]:
@@ -73,6 +74,14 @@ class ASTProvenance:
     def set_flag_liveness(
             self, liveness: Dict[str, Dict[str, List[str]]]) -> None:
         self._flag_liveness = liveness
+
+    @property
+    def register_liveness(self) -> Mapping[str, Dict[str, List[str]]]:
+        return self._register_liveness
+
+    def set_register_liveness(
+            self, liveness: Dict[str, Dict[str, List[str]]]) -> None:
+        self._register_liveness = liveness
 
     def has_expression_mapping(self, exprid: int) -> bool:
         return exprid in self.expression_mapping
@@ -125,6 +134,7 @@ class ASTProvenance:
         result["flag-reaching-definitions"] = self.flag_reaching_definitions
         result["definitions-used"] = self.definitions_used
         result["flag-liveness"] = self.flag_liveness
+        result["register-liveness"] = self.register_liveness
         return result
 
     def deserialize(self, d: Dict[str, Any]) -> None:
@@ -141,3 +151,4 @@ class ASTProvenance:
         self._definitions_used = {
             int(i): v for (i, v) in d["definitions-used"].items()}
         self._flag_liveness = d.get("flag-liveness", {})
+        self._register_liveness = d.get("register-liveness", {})
