@@ -366,7 +366,7 @@ class ARMAddCarry(ARMOpcode):
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)
         astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(ll_rhs, rdefdoubles)
+        astree.add_expr_reachingdefs(hl_rhs, rdefdoubles)
         astree.add_lval_defuses(hl_lhs, defusedoubles[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
