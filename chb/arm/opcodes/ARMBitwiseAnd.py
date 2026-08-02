@@ -311,7 +311,7 @@ class ARMBitwiseAnd(ARMOpcode):
             chklogger.logger.warning(
                 "AND: Encountered error value for wide-and rhs at address %s",
                 iaddr)
-            rhs = ll_rhs
+            return ([], [ll_assign])
 
         lhs = xd.vrdlohi
         rdefdoubles = xdata.reachingdefdoubles
