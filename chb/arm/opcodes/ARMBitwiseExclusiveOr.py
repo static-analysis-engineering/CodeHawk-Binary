@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -67,6 +67,10 @@ class ARMBitwiseExclusiveOrXData(ARMOpcodeXData):
         ARMOpcodeXData.__init__(self, xdata)
 
     @property
+    def is_wide_xor(self) -> bool:
+        return self.xdata.is_wide_xor
+
+    @property
     def vrd(self) -> "XVariable":
         return self.var(0, "vrd")
 
@@ -106,11 +110,105 @@ class ARMBitwiseExclusiveOrXData(ARMOpcodeXData):
         else:
             return str(self.result)
 
+    # Wide xor aggregate
+
+    @property
+    def vrdlohi(self) -> "XVariable":
+        return self.binary_wopvar("vrdlohi")
+
+    @property
+    def vrdlo(self) -> "XVariable":
+        return self.binary_wopvar("vrdlo")
+
+    @property
+    def vrdhi(self) -> "XVariable":
+        return self.binary_wopvar("vrdhi")
+
+    @property
+    def xrnlo(self) -> "XXpr":
+        return self.binary_wopxpr("xrnlo")
+
+    @property
+    def xrnhi(self) -> "XXpr":
+        return self.binary_wopxpr("xrnhi")
+
+    @property
+    def xrmlo(self) -> "XXpr":
+        return self.binary_wopxpr("xrmlo")
+
+    @property
+    def xrmhi(self) -> "XXpr":
+        return self.binary_wopxpr("xrmhi")
+
+    @property
+    def rresultw(self) -> "XXpr":
+        return self.binary_wopxpr("rresultw")
+
+    @property
+    def is_rresultw_ok(self) -> bool:
+        return self.is_binary_wopxpr_ok("rresultw")
+
+    @property
+    def rresultlo(self) -> "XXpr":
+        return self.binary_wopxpr("rresultlo")
+
+    @property
+    def rresulthi(self) -> "XXpr":
+        return self.binary_wopxpr("rresulthi")
+
+    @property
+    def xxrnlo(self) -> "XXpr":
+        return self.binary_wopxpr("xxrnlo")
+
+    @property
+    def xxrnhi(self) -> "XXpr":
+        return self.binary_wopxpr("xxrnhi")
+
+    @property
+    def xxrmlo(self) -> "XXpr":
+        return self.binary_wopxpr("xxrmlo")
+
+    @property
+    def xxrmhi(self) -> "XXpr":
+        return self.binary_wopxpr("xxrmhi")
+
+    @property
+    def xxrnw(self) -> "XXpr":
+        return self.binary_wopxpr("xxrnw")
+
+    @property
+    def xxrmw(self) -> "XXpr":
+        return self.binary_wopxpr("xxrmw")
+
+    @property
+    def cresultw(self) -> "XXpr":
+        return self.binary_wopcxpr("cresultw")
+
+    @property
+    def is_cresultw_ok(self) -> bool:
+        return self.is_binary_wopcxpr_ok("cresultw")
+
+    @property
+    def cresultlo(self) -> "XXpr":
+        return self.binary_wopcxpr("cresultlo")
+
+    @property
+    def cresulthi(self) -> "XXpr":
+        return self.binary_wopcxpr("cresulthi")
+
     @property
     def annotation(self) -> str:
-        cr = str(self.cresult) if self.is_cresult_ok else ""
-        cr = " (C: " + cr + ")"
-        assignment = str(self.vrd) + " := " + self.result_simplified + cr
+        if self.is_wide_xor:
+            lhs = str(self.vrdlohi)
+            rhs = str(self.rresultw)
+            cx = " (C: " + (str(self.cresultw) if self.is_cresultw_ok else "None") + ")"
+            assignment = lhs + " := " + rhs + cx
+        else:
+            cresult = (
+                " (C: "
+                + (str(self.cresult) if self.is_cresult_ok else "None")
+                + ")")
+            assignment = str(self.vrd) + " := " + self.result_simplified + cresult
         return self.add_instruction_condition(assignment)
 
 
@@ -158,6 +256,70 @@ class ARMBitwiseExclusiveOr(ARMOpcode):
         xd = ARMBitwiseExclusiveOrXData(xdata)
         return xd.annotation
 
+    def ast_prov_wide_xor(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "EOR (wide-xor)"]
+
+        # low-level assignment
+
+        (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
+        (ll_op1, _, _) = self.operands[0].ast_rvalue(astree)
+        (ll_op2, _, _) = self.operands[0].ast_rvalue(astree)
+        ll_rhs = astree.mk_binary_op("bxor", ll_op1, ll_op2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # high-level assignment
+
+        xd = ARMBitwiseExclusiveOrXData(xdata)
+
+        rhs = xd.cresultw if xd.is_cresultw_ok else xd.rresultw
+        lhs = xd.vrdlohi
+        rdefdoubles = xdata.reachingdefdoubles
+        if len(rdefdoubles) == 0:
+            rdefdoubles = xdata.reachingdefs
+        defusedoubles = xdata.defusedoubles
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhs)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefdoubles)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefdoubles[0]])
+        astree.add_lval_defuses(hl_lhs, defusedoubles[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if astree.has_register_variable_intro(iaddr):
+            rvintro = astree.get_register_variable_intro(iaddr)
+            if rvintro.has_cast():
+                astree.add_expose_instruction(hl_assign.instrid)
+
+        astree.add_expose_instruction(hl_assign.instrid)
+
+        return ([hl_assign], [ll_assign])
+
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -167,6 +329,22 @@ class ARMBitwiseExclusiveOr(ARMOpcode):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
         annotations: List[str] = [iaddr, "EOR"]
+
+        xd = ARMBitwiseExclusiveOrXData(xdata)
+
+        if xdata.instruction_subsumes():
+            if xd.is_wide_xor:
+                return self.ast_prov_wide_xor(
+                    astree, iaddr, bytestring, xdata)
+
+            else:
+                chklogger.logger.warning(
+                    "EOR instruction at %s is part of an aggregate that is "
+                    + " not yet supported",
+                    iaddr)
+                return ([], [])
+
+        # low-level assignment
 
         (ll_lhs, _, _) = self.operands[0].ast_lvalue(astree)
         (ll_op1, _, _) = self.operands[0].ast_rvalue(astree)
