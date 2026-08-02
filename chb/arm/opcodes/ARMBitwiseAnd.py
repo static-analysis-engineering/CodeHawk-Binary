@@ -270,38 +270,6 @@ class ARMBitwiseAnd(ARMOpcode):
         xd = ARMBitwiseAndXData(xdata)
         return xd.annotation
 
-    def ast_prov_subsumed(
-            self,
-            astree: ASTInterface,
-            iaddr: str,
-            bytestring: str,
-            xdata: InstrXData) -> Tuple[
-                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        """Return only low-level instruction with low-level condition."""
-
-        annotations: List[str] = [iaddr, "AND (subsumed)"]
-
-        # low-level assignment
-
-        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
-        (ll_rhs1, _, _) = self.opargs[1].ast_rvalue(astree)
-        (ll_rhs2, _, _) = self.opargs[2].ast_rvalue(astree)
-        ll_rhs = astree.mk_binary_op("band", ll_rhs1, ll_rhs2)
-
-        ll_assign = astree.mk_assign(
-            ll_lhs,
-            ll_rhs,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
-
-        rdefs = xdata.reachingdefs
-
-        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
-        astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
-
-        return ([], [ll_assign])
-
     def ast_prov_wide_and(
             self,
             astree: ASTInterface,
@@ -366,7 +334,7 @@ class ARMBitwiseAnd(ARMOpcode):
         astree.add_instr_address(hl_assign, [iaddr])
         astree.add_expr_mapping(hl_rhs, ll_rhs)
         astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_expr_reachingdefs(ll_rhs, rdefdoubles)
+        astree.add_expr_reachingdefs(hl_rhs, rdefdoubles)
         astree.add_expr_reachingdefs(ll_rhs, [rdefdoubles[0]])
         astree.add_lval_defuses(hl_lhs, defusedoubles[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
@@ -387,9 +355,6 @@ class ARMBitwiseAnd(ARMOpcode):
             bytestring: str,
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-
-        if xdata.instruction_is_subsumed():
-            return self.ast_prov_subsumed(astree, iaddr, bytestring, xdata)
 
         xd = ARMBitwiseAndXData(xdata)
 
