@@ -284,8 +284,15 @@ class ARMBitwiseExclusiveOr(ARMOpcode):
 
         xd = ARMBitwiseExclusiveOrXData(xdata)
 
-        rhs = xd.cresultw if xd.is_cresultw_ok else xd.rresultw
         lhs = xd.vrdlohi
+        if xd.is_cresultw_ok:
+            rhs = xd.cresultw
+        elif xd.is_rresultw_ok:
+            rhs = xd.rresultw
+        else:
+            chklogger.logger.warning(
+                "Encountered error value for rhs of wide-xor at %s", iaddr)
+
         rdefdoubles = xdata.reachingdefdoubles
         if len(rdefdoubles) == 0:
             rdefdoubles = xdata.reachingdefs
