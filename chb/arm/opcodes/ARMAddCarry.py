@@ -417,33 +417,18 @@ class ARMAddCarry(ARMOpcode):
 
         # high-level assignment
 
-        def has_cast() -> bool:
-            return (
-                astree.has_register_variable_intro(iaddr)
-                and astree.get_register_variable_intro(iaddr).has_cast())
-
-        if xd.is_cresult_ok and xd.is_rresult_ok:
+        if xd.is_cresult_ok:
             rhs = xd.cresult
-            xrhs = xd.rresult
-
         elif xd.is_rresult_ok:
             rhs = xd.rresult
-            xrhs = xd.rresult
-
         elif xd.is_result_ok:
             rhs = xd.result
-            xrhs = xd.result
-
         else:
             chklogger.logger.error(
                 "ADC: Encountered error value for rhs at address %s", iaddr)
             return ([], [ll_assign])
 
         lhs = xd.vrd
-        rhs1 = xd.xrn
-        rhs2 = xd.xrm
-        rrhs1 = xd.xxrn if xd.is_xxrn_ok else xd.xrn
-        rrhs2 = xd.xxrm if xd.is_xxrm_ok else xd.xrm
 
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh

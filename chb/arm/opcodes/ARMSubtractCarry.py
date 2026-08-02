@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,38 +49,6 @@ if TYPE_CHECKING:
 
 
 class ARMSubtractCarryXData(ARMOpcodeXData):
-    """
-    Aggregate: ARMWideSubtract
-
-    - variables
-    0: vrdlo
-    1: vrdhi
-
-    - expressions
-    0: xrnlo
-    1: xrnhi
-    2: xrmlo
-    3: xrmhi
-    4: rresult
-    5: rresultlo
-    6: rresulthi
-    7: xxrnlo
-    8: xxrnhi
-    9: xxrmlo
-    10: xxrmhi
-
-    - c exressions
-    0: cresult
-    1: cresultlo
-    2: cresulthi
-
-    rdefs:
-    0: xrnlo
-    1: xrnhi
-    2: xrmlo
-    3: xrmhi
-
-    """
 
     def __init__(self, xdata: InstrXData) -> None:
         ARMOpcodeXData.__init__(self, xdata)
@@ -110,6 +78,18 @@ class ARMSubtractCarryXData(ARMOpcodeXData):
         return self.xpr(3, "rresult")
 
     @property
+    def is_rresult_ok(self) -> bool:
+        return self.is_xpr_ok(3)
+
+    @property
+    def cresult(self) -> "XXpr":
+        return self.cxpr(0, "cresult")
+
+    @property
+    def is_cresult_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def result_simplified(self) -> str:
         return simplify_result(
             self.xdata.args[3], self.xdata.args[4], self.result, self.rresult)
@@ -117,89 +97,96 @@ class ARMSubtractCarryXData(ARMOpcodeXData):
     # Wide subtract aggregate
 
     @property
+    def vrdlohi(self) -> "XVariable":
+        return self.binary_wopvar("vrdlohi")
+
+    @property
     def vrdlo(self) -> "XVariable":
-        return self.var(0, "vrdlo")
+        return self.binary_wopvar("vrdlo")
 
     @property
     def vrdhi(self) -> "XVariable":
-        return self.var(1, "vrdhi")
+        return self.binary_wopvar("vrdhi")
 
     @property
     def xrnlo(self) -> "XXpr":
-        return self.xpr(0, "xrnlo")
+        return self.binary_wopxpr("xrnlo")
 
     @property
     def xrnhi(self) -> "XXpr":
-        return self.xpr(1, "xrnhi")
+        return self.binary_wopxpr("xrnhi")
 
     @property
     def xrmlo(self) -> "XXpr":
-        return self.xpr(2, "xrmlo")
+        return self.binary_wopxpr("xrmlo")
 
     @property
     def xrmhi(self) -> "XXpr":
-        return self.xpr(3, "xrmhi")
+        return self.binary_wopxpr("xrmhi")
 
     @property
-    def rresult_w(self) -> "XXpr":
-        return self.xpr(4, "rresult")
+    def rresultw(self) -> "XXpr":
+        return self.binary_wopxpr("rresultw")
+
+    @property
+    def is_rresultw_ok(self) -> bool:
+        return self.is_binary_wopxpr_ok("rresultw")
 
     @property
     def rresultlo(self) -> "XXpr":
-        return self.xpr(5, "rresultlo")
+        return self.binary_wopxpr("rresultlo")
 
     @property
     def rresulthi(self) -> "XXpr":
-        return self.xpr(6, "rresulthi")
+        return self.binary_wopxpr("rresulthi")
 
     @property
     def xxrnlo(self) -> "XXpr":
-        return self.xpr(7, "xxrnlo")
+        return self.binary_wopxpr("xxrnlo")
 
     @property
     def xxrnhi(self) -> "XXpr":
-        return self.xpr(8, "xxrnhi")
+        return self.binary_wopxpr("xxrnhi")
 
     @property
     def xxrmlo(self) -> "XXpr":
-        return self.xpr(9, "xxrmlo")
+        return self.binary_wopxpr("xxrmlo")
 
     @property
     def xxrmhi(self) -> "XXpr":
-        return self.xpr(10, "xxrmhi")
+        return self.binary_wopxpr("xxrmhi")
 
     @property
-    def xxrn_w(self) -> "XXpr":
-        return self.xpr(11, "xxrn_w")
+    def xxrnw(self) -> "XXpr":
+        return self.binary_wopxpr("xxrnw")
 
     @property
-    def xxrm_w(self) -> "XXpr":
-        return self.xpr(12, "xxrm_w")
+    def xxrmw(self) -> "XXpr":
+        return self.binary_wopxpr("xxrmw")
 
     @property
-    def cresult_w(self) -> "XXpr":
-        return self.cxpr(0, "cresult")
+    def cresultw(self) -> "XXpr":
+        return self.binary_wopcxpr("cresultw")
 
     @property
-    def is_cresult_w_ok(self) -> bool:
-        return self.is_cxpr_ok(0)
+    def is_cresultw_ok(self) -> bool:
+        return self.is_binary_wopcxpr_ok("cresultw")
 
     @property
     def cresultlo(self) -> "XXpr":
-        return self.cxpr(1, "cresultlo")
+        return self.binary_wopcxpr("cresultlo")
 
     @property
     def cresulthi(self) -> "XXpr":
-        return self.cxpr(2, "cresulthi")
+        return self.binary_wopcxpr("cresulthi")
 
     @property
     def annotation(self) -> str:
         if self.is_wide_subtract:
-            lhs = "(" + str(self.vrdhi) + ", " + str(self.vrdlo) + ")"
-            rhs1 = "(" + str(self.xxrnhi) + ", " + str(self.xxrnlo) + ")"
-            rhs2 = "(" + str(self.xxrmhi) + ", " + str(self.xxrmlo) + ")"
-            cx = " (C: " + (str(self.cresult_w) if self.is_cresult_w_ok else "None") + ")"
-            assignment = lhs + " := " + rhs1 + " - " + rhs2 + cx
+            lhs = str(self.vrdlohi)
+            rhs = str(self.rresultw)
+            cx = " (C: " + (str(self.cresultw) if self.is_cresultw_ok else "None") + ")"
+            assignment = lhs + " := " + rhs + cx
         else:
             assignment = str(self.vrd) + " := " + self.result_simplified
         return self.add_instruction_condition(assignment)
@@ -248,6 +235,78 @@ class ARMSubtractCarry(ARMOpcode):
         else:
             return "Error value"
 
+    def ast_prov_wide_subtract(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "SBC (wide-subtract)"]
+
+        # low-level assignment
+
+        (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
+        (ll_op1, _, _) = self.opargs[1].ast_rvalue(astree)
+        (ll_op2, _, _) = self.opargs[2].ast_rvalue(astree)
+        ll_rhs = astree.mk_binary_op("minus", ll_op1, ll_op2)
+
+        ll_assign = astree.mk_assign(
+            ll_lhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # high-level assignment
+
+        xd = ARMSubtractCarryXData(xdata)
+
+        lhs = xd.vrdlohi
+        if xd.is_cresultw_ok:
+            rhs = xd.cresultw
+        elif xd.is_rresultw_ok:
+            rhs = xd.rresultw
+        else:
+            chklogger.logger.warning(
+                "Encountered error value rhs of wide-subtract at %s", iaddr)
+            return ([], [ll_assign])
+
+        rdefdoubles = xdata.reachingdefdoubles
+        if len(rdefdoubles) == 0:
+            rdefdoubles = xdata.reachingdefs
+        defusedoubles = xdata.defusedoubles
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhs)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefdoubles)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefdoubles[0]])
+        astree.add_lval_defuses(hl_lhs, defusedoubles[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if astree.has_register_variable_intro(iaddr):
+            rvintro = astree.get_register_variable_intro(iaddr)
+            if rvintro.has_cast():
+                astree.add_expose_instruction(hl_assign.instrid)
+
+        astree.add_expose_instruction(hl_assign.instrid)
+
+        return ([hl_assign], [ll_assign])
+
     def ast_prov(
             self,
             astree: ASTInterface,
@@ -255,6 +314,13 @@ class ARMSubtractCarry(ARMOpcode):
             bytestring: str,
             xdata: InstrXData) -> Tuple[
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        xd = ARMSubtractCarryXData(xdata)
+
+        if xdata.instruction_subsumes():
+            if xd.is_wide_subtract:
+                return self.ast_prov_wide_subtract(
+                    astree, iaddr, bytestring, xdata)
 
         annotations: List[str] = [iaddr, "SBC"]
 
@@ -279,22 +345,21 @@ class ARMSubtractCarry(ARMOpcode):
 
         # high-level assignment
 
-        xd = ARMSubtractCarryXData(xdata)
-        if not xd.is_ok:
-            chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
-            return ([], [])
-
         lhs = xd.vrd
-        rhs1 = xd.xrn
-        rhs2 = xd.xrm
-        rhs3 = xd.rresult
+        if xd.is_cresult_ok:
+            rhs = xd.cresult
+        elif xd.is_rresult_ok:
+            rhs = xd.rresult
+        else:
+            chklogger.logger.error(
+                "SBC: Encountered error value for rhs value at address %s", iaddr)
+            return ([], [])
 
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
         hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-        hl_rhs = XU.xxpr_to_ast_def_expr(rhs3, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         hl_assign = astree.mk_assign(
             hl_lhs,
@@ -311,5 +376,10 @@ class ARMSubtractCarry(ARMOpcode):
         astree.add_expr_reachingdefs(ll_rhs, rdefs[:2])
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if astree.has_register_variable_intro(iaddr):
+            rvintro = astree.get_register_variable_intro(iaddr)
+            if rvintro.has_cast():
+                astree.add_expose_instruction(hl_assign.instrid)
 
         return ([hl_assign], [ll_assign])
