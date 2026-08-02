@@ -89,23 +89,6 @@ class ARMMoveXData(ARMOpcodeXData):
     - predicate/ternary:
       0: p
 
-    Aggregate: WideMove:
-
-    - variables:
-      0: vrdlo
-      1: vrdhi
-
-    - expressions
-    0: xrnlo
-    1: xrnhi
-    2: xxrnlo
-    3: xxrnhi
-    4: xxrn
-
-    - c expressions
-    0: cresult
-    1: cresultlo
-    2: cresulthi
     """
 
     def __init__(self, xdata: InstrXData) -> None:
@@ -116,12 +99,16 @@ class ARMMoveXData(ARMOpcodeXData):
         return self.var(0, "vrd")
 
     @property
-    def vrdlo(self) -> "XVariable":    # agg:widemove
-        return self.var(0, "vrdlo")
+    def vrdlohi(self) -> "XVariable":
+        return self.unary_wopvar("vrdlohi")
 
     @property
-    def vrdhi(self) -> "XVariable":    # agg:widemove
-        return self.var(1, "vrdhi")
+    def vrdlo(self) -> "XVariable":
+        return self.unary_wopvar("vrdlo")
+
+    @property
+    def vrdhi(self) -> "XVariable":
+        return self.unary_wopvar("vrdhi")
 
     @property
     def is_predicate_assign(self) -> bool:
@@ -156,40 +143,64 @@ class ARMMoveXData(ARMOpcodeXData):
         return self.is_xpr_ok(1)
 
     @property
-    def xrnlo(self) -> "XXpr":               # agg:widemove
-        return self.xpr(0, "xrnlo")
+    def xrnlo(self) -> "XXpr":
+        return self.unary_wopxpr("xrnlo")
 
     @property
-    def xrnhi(self) -> "XXpr":               # agg:widemove
-        return self.xpr(1, "xrnhi")
+    def xrnhi(self) -> "XXpr":
+        return self.unary_wopxpr("xrnhi")
 
     @property
-    def xxrnlo(self) -> "XXpr":              # agg:widemove
-        return self.xpr(2, "xxrnlo")
+    def rresultw(self) -> "XXpr":
+        return self.unary_wopxpr("rresultw")
 
     @property
-    def xxrnhi(self) -> "XXpr":              # agg:widemove
-        return self.xpr(3, "xxrnhi")
+    def is_rresultw_ok(self) -> bool:
+        return self.is_unary_wopxpr_ok("rresultw")
 
     @property
-    def xxrn(self) -> "XXpr":                # agg:widemove
-        return self.xpr(4, "xxrn")
+    def rresultlo(self) -> "XXpr":
+        return self.unary_wopxpr("rresultlo")
+
+    @property
+    def rresulthi(self) -> "XXpr":
+        return self.unary_wopxpr("rresulthi")
+
+    @property
+    def xxrnlo(self) -> "XXpr":
+        return self.unary_wopxpr("xxrnlo")
+
+    @property
+    def xxrnhi(self) -> "XXpr":
+        return self.unary_wopxpr("xxrnhi")
+
+    @property
+    def xxrnw(self) -> "XXpr":
+        return self.unary_wopxpr("xxrnw")
 
     @property
     def cresult(self) -> "XXpr":
         return self.cxpr(0, "cresult")
 
     @property
+    def cresultw(self) -> "XXpr":
+        return self.unary_wopcxpr("cresultw")
+
+    @property
     def is_cresult_ok(self) -> bool:
         return self.is_cxpr_ok(0)
 
     @property
-    def cresultlo(self) -> "XXpr":            # agg:widemove
-        return self.cxpr(1, "cresultlo")
+    def is_cresultw_ok(self) -> bool:
+        return self.is_unary_wopcxpr_ok("cresultw")
 
     @property
-    def cresulthi(self) -> "XXpr":            # agg:widemove
-        return self.cxpr(2, "cresulthi")
+    def cresultlo(self) -> "XXpr":
+        return self.unary_wopcxpr("cresultlo")
+
+    @property
+    def cresulthi(self) -> "XXpr":
+        return self.unary_wopcxpr("cresulthi")
 
     @property
     def predicate(self) -> "XXpr":
@@ -259,9 +270,9 @@ class ARMMoveXData(ARMOpcodeXData):
 
     @property
     def wide_move_ann(self) -> str:
-        lhs = "(" + str(self.vrdlo) + ", " + str(self.vrdhi) + ")"
-        rhs = "(" + str(self.xxrnlo) + ", " + str(self.xxrnhi) + ") = " + str(self.xxrn)
-        cx = str(self.cresult)
+        lhs = str(self.vrdlohi)
+        rhs = str(self.rresultw)
+        cx = str(self.cresultw) if self.is_cresultw_ok else "None"
         return lhs + " = " + rhs + " (C: " + cx + ")"
 
     @property
@@ -346,36 +357,73 @@ class ARMMove(ARMOpcode):
         xd = ARMMoveXData(xdata)
         return xd.annotation
 
-    def ast_prov_subsumed(
+    def ast_prov_wide_move(
             self,
             astree: ASTInterface,
             iaddr: str,
             bytestring: str,
-            xdata: InstrXData) -> Tuple[
-                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
-        """Return only low-level instruction with low-level condition."""
+            xdata: InstrXData
+    ) -> Tuple[List[AST.ASTInstruction], List[AST.ASTInstruction]]:
 
-        annotations: List[str] = [iaddr, "MOV (subsumed)"]
+        annotations: List[str] = [iaddr, "MOV (wide-move)"]
+
+        # low-level assignment
 
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
-        (ll_rhs_t, _, _) = self.opargs[1].ast_rvalue(astree)
-        ll_rhs_f = astree.mk_lval_expr(ll_lhs)
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
 
-        cc = self.ast_cc_expr(astree)
-
-        questionx = astree.mk_question(cc, ll_rhs_t, ll_rhs_f)
         ll_assign = astree.mk_assign(
             ll_lhs,
-            questionx,
+            ll_rhs,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
 
-        rdefs = xdata.reachingdefs
+        # high-level assignment
 
-        astree.add_expr_reachingdefs(ll_rhs_f, rdefs)
+        xd = ARMMoveXData(xdata)
 
-        return ([], [ll_assign])
+        lhs = xd.vrdlohi
+        if xd.is_cresultw_ok:
+            rhs = xd.cresultw
+        elif xd.is_rresultw_ok:
+            rhs = xd.rresultw
+        else:
+            chklogger.logger.warning(
+                "Encountered error value for wide-move rhs value at %s", iaddr)
+            return ([], [ll_assign])
+
+        rdefdoubles = xdata.reachingdefdoubles
+        if len(rdefdoubles) == 0:
+            rdefdoubles = xdata.reachingdefs
+        defusedoubles = xdata.defusedoubles
+        defuseshigh = xdata.defuseshigh
+
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhs)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
+            hl_lhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_lval_mapping(hl_lhs, ll_lhs)
+        astree.add_expr_reachingdefs(hl_rhs, rdefdoubles)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefdoubles[0]])
+        astree.add_lval_defuses(hl_lhs, defusedoubles[0])
+        astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+        if astree.has_register_variable_intro(iaddr):
+            rvintro = astree.get_register_variable_intro(iaddr)
+            if rvintro.has_cast():
+                astree.add_expose_instruction(hl_assign.instrid)
+
+        return ([hl_assign], [ll_assign])
 
     def ast_prov_predicate_assign(
             self,
@@ -431,7 +479,7 @@ class ARMMove(ARMOpcode):
         astree.add_expr_mapping(hl_rhs, ll_rhs)
         astree.add_lval_mapping(hl_lhs, ll_lhs)
         astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
-        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
+        astree.add_expr_reachingdefs(ll_rhs, rdefs)
         astree.add_lval_defuses(hl_lhs, defuses[0])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
 
@@ -533,9 +581,6 @@ class ARMMove(ARMOpcode):
 
             return ([], [nopinstr])
 
-        if xdata.instruction_is_subsumed():
-            return self.ast_prov_subsumed(astree, iaddr, bytestring, xdata)
-
         xd = ARMMoveXData(xdata)
 
         if xdata.instruction_subsumes():
@@ -545,6 +590,10 @@ class ARMMove(ARMOpcode):
 
             elif xd.is_ternary_assign or xd.is_nondet_ternary_assign:
                 return self.ast_prov_ternary_assign(
+                    astree, iaddr, bytestring, xdata)
+
+            elif xd.is_wide_move:
+                return self.ast_prov_wide_move(
                     astree, iaddr, bytestring, xdata)
 
             else:
