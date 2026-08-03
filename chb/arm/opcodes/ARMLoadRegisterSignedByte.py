@@ -227,8 +227,8 @@ class ARMLoadRegisterSignedByte(ARMOpcode):
                 annotations=annotations)
             ll_assigns: List[AST.ASTInstruction] = [ll_assign, ll_addr_assign]
 
-            basereg = xdata.vars[1]
-            newaddr = xdata.xprs[4]
+            basereg = xd.get_base_update_var()
+            newaddr = xd.get_base_update_cxpr()
             hl_addr_lhs = XU.xvariable_to_ast_lval(basereg, xdata, iaddr, astree)
             hl_addr_rhs = XU.xxpr_to_ast_def_expr(newaddr, xdata, iaddr, astree)
 
