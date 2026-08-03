@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -54,12 +54,16 @@ class ARMSignedMultiplyLongXData(ARMOpcodeXData):
         ARMOpcodeXData.__init__(self, xdata)
 
     @property
+    def vlohi(self) -> "XVariable":
+        return self.var(0, "vlohi")
+
+    @property
     def vlo(self) -> "XVariable":
-        return self.var(0, "vlo")
+        return self.var(1, "vlo")
 
     @property
     def vhi(self) -> "XVariable":
-        return self.var(1, "vhi")
+        return self.var(2, "vhi")
 
     @property
     def xrn(self) -> "XXpr":
@@ -70,20 +74,36 @@ class ARMSignedMultiplyLongXData(ARMOpcodeXData):
         return self.xpr(1, "xrm")
 
     @property
+    def result(self) -> "XXpr":
+        return self.xpr(2, "result")
+
+    @property
+    def is_result_ok(self) -> bool:
+        return self.is_xpr_ok(2)
+
+    @property
+    def cresult(self) -> "XXpr":
+        return self.cxpr(0, "cresult")
+
+    @property
+    def is_cresult_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def loresult(self) -> "XXpr":
-        return self.xpr(2, "loresult")
+        return self.xpr(3, "loresult")
 
     @property
     def hiresult(self) -> "XXpr":
-        return self.xpr(3, "hiresult")
+        return self.xpr(4, "hiresult")
 
     @property
     def loresultr(self) -> "XXpr":
-        return self.xpr(4, "loresultr")
+        return self.xpr(5, "loresultr")
 
     @property
     def hiresultr(self) -> "XXpr":
-        return self.xpr(5, "hiresultr")
+        return self.xpr(6, "hiresultr")
 
     @property
     def resultlo_simplified(self) -> str:
@@ -97,9 +117,8 @@ class ARMSignedMultiplyLongXData(ARMOpcodeXData):
 
     @property
     def annotation(self) -> str:
-        assignment1 = str(self.vlo) + " := " + self.resultlo_simplified
-        assignment2 = str(self.vhi) + " := " + self.resulthi_simplified
-        return self.add_instruction_condition(assignment1 + "; " + assignment2)
+        assign = str(self.vlohi) + " := " + str(self.result)
+        return self.add_instruction_condition(assign)
 
 
 @armregistry.register_tag("SMULL", ARMOpcode)
@@ -177,52 +196,35 @@ class ARMSignedMultiplyLong(ARMOpcode):
         # high-level assignment
 
         xd = ARMSignedMultiplyLongXData(xdata)
-        if not xd.is_ok:
-            chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
-            return ([], [])
+        if xd.is_cresult_ok:
+            rhs = xd.cresult
+        elif xd.is_result_ok:
+            rhs = xd.result
+        else:
+            if not xd.is_ok:
+                chklogger.logger.error(
+                    "SMULL: Encountered error value at address %s", iaddr)
+                return ([], [ll_assign1, ll_assign2])
 
-        lhs = xd.vlo
-        lhs2 = xd.vhi
-        rhs1 = xd.xrn
-        rhs2 = xd.xrm
-        rhslo = xd.loresult
-        rhshi = xd.hiresult
-
-        defuses = xdata.defuses
+        defuses = xdata.defusedoubles
         defuseshigh = xdata.defuseshigh
 
-        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-        hl_lhs2 = XU.xvariable_to_ast_lval(lhs2, xdata, iaddr, astree)
-        hl_rhs = XU.xxpr_to_ast_def_expr(rhslo, xdata, iaddr, astree)
-        hl_rhs2 = XU.xxpr_to_ast_def_expr(rhshi, xdata, iaddr, astree)
+        lhs = xd.vlohi
 
-        hl_assign1 = astree.mk_assign(
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
             hl_lhs,
             hl_rhs,
             iaddr=iaddr,
             bytestring=bytestring,
             annotations=annotations)
-        hl_assign2 = astree.mk_assign(
-            hl_lhs2,
-            hl_rhs2,
-            iaddr=iaddr,
-            bytestring=bytestring,
-            annotations=annotations)
 
-        astree.add_instr_mapping(hl_assign1, ll_assign1)
-        astree.add_instr_mapping(hl_assign2, ll_assign2)
-        astree.add_instr_address(hl_assign1, [iaddr])
-        astree.add_instr_address(hl_assign2, [iaddr])
-        astree.add_expr_mapping(hl_rhs, ll_rhs)
-        astree.add_expr_mapping(hl_rhs2, ll_rhs2)
-        astree.add_lval_mapping(hl_lhs, ll_lhs)
-        astree.add_lval_mapping(hl_lhs2, ll_lhs2)
-        astree.add_expr_reachingdefs(hl_rhs, rdefs[2:])
-        astree.add_expr_reachingdefs(ll_rhs, rdefs[:2])
+        astree.add_instr_mapping(hl_assign, ll_assign1)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_reachingdefs(hl_rhs, rdefs)
         astree.add_lval_defuses(hl_lhs, defuses[0])
-        astree.add_lval_defuses(hl_lhs2, defuses[1])
         astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
-        astree.add_lval_defuses_high(hl_lhs2, defuseshigh[1])
 
-        return ([hl_assign1, hl_assign2], [ll_assign1, ll_assign2])
+        return ([hl_assign], [ll_assign1, ll_assign2])
