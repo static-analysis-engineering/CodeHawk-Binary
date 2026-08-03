@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -61,6 +61,10 @@ class ARMLoadRegisterDualXData(ARMOpcodeXData):
         ARMOpcodeXData.__init__(self, xdata)
 
     @property
+    def is_wide_op_instruction(self) -> bool:
+        return self.xdata.is_wide_op_instruction
+
+    @property
     def vrt(self) -> "XVariable":
         return self.var(0, "vrt")
 
@@ -77,6 +81,10 @@ class ARMLoadRegisterDualXData(ARMOpcodeXData):
         return self.var(3, "vmem2")
 
     @property
+    def vrdlohi(self) -> "XVariable":
+        return self.var(4, "vrdlohi")
+
+    @property
     def xrn(self) -> "XXpr":
         return self.xpr(0, "xrn")
 
@@ -89,8 +97,16 @@ class ARMLoadRegisterDualXData(ARMOpcodeXData):
         return self.xpr(2, "xmem")
 
     @property
+    def is_xmem_ok(self) -> bool:
+        return self.is_xpr_ok(2)
+
+    @property
     def xrmem(self) -> "XXpr":
         return self.xpr(3, "xrmem")
+
+    @property
+    def is_xrmem_ok(self) -> bool:
+        return self.is_xpr_ok(3)
 
     @property
     def xmem2(self) -> "XXpr":
@@ -109,10 +125,38 @@ class ARMLoadRegisterDualXData(ARMOpcodeXData):
         return self.xpr(7, "xaddr2")
 
     @property
+    def xrmemw(self) -> "XXpr":
+        return self.xpr(8, "xrmemw")
+
+    @property
+    def is_xrmemw_ok(self) -> bool:
+        return self.is_xpr_ok(8)
+
+    @property
+    def cxrmemw(self) -> "XXpr":
+        return self.cxpr(0, "cxrmemw")
+
+    @property
+    def is_cxrmemw_ok(self) -> bool:
+        return self.is_cxpr_ok(0)
+
+    @property
     def annotation(self) -> str:
-        assignment = (
-            str(self.vrt) + " := " + str(self.xrmem) + "; "
-            + str(self.vrt2) + " := " + str(self.xrmem2) )
+        if self.is_wide_op_instruction and self.is_xrmem_ok:
+            assignment = (
+                str(self.vrdlohi) + " := " + str(self.xrmemw))
+        elif self.is_xrmem_ok:
+            assignment = (
+                str(self.vrt) + " := " + str(self.xrmem) + "; "
+                + str(self.vrt2) + " := " + str(self.xrmem2) )
+        elif self.is_xmem_ok:
+            assignment = (
+                str(self.vrt) + " := " + str(self.xmem) + "; "
+                + str(self.vrt2) + " := " + str(self.xmem2) )
+        else:
+            assignment = (
+                str(self.vrt) + " := *(" + str(self.xaddr1) + "); "
+                + str(self.vrt2) + " := *(" + str(self.xaddr2) + ")")
         wbu = self.writeback_update()
         return self.add_instruction_condition(assignment + wbu)
 
@@ -216,10 +260,7 @@ class ARMLoadRegisterDual(ARMOpcode):
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMLoadRegisterDualXData(xdata)
-        if xd.is_ok:
-            return xd.annotation
-        else:
-            return "Error value"
+        return xd.annotation
 
     def ast_prov(
             self,
@@ -259,6 +300,40 @@ class ARMLoadRegisterDual(ARMOpcode):
             annotations=annotations)
 
         # high-level assignments
+
+        if xd.is_wide_op_instruction:
+            lhs = xd.vrdlohi
+            if xd.is_cxrmemw_ok:
+                rhs = xd.cxrmemw
+            elif xd.is_xrmemw_ok:
+                rhs = xd.xrmemw
+            else:
+                chklogger.logger.error(
+                    "Encountered error value for wide-LDRD at %s", iaddr)
+                return ([], [ll_assign1, ll_assign2])
+
+            defuses = xdata.defusedoubles
+            defuseshigh = xdata.defuseshigh
+
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree, rhs=rhs)
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+            hl_assign = astree.mk_assign(
+                hl_lhs,
+                hl_rhs,
+                iaddr=iaddr,
+                bytestring=bytestring,
+                annotations=annotations)
+
+            astree.add_instr_mapping(hl_assign, ll_assign1)
+            astree.add_instr_mapping(hl_assign, ll_assign2)
+            astree.add_instr_address(hl_assign, [iaddr])
+            astree.add_expr_mapping(hl_rhs, ll_rhs1)
+            astree.add_lval_mapping(hl_lhs, ll_lhs1)
+            astree.add_lval_defuses(hl_lhs, defuses[0])
+            astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
+
+            return ([hl_assign], [ll_assign1, ll_assign2])
 
         if not xd.is_ok:
             chklogger.logger.error(
