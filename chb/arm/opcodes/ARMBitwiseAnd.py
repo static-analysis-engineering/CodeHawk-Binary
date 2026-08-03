@@ -294,11 +294,6 @@ class ARMBitwiseAnd(ARMOpcode):
             bytestring=bytestring,
             annotations=annotations)
 
-        rdefs = xdata.reachingdefs
-
-        astree.add_expr_reachingdefs(ll_rhs1, [rdefs[0]])
-        astree.add_expr_reachingdefs(ll_rhs2, [rdefs[1]])
-
         # high-level assignment
 
         xd = ARMBitwiseAndXData(xdata)
