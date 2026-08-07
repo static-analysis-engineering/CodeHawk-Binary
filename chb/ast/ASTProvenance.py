@@ -38,6 +38,9 @@ class ASTProvenance:
         self._reaching_definitions: Dict[int, List[int]] = {}
         self._flag_reaching_definitions: Dict[int, List[int]] = {}
         self._definitions_used: Dict[int, List[int]] = {}
+        # NZCV flag liveness, keyed by instruction address:
+        #   {"0xNNNN": {"live-in": [...], "live-out": [...]}}
+        self._flag_liveness: Dict[str, Dict[str, List[str]]] = {}
 
     @property
     def instruction_mapping(self) -> Mapping[int, List[int]]:
@@ -62,6 +65,14 @@ class ASTProvenance:
     @property
     def definitions_used(self) -> Mapping[int, List[int]]:
         return self._definitions_used
+
+    @property
+    def flag_liveness(self) -> Mapping[str, Dict[str, List[str]]]:
+        return self._flag_liveness
+
+    def set_flag_liveness(
+            self, liveness: Dict[str, Dict[str, List[str]]]) -> None:
+        self._flag_liveness = liveness
 
     def has_expression_mapping(self, exprid: int) -> bool:
         return exprid in self.expression_mapping
@@ -105,14 +116,15 @@ class ASTProvenance:
             if instrid not in self.definitions_used[lvalid]:
                 self._definitions_used[lvalid].append(instrid)
 
-    def serialize(self) -> Mapping[str, Mapping[int, Union[int, List[int]]]]:
-        result: Dict[str, Mapping[int, Union[int, List[int]]]] = {}
+    def serialize(self) -> Mapping[str, Any]:
+        result: Dict[str, Any] = {}
         result["instruction-mapping"] = self.instruction_mapping
         result["expression-mapping"] = self.expression_mapping
         result["lval-mapping"] = self.lval_mapping
         result["reaching-definitions"] = self.reaching_definitions
         result["flag-reaching-definitions"] = self.flag_reaching_definitions
         result["definitions-used"] = self.definitions_used
+        result["flag-liveness"] = self.flag_liveness
         return result
 
     def deserialize(self, d: Dict[str, Any]) -> None:
@@ -128,3 +140,4 @@ class ASTProvenance:
             int(i): v for (i, v) in d["flag-reaching-definitions"].items()}
         self._definitions_used = {
             int(i): v for (i, v) in d["definitions-used"].items()}
+        self._flag_liveness = d.get("flag-liveness", {})
