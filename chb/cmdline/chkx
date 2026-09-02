@@ -1791,6 +1791,11 @@ def parse() -> argparse.Namespace:
         nargs="*",
         default=[],
         help="list of functions that are new in xname2")
+    relationalcomparecfginfo.add_argument(
+        "--functions_removed",
+        nargs="*",
+        default=[],
+        help="list of function were removed from xname2")
     relationalcomparecfginfo.set_defaults(
         func=R.relational_compare_cfg_info)
 

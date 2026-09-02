@@ -1058,7 +1058,7 @@ def relational_compare_proofobligations(args: argparse.Namespace) -> NoReturn:
                     if po2 not in is1pos:
                         comparison.setdefault(iaddr, ([], []))
                         comparison[iaddr][1].append(is2pos[po2])
-                        count += len(i2pos)
+                        count += 1
             else:
                 comparison.setdefault(iaddr, ([], []))
                 comparison[iaddr][0].extend(i1pos)
@@ -1164,6 +1164,7 @@ def relational_compare_cfg_info(args: argparse.Namespace) -> NoReturn:
     xname1: str = args.xname1
     xname2: str = args.xname2
     newfunctions: List[str] = args.newfunctions
+    functionsremoved: List[str] = args.functions_removed
 
     try:
         (path1, xfile1) = UC.get_path_filename(xname1)
@@ -1202,11 +1203,18 @@ def relational_compare_cfg_info(args: argparse.Namespace) -> NoReturn:
     print("app1: " + str(len(cfginfos1)))
     print("app2: " + str(len(cfginfos2)))
 
+    cfginfos1 = [x for x in cfginfos1 if x.faddr not in functionsremoved]
+
     cfginfos2 = [x for x in cfginfos2 if x.faddr not in newfunctions]
 
     cfginfos2 = cfginfos2[:len(cfginfos1)]
 
+    cfgdiffcount = 0
+
     diffcount = 0
+
+    blockdiffs: Dict[int, int] = {}
+    instrdiffs: Dict[int, int] = {}
 
     for (ci1, ci2) in zip(cfginfos1, cfginfos2):
         if (
@@ -1219,6 +1227,9 @@ def relational_compare_cfg_info(args: argparse.Namespace) -> NoReturn:
                 str(ci1.basic_blocks).rjust(8) + "  "
                 + str(ci1.instructions) + " => " + str(ci2.instructions))
             diffcount += 1
+            instrdiff = ci2.instructions - ci1.instructions
+            instrdiffs.setdefault(instrdiff, 0)
+            instrdiffs[instrdiff] += 1
         else:
             cfgdiff = (
                 "diff: " +
@@ -1226,6 +1237,13 @@ def relational_compare_cfg_info(args: argparse.Namespace) -> NoReturn:
                 + "  "
                 + str(ci1.instructions) + " => " + str(ci2.instructions))
             diffcount += 1
+            cfgdiffcount += 1
+            instrdiff = ci2.instructions - ci1.instructions
+            instrdiffs.setdefault(instrdiff, 0)
+            instrdiffs[instrdiff] += 1
+            blockdiff = ci2.basic_blocks - ci1.basic_blocks
+            blockdiffs.setdefault(blockdiff, 0)
+            blockdiffs[blockdiff] += 1
         if ci1.name is not None and ci2.name is not None and ci1.name == ci2.name:
             name = ci1.name
         elif ci1.name is not None:
@@ -1240,6 +1258,8 @@ def relational_compare_cfg_info(args: argparse.Namespace) -> NoReturn:
               + name)
 
     print("\nNumber of functions different: " + str(diffcount))
+    print("\nNumber of functions added    : " + str(len(newfunctions)))
+    print("\nNumber of functions removed  : " + str(len(functionsremoved)))
 
     exit(0)
 

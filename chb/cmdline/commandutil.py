@@ -1697,10 +1697,13 @@ def results_predicated_instructions(args: argparse.Namespace) -> NoReturn:
 
     app = get_app(path, xfile, xinfo)
 
+    blockcount = 0
+
     blocks: Dict[str, List["BasicBlock"]] = {}
 
     for (faddr, fn) in app.functions.items():
         for b in fn.blocks.values():
+            blockcount += 1
             if b.has_control_flow():
                 blocks.setdefault(faddr, [])
                 blocks[faddr].append(b)
@@ -1710,6 +1713,11 @@ def results_predicated_instructions(args: argparse.Namespace) -> NoReturn:
             print(str(b))
             print("")
         print("\n\n")
+
+    print("\nNumber of basic blocks with predicated instrs: "
+          + str(len(blocks)) + " out of "
+          + str(blockcount) + " blocks; "
+          + str(100 * len(blocks) / blockcount) + "%")
 
     exit(0)
 
