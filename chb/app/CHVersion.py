@@ -1,3 +1,3 @@
-chbversion: str = "0.3.0-20260802"
+chbversion: str = "0.3.0-20260811"
 
 minimum_required_chb_version = "0.6.0_20260802"

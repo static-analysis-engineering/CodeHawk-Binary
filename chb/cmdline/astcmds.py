@@ -48,6 +48,7 @@ from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
 from chb.ast.ASTReturnSequences import ASTReturnSequences
 from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
+from chb.ast.ASTVariablesReferenced import ASTVariablesReferenced
 
 from chb.astinterface.ASTInterface import ASTInterface
 from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
@@ -66,7 +67,7 @@ import chb.util.dotutil as UD
 from chb.util.DotGraph import DotGraph
 import chb.util.fileutil as UF
 import chb.util.graphutil as UG
-from chb.util.loggingutil import chklogger, LogLevel
+from chb.util.loggingutil import chklogger, DiagnosticCategory as DC, LogLevel
 
 
 if TYPE_CHECKING:
@@ -286,6 +287,9 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
     functions_lifted: int = 0
     functions_failed: int = 0
+    functions_clean: int = 0
+    functions_typing_gaps: int = 0
+    functions_with_diagnostics: int = 0
 
     for faddr in functions:
         if app.has_function(faddr):
@@ -345,6 +349,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 functionannotation=functionannotation,
                 stackvarintros=fstackvarintros,
                 patchevents=patchevents,
+                registersizes=support.register_sizes,
                 verbose=verbose)
 
             # Introduce ssa variables for all reaching definitions referenced in
@@ -373,6 +378,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             astfunction = ASTInterfaceFunction(
                 faddr, fname, f, astinterface, patchevents=patchevents)
 
+            chklogger.reset_diagnostic_count()
+
             try:
                 asts = astfunction.mk_asts(support)
             except UF.CHBError as e:
@@ -399,6 +406,31 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                     localsymboltable, annotations=annotations)
                 print(prettyprinter.to_c(asts[0], include_globals=(not hide_globals)))
                 functions_lifted += 1
+
+                if chklogger.diagnostic_count > 0:
+                    # Diagnostics were already logged during the creation of the
+                    # lifting, indicating more severe problems. Skip the typing
+                    # check.
+                    functions_with_diagnostics += 1
+                else:
+                    referenced = ASTVariablesReferenced().variables_referenced(
+                        asts[0])
+                    untypedlocals = sorted(
+                        vinfo.vname
+                        for vinfo in localsymboltable.symbols
+                        if (vinfo.vname in referenced
+                            and not localsymboltable.is_formal(vinfo.vname)
+                            and vinfo.vtype is None))
+                    if untypedlocals:
+                        chklogger.diagnostic(
+                            DC.TYPING,
+                            "%s: %s referenced local variable(s) have "
+                            + "unresolved type: %s",
+                            faddr, str(len(untypedlocals)),
+                            ", ".join(untypedlocals))
+                        functions_typing_gaps += 1
+                    else:
+                        functions_clean += 1
 
             else:
                 print("\nUnable to generate a lifting for " + faddr)
@@ -448,7 +480,10 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
     if functions_lifted > 1:
         UC.print_status_update(
-            "Successfully lifted " + str(functions_lifted) + " functions")
+            "Lifted " + str(functions_lifted) + " functions"
+            + " (" + str(functions_clean) + " clean, "
+            + str(functions_typing_gaps) + " with unresolved local types, "
+            + str(functions_with_diagnostics) + " with other diagnostics)")
     if functions_failed > 0:
         UC.print_status_update(
             "Failures: " + str(functions_failed) + " functions")

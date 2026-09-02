@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,7 +40,7 @@ from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, DiagnosticCategory as DC
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
@@ -236,8 +236,9 @@ class ARMPop(ARMOpcode):
 
         xd = ARMPopXData(xdata)
         if not xd.is_ok:
-            chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
+            chklogger.diagnostic(
+                DC.INTERNAL,
+                "POP: Encountered error value at address %s", iaddr)
             return ([], [])
 
         splhs = xd.splhs

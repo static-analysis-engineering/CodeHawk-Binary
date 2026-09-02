@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -50,7 +50,7 @@ from chb.models.ModelsType import MNamedType
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, DiagnosticCategory as DC
 
 
 if TYPE_CHECKING:
@@ -374,8 +374,9 @@ class ARMBranch(ARMCallOpcode):
                     else:
                         condition = xd.txpr
             else:
-                chklogger.logger.error(
-                    "Bcc: conditional branch without branch conditions "
+                chklogger.diagnostic(
+                    DC.UNSUPPORTED,
+                    "Conditional branch without inferred branch condition "
                     + "at address %s", iaddr)
                 hl_astcond = astree.mk_temp_lval_expression()
                 return (hl_astcond, ll_astcond)

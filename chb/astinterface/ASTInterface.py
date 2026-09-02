@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -66,7 +66,7 @@ from chb.userdata.UserHints import (
     FunctionAnnotation, RegisterVarIntro, StackVarIntro)
 
 import chb.util.fileutil as UF
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, DiagnosticCategory as DC
 
 
 if TYPE_CHECKING:
@@ -104,6 +104,7 @@ class ASTInterface:
             functionannotation: Optional[FunctionAnnotation] = None,
             stackvarintros: Dict[int, str] = {},
             patchevents: Dict[str, "PatchEvent"] = {},
+            registersizes: Dict[str, int] = {},
             verbose: bool = False) -> None:
         self._astree = astree
         self._srcprototype = srcprototype
@@ -115,6 +116,7 @@ class ASTInterface:
         self._stackvarintros = stackvarintros
         self._patchevents = patchevents
         self._typconverter = typconverter
+        self._register_sizes = registersizes
         self._verbose = verbose
         self._ctyper = ASTBasicCTyper(astree.globalsymboltable)
         self._bytesizecalculator = ASTByteSizeCalculator(
@@ -191,6 +193,10 @@ class ASTInterface:
     @property
     def typconverter(self) -> "BC2ASTConverter":
         return self._typconverter
+
+    @property
+    def register_sizes(self) -> Dict[str, int]:
+        return self._register_sizes
 
     @property
     def verbose(self) -> bool:
@@ -1195,7 +1201,14 @@ class ASTInterface:
             ssavalue: Optional[AST.ASTExpr] = None) -> AST.ASTLval:
         vinfo = self.mk_ssa_register_varinfo(
             name, iaddr, vtype=vtype, save_loc=True)
-        storage = self.astree.mk_register_storage(name)
+        if name in self.register_sizes:
+            storage = self.astree.mk_register_storage(name)
+        else:
+            chklogger.diagnostic(
+                DC.INTERNAL,
+                "Analysis generated an unknown register name: %s at address %s",
+                name, iaddr)
+            storage = None
         if ssavalue is not None:
             self.set_ssa_value(vinfo.vname, ssavalue)
         return self.astree.mk_vinfo_lval(vinfo, storage=storage)

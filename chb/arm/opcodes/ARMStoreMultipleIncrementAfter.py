@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,7 +40,7 @@ import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, DiagnosticCategory as DC
 
 
 if TYPE_CHECKING:
@@ -511,7 +511,8 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         elif xd.are_memlhss_ok:
             memlhss = xd.memlhss
         else:
-            chklogger.logger.error(
+            chklogger.diagnostic(
+                DC.INTERNAL,
                 "STM: Error value encountered in LHSs at address %s", iaddr)
             return ([], [])
 
@@ -520,7 +521,8 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
         elif xd.are_rrhss_ok:
             regrhss = xd.rhss
         else:
-            chklogger.logger.error(
+            chklogger.diagnostic(
+                DC.INTERNAL,
                 "STM: Error value encountered in RHSs at address %s", iaddr)
             return ([], [])
 

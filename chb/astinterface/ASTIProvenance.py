@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2025  Aarno Labs LLC
+# Copyright (c) 2022-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,7 @@ import chb.ast.ASTNode as AST
 from chb.ast.ASTProvenance import ASTProvenance
 
 import chb.util.fileutil as UF
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, DiagnosticCategory as DC
 
 if TYPE_CHECKING:
     from chb.invariants.VarInvariantFact import (
@@ -478,7 +478,8 @@ class ASTIProvenance:
                     else:
                         # temporarily silence warnings for payload addresses
                         if not addr.startswith("F"):
-                            chklogger.logger.warning(
+                            chklogger.diagnostic(
+                                DC.INTERNAL,
                                 "Reaching definition address %s for variable %s "
                                 + " not found",
                                 str(addr), str(v))

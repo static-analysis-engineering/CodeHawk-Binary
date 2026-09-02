@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,7 +42,7 @@ import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, DiagnosticCategory as DC
 
 
 if TYPE_CHECKING:
@@ -278,13 +278,15 @@ class ARMLoadRegisterByte(ARMOpcode):
             hl_rhs = XU.xmemory_dereference_lval_expr(
                 xaddr, xdata, iaddr, astree)
 
-            chklogger.logger.warning(
+            chklogger.diagnostic(
+                DC.INTERNAL,
                 "LDRB: Unable to use a C expression for rhs. Fall back to "
                 + "native byte-based address: %s to form rhs %s at address %s",
                 str(xaddr), str(hl_rhs), iaddr)
 
         else:
-            chklogger.logger.error(
+            chklogger.diagnostic(
+                DC.INTERNAL,
                 "LDRB: both memory value and address values are error values "
                 + "at address %s: ", iaddr)
             return ([], (ll_pre + [ll_assign] + ll_post))

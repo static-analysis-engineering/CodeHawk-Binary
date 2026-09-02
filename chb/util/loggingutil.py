@@ -52,15 +52,81 @@ class LogLevel(str, Enum):
         return [x.value for x in cls] + ["NONE"]
 
 
+class DiagnosticCategory(str, Enum):
+    """Classification of diagnostics for logging messages.
+
+    Addition of a separate category to logging messages to
+    enable downstream users to take appropriate action.
+
+    USERDATA: data provided by the user via user data is
+        incorrect or incomplete. This should be fixed by
+        the user.
+
+    TYPING: data provided by the user via header files or
+        typing information provided in function annotations
+        in the userdata is inconsistent or incomplete. This
+        can often be fixed by the user.
+
+    UNSUPPORTED: a known gap in analyzer support: an
+        unimplemented instruction, expression form, or
+        statement kind. Not fixable by the user: the function
+        cannot currently be processed; it requires an extension
+        to the analyzer.
+
+    INTERNAL: an internal invariant was violated: analysis reached
+        a program point without a fact (e.g., a reaching definition,
+        or a non-error value) that the surrounding code assumed would
+        be present. Not fixable by the user; indicates a possible
+        defect in the analyzer rather than a known missing feature,
+        and should be fixed by CodeHawk maintainers.
+    """
+
+    USERDATA = "USERDATA"
+    TYPING = "TYPING"
+    UNSUPPORTED = "UNSUPPORTED"
+    INTERNAL = "INTERNAL"
+
+
 class CHKLogger:
 
     def __init__(self) -> None:
         self._logger = logging.getLogger("silent")
         self._logger.addHandler(logging.NullHandler())
+        self._diagnostic_count = 0
 
     @property
     def logger(self) -> logging.Logger:
         return self._logger
+
+    @property
+    def diagnostic_count(self) -> int:
+        """Number of diagnostics logged since the last reset_diagnostic_count().
+        """
+
+        return self._diagnostic_count
+
+    def reset_diagnostic_count(self) -> None:
+        self._diagnostic_count = 0
+
+    def diagnostic(
+            self,
+            category: DiagnosticCategory,
+            msg: str,
+            *args: object) -> None:
+        """Log a diagnostic tagged with its category.
+
+        The category is emitted as the first token of the message
+        (e.g., UNSUPPORTED: no lifting support available for instruction ...).
+
+        stacklevel=2 attributes the log record's %(module)s:%(lineno)d to
+        the caller of diagnostic(), not to this method -- without it, every
+        diagnostic would report its location as loggingutil:<this line>
+        instead of the actual call site (e.g. XXprUtil:1005), which is what
+        the [module:lineno] suffix exists to identify.
+        """
+        self._diagnostic_count += 1
+        self._logger.error(
+            category.value + ": " + msg, *args, stacklevel=2)
 
     def set_chkx_logger(
             self,

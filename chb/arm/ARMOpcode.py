@@ -52,7 +52,7 @@ import chb.simulation.SimValue as SV
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, DiagnosticCategory as DC
 
 
 if TYPE_CHECKING:
@@ -440,8 +440,9 @@ class ARMOpcode(ARMDictionaryRecord):
                 List[AST.ASTInstruction], List[AST.ASTInstruction]]:
         """Return default; should be overridden by instruction opcodes."""
 
-        chklogger.logger.error(
-            "no lifting support available for instruction %s at address %s",
+        chklogger.diagnostic(
+            DC.UNSUPPORTED,
+            "No lifting support available for instruction %s at address %s",
             self.mnemonic, iaddr)
         instrs = self.ast(astree, iaddr, bytestring, xdata)
         return (instrs, instrs)
@@ -497,8 +498,9 @@ class ARMOpcode(ARMDictionaryRecord):
             return (hl_astcond, ll_astcond)
 
         else:
-            chklogger.logger.error(
-                "No condition found at address %s", iaddr)
+            chklogger.diagnostic(
+                DC.UNSUPPORTED,
+                "Conditional branch without inferred condition %s", iaddr)
             hl_astcond = astree.mk_temp_lval_expression()
             return (hl_astcond, ll_astcond)
 

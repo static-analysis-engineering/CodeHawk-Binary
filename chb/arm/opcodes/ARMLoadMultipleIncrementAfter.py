@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,7 +40,7 @@ import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, DiagnosticCategory as DC
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -282,7 +282,8 @@ class ARMLoadMultipleIncrementAfter(ARMOpcode):
             rhsexprs = xd.memrhss
 
         else:
-            chklogger.logger.error(
+            chklogger.diagnostic(
+                DC.INTERNAL,
                 "LDM: Error value encountered at address %s", iaddr)
             return ([], [])
 

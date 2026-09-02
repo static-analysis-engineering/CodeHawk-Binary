@@ -40,7 +40,7 @@ import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, DiagnosticCategory as DC
 
 
 if TYPE_CHECKING:
@@ -260,7 +260,8 @@ class ARMAdd(ARMOpcode):
         annotations: List[str] = [iaddr, "ADD"]
 
         if xdata.is_aggregate_jumptable:
-            chklogger.logger.warning(
+            chklogger.diagnostic(
+                DC.UNSUPPORTED,
                 "ADD: aggregate jumptable at address %s not yet handled",
                 iaddr)
             return ([], [])
@@ -306,7 +307,8 @@ class ARMAdd(ARMOpcode):
             xrhs = xd.result
 
         else:
-            chklogger.logger.error(
+            chklogger.diagnostic(
+                DC.INTERNAL,
                 "ADD: Encountered error value for rhs at address %s", iaddr)
             return ([], [ll_assign])
 
