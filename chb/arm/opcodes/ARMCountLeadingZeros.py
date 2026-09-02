@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025 Aarno Labs LLC
+# Copyright (c) 2021-2026 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,8 +39,9 @@ from chb.astinterface.ASTInterface import ASTInterface
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger
+
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -143,12 +144,6 @@ class ARMCountLeadingZeros(ARMOpcode):
 
         annotations: List[str] = [iaddr, "CLZ"]
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[1]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
-
         (ll_lhs, _, _) = self.opargs[0].ast_lvalue(astree)
         (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
 
@@ -159,30 +154,22 @@ class ARMCountLeadingZeros(ARMOpcode):
             iaddr=iaddr,
             bytestring=bytestring)
 
-        lhsasts = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        if len(lhsasts) == 0:
-            raise UF.CHBError(
-                "CountLeadingZeros (CLZ): no lval found")
+        xd = ARMCountLeadingZerosXData(xdata)
 
-        if len(lhsasts) > 1:
-            raise UF.CHBError(
-                "CountLeadingZeros (CLZ): multiple lvals in ast: "
-                + ", ".join(str(v) for v in lhsasts))
+        if xd.is_ok:
+            lhs = xd.vrd
+            rhs = xd.xxrn
+        else:
+            chklogger.logger.error(
+                "Encountered error value for CLZ at address %s", iaddr)
+            return ([], [])
 
-        hl_lhs = lhsasts[0]
+        rdefs = xdata.reachingdefs
+        defuses = xdata.defuses
+        defuseshigh = xdata.defuseshigh
 
-        rhsasts = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        if len(rhsasts) == 0:
-            raise UF.CHBError(
-                "CountLeadingZeros (CLZ): no argument value found")
-
-        if len(rhsasts) > 1:
-            raise UF.CHBError(
-                "CountLeadingZeros (CLZ): "
-                + "multiple argument values in asts: "
-                + ", ".join(str(x) for x in rhsasts))
-
-        hl_rhs = rhsasts[0]
+        hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         if astree.has_variable_intro(iaddr):
             vname = astree.get_variable_intro(iaddr)
