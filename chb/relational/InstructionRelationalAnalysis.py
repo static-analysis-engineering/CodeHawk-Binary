@@ -217,19 +217,19 @@ class InstructionRelationalAnalysis:
                 content["instr-2"] = i2result.content
             if self.is_po_changed:
                 (pos1, pos2) = self.po_changes
-                content["pos-added"] = posadded = []
+                content["pos-removed"] = posremoved = []
                 for po in pos1:
                     ipo = po.to_json_result()
                     if not ipo.is_ok:
                         return JSONResult(
                             "instructioncomparison", {}, "fail", ipo.reason)
-                    posadded.append(ipo.content)
-                content["pos-removed"] = posremoved = []
+                    posremoved.append(ipo.content)
+                content["pos-added"] = posadded = []
                 for po in pos2:
                     ipo = po.to_json_result()
                     if not ipo.is_ok:
                         return JSONResult(
                             "instructioncomparison", {}, "fail", ipo.reason)
-                    posremoved.append(ipo.content)
+                    posadded.append(ipo.content)
 
         return JSONResult("instructioncomparison", content, "ok")

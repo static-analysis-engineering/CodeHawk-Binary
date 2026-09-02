@@ -1873,6 +1873,9 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
                 fn_arg["type"] = "pointer"
                 fn_arg["max-length"] = buffersize
                 fn_arg["size-origin"] = sizeorigin
+                # Set the buffersize based on the first passthrough argument if unknown from PO.
+                if not found_fmt_arg and pc_content["buffersize"] == 0:
+                    pc_content["buffersize"] = buffersize
 
             # If we've already found the format string input, treat the remaining arguments
             # up to the number of format string specifiers as inputs.
