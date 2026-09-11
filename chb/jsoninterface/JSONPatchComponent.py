@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """JSON objects related to patch components."""
 
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING, cast
 
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 from chb.jsoninterface.JSONObject import JSONObject
@@ -42,19 +42,19 @@ class JSONHookInstruction(JSONObject):
 
     @property
     def srca(self) -> str:
-        return self.d.get("srca", self.property_missing("srca"))
+        return cast(str, self.d.get("srca", self.property_missing("srca")))
 
     @property
     def tgta(self) -> str:
-        return self.d.get("tgta", self.property_missing("tgta"))
+        return cast(str, self.d.get("tgta", self.property_missing("tgta")))
 
     @property
     def size(self) -> int:
-        return self.d.get("size", self.property_missing("size"))
+        return cast(int, self.d.get("size", self.property_missing("size")))
 
     @property
     def instr(self) -> JSONAssemblyInstruction:
-        return self.d.get("instr", self.property_missing("instr"))
+        return cast(JSONAssemblyInstruction, self.d.get("instr", self.property_missing("instr")))
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_hookinstr(self)
@@ -68,7 +68,7 @@ class JSONCodeFragment(JSONObject):
 
     @property
     def starta(self) -> str:
-        return self.d.get("starta", self.property_missing("starta"))
+        return cast(str, self.d.get("starta", self.property_missing("starta")))
 
     @property
     def instructions(self) -> List[JSONAssemblyInstruction]:
@@ -91,11 +91,11 @@ class JSONPatchComponent(JSONObject):
 
     @property
     def role(self) -> str:
-        return self.d.get("role", self.property_missing("role"))
+        return cast(str, self.d.get("role", self.property_missing("role")))
 
     @property
     def kind(self) -> str:
-        return self.d.get("kind", self.property_missing("role"))
+        return cast(str, self.d.get("kind", self.property_missing("role")))
 
     @property
     def value(self) -> Union[JSONHookInstruction, JSONCodeFragment]:

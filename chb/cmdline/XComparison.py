@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Compare executable content of two binaries."""
 
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, cast
 
 from chb.cmdline.PatchResults import PatchResults
 import chb.cmdline.commandutil as UC
@@ -111,11 +111,11 @@ class XComparison:
 
     @property
     def programheaders1(self) -> List["ELFProgramHeader"]:
-        return self.app1.header.programheaders
+        return cast(List['ELFProgramHeader'], self.app1.header.programheaders)
 
     @property
     def programheaders2(self) -> List["ELFProgramHeader"]:
-        return self.app2.header.programheaders
+        return cast(List['ELFProgramHeader'], self.app2.header.programheaders)
 
     @property
     def newsegments(self) -> List["ELFProgramHeader"]:
@@ -123,11 +123,11 @@ class XComparison:
 
     @property
     def sectionheaders1(self) -> List["ELFSectionHeader"]:
-        return self.app1.header.sectionheaders
+        return cast(List['ELFSectionHeader'], self.app1.header.sectionheaders)
 
     @property
     def sectionheaders2(self) -> List["ELFSectionHeader"]:
-        return self.app2.header.sectionheaders
+        return cast(List['ELFSectionHeader'], self.app2.header.sectionheaders)
 
     @property
     def newsections(self) -> List["ELFSectionHeader"]:

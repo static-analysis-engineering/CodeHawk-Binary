@@ -1158,7 +1158,7 @@ class SimSymbolicFilePointer(SimSymbol):
 
     @property
     def fp(self) -> IO[Any]:
-        return self._fp
+        return cast(IO[Any], self._fp)
 
     @property
     def is_file_pointer(self) -> bool:

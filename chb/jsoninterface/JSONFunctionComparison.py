@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, cast
 
 from chb.jsoninterface.JSONBlockComparison import JSONBlockComparison
 from chb.jsoninterface.JSONControlFlowGraph import JSONControlFlowGraph
@@ -44,23 +44,23 @@ class JSONCfgBlockMappingItem(JSONObject):
 
     @property
     def changes(self) -> List[str]:
-        return self.d.get("changes", [])
+        return cast(List[str], self.d.get("changes", []))
 
     @property
     def matches(self) -> List[str]:
-        return self.d.get("matches", [])
+        return cast(List[str], self.d.get("matches", []))
 
     @property
     def cfg1_block_addr(self) -> str:
-        return self.d.get("cfg1-block-addr", self.property_missing("cfg1-block-addr"))
+        return cast(str, self.d.get("cfg1-block-addr", self.property_missing("cfg1-block-addr")))
 
     @property
     def instr_count1(self) -> int:
-        return self.d.get("instr-count1", self.property_missing("instr-count1"))
+        return cast(int, self.d.get("instr-count1", self.property_missing("instr-count1")))
 
     @property
     def instr_count2(self) -> int:
-        return self.d.get("instr-count2", self.property_missing("instr-count2"))
+        return cast(int, self.d.get("instr-count2", self.property_missing("instr-count2")))
 
     @property
     def cfg2_blocks(self) -> List[Tuple[str, str]]:
@@ -112,11 +112,11 @@ class JSONFunctionComparison(JSONObject):
 
     @property
     def faddr1(self) -> str:
-        return self.d.get("faddr1", self.property_missing("faddr1"))
+        return cast(str, self.d.get("faddr1", self.property_missing("faddr1")))
 
     @property
     def faddr2(self) -> str:
-        return self.d.get("faddr2", self.property_missing("faddr2"))
+        return cast(str, self.d.get("faddr2", self.property_missing("faddr2")))
 
     @property
     def name1(self) -> Optional[str]:
@@ -157,7 +157,7 @@ class JSONFunctionComparison(JSONObject):
 
     @property
     def blocks_changed(self) -> List[str]:
-        return self.d.get("blocks-changed", [])
+        return cast(List[str], self.d.get("blocks-changed", []))
 
     @property
     def num_blocks_changed(self) -> int:
@@ -165,7 +165,7 @@ class JSONFunctionComparison(JSONObject):
 
     @property
     def changes(self) -> List[str]:
-        return self.d.get("changes", [self.property_missing("changes")])
+        return cast(List[str], self.d.get("changes", [self.property_missing("changes")]))
 
     @property
     def cfg_block_mapping(self) -> List[JSONCfgBlockMappingItem]:
@@ -178,7 +178,7 @@ class JSONFunctionComparison(JSONObject):
 
     @property
     def matches(self) -> List[str]:
-        return self.d.get("matches", [])
+        return cast(List[str], self.d.get("matches", []))
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_function_comparison(self)

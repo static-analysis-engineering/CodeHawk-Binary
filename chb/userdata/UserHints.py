@@ -665,7 +665,7 @@ class TypingRule:
 
     @property
     def action(self) -> str:
-        a = self.typingrule.get("action", "?")
+        a = cast(str, self.typingrule.get("action", "?"))
         if a in ["enable", "disable"]:
             return a
         else:
@@ -673,7 +673,7 @@ class TypingRule:
 
     @property
     def locs(self) -> List[str]:
-        locs = self.typingrule.get("locs", [])
+        locs = cast(List[str], self.typingrule.get("locs", []))
         if len(locs) == 0:
             raise UF.CHBError("No locations specified in typing rule")
         else:
@@ -682,7 +682,7 @@ class TypingRule:
     @property
     def name(self) -> str:
         if "name" in self.typingrule:
-            return self.typingrule["name"]
+            return cast(str, self.typingrule["name"])
         else:
             raise UF.CHBError("Name is missing in typing rule")
 
@@ -711,15 +711,15 @@ class RemoveReachingDefinitions:
 
     @property
     def uselocs(self) -> List[str]:
-        return self.rdefspec.get("uselocs", [])
+        return cast(List[str], self.rdefspec.get("uselocs", []))
 
     @property
     def rdeflocs(self) -> List[str]:
-        return self.rdefspec.get("rdeflocs", [])
+        return cast(List[str], self.rdefspec.get("rdeflocs", []))
 
     @property
     def var(self) -> str:
-        return self.rdefspec.get("var", "__no_var__")
+        return cast(str, self.rdefspec.get("var", "__no_var__"))
 
     def to_xml(self, node: ET.Element) -> None:
         xremrdef = ET.Element("remove-var-rdefs")
@@ -749,7 +749,7 @@ class FunctionAnnotation:
         if not "faddr" in self.fnannotation:
             chklogger.logger.warning(
                 "Function annotation without faddr, returning 0x0")
-        return self.fnannotation.get("faddr", "0x0")
+        return cast(str, self.fnannotation.get("faddr", "0x0"))
 
     @property
     def stack_variable_introductions(self) -> Dict[int, StackVarIntro]:
@@ -785,7 +785,7 @@ class FunctionAnnotation:
 
     @property
     def const_global_variables(self) -> List[str]:
-        return self.fnannotation.get("const-global-variables", [])
+        return cast(List[str], self.fnannotation.get("const-global-variables", []))
 
     def has_register_variable_introduction(self, iaddr: str) -> bool:
         return iaddr in self.register_variable_introductions
