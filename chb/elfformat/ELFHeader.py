@@ -410,10 +410,10 @@ class ELFHeader:
         result: List[Tuple[ELFSectionHeader, ELFSection]] = []
         for sh in self.sectionheaders:
             if sh.is_relocation_table:
-                if sh.index not in self.sections:
+                index = int(sh.index)
+                if index not in self.sections:
                     xsection = UF.get_elf_section_xnode(
                         self.pathname, self.filename, sh.index)
-                    index = int(sh.index)
                     self._sections[index] = ELFRelocationTable(
                         self, self.sectionheaders[index], xsection)
                 result.append((sh, self.sections[index]))
@@ -465,7 +465,7 @@ class ELFHeader:
             if self.has_string_table():
                 result["stringtables"] = {}
                 for ss in self.get_string_tables():
-                    result["stringtables"][ss.name] = s.as_dictionary()
+                    result["stringtables"][ss.name] = ss.as_dictionary()
             if self.has_symbol_table():
                 result["symboltable"] = self.get_symbol_table().as_dictionary()
             if self.has_dynamic_symbol_table():
