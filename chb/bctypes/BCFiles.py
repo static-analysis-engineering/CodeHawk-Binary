@@ -90,7 +90,7 @@ class BCFiles:
             if typ.is_typedef:
                 typedef = cast("BCTypNamed", typ).typedef
                 if typedef:
-                    typ = typ = cast("BCTypeInfo", typedef).ttype
+                    typ = typedef.ttype
             if typ.is_struct:
                 compinfo = cast("BCTypComp", typ).compinfo
                 result.append(compinfo)

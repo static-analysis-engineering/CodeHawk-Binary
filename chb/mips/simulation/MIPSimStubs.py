@@ -370,7 +370,6 @@ class MIPSimStub(SimStub):
                     iaddr,
                     "String argument is not a valid address: " + str(saddr))
             elif gaddr.is_address:
-                gaddr = cast(SSV.SimGlobalAddress, gaddr)
                 return simstate.get_string_from_memaddr(iaddr, gaddr)
 
         raise SU.CHBSimError(
@@ -1458,7 +1457,6 @@ class MIPStub_fileno(MIPSimStub):
                 simstate.set_register(iaddr, "v0", fpresult)
                 returnval = str(fpresult)
             elif a0.is_symbol:
-                a0 = cast(SSV.SimSymbol, a0)
                 symresult = SSV.SimSymbol(a0.name + '_fildes')
                 simstate.set_register(iaddr, "v0", symresult)
                 returnval = str(symresult)
@@ -3744,7 +3742,6 @@ class MIPStub_realloc(MIPSimStub):
                 a0 = cast(SSV.SimBaseAddress, a0)
                 if a0.has_buffer_size():
                     a0buffersize = cast(int, a0.buffersize)
-                    a0 = cast(SSV.SimBaseAddress, a0)
                     for i in range(0, a0buffersize):
                         srcaddr = a0.add_offset(i)
                         tgtaddr = address.add_offset(i)
@@ -5200,7 +5197,7 @@ class MIPStub_strstr(MIPSimStub):
                 "some argument to strstr is undefined")
 
         if a0.is_address:
-            addr: SV.SimValue = cast(SV.SimValue, a0)
+            addr: SV.SimValue = a0
         elif a0.is_literal:
             addr = simstate.resolve_literal_address(iaddr, a0.literal_value)
 

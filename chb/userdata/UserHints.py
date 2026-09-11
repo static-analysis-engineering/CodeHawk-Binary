@@ -475,7 +475,7 @@ class DataBlocksHints(HintsEntry):
 
     def update(self, d: List[Dict[str, Union[List[str], str]]]) -> None:
         for db in d:
-            addr = cast(str, db["r"][0])
+            addr = db["r"][0]
             if not self.has_start_address(addr):
                 self._datablocks.append(db)
                 self._addrs.append(addr)
@@ -1451,7 +1451,6 @@ class SymbolicAddressesHints(HintsEntry):
             xgv = ET.Element("syma")
             xaddrs.append(xgv)
             xgv.set("a", gv)
-            gvname = cast(str, gvname)
             xgv.set("name", gvname)
             ptnode = ET.Element("type")
             xgv.append(ptnode)

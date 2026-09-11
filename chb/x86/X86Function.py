@@ -172,8 +172,7 @@ class X86Function(Function):
 
     def iter_instructions(self, f: Callable[[str, X86Instruction], None]) -> None:
         for (ia, instr) in self.instructions.items():
-            x86instr = cast(X86Instruction, instr)
-            f(ia, x86instr)
+            f(ia, instr)
 
     def arg_count(self) -> int:
         xvalues = self.vardictionary.constant_value_variables()
