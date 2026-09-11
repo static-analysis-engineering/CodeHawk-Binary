@@ -25,9 +25,8 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 
-import chb.jsoninterface.AuxiliaryClasses as AX
 from chb.jsoninterface.JSONAssemblyBlock import JSONAssemblyBlock
 from chb.jsoninterface.JSONObject import JSONObject
 
@@ -43,7 +42,7 @@ class JSONCfgNode(JSONObject):
 
     @property
     def baddr(self) -> str:
-        return self.d.get("baddr", self.property_missing("baddr"))
+        return cast(str, self.d.get("baddr", self.property_missing("baddr")))
 
     @property
     def id(self) -> str:
@@ -52,7 +51,7 @@ class JSONCfgNode(JSONObject):
         This normally corresponds to BasicBlock.baddr, whereas baddr
         above corresponds to BasicBlock.real_baddr.
         """
-        return self.d.get("id", self.property_missing("id"))
+        return cast(str, self.d.get("id", self.property_missing("id")))
 
     @property
     def code(self) -> JSONAssemblyBlock:
@@ -79,23 +78,23 @@ class JSONCfgEdge(JSONObject):
 
     @property
     def src(self) -> str:
-        return self.d.get("src", self.property_missing("src"))
+        return cast(str, self.d.get("src", self.property_missing("src")))
 
     @property
     def tgt(self) -> str:
-        return self.d.get("tgt", self.property_missing("tgt"))
+        return cast(str, self.d.get("tgt", self.property_missing("tgt")))
 
     @property
     def kind(self) -> str:
-        return self.d.get("kind", self.property_missing("kind"))
+        return cast(str, self.d.get("kind", self.property_missing("kind")))
 
     @property
     def predicate(self) -> Optional[str]:
         if "predicate" in self.d:
-            return self.d.get(
+            return cast(str, self.d.get(
                 "predicate",
                 {"txtrep": "?"}).get("txtrep",
-                                     self.property_missing("predicate.txtrep"))
+                                     self.property_missing("predicate.txtrep")))
         return None
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
@@ -115,11 +114,11 @@ class JSONControlFlowGraph(JSONObject):
 
     @property
     def faddr(self) -> str:
-        return self.d.get("faddr", self.property_missing("faddr"))
+        return cast(str, self.d.get("faddr", self.property_missing("faddr")))
 
     @property
     def md5hash(self) -> str:
-        return self.d.get("md5hash", self.property_missing("md5hash"))
+        return cast(str, self.d.get("md5hash", self.property_missing("md5hash")))
 
     @property
     def nodes(self) -> List[JSONCfgNode]:

@@ -41,7 +41,7 @@ type xcst_t =
 
 """
 
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import Any, Dict, List, TYPE_CHECKING, cast
 
 from chb.invariants.FnDictionaryRecord import FnXprDictionaryRecord, xprregistry
 from chb.invariants.XNumerical import XNumerical
@@ -173,7 +173,7 @@ class XIntConst(XConstant):
 
     @property
     def is_global_address(self) -> bool:
-        return self.app.header.is_in_address_space(self.value)
+        return cast(bool, self.app.header.is_in_address_space(self.value))
 
     @property
     def is_int_constant(self) -> bool:

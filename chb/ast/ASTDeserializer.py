@@ -26,7 +26,7 @@
 # ------------------------------------------------------------------------------
 """Simplified version of AST to check serialization."""
 
-from typing import Any, cast, Dict, List, NewType, Optional, Tuple, Union
+from typing import Any, cast, Dict, List, Optional, Tuple
 
 from chb.ast.AbstractSyntaxTree import (
     AbstractSyntaxTree, nooffset, voidtype, ASTSpanRecord)
@@ -362,7 +362,7 @@ class ASTDeserializer:
         def find_instr_address_by_locationid(locationid: int) -> str:
             for node in fdata["spans"]:
                 if "locationid" in node and int(node["locationid"]) == locationid:
-                    return node["spans"][0]["base_va"]
+                    return cast(str, node["spans"][0]["base_va"])
             else:
                 raise Exception(
                     "No span found for locationid: " + str(locationid))
@@ -370,7 +370,7 @@ class ASTDeserializer:
         def find_expr_address_by_exprid(exprid: int) -> str:
             for node in fdata["spans"]:
                 if "exprid" in node and int(node["exprid"]) == exprid:
-                    return node["spans"][0]["base_va"]
+                    return cast(str, node["spans"][0]["base_va"])
             else:
                 raise Exception(
                     "Deserializer: No span found for exprid: " + str(exprid))

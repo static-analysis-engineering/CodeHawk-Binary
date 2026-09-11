@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, TYPE_CHECKING
+from typing import Any, Dict, TYPE_CHECKING, cast
 
 from chb.jsoninterface.JSONObject import JSONObject
 
@@ -40,15 +40,15 @@ class JSONProofObligationRecord(JSONObject):
 
     @property
     def predicate(self) -> str:
-        return self.d.get("predicate", "none")
+        return cast(str, self.d.get("predicate", "none"))
 
     @property
     def status(self) -> str:
-        return self.d.get("status", "none")
+        return cast(str, self.d.get("status", "none"))
 
     @property
     def msg(self) -> str:
-        return self.d.get("msg", "none")
+        return cast(str, self.d.get("msg", "none"))
 
     def __str__(self) -> str:
         return "PO: %s -> status: %s, msg: %s" % (self.predicate, self.status, self.msg)

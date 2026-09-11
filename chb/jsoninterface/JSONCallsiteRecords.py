@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, cast
 
 from chb.jsoninterface.JSONObject import JSONObject
 from chb.jsoninterface.JSONCallgraph import JSONCallgraph
@@ -41,11 +41,11 @@ class JSONCallsiteTgtParameter(JSONObject):
 
     @property
     def name(self) -> str:
-        return self.d.get("name", self.property_missing("name"))
+        return cast(str, self.d.get("name", self.property_missing("name")))
 
     @property
     def roles(self) -> List[str]:
-        return self.d.get("parameter-roles", [])
+        return cast(List[str], self.d.get("parameter-roles", []))
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_callsite_tgt_parameter(self)
@@ -59,7 +59,7 @@ class JSONCallsiteTgtFunction(JSONObject):
 
     @property
     def name(self) -> str:
-        return self.d.get("name", self.property_missing("name"))
+        return cast(str, self.d.get("name", self.property_missing("name")))
 
     @property
     def parameters(self) -> List[JSONCallsiteTgtParameter]:
@@ -72,7 +72,7 @@ class JSONCallsiteTgtFunction(JSONObject):
 
     @property
     def varargs(self) -> bool:
-        return self.d.get("varargs", False)
+        return cast(bool, self.d.get("varargs", False))
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_callsite_tgt_function(self)
@@ -86,11 +86,11 @@ class JSONCallsiteArgument(JSONObject):
 
     @property
     def name(self) -> str:
-        return self.d.get("name", self.property_missing("name"))
+        return cast(str, self.d.get("name", self.property_missing("name")))
 
     @property
     def value(self) -> str:
-        return self.d.get("value", self.property_missing("value"))
+        return cast(str, self.d.get("value", self.property_missing("value")))
 
     @property
     def roles(self) -> List[Tuple[str, str]]:
@@ -116,11 +116,11 @@ class JSONCallsiteRecord(JSONObject):
 
     @property
     def faddr(self) -> str:
-        return self.d.get("faddr", self.property_missing("faddr"))
+        return cast(str, self.d.get("faddr", self.property_missing("faddr")))
 
     @property
     def iaddr(self) -> str:
-        return self.d.get("iaddr", self.property_missing("iaddr"))
+        return cast(str, self.d.get("iaddr", self.property_missing("iaddr")))
 
     @property
     def arguments(self) -> List[JSONCallsiteArgument]:

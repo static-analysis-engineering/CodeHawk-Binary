@@ -116,7 +116,7 @@ class ARMLoadMultipleIncrementBeforeXData(ARMOpcodeXData):
     def are_memrhss_ok(self) -> bool:
         return all(self.is_xpr_ok(i) for i in self.memrhs_range)
 
-    def memrhs(self, index) -> "XXpr":
+    def memrhs(self, index: int) -> "XXpr":
         """returns the rhs expression at (1-based) position index"""
 
         if self.has_index(index):
@@ -135,7 +135,7 @@ class ARMLoadMultipleIncrementBeforeXData(ARMOpcodeXData):
     def are_rmemrhss_ok(self) -> bool:
         return all(self.is_xpr_ok(i) for i in self.rmemrhs_range)
 
-    def rmemrhs(self, index) -> "XXpr":
+    def rmemrhs(self, index: int) -> "XXpr":
         """returns the rewritten rhs expr at (1-based) position index"""
 
         if self.has_index(index):
@@ -154,7 +154,7 @@ class ARMLoadMultipleIncrementBeforeXData(ARMOpcodeXData):
     def are_xaddrs_ok(self) -> bool:
         return all(self.is_xpr_ok(i) for i in self.xaddr_range)
 
-    def xaddr(self, index) -> "XXpr":
+    def xaddr(self, index: int) -> "XXpr":
         """returns the rhs addr at (1-based) position index"""
 
         if self.has_index(index):
@@ -173,7 +173,7 @@ class ARMLoadMultipleIncrementBeforeXData(ARMOpcodeXData):
     def are_cmemrhss_ok(self) -> bool:
         return all(self.is_cxpr_ok(i) for i in range(0, self.regcount))
 
-    def cmemrhs(self, index) -> "XXpr":
+    def cmemrhs(self, index: int) -> "XXpr":
         """returns the rhs addr at (1-based) position index"""
 
         if self.has_index(index):

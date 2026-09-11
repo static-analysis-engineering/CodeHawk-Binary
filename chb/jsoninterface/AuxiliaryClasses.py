@@ -27,7 +27,7 @@
 
 import os
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 
 class XFilePath:
@@ -41,11 +41,11 @@ class XFilePath:
 
     @property
     def path(self) -> str:
-        return self.d.get("path", "missing:xfilepath:path")
+        return cast(str, self.d.get("path", "missing:xfilepath:path"))
 
     @property
     def filename(self) -> str:
-        return self.d.get("filename", "missing:xfilepath:filename")
+        return cast(str, self.d.get("filename", "missing:xfilepath:filename"))
 
     @property
     def filepath(self) -> str:
