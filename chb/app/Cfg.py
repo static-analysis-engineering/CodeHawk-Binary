@@ -211,7 +211,7 @@ class FlowGraph:
             def idom(n: UserNodeID) -> UserNodeID:
                 i = idoms[n]
                 assert i is not None # Should always hit start node.
-                return cast(UserNodeID, i)
+                return i
 
             finger1: UserNodeID = b1
             finger2: UserNodeID = b2
@@ -627,8 +627,7 @@ class Cfg:
                       bodystmts.append(defaultcase)
 
                     switchbody = astree.mk_block(bodystmts)
-                    switchstmt = cast(AST.ASTSwitchStmt,
-                        astree.mk_switch_stmt(switchcondition, switchbody, mergeaddr))
+                    switchstmt = astree.mk_switch_stmt(switchcondition, switchbody, mergeaddr)
                     return (xstmts + [switchstmt])
                     # We don't use with_last_insn_span(x, switchstmt) because when we have
                     # a switch lifted from a conditional jump (for explicit cases) plus an

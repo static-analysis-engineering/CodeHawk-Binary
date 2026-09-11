@@ -78,8 +78,7 @@ class MIPSBlock(BasicBlock):
 
     def iter(self, f: Callable[[str, MIPSInstruction], None]) -> None:
         for (ia, instr) in self.instructions.items():
-            mipsinstr = cast(MIPSInstruction, instr)
-            f(ia, mipsinstr)
+            f(ia, instr)
 
     def get_sliced_instructions(
             self, registers: List[str]) -> List[MIPSInstruction]:

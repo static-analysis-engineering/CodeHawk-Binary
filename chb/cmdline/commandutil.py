@@ -203,7 +203,6 @@ def get_app(path: str, xfile: str, xinfo: XI.XInfo) -> AppAccess:
 
 def get_asm(app: AppAccess) -> Assembly:
     if isinstance(app, MIPSAccess):
-        app = cast(MIPSAccess, app)
         return MIPSAssembly(app, UF.get_mips_asm_xnode(app.path, app.filename))
     elif isinstance(app, ARMAccess):
         return ARMAssembly(app, UF.get_arm_asm_xnode(app.path, app.filename))

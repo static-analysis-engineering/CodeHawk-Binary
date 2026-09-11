@@ -310,7 +310,7 @@ class MIPSInstruction(Instruction):
     def branch_condition(self) -> XXpr:
         if self.has_branch_condition():
             opc = cast(MIPSBranchOpcode, self.opcode)
-            return cast(XXpr, opc.branch_condition(self.xdata))
+            return opc.branch_condition(self.xdata)
         else:
             raise UF.CHBError("Instruction does not have a branch condition")
 

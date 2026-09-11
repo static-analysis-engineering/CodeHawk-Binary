@@ -705,8 +705,7 @@ class SimBaseAddress(SimAddress):
             self.base, newoffset, buffersize=self.buffersize, tgttype=self.tgttype)
 
     def align(self, v: int) -> "SimBaseAddress":
-        newoffset = cast(
-            SV.SimDoubleWordValue, self.offset.bitwise_and(SV.mk_simvalue(v)))
+        newoffset = self.offset.bitwise_and(SV.mk_simvalue(v))
         return SimBaseAddress(
             self.base, newoffset, buffersize=self.buffersize, tgttype=self.tgttype)
 

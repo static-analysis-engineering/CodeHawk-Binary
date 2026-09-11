@@ -117,14 +117,12 @@ class PowerFunction(Function):
 
     def iter_blocks(self, f: Callable[[str, PowerBlock], None]) -> None:
         for (ba, block) in self.blocks.items():
-            pwrblock = cast(PowerBlock, block)
-            f(ba, pwrblock)
+            f(ba, block)
 
     def iter_instructions(
             self, f: Callable[[str, PowerInstruction], None]) -> None:
         for (ia, instr) in self.instructions.items():
-            pwrinstr = cast(PowerInstruction, instr)
-            f(ia, pwrinstr)
+            f(ia, instr)
 
     @property
     def branchconditions(self) -> Mapping[str, PowerInstruction]:

@@ -400,7 +400,6 @@ class ASTInterfaceBasicBlock:
 
         # case 1
         if chkinstr2.mnemonic_stem == "MOV":
-            chkinstr2 = cast("ARMInstruction", chkinstr2)
             if chkinstr2.has_instruction_condition():
                 if chkinstr2.has_valid_instruction_c_condition():
                     condition = chkinstr2.get_instruction_c_condition()
