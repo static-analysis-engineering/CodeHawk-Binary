@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 
 import chb.jsoninterface.AuxiliaryClasses as AX
 from chb.jsoninterface.JSONFunctionComparison import JSONFunctionComparison
@@ -42,7 +42,7 @@ class JSONCallgraphComparison(JSONObject):
 
     @property
     def changes(self) -> List[str]:
-        return self.d.get("changes", [])
+        return cast(List[str], self.d.get("changes", []))
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_callgraph_comparison(self)
@@ -55,7 +55,7 @@ class JSONBinaryComparison(JSONObject):
 
     @property
     def changes(self) -> List[str]:
-        return self.d.get("changes", [])
+        return cast(List[str], self.d.get("changes", []))
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_binary_comparison(self)
@@ -68,7 +68,7 @@ class JSONGlobalVarComparison(JSONObject):
 
     @property
     def gaddr(self) -> str:
-        return self.d.get("gaddr1", self.property_missing("gaddr1"))
+        return cast(str, self.d.get("gaddr1", self.property_missing("gaddr1")))
 
     @property
     def name(self) -> Optional[str]:
@@ -89,7 +89,7 @@ class JSONFunctionAdded(JSONObject):
 
     @property
     def faddr(self) -> str:
-        return self.d.get("faddr", self.property_missing("faddr"))
+        return cast(str, self.d.get("faddr", self.property_missing("faddr")))
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_function_added(self)
@@ -103,11 +103,11 @@ class JSONFunctionMD5(JSONObject):
 
     @property
     def faddr(self) -> str:
-        return self.d.get("faddr", self.property_missing("faddr"))
+        return cast(str, self.d.get("faddr", self.property_missing("faddr")))
 
     @property
     def md5(self) -> str:
-        return self.d.get("md5", self.property_missing("md5"))
+        return cast(str, self.d.get("md5", self.property_missing("md5")))
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_function_md5(self)
@@ -176,11 +176,11 @@ class JSONAppComparison(JSONObject):
 
     @property
     def changes(self) -> List[str]:
-        return self.d.get("changes", [])
+        return cast(List[str], self.d.get("changes", []))
 
     @property
     def matches(self) -> List[str]:
-        return self.d.get("matches", [])
+        return cast(List[str], self.d.get("matches", []))
 
     @property
     def functions_compared(self) -> List[str]:

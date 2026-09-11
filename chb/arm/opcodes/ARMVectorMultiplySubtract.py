@@ -154,7 +154,7 @@ class ARMVectorMultiplySubtract(ARMOpcode):
         # https://stackoverflow.com/questions/33483846/how-to-convert-32-bit-binary-to-float
 
         ci = cast(XprConstant, x).intvalue
-        return struct.unpack('f', struct.pack('I', ci))[0]
+        return cast(float, struct.unpack('f', struct.pack('I', ci))[0])
 
     def ast_prov(
             self,

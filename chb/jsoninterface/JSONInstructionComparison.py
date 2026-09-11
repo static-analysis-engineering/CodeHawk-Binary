@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 
 from chb.jsoninterface.JSONObject import JSONObject
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
@@ -44,7 +44,7 @@ class JSONInstructionComparison(JSONObject):
 
     @property
     def iaddr1(self) -> str:
-        return self.d.get("iaddr1", self.property_missing("iaddr1"))
+        return cast(str, self.d.get("iaddr1", self.property_missing("iaddr1")))
 
     @property
     def iaddr2(self) -> Optional[str]:
@@ -52,7 +52,7 @@ class JSONInstructionComparison(JSONObject):
 
     @property
     def changes(self) -> List[str]:
-        return self.d.get("changes", [])
+        return cast(List[str], self.d.get("changes", []))
 
     @property
     def instr1(self) -> JSONAssemblyInstruction:

@@ -45,9 +45,8 @@ chb/relational/PatchParticulars.py
 """
 import json
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
-import chb.util.fileutil as UF
 from chb.util.loggingutil import chklogger
 
 
@@ -58,23 +57,23 @@ class PatchPayload:
 
     @property
     def offset(self) -> int:
-        return self._d.get("offset", -1)
+        return cast(int, self._d.get("offset", -1))
 
     @property
     def removed(self) -> int:
-        return self._d.get("removed", 0)
+        return cast(int, self._d.get("removed", 0))
 
     @property
     def inserted(self) -> int:
-        return self._d.get("inserted", 0)
+        return cast(int, self._d.get("inserted", 0))
 
     @property
     def offsethex(self) -> str:
-        return self._d.get("offsethex", "0x0")
+        return cast(str, self._d.get("offsethex", "0x0"))
 
     @property
     def vahex(self) -> str:
-        return self._d.get("vahex", "0x0")
+        return cast(str, self._d.get("vahex", "0x0"))
 
     def __str__(self) -> str:
         return (
@@ -94,25 +93,25 @@ class PatchWrapper:
 
     @property
     def offset(self) -> int:
-        return self._d.get("offset", -1)
+        return cast(int, self._d.get("offset", -1))
 
     @property
     def removed(self) -> int:
-        return self._d.get("removed", 0)
+        return cast(int, self._d.get("removed", 0))
 
     @property
     def inserted(self) -> int:
-        return self._d.get("inserted", 0)
+        return cast(int, self._d.get("inserted", 0))
 
     @property
     def offsethex(self) -> str:
-        return self._d.get("offsethex", "0x0")
+        return cast(str, self._d.get("offsethex", "0x0"))
 
     @property
     def vahex(self) -> str:
         """Returns the hex start address of the wrapper."""
 
-        return self._d.get("vahex", "0x0")
+        return cast(str, self._d.get("vahex", "0x0"))
 
     def in_wrapper(self, addr: str) -> bool:
         """Returns true if addr is contained within the wrapper."""
@@ -156,7 +155,7 @@ class PatchDetails:
 
     @property
     def cases(self) -> List[str]:
-        return self._d.get("cases", [])
+        return cast(List[str], self._d.get("cases", []))
 
     def __str__(self) -> str:
         lines: List[str] = []
@@ -186,7 +185,7 @@ class PatchLabelOffsets:
         return hex(offset + int(self.base, 16))
 
     def label_offset(self, label: str) -> int:
-        return self._d.get(label, 0)
+        return cast(int, self._d.get(label, 0))
 
     def label_address(self, label: str) -> str:
         return self._convert_offset(self.label_offset(label))
@@ -306,15 +305,15 @@ class PatchEvent:
 
     @property
     def event_type(self) -> str:
-        return self._d["event"]
+        return cast(str, self._d["event"])
 
     @property
     def patchkind(self) -> str:
-        return self._d["patchkind"]
+        return cast(str, self._d["patchkind"])
 
     @property
     def logicalva(self) -> str:
-        return self._d["logicalva"]
+        return cast(str, self._d["logicalva"])
 
     @property
     def is_trampoline(self) -> bool:

@@ -154,14 +154,14 @@ class ARMVectorMoveDS(ARMOpcode):
         # https://stackoverflow.com/questions/33483846/how-to-convert-32-bit-binary-to-float
 
         ci = cast(XprConstant, x).intvalue
-        return struct.unpack('f', struct.pack('I', ci))[0]
+        return cast(float, struct.unpack('f', struct.pack('I', ci))[0])
 
     def _unpack_imm64(self, x: XXpr) -> float:
         # from StackOverflow:
         # https://stackoverflow.com/questions/8751653/how-to-convert-a-binary-string-into-a-float-value
         ci = cast(XprConstant, x).intvalue
         b8 = struct.pack('Q', ci)
-        return struct.unpack('d', b8)[0]
+        return cast(float, struct.unpack('d', b8)[0])
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMVectorMoveDSXData(xdata)

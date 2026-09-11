@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 from chb.jsoninterface.JSONObject import JSONObject
@@ -42,11 +42,11 @@ class JSONAssemblyBlock(JSONObject):
 
     @property
     def startaddr(self) -> str:
-        return self.d.get("startaddr", self.property_missing("startaddr"))
+        return cast(str, self.d.get("startaddr", self.property_missing("startaddr")))
 
     @property
     def endaddr(self) -> str:
-        return self.d.get("endaddr", self.property_missing("endaddr"))
+        return cast(str, self.d.get("endaddr", self.property_missing("endaddr")))
 
     @property
     def instructions(self) -> List[JSONAssemblyInstruction]:

@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 
 class JSONStackpointerOffset:
@@ -39,7 +39,7 @@ class JSONStackpointerOffset:
 
     @property
     def txtrep(self) -> str:
-        return self.d.get("txtrep", "missing:stackpointeroffset:txtrep")
+        return cast(str, self.d.get("txtrep", "missing:stackpointeroffset:txtrep"))
 
 
 class JSONStackpointerOffsetUnknown(JSONStackpointerOffset):

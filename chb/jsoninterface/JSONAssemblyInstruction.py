@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Tuple, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Tuple, Optional, TYPE_CHECKING, cast
 
 from chb.jsoninterface.JSONObject import JSONObject
 from chb.jsoninterface.JSONProofObligationRecord import JSONProofObligationRecord
@@ -44,7 +44,7 @@ class JSONAssemblyInstruction(JSONObject):
 
     @property
     def addr(self) -> List[str]:
-        return self.d.get("addr", self.property_missing("addr"))
+        return cast(List[str], self.d.get("addr", self.property_missing("addr")))
 
     @property
     def stackpointer(self) -> Optional[JSONStackpointerOffset]:
@@ -64,15 +64,15 @@ class JSONAssemblyInstruction(JSONObject):
 
     @property
     def bytes(self) -> str:
-        return self.d.get("bytes", self.property_missing("bytes"))
+        return cast(str, self.d.get("bytes", self.property_missing("bytes")))
 
     @property
     def opcode(self) -> Tuple[str, str]:
-        return self.d.get("opcode", self.property_missing("opcode"))
+        return cast(Tuple[str, str], self.d.get("opcode", self.property_missing("opcode")))
 
     @property
     def annotation(self) -> str:
-        return self.d.get("annotation", self.property_missing("annotation"))
+        return cast(str, self.d.get("annotation", self.property_missing("annotation")))
 
     def accept(self, visitor: "JSONObjectVisitor") -> None:
         visitor.visit_assembly_instruction(self)
