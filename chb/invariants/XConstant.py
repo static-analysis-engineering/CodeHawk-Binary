@@ -173,7 +173,7 @@ class XIntConst(XConstant):
 
     @property
     def is_global_address(self) -> bool:
-        return cast(bool, self.app.header.is_in_address_space(self.value))
+        return self.app.header.is_in_address_space(self.value)
 
     @property
     def is_int_constant(self) -> bool:

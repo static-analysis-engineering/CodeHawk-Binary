@@ -133,13 +133,11 @@ class MIPSFunction(Function):
 
     def iter_blocks(self, f: Callable[[str, MIPSBlock], None]) -> None:
         for (ba, block) in self.blocks.items():
-            mipsblock = cast(MIPSBlock, block)
-            f(ba, mipsblock)
+            f(ba, block)
 
     def iter_instructions(self, f: Callable[[str, MIPSInstruction], None]) -> None:
         for (ia, instr) in self.instructions.items():
-            mipsinstr = cast(MIPSInstruction, instr)
-            f(ia, mipsinstr)
+            f(ia, instr)
 
     @property
     def branchconditions(self) -> Mapping[str, MIPSInstruction]:
@@ -149,7 +147,7 @@ class MIPSFunction(Function):
             if lastinstr.is_branch_instruction:
                 ftconditions = lastinstr.ft_conditions
                 if len(ftconditions) > 0:
-                    result[b.baddr] = cast(MIPSInstruction, lastinstr)
+                    result[b.baddr] = lastinstr
         return result
 
     def set_fnvar_dictionary(self, xnode: ET.Element) -> FnVarDictionary:

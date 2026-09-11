@@ -209,12 +209,12 @@ class ARMFunction(Function):
 
     def iter_blocks(self, f: Callable[[str, ARMBlock], None]) -> None:
         for (ba, block) in self.blocks.items():
-            armblock = cast(ARMBlock, block)
+            armblock = block
             f(ba, armblock)
 
     def iter_instructions(self, f: Callable[[str, ARMInstruction], None]) -> None:
         for (ia, instr) in self.instructions.items():
-            arminstr = cast(ARMInstruction, instr)
+            arminstr = instr
             f(ia, arminstr)
 
     @property

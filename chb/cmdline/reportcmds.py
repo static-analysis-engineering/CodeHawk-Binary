@@ -1807,7 +1807,7 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
                         if is_cmd_delegation(po):
                             os_cmd_delegations[po.status.get_iaddr()].append(instr.iaddr)
                         if type(po.xpo) == XPOTrustedOsCmdFmtString:
-                            trusted_po = cast('XPOTrustedOsCmdFmtString', po.xpo)
+                            trusted_po = po.xpo
                             os_cmd_construction.append((faddr, instr, calltgt.name, trusted_po))
                             if calltgt.is_app_target and calltgt.name not in app_functions:
                                 app_functions[calltgt.name] = str(cast('AppTarget', calltgt).address)
