@@ -506,10 +506,10 @@ class XprVariable(XXpr):
             tgt = self.returnval_target()
             if tgt is None:
                 return None
-            if tgt == 'getenv':
+            if tgt.name == 'getenv':
                 envarg = self.returnval_arguments()[0]
                 return ICV.EnvironmentInputValue(str(envarg))
-            if tgt in ['strchr', 'strrchr']:
+            if tgt.name in ['strchr', 'strrchr']:
                 strk = self.returnval_arguments()[0].to_input_constraint_value()
                 if strk is not None:
                     cchar = self.returnval_arguments()[1]
@@ -517,7 +517,7 @@ class XprVariable(XXpr):
                         charval = cchar.constant.value
                         charcode = "'" + chr(charval) + "'"
                         return ICV.StringSuffixValue(
-                            strk, charcode, lastpos=(tgt == 'strrchr'))
+                            strk, charcode, lastpos=(tgt.name == 'strrchr'))
                     else:
                         return None
                 else:
