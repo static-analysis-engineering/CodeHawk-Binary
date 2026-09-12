@@ -59,7 +59,7 @@ import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
-    from chb.api.InterfaceDictionary import FtsParameter
+    from chb.api.FtsParameter import FtsParameter
     from chb.api.InterfaceDictionary import InterfaceDictionary
 
 

@@ -188,7 +188,7 @@ class FlowGraph:
         augedges[phantomend] = terminators
         return FlowGraph(list(self.nodes) + [phantomend], augedges, phantomend)
 
-    def ipostdoms(rrg: 'FlowGraph') -> Dict[UserNodeID, UserNodeID]:
+    def ipostdoms(self, rrg: 'FlowGraph') -> Dict[UserNodeID, UserNodeID]:
         idoms = rrg.idoms.copy()
         # The start node of the reverse graph is a phantom node that doesn't
         # exist in the original graph.

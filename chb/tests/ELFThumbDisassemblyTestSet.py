@@ -51,8 +51,8 @@ class ELFThumbDisassemblyTestSet:
     def __init__(self) -> None:
         pass
 
-    def create_test(self, r) -> None:
-        files: Dict = {}
+    def create_test(self, r: List[str]) -> None:
+        files: Dict[str, str] = {}
         name = r[0]
         tca = ELFARMTestCreator(name, r[1], suite="DT")
         elfheader = tca.create_elf_header()
@@ -63,19 +63,19 @@ class ELFThumbDisassemblyTestSet:
 
         UF.save_test_files(name, "arm32", "elf", "DT", name, files, xinfo)
 
-    def remove_test(self, r) -> None:
+    def remove_test(self, r: List[str]) -> None:
         testfilename = UF.get_test_filename("arm32", "elf", "DT", r[0])
         (path, xfile) = UC.get_path_filename(testfilename)
         os.remove(os.path.join(path, xfile))
         shutil.rmtree(os.path.join(path, xfile + ".ch"))
 
-    def run_test(self, r) -> None:
+    def run_test(self, r: List[str]) -> None:
         testfilename = UF.get_test_filename("arm32", "elf", "DT", r[0])
         result = self.analyze_test_case(testfilename)
         if result != 0:
             print("Error in analysis of " + testfilename)
 
-    def check_test(self, r) -> None:
+    def check_test(self, r: List[str]) -> None:
         testfilename = UF.get_test_filename("arm32", "elf", "DT", r[0])
         try:
             (path, xfile) = UC.get_path_filename(testfilename)
