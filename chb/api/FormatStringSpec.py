@@ -124,7 +124,7 @@ class FormatArgSpec(InterfaceDictionaryRecord):
     def flags(self) -> str:
         return "".join(chr(i) for i in self.args)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             "%"
             + self.flags

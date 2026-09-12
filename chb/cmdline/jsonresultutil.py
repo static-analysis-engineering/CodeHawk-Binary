@@ -77,7 +77,7 @@ def jsonok(schemaname: str, content: Dict[str, Any]) -> Dict[str, Any]:
     return jresult
 
 
-def jsonappdata(xinfo: "XInfo", includepath=True) -> Dict[str, str]:
+def jsonappdata(xinfo: "XInfo", includepath: bool = True) -> Dict[str, str]:
     result: Dict[str, str] = {}
     if includepath:
         result["path"] = xinfo.path
