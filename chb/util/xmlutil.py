@@ -85,7 +85,9 @@ def element_to_pretty(e: ET.Element, indent: int = 0) -> List[str]:
 
 def doc_to_pretty(t: ET.ElementTree) -> str:
     lines = ['<?xml version="1.0" encoding="UTF-8"?>\n']
-    lines.extend(element_to_pretty(t.getroot()))
+    root = t.getroot()
+    assert root is not None
+    lines.extend(element_to_pretty(root))
     return "".join(lines)
 
 
