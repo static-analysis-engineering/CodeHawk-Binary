@@ -151,6 +151,13 @@ class ASTInterfaceInstruction:
             self.ast_cc_condition_prov(astree)
         return self.hl_ast_cc_condition
 
+    def assembly_ast_cc_condition(
+            self,
+            astree: "ASTInterface") -> Optional[AST.ASTExpr]:
+        if self.ll_ast_cc_condition is None:
+            self.ast_cc_condition_prov(astree)
+        return self.ll_ast_cc_condition
+
     def ast_switch_condition(
             self,
             astree: "ASTInterface") -> Optional[AST.ASTExpr]:
