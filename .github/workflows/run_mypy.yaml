@@ -8,11 +8,14 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v7
     - name: Install mypy
-      run: sudo apt-get install -y mypy python3-mypy
+      run: |
+        sudo apt-get install -y python3
+        python3 -m venv .venv
+        .venv/bin/pip install mypy==2.4.0
     - name: Create default local config
       run: cp chb/util/ConfigLocal.template chb/util/ConfigLocal.py
     - name: Run mypy
       run: |
-        PYTHONPATH=$PWD mypy chb
+        PYTHONPATH=$PWD .venv/bin/mypy chb
