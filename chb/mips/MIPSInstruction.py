@@ -64,6 +64,7 @@ if TYPE_CHECKING:
     from chb.mips.MIPSFunction import MIPSFunction
     from chb.mips.opcodes.MIPSLoadWord import MIPSLoadWord
     from chb.simulation.SimulationState import SimulationState
+    from chb.api.CallTarget import AppTarget
 
 
 class MIPSInstruction(Instruction):
@@ -245,8 +246,11 @@ class MIPSInstruction(Instruction):
     def is_call_to_app_function(self, tgtaddr: str) -> bool:
         if self.is_call_instruction and self.opcode.has_call_target(self.xdata):
             opc = cast(MIPSJumpLinkRegister, self.opcode)
-            ctgtaddr = opc.call_target(self.xdata)
-            return ctgtaddr == tgtaddr
+            call_target = opc.call_target(self.xdata)
+            if not call_target.is_app_target:
+                return False
+            call_target = cast(AppTarget, call_target)
+            return str(call_target.address) == tgtaddr
         return False
 
     def call_facts(self) -> Mapping[str, Any]:
@@ -257,7 +261,7 @@ class MIPSInstruction(Instruction):
         if callargs:
             result['args'] = callargs
         tgt = self.call_target
-        if tgt == 'call-target:u':
+        if tgt.name == 'call-target:u':
             result['t'] = '?'
         else:
             result['t'] = str(tgt)
