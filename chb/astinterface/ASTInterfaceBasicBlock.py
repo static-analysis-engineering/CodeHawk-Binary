@@ -267,31 +267,26 @@ class ASTInterfaceBasicBlock:
             instrs = [self.get_instruction(i.iaddr) for i in frag.linear]
             return self.linear_assembly_ast(astree, instrs)
 
-    def fragmented_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
-
+    def fragmented_ast(
+            self,
+            astree: "ASTInterface",
+            ll: bool = False) -> AST.ASTStmt:
         if len(self.basicblock.partition) == 0:
             raise UF.CHBError("Error in fragmented ast")
 
         stmts: List[AST.ASTStmt] = []
 
         for (a, bf) in sorted(self.basicblock.partition.items()):
-            stmt = self.ast_fragment(astree, bf)
+            if ll:
+                stmt = self.assembly_ast_fragment(astree, bf)
+            else:
+                stmt = self.ast_fragment(astree, bf)
             stmts.append(stmt)
 
         return astree.mk_block(stmts)
 
     def fragmented_assembly_ast(self, astree: "ASTInterface") -> AST.ASTStmt:
-
-        if len(self.basicblock.partition) == 0:
-            raise UF.CHBError("Error in fragmented assembly ast")
-
-        stmts: List[AST.ASTStmt] = []
-
-        for (a, bf) in sorted(self.basicblock.partition.items()):
-            stmt = self.assembly_ast_fragment(astree, bf)
-            stmts.append(stmt)
-
-        return astree.mk_block(stmts)
+        return self.fragmented_ast(astree, ll=True)
 
     def ast(self, astree: "ASTInterface") -> AST.ASTStmt:
         if self.is_trampoline:
@@ -309,40 +304,31 @@ class ASTInterfaceBasicBlock:
     def linear_block_ast(
             self,
             astree: "ASTInterface",
-            instritems: List[ASTInterfaceInstruction]) -> AST.ASTStmt:
-        instrs: List[AST.ASTInstruction] = []
-        for i in instritems:
-            instrs.extend(i.ast(astree))
-        instrseq = astree.mk_instr_sequence(instrs)
-        return astree.mk_block([instrseq])
+            instritems: List[ASTInterfaceInstruction],
+            ll: bool = False) -> AST.ASTStmt:
+        return astree.mk_block([self.linear_ast(astree, instritems, ll=ll)])
 
     def linear_ast(
             self,
             astree: "ASTInterface",
-            instritems: List[ASTInterfaceInstruction]) -> AST.ASTStmt:
+            instritems: List[ASTInterfaceInstruction],
+            ll: bool = False) -> AST.ASTStmt:
         instrs: List[AST.ASTInstruction] = []
         for i in instritems:
-            instrs.extend(i.ast(astree))
+            instrs.extend(i.assembly_ast(astree) if ll else i.ast(astree))
         return astree.mk_instr_sequence(instrs)
 
     def linear_assembly_block_ast(
             self,
             astree: "ASTInterface",
             instritems: List[ASTInterfaceInstruction]) -> AST.ASTStmt:
-        instrs: List[AST.ASTInstruction] = []
-        for i in instritems:
-            instrs.extend(i.assembly_ast(astree))
-        instrseq = astree.mk_instr_sequence(instrs)
-        return astree.mk_block([instrseq])
+        return self.linear_block_ast(astree, instritems, ll=True)
 
     def linear_assembly_ast(
             self,
             astree: "ASTInterface",
             instritems: List[ASTInterfaceInstruction]) -> AST.ASTStmt:
-        instrs: List[AST.ASTInstruction] = []
-        for i in instritems:
-            instrs.extend(i.assembly_ast(astree))
-        return astree.mk_instr_sequence(instrs)
+        return self.linear_ast(astree, instritems, ll=True)
 
     def trampoline_block_ast(
             self,
