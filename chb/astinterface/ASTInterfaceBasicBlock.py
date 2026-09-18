@@ -214,7 +214,7 @@ class ASTInterfaceBasicBlock:
             cinstr = theninstrs[0]
             brcond = cinstr.ast_cc_condition(astree)
             if brcond is None:
-                chklogger.logger.warning(
+                chklogger.logger.error(
                     "No instruction predicate expression found at address %s",
                     cinstr.iaddr)
                 brcond = astree.mk_temp_lval_expression()
@@ -249,7 +249,7 @@ class ASTInterfaceBasicBlock:
             cinstr = theninstrs[0]
             brcond = cinstr.assembly_ast_cc_condition(astree)
             if brcond is None:
-                chklogger.logger.warning(
+                chklogger.logger.error(
                     "No low-level instruction predicate expression found at "
                     + "address %s",
                     cinstr.iaddr)
