@@ -234,38 +234,36 @@ class ASTInterfaceBasicBlock:
             self,
             astree: "ASTInterface",
             frag: "BasicBlockFragment") -> AST.ASTStmt:
-        if frag.is_predicated:
-            # A predicated instruction is lifted as an if-statement, so this
-            # 'if' has no branch instruction of its own to point at. Build the
-            # two bodies, take the condition from the first predicated
-            # instruction, and record which instruction bytes the new
-            # statement stands for, since the span record is the only thing
-            # tying it back to the binary.
-            theninstrs = [self.get_instruction(i.iaddr) for i in frag.thenbranch]
-            elseinstrs = [self.get_instruction(i.iaddr) for i in frag.elsebranch]
-            thenstmt = self.linear_assembly_block_ast(astree, theninstrs)
-            elsestmt = self.linear_assembly_block_ast(astree, elseinstrs)
-            spans = [(i.iaddr, i.bytestring) for i in theninstrs + elseinstrs]
-            cinstr = theninstrs[0]
-            brcond = cinstr.assembly_ast_cc_condition(astree)
-            if brcond is None:
-                chklogger.logger.error(
-                    "No low-level instruction predicate expression found at "
-                    + "address %s",
-                    cinstr.iaddr)
-                return self.linear_assembly_ast(astree, theninstrs + elseinstrs)
-
-            instrcount = len(theninstrs) + len(elseinstrs)
-            # mk_branch creates the if-statement, and add_stmt_span links it
-            # to the bytes of the instructions it covers, keyed by its
-            # locationid.
-            ifstmt = astree.mk_branch(
-                brcond, thenstmt, elsestmt, cinstr.iaddr, predicated=instrcount)
-            astree.add_stmt_span(ifstmt.locationid, spans)
-            return ifstmt
-        else:
+        if not frag.is_predicated:
             instrs = [self.get_instruction(i.iaddr) for i in frag.linear]
             return self.linear_assembly_ast(astree, instrs)
+
+        # A predicated instruction is lifted as an if-statement, so this 'if'
+        # has no branch instruction of its own to point at. Build the two
+        # bodies, take the condition from the first predicated instruction, and
+        # record which instruction bytes the new statement stands for, since the
+        # span record is the only thing tying it back to the binary.
+        theninstrs = [self.get_instruction(i.iaddr) for i in frag.thenbranch]
+        elseinstrs = [self.get_instruction(i.iaddr) for i in frag.elsebranch]
+        thenstmt = self.linear_assembly_block_ast(astree, theninstrs)
+        elsestmt = self.linear_assembly_block_ast(astree, elseinstrs)
+        spans = [(i.iaddr, i.bytestring) for i in theninstrs + elseinstrs]
+        cinstr = theninstrs[0]
+        brcond = cinstr.assembly_ast_cc_condition(astree)
+        if brcond is None:
+            chklogger.logger.error(
+                "No low-level instruction predicate expression found at "
+                + "address %s",
+                cinstr.iaddr)
+            return self.linear_assembly_ast(astree, theninstrs + elseinstrs)
+
+        instrcount = len(theninstrs) + len(elseinstrs)
+        # mk_branch creates the if-statement, and add_stmt_span links it to the
+        # bytes of the instructions it covers, keyed by its locationid.
+        ifstmt = astree.mk_branch(
+            brcond, thenstmt, elsestmt, cinstr.iaddr, predicated=instrcount)
+        astree.add_stmt_span(ifstmt.locationid, spans)
+        return ifstmt
 
     def fragmented_ast(
             self,
