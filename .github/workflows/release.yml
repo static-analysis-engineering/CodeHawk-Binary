@@ -1,0 +1,68 @@
+name: release
+
+# Builds the distribution on every pull request so packaging problems surface in
+# review, and publishes to PyPI when a version tag is pushed.
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      publish_to_testpypi:
+        description: "Also publish the built distribution to TestPyPI"
+        type: boolean
+        default: false
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install build tooling
+        run: python -m pip install --upgrade build twine
+      - name: Build sdist and wheel
+        run: python -m build
+      - name: Check metadata
+        run: twine check dist/*
+      - name: Show what is in the wheel
+        run: python -m zipfile -l dist/*.whl
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  # Dry run, on demand: same artifact, TestPyPI instead of PyPI. TestPyPI keeps
+  # every version it has seen, so a repeat run needs a bumped chbversion.
+  publish-testpypi:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_to_testpypi
+    needs: build
+    runs-on: ubuntu-22.04
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish:
+    # Tags only. Trusted publishing, so no API token is stored in the repository.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

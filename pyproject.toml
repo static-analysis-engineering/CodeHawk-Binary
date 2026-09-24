@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codehawk-binary"
+description = "Python API for the CodeHawk Binary Analyzer"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [{ name = "Aarno Labs LLC", email = "codehawk@aarno-labs.com" }]
+keywords = ["binary analysis", "reverse engineering", "static analysis", "abstract interpretation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Security",
+    "Topic :: Software Development :: Disassemblers",
+    "Typing :: Typed",
+]
+# The package imports nothing outside the standard library.
+dependencies = []
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/static-analysis-engineering/CodeHawk-Binary"
+Source = "https://github.com/static-analysis-engineering/CodeHawk-Binary"
+Issues = "https://github.com/static-analysis-engineering/CodeHawk-Binary/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "chb.app.CHVersion.chbversion" }
+
+# Include only the chb package in the distribution. Without this filter, package
+# discovery also picks up doc/ and tests/ and installs them as importable
+# top-level names in every environment that installs this package.
+[tool.setuptools.packages.find]
+include = ["chb*"]
+
+# ConfigLocal.py is gitignored local configuration that exists in most working
+# copies. It is a .py file inside the package, so discovery would otherwise bake
+# a developer's absolute analyzer paths into the distribution.
+[tool.setuptools.exclude-package-data]
+"chb.util" = ["ConfigLocal.py"]
+
+# Config() opens each of these by path inside the installed package, so they must
+# be included in the wheel. A wheel holding only .py files imports fine and then
+# fails at runtime with FileNotFoundError under site-packages.
+[tool.setuptools.package-data]
+"chb" = ["py.typed"]
+"chb.summaries" = ["bchsummaries.jar", "bch_header.c"]
+"chb.util" = ["localetable.json", "ConfigLocal.template"]
+"chb.arm.opcodes" = ["opcodes_covered.json"]
+"chb.pwr.opcodes" = ["opcodes_covered.json"]
