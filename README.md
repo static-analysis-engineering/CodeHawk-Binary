@@ -14,8 +14,21 @@ interface can be invoked as follows (adjust paths for actual location):
 
 This will show an [overview](doc/cli-output.txt) of the commands available.
 
-At present the analyzer supports x86 (32-bits), both ELF and PE32, mips32,
-and arm32 (both ARM and Thumb-2) binaries (ELF only); arm32 is stil under active
+## Installing the python API
+
+The python API is published on PyPI, so a script that imports `chb` needs no
+`PYTHONPATH`:
+
+```
+> pip install codehawk-binary
+> python -c "import chb; print(chb.__file__)"
+```
+
+The distribution contains the python API only. Running an analysis additionally
+needs the CodeHawk Binary Analyzer (see Requirements section).
+
+At present the analyzer supports x86 (32-bits), both ELF and PE32, mips32, and
+arm32 (both ARM and Thumb-2) binaries (ELF only); arm32 is stil under active
 development and thus somewhat experimental.
 
 ### Requirements
