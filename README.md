@@ -35,7 +35,7 @@ development and thus somewhat experimental.
 
 Ensure you have `zip` installed.
 
-The command-line interface requires python3.5 or higher.
+The command-line interface requires python 3.9 or higher.
 
 Build instructions for the CodeHawk Binary Analyzer are available
 [here](https://github.com/static-analysis-engineering/codehawk/tree/master/CodeHawk).
