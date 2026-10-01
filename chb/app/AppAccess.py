@@ -52,6 +52,7 @@ from chb.api.InterfaceDictionary import InterfaceDictionary
 from chb.app.AppCfgInfo import AppCfgInfo
 from chb.app.AppResultData import AppResultData
 from chb.app.AppResultMetrics import AppResultMetrics
+from chb.app.ASMCallgraph import ASMCallgraph
 from chb.app.BDictionary import BDictionary
 from chb.app.CallbackTables import CallbackTables
 from chb.app.Callgraph import (
@@ -113,6 +114,7 @@ class AppAccess(ABC, Generic[HeaderTy]):
         # functions
         self._appresultdata: Optional[AppResultData] = None
         self._appcfginfo: Optional[AppCfgInfo] = None
+        self._asm_callgraph: Optional[ASMCallgraph] = None
         self._functioninfos: Dict[str, FunctionInfo] = {}
 
         # callgraph
@@ -240,6 +242,13 @@ class AppAccess(ABC, Generic[HeaderTy]):
             xinfo = UF.get_systeminfo_xnode(self.path, self.filename)
             self._systeminfo = SystemInfo(self.bdictionary, xinfo)
         return self._systeminfo
+
+    @property
+    def asm_callgraph(self) -> ASMCallgraph:
+        if self._asm_callgraph is None:
+            xcallgraph = UF.get_callgraph_xnode(self.path, self.filename)
+            self._asm_callgraph = ASMCallgraph(xcallgraph)
+        return self._asm_callgraph
 
     @property
     def type_constraints(self) -> TypeConstraintStore:

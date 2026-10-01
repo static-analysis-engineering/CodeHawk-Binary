@@ -532,6 +532,24 @@ def get_systeminfo_xnode(path: str, xfile: str) -> ET.Element:
     return get_chb_xnode(filename, "system-info")
 
 
+def get_callgraph_filename(path: str, xfile: str) -> str:
+    fdir = get_analysis_dir(path, xfile)
+    return get_chb_filename(fdir, xfile, "callgraph.xml")
+
+
+def get_callgraph_xnode(path: str, xfile: str) -> ET.Element:
+    filename = get_callgraph_filename(path, xfile)
+    if os.path.isfile(filename):
+        return get_chb_xnode(filename, "callgraph")
+    else:
+        raise CHBFileNotFoundError(filename)
+
+
+def has_callgraph_file(path: str, xfile: str) -> bool:
+    filename = get_callgraph_filename(path, xfile)
+    return os.path.isfile(filename)
+
+
 def has_global_locations_file(path:str, xfile: str) -> bool:
     filename = get_global_locations_filename(path, xfile)
     return os.path.isfile(filename)
