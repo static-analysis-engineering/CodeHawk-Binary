@@ -403,6 +403,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     failonfunctionfailure: bool = args.fail_on_function_failure
     save_asm: bool = args.save_asm
     save_asm_cfg_info: bool = args.save_asm_cfg_info
+    save_asm_callgraph: bool = args.save_asm_callgraph
     print_datasections: List[str] = args.print_datasections
     thumb: List[str] = args.thumb
     floatabi: Optional[str] = args.float_abi
@@ -574,6 +575,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 collectdiagnostics=collectdiagnostics,
                 preamble_cutoff=preamble_cutoff,
                 save_asm_cfg_info=save_asm_cfg_info,
+                save_asm_callgraph=save_asm_callgraph,
                 print_datasections=print_datasections)
         except subprocess.CalledProcessError as e:
             print_error(str(e.output))
@@ -2832,6 +2834,37 @@ def ddata_gvars(args: argparse.Namespace) -> NoReturn:
 
     print("\nNumber of locations: " + str(len(glocs)))
     print("Coverage: " + str(coverage) + " (typed: " + str(count) + ")")
+
+    exit(0)
+
+
+def ddata_asm_callgraph(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname: str = str(args.xname)
+    filename: str = str(args.output)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    if not UF.has_callgraph_file(path, xfile):
+        print_error("No assembly-level callgraph found. "
+                    + "Please disassemble with option --save_asm_callgraph")
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+
+    callgraph = app.asm_callgraph
+
+    jsonok = JU.jsonok("asm-callgraph", callgraph.to_json_result().content)
+    with open(filename, "w") as fp:
+        json.dump(jsonok, fp, indent=4)
 
     exit(0)
 

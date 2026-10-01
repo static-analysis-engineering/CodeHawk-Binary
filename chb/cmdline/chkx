@@ -383,6 +383,10 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="save list of functions with cfg info in xml (may be slow)")
     analyzecmd.add_argument(
+        "--save_asm_callgraph",
+        action="store_true",
+        help="save list of callgraph edges (without argument info) in xml")
+    analyzecmd.add_argument(
         "--construct_all_functions",
         action="store_true",
         help="construct all functions even if not all functions are analyzed")
@@ -599,6 +603,12 @@ def parse() -> argparse.Namespace:
     ddatagvars = ddataparsers.add_parser("globalvars")
     ddatagvars.add_argument("xname", help="name of executable")
     ddatagvars.set_defaults(func=UCC.ddata_gvars)
+
+    # -- ddata asm_callgraph --
+    ddatacallgraph = ddataparsers.add_parser("asm_callgraph")
+    ddatacallgraph.add_argument("xname", help="name of executable")
+    ddatacallgraph.add_argument("output", help="name of json file to store results")
+    ddatacallgraph.set_defaults(func=UCC.ddata_asm_callgraph)
 
     # -- ddata userdata --
     ddatauserdata = ddataparsers.add_parser("userdata")
