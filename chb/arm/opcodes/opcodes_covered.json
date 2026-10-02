@@ -3108,6 +3108,20 @@
 	    },
 	    "TC": "DA"
 	},
+        "SXTAB": {
+            "name": "SignedExtendAddByte",
+            "encodings": {
+                "all": [
+                    {
+                        "T": "A1",
+                        "E": "<cc><3>< 10><rn><rd>ro000111<rm>",
+                        "D": "Y",
+                        "U": ["7330a2e6"]
+                    }
+                ]
+            },
+            "TC": "DA"
+        },
 	"SXTB": {
 	    "name": "SignedExtendByte",
 	    "encodings": {
@@ -3115,7 +3129,8 @@
 		    {
 			"T": "A1",
 			"E": "<cc><3>< 10><15><rd>ro0< 7><rm>",
-			"D": "Y"
+			"D": "Y",
+                        "U": ["7430afe6"]
 		    },
 		    {
 			"T": "T1",
