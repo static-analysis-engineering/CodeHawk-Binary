@@ -404,6 +404,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
     save_asm: bool = args.save_asm
     save_asm_cfg_info: bool = args.save_asm_cfg_info
     save_asm_callgraph: bool = args.save_asm_callgraph
+    save_asm_instructions: bool = args.save_asm_instructions
     print_datasections: List[str] = args.print_datasections
     thumb: List[str] = args.thumb
     floatabi: Optional[str] = args.float_abi
@@ -576,6 +577,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
                 preamble_cutoff=preamble_cutoff,
                 save_asm_cfg_info=save_asm_cfg_info,
                 save_asm_callgraph=save_asm_callgraph,
+                save_asm_instructions=save_asm_instructions,
                 print_datasections=print_datasections)
         except subprocess.CalledProcessError as e:
             print_error(str(e.output))
