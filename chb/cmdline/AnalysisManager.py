@@ -229,6 +229,7 @@ class AnalysisManager(object):
             save_asm: str = "yes",
             save_asm_cfg_info: bool = False,
             save_asm_callgraph: bool = False,
+            save_asm_instructions: bool = False,
             print_datasections: List[str] = []) -> None:
         cwd = os.getcwd()
         chklogger.logger.debug("change directory to %s", self.path)
@@ -246,6 +247,8 @@ class AnalysisManager(object):
             cmd.append("-save_asm_cfg_info")
         if save_asm_callgraph:
             cmd.append("-save_asm_callgraph")
+        if save_asm_instructions:
+            cmd.append("-save_asm_instructions")
         if collectdiagnostics:
             cmd.append("-diagnostics")
         if self.mips:

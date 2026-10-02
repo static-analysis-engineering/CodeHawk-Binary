@@ -387,6 +387,10 @@ def parse() -> argparse.Namespace:
         action="store_true",
         help="save list of callgraph edges (without argument info) in xml")
     analyzecmd.add_argument(
+        "--save_asm_instructions",
+        action="store_true",
+        help="save list of assembly instructions in xml")
+    analyzecmd.add_argument(
         "--construct_all_functions",
         action="store_true",
         help="construct all functions even if not all functions are analyzed")
