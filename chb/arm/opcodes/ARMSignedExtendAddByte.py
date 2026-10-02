@@ -51,7 +51,7 @@ class ARMSignedExtendAddByteXData(ARMOpcodeXData):
 
     @property
     def vrd(self) -> "XVariable":
-        return self.var(0, vrd)
+        return self.var(0, "vrd")
 
     @property
     def xrn(self) -> "XXpr":
