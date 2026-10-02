@@ -3953,7 +3953,10 @@
 			"T": "A1"
 		    },
 		    {
-			"T": "A2"
+			"T": "A2",
+                        "E": "<cc><7>01D10<vn><vd>101sN0M0<vm>",
+                        "D": "Y",
+                        "U": ["007ba8ee"]
 		    },
 		    {
 			"T": "T1"
@@ -3969,6 +3972,19 @@
 		]
 	    }
 	},
+        "VFMS": {
+            "name": "VectorFusedMultiplySubtract",
+            "encodings": {
+                "all": [
+                    {
+                        "T": "A2",
+                        "E": "<cc><7>01D10<vn><vd>101sN1M0<vm>",
+                        "D": "Y",
+                        "U": ["e20be1ee"]
+                    }
+                ]
+            }
+        },
 	"VLD1": {
 	    "name": "VectorLoadOne",
 	    "encodings": {
