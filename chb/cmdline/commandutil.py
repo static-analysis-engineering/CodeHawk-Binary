@@ -147,16 +147,27 @@ def get_path_filename(xname: str) -> Tuple[str, str]:
 def set_logging(
         level: str,
         path: str,
-        logfilename: Optional[str],
+        logfilename: Optional[str] = None,
+        jlogfilename: Optional[str] = None,
         msg: str = "",
-        mode: str = "a") -> None:
+        mode: str = "a",
+        jmode: str = "w",
+        jlevel: str = "NONE") -> None:
 
     if level in LogLevel.all() or logfilename is not None:
         if logfilename is not None:
             logfilename = os.path.join(path, logfilename)
+        if jlogfilename is not None:
+            jlogfilename = os.path.join(path, jlogfilename)
 
         chklogger.set_chkx_logger(
-            msg, level=level, logfilename=logfilename, mode=mode)
+            msg,
+            level=level,
+            logfilename=logfilename,
+            mode=mode,
+            jlogfilename=jlogfilename,
+            jmode=jmode,
+            jlevel=jlevel)
 
 
 def create_xinfo(path: str, xfile: str) -> XI.XInfo:

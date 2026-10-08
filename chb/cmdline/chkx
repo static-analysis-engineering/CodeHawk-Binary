@@ -803,7 +803,19 @@ def parse() -> argparse.Namespace:
         choices=["a", "w"],
         default="a",
         help="file mode for log file: append (a, default), or write (w)")
-
+    buildast.add_argument(
+        "--jlogfilename",
+        help="name of json file to write log messages in json format")
+    buildast.add_argument(
+        "--jloglevel",
+        choices=UL.LogLevel.options(),
+        default="WARNING",
+        help="set logging level to the given level (does not activate logging)")
+    buildast.add_argument(
+        "--jlogfilemode",
+        choices=["a", "w"],
+        default="w",
+        help="file mode for json log file: append (a), or write (w, default)")
     buildast.set_defaults(func=AST.buildast)
 
     # -- results decompile (abstract syntax tree) --

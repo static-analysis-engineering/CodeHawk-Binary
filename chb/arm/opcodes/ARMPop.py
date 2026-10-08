@@ -40,7 +40,7 @@ from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, CHKLogID
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
@@ -236,7 +236,8 @@ class ARMPop(ARMOpcode):
 
         xd = ARMPopXData(xdata)
         if not xd.is_ok:
-            chklogger.logger.error(
+            chklogger.logger.error_id(
+                CHKLogID.RSLT_ERRVAL_0001,
                 "Encountered error value at address %s", iaddr)
             return ([], [])
 

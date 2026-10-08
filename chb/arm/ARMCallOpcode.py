@@ -49,7 +49,7 @@ import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, CHKLogID
 
 
 if TYPE_CHECKING:
@@ -297,7 +297,8 @@ class ARMCallOpcode(ARMOpcode):
         if finfo.has_call_target(iaddr):
             calltarget = finfo.call_target(iaddr)
             if calltarget.is_unknown:
-                chklogger.logger.error(
+                chklogger.logger.error_id(
+                    CHKLogID.UNSP_INDCALL_0001,
                     "BL: Indirect call not yet handled at address %s", iaddr)
 
         if finfo.has_call_target_info(iaddr):
@@ -509,8 +510,9 @@ class ARMCallOpcode(ARMOpcode):
                                 hl_arg = astree.mk_address_of(
                                     astree.mk_vinfo_lval(vinfo))
                             else:
-                                chklogger.logger.error(
-                                    ("Unknown global address %s as call "
+                                chklogger.logger.error_id(
+                                    CHKLogID.USER_GLBDECL_0001,
+                                    ("USER: Unknown global address %s as call "
                                      + "argument at address %s"),
                                     hexgaddr, iaddr)
                                 hl_arg = astree.mk_temp_lval_expression()
