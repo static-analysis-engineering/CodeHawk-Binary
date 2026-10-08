@@ -66,7 +66,7 @@ import chb.util.dotutil as UD
 from chb.util.DotGraph import DotGraph
 import chb.util.fileutil as UF
 import chb.util.graphutil as UG
-from chb.util.loggingutil import chklogger, LogLevel
+from chb.util.loggingutil import chklogger, LogLevel, CHKLogID, function_context
 
 
 if TYPE_CHECKING:
@@ -158,6 +158,9 @@ def buildast(args: argparse.Namespace) -> NoReturn:
     loglevel: str = args.loglevel
     logfilename: Optional[str] = args.logfilename
     logfilemode: str = args.logfilemode
+    jlogfilename: Optional[str] = args.jlogfilename
+    jlogfilemode: str = args.jlogfilemode
+    jloglevel: str = args.jloglevel
 
     try:
         (path, xfile) = UC.get_path_filename(xname)
@@ -171,6 +174,9 @@ def buildast(args: argparse.Namespace) -> NoReturn:
         path,
         logfilename=logfilename,
         mode=logfilemode,
+        jlogfilename=jlogfilename,
+        jmode=jlogfilemode,
+        jlevel=jloglevel,
         msg="results ast invoked")
 
     xinfo = XI.XInfo()
@@ -289,144 +295,156 @@ def buildast(args: argparse.Namespace) -> NoReturn:
 
     for faddr in functions:
         if app.has_function(faddr):
-            f = app.function(faddr)
+            with function_context(faddr):
 
-            if f is None:
-                UC.print_error("Unable to find function " + faddr)
-                continue
+                f = app.function(faddr)
 
-            if app.has_function_name(faddr):
-                fname = app.function_name(faddr)
-            else:
-                fname = "sub_" + faddr[2:]
-
-            fsummary = f.finfo.appsummary
-
-            localsymboltable = ASTLocalSymbolTable(globalsymboltable)
-            returnsequences = ASTReturnSequences(codefragments)
-            astree = AbstractSyntaxTree(
-                faddr,
-                fname,
-                localsymboltable,
-                returnsequences=returnsequences,
-                registersizes=support.register_sizes,
-                flagnames=support.flagnames)
-
-            srcprototype: Optional["BCVarInfo"] = None
-            astprototype: Optional[ASTVarInfo] = None
-            appsignature: Optional["AppFunctionSignature"] = None
-            if app.bcfiles.has_vardecl(fname):
-                srcprototype = app.bcfiles.vardecl(fname)
-                if fsummary is not None:
-                    appsignature = fsummary.function_signature
-            elif fname == "main":
-                astprototype = astree.mk_vinfo_main_function(faddr)
-
-            # Offsets are negated to make them consistent with their internal
-            # numerical value.
-            #
-            # For convenience local stack variable introductions are specified
-            # with positive offsets. Internally these are negative values (i.e.,
-            # the difference between stackpointer value and stackpointer value
-            # at function entry, with a stack growing down).
-            fstackvarintros = {
-                -off: name
-                for (off, name) in stackvarintros.get(faddr, {}).items()}
-            functionannotation = userhints.function_annotation(faddr)
-
-            astinterface = ASTInterface(
-                astree,
-                typconverter,
-                xinfo.architecture,
-                srcprototype=srcprototype,
-                astprototype=astprototype,
-                appsignature=appsignature,
-                varintros=varintros,
-                functionannotation=functionannotation,
-                stackvarintros=fstackvarintros,
-                patchevents=patchevents,
-                verbose=verbose)
-
-            # Introduce ssa variables for all reaching definitions referenced in
-            # xdata records for all instructions in the function. Locations that
-            # have a common user are merged. Types are provided by lhs_types.
-            untyped = astinterface.introduce_ssa_variables(
-                f.rdef_location_partition(), f.register_lhs_types, f.lhs_names)
-
-            # Introduce stack variables for all stack buffers with types
-            astinterface.introduce_stack_variables(
-                f.stackframe, f.stack_variable_types)
-
-            regsuntyped: List[str] = []
-            for (reg, varlocs) in untyped.items():
-                for (var, locs) in varlocs.items():
-                    if len(locs) == 1 and locs[0] == "init":
-                        continue
-                    if "_spill" in var:
-                        continue
-                    if reg == "SP":
-                        continue
-                    # print(" Untyped: " + reg + ": " + var + " [" + ",".join(locs) + "]")
-                    if not reg in regsuntyped:
-                        regsuntyped.append(reg)
-
-            astfunction = ASTInterfaceFunction(
-                faddr, fname, f, astinterface, patchevents=patchevents)
-
-            try:
-                asts = astfunction.mk_asts(support)
-            except UF.CHBError as e:
-                UC.print_error(
-                    "Unable to create lifting for "
-                    + faddr
-                    + ":\n"
-                    + ("-" * 80)
-                    + "\n"
-                    + str(e))
-                functions_failed += 1
-                # continue
-                raise
-
-            if len(asts) >= 2:
-                astapi.add_function_ast(astree, asts, verbose)
-
-                print("\n// Lifted code for function " + faddr)
-                print("// --------------------------------------------------")
-                annotations: Dict[int, List[str]] = {}
-                if not hide_annotations:
-                    annotations = astinterface.annotations
-                prettyprinter = ASTCPrettyPrinter(
-                    localsymboltable, annotations=annotations)
-                print(prettyprinter.to_c(asts[0], include_globals=(not hide_globals)))
-                functions_lifted += 1
-
-            else:
-                print("\nUnable to generate a lifting for " + faddr)
-                functions_failed += 1
-                continue
-
-            if show_reachingdefs:
-                if output_reachingdefs is None:
-                    UC.print_error("\nSpecify a file to save the reaching defs")
+                if f is None:
+                    UC.print_error("Unable to find function " + faddr)
                     continue
 
-                if len(reachingdefs_registers) == 0:
-                    reachingdefs_registers = regsuntyped
+                if app.has_function_name(faddr):
+                    fname = app.function_name(faddr)
+                else:
+                    fname = "sub_" + faddr[2:]
 
-                for register in reachingdefs_registers:
-                    if not register in f.rdef_location_partition():
-                        UC.print_status_update(
-                            "Register " + register + " not found in rdeflocations")
+                fsummary = f.finfo.appsummary
+
+                localsymboltable = ASTLocalSymbolTable(globalsymboltable)
+                returnsequences = ASTReturnSequences(codefragments)
+                astree = AbstractSyntaxTree(
+                    faddr,
+                    fname,
+                    localsymboltable,
+                    returnsequences=returnsequences,
+                    registersizes=support.register_sizes,
+                    flagnames=support.flagnames)
+
+                srcprototype: Optional["BCVarInfo"] = None
+                astprototype: Optional[ASTVarInfo] = None
+                appsignature: Optional["AppFunctionSignature"] = None
+                if app.bcfiles.has_vardecl(fname):
+                    srcprototype = app.bcfiles.vardecl(fname)
+                    if fsummary is not None:
+                        appsignature = fsummary.function_signature
+                elif fname == "main":
+                    astprototype = astree.mk_vinfo_main_function(faddr)
+
+                # Offsets are negated to make them consistent with their internal
+                # numerical value.
+                #
+                # For convenience local stack variable introductions are specified
+                # with positive offsets. Internally these are negative values (i.e.,
+                # the difference between stackpointer value and stackpointer value
+                # at function entry, with a stack growing down).
+                fstackvarintros = {
+                    -off: name
+                    for (off, name) in stackvarintros.get(faddr, {}).items()}
+                functionannotation = userhints.function_annotation(faddr)
+
+                astinterface = ASTInterface(
+                    astree,
+                    typconverter,
+                    xinfo.architecture,
+                    srcprototype=srcprototype,
+                    astprototype=astprototype,
+                    appsignature=appsignature,
+                    varintros=varintros,
+                    functionannotation=functionannotation,
+                    stackvarintros=fstackvarintros,
+                    patchevents=patchevents,
+                    verbose=verbose)
+
+                # Introduce ssa variables for all reaching definitions referenced in
+                # xdata records for all instructions in the function. Locations that
+                # have a common user are merged. Types are provided by lhs_types.
+                untyped = astinterface.introduce_ssa_variables(
+                    f.rdef_location_partition(), f.register_lhs_types, f.lhs_names)
+
+                # Introduce stack variables for all stack buffers with types
+                astinterface.introduce_stack_variables(
+                    f.stackframe, f.stack_variable_types)
+
+                regsuntyped: List[str] = []
+                for (reg, varlocs) in untyped.items():
+                    for (var, locs) in varlocs.items():
+                        if len(locs) == 1 and locs[0] == "init":
+                            continue
+                        if "_spill" in var:
+                            continue
+                        if reg == "SP":
+                            continue
+                        # print(" Untyped: " + reg + ": " + var + " [" + ",".join(locs) + "]")
+                        if not reg in regsuntyped:
+                            regsuntyped.append(reg)
+
+                astfunction = ASTInterfaceFunction(
+                    faddr, fname, f, astinterface, patchevents=patchevents)
+
+                try:
+                    asts = astfunction.mk_asts(support)
+                except UF.CHBError as e:
+                    UC.print_error(
+                        "Unable to create lifting for "
+                        + faddr
+                        + ":\n"
+                        + ("-" * 80)
+                        + "\n"
+                        + str(e))
+                    functions_failed += 1
+                    # continue
+                    raise
+                except Exception as e:
+                    chklogger.logger.critical_id(
+                        CHKLogID.MISC_ABORT_0001,
+                        "ABORT: Unable to create lifting for "
+                        + faddr
+                        + " ("
+                        + str(e)
+                        + ")")
+                    functions_failed += 1
+                    continue
+
+                if len(asts) >= 2:
+                    astapi.add_function_ast(astree, asts, verbose)
+
+                    print("\n// Lifted code for function " + faddr)
+                    print("// --------------------------------------------------")
+                    annotations: Dict[int, List[str]] = {}
+                    if not hide_annotations:
+                        annotations = astinterface.annotations
+                    prettyprinter = ASTCPrettyPrinter(
+                        localsymboltable, annotations=annotations)
+                    print(prettyprinter.to_c(asts[0], include_globals=(not hide_globals)))
+                    functions_lifted += 1
+
+                else:
+                    print("\nUnable to generate a lifting for " + faddr)
+                    functions_failed += 1
+                    continue
+
+                if show_reachingdefs:
+                    if output_reachingdefs is None:
+                        UC.print_error("\nSpecify a file to save the reaching defs")
                         continue
 
-                for reg in reachingdefs_registers:
-                    print_reachingdefs(
-                        app,
-                        astinterface,
-                        output_reachingdefs + "__" + reg,
-                        fileformat,
-                        f,
-                        reg)
+                    if len(reachingdefs_registers) == 0:
+                        reachingdefs_registers = regsuntyped
+
+                    for register in reachingdefs_registers:
+                        if not register in f.rdef_location_partition():
+                            UC.print_status_update(
+                                "Register " + register + " not found in rdeflocations")
+                            continue
+
+                    for reg in reachingdefs_registers:
+                        print_reachingdefs(
+                            app,
+                            astinterface,
+                            output_reachingdefs + "__" + reg,
+                            fileformat,
+                            f,
+                            reg)
 
         else:
             UC.print_error("Unable to find function " + faddr)
