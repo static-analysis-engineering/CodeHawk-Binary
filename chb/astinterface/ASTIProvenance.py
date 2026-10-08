@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2025  Aarno Labs LLC
+# Copyright (c) 2022-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,7 @@ import chb.ast.ASTNode as AST
 from chb.ast.ASTProvenance import ASTProvenance
 
 import chb.util.fileutil as UF
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, CHKLogID
 
 if TYPE_CHECKING:
     from chb.invariants.VarInvariantFact import (
@@ -478,11 +478,18 @@ class ASTIProvenance:
                     else:
                         # temporarily silence warnings for payload addresses
                         if not addr.startswith("F"):
-                            chklogger.logger.warning(
-                                "Reaching definition address %s for variable %s "
-                                + " not found",
-                                str(addr), str(v))
-
+                            if "clobber" in str(addr):
+                                chklogger.logger.warning_id(
+                                    CHKLogID.RDEF_CLOBBER_0001,
+                                    "RDEF: Reaching definition of address %s for clobbered "
+                                    + "value %s not found",
+                                    str(addr), str(v))
+                            else:
+                                chklogger.logger.warning_id(
+                                    CHKLogID.RDEF_UNRESOLVED_0001,
+                                    "RDEF: Reaching definition address %s for variable %s "
+                                    + " not found",
+                                    str(addr), str(v))
 
     def resolve_flag_reaching_defs(self) -> None:
         for (xid, frds) in self.flag_expr_rdefs.items():

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025 Aarno Labs LLC
+# Copyright (c) 2021-2026 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,7 +42,7 @@ import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, CHKLogID
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
@@ -271,8 +271,9 @@ class ARMLoadRegisterHalfword(ARMOpcode):
             hl_rhs = XU.xmemory_dereference_lval_expr(
                 xaddr, xdata, iaddr, astree)
 
-            chklogger.logger.warning(
-                "LDRH: Unable to use a C expression for rhs. Fall back to "
+            chklogger.logger.warning_id(
+                CHKLogID.RSLT_ERRCXPR_0001,
+                "RSLT: LDRH: Unable to use a C expression for rhs. Fall back to "
                 + "native byte-based address: %s to form rhs %s at address %s",
                 str(xaddr), str(hl_rhs), iaddr)
 
