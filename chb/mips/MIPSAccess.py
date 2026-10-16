@@ -27,13 +27,12 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from chb.elfformat.ELFHeader import ELFHeader
-from typing import Callable, Type, cast, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Callable, Type, cast, Dict, List, Mapping, Optional, Tuple
 
 from chb.api.CallTarget import CallTarget, IndirectTarget
 
 from chb.app.Callgraph import Callgraph, mk_tgt_callgraph_node, mk_app_callgraph_node
-from chb.app.AppAccess import AppAccess, HeaderTy
+from chb.app.AppAccess import AppAccess
 
 from chb.mips.MIPSDictionary import MIPSDictionary
 from chb.mips.MIPSFunction import MIPSFunction
@@ -42,13 +41,13 @@ from chb.mips.MIPSInstruction import MIPSInstruction
 import chb.util.fileutil as UF
 
 
-class MIPSAccess(AppAccess[HeaderTy]):
+class MIPSAccess(AppAccess):
 
     def __init__(
             self,
             path: str,
             filename: str,
-            fileformat: Type[HeaderTy],
+            fileformat: Type[UF.FileHeader],
             deps: List[str] = []) -> None:
         AppAccess.__init__(self, path, filename, fileformat, deps)
         self._mipsd: Optional[MIPSDictionary] = None

@@ -79,7 +79,7 @@ def pedatacmd(args: argparse.Namespace) -> NoReturn:
         exit(1)
 
     app = UC.get_app(path, xfile, xinfo)
-    peheader = app.header
+    peheader = app.pe_header
     if headeronly:
         print(peheader)
         exit(0)
@@ -140,7 +140,7 @@ def elfdatacmd(args: argparse.Namespace) -> NoReturn:
 
     try:
         app = UC.get_app(path, xfile, xinfo)
-        elfheader = app.header
+        elfheader = app.elf_header
     except UF.CHBError as e:
         print(str(e.wrap()))
         exit(1)
@@ -167,8 +167,8 @@ def elfdatacmd(args: argparse.Namespace) -> NoReturn:
         result["file"] = xinfo.file
         result["md5"] = xinfo.md5
         result["section-headers"] = []
-        for s in elfheader.sectionheaders:
-            result["section-headers"].append(s.attribute_values())
+        for sh in elfheader.sectionheaders:
+            result["section-headers"].append(sh.attribute_values())
         filename = xname + "_section_headers.json"
         with open(filename, "w") as fp:
             json.dump(result, fp, indent=3)
