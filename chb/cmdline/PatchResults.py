@@ -243,7 +243,7 @@ class PatchDestinations:
         return hex(self._d.get("return", 0))
 
     def __str__(self) -> str:
-        lines: List = []
+        lines: List[str] = []
         lines.append("payload     : " + self.payload)
         lines.append("fallthrough : " + self.fallthrough)
         lines.append("break       : " + self.break_dst)
