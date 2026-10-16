@@ -1846,7 +1846,7 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
         exit(1)
 
     app = get_app(path, xfile, xinfo)
-    elfheader = app.header
+    elfheader = app.elf_header
 
     iaddr = int(addr, 16)
     sectionindex = elfheader.get_elf_section_index(iaddr)
@@ -1898,6 +1898,7 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
             sectionindex = elfheader.get_elf_section_index(iaddr)
             if sectionindex is None:
                 print_error("Address not found in elf section: " + addr)
+                continue
             stable: List[str] = []
             while True:
                 data = elfheader.get_doubleword_value(
@@ -1907,6 +1908,9 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
                     break
                 else:
                     strindex = elfheader.get_elf_section_index(data)
+                    if strindex is None:
+                        print_error("No section index found for %#x" % data)
+                        continue
                     strdata = elfheader.get_string(strindex, data)
                     stable.append(strdata)
             table.append(stable)
@@ -1925,7 +1929,9 @@ def results_extract(args: argparse.Namespace) -> NoReturn:
                     strindex = elfheader.get_elf_section_index(data)
                     if strindex is None:
                         print_error("String address not found: " + hex(data))
-                    strdata = elfheader.get_string(strindex, data)
+                        strdata = hex(data)
+                    else:
+                        strdata = elfheader.get_string(strindex, data)
                     r.append(strdata)
                 elif t == "int":
                     r.append(str(data))
@@ -2013,6 +2019,7 @@ def results_struct_arguments(args: argparse.Namespace) -> NoReturn:
     xinfo.load(path, xfile)
 
     app = get_app(path, xfile, xinfo)
+    elf_header = app.elf_header
 
     results: Dict[int, Tuple[int, "BCCompInfo"]] = {}
     callinstrs = app.call_instructions()
@@ -2057,7 +2064,7 @@ def results_struct_arguments(args: argparse.Namespace) -> NoReturn:
 
                             structtype = cast("BCTypComp", structtype)
                             addr = x.intvalue
-                            elfsection = app.header.get_elf_section_index(addr)
+                            elfsection = elf_header.get_elf_section_index(addr)
                             if elfsection is not None:
                                 print(
                                     "struct: "
@@ -2071,7 +2078,7 @@ def results_struct_arguments(args: argparse.Namespace) -> NoReturn:
     for (addr, (elfsection, compinfo)) in sorted(results.items()):
         print("\nstruct " + compinfo.cname + " at " + hex(addr))
         for (foffset, fieldinfo) in compinfo.fieldoffsets():
-            fieldval = app.header.get_doubleword_value(elfsection, addr + foffset)
+            fieldval = elf_header.get_doubleword_value(elfsection, addr + foffset)
             print(
                 str(foffset).rjust(4)
                 + "  "
@@ -2083,9 +2090,9 @@ def results_struct_arguments(args: argparse.Namespace) -> NoReturn:
                 if (
                         fieldtype.tgttyp.is_integer
                         and fieldtype.tgttyp.byte_size() == 1):
-                    fieldsection = app.header.get_elf_section_index(fieldval)
+                    fieldsection = elf_header.get_elf_section_index(fieldval)
                     if fieldsection is not None:
-                        fieldstring = app.header.get_string(
+                        fieldstring = elf_header.get_string(
                             fieldsection, fieldval)
                         print("     Constant string: " + fieldstring)
 

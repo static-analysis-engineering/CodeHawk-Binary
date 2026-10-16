@@ -29,24 +29,22 @@
 from typing import Callable, Dict, List, Mapping, Optional, Type
 
 from chb.app.Callgraph import Callgraph, mk_tgt_callgraph_node, mk_app_callgraph_node
-from chb.app.AppAccess import AppAccess, HeaderTy
+from chb.app.AppAccess import AppAccess
 
 from chb.arm.ARMDictionary import ARMDictionary
 from chb.arm.ARMFunction import ARMFunction
 from chb.arm.ARMInstruction import ARMInstruction
 
-from chb.elfformat.ELFHeader import ELFHeader
-
 import chb.util.fileutil as UF
 
 
-class ARMAccess(AppAccess[HeaderTy]):
+class ARMAccess(AppAccess):
 
     def __init__(
             self,
             path: str,
             filename: str,
-            fileformat: Type[HeaderTy],
+            fileformat: Type[UF.FileHeader],
             deps: List[str] = []) -> None:
         AppAccess.__init__(self, path, filename, fileformat, deps)
         self._armd: Optional[ARMDictionary] = None

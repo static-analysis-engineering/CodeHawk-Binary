@@ -239,7 +239,7 @@ class PEOptionalHeader:
         return self._get("subsystem")
 
 
-class PEHeader:
+class PEHeader(UF.FileHeader):
     """Main entry point to access the raw data in the executable."""
 
     @staticmethod
@@ -255,7 +255,7 @@ class PEHeader:
             pathname: str,
             filename: str,
             xnode: ET.Element,
-            deps: Sequence[str] = []) -> None:
+            deps: Sequence[str]) -> None:
         self._pathname = pathname
         self._filename = filename
         self.xnode = xnode
@@ -461,6 +461,11 @@ class PEHeader:
     @property
     def file_characteristics_text(self) -> List[str]:
         return self.coff_header.file_characteristics_text
+
+    @property
+    def is_big_endian(self) -> bool:
+        # According to the internet windows PE binaries are always little endian
+        return False
 
     def as_dictionary(self) -> Dict[str, Any]:
         name = self.filename
