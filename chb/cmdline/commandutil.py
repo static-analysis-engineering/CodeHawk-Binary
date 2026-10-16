@@ -607,7 +607,7 @@ def analyzecmd(args: argparse.Namespace) -> NoReturn:
             udata = userdata["userdata"] = {}
             dbdata = udata["data-blocks"] = []
             for db in datablocks:
-                dbrec: Dict = {}
+                dbrec: Dict[str, List[str]] = {}
                 dbrec["r"] = [db.startaddr, db.endaddr]
                 dbdata.append(dbrec)
             with open(outputfile + ".json", "w") as fp:
