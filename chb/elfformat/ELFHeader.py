@@ -116,7 +116,7 @@ valuedescriptor: Dict[str, Callable[[str], str]] = {
     }
 
 
-class ELFHeader:
+class ELFHeader(UF.FileHeader):
 
     @staticmethod
     def fmt_name() -> str:
@@ -132,7 +132,7 @@ class ELFHeader:
             filename: str,
             xnode: ET.Element,
             # ignored, used for compatibility with PEHeader
-            deps: Sequence[str] = []) -> None:
+            _: Sequence[str]) -> None:
         self._pathname = pathname
         self._filename = filename
         self.xnode = xnode

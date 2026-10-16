@@ -148,6 +148,8 @@ class SimModule:
             base: str,
             max_addr: str,
             loadaddr: Optional[str] = None) -> None:
+        if not app.elf:
+            raise NotImplementedError("Only have support for ELF binaries")
         self._name = name
         self._app = app
         self._base = base  # base address in hex
@@ -213,7 +215,7 @@ class SimModule:
     @property
     def exports(self) -> Dict[str, int]:
         if len(self._exports) == 0:
-            symtab = cast("ELFSymbolTable", self.app.header.get_dynamic_symbol_table())
+            symtab = cast("ELFSymbolTable", self.app.elf_header.get_dynamic_symbol_table())
             for (sid, sym) in symtab.symbols.items():
                 if sym.is_exported:
                     self._exports[sym.st_name] = int(sym.value, 16)
@@ -295,7 +297,7 @@ class ModuleSimulationState:
             module: SimModule) -> None:
         self._module = module
         self._simstate = simstate
-        self._globalmem = ELFSimGlobalMemory(self, self.module.app.header)
+        self._globalmem = ELFSimGlobalMemory(self, self.module.app.elf_header)
 
     @property
     def module(self) -> SimModule:

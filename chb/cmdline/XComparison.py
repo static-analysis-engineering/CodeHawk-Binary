@@ -111,11 +111,11 @@ class XComparison:
 
     @property
     def programheaders1(self) -> List["ELFProgramHeader"]:
-        return cast(List['ELFProgramHeader'], self.app1.header.programheaders)
+        return self.app1.elf_header.programheaders
 
     @property
     def programheaders2(self) -> List["ELFProgramHeader"]:
-        return cast(List['ELFProgramHeader'], self.app2.header.programheaders)
+        return self.app2.elf_header.programheaders
 
     @property
     def newsegments(self) -> List["ELFProgramHeader"]:
@@ -210,7 +210,7 @@ class XComparison:
         for ph1 in self.programheaders1:
             index = ph1.index
             if not index in self._programheaderpairs:
-                ph2 = self.app2.header.get_programheader_by_index(index)
+                ph2 = self.app2.elf_header.get_programheader_by_index(index)
                 self._programheaderpairs[index] = (ph1, ph2)
             else:
                 chklogger.logger.warning("Duplicate header index: %d", index)
@@ -240,7 +240,7 @@ class XComparison:
         for sh1 in self.sectionheaders1:
             name = sh1.name
             if not name in self._sectionheaderpairs:
-                sh2 = self.app2.header.get_sectionheader_by_name(name)
+                sh2 = self.app2.elf_header.get_sectionheader_by_name(name)
                 self._sectionheaderpairs[name] = (sh1, sh2)
             else:
                 chklogger.logger.warning("Duplicate section name: " + name)

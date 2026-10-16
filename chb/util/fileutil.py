@@ -90,8 +90,8 @@ or otherwise.
 import json
 import os
 import subprocess
-import shutil
 import xml.etree.ElementTree as ET
+from abc import ABC, abstractmethod
 
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, cast
 
@@ -281,6 +281,55 @@ class CHBNotImplementedError(CHBError):
             + self.methodname
             + " not yet implemented; "
             + self.msg)
+
+
+class FileHeader(ABC):
+    """Interface for binary header classes
+
+    It provides the main entry point to access the raw data in the executable.
+
+    The abstract classes enables us to treat different types of binaries (ELF, PE)
+    the same way regardless of the underlying details.
+    """
+    @staticmethod
+    @abstractmethod
+    def fmt_name() -> str: ...
+
+    @staticmethod
+    @abstractmethod
+    def get_xnode(path: str, filename: str) -> ET.Element: ...
+
+
+    @abstractmethod
+    def __init__(
+            self,
+            pathname: str,
+            filename: str,
+            xnode: ET.Element,
+            deps: Sequence[str]) -> None: ...
+
+    @property
+    @abstractmethod
+    def pathname(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def filename(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def image_base(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def max_address_space(self) -> str: ...
+
+    @abstractmethod
+    def is_in_address_space(self, addr: int) -> bool: ...
+
+    @property
+    @abstractmethod
+    def is_big_endian(self) -> bool: ...
 
 
 def get_path_filename(name: str) -> Tuple[str, str]:
