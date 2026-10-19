@@ -122,9 +122,6 @@ def compare_executable_content(
     app1 = UC.get_app(path1, xfile1, xinfo1)
     app2 = UC.get_app(path2, xfile2, xinfo2)
 
-    sectionheaders1 = app1.header.sectionheaders
-    sectionheaders2 = app2.header.sectionheaders
-
     xcomparison = XComparison(
         is_thumb,
         path1,
@@ -1127,9 +1124,6 @@ def relational_compare_elfdata(args: argparse.Namespace) -> NoReturn:
 
     app1 = UC.get_app(path1, xfile1, xinfo1)
     app2 = UC.get_app(path2, xfile2, xinfo2)
-
-    sectionheaders1 = app1.header.sectionheaders
-    sectionheaders2 = app2.header.sectionheaders
 
     xcomparison = XComparison(
         False,
