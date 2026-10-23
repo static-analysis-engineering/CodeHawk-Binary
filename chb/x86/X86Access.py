@@ -27,11 +27,10 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from chb.elfformat.ELFHeader import ELFHeader
-from typing import Dict, List, Mapping, Optional, Sequence, Type
+from typing import Dict, List, Mapping, Optional, Type
 
 from chb.app.Callgraph import Callgraph
-from chb.app.AppAccess import AppAccess, HeaderTy
+from chb.app.AppAccess import AppAccess
 
 import chb.util.fileutil as UF
 
@@ -40,13 +39,13 @@ from chb.x86.X86Function import X86Function
 from chb.x86.X86Instruction import X86Instruction
 
 
-class X86Access(AppAccess[HeaderTy]):
+class X86Access(AppAccess):
 
     def __init__(
             self,
             path: str,
             filename: str,
-            fileformat: Type[HeaderTy],
+            fileformat: Type[UF.FileHeader],
             deps: List[str] = []) -> None:
         AppAccess.__init__(self, path, filename, fileformat, deps)
         self._x86d: Optional[X86Dictionary] = None

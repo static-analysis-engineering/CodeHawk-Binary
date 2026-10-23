@@ -31,13 +31,19 @@ import contextvars
 from contextlib import contextmanager
 import logging
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Iterator, TYPE_CHECKING, Any, MutableMapping
+
+# Work around mypy issue with LoggerAdapter: https://github.com/python/typeshed/issues/7855
+if TYPE_CHECKING:
+    _LoggerAdapter = logging.LoggerAdapter[logging.Logger]
+else:
+    _LoggerAdapter = logging.LoggerAdapter
 
 _current_faddr: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "chkx_faddr", default=None)
 
 @contextmanager
-def function_context(faddr: str):
+def function_context(faddr: str) -> Iterator[None]:
     token = _current_faddr.set(faddr)
     try:
         yield
@@ -68,7 +74,7 @@ class LogLevel(str, Enum):
 
 class NativeJsonFormatter(logging.Formatter):
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         log_payload = {
             "ts": self.formatTime(record, self.datefmt),
             "lvl": record.levelname,
@@ -133,8 +139,11 @@ class CHKLogID(str, Enum):
     USER_STRCTDEF_0002 = "USER-STRCTDEF-0002"   # idem
 
 
-class IDLogger(logging.LoggerAdapter):
-    def process(self, msg, kwargs):
+class IDLogger(_LoggerAdapter):
+    def process(
+        self,
+        msg: Any,
+        kwargs: MutableMapping[str, Any]) -> tuple[Any, MutableMapping[str, Any]]:
         """
         Interrupts the logging call and safely moves the dynamic 'log_id'
         from kwargs into the final 'extra' dictionary.
@@ -145,23 +154,23 @@ class IDLogger(logging.LoggerAdapter):
         extra.setdefault('faddr', _current_faddr.get())
         return msg, kwargs
 
-    def log_with_id(self, level, log_id, msg, *args, **kwargs):
+    def log_with_id(self, level: int, log_id: CHKLogID, msg: object, *args: Any, **kwargs: Any) -> None:
         kwargs['log_id'] = log_id.value
         self.log(level, msg, *args, **kwargs, stacklevel=4)
 
-    def debug_id(self, log_id: CHKLogID, msg, *args, **kwargs):
+    def debug_id(self, log_id: CHKLogID, msg: object, *args: Any, **kwargs: Any) -> None:
         self.log_with_id(logging.DEBUG, log_id, msg, *args, **kwargs)
 
-    def info_id(self, log_id: CHKLogID, msg, *args, **kwargs):
+    def info_id(self, log_id: CHKLogID, msg: object, *args: Any, **kwargs: Any) -> None:
         self.log_with_id(logging.INFO, log_id, msg, *args, **kwargs)
 
-    def warning_id(self, log_id: CHKLogID, msg, *args, **kwargs):
+    def warning_id(self, log_id: CHKLogID, msg: object, *args: Any, **kwargs: Any) -> None:
         self.log_with_id(logging.WARNING, log_id, msg, *args, **kwargs)
 
-    def error_id(self, log_id: CHKLogID, msg, *args, **kwargs):
+    def error_id(self, log_id: CHKLogID, msg: object, *args: Any, **kwargs: Any) -> None:
         self.log_with_id(logging.ERROR, log_id, msg, *args, **kwargs)
 
-    def critical_id(self, log_id: CHKLogID, msg, *args, **kwargs):
+    def critical_id(self, log_id: CHKLogID, msg: object, *args: Any, **kwargs: Any) -> None:
         self.log_with_id(logging.CRITICAL, log_id, msg, *args, **kwargs)
 
 

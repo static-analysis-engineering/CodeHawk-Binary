@@ -188,7 +188,7 @@ class FlowGraph:
         augedges[phantomend] = terminators
         return FlowGraph(list(self.nodes) + [phantomend], augedges, phantomend)
 
-    def ipostdoms(rrg: 'FlowGraph') -> Dict[UserNodeID, UserNodeID]:
+    def ipostdoms(self, rrg: 'FlowGraph') -> Dict[UserNodeID, UserNodeID]:
         idoms = rrg.idoms.copy()
         # The start node of the reverse graph is a phantom node that doesn't
         # exist in the original graph.
@@ -211,7 +211,7 @@ class FlowGraph:
             def idom(n: UserNodeID) -> UserNodeID:
                 i = idoms[n]
                 assert i is not None # Should always hit start node.
-                return cast(UserNodeID, i)
+                return i
 
             finger1: UserNodeID = b1
             finger2: UserNodeID = b2
@@ -582,7 +582,7 @@ class Cfg:
                         for succ in succs:
                             if jumptable.has_target(succ) and succ not in succlabels:
                                 cvs = jumptable.get_target(succ)
-                                def rawlabel(c):
+                                def rawlabel(c: int) -> AST.ASTCaseLabel:
                                     r = astree.mk_case_label(astree.mk_integer_constant(c))
                                     astree.add_instruction_span(r.locationid, succ, "")
                                     return r
@@ -598,7 +598,7 @@ class Cfg:
                             return ctx.in_switch(mergeaddr, mb_nextsucc)
                         return ctx
 
-                    def switch_case_stmts(succ, mb_nextsucc):
+                    def switch_case_stmts(succ: str, mb_nextsucc: Optional[str]) -> List[AST.ASTStmt]:
                         sctx = switch_case_ctx(mb_nextsucc)
                         casebody = do_branch(x, succ, sctx)
                         if casebody == [] and mb_nextsucc is None:
@@ -607,7 +607,12 @@ class Cfg:
                             # we insert a synthetic break statement to maintain
                             # syntactic compatibility.
                             casebody = [astree.mk_break_stmt()]
-                        return succlabels.get(succ, []) + casebody
+                        # typing note: mypy complains that we're mixing up ASTStmts (casebody) with
+                        # ASTStmtLabels (from succlabels). With the current implementation,
+                        # making ASTStmtLabels into ASTStmts would cause other issues.
+                        # This function is also not well understood so we're wary of mucking with
+                        # it too much. type: ignore is the best approach for the time being.
+                        return succlabels.get(succ, []) + casebody  #type: ignore
 
                     bodystmts: List[AST.ASTStmt] = []
                     for idx in range(1, len(succs)):
@@ -627,8 +632,7 @@ class Cfg:
                       bodystmts.append(defaultcase)
 
                     switchbody = astree.mk_block(bodystmts)
-                    switchstmt = cast(AST.ASTSwitchStmt,
-                        astree.mk_switch_stmt(switchcondition, switchbody, mergeaddr))
+                    switchstmt = astree.mk_switch_stmt(switchcondition, switchbody, mergeaddr)
                     return (xstmts + [switchstmt])
                     # We don't use with_last_insn_span(x, switchstmt) because when we have
                     # a switch lifted from a conditional jump (for explicit cases) plus an

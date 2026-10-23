@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 
 
 from chb.jsoninterface.JSONObject import JSONObject
@@ -41,11 +41,11 @@ class JSONCallgraphEdge(JSONObject):
 
     @property
     def src(self) -> str:
-        return self.d.get("src", self.property_missing("src"))
+        return cast(str, self.d.get("src", self.property_missing("src")))
 
     @property
     def tgt(self) -> str:
-        return self.d.get("dst", self.property_missing("dst"))
+        return cast(str, self.d.get("dst", self.property_missing("dst")))
 
     @property
     def type(self) -> Optional[str]:
@@ -62,11 +62,11 @@ class JSONCallgraphNode(JSONObject):
 
     @property
     def name(self) -> str:
-        return self.d.get("name", self.property_missing("name"))
+        return cast(str, self.d.get("name", self.property_missing("name")))
 
     @property
     def label(self) -> str:
-        return self.d.get("label", self.name)
+        return cast(str, self.d.get("label", self.name))
 
     @property
     def type(self) -> Optional[str]:

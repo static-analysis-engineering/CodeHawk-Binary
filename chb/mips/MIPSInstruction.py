@@ -246,7 +246,7 @@ class MIPSInstruction(Instruction):
         if self.is_call_instruction and self.opcode.has_call_target(self.xdata):
             opc = cast(MIPSJumpLinkRegister, self.opcode)
             ctgtaddr = opc.call_target(self.xdata)
-            return ctgtaddr == tgtaddr
+            return ctgtaddr.name == tgtaddr
         return False
 
     def call_facts(self) -> Mapping[str, Any]:
@@ -257,7 +257,7 @@ class MIPSInstruction(Instruction):
         if callargs:
             result['args'] = callargs
         tgt = self.call_target
-        if tgt == 'call-target:u':
+        if tgt.name == 'call-target:u':
             result['t'] = '?'
         else:
             result['t'] = str(tgt)
@@ -310,7 +310,7 @@ class MIPSInstruction(Instruction):
     def branch_condition(self) -> XXpr:
         if self.has_branch_condition():
             opc = cast(MIPSBranchOpcode, self.opcode)
-            return cast(XXpr, opc.branch_condition(self.xdata))
+            return opc.branch_condition(self.xdata)
         else:
             raise UF.CHBError("Instruction does not have a branch condition")
 

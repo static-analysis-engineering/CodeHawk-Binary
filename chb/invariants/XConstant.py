@@ -41,7 +41,7 @@ type xcst_t =
 
 """
 
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import Any, Dict, List, TYPE_CHECKING, cast
 
 from chb.invariants.FnDictionaryRecord import FnXprDictionaryRecord, xprregistry
 from chb.invariants.XNumerical import XNumerical

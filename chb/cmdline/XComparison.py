@@ -53,6 +53,10 @@ class XComparison:
             app1: "AppAccess",
             app2: "AppAccess",
             pdfiledata: Optional[Dict[str, Any]] = None) -> None:
+        # We only support ELF binaries. Complain loudly if we're not given one
+        if not app1.elf or not app2.elf:
+            raise NotImplementedError("XComparison only supports ELF binaries. Was given "
+                                      "%s and %s" % (app1._header_ty, app2._header_ty))
         self._is_thumb = is_thumb
         self._path1 = path1
         self._path2 = path2
@@ -111,11 +115,11 @@ class XComparison:
 
     @property
     def programheaders1(self) -> List["ELFProgramHeader"]:
-        return self.app1.header.programheaders
+        return self.app1.elf_header.programheaders
 
     @property
     def programheaders2(self) -> List["ELFProgramHeader"]:
-        return self.app2.header.programheaders
+        return self.app2.elf_header.programheaders
 
     @property
     def newsegments(self) -> List["ELFProgramHeader"]:
@@ -123,11 +127,11 @@ class XComparison:
 
     @property
     def sectionheaders1(self) -> List["ELFSectionHeader"]:
-        return self.app1.header.sectionheaders
+        return self.app1.elf_header.sectionheaders
 
     @property
     def sectionheaders2(self) -> List["ELFSectionHeader"]:
-        return self.app2.header.sectionheaders
+        return self.app2.elf_header.sectionheaders
 
     @property
     def newsections(self) -> List["ELFSectionHeader"]:
@@ -210,7 +214,7 @@ class XComparison:
         for ph1 in self.programheaders1:
             index = ph1.index
             if not index in self._programheaderpairs:
-                ph2 = self.app2.header.get_programheader_by_index(index)
+                ph2 = self.app2.elf_header.get_programheader_by_index(index)
                 self._programheaderpairs[index] = (ph1, ph2)
             else:
                 chklogger.logger.warning("Duplicate header index: %d", index)
@@ -240,7 +244,7 @@ class XComparison:
         for sh1 in self.sectionheaders1:
             name = sh1.name
             if not name in self._sectionheaderpairs:
-                sh2 = self.app2.header.get_sectionheader_by_name(name)
+                sh2 = self.app2.elf_header.get_sectionheader_by_name(name)
                 self._sectionheaderpairs[name] = (sh1, sh2)
             else:
                 chklogger.logger.warning("Duplicate section name: " + name)

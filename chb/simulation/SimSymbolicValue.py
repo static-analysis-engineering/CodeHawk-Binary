@@ -705,8 +705,7 @@ class SimBaseAddress(SimAddress):
             self.base, newoffset, buffersize=self.buffersize, tgttype=self.tgttype)
 
     def align(self, v: int) -> "SimBaseAddress":
-        newoffset = cast(
-            SV.SimDoubleWordValue, self.offset.bitwise_and(SV.mk_simvalue(v)))
+        newoffset = self.offset.bitwise_and(SV.mk_simvalue(v))
         return SimBaseAddress(
             self.base, newoffset, buffersize=self.buffersize, tgttype=self.tgttype)
 
@@ -1158,7 +1157,7 @@ class SimSymbolicFilePointer(SimSymbol):
 
     @property
     def fp(self) -> IO[Any]:
-        return self._fp
+        return cast(IO[Any], self._fp)
 
     @property
     def is_file_pointer(self) -> bool:

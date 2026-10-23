@@ -766,16 +766,16 @@ def report_proofobligations(args: argparse.Namespace) -> NoReturn:
     # fn_counts: faddr -> status_tag -> count
     fn_counts: Dict[str, Dict[str, int]] = {}
     # fn_open_pos: faddr -> iaddr -> list of open ProofObligations
-    fn_open_pos: Dict[str, Dict[str, List]] = {}
+    fn_open_pos: Dict[str, Dict[str, List['ProofObligation']]] = {}
     # fn_detail_pos: faddr -> iaddr -> list of safe/delegated ProofObligations
-    fn_detail_pos: Dict[str, Dict[str, List]] = {}
+    fn_detail_pos: Dict[str, Dict[str, List['ProofObligation']]] = {}
     # fn_labels: faddr -> display string
     fn_labels: Dict[str, str] = {}
 
     detail_statuses = {"dis", "local", "del"}
 
     # flat list of records for --json export
-    po_records: List[Dict] = []
+    po_records: List[Dict[str, Any]] = []
 
     for fn in app.functions.values():
         faddr = fn.faddr
@@ -1408,12 +1408,13 @@ def report_buffer_bounds(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
-def collect_known_fn_addrs(app: "AppAccess", patchcallsites: list) -> dict:
+def collect_known_fn_addrs(app: "AppAccess", patchcallsites: list[LibraryCallSideeffect]) -> dict[str, str]:
     function_addr: Dict[str, str] = {}
-    def consider_pair(faddr: str, fname: Optional[str]):
+    def consider_pair(faddr: str, fname: Optional[str]) -> None:
         if fname and fname not in function_addr:
             function_addr[fname] = faddr
-    def consider(faddr: str):
+
+    def consider(faddr: str) -> None:
         fname = (
             app.function_name(faddr)
             if app.has_function_name(faddr)
@@ -1807,7 +1808,7 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
                         if is_cmd_delegation(po):
                             os_cmd_delegations[po.status.get_iaddr()].append(instr.iaddr)
                         if type(po.xpo) == XPOTrustedOsCmdFmtString:
-                            trusted_po = cast('XPOTrustedOsCmdFmtString', po.xpo)
+                            trusted_po = po.xpo
                             os_cmd_construction.append((faddr, instr, calltgt.name, trusted_po))
                             if calltgt.is_app_target and calltgt.name not in app_functions:
                                 app_functions[calltgt.name] = str(cast('AppTarget', calltgt).address)

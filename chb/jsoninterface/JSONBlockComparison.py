@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, cast
 from chb.jsoninterface.JSONAssemblyInstruction import JSONAssemblyInstruction
 
 from chb.jsoninterface.JSONInstructionComparison import JSONInstructionComparison
@@ -57,17 +57,17 @@ class JSONBlockComparison(JSONObject):
     @property
     def summary_instructions_added(self) -> List[str]:
         instr_summary = self._get_instr_comparison_summary()
-        return instr_summary.get("block-instructions-added", [])
+        return cast(List[str], instr_summary.get("block-instructions-added", []))
 
     @property
     def summary_instructions_removed(self) -> List[str]:
         instr_summary = self._get_instr_comparison_summary()
-        return instr_summary.get("block-instructions-removed", [])
+        return cast(List[str], instr_summary.get("block-instructions-removed", []))
 
     @property
     def summary_instructions_changed(self) -> List[str]:
         instr_summary = self._get_instr_comparison_summary()
-        return instr_summary.get("block-instructions-changed", [])
+        return cast(List[str], instr_summary.get("block-instructions-changed", []))
 
     @property
     def instructions_changed(self) -> List[JSONInstructionComparison]:

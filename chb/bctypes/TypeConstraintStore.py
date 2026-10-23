@@ -342,8 +342,7 @@ class TypeConstraintStore:
                     addr = c.typevar.base_addr
                     if c.typevar.is_function:
                         self.add_function_constraints(addr)
-                        self._functionconstraints[addr].add_var_constraint(
-                            cast(TC.TypeVariableConstraint, c))
+                        self._functionconstraints[addr].add_var_constraint(c)
                 elif c.is_subtype_constraint:
                     c = cast(TC.SubTypeConstraint, c)
                     basevars = c.basevars
