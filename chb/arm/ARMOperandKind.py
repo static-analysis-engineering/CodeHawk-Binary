@@ -613,10 +613,10 @@ class ARMShiftedRegisterOp(ARMOperandKind):
             else:
                 if srt.is_shift_left:
                     # For some unknown reason, mypy (2.4.0) complains that we're returning
-                    # Any here instead of [int | None]. This only happens when we use the
+                    # `Any` here instead of [int | None]. This only happens when we use the
                     # `**` operator, so work around it by using `<<` Original code was:
                     #   return 2 ** shiftamount
-                    return 2 << (shiftamount - 1)
+                    return 1 << shiftamount
                 else:
                     return None
         else:

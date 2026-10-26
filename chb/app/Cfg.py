@@ -612,7 +612,7 @@ class Cfg:
                         # making ASTStmtLabels into ASTStmts would cause other issues.
                         # This function is also not well understood so we're wary of mucking with
                         # it too much. type: ignore is the best approach for the time being.
-                        return succlabels.get(succ, []) + casebody  #type: ignore
+                        return succlabels.get(succ, []) + casebody  # type: ignore[return-value]
 
                     bodystmts: List[AST.ASTStmt] = []
                     for idx in range(1, len(succs)):
