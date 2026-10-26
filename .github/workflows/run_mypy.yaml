@@ -18,4 +18,4 @@ jobs:
       run: cp chb/util/ConfigLocal.template chb/util/ConfigLocal.py
     - name: Run mypy
       run: |
-        PYTHONPATH=$PWD .venv/bin/mypy chb
+        PYTHONPATH=$PWD .venv/bin/mypy --strict chb
