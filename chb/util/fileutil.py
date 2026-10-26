@@ -288,7 +288,7 @@ class FileHeader(ABC):
 
     It provides the main entry point to access the raw data in the executable.
 
-    The abstract classes enables us to treat different types of binaries (ELF, PE)
+    The abstract class enables us to treat different types of binaries (ELF, PE)
     the same way regardless of the underlying details.
     """
     @staticmethod
