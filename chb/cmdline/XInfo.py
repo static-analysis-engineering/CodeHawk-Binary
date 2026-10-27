@@ -79,7 +79,7 @@ class XInfo:
 
     def discover(self, path: str, xfile: str) -> None:
         name = os.path.join(path, xfile)
-        ftype = subprocess.run(["file", name], stdout=subprocess.PIPE)
+        ftype = subprocess.run(["file", "-L", name], stdout=subprocess.PIPE)
         filetype = ftype.stdout.decode("utf-8")
         self.fileinfo["md5"] = get_md5(name)
         self.fileinfo["path"] = path
