@@ -266,6 +266,10 @@ def simulatecommand(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def ddatacommand(args: argparse.Namespace) -> NoReturn:
+    print("Run ddata --help to see available subcommands")
+    exit(0)
+
 '''
 def reportappcalls(args):
     (path,filename) = UC.get_path(args.xname,checkresults=True)
@@ -601,6 +605,7 @@ def parse() -> argparse.Namespace:
 
     # -------------------------------------------------------- disassembly data --
     ddatacmd = subparsers.add_parser("ddata")
+    ddatacmd.set_defaults(func=ddatacommand)
     ddataparsers = ddatacmd.add_subparsers(title="show options")
 
     # -- ddata globalvars --
