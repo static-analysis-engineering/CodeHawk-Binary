@@ -1056,8 +1056,16 @@ def get_disassembly_statistics_filename(path: str, xfile: str) -> str:
 
 
 def get_disassembly_statistics_xnode(path: str, xfile: str) -> ET.Element:
+    """This file/node is only found when we run disassembly only (chkx analyze -d)
+
+    The node will be at <--root--><disassembly-status><disassembly>
+    """
     filename = get_disassembly_statistics_filename(path, xfile)
-    return get_chb_xnode(filename, "disassembly")
+    disassembly_status_node = get_chb_xnode(filename, "disassembly-status")
+    disassembly_node = disassembly_status_node.find("disassembly")
+    if disassembly_node is None:
+        raise CHBXmlRootElementNotFoundError(filename, "disassembly")
+    return disassembly_node
 
 
 def get_features_filename(path: str, xfile: str) -> str:

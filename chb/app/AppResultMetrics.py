@@ -27,6 +27,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
+from dataclasses import dataclass, field
 import xml.etree.ElementTree as ET
 
 from typing import Any, Callable, Dict, List, Optional
@@ -61,6 +62,39 @@ analysis_attributes = [
     ]
 
 
+@dataclass
+class DisassemblyMetrics:
+    xnode: ET.Element
+    all_overlap: int  = field(init=False)
+    coverage: int = field(init=False)
+    datablocks: int = field(init=False)
+    function_count: int = field(init=False)
+    instruction_count: int = field(init=False)
+    jumptables: int = field(init=False)
+    overlap: int = field(init=False)
+    pcoverage: float  = field(init=False)
+    unknown_instrs: int = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.function_count = self._int_field("functions")
+        self.instruction_count = self._int_field("instrs")
+        self.unknown_instrs = self._int_field("unknown-instrs")
+
+        self.all_overlap = self._int_field("alloverlap")
+        self.overlap = self._int_field("overlap")
+
+        self.coverage = self._int_field("coverage")
+        self.pcoverage = float(self.xnode.get('pcoverage', "0.0"))
+
+        self.datablocks = self._int_field("datablocks")
+        self.jumptables = self._int_field("jumptables")
+
+
+    def _int_field(self, field_name: str) -> int:
+        return int(self.xnode.get(field_name, "0"))
+
+
+
 class AppResultMetrics:
 
     def __init__(
@@ -75,7 +109,7 @@ class AppResultMetrics:
         self._calls: Optional[ET.Element] = None
         self._jumps: Optional[ET.Element] = None
         self._precision: Optional[ET.Element] = None
-        self._disassembly: Optional[ET.Element] = None
+        self._disassembly: Optional[DisassemblyMetrics] = None
         self._functions: Dict[str, AppResultFunctionMetrics] = {}
         self._imports: Optional[ET.Element] = None
         self._ccmetrics: Optional[ET.Element] = None
@@ -173,17 +207,18 @@ class AppResultMetrics:
         return self._ccmetrics
 
     @property
-    def disassembly(self) -> ET.Element:
+    def disassembly(self) -> DisassemblyMetrics:
         if self._disassembly is None:
-            self._disassembly = self.xnode.find("disassembly")
-            if self._disassembly is None:
+            disassembly_node = self.xnode.find("disassembly")
+            if disassembly_node is None:
                 raise UF.CHBError("Disassembly is missing from resultmetrics")
+            self._disassembly = DisassemblyMetrics(disassembly_node)
         return self._disassembly
 
     @property
     def imports(self) -> ET.Element:
         if self._imports is None:
-            self._imports = self.disassembly.find("imports")
+            self._imports = self.disassembly.xnode.find("imports")
             if self._imports is None:
                 raise UF.CHBError(
                     "Imports is missing from disassembly in resultmetrics")
@@ -323,19 +358,19 @@ class AppResultMetrics:
 
     @property
     def instruction_count(self) -> int:
-        return int(self.disassembly.get('instrs', "0"))
+        return self.disassembly.instruction_count
 
     @property
     def function_count(self) -> int:
-        return int(self.disassembly.get('functions', "0"))
+        return self.disassembly.function_count
 
     @property
     def unknown_instructions(self) -> int:
-        return int(self.disassembly.get('unknown-instrs', '0'))
+        return self.disassembly.unknown_instrs
 
     @property
     def pcoverage(self) -> float:
-        return float(self.disassembly.get('pcoverage', "0.0"))
+        return self.disassembly.pcoverage
 
     def time_share(self, count: int) -> Dict[str, float]:
         """Return a list of the most time-intensive functions with %time."""
