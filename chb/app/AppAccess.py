@@ -47,7 +47,7 @@ from chb.api.InterfaceDictionary import InterfaceDictionary
 
 from chb.app.AppCfgInfo import AppCfgInfo
 from chb.app.AppResultData import AppResultData
-from chb.app.AppResultMetrics import AppResultMetrics
+from chb.app.AppResultMetrics import AppResultMetrics, DisassemblyMetrics
 from chb.app.ASMCallgraph import ASMCallgraph
 from chb.app.BDictionary import BDictionary
 from chb.app.CallbackTables import CallbackTables
@@ -711,6 +711,28 @@ class AppAccess(ABC):
         x = UF.get_resultmetrics_xnode(self.path, self.filename)
         h = UF.get_resultmetrics_xheader(self.path, self.filename)
         return AppResultMetrics(self.filename, x, h)
+
+    # Disassembly Metrics -----------------------------------------------------------
+
+    @property
+    def disassembly_metrics(self) -> DisassemblyMetrics:
+        """Returns metrics for the disassembly process
+
+        Depending on whether full analysis was done or only disassembly
+        (chkx analyze -d) was done they will found in two different files:
+        - full analysis:
+            r/<binary>_metrics.xml
+        - disaseembly only:
+            s/<binary>_disassembly.xml
+        """
+        try:
+            result_metrics = self.result_metrics
+            return result_metrics.disassembly
+        except UF.CHBFileNotFoundError:
+            # If only disassembly was done and not full analysis, the disassembly
+            # stats are in a different file.
+            x = UF.get_disassembly_statistics_xnode(self.path, self.filename)
+            return DisassemblyMetrics(x)
 
     # User data -----------------------------------------------------------
 

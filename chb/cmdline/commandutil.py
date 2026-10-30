@@ -2810,6 +2810,38 @@ def show_function_semantics_table(args: argparse.Namespace) -> NoReturn:
     exit(0)
 
 
+def ddata_stats(args: argparse.Namespace) -> NoReturn:
+    """Prints disassembly statistics"""
+    # arguments
+    xname: str = str(args.xname)
+
+    try:
+        (path, xfile) = get_path_filename(xname)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = get_app(path, xfile, xinfo)
+    metrics = app.disassembly_metrics
+
+    if args.output:
+        jsonok = JU.jsonok("disassembly-stats", metrics.to_json_result().content)
+        with open(args.output, "w") as fp:
+            json.dump(jsonok, fp, indent=4)
+    else:
+        print("Instructions         : %d" % metrics.instruction_count)
+        print("Unknown instructions : %d" % metrics.unknown_instrs)
+        print("Functions            : %d (coverage:  %.2f%%)" % (metrics.function_count, metrics.pcoverage))
+        print("Function overlap     : %d (counting multiples: %d)" % (metrics.overlap, metrics.all_overlap))
+        print("Jumptables           : %d" % (metrics.jumptables))
+        print("Data blocks          : %d" % (metrics.datablocks))
+
+    exit(0)
+
+
 def ddata_gvars(args: argparse.Namespace) -> NoReturn:
 
     # arguments
