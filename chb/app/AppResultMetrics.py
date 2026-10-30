@@ -94,6 +94,23 @@ class DisassemblyMetrics:
         return int(self.xnode.get(field_name, "0"))
 
 
+    def to_json_result(self) -> JSONResult:
+        content: Dict[str, Any] = {}
+        content["function_count"] = self.function_count
+        content["instruction_count"] = self.instruction_count
+        content["unknown-instructions"] = self.unknown_instrs
+
+        content["all-overlap"] = self.all_overlap
+        content["overlap"] = self.overlap
+
+        content["coverage"] = self.coverage
+        content["pcoverage"] = self.pcoverage
+
+        content["datablocks"] = self.datablocks
+        content["jumptables"] = self.jumptables
+
+        return JSONResult("disassembly-stats", content, "ok")
+
 
 class AppResultMetrics:
 
@@ -445,10 +462,10 @@ class AppResultMetrics:
 
     def to_json_result(self, includefns: bool = False) -> JSONResult:
         content: Dict[str, Any] = {}
-        content["instructions"] = int(self.instruction_count)
-        content["unknowninstrs"] = int(self.unknown_instructions)
-        content["functions"] = int(self.function_count)
-        content["functioncoverage"] = float(self.pcoverage)
+        content["instructions"] = self.instruction_count
+        content["unknowninstrs"] = self.unknown_instructions
+        content["functions"] = self.function_count
+        content["functioncoverage"] = self.pcoverage
         content["espprecision"] = self.esp_precision
         content["readsprecision"] = self.reads_precision
         content["writesprecision"] = self.writes_precision
