@@ -608,6 +608,14 @@ def parse() -> argparse.Namespace:
     ddatacmd.set_defaults(func=ddatacommand)
     ddataparsers = ddatacmd.add_subparsers(title="show options")
 
+    # -- disassembly stats --
+    ddatastats = ddataparsers.add_parser("stats")
+    ddatastats.add_argument("xname", help="name of executable")
+    ddatastats.add_argument("-o", "--output",
+                            help="Optional output file where stats should "
+                                 "be saved as json")
+    ddatastats.set_defaults(func=UCC.ddata_stats)
+
     # -- ddata globalvars --
     ddatagvars = ddataparsers.add_parser("globalvars")
     ddatagvars.add_argument("xname", help="name of executable")
