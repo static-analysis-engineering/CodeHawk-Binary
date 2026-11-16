@@ -1501,7 +1501,7 @@ def _has_blockwrite_and_zero_stores_only(
 
 def calculate_buffer_size(stackframe: "FunctionStackframe",
                           stack_offset: int,
-                          instr: "Instruction") -> tuple[Optional[int], str]:
+                          instr: "Optional[Instruction]" = None) -> tuple[Optional[int], str]:
     buffersize = None
     sizeorigin = "unknown"
 
@@ -1919,5 +1919,65 @@ def report_os_cmd_candidates(args: argparse.Namespace) -> NoReturn:
 
     print("Generated %d patch records from %d library calls" %
           (len(content['patch-records']), n_calls))
+
+    exit(0)
+
+def report_stack_buffers(args: argparse.Namespace) -> NoReturn:
+
+    # arguments
+    xname = args.xname
+    xoutput: Optional[str] = args.output
+    xjson: bool = args.json
+    xverbose: bool = args.verbose
+    loglevel: str = args.loglevel
+    logfilename: Optional[str] = args.logfilename
+    logfilemode: str = args.logfilemode
+
+    try:
+        (path, xfile) = UC.get_path_filename(xname)
+        UF.check_analysis_results(path, xfile)
+    except UF.CHBError as e:
+        print(str(e.wrap()))
+        exit(1)
+
+    UC.set_logging(
+        loglevel,
+        path,
+        logfilename=logfilename,
+        mode=logfilemode,
+        msg="report_stack_buffers invoked")
+
+    xinfo = XI.XInfo()
+    xinfo.load(path, xfile)
+
+    app = UC.get_app(path, xfile, xinfo)
+
+    content = {}
+
+    buffers = []
+    for (faddr, function) in app.functions.items():
+        for offset, slot in function.stackframe.stackslots.items():
+            buffersize, sizeorigin = calculate_buffer_size(function.stackframe, offset)
+            buffers.append({
+                'faddr': faddr,
+                'stack-offset': offset,
+                'buffersize': buffersize,
+                'size-origin': sizeorigin
+            })
+
+    content["buffers"] = buffers
+
+    if xjson:
+        jcontent = JSONResult("stackbuffers", content, "ok")
+        write_json_result(xoutput, jcontent, "patchcandidates")
+        exit(0)
+
+    for buf in buffers:
+        print('%s@%s: %s (%s)' % (buf['faddr'],
+                                  buf['stack-offset'],
+                                  buf['buffersize'],
+                                  buf['size-origin']))
+
+    print("Found %d stack objects" % (len(buffers)))
 
     exit(0)
