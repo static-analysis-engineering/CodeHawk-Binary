@@ -30,7 +30,7 @@ Corresponds to arm_vfp_datatype_t in bchlibarm32/BCHARMTypes:
 
                                                    tags[0]   tags   args
 type arm_vfp_datatype_t =
-  | VfpNone                                          "n"       1      1
+  | VfpNone                                          "n"       1      0
   | VfpSize of int                                   "z"       1      1
   | VfpFloat of int                                  "f"       1      1
   | VfpInt of int                                    "i"       1      1
@@ -62,6 +62,13 @@ class ARMVfpDatatype(ARMDictionaryRecord):
     @property
     def is_vfpnone(self) -> bool:
         return False
+
+    @property
+    def is_float(self) -> bool:
+        return False
+
+    def has_size(self) -> bool:
+        return len(self.args) > 0
 
     @property
     def size(self) -> int:
@@ -123,6 +130,10 @@ class ARMVfpFloat(ARMVfpDatatype):
             d: "chb.arm.ARMDictionary.ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMVfpDatatype.__init__(self, d, ixval)
+
+    @property
+    def is_float(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return ".F" + str(self.size)

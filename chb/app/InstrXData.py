@@ -47,7 +47,7 @@ from chb.invariants.XVariable import XVariable
 from chb.invariants.XXpr import XXpr
 
 import chb.util.fileutil as UF
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, CHKLogID
 
 from chb.util.IndexedTable import IndexedTableValue
 
@@ -347,7 +347,8 @@ class InstrXData(IndexedTableValue):
         if self.tags[0] == "nop":
             return
         if self.tags[0] == "subsumes":
-            chklogger.logger.error(
+            chklogger.logger.error_id(
+                CHKLogID.INTF_XDATA_0001,
                 "InstrXData: subsumes tag not yet supported")
             return
         key = self.tags[0]
@@ -358,7 +359,8 @@ class InstrXData(IndexedTableValue):
             keyletters = key[3:]
             use_result = True
         else:
-            chklogger.logger.error(
+            chklogger.logger.error_id(
+                CHKLogID.INTF_XDATA_0001,
                 "InstrXData tag: %s not recognized", key)
             return
 
@@ -481,7 +483,8 @@ class InstrXData(IndexedTableValue):
                 try:
                     return int(self.tags[2])
                 except Exception as e:
-                    chklogger.logger.warning(
+                    chklogger.logger.warning_id(
+                        CHKLogID.INTF_XDATA_0003,
                         "xdata call does not have a valid argument count: %s",
                         self.tags[2])
                     return None

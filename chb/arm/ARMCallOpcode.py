@@ -467,6 +467,24 @@ class ARMCallOpcode(ARMOpcode):
                         hl_arg: AST.ASTExpr = astree.mk_string_constant(
                             ll_arg, cstr, saddr)
 
+                    elif (
+                            x.is_int_constant
+                            and argtype is not None
+                            and argtype.is_float):
+                        x = cast("XprConstant", x)
+                        argtype = cast(AST.ASTTypFloat, argtype)
+                        if argtype.is_fkind_float:
+                            f = x.convert_imm32_to_float
+                            hl_arg = astree.mk_float_constant(f)
+                        elif argtype.is_fkind_double:
+                            f = x.convert_imm64_to_float
+                            hl_arg = astree.mk_float_constant(f)
+                        else:
+                            chklogger.logger.error(
+                                ("Type of float type int-constant not recognized "
+                                 + " at %s"), iaddr)
+                            hl_arg = astree.mk_temp_lval_expression()
+
                     elif x.is_stack_address:
                         hl_arg = XU.stack_address_to_ast_expr(
                             x, xdata, iaddr, astree)

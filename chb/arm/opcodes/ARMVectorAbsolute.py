@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -48,6 +48,7 @@ from chb.util.loggingutil import chklogger
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.arm.ARMVfpDatatype import ARMVfpDatatype
     from chb.invariants.XVariable import XVariable
     from chb.invariants.XXpr import XprCompound, XprConstant, XXpr
 
@@ -63,8 +64,18 @@ class ARMVectorAbsoluteXData(ARMOpcodeXData):
     1: rxsrc
     """
 
-    def __init__(self, xdata: InstrXData) -> None:
+    def __init__(self, xdata: InstrXData, is_float: bool, size: int) -> None:
         ARMOpcodeXData.__init__(self, xdata)
+        self._is_float = is_float
+        self._size = size
+
+    @property
+    def is_float(self) -> bool:
+        return self._is_float
+
+    @property
+    def size(self) -> int:
+        return self._size
 
     @property
     def vdst(self) -> "XVariable":
@@ -77,6 +88,21 @@ class ARMVectorAbsoluteXData(ARMOpcodeXData):
     @property
     def rxsrc(self) -> "XXpr":
         return self.xpr(1, "rxsrc")
+
+    @property
+    def rxsrc_float(self) -> Optional[float]:
+        if self.is_float:
+            return ARMOpcodeXData.get_float_conversion(self.rxsrc, self.size)
+        else:
+            return None
+
+    @property
+    def annotation(self) -> str:
+        lhs = str(self.vdst)
+        f_rhs = self.rxsrc_float
+        rhs = str(f_rhs) if f_rhs is not None else str(self.rxsrc)
+        assign = f"{lhs} := fabs({rhs}) builtin"
+        return self.add_instruction_condition(assign)
 
 
 @armregistry.register_tag("VABS", ARMOpcode)
@@ -109,12 +135,21 @@ class ARMVectorAbsolute(ARMOpcode):
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [1, 2]]
 
+    @property
+    def vfp_datatype(self) -> "ARMVfpDatatype":
+        return self.armd.arm_vfp_datatype(self.args[0])
+
+    @property
+    def is_float(self) -> bool:
+        return self.vfp_datatype.is_float
+
+    @property
+    def size(self) -> int:
+        return self.vfp_datatype.size
+
     def annotation(self, xdata: InstrXData) -> str:
-        xd = ARMVectorAbsoluteXData(xdata)
-        lhs = str(xd.vdst)
-        rhs = str(xd.rxsrc)
-        assign = lhs + " := fabs(" + str(rhs) + ") builtin"
-        return assign
+        xd = ARMVectorAbsoluteXData(xdata, self.is_float, self.size)
+        return xd.annotation
 
     def ast_prov(
             self,
@@ -143,16 +178,21 @@ class ARMVectorAbsolute(ARMOpcode):
 
         # high-level assignment
 
-        xd = ARMVectorAbsoluteXData(xdata)
+        xd = ARMVectorAbsoluteXData(xdata, self.is_float, self.size)
 
         lhs = xd.vdst
         rhs = xd.rxsrc
+        f_rhs = xd.rxsrc_float
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
         hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        if f_rhs is not None:
+            hl_rhs: AST.ASTExpr = astree.mk_float_constant(f_rhs)
+        else:
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 
         if astree.has_variable_intro(iaddr):
             vname = astree.get_variable_intro(iaddr)

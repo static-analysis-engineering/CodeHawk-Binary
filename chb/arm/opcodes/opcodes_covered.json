@@ -5219,6 +5219,23 @@
 		]
 	    }
 	},
+        "VSQRT": {
+            "name": "VectorSquareRoot",
+            "encodings": {
+                "all": [
+                    {
+                        "T": "A1",
+                        "E": "<cc><14>1D11< 1><vd><5>11M0<vm>"
+                    },
+                    {
+                        "T": "T1-dp",
+                        "E": "< 29><13>D11< 1><vd><5>111M0<vm>",
+                        "D": "Y",
+                        "U": ["b1eeccab"]
+                    }
+                ]
+            }
+        },
 	"VST1": {
 	    "name": "VectorStoreOne",
 	    "encodings": {

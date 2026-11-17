@@ -40,6 +40,8 @@ from chb.app.FunctionDictionary import FunctionDictionary
 from chb.app.FunctionInfo import FunctionInfo
 from chb.app.FunctionStackframe import FunctionStackframe
 from chb.app.JumpTables import JumpTable
+from chb.app.LhsTypeResult import (
+    LhsTypeResult, LhsTypeResolved, LhsTypeNoEvidence, LhsTypeConflict)
 from chb.app.StringXRefs import StringsXRefs
 
 from chb.arm.ARMBlock import ARMBlock
@@ -86,9 +88,9 @@ class ARMFunction(Function):
         self._blocks: Dict[str, ARMBlock] = {}
         self._instructions: Dict[str, ARMInstruction] = {}
         self._armfnd: Optional[FunctionDictionary] = None
-        self._armreglhstypes: Optional[Dict[str, Dict[str, BCTyp]]] = None
+        self._armreglhstypes: Optional[Dict[str, Dict[str, LhsTypeResult]]] = None
         self._stackframe: Optional[FunctionStackframe] = None
-        self._stacklhstypes: Optional[Dict[int, BCTyp]] = None
+        self._stacklhstypes: Optional[Dict[int, LhsTypeResult]] = None
 
     @property
     def armdictionary(self) -> ARMDictionary:
@@ -107,8 +109,29 @@ class ARMFunction(Function):
             self._armfnd = FunctionDictionary(self, xfnd)
         return self._armfnd
 
+    def _get_lhs_type_result(self, xreg: ET.Element) -> LhsTypeResult:
+        ibt = xreg.get("ityp")
+        if ibt is not None:
+            bt = self.bcd.typ(int(ibt))
+            return LhsTypeResolved(bt)
+
+        xreason = xreg.get("reason")
+        if xreason == "no-evidence":
+            return LhsTypeNoEvidence()
+
+        if xreason == "conflict":
+            ctypes: List["BCTyp"] = []
+            for xty in xreg.findall("cty"):
+                ibt = xty.get("ityp")
+                if ibt is not None:
+                    bt = self.bcd.typ(int(ibt))
+                    ctypes.append(bt)
+            return LhsTypeConflict(ctypes)
+
+        return LhsTypeNoEvidence()
+
     @property
-    def register_lhs_types(self) -> Dict[str, Dict[str, BCTyp]]:
+    def register_lhs_types(self) -> Dict[str, Dict[str, LhsTypeResult]]:
         if self._armreglhstypes is None:
             self._armreglhstypes = {}
             xregtypes = self.xnode.find("register-lhs-types")
@@ -119,21 +142,19 @@ class ARMFunction(Function):
                     ireg = xreg.get("ireg")
                     if ireg is not None:
                         register = self.bd.register(int(ireg))
-                        ibt = xreg.get("ityp")
-                        if ibt is not None:
-                            bt = self.bcd.typ(int(ibt))
-                            self._armreglhstypes[iaddr][str(register)] = bt
+                        typeresult = self._get_lhs_type_result(xreg)
+                        self._armreglhstypes[iaddr][str(register)] = typeresult
         return self._armreglhstypes
 
-    def register_lhs_type(self, iaddr: str, reg: str) -> Optional[BCTyp]:
+    def register_lhs_type(self, iaddr: str, reg: str) -> LhsTypeResult:
         if iaddr in self.register_lhs_types:
             iaddrregs = self.register_lhs_types[iaddr]
             if reg in iaddrregs:
                 return iaddrregs[reg]
-        return None
+        return LhsTypeNoEvidence()
 
     @property
-    def stack_variable_types(self) -> Dict[int, BCTyp]:
+    def stack_variable_types(self) -> Dict[int, LhsTypeResult]:
         """Return a mapping from (negated) stack offset to inferred type.
 
         The stack offset is the absolute difference between the value
@@ -150,16 +171,16 @@ class ARMFunction(Function):
                 for xstack in xstacktypes.findall("offset"):
                     offset = xstack.get("off")
                     ityp = xstack.get("ityp")
-                    if offset is not None and ityp is not None:
-                        bt = self.bcd.typ(int(ityp))
-                        self._stacklhstypes[int(offset)] = bt
+                    if offset is not None:
+                        typeresult = self._get_lhs_type_result(xstack)
+                        self._stacklhstypes[int(offset)] = typeresult
         return self._stacklhstypes
 
-    def stack_variable_type(self, offset: int) -> Optional[BCTyp]:
+    def stack_variable_type(self, offset: int) -> LhsTypeResult:
         if offset in self.stack_variable_types:
             return self.stack_variable_types[offset]
         else:
-            return None
+            return LhsTypeNoEvidence()
 
     @property
     def jumptables(self) -> Dict[str, JumpTable]:

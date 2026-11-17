@@ -42,7 +42,7 @@ import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, CHKLogID
 
 
 if TYPE_CHECKING:
@@ -336,8 +336,9 @@ class ARMLoadRegisterDual(ARMOpcode):
             return ([hl_assign], [ll_assign1, ll_assign2])
 
         if not xd.is_ok:
-            chklogger.logger.error(
-                "Encountered error value at address %s", iaddr)
+            chklogger.logger.error_id(
+                CHKLogID.RSLT_ERRVAL_0008,
+                "LDRD: Encountered error value at address %s", iaddr)
             return ([], [])
 
         lhs1 = xd.vrt

@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025 Aarno Labs LLC
+# Copyright (c) 2021-2026 Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -126,6 +126,15 @@ class ARMMultiplyAccumulate(ARMOpcode):
     @property
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:]]
+
+    @property
+    def writeback(self) -> bool:
+        return self.args[0] == 1
+
+    def mnemonic_extension(self) -> str:
+        wb = "S" if self.writeback else ""
+        cc = ARMOpcode.mnemonic_extension(self)
+        return wb + cc
 
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMMultiplyAccumulateXData(xdata)

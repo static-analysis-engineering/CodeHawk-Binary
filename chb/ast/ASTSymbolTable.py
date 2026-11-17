@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2024  Aarno Labs LLC
+# Copyright (c) 2022-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -410,3 +410,9 @@ class ASTLocalSymbolTable(ASTSymbolTable):
 
     def add_enuminfo(self, einfo: AST.ASTEnumInfo) -> None:
         self.globaltable.add_enuminfo(einfo)
+
+    def untyped_locals(self, referenced: Set[str]) -> List[AST.ASTVarInfo]:
+        return [v for v in self.symbols
+                if v.vname in referenced
+                and v.vtype is None
+                and not self.is_formal(v.vname)]

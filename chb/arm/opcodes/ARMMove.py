@@ -41,7 +41,7 @@ import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
-from chb.util.loggingutil import chklogger
+from chb.util.loggingutil import chklogger, CHKLogID
 
 
 if TYPE_CHECKING:
@@ -518,8 +518,9 @@ class ARMMove(ARMOpcode):
         xd = ARMMoveXData(xdata)
 
         if xd.is_nondet_ternary_assign:
-            chklogger.logger.warning(
-                "Ternary assignment without associated predicate at address %s",
+            chklogger.logger.warning_id(
+                CHKLogID.RSLT_PRNOCC_0002,
+                "MOV:Ternary assignment without associated predicate at address %s",
                 iaddr)
             return ([], [ll_assign])
 

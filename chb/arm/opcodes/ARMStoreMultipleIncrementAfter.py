@@ -438,15 +438,17 @@ class ARMStoreMultipleIncrementAfter(ARMOpcode):
                         hl_src_arg = astree.mk_address_of(
                             astree.mk_vinfo_lval(vinfo))
                 else:
-                    chklogger.logger.warning(
-                        ("Type of global address %s at instr.address %s "
+                    chklogger.logger.error_id(
+                        CHKLogID.USER_GLBDECL_0004,
+                        ("STM:Type of global address %s at instr.address %s "
                          + "not known"),
                         str(xxsrc), iaddr)
                     hl_src_arg = astree.mk_address_of(
                         astree.mk_vinfo_lval(vinfo))
             else:
-                chklogger.logger.error(
-                    "Unknown global address %s as call argument at %s",
+                chklogger.logger.error_id(
+                    CHKLogID.USER_GLBDECL_0003,
+                    "STM:Unknown global address %s as call argument at %s",
                     hexgaddr, iaddr)
                 hl_src_arg = astree.mk_temp_lval_expression()
 

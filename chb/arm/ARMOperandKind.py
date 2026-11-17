@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2024  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -78,7 +78,7 @@ import chb.ast.ASTNode as AST
 from chb.astinterface.ASTInterface import ASTInterface
 
 import chb.util.fileutil as UF
-
+from chb.util.loggingutil import chklogger, CHKLogID
 from chb.util.IndexedTable import IndexedTableValue
 
 if TYPE_CHECKING:
@@ -163,6 +163,10 @@ class ARMOperandKind(ARMDictionaryRecord):
     @property
     def registers(self) -> List[str]:
         raise UF.CHBError("Operand is not a register list " + str(self))
+
+    @property
+    def extension_registers(self) -> List["ARMExtensionRegister"]:
+        raise UF.CHBError("Operand is not an extension register list" + str(self))
 
     @property
     def is_extension_register_list(self) -> bool:
@@ -572,6 +576,10 @@ class ARMExtensionRegListOp(ARMOperandKind):
     def count(self) -> int:
         return len(self.extension_registers)
 
+    @property
+    def is_double_precision(self) -> bool:
+        return self.extension_registers[0].is_double
+
     def __str__(self) -> str:
         return "{" + ",".join(str(r) for r in self.extension_registers) + "}"
 
@@ -655,10 +663,12 @@ class ARMShiftedRegisterOp(ARMOperandKind):
                 elif srt.is_arithmetic_shift_right:
                     xpr = astree.mk_binary_op("asr", rvar, shiftoperand)
                 else:
-                    raise UF.CHBError(
-                        "Shifted register operand "
-                        + str(self)
-                        + " not yet supported")
+                    chklogger.logger.error_id(
+                        CHKLogID.UNSP_OPRVALUE_0001,
+                        "Shifted register operand %s not yet supported",
+                        str(self))
+                    xpr = astree.mk_temp_lval_expression()
+
         elif srt.is_reg_srt:
             srt = cast ("ARMRegSRT", srt)
             shiftregop = (

@@ -30,7 +30,7 @@ from typing import cast, List, Optional, Sequence, Tuple, TYPE_CHECKING
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData
 from chb.arm.ARMOperand import ARMOperand
 
 import chb.ast.ASTNode as AST
@@ -40,11 +40,43 @@ from chb.invariants.XXpr import XXpr
 import chb.invariants.XXprUtil as XU
 
 import chb.util.fileutil as UF
-
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger, CHKLogID
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMIfThenXDataPredicateAssign(ARMOpcodeXData):
+    """Data format   (for ITPredicateAssignment)
+    - variables
+    0: lhs
+
+    - expressions:
+    0: p  (predicate assigned)
+    1: xp (predicate assigned rewritten)
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def lhs(self) -> "XVariable":
+        return self.var(0, "lhs")
+
+    @property
+    def p(self) -> "XXpr":
+        return self.xpr(0, "p")
+
+    @property
+    def xp(self) -> "XXpr":
+        return self.xpr(1, "xp")
+
+    @property
+    def annotation(self) -> str:
+        return f"{self.lhs} := {self.xp}"
 
 
 @armregistry.register_tag("IT", ARMOpcode)
@@ -78,7 +110,10 @@ class ARMIfThen(ARMOpcode):
             return []
 
     def annotation(self, xdata: InstrXData) -> str:
-        if len(xdata.vars) == 1 and len(xdata.xprs) == 2:
+        if xdata.is_predicate_assignment:
+            xd = ARMIfThenXDataPredicateAssign(xdata)
+            return xd.annotation
+        elif len(xdata.vars) == 1 and len(xdata.xprs) == 2:
             lhs = str(xdata.vars[0])
             rhs = str(xdata.xprs[1])
             return lhs + " := " + rhs
@@ -100,14 +135,18 @@ class ARMIfThen(ARMOpcode):
         reachingdefs = xdata.reachingdefs
 
         ftconds = self.ft_conditions(xdata)
-        if len(ftconds) == 2:
-            if reverse:
-                condition = ftconds[0]
-            else:
-                condition = ftconds[1]
-
-        hl_astcond = XU.xxpr_to_ast_def_expr(condition, xdata, iaddr, astree)
         ll_astcond = self.ast_cc_expr(astree)
+
+        if len(ftconds) != 2:
+            chklogger.logger.error_id(
+                CHKLogID.RSLT_ITNOCC_0001,
+                "IT: block condition without branch conditions at address %s",
+                iaddr)
+            hl_astcond = astree.mk_temp_lval_expression()
+            return (hl_astcond, ll_astcond)
+
+        condition = ftconds[0] if reverse else ftconds[1]
+        hl_astcond = XU.xxpr_to_ast_def_expr(condition, xdata, iaddr, astree)
 
         astree.add_expr_mapping(hl_astcond, ll_astcond)
         astree.add_expr_reachingdefs(hl_astcond, xdata.reachingdefs)
@@ -126,20 +165,17 @@ class ARMIfThen(ARMOpcode):
 
         annotations: List[str] = [iaddr, "IT"]
 
-        if len(xdata.vars) == 0:
-            return ([], [])
+        if xdata.is_predicate_assignment:
+            xd = ARMIfThenXDataPredicateAssign(xdata)
 
-        lhs = xdata.vars[0]
-        rhs = xdata.xprs[1]
-        rdefs = xdata.reachingdefs
-        defuses = xdata.defuses
-        defuseshigh = xdata.defuseshigh
+            lhs = xd.lhs
+            rhs = xd.xp
+            rdefs = xdata.reachingdefs
+            defuses = xdata.defuses
+            defuseshigh = xdata.defuseshigh
 
-        hl_lhss = XU.xvariable_to_ast_lvals(lhs, xdata, astree)
-        hl_rhss = XU.xxpr_to_ast_def_exprs(rhs, xdata, iaddr, astree)
-        if len(hl_lhss) == 1 and len(hl_rhss) == 1:
-            hl_lhs = hl_lhss[0]
-            hl_rhs = hl_rhss[0]
+            hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
+            hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
             hl_assign = astree.mk_assign(
                 hl_lhs,
                 hl_rhs,
@@ -147,10 +183,7 @@ class ARMIfThen(ARMOpcode):
                 bytestring=bytestring,
                 annotations=annotations)
 
-            subsumes = xdata.subsumes()
-
-            astree.add_reg_definition(iaddr, hl_lhs, hl_rhs)
-            astree.add_instr_address(hl_assign, [iaddr] + subsumes)
+            astree.add_instr_address(hl_assign, [iaddr])
             astree.add_expr_reachingdefs(hl_rhs, rdefs)
             astree.add_lval_defuses(hl_lhs, defuses[0])
             astree.add_lval_defuses_high(hl_lhs, defuseshigh[0])
@@ -158,5 +191,9 @@ class ARMIfThen(ARMOpcode):
             return ([hl_assign], [])
 
         else:
-            raise UF.CHBError(
-                "ARMIfThen: multiple lval/expressions in ast")
+
+            chklogger.logger.error_id(
+                CHKLogID.UNSP_IFTHEN_0001,
+                "IT: non-predicate assignment not yet supported at %s", iaddr)
+
+            return ([], [])

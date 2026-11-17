@@ -53,7 +53,8 @@ from chb.util.loggingutil import chklogger
 bc2ast_operators: Dict[str, str] = {
     "div": "div",
     "minusa": "minus",
-    "mult": "mult"
+    "mult": "mult",
+    "shiftlt": "lsl"
     }
 
 

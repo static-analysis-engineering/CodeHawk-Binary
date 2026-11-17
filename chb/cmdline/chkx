@@ -828,7 +828,8 @@ def parse() -> argparse.Namespace:
         "--jlogfilemode",
         choices=["a", "w"],
         default="w",
-        help="file mode for json log file: append (a), or write (w, default)")
+        help=("file mode for json log file: append (a: entries are added to "
+              + "those of an existing json log file), or write (w, default)"))
     buildast.set_defaults(func=AST.buildast)
 
     # -- results decompile (abstract syntax tree) --

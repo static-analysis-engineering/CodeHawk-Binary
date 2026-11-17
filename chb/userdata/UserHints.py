@@ -799,12 +799,24 @@ class FunctionAnnotation:
     def has_stack_variable_introduction(self, offset: int) -> bool:
         return offset in self.stack_variable_introductions
 
+    def has_stack_variable_intro_by_name(self, name: str) -> bool:
+        return self.get_stack_variable_intro_by_name(name) is not None
+
     def get_stack_variable_introduction(self, offset: int) -> StackVarIntro:
         svintros = self.stack_variable_introductions
         if offset in svintros:
             return svintros[offset]
         raise UF.CHBError(
             "No stack variable introduction for offset " + str(offset))
+
+    def get_stack_variable_intro_by_name(
+            self, name: str) -> Optional[StackVarIntro]:
+        svintros = self.stack_variable_introductions.values()
+        for svintro in svintros:
+            if svintro.name == name:
+                return svintro
+        else:
+            return None
 
     def to_xml(self, node: ET.Element) -> None:
         node.set("faddr", self.faddr)

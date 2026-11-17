@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2023  Aarno Labs LLC
+# Copyright (c) 2021-2023-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,20 +25,50 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, TYPE_CHECKING
+from typing import List, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
 from chb.arm.ARMDictionaryRecord import armregistry
-from chb.arm.ARMOpcode import ARMOpcode, simplify_result
+from chb.arm.ARMOpcode import ARMOpcode, ARMOpcodeXData
 from chb.arm.ARMOperand import ARMOperand
 
-import chb.util.fileutil as UF
+import chb.ast.ASTNode as AST
+from chb.astinterface.ASTInterface import ASTInterface
 
+import chb.invariants.XXprUtil as XU
+
+import chb.util.fileutil as UF
 from chb.util.IndexedTable import IndexedTableValue
+from chb.util.loggingutil import chklogger, CHKLogID
 
 if TYPE_CHECKING:
-    import chb.arm.ARMDictionary
+    from chb.arm.ARMDictionary import ARMDictionary
+    from chb.invariants.XVariable import XVariable
+    from chb.invariants.XXpr import XXpr
+
+
+class ARMTableBranchHalfwordXData(ARMOpcodeXData):
+    """Data format:
+    - expressions:
+    0: xrm  (index register)
+    1: xxrm (index register rewritten)
+    """
+
+    def __init__(self, xdata: InstrXData) -> None:
+        ARMOpcodeXData.__init__(self, xdata)
+
+    @property
+    def xrm(self) -> "XXpr":
+        return self.xpr(0, "xrm")
+
+    @property
+    def xxrm(self) -> "XXpr":
+        return self.xpr(1, "xxrm")
+
+    @property
+    def annotation(self) -> str:
+        return f"branch on {self.xxrm}"
 
 
 @armregistry.register_tag("TBH", ARMOpcode)
@@ -55,7 +85,7 @@ class ARMTableBranchHalfword(ARMOpcode):
 
     def __init__(
             self,
-            d: "chb.arm.ARMDictionary.ARMDictionary",
+            d: "ARMDictionary",
             ixval: IndexedTableValue) -> None:
         ARMOpcode.__init__(self, d, ixval)
         self.check_key(2, 3, "TableBranchHalfword")
@@ -64,9 +94,60 @@ class ARMTableBranchHalfword(ARMOpcode):
     def operands(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [2]]
 
-    def annotation(self, xdata: InstrXData) -> str:
-        """format: a:x .
+    @property
+    def opargs(self) -> List[ARMOperand]:
+        return [self.armd.arm_operand(self.args[i]) for i in [0, 1, 2]]
 
-        xprs[0]: value of index register
-        """
-        return "branch on " + str(xdata.xprs[0])
+    def annotation(self, xdata: InstrXData) -> str:
+        xd = ARMTableBranchHalfwordXData(xdata)
+        if xd.is_ok:
+            return xd.annotation
+        else:
+            return "Error value"
+
+    def ast_prov(
+            self,
+            astree: ASTInterface,
+            iaddr: str,
+            bytestring: str,
+            xdata: InstrXData) -> Tuple[
+                List[AST.ASTInstruction], List[AST.ASTInstruction]]:
+
+        annotations: List[str] = [iaddr, "TBH"]
+
+        # low-level assignment
+
+        (ll_rhs, _, _) = self.opargs[1].ast_rvalue(astree)
+        ll_assign = astree.mk_assign(
+            astree.ignoredlhs,
+            ll_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        # high-level assignment
+
+        rdefs = xdata.reachingdefs
+        xd = ARMTableBranchHalfwordXData(xdata)
+
+        if xd.is_ok:
+            rhs = xd.xxrm
+        else:
+            rhs = xd.xrm
+
+        hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
+
+        hl_assign = astree.mk_assign(
+            astree.ignoredlhs,
+            hl_rhs,
+            iaddr=iaddr,
+            bytestring=bytestring,
+            annotations=annotations)
+
+        astree.add_instr_mapping(hl_assign, ll_assign)
+        astree.add_instr_address(hl_assign, [iaddr])
+        astree.add_expr_mapping(hl_rhs, ll_rhs)
+        astree.add_expr_reachingdefs(ll_rhs, [rdefs[0]])
+        astree.add_expr_reachingdefs(hl_rhs, rdefs[1:])
+
+        return ([hl_assign], [ll_assign])

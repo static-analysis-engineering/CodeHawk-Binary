@@ -2445,6 +2445,14 @@ class ASTTypFloat(ASTTyp):
     def is_float(self) -> bool:
         return True
 
+    @property
+    def is_fkind_float(self) -> bool:
+        return self.fkind == "float"
+
+    @property
+    def is_fkind_double(self) -> bool:
+        return self.fkind == "fdouble"
+
     def accept(self, visitor: "ASTVisitor") -> None:
         return visitor.visit_float_typ(self)
 

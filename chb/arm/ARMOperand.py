@@ -42,6 +42,7 @@ import chb.util.fileutil as UF
 
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
+    from chb.app.ARMExtensionRegister import ARMExtensionRegister
 
 
 class ARMOperand(ARMDictionaryRecord, Operand):
@@ -101,6 +102,10 @@ class ARMOperand(ARMDictionaryRecord, Operand):
     @property
     def registers(self) -> List[str]:
         return self.opkind.registers
+
+    @property
+    def extension_registers(self) -> List["ARMExtensionRegister"]:
+        return self.opkind.extension_registers
 
     @property
     def offset(self) -> int:

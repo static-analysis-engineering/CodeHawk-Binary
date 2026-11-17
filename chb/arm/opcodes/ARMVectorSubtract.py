@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2021-2025  Aarno Labs LLC
+# Copyright (c) 2021-2026  Aarno Labs LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@
 # SOFTWARE.
 # ------------------------------------------------------------------------------
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -64,8 +64,18 @@ class ARMVectorSubtractXData(ARMOpcodeXData):
     5: rxdst
     """
 
-    def __init__(self, xdata: InstrXData) -> None:
+    def __init__(self, xdata: InstrXData, is_float: bool, size: int) -> None:
         ARMOpcodeXData.__init__(self, xdata)
+        self._is_float = is_float
+        self._size = size
+
+    @property
+    def is_float(self) -> bool:
+        return self._is_float
+
+    @property
+    def size(self) -> int:
+        return self._size
 
     @property
     def vdst(self) -> "XVariable":
@@ -88,6 +98,20 @@ class ARMVectorSubtractXData(ARMOpcodeXData):
         return self.xpr(3, "rxsrc1")
 
     @property
+    def rxsrc1_float(self) -> Optional[float]:
+        if self.is_float:
+            return ARMOpcodeXData.get_float_conversion(self.rxsrc1, self.size)
+        else:
+            return None
+
+    @property
+    def rxsrc2_float(self) -> Optional[float]:
+        if self.is_float:
+            return ARMOpcodeXData.get_float_conversion(self.rxsrc2, self.size)
+        else:
+            return None
+
+    @property
     def rxsrc2(self) -> "XXpr":
         return self.xpr(4, "rxsrc2")
 
@@ -98,9 +122,11 @@ class ARMVectorSubtractXData(ARMOpcodeXData):
     @property
     def annotation(self) -> str:
         lhs = str(self.vdst)
-        rhs1 = str(self.rxsrc1)
-        rhs2 = str(self.rxsrc2)
-        assign = lhs + " := " + rhs1 + " - " + rhs2
+        f_rhs1 = self.rxsrc1_float
+        f_rhs2 = self.rxsrc2_float
+        rhs1 = str(f_rhs1) if f_rhs1 is not None else str(self.rxsrc1)
+        rhs2 = str(f_rhs2) if f_rhs2 is not None else str(self.rxsrc2)
+        assign = f"{lhs} := {rhs1} - {rhs2}"
         return self.add_instruction_condition(assign)
 
 
@@ -139,11 +165,19 @@ class ARMVectorSubtract(ARMOpcode):
         return self.armd.arm_vfp_datatype(self.args[0])
 
     @property
+    def is_float(self) -> bool:
+        return self.vfp_datatype.is_float
+
+    @property
+    def size(self) -> int:
+        return self.vfp_datatype.size
+
+    @property
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(self.args[i]) for i in [1, 2, 3]]
 
     def annotation(self, xdata: InstrXData) -> str:
-        xd = ARMVectorSubtractXData(xdata)
+        xd = ARMVectorSubtractXData(xdata, self.is_float, self.size)
         return xd.annotation
 
     def ast_prov(
@@ -172,18 +206,29 @@ class ARMVectorSubtract(ARMOpcode):
 
         # high-level assignment
 
-        xd = ARMVectorSubtractXData(xdata)
+        xd = ARMVectorSubtractXData(xdata, self.is_float, self.size)
 
         lhs = xd.vdst
         rhs1 = xd.rxsrc1
         rhs2 = xd.rxsrc2
+        f_rhs1 = xd.rxsrc1_float
+        f_rhs2 = xd.rxsrc2_float
         rdefs = xdata.reachingdefs
         defuses = xdata.defuses
         defuseshigh = xdata.defuseshigh
 
         hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
-        hl_rhs1 = XU.xxpr_to_ast_def_expr(rhs1, xdata, iaddr, astree)
-        hl_rhs2 = XU.xxpr_to_ast_def_expr(rhs2, xdata, iaddr, astree)
+
+        if f_rhs1 is not None:
+            hl_rhs1: AST.ASTExpr = astree.mk_float_constant(f_rhs1)
+        else:
+            hl_rhs1 = XU.xxpr_to_ast_def_expr(rhs1, xdata, iaddr, astree)
+
+        if f_rhs2 is not None:
+            hl_rhs2: AST.ASTExpr = astree.mk_float_constant(f_rhs2)
+        else:
+            hl_rhs2 = XU.xxpr_to_ast_def_expr(rhs2, xdata, iaddr, astree)
+
         hl_rhs = astree.mk_binary_op("minus", hl_rhs1, hl_rhs2)
 
         hl_assign = astree.mk_assign(

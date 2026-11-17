@@ -146,6 +146,15 @@ class ARMMultiply(ARMOpcode):
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args[1:]]
 
+    @property
+    def writeback(self) -> bool:
+        return self.args[0] == 1
+
+    def mnemonic_extension(self) -> str:
+        wb = "S" if self.writeback else ""
+        cc = ARMOpcode.mnemonic_extension(self)
+        return wb + cc
+
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMMultiplyXData(xdata)
         return xd.annotation

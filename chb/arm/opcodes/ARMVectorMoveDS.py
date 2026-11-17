@@ -27,7 +27,7 @@
 from codecs import decode
 import struct
 
-from typing import cast, List, Tuple, TYPE_CHECKING
+from typing import cast, List, Optional, Tuple, TYPE_CHECKING
 
 from chb.app.InstrXData import InstrXData
 
@@ -72,12 +72,35 @@ class ARMVectorMoveDSXData(ARMOpcodeXData):
         return self.var(0, "vdst")
 
     @property
+    def size(self) -> int:
+        """Return width of lhs in bits."""
+
+        name = str(self.vdst)
+        return 32 if name.startswith("S") else 64
+
+    @property
     def xsrc(self) -> "XXpr":
         return self.xpr(0, "xsrc")
 
     @property
     def rxsrc(self) -> "XXpr":
         return self.xpr(1, "rxsrc")
+
+    @property
+    def rxsrc_float(self) -> Optional[float]:
+        return ARMOpcodeXData.get_float_conversion(self.rxsrc, self.size)
+
+    @property
+    def annotation(self) -> str:
+        lhs = self.vdst
+        rhs = self.rxsrc
+        if rhs.is_int_constant:
+            frhs = self.rxsrc_float
+            if frhs is not None:
+                return f"{lhs} := #{frhs}"
+            else:
+                return f"{lhs} := #{rhs}"
+        return f"{lhs} := {rhs}"
 
 
 @armregistry.register_tag("VMOVDS", ARMOpcode)
@@ -149,32 +172,9 @@ class ARMVectorMoveDS(ARMOpcode):
     def opargs(self) -> List[ARMOperand]:
         return [self.armd.arm_operand(i) for i in self.args]
 
-    def _unpack_imm32(self, x: XXpr) -> float:
-        # from StackOverflow:
-        # https://stackoverflow.com/questions/33483846/how-to-convert-32-bit-binary-to-float
-
-        ci = cast(XprConstant, x).intvalue
-        return cast(float, struct.unpack('f', struct.pack('I', ci))[0])
-
-    def _unpack_imm64(self, x: XXpr) -> float:
-        # from StackOverflow:
-        # https://stackoverflow.com/questions/8751653/how-to-convert-a-binary-string-into-a-float-value
-        ci = cast(XprConstant, x).intvalue
-        b8 = struct.pack('Q', ci)
-        return cast(float, struct.unpack('d', b8)[0])
-
     def annotation(self, xdata: InstrXData) -> str:
         xd = ARMVectorMoveDSXData(xdata)
-        rhs = xd.rxsrc
-        lhs = xd.vdst
-        if rhs.is_int_constant and str(lhs).startswith("S"):
-            f = self._unpack_imm32(rhs)
-            return str(lhs) + " := #" + str(f)
-        elif rhs.is_int_constant and str(lhs).startswith("D"):
-            d = self._unpack_imm64(rhs)
-            return str(lhs) + " := #" + str(d)
-        else:
-            return str(lhs) + " := " + str(rhs)
+        return xd.annotation
 
     def ast_prov(
             self,
@@ -209,16 +209,15 @@ class ARMVectorMoveDS(ARMOpcode):
 
         hl_lhs = XU.xvariable_to_ast_lval(lhs, xdata, iaddr, astree)
 
-        if rhs.is_int_constant and str(lhs).startswith("S"):
-            # 32-bit floating-point constant
-            f = self._unpack_imm32(rhs)
-            hl_rhs: AST.ASTExpr = astree.mk_float_constant(f)
-
-        elif rhs.is_int_constant and str(lhs).startswith("D"):
-            # 64-bit floating-point constant
-            f = self._unpack_imm64(rhs)
-            hl_rhs = astree.mk_float_constant(f, fkind="fdouble")
-
+        if rhs.is_int_constant:
+            frhs = xd.rxsrc_float
+            if frhs is not None:
+                if xd.size == 4:
+                    hl_rhs: AST.ASTExpr = astree.mk_float_constant(frhs)
+                else:
+                    hl_rhs = astree.mk_float_constant(frhs, fkind="fdouble")
+            else:
+                hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
         else:
             hl_rhs = XU.xxpr_to_ast_def_expr(rhs, xdata, iaddr, astree)
 

@@ -38,6 +38,8 @@ type xpr_t =
   | XAttr of string * xpr_t          "a"       2      1
 
 """
+import struct
+
 from typing import (
     Any, Callable, cast, Dict, List, Mapping, Optional, Sequence, TYPE_CHECKING)
 
@@ -54,7 +56,7 @@ from chb.invariants.XConstant import XConstant, XBoolConst
 from chb.invariants.XVariable import XVariable
 
 from chb.jsoninterface.JSONResult import JSONResult
-
+from chb.util.loggingutil import chklogger, CHKLogID
 import chb.util.fileutil as UF
 
 from chb.util.IndexedTable import IndexedTableValue
@@ -592,6 +594,52 @@ class XprConstant(XXpr):
         else:
             raise UF.CHBError(
                 "Constant is not an integer constant: " + str(self))
+
+    @property
+    def convert_imm32_to_float(self) -> float:
+        """Convert a 32-bit integer constant value to a float.
+
+        Reference:
+        https://stackoverflow.com/questions/33483846/how-to-convert-32-bit-binary-to-float
+        The integer value must be non-negative for this to work. Checks may
+        be placed at call sites to check. Here we always take the unsigned value.
+        """
+
+        try:
+            ci = self.intvalue % 0x100000000
+            return cast(float, struct.unpack('f', struct.pack('I', ci))[0])
+        except UF.CHBError as e:
+            raise UF.CHBError(
+                "Constant in imm32 conversion is not an integer constant: "
+                + str(self) + " (" + str(e) + ")")
+        except Exception as e:
+            raise UF.CHBError(
+                "Constant in imm64 conversion cannot be converted: "
+                + str(self) + " (" + str(e) + ")")
+
+    @property
+    def convert_imm64_to_float(self) -> float:
+        """Convert a 64-bit integer constant value to a float.
+
+        Reference:
+        https://stackoverflow.com/questions/8751653/how-to-convert-a-binary-string-into-a-float-value
+
+        The integer value must be non-negative for this to work. Checks may be
+        placed at call sites to check. Here we always take the unsigned value.
+        """
+
+        try:
+            ci = self.intvalue % 0x10000000000000000
+            b8 = struct.pack('Q', ci)
+            return cast(float, struct.unpack('d', b8)[0])
+        except UF.CHBError as e:
+            raise UF.CHBError(
+                "Constant in imm64 conversion is not an integer constant: "
+                + str(self) + " (" + str(e) + ")")
+        except Exception as e:
+            raise UF.CHBError(
+                "Constant in imm64 conversion cannot be converted: "
+                + str(self) + " (" + str(e) + ")")
 
     def all_variables_with_property(
             self, p: Callable[[XVariable], bool]) -> bool:

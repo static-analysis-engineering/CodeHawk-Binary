@@ -290,7 +290,7 @@ class ASTStorageConstructor:
             return ASTDoubleRegisterStorage(
                 name1, name2, self.register_size(name1) + self.register_size(name2))
         else:
-            raise Exception("No register with name " + name1 + " or " + name2)
+            raise Exception("No double register with name " + name1 + " or " + name2)
 
     def mk_flag_storage(self, name: str) -> ASTFlagStorage:
         if self.has_flag(name):

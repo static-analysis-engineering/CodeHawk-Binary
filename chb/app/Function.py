@@ -63,6 +63,7 @@ from chb.app.GlobalMemoryMap import (
     GlobalLoad, GlobalStore, GlobalAddressArgument)
 from chb.app.Instruction import Instruction
 from chb.app.JumpTables import JumpTable
+from chb.app.LhsTypeResult import LhsTypeResult, LhsTypeNoEvidence
 from chb.app.StringXRefs import StringsXRefs
 
 import chb.ast.ASTNode as AST
@@ -396,7 +397,7 @@ class Function(ABC):
         raise UF.CHBError("Property stackframe not implemented for Function")
 
     @property
-    def register_lhs_types(self) -> Dict[str, Dict[str, "BCTyp"]]:
+    def register_lhs_types(self) -> Dict[str, Dict[str, LhsTypeResult]]:
         """Return a mapping from instr. addr. to register to variable type.
 
         Contains the inferred types of register left-hand sides that may be
@@ -405,10 +406,10 @@ class Function(ABC):
         raise UF.CHBError(
             "Property register_lhs_types not implemented for Function")
 
-    def register_lhs_type(self, iaddr: str, reg: str) -> Optional["BCTyp"]:
+    def register_lhs_type(self, iaddr: str, reg: str) -> LhsTypeResult:
         """Return the type of the register reg assigned at address iaddr."""
 
-        return None
+        return LhsTypeNoEvidence()
 
     @property
     def formatstrings(self) -> Mapping[str, Tuple[str, "FormatStringSpec"]]:
@@ -419,7 +420,7 @@ class Function(ABC):
         return self.finfo.lhs_names
 
     @property
-    def stack_variable_types(self) -> Dict[int, "BCTyp"]:
+    def stack_variable_types(self) -> Dict[int, LhsTypeResult]:
         """Return a mapping from stack offset to stack variable type.
 
         Contains the inferred types of stack variables, including both stack-
@@ -428,10 +429,10 @@ class Function(ABC):
         raise UF.CHBError(
             "Property stack_variable_types not implemented for Function")
 
-    def stack_variable_type(self, offset: int) -> Optional["BCTyp"]:
+    def stack_variable_type(self, offset: int) -> LhsTypeResult:
         """Return the type of the stack variable at stack offset offset. """
 
-        return None
+        return LhsTypeNoEvidence()
 
     @abstractmethod
     def strings_referenced(self) -> List[str]:

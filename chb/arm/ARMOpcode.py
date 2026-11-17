@@ -28,7 +28,7 @@
 
 import inspect
 
-from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
+from typing import cast, List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from chb.api.CallTarget import CallTarget
 
@@ -58,7 +58,7 @@ from chb.util.loggingutil import chklogger, CHKLogID
 if TYPE_CHECKING:
     from chb.arm.ARMDictionary import ARMDictionary
     from chb.invariants.XVariable import XVariable
-    from chb.invariants.XXpr import XXpr
+    from chb.invariants.XXpr import XXpr, XprConstant
     from chb.simulation.SimulationState import SimulationState
 
 
@@ -97,6 +97,7 @@ extensions = {
     "unc": ""
     }
 
+# Wide-operations encodings in xdata
 
 unary_wopvar_indices = {
     "vrdlohi": 0,
@@ -368,6 +369,20 @@ class ARMOpcodeXData:
             return "; wbu: " + str(vbu) + " := " + str(xbu)
         else:
             return ""
+
+    @staticmethod
+    def get_float_conversion(xpr: "XXpr", size: int) -> Optional[float]:
+        if xpr.is_int_constant:
+            xpr = cast("XprConstant", xpr)
+            if size == 32:
+                return xpr.convert_imm32_to_float
+            elif size == 64:
+                return xpr.convert_imm64_to_float
+            else:
+                return None
+        else:
+            return None
+
 
 
 class ARMOpcode(ARMDictionaryRecord):

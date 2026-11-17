@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------------
 # The MIT License (MIT)
 #
-# Copyright (c) 2022-2025  Aarno Labs, LLC
+# Copyright (c) 2022-2026  Aarno Labs, LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -48,6 +48,7 @@ from chb.ast.ASTCPrettyPrinter import ASTCPrettyPrinter
 from chb.ast.ASTReturnSequences import ASTReturnSequences
 from chb.ast.ASTSerializer import ASTSerializer
 from chb.ast.ASTSymbolTable import ASTGlobalSymbolTable, ASTLocalSymbolTable
+from chb.ast.ASTVariablesReferenced import ASTVariablesReferenced
 
 from chb.astinterface.ASTInterface import ASTInterface
 from chb.astinterface.ASTInterfaceFunction import ASTInterfaceFunction
@@ -261,7 +262,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
             gaddr = int(revfunctionnames[vname], 16)
         elif vname in fnames:
             gaddr = int(fnames[vname], 16)
-        elif vname.startswith("sub_"):
+        elif vname.startswith("sub_") and vname[4].isdigit():
             if "_" in vname[4:]:
                 index = vname[4:].index("_")
                 gaddr = int("0x" + vname[4:(index+4)], 16)
@@ -269,7 +270,7 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 gaddr = int("0x" + vname[4:], 16)
         elif app.functionsdata.is_unique_function_name(vname):
             gaddr = int(app.functionsdata.function_address_from_name(vname), 16)
-        elif vname.startswith("gv_"):
+        elif vname.startswith("gv_") and vname[3].isdigit():
             if "_" in vname[3:]:
                 index = vname[3:].index("_")
                 gaddr = int("0x" + vname[3:(index+3)], 16)
@@ -286,6 +287,8 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                 vname,
                 vtype=vinfo.vtype.convert(typconverter),
                 globaladdress=gaddr)
+
+    declared_globals: Set[str] = {v.vname for v in globalsymboltable.symbols}
 
     typconverter.initialize_enuminfos(app.bcfiles.genumtags)
     typconverter.initialize_compinfos()
@@ -329,6 +332,19 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                         appsignature = fsummary.function_signature
                 elif fname == "main":
                     astprototype = astree.mk_vinfo_main_function(faddr)
+                else:
+                    chklogger.logger.error_id(
+                        CHKLogID.USER_FNPROTO_0001,
+                        "No prototype found for function %s (%s): add a "
+                        + "declaration for "
+                        + "this name to the header file; function not lifted",
+                        fname, faddr)
+                    UC.print_error(
+                        "No lifting generated for "
+                        + faddr
+                        + ": no function prototype")
+                    functions_failed += 1
+                    continue
 
                 # Offsets are negated to make them consistent with their internal
                 # numerical value.
@@ -406,6 +422,46 @@ def buildast(args: argparse.Namespace) -> NoReturn:
                     continue
 
                 if len(asts) >= 2:
+
+                    # check if all global variables are typed
+                    referenced = (
+                        ASTVariablesReferenced().variables_referenced(asts[0]))
+                    for vname in sorted(referenced):
+                        if vname.startswith("gv_") and vname not in declared_globals:
+                            chklogger.logger.error_id(
+                                CHKLogID.USER_GLBDECL_0002,
+                                "USER: Global variable %s is referenced in the "
+                                + "lifting of "
+                                + "%s, but not declared in the header file",
+                                vname, faddr)
+
+                    # check if all local variables are typed
+                    for vinfo_u in localsymboltable.untyped_locals(referenced):
+                        if vinfo_u.vname.startswith("astmem_tmp"):
+                            chklogger.logger.error_id(
+                                CHKLogID.RSLT_UNTYPED_0001,
+                                "Error placeholder variable %s in the lifting "
+                                + "of %s has no type",
+                                vinfo_u.vname, faddr)
+
+                        elif vinfo_u.is_ssa:
+                            intros = astinterface.ssa_addresses.get(
+                                vinfo_u.vname, set([]))
+                            chklogger.logger.error_id(
+                                CHKLogID.USER_UNTYPEDSSA_0001,
+                                "Introduced ssa variable %s in the lifting of "
+                                + "%s has no type (defined at %s)",
+                                vinfo_u.vname,
+                                faddr,
+                                ", ".join(list(intros)))
+
+                        else:
+                            chklogger.logger.error_id(
+                                CHKLogID.USER_UNTYPEDST_0001,
+                                "Stack variable %s in the lifting of %s has no "
+                                + "type",
+                                vinfo_u.vname, faddr)
+
                     astapi.add_function_ast(astree, asts, verbose)
 
                     print("\n// Lifted code for function " + faddr)
