@@ -698,9 +698,9 @@ class Cfg:
                         astexpr, instr.iaddr, instr.bytestring)
 
                     if rvcondition is not None:
-                        elsebr = astree.mk_instr_sequence([])
+                        elsebr = astree.mk_block([])
                         brstmt = cast(AST.ASTBranch, astree.mk_branch(
-                            rvcondition, rtnstmt, elsebr, succ))
+                            rvcondition, astree.mk_block([rtnstmt]), elsebr, succ))
                         blockstmts[n] = [blocknode, brstmt]
                     else:
                         blockstmts[n] = [blocknode, rtnstmt]
@@ -708,9 +708,9 @@ class Cfg:
                     rtnstmt = astree.mk_return_stmt(
                         None, instr.iaddr, instr.bytestring)
                     if rvcondition is not None:
-                        elsebr = astree.mk_instr_sequence([])
+                        elsebr = astree.mk_block([])
                         brstmt = cast(AST.ASTBranch, astree.mk_branch(
-                            rvcondition, rtnstmt, elsebr, succ))
+                            rvcondition, astree.mk_block([rtnstmt]), elsebr, succ))
                         blockstmts[n] = [blocknode, brstmt]
                     else:
                         blockstmts[n] = [blocknode, rtnstmt]
