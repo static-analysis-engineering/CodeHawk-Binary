@@ -1954,16 +1954,18 @@ def report_stack_buffers(args: argparse.Namespace) -> NoReturn:
 
     content = {}
 
-    buffers = []
+    buffers = {}
     for (faddr, function) in app.functions.items():
+        func_buffers = []
         for offset, slot in function.stackframe.stackslots.items():
             buffersize, sizeorigin = calculate_buffer_size(function.stackframe, offset)
-            buffers.append({
+            func_buffers.append({
                 'faddr': faddr,
                 'stack-offset': offset,
                 'buffersize': buffersize,
                 'size-origin': sizeorigin
             })
+        buffers[faddr] = func_buffers
 
     content["buffers"] = buffers
 
@@ -1972,11 +1974,12 @@ def report_stack_buffers(args: argparse.Namespace) -> NoReturn:
         write_json_result(xoutput, jcontent, "patchcandidates")
         exit(0)
 
-    for buf in buffers:
-        print('%s@%s: %s (%s)' % (buf['faddr'],
-                                  buf['stack-offset'],
-                                  buf['buffersize'],
-                                  buf['size-origin']))
+    for faddr, func_buffers in buffers.items():
+        for buf in func_buffers:
+            print('%s@%s: %s (%s)' % (buf['faddr'],
+                                      buf['stack-offset'],
+                                      buf['buffersize'],
+                                      buf['size-origin']))
 
     print("Found %d stack objects" % (len(buffers)))
 
